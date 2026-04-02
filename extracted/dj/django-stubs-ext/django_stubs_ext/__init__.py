@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from .aliases import FieldOpts as FieldOpts
+from .aliases import FieldsetSpec as FieldsetSpec
 from .aliases import QuerySetAny as QuerySetAny
 from .aliases import StrOrPromise, StrPromise
 from .aliases import ValuesQuerySet as ValuesQuerySet
@@ -9,6 +13,8 @@ from .types import AnyAttrAllowed as AnyAttrAllowed
 __all__ = [
     "Annotations",
     "AnyAttrAllowed",
+    "FieldOpts",
+    "FieldsetSpec",
     "QuerySetAny",
     "StrOrPromise",
     "StrPromise",

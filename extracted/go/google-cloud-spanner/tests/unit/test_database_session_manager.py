@@ -12,15 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from datetime import timedelta
-from mock import Mock, patch
 from os import environ
-from time import time, sleep
+from time import sleep, time
 from typing import Callable
 from unittest import TestCase
 
 from google.api_core.exceptions import BadRequest, FailedPrecondition
-from google.cloud.spanner_v1.database_sessions_manager import DatabaseSessionsManager
-from google.cloud.spanner_v1.database_sessions_manager import TransactionType
+from mock import Mock, patch
+
+from google.cloud.spanner_v1.database_sessions_manager import (
+    DatabaseSessionsManager,
+    TransactionType,
+)
 from tests._builders import build_database
 
 
@@ -98,9 +101,8 @@ class TestDatabaseSessionManager(TestCase):
         pool.get.assert_not_called()
         pool.put.assert_not_called()
 
-        # Verify logger calls.
-        info = manager._database.logger.info
-        info.assert_called_once_with("Created multiplexed session.")
+        # Verify create_session was called.
+        manager._database.spanner_api.create_session.assert_called_once()
 
     def test_partitioned_pooled(self):
         manager = self._manager
@@ -137,9 +139,8 @@ class TestDatabaseSessionManager(TestCase):
         pool.get.assert_not_called()
         pool.put.assert_not_called()
 
-        # Verify logger calls.
-        info = manager._database.logger.info
-        info.assert_called_once_with("Created multiplexed session.")
+        # Verify create_session was called.
+        manager._database.spanner_api.create_session.assert_called_once()
 
     def test_read_write_pooled(self):
         manager = self._manager
@@ -176,9 +177,8 @@ class TestDatabaseSessionManager(TestCase):
         pool.get.assert_not_called()
         pool.put.assert_not_called()
 
-        # Verify logger calls.
-        info = manager._database.logger.info
-        info.assert_called_once_with("Created multiplexed session.")
+        # Verify create_session was called.
+        manager._database.spanner_api.create_session.assert_called_once()
 
     def test_multiplexed_maintenance(self):
         manager = self._manager
@@ -199,9 +199,55 @@ class TestDatabaseSessionManager(TestCase):
         self.assertTrue(session_2.is_multiplexed)
         self.assertNotEqual(session_1, session_2)
 
-        # Verify logger calls.
-        info = manager._database.logger.info
-        info.assert_called_with("Created multiplexed session.")
+    def test_concurrent_get_multiplexed_session_no_deadlock(self):
+        """Verify that concurrent _get_multiplexed_session calls do not deadlock.
+        This tests that holding the lock across suspension points (like asyncio.sleep)
+        doesn't freeze the event loop for subsequent lock seekers using CrossSync.Lock.
+        """
+        import asyncio
+        from os import environ
+
+        from google.cloud.spanner_v1._async.database_sessions_manager import (
+            DatabaseSessionsManager,
+        )
+
+        # Build fresh async manager decoupling from test suite setup
+        db = Mock()
+        db._experimental_host = None
+        db.database_role = "reader"
+        pool = Mock()
+
+        manager = DatabaseSessionsManager(db, pool)
+
+        # Mock maintenance thread creation to avoid spawning background tasks
+        manager._build_maintenance_thread = Mock(return_value=Mock())
+
+        # Mock _build_multiplexed_session to include a suspension point
+        async def slow_build():
+            await asyncio.sleep(0.5)
+            return Mock()
+
+        manager._build_multiplexed_session = slow_build
+
+        # Enable multiplexed sessions in environment for verification
+        environ[DatabaseSessionsManager._ENV_VAR_MULTIPLEXED] = "true"
+
+        async def run_concurrent():
+            # Trigger Coroutine 1
+            task1 = asyncio.create_task(manager._get_multiplexed_session())
+            await asyncio.sleep(0.1)  # Allow Coroutine 1 to acquire lock and suspend
+
+            # Trigger Coroutine 2 - this would previously block the main thread
+            task2 = asyncio.create_task(manager._get_multiplexed_session())
+
+            await asyncio.gather(task1, task2)
+
+        try:
+            asyncio.run(asyncio.wait_for(run_concurrent(), timeout=5.0))
+        except asyncio.TimeoutError:
+            self.fail(
+                "test_concurrent_get_multiplexed_session_no_deadlock timed out (DEADLOCK)!"
+            )
 
     def test_exception_bad_request(self):
         manager = self._manager

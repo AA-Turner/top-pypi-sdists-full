@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-seaborn"
-version = "0.13.2.20251221"
+version = "0.13.2.20260402"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for seaborn"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.407
+* [mypy](https://github.com/python/mypy/) 1.20.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`d8d989280c3f550a864815c4b6a28683d228531f`](https://github.com/python/typeshed/commit/d8d989280c3f550a864815c4b6a28683d228531f).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ['matplotlib>=3.8', 'numpy>=1.20', 'pandas-stubs']
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = ['matplotlib>=3.8', 'numpy>=1.20', 'pandas-stubs']
 [tool.setuptools]
 packages = ['seaborn-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'seaborn-stubs' = ['__init__.pyi', '_core/__init__.pyi', '_core/data.pyi', '_core/exceptions.pyi', '_core/groupby.pyi', '_core/moves.pyi', '_core/plot.pyi', '_core/properties.pyi', '_core/rules.pyi', '_core/scales.pyi', '_core/subplots.pyi', '_core/typing.pyi', '_marks/__init__.pyi', '_marks/area.pyi', '_marks/bar.pyi', '_marks/base.pyi', '_marks/dot.pyi', '_marks/line.pyi', '_marks/text.pyi', '_stats/__init__.pyi', '_stats/aggregation.pyi', '_stats/base.pyi', '_stats/counting.pyi', '_stats/density.pyi', '_stats/order.pyi', '_stats/regression.pyi', 'algorithms.pyi', 'axisgrid.pyi', 'categorical.pyi', 'cm.pyi', 'colors/__init__.pyi', 'colors/crayons.pyi', 'colors/xkcd_rgb.pyi', 'distributions.pyi', 'external/__init__.pyi', 'external/appdirs.pyi', 'external/docscrape.pyi', 'external/husl.pyi', 'external/kde.pyi', 'external/version.pyi', 'matrix.pyi', 'miscplot.pyi', 'objects.pyi', 'palettes.pyi', 'rcmod.pyi', 'regression.pyi', 'relational.pyi', 'utils.pyi', 'widgets.pyi', 'METADATA.toml', 'py.typed']

@@ -1,0 +1,72 @@
+name: ci-docker
+on:
+  schedule:
+    - cron: "30 6 * * *"
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+
+env:
+  DOCKER_REPO: antsx/antspy
+  DOCKER_TAGS: ''
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4
+      -
+        name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: antsx/antspy
+      -
+        name: Login to DockerHub
+        if: ${{ github.repository == 'ANTsX/ANTsPy' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      -
+        name: Compute Docker tag
+        shell: bash
+        run: |
+            REF="${GITHUB_REF}"
+
+            DOCKER_TAGS=""
+
+            if [[ "$REF" == refs/tags/* ]]; then
+              TAG="${REF#refs/tags/}"
+
+              # Strip leading 'v' only for vA.B.C where A,B,C are integers
+              if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                  TAG="${TAG#v}"
+                  DOCKER_TAGS="${DOCKER_REPO}:${TAG},${DOCKER_REPO}:latest"
+              else
+                  DOCKER_TAGS="${DOCKER_REPO}:${TAG}"
+              fi
+            else
+              DOCKER_TAGS="${DOCKER_REPO}:${GITHUB_REF_NAME}"
+            fi
+
+            echo "DOCKER_TAGS=${DOCKER_TAGS}" >> "$GITHUB_ENV"
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      -
+        name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+      -
+        name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: ${{ github.repository == 'ANTsX/ANTsPy' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) }}
+          tags: ${{ github.event_name == 'schedule' && format('{0}:nightly', env.DOCKER_REPO) || env.DOCKER_TAGS }}
+          labels: ${{ steps.meta.outputs.labels }}

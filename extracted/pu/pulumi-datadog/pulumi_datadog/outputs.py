@@ -70,6 +70,7 @@ __all__ = [
     'CustomAllocationRuleStrategyBasedOnTimeseries',
     'CustomAllocationRuleStrategyEvaluateGroupedByFilter',
     'DashboardListDashItem',
+    'DashboardTab',
     'DashboardTemplateVariable',
     'DashboardTemplateVariablePreset',
     'DashboardTemplateVariablePresetTemplateVariable',
@@ -101,6 +102,8 @@ __all__ = [
     'DashboardWidgetChangeDefinitionRequestQueryEventQuery',
     'DashboardWidgetChangeDefinitionRequestQueryEventQueryCompute',
     'DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupBy',
+    'DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupByFields',
+    'DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupBySort',
     'DashboardWidgetChangeDefinitionRequestQueryEventQuerySearch',
     'DashboardWidgetChangeDefinitionRequestQueryMetricQuery',
@@ -137,6 +140,8 @@ __all__ = [
     'DashboardWidgetGeomapDefinitionRequestQueryEventQuery',
     'DashboardWidgetGeomapDefinitionRequestQueryEventQueryCompute',
     'DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupBy',
+    'DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupByFields',
+    'DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupBySort',
     'DashboardWidgetGeomapDefinitionRequestQueryEventQuerySearch',
     'DashboardWidgetGeomapDefinitionRequestQueryMetricQuery',
@@ -168,6 +173,8 @@ __all__ = [
     'DashboardWidgetHeatmapDefinitionRequestQueryEventQuery',
     'DashboardWidgetHeatmapDefinitionRequestQueryEventQueryCompute',
     'DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupBy',
+    'DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFields',
+    'DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupBySort',
     'DashboardWidgetHeatmapDefinitionRequestQueryEventQuerySearch',
     'DashboardWidgetHeatmapDefinitionRequestQueryMetricQuery',
@@ -228,6 +235,8 @@ __all__ = [
     'DashboardWidgetQueryTableDefinitionRequestQueryEventQuery',
     'DashboardWidgetQueryTableDefinitionRequestQueryEventQueryCompute',
     'DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupBy',
+    'DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFields',
+    'DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupBySort',
     'DashboardWidgetQueryTableDefinitionRequestQueryEventQuerySearch',
     'DashboardWidgetQueryTableDefinitionRequestQueryMetricQuery',
@@ -263,6 +272,8 @@ __all__ = [
     'DashboardWidgetQueryValueDefinitionRequestQueryEventQuery',
     'DashboardWidgetQueryValueDefinitionRequestQueryEventQueryCompute',
     'DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupBy',
+    'DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFields',
+    'DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupBySort',
     'DashboardWidgetQueryValueDefinitionRequestQueryEventQuerySearch',
     'DashboardWidgetQueryValueDefinitionRequestQueryMetricQuery',
@@ -290,6 +301,8 @@ __all__ = [
     'DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery',
     'DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryCompute',
     'DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupBy',
+    'DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFields',
+    'DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFieldsSort',
     'DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupBySort',
     'DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuerySearch',
     'DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryMetricQuery',
@@ -353,6 +366,8 @@ __all__ = [
     'DashboardWidgetSunburstDefinitionRequestQueryEventQuery',
     'DashboardWidgetSunburstDefinitionRequestQueryEventQueryCompute',
     'DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupBy',
+    'DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupByFields',
+    'DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupBySort',
     'DashboardWidgetSunburstDefinitionRequestQueryEventQuerySearch',
     'DashboardWidgetSunburstDefinitionRequestQueryMetricQuery',
@@ -392,6 +407,8 @@ __all__ = [
     'DashboardWidgetTimeseriesDefinitionRequestQueryEventQuery',
     'DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryCompute',
     'DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupBy',
+    'DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFields',
+    'DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupBySort',
     'DashboardWidgetTimeseriesDefinitionRequestQueryEventQuerySearch',
     'DashboardWidgetTimeseriesDefinitionRequestQueryMetricQuery',
@@ -426,6 +443,8 @@ __all__ = [
     'DashboardWidgetToplistDefinitionRequestQueryEventQuery',
     'DashboardWidgetToplistDefinitionRequestQueryEventQueryCompute',
     'DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupBy',
+    'DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupByFields',
+    'DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupBySort',
     'DashboardWidgetToplistDefinitionRequestQueryEventQuerySearch',
     'DashboardWidgetToplistDefinitionRequestQueryMetricQuery',
@@ -458,6 +477,8 @@ __all__ = [
     'DashboardWidgetTreemapDefinitionRequestQueryEventQuery',
     'DashboardWidgetTreemapDefinitionRequestQueryEventQueryCompute',
     'DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupBy',
+    'DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupByFields',
+    'DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupBySort',
     'DashboardWidgetTreemapDefinitionRequestQueryEventQuerySearch',
     'DashboardWidgetTreemapDefinitionRequestQueryMetricQuery',
@@ -572,10 +593,10 @@ __all__ = [
     'MonitorNotificationRuleConditionalRecipients',
     'MonitorNotificationRuleConditionalRecipientsCondition',
     'MonitorNotificationRuleFilter',
-    'MonitorSchedulingOption',
-    'MonitorSchedulingOptionCustomSchedule',
-    'MonitorSchedulingOptionCustomScheduleRecurrence',
-    'MonitorSchedulingOptionEvaluationWindow',
+    'MonitorSchedulingOptions',
+    'MonitorSchedulingOptionsCustomSchedule',
+    'MonitorSchedulingOptionsCustomScheduleRecurrence',
+    'MonitorSchedulingOptionsEvaluationWindow',
     'MonitorVariables',
     'MonitorVariablesCloudCostQuery',
     'MonitorVariablesDataQualityQuery',
@@ -597,6 +618,11 @@ __all__ = [
     'ObservabilityPipelineConfigDestinationAmazonS3Buffer',
     'ObservabilityPipelineConfigDestinationAmazonS3BufferDisk',
     'ObservabilityPipelineConfigDestinationAmazonS3BufferMemory',
+    'ObservabilityPipelineConfigDestinationAmazonS3Generic',
+    'ObservabilityPipelineConfigDestinationAmazonS3GenericAuth',
+    'ObservabilityPipelineConfigDestinationAmazonS3GenericBatchSettings',
+    'ObservabilityPipelineConfigDestinationAmazonS3GenericCompression',
+    'ObservabilityPipelineConfigDestinationAmazonS3GenericEncoding',
     'ObservabilityPipelineConfigDestinationAmazonSecurityLake',
     'ObservabilityPipelineConfigDestinationAmazonSecurityLakeAuth',
     'ObservabilityPipelineConfigDestinationAmazonSecurityLakeBuffer',
@@ -624,6 +650,7 @@ __all__ = [
     'ObservabilityPipelineConfigDestinationDatadogLogRouteBufferMemory',
     'ObservabilityPipelineConfigDestinationDatadogMetric',
     'ObservabilityPipelineConfigDestinationElasticsearch',
+    'ObservabilityPipelineConfigDestinationElasticsearchAuth',
     'ObservabilityPipelineConfigDestinationElasticsearchBuffer',
     'ObservabilityPipelineConfigDestinationElasticsearchBufferDisk',
     'ObservabilityPipelineConfigDestinationElasticsearchBufferMemory',
@@ -720,6 +747,11 @@ __all__ = [
     'ObservabilityPipelineConfigProcessorGroupProcessorMetricTagsRule',
     'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapper',
     'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMapping',
+    'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMapping',
+    'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMapping',
+    'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMappingLookup',
+    'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMappingLookupTable',
+    'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMetadata',
     'ObservabilityPipelineConfigProcessorGroupProcessorParseGrok',
     'ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRule',
     'ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleMatchRule',
@@ -848,6 +880,8 @@ __all__ = [
     'PowerpackWidgetChangeDefinitionRequestQueryEventQuery',
     'PowerpackWidgetChangeDefinitionRequestQueryEventQueryCompute',
     'PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupBy',
+    'PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupByFields',
+    'PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupBySort',
     'PowerpackWidgetChangeDefinitionRequestQueryEventQuerySearch',
     'PowerpackWidgetChangeDefinitionRequestQueryMetricQuery',
@@ -919,6 +953,8 @@ __all__ = [
     'PowerpackWidgetGeomapDefinitionRequestQueryEventQuery',
     'PowerpackWidgetGeomapDefinitionRequestQueryEventQueryCompute',
     'PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupBy',
+    'PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupByFields',
+    'PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupBySort',
     'PowerpackWidgetGeomapDefinitionRequestQueryEventQuerySearch',
     'PowerpackWidgetGeomapDefinitionRequestQueryMetricQuery',
@@ -962,6 +998,8 @@ __all__ = [
     'PowerpackWidgetHeatmapDefinitionRequestQueryEventQuery',
     'PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryCompute',
     'PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupBy',
+    'PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFields',
+    'PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupBySort',
     'PowerpackWidgetHeatmapDefinitionRequestQueryEventQuerySearch',
     'PowerpackWidgetHeatmapDefinitionRequestQueryMetricQuery',
@@ -1073,6 +1111,8 @@ __all__ = [
     'PowerpackWidgetQueryTableDefinitionRequestQueryEventQuery',
     'PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryCompute',
     'PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupBy',
+    'PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFields',
+    'PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupBySort',
     'PowerpackWidgetQueryTableDefinitionRequestQueryEventQuerySearch',
     'PowerpackWidgetQueryTableDefinitionRequestQueryMetricQuery',
@@ -1128,6 +1168,8 @@ __all__ = [
     'PowerpackWidgetQueryValueDefinitionRequestQueryEventQuery',
     'PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryCompute',
     'PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupBy',
+    'PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFields',
+    'PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupBySort',
     'PowerpackWidgetQueryValueDefinitionRequestQueryEventQuerySearch',
     'PowerpackWidgetQueryValueDefinitionRequestQueryMetricQuery',
@@ -1160,6 +1202,8 @@ __all__ = [
     'PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery',
     'PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryCompute',
     'PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupBy',
+    'PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFields',
+    'PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFieldsSort',
     'PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupBySort',
     'PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuerySearch',
     'PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryMetricQuery',
@@ -1260,6 +1304,8 @@ __all__ = [
     'PowerpackWidgetSunburstDefinitionRequestQueryEventQuery',
     'PowerpackWidgetSunburstDefinitionRequestQueryEventQueryCompute',
     'PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupBy',
+    'PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupByFields',
+    'PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupBySort',
     'PowerpackWidgetSunburstDefinitionRequestQueryEventQuerySearch',
     'PowerpackWidgetSunburstDefinitionRequestQueryMetricQuery',
@@ -1319,6 +1365,8 @@ __all__ = [
     'PowerpackWidgetTimeseriesDefinitionRequestQueryEventQuery',
     'PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryCompute',
     'PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupBy',
+    'PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFields',
+    'PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupBySort',
     'PowerpackWidgetTimeseriesDefinitionRequestQueryEventQuerySearch',
     'PowerpackWidgetTimeseriesDefinitionRequestQueryMetricQuery',
@@ -1373,6 +1421,8 @@ __all__ = [
     'PowerpackWidgetToplistDefinitionRequestQueryEventQuery',
     'PowerpackWidgetToplistDefinitionRequestQueryEventQueryCompute',
     'PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupBy',
+    'PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupByFields',
+    'PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupBySort',
     'PowerpackWidgetToplistDefinitionRequestQueryEventQuerySearch',
     'PowerpackWidgetToplistDefinitionRequestQueryMetricQuery',
@@ -1415,6 +1465,8 @@ __all__ = [
     'PowerpackWidgetTreemapDefinitionRequestQueryEventQuery',
     'PowerpackWidgetTreemapDefinitionRequestQueryEventQueryCompute',
     'PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupBy',
+    'PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupByFields',
+    'PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupByFieldsSort',
     'PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupBySort',
     'PowerpackWidgetTreemapDefinitionRequestQueryEventQuerySearch',
     'PowerpackWidgetTreemapDefinitionRequestQueryMetricQuery',
@@ -1434,6 +1486,7 @@ __all__ = [
     'RumMetricFilter',
     'RumMetricGroupBy',
     'RumMetricUniqueness',
+    'SecureEmbedDashboardSelectableTemplateVar',
     'SecurityMonitoringDefaultRuleCase',
     'SecurityMonitoringDefaultRuleFilter',
     'SecurityMonitoringDefaultRuleOptions',
@@ -4402,6 +4455,64 @@ class DashboardListDashItem(dict):
 
 
 @pulumi.output_type
+class DashboardTab(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "widgetIds":
+            suggest = "widget_ids"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DashboardTab. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DashboardTab.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DashboardTab.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 widget_ids: Sequence[_builtins.str],
+                 id: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str name: The name of the tab.
+        :param Sequence[_builtins.str] widget_ids: List of widget references for this tab. Use @N format to reference widgets by position (1-indexed).
+        :param _builtins.str id: The UUID of the tab.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "widget_ids", widget_ids)
+        if id is not None:
+            pulumi.set(__self__, "id", id)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the tab.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="widgetIds")
+    def widget_ids(self) -> Sequence[_builtins.str]:
+        """
+        List of widget references for this tab. Use @N format to reference widgets by position (1-indexed).
+        """
+        return pulumi.get(self, "widget_ids")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> Optional[_builtins.str]:
+        """
+        The UUID of the tab.
+        """
+        return pulumi.get(self, "id")
+
+
+@pulumi.output_type
 class DashboardTemplateVariable(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -7092,6 +7203,8 @@ class DashboardWidgetChangeDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetChangeDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -7110,6 +7223,7 @@ class DashboardWidgetChangeDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.DashboardWidgetChangeDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -7119,6 +7233,7 @@ class DashboardWidgetChangeDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'DashboardWidgetChangeDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -7130,6 +7245,8 @@ class DashboardWidgetChangeDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -7176,6 +7293,14 @@ class DashboardWidgetChangeDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -7284,6 +7409,90 @@ class DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetChangeDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -10217,6 +10426,8 @@ class DashboardWidgetGeomapDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetGeomapDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -10235,6 +10446,7 @@ class DashboardWidgetGeomapDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.DashboardWidgetGeomapDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -10244,6 +10456,7 @@ class DashboardWidgetGeomapDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'DashboardWidgetGeomapDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -10255,6 +10468,8 @@ class DashboardWidgetGeomapDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -10301,6 +10516,14 @@ class DashboardWidgetGeomapDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -10409,6 +10632,90 @@ class DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetGeomapDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -13115,6 +13422,8 @@ class DashboardWidgetHeatmapDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetHeatmapDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -13133,6 +13442,7 @@ class DashboardWidgetHeatmapDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.DashboardWidgetHeatmapDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -13142,6 +13452,7 @@ class DashboardWidgetHeatmapDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'DashboardWidgetHeatmapDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -13153,6 +13464,8 @@ class DashboardWidgetHeatmapDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -13199,6 +13512,14 @@ class DashboardWidgetHeatmapDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -13307,6 +13628,90 @@ class DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -17966,6 +18371,8 @@ class DashboardWidgetQueryTableDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetQueryTableDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -17984,6 +18391,7 @@ class DashboardWidgetQueryTableDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.DashboardWidgetQueryTableDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -17993,6 +18401,7 @@ class DashboardWidgetQueryTableDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'DashboardWidgetQueryTableDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -18004,6 +18413,8 @@ class DashboardWidgetQueryTableDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -18050,6 +18461,14 @@ class DashboardWidgetQueryTableDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -18158,6 +18577,90 @@ class DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -20735,6 +21238,8 @@ class DashboardWidgetQueryValueDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetQueryValueDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -20753,6 +21258,7 @@ class DashboardWidgetQueryValueDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.DashboardWidgetQueryValueDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -20762,6 +21268,7 @@ class DashboardWidgetQueryValueDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'DashboardWidgetQueryValueDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -20773,6 +21280,8 @@ class DashboardWidgetQueryValueDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -20819,6 +21328,14 @@ class DashboardWidgetQueryValueDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -20927,6 +21444,90 @@ class DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -22888,6 +23489,8 @@ class DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -22906,6 +23509,7 @@ class DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -22915,6 +23519,7 @@ class DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -22926,6 +23531,8 @@ class DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -22972,6 +23579,14 @@ class DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -23080,6 +23695,90 @@ class DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -27499,6 +28198,8 @@ class DashboardWidgetSunburstDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetSunburstDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -27517,6 +28218,7 @@ class DashboardWidgetSunburstDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.DashboardWidgetSunburstDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -27526,6 +28228,7 @@ class DashboardWidgetSunburstDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'DashboardWidgetSunburstDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -27537,6 +28240,8 @@ class DashboardWidgetSunburstDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -27583,6 +28288,14 @@ class DashboardWidgetSunburstDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -27691,6 +28404,90 @@ class DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetSunburstDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -30451,6 +31248,8 @@ class DashboardWidgetTimeseriesDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetTimeseriesDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -30469,6 +31268,7 @@ class DashboardWidgetTimeseriesDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.DashboardWidgetTimeseriesDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -30478,6 +31278,7 @@ class DashboardWidgetTimeseriesDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'DashboardWidgetTimeseriesDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -30489,6 +31290,8 @@ class DashboardWidgetTimeseriesDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -30535,6 +31338,14 @@ class DashboardWidgetTimeseriesDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -30643,6 +31454,90 @@ class DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -31084,7 +31979,9 @@ class DashboardWidgetTimeseriesDefinitionRequestStyle(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "lineType":
+        if key == "hasValueLabels":
+            suggest = "has_value_labels"
+        elif key == "lineType":
             suggest = "line_type"
         elif key == "lineWidth":
             suggest = "line_width"
@@ -31103,16 +32000,20 @@ class DashboardWidgetTimeseriesDefinitionRequestStyle(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 has_value_labels: Optional[_builtins.bool] = None,
                  line_type: Optional[_builtins.str] = None,
                  line_width: Optional[_builtins.str] = None,
                  order_by: Optional[_builtins.str] = None,
                  palette: Optional[_builtins.str] = None):
         """
+        :param _builtins.bool has_value_labels: If true, the value is displayed as a label relative to the data point.
         :param _builtins.str line_type: The type of lines displayed. Valid values are `dashed`, `dotted`, `solid`.
         :param _builtins.str line_width: The width of line displayed. Valid values are `normal`, `thick`, `thin`.
         :param _builtins.str order_by: How to order series in timeseries visualizations. Valid values are `tags`, `values`.
         :param _builtins.str palette: A color palette to apply to the widget. The available options are available at: https://docs.datadoghq.com/dashboards/widgets/timeseries/#appearance.
         """
+        if has_value_labels is not None:
+            pulumi.set(__self__, "has_value_labels", has_value_labels)
         if line_type is not None:
             pulumi.set(__self__, "line_type", line_type)
         if line_width is not None:
@@ -31121,6 +32022,14 @@ class DashboardWidgetTimeseriesDefinitionRequestStyle(dict):
             pulumi.set(__self__, "order_by", order_by)
         if palette is not None:
             pulumi.set(__self__, "palette", palette)
+
+    @_builtins.property
+    @pulumi.getter(name="hasValueLabels")
+    def has_value_labels(self) -> Optional[_builtins.bool]:
+        """
+        If true, the value is displayed as a label relative to the data point.
+        """
+        return pulumi.get(self, "has_value_labels")
 
     @_builtins.property
     @pulumi.getter(name="lineType")
@@ -33202,6 +34111,8 @@ class DashboardWidgetToplistDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetToplistDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -33220,6 +34131,7 @@ class DashboardWidgetToplistDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.DashboardWidgetToplistDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -33229,6 +34141,7 @@ class DashboardWidgetToplistDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'DashboardWidgetToplistDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -33240,6 +34153,8 @@ class DashboardWidgetToplistDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -33286,6 +34201,14 @@ class DashboardWidgetToplistDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -33394,6 +34317,90 @@ class DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetToplistDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -35602,6 +36609,8 @@ class DashboardWidgetTreemapDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in DashboardWidgetTreemapDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -35620,6 +36629,7 @@ class DashboardWidgetTreemapDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.DashboardWidgetTreemapDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -35629,6 +36639,7 @@ class DashboardWidgetTreemapDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'DashboardWidgetTreemapDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -35640,6 +36651,8 @@ class DashboardWidgetTreemapDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -35686,6 +36699,14 @@ class DashboardWidgetTreemapDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -35794,6 +36815,90 @@ class DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class DashboardWidgetTreemapDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -43167,67 +44272,67 @@ class MonitorNotificationRuleFilter(dict):
 
 
 @pulumi.output_type
-class MonitorSchedulingOption(dict):
+class MonitorSchedulingOptions(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "customSchedules":
-            suggest = "custom_schedules"
-        elif key == "evaluationWindows":
-            suggest = "evaluation_windows"
+        if key == "customSchedule":
+            suggest = "custom_schedule"
+        elif key == "evaluationWindow":
+            suggest = "evaluation_window"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in MonitorSchedulingOption. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in MonitorSchedulingOptions. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        MonitorSchedulingOption.__key_warning(key)
+        MonitorSchedulingOptions.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        MonitorSchedulingOption.__key_warning(key)
+        MonitorSchedulingOptions.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 custom_schedules: Optional[Sequence['outputs.MonitorSchedulingOptionCustomSchedule']] = None,
-                 evaluation_windows: Optional[Sequence['outputs.MonitorSchedulingOptionEvaluationWindow']] = None):
+                 custom_schedule: Optional['outputs.MonitorSchedulingOptionsCustomSchedule'] = None,
+                 evaluation_window: Optional['outputs.MonitorSchedulingOptionsEvaluationWindow'] = None):
         """
-        :param Sequence['MonitorSchedulingOptionCustomScheduleArgs'] custom_schedules: Configuration options for the custom schedules. If `start` is omitted, the monitor creation time will be used.
-        :param Sequence['MonitorSchedulingOptionEvaluationWindowArgs'] evaluation_windows: Configuration options for the evaluation window. If `hour_starts` is set, no other fields may be set. Otherwise, `day_starts` and `month_starts` must be set together.
+        :param 'MonitorSchedulingOptionsCustomScheduleArgs' custom_schedule: Configuration options for the custom schedules. If `start` is omitted, the monitor creation time will be used.
+        :param 'MonitorSchedulingOptionsEvaluationWindowArgs' evaluation_window: Configuration options for the evaluation window. If `hour_starts` is set, no other fields may be set. Otherwise, `day_starts` and `month_starts` must be set together.
         """
-        if custom_schedules is not None:
-            pulumi.set(__self__, "custom_schedules", custom_schedules)
-        if evaluation_windows is not None:
-            pulumi.set(__self__, "evaluation_windows", evaluation_windows)
+        if custom_schedule is not None:
+            pulumi.set(__self__, "custom_schedule", custom_schedule)
+        if evaluation_window is not None:
+            pulumi.set(__self__, "evaluation_window", evaluation_window)
 
     @_builtins.property
-    @pulumi.getter(name="customSchedules")
-    def custom_schedules(self) -> Optional[Sequence['outputs.MonitorSchedulingOptionCustomSchedule']]:
+    @pulumi.getter(name="customSchedule")
+    def custom_schedule(self) -> Optional['outputs.MonitorSchedulingOptionsCustomSchedule']:
         """
         Configuration options for the custom schedules. If `start` is omitted, the monitor creation time will be used.
         """
-        return pulumi.get(self, "custom_schedules")
+        return pulumi.get(self, "custom_schedule")
 
     @_builtins.property
-    @pulumi.getter(name="evaluationWindows")
-    def evaluation_windows(self) -> Optional[Sequence['outputs.MonitorSchedulingOptionEvaluationWindow']]:
+    @pulumi.getter(name="evaluationWindow")
+    def evaluation_window(self) -> Optional['outputs.MonitorSchedulingOptionsEvaluationWindow']:
         """
         Configuration options for the evaluation window. If `hour_starts` is set, no other fields may be set. Otherwise, `day_starts` and `month_starts` must be set together.
         """
-        return pulumi.get(self, "evaluation_windows")
+        return pulumi.get(self, "evaluation_window")
 
 
 @pulumi.output_type
-class MonitorSchedulingOptionCustomSchedule(dict):
+class MonitorSchedulingOptionsCustomSchedule(dict):
     def __init__(__self__, *,
-                 recurrence: 'outputs.MonitorSchedulingOptionCustomScheduleRecurrence'):
+                 recurrence: 'outputs.MonitorSchedulingOptionsCustomScheduleRecurrence'):
         """
-        :param 'MonitorSchedulingOptionCustomScheduleRecurrenceArgs' recurrence: A list of recurrence definitions. Length must be 1.
+        :param 'MonitorSchedulingOptionsCustomScheduleRecurrenceArgs' recurrence: A list of recurrence definitions. Length must be 1.
         """
         pulumi.set(__self__, "recurrence", recurrence)
 
     @_builtins.property
     @pulumi.getter
-    def recurrence(self) -> 'outputs.MonitorSchedulingOptionCustomScheduleRecurrence':
+    def recurrence(self) -> 'outputs.MonitorSchedulingOptionsCustomScheduleRecurrence':
         """
         A list of recurrence definitions. Length must be 1.
         """
@@ -43235,7 +44340,7 @@ class MonitorSchedulingOptionCustomSchedule(dict):
 
 
 @pulumi.output_type
-class MonitorSchedulingOptionCustomScheduleRecurrence(dict):
+class MonitorSchedulingOptionsCustomScheduleRecurrence(dict):
     def __init__(__self__, *,
                  rrule: _builtins.str,
                  timezone: _builtins.str,
@@ -43276,7 +44381,7 @@ class MonitorSchedulingOptionCustomScheduleRecurrence(dict):
 
 
 @pulumi.output_type
-class MonitorSchedulingOptionEvaluationWindow(dict):
+class MonitorSchedulingOptionsEvaluationWindow(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -43288,14 +44393,14 @@ class MonitorSchedulingOptionEvaluationWindow(dict):
             suggest = "month_starts"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in MonitorSchedulingOptionEvaluationWindow. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in MonitorSchedulingOptionsEvaluationWindow. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        MonitorSchedulingOptionEvaluationWindow.__key_warning(key)
+        MonitorSchedulingOptionsEvaluationWindow.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        MonitorSchedulingOptionEvaluationWindow.__key_warning(key)
+        MonitorSchedulingOptionsEvaluationWindow.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -44030,6 +45135,8 @@ class ObservabilityPipelineConfigDestination(dict):
         suggest = None
         if key == "amazonOpensearches":
             suggest = "amazon_opensearches"
+        elif key == "amazonS3Generic":
+            suggest = "amazon_s3_generic"
         elif key == "amazonS3s":
             suggest = "amazon_s3s"
         elif key == "amazonSecurityLakes":
@@ -44080,6 +45187,7 @@ class ObservabilityPipelineConfigDestination(dict):
                  id: _builtins.str,
                  inputs: Sequence[_builtins.str],
                  amazon_opensearches: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationAmazonOpensearch']] = None,
+                 amazon_s3_generic: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3Generic'] = None,
                  amazon_s3s: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationAmazonS3']] = None,
                  amazon_security_lakes: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationAmazonSecurityLake']] = None,
                  azure_storages: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationAzureStorage']] = None,
@@ -44106,6 +45214,7 @@ class ObservabilityPipelineConfigDestination(dict):
         :param _builtins.str id: The unique identifier for this destination.
         :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
         :param Sequence['ObservabilityPipelineConfigDestinationAmazonOpensearchArgs'] amazon_opensearches: The `amazon_opensearch` destination writes logs to Amazon OpenSearch.
+        :param 'ObservabilityPipelineConfigDestinationAmazonS3GenericArgs' amazon_s3_generic: The `amazon_s3_generic` destination sends your logs to an Amazon S3 bucket.
         :param Sequence['ObservabilityPipelineConfigDestinationAmazonS3Args'] amazon_s3s: The `amazon_s3` destination sends your logs in Datadog-rehydratable format to an Amazon S3 bucket for archiving.
         :param Sequence['ObservabilityPipelineConfigDestinationAmazonSecurityLakeArgs'] amazon_security_lakes: The `amazon_security_lake` destination sends your logs to Amazon Security Lake.
         :param Sequence['ObservabilityPipelineConfigDestinationAzureStorageArgs'] azure_storages: The `azure_storage` destination forwards logs to an Azure Blob Storage container.
@@ -44133,6 +45242,8 @@ class ObservabilityPipelineConfigDestination(dict):
         pulumi.set(__self__, "inputs", inputs)
         if amazon_opensearches is not None:
             pulumi.set(__self__, "amazon_opensearches", amazon_opensearches)
+        if amazon_s3_generic is not None:
+            pulumi.set(__self__, "amazon_s3_generic", amazon_s3_generic)
         if amazon_s3s is not None:
             pulumi.set(__self__, "amazon_s3s", amazon_s3s)
         if amazon_security_lakes is not None:
@@ -44201,6 +45312,14 @@ class ObservabilityPipelineConfigDestination(dict):
         The `amazon_opensearch` destination writes logs to Amazon OpenSearch.
         """
         return pulumi.get(self, "amazon_opensearches")
+
+    @_builtins.property
+    @pulumi.getter(name="amazonS3Generic")
+    def amazon_s3_generic(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3Generic']:
+        """
+        The `amazon_s3_generic` destination sends your logs to an Amazon S3 bucket.
+        """
+        return pulumi.get(self, "amazon_s3_generic")
 
     @_builtins.property
     @pulumi.getter(name="amazonS3s")
@@ -44972,6 +46091,287 @@ class ObservabilityPipelineConfigDestinationAmazonS3BufferMemory(dict):
 
 
 @pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonS3Generic(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "storageClass":
+            suggest = "storage_class"
+        elif key == "batchSettings":
+            suggest = "batch_settings"
+        elif key == "keyPrefix":
+            suggest = "key_prefix"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonS3Generic. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonS3Generic.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonS3Generic.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 bucket: _builtins.str,
+                 compression: 'outputs.ObservabilityPipelineConfigDestinationAmazonS3GenericCompression',
+                 encoding: 'outputs.ObservabilityPipelineConfigDestinationAmazonS3GenericEncoding',
+                 region: _builtins.str,
+                 storage_class: _builtins.str,
+                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3GenericAuth'] = None,
+                 batch_settings: Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3GenericBatchSettings'] = None,
+                 key_prefix: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str bucket: S3 bucket name.
+        :param 'ObservabilityPipelineConfigDestinationAmazonS3GenericCompressionArgs' compression: Compression configuration.
+        :param 'ObservabilityPipelineConfigDestinationAmazonS3GenericEncodingArgs' encoding: Encoding format for the destination.
+        :param _builtins.str region: AWS region of the S3 bucket.
+        :param _builtins.str storage_class: S3 storage class. Valid values are `STANDARD`, `REDUCED_REDUNDANCY`, `INTELLIGENT_TIERING`, `STANDARD_IA`, `EXPRESS_ONEZONE`, `ONEZONE_IA`, `GLACIER`, `GLACIER_IR`, `DEEP_ARCHIVE`.
+        :param 'ObservabilityPipelineConfigDestinationAmazonS3GenericAuthArgs' auth: AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
+        :param 'ObservabilityPipelineConfigDestinationAmazonS3GenericBatchSettingsArgs' batch_settings: Event batching settings.
+        :param _builtins.str key_prefix: Optional prefix for object keys.
+        """
+        pulumi.set(__self__, "bucket", bucket)
+        pulumi.set(__self__, "compression", compression)
+        pulumi.set(__self__, "encoding", encoding)
+        pulumi.set(__self__, "region", region)
+        pulumi.set(__self__, "storage_class", storage_class)
+        if auth is not None:
+            pulumi.set(__self__, "auth", auth)
+        if batch_settings is not None:
+            pulumi.set(__self__, "batch_settings", batch_settings)
+        if key_prefix is not None:
+            pulumi.set(__self__, "key_prefix", key_prefix)
+
+    @_builtins.property
+    @pulumi.getter
+    def bucket(self) -> _builtins.str:
+        """
+        S3 bucket name.
+        """
+        return pulumi.get(self, "bucket")
+
+    @_builtins.property
+    @pulumi.getter
+    def compression(self) -> 'outputs.ObservabilityPipelineConfigDestinationAmazonS3GenericCompression':
+        """
+        Compression configuration.
+        """
+        return pulumi.get(self, "compression")
+
+    @_builtins.property
+    @pulumi.getter
+    def encoding(self) -> 'outputs.ObservabilityPipelineConfigDestinationAmazonS3GenericEncoding':
+        """
+        Encoding format for the destination.
+        """
+        return pulumi.get(self, "encoding")
+
+    @_builtins.property
+    @pulumi.getter
+    def region(self) -> _builtins.str:
+        """
+        AWS region of the S3 bucket.
+        """
+        return pulumi.get(self, "region")
+
+    @_builtins.property
+    @pulumi.getter(name="storageClass")
+    def storage_class(self) -> _builtins.str:
+        """
+        S3 storage class. Valid values are `STANDARD`, `REDUCED_REDUNDANCY`, `INTELLIGENT_TIERING`, `STANDARD_IA`, `EXPRESS_ONEZONE`, `ONEZONE_IA`, `GLACIER`, `GLACIER_IR`, `DEEP_ARCHIVE`.
+        """
+        return pulumi.get(self, "storage_class")
+
+    @_builtins.property
+    @pulumi.getter
+    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3GenericAuth']:
+        """
+        AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
+        """
+        return pulumi.get(self, "auth")
+
+    @_builtins.property
+    @pulumi.getter(name="batchSettings")
+    def batch_settings(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationAmazonS3GenericBatchSettings']:
+        """
+        Event batching settings.
+        """
+        return pulumi.get(self, "batch_settings")
+
+    @_builtins.property
+    @pulumi.getter(name="keyPrefix")
+    def key_prefix(self) -> Optional[_builtins.str]:
+        """
+        Optional prefix for object keys.
+        """
+        return pulumi.get(self, "key_prefix")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonS3GenericAuth(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "assumeRole":
+            suggest = "assume_role"
+        elif key == "externalId":
+            suggest = "external_id"
+        elif key == "sessionName":
+            suggest = "session_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonS3GenericAuth. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonS3GenericAuth.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonS3GenericAuth.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 assume_role: Optional[_builtins.str] = None,
+                 external_id: Optional[_builtins.str] = None,
+                 session_name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str assume_role: The Amazon Resource Name (ARN) of the role to assume.
+        :param _builtins.str external_id: A unique identifier for cross-account role assumption.
+        :param _builtins.str session_name: A session identifier used for logging and tracing the assumed role session.
+        """
+        if assume_role is not None:
+            pulumi.set(__self__, "assume_role", assume_role)
+        if external_id is not None:
+            pulumi.set(__self__, "external_id", external_id)
+        if session_name is not None:
+            pulumi.set(__self__, "session_name", session_name)
+
+    @_builtins.property
+    @pulumi.getter(name="assumeRole")
+    def assume_role(self) -> Optional[_builtins.str]:
+        """
+        The Amazon Resource Name (ARN) of the role to assume.
+        """
+        return pulumi.get(self, "assume_role")
+
+    @_builtins.property
+    @pulumi.getter(name="externalId")
+    def external_id(self) -> Optional[_builtins.str]:
+        """
+        A unique identifier for cross-account role assumption.
+        """
+        return pulumi.get(self, "external_id")
+
+    @_builtins.property
+    @pulumi.getter(name="sessionName")
+    def session_name(self) -> Optional[_builtins.str]:
+        """
+        A session identifier used for logging and tracing the assumed role session.
+        """
+        return pulumi.get(self, "session_name")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonS3GenericBatchSettings(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "batchSize":
+            suggest = "batch_size"
+        elif key == "timeoutSecs":
+            suggest = "timeout_secs"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonS3GenericBatchSettings. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonS3GenericBatchSettings.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationAmazonS3GenericBatchSettings.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 batch_size: Optional[_builtins.int] = None,
+                 timeout_secs: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int batch_size: Maximum batch size in bytes.
+        :param _builtins.int timeout_secs: Maximum number of seconds to wait before flushing the batch.
+        """
+        if batch_size is not None:
+            pulumi.set(__self__, "batch_size", batch_size)
+        if timeout_secs is not None:
+            pulumi.set(__self__, "timeout_secs", timeout_secs)
+
+    @_builtins.property
+    @pulumi.getter(name="batchSize")
+    def batch_size(self) -> Optional[_builtins.int]:
+        """
+        Maximum batch size in bytes.
+        """
+        return pulumi.get(self, "batch_size")
+
+    @_builtins.property
+    @pulumi.getter(name="timeoutSecs")
+    def timeout_secs(self) -> Optional[_builtins.int]:
+        """
+        Maximum number of seconds to wait before flushing the batch.
+        """
+        return pulumi.get(self, "timeout_secs")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonS3GenericCompression(dict):
+    def __init__(__self__, *,
+                 algorithm: _builtins.str,
+                 level: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str algorithm: Compression algorithm. Valid values are `gzip`, `zstd`, `snappy`.
+        :param _builtins.int level: Compression level.
+        """
+        pulumi.set(__self__, "algorithm", algorithm)
+        if level is not None:
+            pulumi.set(__self__, "level", level)
+
+    @_builtins.property
+    @pulumi.getter
+    def algorithm(self) -> _builtins.str:
+        """
+        Compression algorithm. Valid values are `gzip`, `zstd`, `snappy`.
+        """
+        return pulumi.get(self, "algorithm")
+
+    @_builtins.property
+    @pulumi.getter
+    def level(self) -> Optional[_builtins.int]:
+        """
+        Compression level.
+        """
+        return pulumi.get(self, "level")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationAmazonS3GenericEncoding(dict):
+    def __init__(__self__, *,
+                 type: _builtins.str):
+        """
+        :param _builtins.str type: The encoding type. Valid values are `json`, `parquet`.
+        """
+        pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        The encoding type. Valid values are `json`, `parquet`.
+        """
+        return pulumi.get(self, "type")
+
+
+@pulumi.output_type
 class ObservabilityPipelineConfigDestinationAmazonSecurityLake(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -45284,6 +46684,8 @@ class ObservabilityPipelineConfigDestinationAmazonSecurityLakeTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationAmazonSecurityLakeTls. Access the value via the '{suggest}' property getter instead.")
@@ -45299,17 +46701,21 @@ class ObservabilityPipelineConfigDestinationAmazonSecurityLakeTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -45334,6 +46740,14 @@ class ObservabilityPipelineConfigDestinationAmazonSecurityLakeTls(dict):
         Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
         return pulumi.get(self, "key_file")
+
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
 
 
 @pulumi.output_type
@@ -45544,30 +46958,87 @@ class ObservabilityPipelineConfigDestinationAzureStorageBufferMemory(dict):
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationCloudPrem(dict):
-    def __init__(__self__):
-        pass
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "endpointUrlKey":
+            suggest = "endpoint_url_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationCloudPrem. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationCloudPrem.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationCloudPrem.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 endpoint_url_key: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str endpoint_url_key: Name of the environment variable or secret that holds the endpoint URL.
+        """
+        if endpoint_url_key is not None:
+            pulumi.set(__self__, "endpoint_url_key", endpoint_url_key)
+
+    @_builtins.property
+    @pulumi.getter(name="endpointUrlKey")
+    def endpoint_url_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the endpoint URL.
+        """
+        return pulumi.get(self, "endpoint_url_key")
 
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiem(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "endpointUrlKey":
+            suggest = "endpoint_url_key"
+        elif key == "tokenKey":
+            suggest = "token_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiem. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiem.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiem.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
                  encoding: _builtins.str,
                  buffer: Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBuffer'] = None,
                  compression: Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemCompression'] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls'] = None):
+                 endpoint_url_key: Optional[_builtins.str] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls'] = None,
+                 token_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str encoding: Encoding format for log events. Valid values are `json`, `raw_message`.
         :param 'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param 'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemCompressionArgs' compression: Compression configuration for log events.
+        :param _builtins.str endpoint_url_key: Name of the environment variable or secret that holds the endpoint URL.
         :param 'ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param _builtins.str token_key: Name of the environment variable or secret that holds the authentication token.
         """
         pulumi.set(__self__, "encoding", encoding)
         if buffer is not None:
             pulumi.set(__self__, "buffer", buffer)
         if compression is not None:
             pulumi.set(__self__, "compression", compression)
+        if endpoint_url_key is not None:
+            pulumi.set(__self__, "endpoint_url_key", endpoint_url_key)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+        if token_key is not None:
+            pulumi.set(__self__, "token_key", token_key)
 
     @_builtins.property
     @pulumi.getter
@@ -45594,12 +47065,28 @@ class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiem(dict):
         return pulumi.get(self, "compression")
 
     @_builtins.property
+    @pulumi.getter(name="endpointUrlKey")
+    def endpoint_url_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the endpoint URL.
+        """
+        return pulumi.get(self, "endpoint_url_key")
+
+    @_builtins.property
     @pulumi.getter
     def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         return pulumi.get(self, "tls")
+
+    @_builtins.property
+    @pulumi.getter(name="tokenKey")
+    def token_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the authentication token.
+        """
+        return pulumi.get(self, "token_key")
 
 
 @pulumi.output_type
@@ -45788,6 +47275,8 @@ class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls. Access the value via the '{suggest}' property getter instead.")
@@ -45803,17 +47292,21 @@ class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -45838,6 +47331,14 @@ class ObservabilityPipelineConfigDestinationCrowdstrikeNextGenSiemTls(dict):
         Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
         return pulumi.get(self, "key_file")
+
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
 
 
 @pulumi.output_type
@@ -46260,6 +47761,8 @@ class ObservabilityPipelineConfigDestinationElasticsearch(dict):
             suggest = "bulk_index"
         elif key == "dataStream":
             suggest = "data_stream"
+        elif key == "endpointUrlKey":
+            suggest = "endpoint_url_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationElasticsearch. Access the value via the '{suggest}' property getter instead.")
@@ -46274,23 +47777,31 @@ class ObservabilityPipelineConfigDestinationElasticsearch(dict):
 
     def __init__(__self__, *,
                  api_version: Optional[_builtins.str] = None,
+                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationElasticsearchAuth'] = None,
                  buffer: Optional['outputs.ObservabilityPipelineConfigDestinationElasticsearchBuffer'] = None,
                  bulk_index: Optional[_builtins.str] = None,
-                 data_stream: Optional['outputs.ObservabilityPipelineConfigDestinationElasticsearchDataStream'] = None):
+                 data_stream: Optional['outputs.ObservabilityPipelineConfigDestinationElasticsearchDataStream'] = None,
+                 endpoint_url_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str api_version: The Elasticsearch API version to use. Set to `auto` to auto-detect.
+        :param 'ObservabilityPipelineConfigDestinationElasticsearchAuthArgs' auth: Authentication settings for the Elasticsearch destination.
         :param 'ObservabilityPipelineConfigDestinationElasticsearchBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param _builtins.str bulk_index: The index or datastream to write logs to in Elasticsearch.
         :param 'ObservabilityPipelineConfigDestinationElasticsearchDataStreamArgs' data_stream: Configuration options for writing to Elasticsearch Data Streams instead of a fixed index.
+        :param _builtins.str endpoint_url_key: Name of the environment variable or secret that holds the Elasticsearch endpoint URL.
         """
         if api_version is not None:
             pulumi.set(__self__, "api_version", api_version)
+        if auth is not None:
+            pulumi.set(__self__, "auth", auth)
         if buffer is not None:
             pulumi.set(__self__, "buffer", buffer)
         if bulk_index is not None:
             pulumi.set(__self__, "bulk_index", bulk_index)
         if data_stream is not None:
             pulumi.set(__self__, "data_stream", data_stream)
+        if endpoint_url_key is not None:
+            pulumi.set(__self__, "endpoint_url_key", endpoint_url_key)
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
@@ -46299,6 +47810,14 @@ class ObservabilityPipelineConfigDestinationElasticsearch(dict):
         The Elasticsearch API version to use. Set to `auto` to auto-detect.
         """
         return pulumi.get(self, "api_version")
+
+    @_builtins.property
+    @pulumi.getter
+    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationElasticsearchAuth']:
+        """
+        Authentication settings for the Elasticsearch destination.
+        """
+        return pulumi.get(self, "auth")
 
     @_builtins.property
     @pulumi.getter
@@ -46323,6 +47842,75 @@ class ObservabilityPipelineConfigDestinationElasticsearch(dict):
         Configuration options for writing to Elasticsearch Data Streams instead of a fixed index.
         """
         return pulumi.get(self, "data_stream")
+
+    @_builtins.property
+    @pulumi.getter(name="endpointUrlKey")
+    def endpoint_url_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the Elasticsearch endpoint URL.
+        """
+        return pulumi.get(self, "endpoint_url_key")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationElasticsearchAuth(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "passwordKey":
+            suggest = "password_key"
+        elif key == "usernameKey":
+            suggest = "username_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationElasticsearchAuth. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationElasticsearchAuth.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationElasticsearchAuth.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 strategy: _builtins.str,
+                 password_key: Optional[_builtins.str] = None,
+                 username_key: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str strategy: The authentication strategy. Use `basic` for username/password. Valid values are `basic`, `aws`.
+        :param _builtins.str password_key: Name of the environment variable or secret that holds the Elasticsearch password (used when strategy is `basic`).
+        :param _builtins.str username_key: Name of the environment variable or secret that holds the Elasticsearch username (used when strategy is `basic`).
+        """
+        pulumi.set(__self__, "strategy", strategy)
+        if password_key is not None:
+            pulumi.set(__self__, "password_key", password_key)
+        if username_key is not None:
+            pulumi.set(__self__, "username_key", username_key)
+
+    @_builtins.property
+    @pulumi.getter
+    def strategy(self) -> _builtins.str:
+        """
+        The authentication strategy. Use `basic` for username/password. Valid values are `basic`, `aws`.
+        """
+        return pulumi.get(self, "strategy")
+
+    @_builtins.property
+    @pulumi.getter(name="passwordKey")
+    def password_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the Elasticsearch password (used when strategy is `basic`).
+        """
+        return pulumi.get(self, "password_key")
+
+    @_builtins.property
+    @pulumi.getter(name="usernameKey")
+    def username_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the Elasticsearch username (used when strategy is `basic`).
+        """
+        return pulumi.get(self, "username_key")
 
 
 @pulumi.output_type
@@ -46546,7 +48134,7 @@ class ObservabilityPipelineConfigDestinationGoogleCloudStorage(dict):
         :param _builtins.str bucket: Name of the GCS bucket.
         :param _builtins.str storage_class: Storage class used for objects stored in GCS.
         :param _builtins.str acl: Access control list setting for objects written to the bucket.
-        :param 'ObservabilityPipelineConfigDestinationGoogleCloudStorageAuthArgs' auth: GCP credentials used to authenticate with Google Cloud services.
+        :param 'ObservabilityPipelineConfigDestinationGoogleCloudStorageAuthArgs' auth: Google Cloud credentials used to authenticate with Google Cloud services.
         :param 'ObservabilityPipelineConfigDestinationGoogleCloudStorageBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param _builtins.str key_prefix: Optional prefix for object keys within the GCS bucket.
         :param Sequence['ObservabilityPipelineConfigDestinationGoogleCloudStorageMetadataArgs'] metadatas: Custom metadata key-value pairs added to each object.
@@ -46592,7 +48180,7 @@ class ObservabilityPipelineConfigDestinationGoogleCloudStorage(dict):
     @pulumi.getter
     def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGoogleCloudStorageAuth']:
         """
-        GCP credentials used to authenticate with Google Cloud services.
+        Google Cloud credentials used to authenticate with Google Cloud services.
         """
         return pulumi.get(self, "auth")
 
@@ -46643,7 +48231,7 @@ class ObservabilityPipelineConfigDestinationGoogleCloudStorageAuth(dict):
     def __init__(__self__, *,
                  credentials_file: _builtins.str):
         """
-        :param _builtins.str credentials_file: Path to the GCP service account key file.
+        :param _builtins.str credentials_file: Path to the Google Cloud service account key file.
         """
         pulumi.set(__self__, "credentials_file", credentials_file)
 
@@ -46651,7 +48239,7 @@ class ObservabilityPipelineConfigDestinationGoogleCloudStorageAuth(dict):
     @pulumi.getter(name="credentialsFile")
     def credentials_file(self) -> _builtins.str:
         """
-        Path to the GCP service account key file.
+        Path to the Google Cloud service account key file.
         """
         return pulumi.get(self, "credentials_file")
 
@@ -46832,19 +48420,38 @@ class ObservabilityPipelineConfigDestinationGoogleCloudStorageMetadata(dict):
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationGooglePubsub(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "endpointUrlKey":
+            suggest = "endpoint_url_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGooglePubsub. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationGooglePubsub.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationGooglePubsub.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
                  encoding: _builtins.str,
                  project: _builtins.str,
                  topic: _builtins.str,
                  auth: Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubAuth'] = None,
                  buffer: Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubBuffer'] = None,
+                 endpoint_url_key: Optional[_builtins.str] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubTls'] = None):
         """
         :param _builtins.str encoding: Encoding format for log events. Valid values: `json`, `raw_message`.
-        :param _builtins.str project: The GCP project ID that owns the Pub/Sub topic.
+        :param _builtins.str project: The Google Cloud project ID that owns the Pub/Sub topic.
         :param _builtins.str topic: The Pub/Sub topic name to publish logs to.
-        :param 'ObservabilityPipelineConfigDestinationGooglePubsubAuthArgs' auth: GCP credentials used to authenticate with Google Cloud services.
+        :param 'ObservabilityPipelineConfigDestinationGooglePubsubAuthArgs' auth: Google Cloud credentials used to authenticate with Google Cloud services.
         :param 'ObservabilityPipelineConfigDestinationGooglePubsubBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        :param _builtins.str endpoint_url_key: Name of the environment variable or secret that holds the Google Cloud Pub/Sub endpoint URL.
         :param 'ObservabilityPipelineConfigDestinationGooglePubsubTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "encoding", encoding)
@@ -46854,6 +48461,8 @@ class ObservabilityPipelineConfigDestinationGooglePubsub(dict):
             pulumi.set(__self__, "auth", auth)
         if buffer is not None:
             pulumi.set(__self__, "buffer", buffer)
+        if endpoint_url_key is not None:
+            pulumi.set(__self__, "endpoint_url_key", endpoint_url_key)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
 
@@ -46869,7 +48478,7 @@ class ObservabilityPipelineConfigDestinationGooglePubsub(dict):
     @pulumi.getter
     def project(self) -> _builtins.str:
         """
-        The GCP project ID that owns the Pub/Sub topic.
+        The Google Cloud project ID that owns the Pub/Sub topic.
         """
         return pulumi.get(self, "project")
 
@@ -46885,7 +48494,7 @@ class ObservabilityPipelineConfigDestinationGooglePubsub(dict):
     @pulumi.getter
     def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubAuth']:
         """
-        GCP credentials used to authenticate with Google Cloud services.
+        Google Cloud credentials used to authenticate with Google Cloud services.
         """
         return pulumi.get(self, "auth")
 
@@ -46896,6 +48505,14 @@ class ObservabilityPipelineConfigDestinationGooglePubsub(dict):
         Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         """
         return pulumi.get(self, "buffer")
+
+    @_builtins.property
+    @pulumi.getter(name="endpointUrlKey")
+    def endpoint_url_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the Google Cloud Pub/Sub endpoint URL.
+        """
+        return pulumi.get(self, "endpoint_url_key")
 
     @_builtins.property
     @pulumi.getter
@@ -46928,7 +48545,7 @@ class ObservabilityPipelineConfigDestinationGooglePubsubAuth(dict):
     def __init__(__self__, *,
                  credentials_file: _builtins.str):
         """
-        :param _builtins.str credentials_file: Path to the GCP service account key file.
+        :param _builtins.str credentials_file: Path to the Google Cloud service account key file.
         """
         pulumi.set(__self__, "credentials_file", credentials_file)
 
@@ -46936,7 +48553,7 @@ class ObservabilityPipelineConfigDestinationGooglePubsubAuth(dict):
     @pulumi.getter(name="credentialsFile")
     def credentials_file(self) -> _builtins.str:
         """
-        Path to the GCP service account key file.
+        Path to the Google Cloud service account key file.
         """
         return pulumi.get(self, "credentials_file")
 
@@ -47097,6 +48714,8 @@ class ObservabilityPipelineConfigDestinationGooglePubsubTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGooglePubsubTls. Access the value via the '{suggest}' property getter instead.")
@@ -47112,17 +48731,21 @@ class ObservabilityPipelineConfigDestinationGooglePubsubTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -47148,6 +48771,14 @@ class ObservabilityPipelineConfigDestinationGooglePubsubTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationGoogleSecop(dict):
@@ -47158,6 +48789,8 @@ class ObservabilityPipelineConfigDestinationGoogleSecop(dict):
             suggest = "customer_id"
         elif key == "logType":
             suggest = "log_type"
+        elif key == "endpointUrlKey":
+            suggest = "endpoint_url_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationGoogleSecop. Access the value via the '{suggest}' property getter instead.")
@@ -47175,13 +48808,15 @@ class ObservabilityPipelineConfigDestinationGoogleSecop(dict):
                  encoding: _builtins.str,
                  log_type: _builtins.str,
                  auth: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleSecopAuth'] = None,
-                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleSecopBuffer'] = None):
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationGoogleSecopBuffer'] = None,
+                 endpoint_url_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str customer_id: The Google SecOps customer ID.
         :param _builtins.str encoding: The encoding format for the logs sent to Google SecOps. Valid values are `json`, `raw_message`.
         :param _builtins.str log_type: The log type metadata associated with the Google SecOps destination.
-        :param 'ObservabilityPipelineConfigDestinationGoogleSecopAuthArgs' auth: GCP credentials used to authenticate with Google Cloud services.
+        :param 'ObservabilityPipelineConfigDestinationGoogleSecopAuthArgs' auth: Google Cloud credentials used to authenticate with Google Cloud services.
         :param 'ObservabilityPipelineConfigDestinationGoogleSecopBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        :param _builtins.str endpoint_url_key: Name of the environment variable or secret that holds the Google Chronicle endpoint URL.
         """
         pulumi.set(__self__, "customer_id", customer_id)
         pulumi.set(__self__, "encoding", encoding)
@@ -47190,6 +48825,8 @@ class ObservabilityPipelineConfigDestinationGoogleSecop(dict):
             pulumi.set(__self__, "auth", auth)
         if buffer is not None:
             pulumi.set(__self__, "buffer", buffer)
+        if endpoint_url_key is not None:
+            pulumi.set(__self__, "endpoint_url_key", endpoint_url_key)
 
     @_builtins.property
     @pulumi.getter(name="customerId")
@@ -47219,7 +48856,7 @@ class ObservabilityPipelineConfigDestinationGoogleSecop(dict):
     @pulumi.getter
     def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationGoogleSecopAuth']:
         """
-        GCP credentials used to authenticate with Google Cloud services.
+        Google Cloud credentials used to authenticate with Google Cloud services.
         """
         return pulumi.get(self, "auth")
 
@@ -47230,6 +48867,14 @@ class ObservabilityPipelineConfigDestinationGoogleSecop(dict):
         Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         """
         return pulumi.get(self, "buffer")
+
+    @_builtins.property
+    @pulumi.getter(name="endpointUrlKey")
+    def endpoint_url_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the Google Chronicle endpoint URL.
+        """
+        return pulumi.get(self, "endpoint_url_key")
 
 
 @pulumi.output_type
@@ -47254,7 +48899,7 @@ class ObservabilityPipelineConfigDestinationGoogleSecopAuth(dict):
     def __init__(__self__, *,
                  credentials_file: _builtins.str):
         """
-        :param _builtins.str credentials_file: Path to the GCP service account key file.
+        :param _builtins.str credentials_file: Path to the Google Cloud service account key file.
         """
         pulumi.set(__self__, "credentials_file", credentials_file)
 
@@ -47262,7 +48907,7 @@ class ObservabilityPipelineConfigDestinationGoogleSecopAuth(dict):
     @pulumi.getter(name="credentialsFile")
     def credentials_file(self) -> _builtins.str:
         """
-        Path to the GCP service account key file.
+        Path to the Google Cloud service account key file.
         """
         return pulumi.get(self, "credentials_file")
 
@@ -47419,6 +49064,14 @@ class ObservabilityPipelineConfigDestinationHttpClient(dict):
         suggest = None
         if key == "authStrategy":
             suggest = "auth_strategy"
+        elif key == "passwordKey":
+            suggest = "password_key"
+        elif key == "tokenKey":
+            suggest = "token_key"
+        elif key == "uriKey":
+            suggest = "uri_key"
+        elif key == "usernameKey":
+            suggest = "username_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationHttpClient. Access the value via the '{suggest}' property getter instead.")
@@ -47435,20 +49088,36 @@ class ObservabilityPipelineConfigDestinationHttpClient(dict):
                  encoding: _builtins.str,
                  auth_strategy: Optional[_builtins.str] = None,
                  compression: Optional['outputs.ObservabilityPipelineConfigDestinationHttpClientCompression'] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationHttpClientTls'] = None):
+                 password_key: Optional[_builtins.str] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationHttpClientTls'] = None,
+                 token_key: Optional[_builtins.str] = None,
+                 uri_key: Optional[_builtins.str] = None,
+                 username_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str encoding: Encoding format for events. Valid values are `json`.
         :param _builtins.str auth_strategy: HTTP authentication strategy. Valid values are `none`, `basic`, `bearer`.
         :param 'ObservabilityPipelineConfigDestinationHttpClientCompressionArgs' compression: Compression configuration for HTTP requests.
+        :param _builtins.str password_key: Name of the environment variable or secret that holds the password.
         :param 'ObservabilityPipelineConfigDestinationHttpClientTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param _builtins.str token_key: Name of the environment variable or secret that holds the authentication token.
+        :param _builtins.str uri_key: Name of the environment variable or secret that holds the request URI.
+        :param _builtins.str username_key: Name of the environment variable or secret that holds the username.
         """
         pulumi.set(__self__, "encoding", encoding)
         if auth_strategy is not None:
             pulumi.set(__self__, "auth_strategy", auth_strategy)
         if compression is not None:
             pulumi.set(__self__, "compression", compression)
+        if password_key is not None:
+            pulumi.set(__self__, "password_key", password_key)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+        if token_key is not None:
+            pulumi.set(__self__, "token_key", token_key)
+        if uri_key is not None:
+            pulumi.set(__self__, "uri_key", uri_key)
+        if username_key is not None:
+            pulumi.set(__self__, "username_key", username_key)
 
     @_builtins.property
     @pulumi.getter
@@ -47475,12 +49144,44 @@ class ObservabilityPipelineConfigDestinationHttpClient(dict):
         return pulumi.get(self, "compression")
 
     @_builtins.property
+    @pulumi.getter(name="passwordKey")
+    def password_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the password.
+        """
+        return pulumi.get(self, "password_key")
+
+    @_builtins.property
     @pulumi.getter
     def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationHttpClientTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         return pulumi.get(self, "tls")
+
+    @_builtins.property
+    @pulumi.getter(name="tokenKey")
+    def token_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the authentication token.
+        """
+        return pulumi.get(self, "token_key")
+
+    @_builtins.property
+    @pulumi.getter(name="uriKey")
+    def uri_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the request URI.
+        """
+        return pulumi.get(self, "uri_key")
+
+    @_builtins.property
+    @pulumi.getter(name="usernameKey")
+    def username_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the username.
+        """
+        return pulumi.get(self, "username_key")
 
 
 @pulumi.output_type
@@ -47512,6 +49213,8 @@ class ObservabilityPipelineConfigDestinationHttpClientTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationHttpClientTls. Access the value via the '{suggest}' property getter instead.")
@@ -47527,17 +49230,21 @@ class ObservabilityPipelineConfigDestinationHttpClientTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -47563,13 +49270,23 @@ class ObservabilityPipelineConfigDestinationHttpClientTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationKafka(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "headersKey":
+        if key == "bootstrapServersKey":
+            suggest = "bootstrap_servers_key"
+        elif key == "headersKey":
             suggest = "headers_key"
         elif key == "keyField":
             suggest = "key_field"
@@ -47598,6 +49315,7 @@ class ObservabilityPipelineConfigDestinationKafka(dict):
     def __init__(__self__, *,
                  encoding: _builtins.str,
                  topic: _builtins.str,
+                 bootstrap_servers_key: Optional[_builtins.str] = None,
                  compression: Optional[_builtins.str] = None,
                  headers_key: Optional[_builtins.str] = None,
                  key_field: Optional[_builtins.str] = None,
@@ -47611,6 +49329,7 @@ class ObservabilityPipelineConfigDestinationKafka(dict):
         """
         :param _builtins.str encoding: Encoding format for log events. Valid values are `json`, `raw_message`.
         :param _builtins.str topic: The Kafka topic name to publish logs to.
+        :param _builtins.str bootstrap_servers_key: Name of the environment variable or secret that holds the Kafka bootstrap servers.
         :param _builtins.str compression: Compression codec for Kafka messages. Valid values are `none`, `gzip`, `snappy`, `lz4`, `zstd`.
         :param _builtins.str headers_key: The field name to use for Kafka message headers.
         :param _builtins.str key_field: The field name to use as the Kafka message key.
@@ -47624,6 +49343,8 @@ class ObservabilityPipelineConfigDestinationKafka(dict):
         """
         pulumi.set(__self__, "encoding", encoding)
         pulumi.set(__self__, "topic", topic)
+        if bootstrap_servers_key is not None:
+            pulumi.set(__self__, "bootstrap_servers_key", bootstrap_servers_key)
         if compression is not None:
             pulumi.set(__self__, "compression", compression)
         if headers_key is not None:
@@ -47660,6 +49381,14 @@ class ObservabilityPipelineConfigDestinationKafka(dict):
         The Kafka topic name to publish logs to.
         """
         return pulumi.get(self, "topic")
+
+    @_builtins.property
+    @pulumi.getter(name="bootstrapServersKey")
+    def bootstrap_servers_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the Kafka bootstrap servers.
+        """
+        return pulumi.get(self, "bootstrap_servers_key")
 
     @_builtins.property
     @pulumi.getter
@@ -47773,12 +49502,39 @@ class ObservabilityPipelineConfigDestinationKafkaLibrdkafkaOption(dict):
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationKafkaSasl(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "passwordKey":
+            suggest = "password_key"
+        elif key == "usernameKey":
+            suggest = "username_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationKafkaSasl. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationKafkaSasl.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationKafkaSasl.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 mechanism: _builtins.str):
+                 mechanism: _builtins.str,
+                 password_key: Optional[_builtins.str] = None,
+                 username_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str mechanism: SASL authentication mechanism. Valid values are `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`.
+        :param _builtins.str password_key: Name of the environment variable or secret that holds the SASL password.
+        :param _builtins.str username_key: Name of the environment variable or secret that holds the SASL username.
         """
         pulumi.set(__self__, "mechanism", mechanism)
+        if password_key is not None:
+            pulumi.set(__self__, "password_key", password_key)
+        if username_key is not None:
+            pulumi.set(__self__, "username_key", username_key)
 
     @_builtins.property
     @pulumi.getter
@@ -47787,6 +49543,22 @@ class ObservabilityPipelineConfigDestinationKafkaSasl(dict):
         SASL authentication mechanism. Valid values are `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`.
         """
         return pulumi.get(self, "mechanism")
+
+    @_builtins.property
+    @pulumi.getter(name="passwordKey")
+    def password_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the SASL password.
+        """
+        return pulumi.get(self, "password_key")
+
+    @_builtins.property
+    @pulumi.getter(name="usernameKey")
+    def username_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the SASL username.
+        """
+        return pulumi.get(self, "username_key")
 
 
 @pulumi.output_type
@@ -47800,6 +49572,8 @@ class ObservabilityPipelineConfigDestinationKafkaTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationKafkaTls. Access the value via the '{suggest}' property getter instead.")
@@ -47815,17 +49589,21 @@ class ObservabilityPipelineConfigDestinationKafkaTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -47851,6 +49629,14 @@ class ObservabilityPipelineConfigDestinationKafkaTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationMicrosoftSentinel(dict):
@@ -47863,6 +49649,10 @@ class ObservabilityPipelineConfigDestinationMicrosoftSentinel(dict):
             suggest = "dcr_immutable_id"
         elif key == "tenantId":
             suggest = "tenant_id"
+        elif key == "clientSecretKey":
+            suggest = "client_secret_key"
+        elif key == "dceUriKey":
+            suggest = "dce_uri_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationMicrosoftSentinel. Access the value via the '{suggest}' property getter instead.")
@@ -47880,13 +49670,17 @@ class ObservabilityPipelineConfigDestinationMicrosoftSentinel(dict):
                  dcr_immutable_id: _builtins.str,
                  table: _builtins.str,
                  tenant_id: _builtins.str,
-                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationMicrosoftSentinelBuffer'] = None):
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationMicrosoftSentinelBuffer'] = None,
+                 client_secret_key: Optional[_builtins.str] = None,
+                 dce_uri_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str client_id: Azure AD client ID used for authentication.
         :param _builtins.str dcr_immutable_id: The immutable ID of the Data Collection Rule (DCR).
         :param _builtins.str table: The name of the Log Analytics table where logs will be sent.
         :param _builtins.str tenant_id: Azure AD tenant ID.
         :param 'ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        :param _builtins.str client_secret_key: Name of the environment variable or secret that holds the Azure AD client secret.
+        :param _builtins.str dce_uri_key: Name of the environment variable or secret that holds the Data Collection Endpoint (DCE) URI.
         """
         pulumi.set(__self__, "client_id", client_id)
         pulumi.set(__self__, "dcr_immutable_id", dcr_immutable_id)
@@ -47894,6 +49688,10 @@ class ObservabilityPipelineConfigDestinationMicrosoftSentinel(dict):
         pulumi.set(__self__, "tenant_id", tenant_id)
         if buffer is not None:
             pulumi.set(__self__, "buffer", buffer)
+        if client_secret_key is not None:
+            pulumi.set(__self__, "client_secret_key", client_secret_key)
+        if dce_uri_key is not None:
+            pulumi.set(__self__, "dce_uri_key", dce_uri_key)
 
     @_builtins.property
     @pulumi.getter(name="clientId")
@@ -47934,6 +49732,22 @@ class ObservabilityPipelineConfigDestinationMicrosoftSentinel(dict):
         Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         """
         return pulumi.get(self, "buffer")
+
+    @_builtins.property
+    @pulumi.getter(name="clientSecretKey")
+    def client_secret_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the Azure AD client secret.
+        """
+        return pulumi.get(self, "client_secret_key")
+
+    @_builtins.property
+    @pulumi.getter(name="dceUriKey")
+    def dce_uri_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the Data Collection Endpoint (DCE) URI.
+        """
+        return pulumi.get(self, "dce_uri_key")
 
 
 @pulumi.output_type
@@ -48083,16 +49897,43 @@ class ObservabilityPipelineConfigDestinationMicrosoftSentinelBufferMemory(dict):
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationNewRelic(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "accountIdKey":
+            suggest = "account_id_key"
+        elif key == "licenseKeyKey":
+            suggest = "license_key_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationNewRelic. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationNewRelic.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationNewRelic.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
                  region: _builtins.str,
-                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationNewRelicBuffer'] = None):
+                 account_id_key: Optional[_builtins.str] = None,
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationNewRelicBuffer'] = None,
+                 license_key_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str region: The New Relic region.
+        :param _builtins.str account_id_key: Name of the environment variable or secret that holds the New Relic account ID.
         :param 'ObservabilityPipelineConfigDestinationNewRelicBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        :param _builtins.str license_key_key: Name of the environment variable or secret that holds the New Relic license key.
         """
         pulumi.set(__self__, "region", region)
+        if account_id_key is not None:
+            pulumi.set(__self__, "account_id_key", account_id_key)
         if buffer is not None:
             pulumi.set(__self__, "buffer", buffer)
+        if license_key_key is not None:
+            pulumi.set(__self__, "license_key_key", license_key_key)
 
     @_builtins.property
     @pulumi.getter
@@ -48103,12 +49944,28 @@ class ObservabilityPipelineConfigDestinationNewRelic(dict):
         return pulumi.get(self, "region")
 
     @_builtins.property
+    @pulumi.getter(name="accountIdKey")
+    def account_id_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the New Relic account ID.
+        """
+        return pulumi.get(self, "account_id_key")
+
+    @_builtins.property
     @pulumi.getter
     def buffer(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationNewRelicBuffer']:
         """
         Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         """
         return pulumi.get(self, "buffer")
+
+    @_builtins.property
+    @pulumi.getter(name="licenseKeyKey")
+    def license_key_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the New Relic license key.
+        """
+        return pulumi.get(self, "license_key_key")
 
 
 @pulumi.output_type
@@ -48508,17 +50365,38 @@ class ObservabilityPipelineConfigDestinationOpensearchDataStream(dict):
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationRsyslog(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "endpointUrlKey":
+            suggest = "endpoint_url_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationRsyslog. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationRsyslog.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationRsyslog.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
                  buffer: Optional['outputs.ObservabilityPipelineConfigDestinationRsyslogBuffer'] = None,
+                 endpoint_url_key: Optional[_builtins.str] = None,
                  keepalive: Optional[_builtins.int] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigDestinationRsyslogTls'] = None):
         """
         :param 'ObservabilityPipelineConfigDestinationRsyslogBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        :param _builtins.str endpoint_url_key: Name of the environment variable or secret that holds the rsyslog endpoint URL.
         :param _builtins.int keepalive: Optional socket keepalive duration in milliseconds.
         :param 'ObservabilityPipelineConfigDestinationRsyslogTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         if buffer is not None:
             pulumi.set(__self__, "buffer", buffer)
+        if endpoint_url_key is not None:
+            pulumi.set(__self__, "endpoint_url_key", endpoint_url_key)
         if keepalive is not None:
             pulumi.set(__self__, "keepalive", keepalive)
         if tls is not None:
@@ -48531,6 +50409,14 @@ class ObservabilityPipelineConfigDestinationRsyslog(dict):
         Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         """
         return pulumi.get(self, "buffer")
+
+    @_builtins.property
+    @pulumi.getter(name="endpointUrlKey")
+    def endpoint_url_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the rsyslog endpoint URL.
+        """
+        return pulumi.get(self, "endpoint_url_key")
 
     @_builtins.property
     @pulumi.getter
@@ -48705,6 +50591,8 @@ class ObservabilityPipelineConfigDestinationRsyslogTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationRsyslogTls. Access the value via the '{suggest}' property getter instead.")
@@ -48720,17 +50608,21 @@ class ObservabilityPipelineConfigDestinationRsyslogTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -48756,19 +50648,48 @@ class ObservabilityPipelineConfigDestinationRsyslogTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationSentinelOne(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "tokenKey":
+            suggest = "token_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSentinelOne. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationSentinelOne.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationSentinelOne.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
                  region: _builtins.str,
-                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationSentinelOneBuffer'] = None):
+                 buffer: Optional['outputs.ObservabilityPipelineConfigDestinationSentinelOneBuffer'] = None,
+                 token_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str region: The SentinelOne region to send logs to.
         :param 'ObservabilityPipelineConfigDestinationSentinelOneBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        :param _builtins.str token_key: Name of the environment variable or secret that holds the SentinelOne API token.
         """
         pulumi.set(__self__, "region", region)
         if buffer is not None:
             pulumi.set(__self__, "buffer", buffer)
+        if token_key is not None:
+            pulumi.set(__self__, "token_key", token_key)
 
     @_builtins.property
     @pulumi.getter
@@ -48785,6 +50706,14 @@ class ObservabilityPipelineConfigDestinationSentinelOne(dict):
         Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         """
         return pulumi.get(self, "buffer")
+
+    @_builtins.property
+    @pulumi.getter(name="tokenKey")
+    def token_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the SentinelOne API token.
+        """
+        return pulumi.get(self, "token_key")
 
 
 @pulumi.output_type
@@ -48934,22 +50863,43 @@ class ObservabilityPipelineConfigDestinationSentinelOneBufferMemory(dict):
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationSocket(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "addressKey":
+            suggest = "address_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSocket. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationSocket.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationSocket.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
                  encoding: _builtins.str,
                  framing: 'outputs.ObservabilityPipelineConfigDestinationSocketFraming',
                  mode: _builtins.str,
+                 address_key: Optional[_builtins.str] = None,
                  buffer: Optional['outputs.ObservabilityPipelineConfigDestinationSocketBuffer'] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigDestinationSocketTls'] = None):
         """
         :param _builtins.str encoding: Encoding format for log events. Valid values are `json`, `raw_message`.
         :param 'ObservabilityPipelineConfigDestinationSocketFramingArgs' framing: Defines the framing method for outgoing messages.
         :param _builtins.str mode: The protocol used to send logs. Valid values are `tcp`, `udp`.
+        :param _builtins.str address_key: Name of the environment variable or secret that holds the socket address (host:port).
         :param 'ObservabilityPipelineConfigDestinationSocketBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param 'ObservabilityPipelineConfigDestinationSocketTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "encoding", encoding)
         pulumi.set(__self__, "framing", framing)
         pulumi.set(__self__, "mode", mode)
+        if address_key is not None:
+            pulumi.set(__self__, "address_key", address_key)
         if buffer is not None:
             pulumi.set(__self__, "buffer", buffer)
         if tls is not None:
@@ -48978,6 +50928,14 @@ class ObservabilityPipelineConfigDestinationSocket(dict):
         The protocol used to send logs. Valid values are `tcp`, `udp`.
         """
         return pulumi.get(self, "mode")
+
+    @_builtins.property
+    @pulumi.getter(name="addressKey")
+    def address_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the socket address (host:port).
+        """
+        return pulumi.get(self, "address_key")
 
     @_builtins.property
     @pulumi.getter
@@ -49217,6 +51175,8 @@ class ObservabilityPipelineConfigDestinationSocketTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSocketTls. Access the value via the '{suggest}' property getter instead.")
@@ -49232,17 +51192,21 @@ class ObservabilityPipelineConfigDestinationSocketTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -49268,6 +51232,14 @@ class ObservabilityPipelineConfigDestinationSocketTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationSplunkHec(dict):
@@ -49276,6 +51248,12 @@ class ObservabilityPipelineConfigDestinationSplunkHec(dict):
         suggest = None
         if key == "autoExtractTimestamp":
             suggest = "auto_extract_timestamp"
+        elif key == "endpointUrlKey":
+            suggest = "endpoint_url_key"
+        elif key == "indexedFields":
+            suggest = "indexed_fields"
+        elif key == "tokenKey":
+            suggest = "token_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSplunkHec. Access the value via the '{suggest}' property getter instead.")
@@ -49292,30 +51270,42 @@ class ObservabilityPipelineConfigDestinationSplunkHec(dict):
                  encoding: _builtins.str,
                  auto_extract_timestamp: Optional[_builtins.bool] = None,
                  buffer: Optional['outputs.ObservabilityPipelineConfigDestinationSplunkHecBuffer'] = None,
+                 endpoint_url_key: Optional[_builtins.str] = None,
                  index: Optional[_builtins.str] = None,
-                 sourcetype: Optional[_builtins.str] = None):
+                 indexed_fields: Optional[Sequence[_builtins.str]] = None,
+                 sourcetype: Optional[_builtins.str] = None,
+                 token_key: Optional[_builtins.str] = None):
         """
-        :param _builtins.str encoding: Encoding format for log events. Valid values: `json`, `raw_message`.
+        :param _builtins.str encoding: Encoding format for log events. Valid values are `json`, `raw_message`.
         :param _builtins.bool auto_extract_timestamp: If `true`, Splunk tries to extract timestamps from incoming log events.
         :param 'ObservabilityPipelineConfigDestinationSplunkHecBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        :param _builtins.str endpoint_url_key: Name of the environment variable or secret that holds the Splunk HEC endpoint URL.
         :param _builtins.str index: Optional name of the Splunk index where logs are written.
+        :param Sequence[_builtins.str] indexed_fields: List of log field names to send as indexed fields to Splunk HEC. Available only when `encoding` is `json`.
         :param _builtins.str sourcetype: The Splunk sourcetype to assign to log events.
+        :param _builtins.str token_key: Name of the environment variable or secret that holds the Splunk HEC token.
         """
         pulumi.set(__self__, "encoding", encoding)
         if auto_extract_timestamp is not None:
             pulumi.set(__self__, "auto_extract_timestamp", auto_extract_timestamp)
         if buffer is not None:
             pulumi.set(__self__, "buffer", buffer)
+        if endpoint_url_key is not None:
+            pulumi.set(__self__, "endpoint_url_key", endpoint_url_key)
         if index is not None:
             pulumi.set(__self__, "index", index)
+        if indexed_fields is not None:
+            pulumi.set(__self__, "indexed_fields", indexed_fields)
         if sourcetype is not None:
             pulumi.set(__self__, "sourcetype", sourcetype)
+        if token_key is not None:
+            pulumi.set(__self__, "token_key", token_key)
 
     @_builtins.property
     @pulumi.getter
     def encoding(self) -> _builtins.str:
         """
-        Encoding format for log events. Valid values: `json`, `raw_message`.
+        Encoding format for log events. Valid values are `json`, `raw_message`.
         """
         return pulumi.get(self, "encoding")
 
@@ -49336,6 +51326,14 @@ class ObservabilityPipelineConfigDestinationSplunkHec(dict):
         return pulumi.get(self, "buffer")
 
     @_builtins.property
+    @pulumi.getter(name="endpointUrlKey")
+    def endpoint_url_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the Splunk HEC endpoint URL.
+        """
+        return pulumi.get(self, "endpoint_url_key")
+
+    @_builtins.property
     @pulumi.getter
     def index(self) -> Optional[_builtins.str]:
         """
@@ -49344,12 +51342,28 @@ class ObservabilityPipelineConfigDestinationSplunkHec(dict):
         return pulumi.get(self, "index")
 
     @_builtins.property
+    @pulumi.getter(name="indexedFields")
+    def indexed_fields(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of log field names to send as indexed fields to Splunk HEC. Available only when `encoding` is `json`.
+        """
+        return pulumi.get(self, "indexed_fields")
+
+    @_builtins.property
     @pulumi.getter
     def sourcetype(self) -> Optional[_builtins.str]:
         """
         The Splunk sourcetype to assign to log events.
         """
         return pulumi.get(self, "sourcetype")
+
+    @_builtins.property
+    @pulumi.getter(name="tokenKey")
+    def token_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the Splunk HEC token.
+        """
+        return pulumi.get(self, "token_key")
 
 
 @pulumi.output_type
@@ -49502,7 +51516,9 @@ class ObservabilityPipelineConfigDestinationSumoLogic(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "headerCustomFields":
+        if key == "endpointUrlKey":
+            suggest = "endpoint_url_key"
+        elif key == "headerCustomFields":
             suggest = "header_custom_fields"
         elif key == "headerHostName":
             suggest = "header_host_name"
@@ -49525,6 +51541,7 @@ class ObservabilityPipelineConfigDestinationSumoLogic(dict):
     def __init__(__self__, *,
                  buffer: Optional['outputs.ObservabilityPipelineConfigDestinationSumoLogicBuffer'] = None,
                  encoding: Optional[_builtins.str] = None,
+                 endpoint_url_key: Optional[_builtins.str] = None,
                  header_custom_fields: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationSumoLogicHeaderCustomField']] = None,
                  header_host_name: Optional[_builtins.str] = None,
                  header_source_category: Optional[_builtins.str] = None,
@@ -49532,6 +51549,7 @@ class ObservabilityPipelineConfigDestinationSumoLogic(dict):
         """
         :param 'ObservabilityPipelineConfigDestinationSumoLogicBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         :param _builtins.str encoding: The output encoding format.
+        :param _builtins.str endpoint_url_key: Name of the environment variable or secret that holds the Sumo Logic endpoint URL.
         :param Sequence['ObservabilityPipelineConfigDestinationSumoLogicHeaderCustomFieldArgs'] header_custom_fields: A list of custom headers to include in the request to Sumo Logic.
         :param _builtins.str header_host_name: Optional override for the host name header.
         :param _builtins.str header_source_category: Optional override for the source category header.
@@ -49541,6 +51559,8 @@ class ObservabilityPipelineConfigDestinationSumoLogic(dict):
             pulumi.set(__self__, "buffer", buffer)
         if encoding is not None:
             pulumi.set(__self__, "encoding", encoding)
+        if endpoint_url_key is not None:
+            pulumi.set(__self__, "endpoint_url_key", endpoint_url_key)
         if header_custom_fields is not None:
             pulumi.set(__self__, "header_custom_fields", header_custom_fields)
         if header_host_name is not None:
@@ -49565,6 +51585,14 @@ class ObservabilityPipelineConfigDestinationSumoLogic(dict):
         The output encoding format.
         """
         return pulumi.get(self, "encoding")
+
+    @_builtins.property
+    @pulumi.getter(name="endpointUrlKey")
+    def endpoint_url_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the Sumo Logic endpoint URL.
+        """
+        return pulumi.get(self, "endpoint_url_key")
 
     @_builtins.property
     @pulumi.getter(name="headerCustomFields")
@@ -49777,17 +51805,38 @@ class ObservabilityPipelineConfigDestinationSumoLogicHeaderCustomField(dict):
 
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationSyslogNg(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "endpointUrlKey":
+            suggest = "endpoint_url_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSyslogNg. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationSyslogNg.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationSyslogNg.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
                  buffer: Optional['outputs.ObservabilityPipelineConfigDestinationSyslogNgBuffer'] = None,
+                 endpoint_url_key: Optional[_builtins.str] = None,
                  keepalive: Optional[_builtins.int] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigDestinationSyslogNgTls'] = None):
         """
         :param 'ObservabilityPipelineConfigDestinationSyslogNgBufferArgs' buffer: Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
+        :param _builtins.str endpoint_url_key: Name of the environment variable or secret that holds the syslog-ng endpoint URL.
         :param _builtins.int keepalive: Optional socket keepalive duration in milliseconds.
         :param 'ObservabilityPipelineConfigDestinationSyslogNgTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         if buffer is not None:
             pulumi.set(__self__, "buffer", buffer)
+        if endpoint_url_key is not None:
+            pulumi.set(__self__, "endpoint_url_key", endpoint_url_key)
         if keepalive is not None:
             pulumi.set(__self__, "keepalive", keepalive)
         if tls is not None:
@@ -49800,6 +51849,14 @@ class ObservabilityPipelineConfigDestinationSyslogNg(dict):
         Configuration for buffer settings on destination components. Exactly one of `disk` or `memory` must be specified.
         """
         return pulumi.get(self, "buffer")
+
+    @_builtins.property
+    @pulumi.getter(name="endpointUrlKey")
+    def endpoint_url_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the syslog-ng endpoint URL.
+        """
+        return pulumi.get(self, "endpoint_url_key")
 
     @_builtins.property
     @pulumi.getter
@@ -49974,6 +52031,8 @@ class ObservabilityPipelineConfigDestinationSyslogNgTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationSyslogNgTls. Access the value via the '{suggest}' property getter instead.")
@@ -49989,17 +52048,21 @@ class ObservabilityPipelineConfigDestinationSyslogNgTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -50024,6 +52087,14 @@ class ObservabilityPipelineConfigDestinationSyslogNgTls(dict):
         Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
         return pulumi.get(self, "key_file")
+
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
 
 
 @pulumi.output_type
@@ -50210,7 +52281,7 @@ class ObservabilityPipelineConfigProcessorGroupProcessor(dict):
         :param 'ObservabilityPipelineConfigProcessorGroupProcessorFilterArgs' filter: The `filter` processor allows conditional processing of logs based on a Datadog search query. Logs that match the `include` query are passed through; others are discarded.
         :param 'ObservabilityPipelineConfigProcessorGroupProcessorGenerateDatadogMetricsArgs' generate_datadog_metrics: The `generate_datadog_metrics` processor creates custom metrics from logs. Metrics can be counters, gauges, or distributions and optionally grouped by log fields.
         :param 'ObservabilityPipelineConfigProcessorGroupProcessorMetricTagsArgs' metric_tags: The `metric_tags` processor filters metrics based on their tags using Datadog tag key patterns.
-        :param 'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperArgs' ocsf_mapper: The `ocsf_mapper` processor transforms logs into the OCSF schema using predefined library mappings.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperArgs' ocsf_mapper: The `ocsf_mapper` processor transforms logs into the OCSF schema using predefined library mappings or custom mapping configuration.
         :param 'ObservabilityPipelineConfigProcessorGroupProcessorParseGrokArgs' parse_grok: The `parse_grok` processor extracts structured fields from unstructured log messages using Grok patterns.
         :param 'ObservabilityPipelineConfigProcessorGroupProcessorParseJsonArgs' parse_json: The `parse_json` processor extracts JSON from a specified field and flattens it into the event. This is useful when logs contain embedded JSON as a string.
         :param 'ObservabilityPipelineConfigProcessorGroupProcessorParseXmlArgs' parse_xml: The `parse_xml` processor parses XML from a specified field and extracts it into the event.
@@ -50386,7 +52457,7 @@ class ObservabilityPipelineConfigProcessorGroupProcessor(dict):
     @pulumi.getter(name="ocsfMapper")
     def ocsf_mapper(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapper']:
         """
-        The `ocsf_mapper` processor transforms logs into the OCSF schema using predefined library mappings.
+        The `ocsf_mapper` processor transforms logs into the OCSF schema using predefined library mappings or custom mapping configuration.
         """
         return pulumi.get(self, "ocsf_mapper")
 
@@ -51021,6 +53092,8 @@ class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableReference
             suggest = "key_field"
         elif key == "tableId":
             suggest = "table_id"
+        elif key == "appKeyKey":
+            suggest = "app_key_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableReferenceTable. Access the value via the '{suggest}' property getter instead.")
@@ -51036,14 +53109,18 @@ class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableReference
     def __init__(__self__, *,
                  key_field: _builtins.str,
                  table_id: _builtins.str,
+                 app_key_key: Optional[_builtins.str] = None,
                  columns: Optional[Sequence[_builtins.str]] = None):
         """
         :param _builtins.str key_field: Path to the field in the log event to match against the reference table.
         :param _builtins.str table_id: The unique identifier of the reference table.
+        :param _builtins.str app_key_key: Name of the environment variable or secret that holds the Datadog application key for the reference table.
         :param Sequence[_builtins.str] columns: List of column names to include from the reference table. If not provided, all columns are included.
         """
         pulumi.set(__self__, "key_field", key_field)
         pulumi.set(__self__, "table_id", table_id)
+        if app_key_key is not None:
+            pulumi.set(__self__, "app_key_key", app_key_key)
         if columns is not None:
             pulumi.set(__self__, "columns", columns)
 
@@ -51062,6 +53139,14 @@ class ObservabilityPipelineConfigProcessorGroupProcessorEnrichmentTableReference
         The unique identifier of the reference table.
         """
         return pulumi.get(self, "table_id")
+
+    @_builtins.property
+    @pulumi.getter(name="appKeyKey")
+    def app_key_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the Datadog application key for the reference table.
+        """
+        return pulumi.get(self, "app_key_key")
 
     @_builtins.property
     @pulumi.getter
@@ -51280,19 +53365,48 @@ class ObservabilityPipelineConfigProcessorGroupProcessorMetricTagsRule(dict):
 
 @pulumi.output_type
 class ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapper(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "keepUnmatched":
+            suggest = "keep_unmatched"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapper. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapper.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapper.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 keep_unmatched: Optional[_builtins.bool] = None,
                  mappings: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMapping']] = None):
         """
-        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingArgs'] mappings: List of OCSF mapping entries using library mapping.
+        :param _builtins.bool keep_unmatched: Whether to keep an event that does not match any of the mapping filters.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingArgs'] mappings: List of OCSF mapping entries. Each entry uses either a library mapping or a custom mapping.
         """
+        if keep_unmatched is not None:
+            pulumi.set(__self__, "keep_unmatched", keep_unmatched)
         if mappings is not None:
             pulumi.set(__self__, "mappings", mappings)
+
+    @_builtins.property
+    @pulumi.getter(name="keepUnmatched")
+    def keep_unmatched(self) -> Optional[_builtins.bool]:
+        """
+        Whether to keep an event that does not match any of the mapping filters.
+        """
+        return pulumi.get(self, "keep_unmatched")
 
     @_builtins.property
     @pulumi.getter
     def mappings(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMapping']]:
         """
-        List of OCSF mapping entries using library mapping.
+        List of OCSF mapping entries. Each entry uses either a library mapping or a custom mapping.
         """
         return pulumi.get(self, "mappings")
 
@@ -51302,7 +53416,9 @@ class ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMapping(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "libraryMapping":
+        if key == "customMapping":
+            suggest = "custom_mapping"
+        elif key == "libraryMapping":
             suggest = "library_mapping"
 
         if suggest:
@@ -51318,13 +53434,18 @@ class ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMapping(dict):
 
     def __init__(__self__, *,
                  include: _builtins.str,
-                 library_mapping: _builtins.str):
+                 custom_mapping: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMapping'] = None,
+                 library_mapping: Optional[_builtins.str] = None):
         """
         :param _builtins.str include: Search query for selecting which logs the mapping applies to.
-        :param _builtins.str library_mapping: Predefined library mapping for log transformation.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingArgs' custom_mapping: Custom OCSF mapping configuration for transforming logs.
+        :param _builtins.str library_mapping: Predefined library mapping for log transformation. Use this or custom_mapping, not both.
         """
         pulumi.set(__self__, "include", include)
-        pulumi.set(__self__, "library_mapping", library_mapping)
+        if custom_mapping is not None:
+            pulumi.set(__self__, "custom_mapping", custom_mapping)
+        if library_mapping is not None:
+            pulumi.set(__self__, "library_mapping", library_mapping)
 
     @_builtins.property
     @pulumi.getter
@@ -51335,12 +53456,326 @@ class ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMapping(dict):
         return pulumi.get(self, "include")
 
     @_builtins.property
-    @pulumi.getter(name="libraryMapping")
-    def library_mapping(self) -> _builtins.str:
+    @pulumi.getter(name="customMapping")
+    def custom_mapping(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMapping']:
         """
-        Predefined library mapping for log transformation.
+        Custom OCSF mapping configuration for transforming logs.
+        """
+        return pulumi.get(self, "custom_mapping")
+
+    @_builtins.property
+    @pulumi.getter(name="libraryMapping")
+    def library_mapping(self) -> Optional[_builtins.str]:
+        """
+        Predefined library mapping for log transformation. Use this or custom_mapping, not both.
         """
         return pulumi.get(self, "library_mapping")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMapping(dict):
+    def __init__(__self__, *,
+                 metadata: 'outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMetadata',
+                 version: _builtins.int,
+                 mappings: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMapping']] = None):
+        """
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMetadataArgs' metadata: Metadata for the custom OCSF mapping.
+        :param _builtins.int version: The version of the custom mapping configuration.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMappingArgs'] mappings: A list of field mapping rules for transforming log fields to OCSF schema fields.
+        """
+        pulumi.set(__self__, "metadata", metadata)
+        pulumi.set(__self__, "version", version)
+        if mappings is not None:
+            pulumi.set(__self__, "mappings", mappings)
+
+    @_builtins.property
+    @pulumi.getter
+    def metadata(self) -> 'outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMetadata':
+        """
+        Metadata for the custom OCSF mapping.
+        """
+        return pulumi.get(self, "metadata")
+
+    @_builtins.property
+    @pulumi.getter
+    def version(self) -> _builtins.int:
+        """
+        The version of the custom mapping configuration.
+        """
+        return pulumi.get(self, "version")
+
+    @_builtins.property
+    @pulumi.getter
+    def mappings(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMapping']]:
+        """
+        A list of field mapping rules for transforming log fields to OCSF schema fields.
+        """
+        return pulumi.get(self, "mappings")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMapping(dict):
+    def __init__(__self__, *,
+                 dest: _builtins.str,
+                 default: Optional[_builtins.str] = None,
+                 lookup: Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMappingLookup'] = None,
+                 source: Optional[_builtins.str] = None,
+                 sources: Optional[Sequence[_builtins.str]] = None,
+                 value: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str dest: The destination OCSF field path.
+        :param _builtins.str default: The default value to use if the source field is missing or empty.
+        :param 'ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMappingLookupArgs' lookup: Lookup table configuration for mapping source values to destination values.
+        :param _builtins.str source: The source field path from the log event.
+        :param Sequence[_builtins.str] sources: Multiple source field paths for combined mapping.
+        :param _builtins.str value: A static value to use for the destination field.
+        """
+        pulumi.set(__self__, "dest", dest)
+        if default is not None:
+            pulumi.set(__self__, "default", default)
+        if lookup is not None:
+            pulumi.set(__self__, "lookup", lookup)
+        if source is not None:
+            pulumi.set(__self__, "source", source)
+        if sources is not None:
+            pulumi.set(__self__, "sources", sources)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def dest(self) -> _builtins.str:
+        """
+        The destination OCSF field path.
+        """
+        return pulumi.get(self, "dest")
+
+    @_builtins.property
+    @pulumi.getter
+    def default(self) -> Optional[_builtins.str]:
+        """
+        The default value to use if the source field is missing or empty.
+        """
+        return pulumi.get(self, "default")
+
+    @_builtins.property
+    @pulumi.getter
+    def lookup(self) -> Optional['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMappingLookup']:
+        """
+        Lookup table configuration for mapping source values to destination values.
+        """
+        return pulumi.get(self, "lookup")
+
+    @_builtins.property
+    @pulumi.getter
+    def source(self) -> Optional[_builtins.str]:
+        """
+        The source field path from the log event.
+        """
+        return pulumi.get(self, "source")
+
+    @_builtins.property
+    @pulumi.getter
+    def sources(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Multiple source field paths for combined mapping.
+        """
+        return pulumi.get(self, "sources")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[_builtins.str]:
+        """
+        A static value to use for the destination field.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMappingLookup(dict):
+    def __init__(__self__, *,
+                 default: Optional[_builtins.str] = None,
+                 tables: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMappingLookupTable']] = None):
+        """
+        :param _builtins.str default: The default value to use if no lookup match is found.
+        :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMappingLookupTableArgs'] tables: A list of lookup table entries for value transformation.
+        """
+        if default is not None:
+            pulumi.set(__self__, "default", default)
+        if tables is not None:
+            pulumi.set(__self__, "tables", tables)
+
+    @_builtins.property
+    @pulumi.getter
+    def default(self) -> Optional[_builtins.str]:
+        """
+        The default value to use if no lookup match is found.
+        """
+        return pulumi.get(self, "default")
+
+    @_builtins.property
+    @pulumi.getter
+    def tables(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMappingLookupTable']]:
+        """
+        A list of lookup table entries for value transformation.
+        """
+        return pulumi.get(self, "tables")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMappingLookupTable(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "equalsSource":
+            suggest = "equals_source"
+        elif key == "notMatches":
+            suggest = "not_matches"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMappingLookupTable. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMappingLookupTable.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMappingLookupTable.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 contains: Optional[_builtins.str] = None,
+                 equals: Optional[_builtins.str] = None,
+                 equals_source: Optional[_builtins.str] = None,
+                 matches: Optional[_builtins.str] = None,
+                 not_matches: Optional[_builtins.str] = None,
+                 value: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str contains: The substring to match in the source value.
+        :param _builtins.str equals: The exact value to match in the source.
+        :param _builtins.str equals_source: The source field to match against.
+        :param _builtins.str matches: A regex pattern to match in the source value.
+        :param _builtins.str not_matches: A regex pattern that must not match the source value.
+        :param _builtins.str value: The value to use when a match is found.
+        """
+        if contains is not None:
+            pulumi.set(__self__, "contains", contains)
+        if equals is not None:
+            pulumi.set(__self__, "equals", equals)
+        if equals_source is not None:
+            pulumi.set(__self__, "equals_source", equals_source)
+        if matches is not None:
+            pulumi.set(__self__, "matches", matches)
+        if not_matches is not None:
+            pulumi.set(__self__, "not_matches", not_matches)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def contains(self) -> Optional[_builtins.str]:
+        """
+        The substring to match in the source value.
+        """
+        return pulumi.get(self, "contains")
+
+    @_builtins.property
+    @pulumi.getter
+    def equals(self) -> Optional[_builtins.str]:
+        """
+        The exact value to match in the source.
+        """
+        return pulumi.get(self, "equals")
+
+    @_builtins.property
+    @pulumi.getter(name="equalsSource")
+    def equals_source(self) -> Optional[_builtins.str]:
+        """
+        The source field to match against.
+        """
+        return pulumi.get(self, "equals_source")
+
+    @_builtins.property
+    @pulumi.getter
+    def matches(self) -> Optional[_builtins.str]:
+        """
+        A regex pattern to match in the source value.
+        """
+        return pulumi.get(self, "matches")
+
+    @_builtins.property
+    @pulumi.getter(name="notMatches")
+    def not_matches(self) -> Optional[_builtins.str]:
+        """
+        A regex pattern that must not match the source value.
+        """
+        return pulumi.get(self, "not_matches")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[_builtins.str]:
+        """
+        The value to use when a match is found.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMetadata(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "class":
+            suggest = "class_"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMetadata. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMetadata.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigProcessorGroupProcessorOcsfMapperMappingCustomMappingMetadata.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 class_: _builtins.str,
+                 version: _builtins.str,
+                 profiles: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str class_: The OCSF event class name.
+        :param _builtins.str version: The OCSF schema version.
+        :param Sequence[_builtins.str] profiles: A list of OCSF profiles to apply.
+        """
+        pulumi.set(__self__, "class_", class_)
+        pulumi.set(__self__, "version", version)
+        if profiles is not None:
+            pulumi.set(__self__, "profiles", profiles)
+
+    @_builtins.property
+    @pulumi.getter(name="class")
+    def class_(self) -> _builtins.str:
+        """
+        The OCSF event class name.
+        """
+        return pulumi.get(self, "class_")
+
+    @_builtins.property
+    @pulumi.getter
+    def version(self) -> _builtins.str:
+        """
+        The OCSF schema version.
+        """
+        return pulumi.get(self, "version")
+
+    @_builtins.property
+    @pulumi.getter
+    def profiles(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        A list of OCSF profiles to apply.
+        """
+        return pulumi.get(self, "profiles")
 
 
 @pulumi.output_type
@@ -52743,7 +55178,7 @@ class ObservabilityPipelineConfigSource(dict):
         :param Sequence['ObservabilityPipelineConfigSourceAmazonS3Args'] amazon_s3s: The `amazon_s3` source ingests logs from an Amazon S3 bucket. It supports AWS authentication and TLS encryption.
         :param Sequence['ObservabilityPipelineConfigSourceDatadogAgentArgs'] datadog_agents: The `datadog_agent` source collects logs from the Datadog Agent.
         :param Sequence['ObservabilityPipelineConfigSourceFluentBitArgs'] fluent_bits: The `fluent_bit` source ingests logs from Fluent Bit.
-        :param Sequence['ObservabilityPipelineConfigSourceFluentdArgs'] fluentds: The `fluentd source ingests logs from a Fluentd-compatible service.
+        :param Sequence['ObservabilityPipelineConfigSourceFluentdArgs'] fluentds: The `fluentd` source ingests logs from a Fluentd-compatible service.
         :param Sequence['ObservabilityPipelineConfigSourceGooglePubsubArgs'] google_pubsubs: The `google_pubsub` source ingests logs from a Google Cloud Pub/Sub subscription.
         :param Sequence['ObservabilityPipelineConfigSourceHttpClientArgs'] http_clients: The `http_client` source scrapes logs from HTTP endpoints at regular intervals.
         :param Sequence['ObservabilityPipelineConfigSourceHttpServerArgs'] http_servers: The `http_server` source collects logs over HTTP POST from external services.
@@ -52837,7 +55272,7 @@ class ObservabilityPipelineConfigSource(dict):
     @pulumi.getter
     def fluentds(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourceFluentd']]:
         """
-        The `fluentd source ingests logs from a Fluentd-compatible service.
+        The `fluentd` source ingests logs from a Fluentd-compatible service.
         """
         return pulumi.get(self, "fluentds")
 
@@ -52940,17 +55375,46 @@ class ObservabilityPipelineConfigSource(dict):
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceAmazonDataFirehose(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "addressKey":
+            suggest = "address_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceAmazonDataFirehose. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourceAmazonDataFirehose.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourceAmazonDataFirehose.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 address_key: Optional[_builtins.str] = None,
                  auth: Optional['outputs.ObservabilityPipelineConfigSourceAmazonDataFirehoseAuth'] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigSourceAmazonDataFirehoseTls'] = None):
         """
+        :param _builtins.str address_key: Name of the environment variable or secret that holds the listen address.
         :param 'ObservabilityPipelineConfigSourceAmazonDataFirehoseAuthArgs' auth: AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
         :param 'ObservabilityPipelineConfigSourceAmazonDataFirehoseTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
+        if address_key is not None:
+            pulumi.set(__self__, "address_key", address_key)
         if auth is not None:
             pulumi.set(__self__, "auth", auth)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter(name="addressKey")
+    def address_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the listen address.
+        """
+        return pulumi.get(self, "address_key")
 
     @_builtins.property
     @pulumi.getter
@@ -53044,6 +55508,8 @@ class ObservabilityPipelineConfigSourceAmazonDataFirehoseTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceAmazonDataFirehoseTls. Access the value via the '{suggest}' property getter instead.")
@@ -53059,17 +55525,21 @@ class ObservabilityPipelineConfigSourceAmazonDataFirehoseTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -53095,23 +55565,52 @@ class ObservabilityPipelineConfigSourceAmazonDataFirehoseTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceAmazonS3(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "urlKey":
+            suggest = "url_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceAmazonS3. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourceAmazonS3.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourceAmazonS3.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
                  region: _builtins.str,
                  auth: Optional['outputs.ObservabilityPipelineConfigSourceAmazonS3Auth'] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourceAmazonS3Tls'] = None):
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceAmazonS3Tls'] = None,
+                 url_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str region: AWS region where the S3 bucket resides.
         :param 'ObservabilityPipelineConfigSourceAmazonS3AuthArgs' auth: AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
         :param 'ObservabilityPipelineConfigSourceAmazonS3TlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param _builtins.str url_key: Name of the environment variable or secret that holds the S3 bucket URL.
         """
         pulumi.set(__self__, "region", region)
         if auth is not None:
             pulumi.set(__self__, "auth", auth)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+        if url_key is not None:
+            pulumi.set(__self__, "url_key", url_key)
 
     @_builtins.property
     @pulumi.getter
@@ -53136,6 +55635,14 @@ class ObservabilityPipelineConfigSourceAmazonS3(dict):
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         return pulumi.get(self, "tls")
+
+    @_builtins.property
+    @pulumi.getter(name="urlKey")
+    def url_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the S3 bucket URL.
+        """
+        return pulumi.get(self, "url_key")
 
 
 @pulumi.output_type
@@ -53213,6 +55720,8 @@ class ObservabilityPipelineConfigSourceAmazonS3Tls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceAmazonS3Tls. Access the value via the '{suggest}' property getter instead.")
@@ -53228,17 +55737,21 @@ class ObservabilityPipelineConfigSourceAmazonS3Tls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -53263,6 +55776,14 @@ class ObservabilityPipelineConfigSourceAmazonS3Tls(dict):
         Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
         return pulumi.get(self, "key_file")
+
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
 
 
 @pulumi.output_type
@@ -53295,6 +55816,8 @@ class ObservabilityPipelineConfigSourceDatadogAgentTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceDatadogAgentTls. Access the value via the '{suggest}' property getter instead.")
@@ -53310,17 +55833,21 @@ class ObservabilityPipelineConfigSourceDatadogAgentTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -53346,16 +55873,53 @@ class ObservabilityPipelineConfigSourceDatadogAgentTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceFluentBit(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "addressKey":
+            suggest = "address_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceFluentBit. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourceFluentBit.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourceFluentBit.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 address_key: Optional[_builtins.str] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigSourceFluentBitTls'] = None):
         """
+        :param _builtins.str address_key: Name of the environment variable or secret that holds the listen address.
         :param 'ObservabilityPipelineConfigSourceFluentBitTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
+        if address_key is not None:
+            pulumi.set(__self__, "address_key", address_key)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter(name="addressKey")
+    def address_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the listen address.
+        """
+        return pulumi.get(self, "address_key")
 
     @_builtins.property
     @pulumi.getter
@@ -53377,6 +55941,8 @@ class ObservabilityPipelineConfigSourceFluentBitTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceFluentBitTls. Access the value via the '{suggest}' property getter instead.")
@@ -53392,17 +55958,21 @@ class ObservabilityPipelineConfigSourceFluentBitTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -53428,16 +55998,53 @@ class ObservabilityPipelineConfigSourceFluentBitTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceFluentd(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "addressKey":
+            suggest = "address_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceFluentd. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourceFluentd.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourceFluentd.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 address_key: Optional[_builtins.str] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigSourceFluentdTls'] = None):
         """
+        :param _builtins.str address_key: Name of the environment variable or secret that holds the listen address.
         :param 'ObservabilityPipelineConfigSourceFluentdTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
+        if address_key is not None:
+            pulumi.set(__self__, "address_key", address_key)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter(name="addressKey")
+    def address_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the listen address.
+        """
+        return pulumi.get(self, "address_key")
 
     @_builtins.property
     @pulumi.getter
@@ -53459,6 +56066,8 @@ class ObservabilityPipelineConfigSourceFluentdTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceFluentdTls. Access the value via the '{suggest}' property getter instead.")
@@ -53474,17 +56083,21 @@ class ObservabilityPipelineConfigSourceFluentdTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -53510,6 +56123,14 @@ class ObservabilityPipelineConfigSourceFluentdTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceGooglePubsub(dict):
@@ -53521,9 +56142,9 @@ class ObservabilityPipelineConfigSourceGooglePubsub(dict):
                  tls: Optional['outputs.ObservabilityPipelineConfigSourceGooglePubsubTls'] = None):
         """
         :param _builtins.str decoding: The decoding format used to interpret incoming logs.
-        :param _builtins.str project: The GCP project ID that owns the Pub/Sub subscription.
+        :param _builtins.str project: The Google Cloud project ID that owns the Pub/Sub subscription.
         :param _builtins.str subscription: The Pub/Sub subscription name from which messages are consumed.
-        :param 'ObservabilityPipelineConfigSourceGooglePubsubAuthArgs' auth: GCP credentials used to authenticate with Google Cloud services.
+        :param 'ObservabilityPipelineConfigSourceGooglePubsubAuthArgs' auth: Google Cloud credentials used to authenticate with Google Cloud services.
         :param 'ObservabilityPipelineConfigSourceGooglePubsubTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "decoding", decoding)
@@ -53546,7 +56167,7 @@ class ObservabilityPipelineConfigSourceGooglePubsub(dict):
     @pulumi.getter
     def project(self) -> _builtins.str:
         """
-        The GCP project ID that owns the Pub/Sub subscription.
+        The Google Cloud project ID that owns the Pub/Sub subscription.
         """
         return pulumi.get(self, "project")
 
@@ -53562,7 +56183,7 @@ class ObservabilityPipelineConfigSourceGooglePubsub(dict):
     @pulumi.getter
     def auth(self) -> Optional['outputs.ObservabilityPipelineConfigSourceGooglePubsubAuth']:
         """
-        GCP credentials used to authenticate with Google Cloud services.
+        Google Cloud credentials used to authenticate with Google Cloud services.
         """
         return pulumi.get(self, "auth")
 
@@ -53597,7 +56218,7 @@ class ObservabilityPipelineConfigSourceGooglePubsubAuth(dict):
     def __init__(__self__, *,
                  credentials_file: _builtins.str):
         """
-        :param _builtins.str credentials_file: Path to the GCP service account key file.
+        :param _builtins.str credentials_file: Path to the Google Cloud service account key file.
         """
         pulumi.set(__self__, "credentials_file", credentials_file)
 
@@ -53605,7 +56226,7 @@ class ObservabilityPipelineConfigSourceGooglePubsubAuth(dict):
     @pulumi.getter(name="credentialsFile")
     def credentials_file(self) -> _builtins.str:
         """
-        Path to the GCP service account key file.
+        Path to the Google Cloud service account key file.
         """
         return pulumi.get(self, "credentials_file")
 
@@ -53621,6 +56242,8 @@ class ObservabilityPipelineConfigSourceGooglePubsubTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceGooglePubsubTls. Access the value via the '{suggest}' property getter instead.")
@@ -53636,17 +56259,21 @@ class ObservabilityPipelineConfigSourceGooglePubsubTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -53672,6 +56299,14 @@ class ObservabilityPipelineConfigSourceGooglePubsubTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceHttpClient(dict):
@@ -53680,10 +56315,20 @@ class ObservabilityPipelineConfigSourceHttpClient(dict):
         suggest = None
         if key == "authStrategy":
             suggest = "auth_strategy"
+        elif key == "customKey":
+            suggest = "custom_key"
+        elif key == "endpointUrlKey":
+            suggest = "endpoint_url_key"
+        elif key == "passwordKey":
+            suggest = "password_key"
         elif key == "scrapeIntervalSecs":
             suggest = "scrape_interval_secs"
         elif key == "scrapeTimeoutSecs":
             suggest = "scrape_timeout_secs"
+        elif key == "tokenKey":
+            suggest = "token_key"
+        elif key == "usernameKey":
+            suggest = "username_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceHttpClient. Access the value via the '{suggest}' property getter instead.")
@@ -53699,25 +56344,45 @@ class ObservabilityPipelineConfigSourceHttpClient(dict):
     def __init__(__self__, *,
                  decoding: _builtins.str,
                  auth_strategy: Optional[_builtins.str] = None,
+                 custom_key: Optional[_builtins.str] = None,
+                 endpoint_url_key: Optional[_builtins.str] = None,
+                 password_key: Optional[_builtins.str] = None,
                  scrape_interval_secs: Optional[_builtins.int] = None,
                  scrape_timeout_secs: Optional[_builtins.int] = None,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourceHttpClientTls'] = None):
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceHttpClientTls'] = None,
+                 token_key: Optional[_builtins.str] = None,
+                 username_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str decoding: The decoding format used to interpret incoming logs.
         :param _builtins.str auth_strategy: Optional authentication strategy for HTTP requests. Valid values are `none`, `basic`, `bearer`, `custom`.
+        :param _builtins.str custom_key: Name of the environment variable or secret that holds a custom header value (used with custom auth strategies).
+        :param _builtins.str endpoint_url_key: Name of the environment variable or secret that holds the HTTP endpoint URL.
+        :param _builtins.str password_key: Name of the environment variable or secret that holds the password.
         :param _builtins.int scrape_interval_secs: The interval (in seconds) between HTTP scrape requests.
         :param _builtins.int scrape_timeout_secs: The timeout (in seconds) for each scrape request.
         :param 'ObservabilityPipelineConfigSourceHttpClientTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param _builtins.str token_key: Name of the environment variable or secret that holds the authentication token.
+        :param _builtins.str username_key: Name of the environment variable or secret that holds the username.
         """
         pulumi.set(__self__, "decoding", decoding)
         if auth_strategy is not None:
             pulumi.set(__self__, "auth_strategy", auth_strategy)
+        if custom_key is not None:
+            pulumi.set(__self__, "custom_key", custom_key)
+        if endpoint_url_key is not None:
+            pulumi.set(__self__, "endpoint_url_key", endpoint_url_key)
+        if password_key is not None:
+            pulumi.set(__self__, "password_key", password_key)
         if scrape_interval_secs is not None:
             pulumi.set(__self__, "scrape_interval_secs", scrape_interval_secs)
         if scrape_timeout_secs is not None:
             pulumi.set(__self__, "scrape_timeout_secs", scrape_timeout_secs)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+        if token_key is not None:
+            pulumi.set(__self__, "token_key", token_key)
+        if username_key is not None:
+            pulumi.set(__self__, "username_key", username_key)
 
     @_builtins.property
     @pulumi.getter
@@ -53734,6 +56399,30 @@ class ObservabilityPipelineConfigSourceHttpClient(dict):
         Optional authentication strategy for HTTP requests. Valid values are `none`, `basic`, `bearer`, `custom`.
         """
         return pulumi.get(self, "auth_strategy")
+
+    @_builtins.property
+    @pulumi.getter(name="customKey")
+    def custom_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds a custom header value (used with custom auth strategies).
+        """
+        return pulumi.get(self, "custom_key")
+
+    @_builtins.property
+    @pulumi.getter(name="endpointUrlKey")
+    def endpoint_url_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the HTTP endpoint URL.
+        """
+        return pulumi.get(self, "endpoint_url_key")
+
+    @_builtins.property
+    @pulumi.getter(name="passwordKey")
+    def password_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the password.
+        """
+        return pulumi.get(self, "password_key")
 
     @_builtins.property
     @pulumi.getter(name="scrapeIntervalSecs")
@@ -53759,6 +56448,22 @@ class ObservabilityPipelineConfigSourceHttpClient(dict):
         """
         return pulumi.get(self, "tls")
 
+    @_builtins.property
+    @pulumi.getter(name="tokenKey")
+    def token_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the authentication token.
+        """
+        return pulumi.get(self, "token_key")
+
+    @_builtins.property
+    @pulumi.getter(name="usernameKey")
+    def username_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the username.
+        """
+        return pulumi.get(self, "username_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceHttpClientTls(dict):
@@ -53771,6 +56476,8 @@ class ObservabilityPipelineConfigSourceHttpClientTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceHttpClientTls. Access the value via the '{suggest}' property getter instead.")
@@ -53786,17 +56493,21 @@ class ObservabilityPipelineConfigSourceHttpClientTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -53822,6 +56533,14 @@ class ObservabilityPipelineConfigSourceHttpClientTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceHttpServer(dict):
@@ -53830,6 +56549,12 @@ class ObservabilityPipelineConfigSourceHttpServer(dict):
         suggest = None
         if key == "authStrategy":
             suggest = "auth_strategy"
+        elif key == "addressKey":
+            suggest = "address_key"
+        elif key == "passwordKey":
+            suggest = "password_key"
+        elif key == "usernameKey":
+            suggest = "username_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceHttpServer. Access the value via the '{suggest}' property getter instead.")
@@ -53845,16 +56570,28 @@ class ObservabilityPipelineConfigSourceHttpServer(dict):
     def __init__(__self__, *,
                  auth_strategy: _builtins.str,
                  decoding: _builtins.str,
-                 tls: Optional['outputs.ObservabilityPipelineConfigSourceHttpServerTls'] = None):
+                 address_key: Optional[_builtins.str] = None,
+                 password_key: Optional[_builtins.str] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourceHttpServerTls'] = None,
+                 username_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str auth_strategy: HTTP authentication method. Valid values are `none`, `plain`.
         :param _builtins.str decoding: The decoding format used to interpret incoming logs. Valid values are `json`, `gelf`, `syslog`, `bytes`.
+        :param _builtins.str address_key: Name of the environment variable or secret that holds the listen address.
+        :param _builtins.str password_key: Name of the environment variable or secret that holds the password.
         :param 'ObservabilityPipelineConfigSourceHttpServerTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        :param _builtins.str username_key: Name of the environment variable or secret that holds the username.
         """
         pulumi.set(__self__, "auth_strategy", auth_strategy)
         pulumi.set(__self__, "decoding", decoding)
+        if address_key is not None:
+            pulumi.set(__self__, "address_key", address_key)
+        if password_key is not None:
+            pulumi.set(__self__, "password_key", password_key)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+        if username_key is not None:
+            pulumi.set(__self__, "username_key", username_key)
 
     @_builtins.property
     @pulumi.getter(name="authStrategy")
@@ -53873,12 +56610,36 @@ class ObservabilityPipelineConfigSourceHttpServer(dict):
         return pulumi.get(self, "decoding")
 
     @_builtins.property
+    @pulumi.getter(name="addressKey")
+    def address_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the listen address.
+        """
+        return pulumi.get(self, "address_key")
+
+    @_builtins.property
+    @pulumi.getter(name="passwordKey")
+    def password_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the password.
+        """
+        return pulumi.get(self, "password_key")
+
+    @_builtins.property
     @pulumi.getter
     def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourceHttpServerTls']:
         """
         Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         return pulumi.get(self, "tls")
+
+    @_builtins.property
+    @pulumi.getter(name="usernameKey")
+    def username_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the username.
+        """
+        return pulumi.get(self, "username_key")
 
 
 @pulumi.output_type
@@ -53892,6 +56653,8 @@ class ObservabilityPipelineConfigSourceHttpServerTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceHttpServerTls. Access the value via the '{suggest}' property getter instead.")
@@ -53907,17 +56670,21 @@ class ObservabilityPipelineConfigSourceHttpServerTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -53943,6 +56710,14 @@ class ObservabilityPipelineConfigSourceHttpServerTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceKafka(dict):
@@ -53951,6 +56726,8 @@ class ObservabilityPipelineConfigSourceKafka(dict):
         suggest = None
         if key == "groupId":
             suggest = "group_id"
+        elif key == "bootstrapServersKey":
+            suggest = "bootstrap_servers_key"
         elif key == "librdkafkaOptions":
             suggest = "librdkafka_options"
 
@@ -53968,18 +56745,22 @@ class ObservabilityPipelineConfigSourceKafka(dict):
     def __init__(__self__, *,
                  group_id: _builtins.str,
                  topics: Sequence[_builtins.str],
+                 bootstrap_servers_key: Optional[_builtins.str] = None,
                  librdkafka_options: Optional[Sequence['outputs.ObservabilityPipelineConfigSourceKafkaLibrdkafkaOption']] = None,
                  sasl: Optional['outputs.ObservabilityPipelineConfigSourceKafkaSasl'] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigSourceKafkaTls'] = None):
         """
         :param _builtins.str group_id: The Kafka consumer group ID.
         :param Sequence[_builtins.str] topics: A list of Kafka topic names to subscribe to. The source ingests messages from each topic specified.
+        :param _builtins.str bootstrap_servers_key: Name of the environment variable or secret that holds the Kafka bootstrap servers connection string.
         :param Sequence['ObservabilityPipelineConfigSourceKafkaLibrdkafkaOptionArgs'] librdkafka_options: Advanced librdkafka client configuration options.
         :param 'ObservabilityPipelineConfigSourceKafkaSaslArgs' sasl: SASL authentication settings.
         :param 'ObservabilityPipelineConfigSourceKafkaTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "group_id", group_id)
         pulumi.set(__self__, "topics", topics)
+        if bootstrap_servers_key is not None:
+            pulumi.set(__self__, "bootstrap_servers_key", bootstrap_servers_key)
         if librdkafka_options is not None:
             pulumi.set(__self__, "librdkafka_options", librdkafka_options)
         if sasl is not None:
@@ -54002,6 +56783,14 @@ class ObservabilityPipelineConfigSourceKafka(dict):
         A list of Kafka topic names to subscribe to. The source ingests messages from each topic specified.
         """
         return pulumi.get(self, "topics")
+
+    @_builtins.property
+    @pulumi.getter(name="bootstrapServersKey")
+    def bootstrap_servers_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the Kafka bootstrap servers connection string.
+        """
+        return pulumi.get(self, "bootstrap_servers_key")
 
     @_builtins.property
     @pulumi.getter(name="librdkafkaOptions")
@@ -54059,12 +56848,39 @@ class ObservabilityPipelineConfigSourceKafkaLibrdkafkaOption(dict):
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceKafkaSasl(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "passwordKey":
+            suggest = "password_key"
+        elif key == "usernameKey":
+            suggest = "username_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceKafkaSasl. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourceKafkaSasl.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourceKafkaSasl.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 mechanism: _builtins.str):
+                 mechanism: _builtins.str,
+                 password_key: Optional[_builtins.str] = None,
+                 username_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str mechanism: SASL mechanism to use (e.g., PLAIN, SCRAM-SHA-256, SCRAM-SHA-512). Valid values are `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`.
+        :param _builtins.str password_key: Name of the environment variable or secret that holds the SASL password.
+        :param _builtins.str username_key: Name of the environment variable or secret that holds the SASL username.
         """
         pulumi.set(__self__, "mechanism", mechanism)
+        if password_key is not None:
+            pulumi.set(__self__, "password_key", password_key)
+        if username_key is not None:
+            pulumi.set(__self__, "username_key", username_key)
 
     @_builtins.property
     @pulumi.getter
@@ -54073,6 +56889,22 @@ class ObservabilityPipelineConfigSourceKafkaSasl(dict):
         SASL mechanism to use (e.g., PLAIN, SCRAM-SHA-256, SCRAM-SHA-512). Valid values are `PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`.
         """
         return pulumi.get(self, "mechanism")
+
+    @_builtins.property
+    @pulumi.getter(name="passwordKey")
+    def password_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the SASL password.
+        """
+        return pulumi.get(self, "password_key")
+
+    @_builtins.property
+    @pulumi.getter(name="usernameKey")
+    def username_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the SASL username.
+        """
+        return pulumi.get(self, "username_key")
 
 
 @pulumi.output_type
@@ -54086,6 +56918,8 @@ class ObservabilityPipelineConfigSourceKafkaTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceKafkaTls. Access the value via the '{suggest}' property getter instead.")
@@ -54101,17 +56935,21 @@ class ObservabilityPipelineConfigSourceKafkaTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -54137,16 +56975,53 @@ class ObservabilityPipelineConfigSourceKafkaTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceLogstash(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "addressKey":
+            suggest = "address_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceLogstash. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourceLogstash.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourceLogstash.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 address_key: Optional[_builtins.str] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigSourceLogstashTls'] = None):
         """
+        :param _builtins.str address_key: Name of the environment variable or secret that holds the listen address.
         :param 'ObservabilityPipelineConfigSourceLogstashTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
+        if address_key is not None:
+            pulumi.set(__self__, "address_key", address_key)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter(name="addressKey")
+    def address_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the listen address.
+        """
+        return pulumi.get(self, "address_key")
 
     @_builtins.property
     @pulumi.getter
@@ -54168,6 +57043,8 @@ class ObservabilityPipelineConfigSourceLogstashTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceLogstashTls. Access the value via the '{suggest}' property getter instead.")
@@ -54183,17 +57060,21 @@ class ObservabilityPipelineConfigSourceLogstashTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -54219,16 +57100,67 @@ class ObservabilityPipelineConfigSourceLogstashTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceOpentelemetry(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "grpcAddressKey":
+            suggest = "grpc_address_key"
+        elif key == "httpAddressKey":
+            suggest = "http_address_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceOpentelemetry. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourceOpentelemetry.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourceOpentelemetry.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 grpc_address_key: Optional[_builtins.str] = None,
+                 http_address_key: Optional[_builtins.str] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigSourceOpentelemetryTls'] = None):
         """
+        :param _builtins.str grpc_address_key: Environment variable name containing the gRPC server address for receiving OTLP data.
+        :param _builtins.str http_address_key: Environment variable name containing the HTTP server address for receiving OTLP data.
         :param 'ObservabilityPipelineConfigSourceOpentelemetryTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
+        if grpc_address_key is not None:
+            pulumi.set(__self__, "grpc_address_key", grpc_address_key)
+        if http_address_key is not None:
+            pulumi.set(__self__, "http_address_key", http_address_key)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter(name="grpcAddressKey")
+    def grpc_address_key(self) -> Optional[_builtins.str]:
+        """
+        Environment variable name containing the gRPC server address for receiving OTLP data.
+        """
+        return pulumi.get(self, "grpc_address_key")
+
+    @_builtins.property
+    @pulumi.getter(name="httpAddressKey")
+    def http_address_key(self) -> Optional[_builtins.str]:
+        """
+        Environment variable name containing the HTTP server address for receiving OTLP data.
+        """
+        return pulumi.get(self, "http_address_key")
 
     @_builtins.property
     @pulumi.getter
@@ -54250,6 +57182,8 @@ class ObservabilityPipelineConfigSourceOpentelemetryTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceOpentelemetryTls. Access the value via the '{suggest}' property getter instead.")
@@ -54265,17 +57199,21 @@ class ObservabilityPipelineConfigSourceOpentelemetryTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -54301,20 +57239,57 @@ class ObservabilityPipelineConfigSourceOpentelemetryTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceRsyslog(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "addressKey":
+            suggest = "address_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceRsyslog. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourceRsyslog.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourceRsyslog.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 address_key: Optional[_builtins.str] = None,
                  mode: Optional[_builtins.str] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigSourceRsyslogTls'] = None):
         """
+        :param _builtins.str address_key: Name of the environment variable or secret that holds the listen address.
         :param _builtins.str mode: Protocol used by the syslog source to receive messages.
         :param 'ObservabilityPipelineConfigSourceRsyslogTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
+        if address_key is not None:
+            pulumi.set(__self__, "address_key", address_key)
         if mode is not None:
             pulumi.set(__self__, "mode", mode)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter(name="addressKey")
+    def address_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the listen address.
+        """
+        return pulumi.get(self, "address_key")
 
     @_builtins.property
     @pulumi.getter
@@ -54344,6 +57319,8 @@ class ObservabilityPipelineConfigSourceRsyslogTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceRsyslogTls. Access the value via the '{suggest}' property getter instead.")
@@ -54359,17 +57336,21 @@ class ObservabilityPipelineConfigSourceRsyslogTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -54395,20 +57376,49 @@ class ObservabilityPipelineConfigSourceRsyslogTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceSocket(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "addressKey":
+            suggest = "address_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceSocket. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourceSocket.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourceSocket.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
                  framing: 'outputs.ObservabilityPipelineConfigSourceSocketFraming',
                  mode: _builtins.str,
+                 address_key: Optional[_builtins.str] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigSourceSocketTls'] = None):
         """
         :param 'ObservabilityPipelineConfigSourceSocketFramingArgs' framing: Defines the framing method for incoming messages.
         :param _builtins.str mode: The protocol used to receive logs. Valid values are `tcp`, `udp`.
+        :param _builtins.str address_key: Name of the environment variable or secret that holds the listen address for the socket.
         :param 'ObservabilityPipelineConfigSourceSocketTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "framing", framing)
         pulumi.set(__self__, "mode", mode)
+        if address_key is not None:
+            pulumi.set(__self__, "address_key", address_key)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
 
@@ -54427,6 +57437,14 @@ class ObservabilityPipelineConfigSourceSocket(dict):
         The protocol used to receive logs. Valid values are `tcp`, `udp`.
         """
         return pulumi.get(self, "mode")
+
+    @_builtins.property
+    @pulumi.getter(name="addressKey")
+    def address_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the listen address for the socket.
+        """
+        return pulumi.get(self, "address_key")
 
     @_builtins.property
     @pulumi.getter
@@ -54513,6 +57531,8 @@ class ObservabilityPipelineConfigSourceSocketTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceSocketTls. Access the value via the '{suggest}' property getter instead.")
@@ -54528,17 +57548,21 @@ class ObservabilityPipelineConfigSourceSocketTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -54564,16 +57588,53 @@ class ObservabilityPipelineConfigSourceSocketTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceSplunkHec(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "addressKey":
+            suggest = "address_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceSplunkHec. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourceSplunkHec.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourceSplunkHec.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 address_key: Optional[_builtins.str] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigSourceSplunkHecTls'] = None):
         """
+        :param _builtins.str address_key: Name of the environment variable or secret that holds the listen address for the HEC API.
         :param 'ObservabilityPipelineConfigSourceSplunkHecTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
+        if address_key is not None:
+            pulumi.set(__self__, "address_key", address_key)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter(name="addressKey")
+    def address_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the listen address for the HEC API.
+        """
+        return pulumi.get(self, "address_key")
 
     @_builtins.property
     @pulumi.getter
@@ -54595,6 +57656,8 @@ class ObservabilityPipelineConfigSourceSplunkHecTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceSplunkHecTls. Access the value via the '{suggest}' property getter instead.")
@@ -54610,17 +57673,21 @@ class ObservabilityPipelineConfigSourceSplunkHecTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -54646,16 +57713,53 @@ class ObservabilityPipelineConfigSourceSplunkHecTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceSplunkTcp(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "addressKey":
+            suggest = "address_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceSplunkTcp. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourceSplunkTcp.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourceSplunkTcp.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 address_key: Optional[_builtins.str] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigSourceSplunkTcpTls'] = None):
         """
+        :param _builtins.str address_key: Name of the environment variable or secret that holds the listen address for the Splunk TCP receiver.
         :param 'ObservabilityPipelineConfigSourceSplunkTcpTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
+        if address_key is not None:
+            pulumi.set(__self__, "address_key", address_key)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter(name="addressKey")
+    def address_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the listen address for the Splunk TCP receiver.
+        """
+        return pulumi.get(self, "address_key")
 
     @_builtins.property
     @pulumi.getter
@@ -54677,6 +57781,8 @@ class ObservabilityPipelineConfigSourceSplunkTcpTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceSplunkTcpTls. Access the value via the '{suggest}' property getter instead.")
@@ -54692,17 +57798,21 @@ class ObservabilityPipelineConfigSourceSplunkTcpTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -54728,26 +57838,93 @@ class ObservabilityPipelineConfigSourceSplunkTcpTls(dict):
         """
         return pulumi.get(self, "key_file")
 
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
+
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceSumoLogic(dict):
-    def __init__(__self__):
-        pass
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "addressKey":
+            suggest = "address_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceSumoLogic. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourceSumoLogic.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourceSumoLogic.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 address_key: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str address_key: Name of the environment variable or secret that holds the listen address.
+        """
+        if address_key is not None:
+            pulumi.set(__self__, "address_key", address_key)
+
+    @_builtins.property
+    @pulumi.getter(name="addressKey")
+    def address_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the listen address.
+        """
+        return pulumi.get(self, "address_key")
 
 
 @pulumi.output_type
 class ObservabilityPipelineConfigSourceSyslogNg(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "addressKey":
+            suggest = "address_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceSyslogNg. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourceSyslogNg.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourceSyslogNg.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 address_key: Optional[_builtins.str] = None,
                  mode: Optional[_builtins.str] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigSourceSyslogNgTls'] = None):
         """
+        :param _builtins.str address_key: Name of the environment variable or secret that holds the listen address.
         :param _builtins.str mode: Protocol used by the syslog source to receive messages.
         :param 'ObservabilityPipelineConfigSourceSyslogNgTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
+        if address_key is not None:
+            pulumi.set(__self__, "address_key", address_key)
         if mode is not None:
             pulumi.set(__self__, "mode", mode)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter(name="addressKey")
+    def address_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the listen address.
+        """
+        return pulumi.get(self, "address_key")
 
     @_builtins.property
     @pulumi.getter
@@ -54777,6 +57954,8 @@ class ObservabilityPipelineConfigSourceSyslogNgTls(dict):
             suggest = "ca_file"
         elif key == "keyFile":
             suggest = "key_file"
+        elif key == "keyPassKey":
+            suggest = "key_pass_key"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourceSyslogNgTls. Access the value via the '{suggest}' property getter instead.")
@@ -54792,17 +57971,21 @@ class ObservabilityPipelineConfigSourceSyslogNgTls(dict):
     def __init__(__self__, *,
                  crt_file: _builtins.str,
                  ca_file: Optional[_builtins.str] = None,
-                 key_file: Optional[_builtins.str] = None):
+                 key_file: Optional[_builtins.str] = None,
+                 key_pass_key: Optional[_builtins.str] = None):
         """
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        :param _builtins.str key_pass_key: Name of the environment variable or secret that holds the passphrase for the private key file.
         """
         pulumi.set(__self__, "crt_file", crt_file)
         if ca_file is not None:
             pulumi.set(__self__, "ca_file", ca_file)
         if key_file is not None:
             pulumi.set(__self__, "key_file", key_file)
+        if key_pass_key is not None:
+            pulumi.set(__self__, "key_pass_key", key_pass_key)
 
     @_builtins.property
     @pulumi.getter(name="crtFile")
@@ -54827,6 +58010,14 @@ class ObservabilityPipelineConfigSourceSyslogNgTls(dict):
         Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
         return pulumi.get(self, "key_file")
+
+    @_builtins.property
+    @pulumi.getter(name="keyPassKey")
+    def key_pass_key(self) -> Optional[_builtins.str]:
+        """
+        Name of the environment variable or secret that holds the passphrase for the private key file.
+        """
+        return pulumi.get(self, "key_pass_key")
 
 
 @pulumi.output_type
@@ -58676,6 +61867,8 @@ class PowerpackWidgetChangeDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetChangeDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -58694,6 +61887,7 @@ class PowerpackWidgetChangeDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.PowerpackWidgetChangeDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -58703,6 +61897,7 @@ class PowerpackWidgetChangeDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'PowerpackWidgetChangeDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -58714,6 +61909,8 @@ class PowerpackWidgetChangeDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -58760,6 +61957,14 @@ class PowerpackWidgetChangeDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -58868,6 +62073,90 @@ class PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetChangeDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -63719,6 +67008,8 @@ class PowerpackWidgetGeomapDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetGeomapDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -63737,6 +67028,7 @@ class PowerpackWidgetGeomapDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.PowerpackWidgetGeomapDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -63746,6 +67038,7 @@ class PowerpackWidgetGeomapDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'PowerpackWidgetGeomapDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -63757,6 +67050,8 @@ class PowerpackWidgetGeomapDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -63803,6 +67098,14 @@ class PowerpackWidgetGeomapDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -63911,6 +67214,90 @@ class PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetGeomapDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -66762,6 +70149,8 @@ class PowerpackWidgetHeatmapDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetHeatmapDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -66780,6 +70169,7 @@ class PowerpackWidgetHeatmapDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.PowerpackWidgetHeatmapDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -66789,6 +70179,7 @@ class PowerpackWidgetHeatmapDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'PowerpackWidgetHeatmapDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -66800,6 +70191,8 @@ class PowerpackWidgetHeatmapDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -66846,6 +70239,14 @@ class PowerpackWidgetHeatmapDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -66954,6 +70355,90 @@ class PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetHeatmapDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -74392,6 +77877,8 @@ class PowerpackWidgetQueryTableDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetQueryTableDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -74410,6 +77897,7 @@ class PowerpackWidgetQueryTableDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.PowerpackWidgetQueryTableDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -74419,6 +77907,7 @@ class PowerpackWidgetQueryTableDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'PowerpackWidgetQueryTableDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -74430,6 +77919,8 @@ class PowerpackWidgetQueryTableDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -74476,6 +77967,14 @@ class PowerpackWidgetQueryTableDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -74584,6 +78083,90 @@ class PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetQueryTableDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -78257,6 +81840,8 @@ class PowerpackWidgetQueryValueDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetQueryValueDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -78275,6 +81860,7 @@ class PowerpackWidgetQueryValueDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.PowerpackWidgetQueryValueDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -78284,6 +81870,7 @@ class PowerpackWidgetQueryValueDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'PowerpackWidgetQueryValueDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -78295,6 +81882,8 @@ class PowerpackWidgetQueryValueDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -78341,6 +81930,14 @@ class PowerpackWidgetQueryValueDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -78449,6 +82046,90 @@ class PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetQueryValueDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -80684,6 +84365,8 @@ class PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -80702,6 +84385,7 @@ class PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -80711,6 +84395,7 @@ class PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -80722,6 +84407,8 @@ class PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -80768,6 +84455,14 @@ class PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -80876,6 +84571,90 @@ class PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQuery
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetScatterplotDefinitionRequestScatterplotTableQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -87260,6 +91039,8 @@ class PowerpackWidgetSunburstDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetSunburstDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -87278,6 +91059,7 @@ class PowerpackWidgetSunburstDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.PowerpackWidgetSunburstDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -87287,6 +91069,7 @@ class PowerpackWidgetSunburstDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'PowerpackWidgetSunburstDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -87298,6 +91081,8 @@ class PowerpackWidgetSunburstDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -87344,6 +91129,14 @@ class PowerpackWidgetSunburstDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -87452,6 +91245,90 @@ class PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetSunburstDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -91308,6 +95185,8 @@ class PowerpackWidgetTimeseriesDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetTimeseriesDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -91326,6 +95205,7 @@ class PowerpackWidgetTimeseriesDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.PowerpackWidgetTimeseriesDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -91335,6 +95215,7 @@ class PowerpackWidgetTimeseriesDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'PowerpackWidgetTimeseriesDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -91346,6 +95227,8 @@ class PowerpackWidgetTimeseriesDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -91392,6 +95275,14 @@ class PowerpackWidgetTimeseriesDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -91500,6 +95391,90 @@ class PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetTimeseriesDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -92489,7 +96464,9 @@ class PowerpackWidgetTimeseriesDefinitionRequestStyle(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "lineType":
+        if key == "hasValueLabels":
+            suggest = "has_value_labels"
+        elif key == "lineType":
             suggest = "line_type"
         elif key == "lineWidth":
             suggest = "line_width"
@@ -92508,16 +96485,20 @@ class PowerpackWidgetTimeseriesDefinitionRequestStyle(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 has_value_labels: Optional[_builtins.bool] = None,
                  line_type: Optional[_builtins.str] = None,
                  line_width: Optional[_builtins.str] = None,
                  order_by: Optional[_builtins.str] = None,
                  palette: Optional[_builtins.str] = None):
         """
+        :param _builtins.bool has_value_labels: If true, the value is displayed as a label relative to the data point.
         :param _builtins.str line_type: The type of lines displayed. Valid values are `dashed`, `dotted`, `solid`.
         :param _builtins.str line_width: The width of line displayed. Valid values are `normal`, `thick`, `thin`.
         :param _builtins.str order_by: How to order series in timeseries visualizations. Valid values are `tags`, `values`.
         :param _builtins.str palette: A color palette to apply to the widget. The available options are available at: https://docs.datadoghq.com/dashboards/widgets/timeseries/#appearance.
         """
+        if has_value_labels is not None:
+            pulumi.set(__self__, "has_value_labels", has_value_labels)
         if line_type is not None:
             pulumi.set(__self__, "line_type", line_type)
         if line_width is not None:
@@ -92526,6 +96507,14 @@ class PowerpackWidgetTimeseriesDefinitionRequestStyle(dict):
             pulumi.set(__self__, "order_by", order_by)
         if palette is not None:
             pulumi.set(__self__, "palette", palette)
+
+    @_builtins.property
+    @pulumi.getter(name="hasValueLabels")
+    def has_value_labels(self) -> Optional[_builtins.bool]:
+        """
+        If true, the value is displayed as a label relative to the data point.
+        """
+        return pulumi.get(self, "has_value_labels")
 
     @_builtins.property
     @pulumi.getter(name="lineType")
@@ -95155,6 +99144,8 @@ class PowerpackWidgetToplistDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetToplistDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -95173,6 +99164,7 @@ class PowerpackWidgetToplistDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.PowerpackWidgetToplistDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -95182,6 +99174,7 @@ class PowerpackWidgetToplistDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'PowerpackWidgetToplistDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -95193,6 +99186,8 @@ class PowerpackWidgetToplistDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -95239,6 +99234,14 @@ class PowerpackWidgetToplistDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -95347,6 +99350,90 @@ class PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetToplistDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -98103,6 +102190,8 @@ class PowerpackWidgetTreemapDefinitionRequestQueryEventQuery(dict):
             suggest = "cross_org_uuids"
         elif key == "groupBies":
             suggest = "group_bies"
+        elif key == "groupByFields":
+            suggest = "group_by_fields"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PowerpackWidgetTreemapDefinitionRequestQueryEventQuery. Access the value via the '{suggest}' property getter instead.")
@@ -98121,6 +102210,7 @@ class PowerpackWidgetTreemapDefinitionRequestQueryEventQuery(dict):
                  name: _builtins.str,
                  cross_org_uuids: Optional[_builtins.str] = None,
                  group_bies: Optional[Sequence['outputs.PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupBy']] = None,
+                 group_by_fields: Optional['outputs.PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupByFields'] = None,
                  indexes: Optional[Sequence[_builtins.str]] = None,
                  search: Optional['outputs.PowerpackWidgetTreemapDefinitionRequestQueryEventQuerySearch'] = None,
                  storage: Optional[_builtins.str] = None):
@@ -98130,6 +102220,7 @@ class PowerpackWidgetTreemapDefinitionRequestQueryEventQuery(dict):
         :param _builtins.str name: The name of query for use in formulas.
         :param _builtins.str cross_org_uuids: The source organization UUID for cross organization queries. Feature in Private Beta.
         :param Sequence['PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupByArgs'] group_bies: Group by options.
+        :param 'PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupByFieldsArgs' group_by_fields: Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
         :param Sequence[_builtins.str] indexes: An array of index names to query in the stream.
         :param 'PowerpackWidgetTreemapDefinitionRequestQueryEventQuerySearchArgs' search: The search options.
         :param _builtins.str storage: Storage location (private beta).
@@ -98141,6 +102232,8 @@ class PowerpackWidgetTreemapDefinitionRequestQueryEventQuery(dict):
             pulumi.set(__self__, "cross_org_uuids", cross_org_uuids)
         if group_bies is not None:
             pulumi.set(__self__, "group_bies", group_bies)
+        if group_by_fields is not None:
+            pulumi.set(__self__, "group_by_fields", group_by_fields)
         if indexes is not None:
             pulumi.set(__self__, "indexes", indexes)
         if search is not None:
@@ -98187,6 +102280,14 @@ class PowerpackWidgetTreemapDefinitionRequestQueryEventQuery(dict):
         Group by options.
         """
         return pulumi.get(self, "group_bies")
+
+    @_builtins.property
+    @pulumi.getter(name="groupByFields")
+    def group_by_fields(self) -> Optional['outputs.PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupByFields']:
+        """
+        Alternative group-by configuration that groups by multiple event facet fields. Use this or `group_by`, not both.
+        """
+        return pulumi.get(self, "group_by_fields")
 
     @_builtins.property
     @pulumi.getter
@@ -98295,6 +102396,90 @@ class PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupBy(dict):
         The options for sorting group by results.
         """
         return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupByFields(dict):
+    def __init__(__self__, *,
+                 fields: Sequence[_builtins.str],
+                 limit: Optional[_builtins.int] = None,
+                 sort: Optional['outputs.PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupByFieldsSort'] = None):
+        """
+        :param Sequence[_builtins.str] fields: List of event facets to group by.
+        :param _builtins.int limit: The number of groups to return.
+        :param 'PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupByFieldsSortArgs' sort: The options for sorting group by results.
+        """
+        pulumi.set(__self__, "fields", fields)
+        if limit is not None:
+            pulumi.set(__self__, "limit", limit)
+        if sort is not None:
+            pulumi.set(__self__, "sort", sort)
+
+    @_builtins.property
+    @pulumi.getter
+    def fields(self) -> Sequence[_builtins.str]:
+        """
+        List of event facets to group by.
+        """
+        return pulumi.get(self, "fields")
+
+    @_builtins.property
+    @pulumi.getter
+    def limit(self) -> Optional[_builtins.int]:
+        """
+        The number of groups to return.
+        """
+        return pulumi.get(self, "limit")
+
+    @_builtins.property
+    @pulumi.getter
+    def sort(self) -> Optional['outputs.PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupByFieldsSort']:
+        """
+        The options for sorting group by results.
+        """
+        return pulumi.get(self, "sort")
+
+
+@pulumi.output_type
+class PowerpackWidgetTreemapDefinitionRequestQueryEventQueryGroupByFieldsSort(dict):
+    def __init__(__self__, *,
+                 aggregation: _builtins.str,
+                 metric: Optional[_builtins.str] = None,
+                 order: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggregation: The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        :param _builtins.str metric: The metric used for sorting group by results.
+        :param _builtins.str order: Direction of sort. Valid values are `asc`, `desc`.
+        """
+        pulumi.set(__self__, "aggregation", aggregation)
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if order is not None:
+            pulumi.set(__self__, "order", order)
+
+    @_builtins.property
+    @pulumi.getter
+    def aggregation(self) -> _builtins.str:
+        """
+        The aggregation method for the event platform queries. Valid values are `count`, `cardinality`, `median`, `pc75`, `pc90`, `pc95`, `pc98`, `pc99`, `sum`, `min`, `max`, `avg`.
+        """
+        return pulumi.get(self, "aggregation")
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[_builtins.str]:
+        """
+        The metric used for sorting group by results.
+        """
+        return pulumi.get(self, "metric")
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> Optional[_builtins.str]:
+        """
+        Direction of sort. Valid values are `asc`, `desc`.
+        """
+        return pulumi.get(self, "order")
 
 
 @pulumi.output_type
@@ -99483,6 +103668,91 @@ class RumMetricUniqueness(dict):
 
 
 @pulumi.output_type
+class SecureEmbedDashboardSelectableTemplateVar(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "defaultValues":
+            suggest = "default_values"
+        elif key == "visibleTags":
+            suggest = "visible_tags"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SecureEmbedDashboardSelectableTemplateVar. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SecureEmbedDashboardSelectableTemplateVar.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SecureEmbedDashboardSelectableTemplateVar.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 default_values: Optional[Sequence[_builtins.str]] = None,
+                 prefix: Optional[_builtins.str] = None,
+                 type: Optional[_builtins.str] = None,
+                 visible_tags: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str name: The name of the template variable.
+        :param Sequence[_builtins.str] default_values: The default values for this template variable.
+        :param _builtins.str prefix: The tag prefix for this template variable. Defaults to `""`.
+        :param _builtins.str type: The type of the template variable. Defaults to `""`.
+        :param Sequence[_builtins.str] visible_tags: The visible tag values for this template variable.
+        """
+        pulumi.set(__self__, "name", name)
+        if default_values is not None:
+            pulumi.set(__self__, "default_values", default_values)
+        if prefix is not None:
+            pulumi.set(__self__, "prefix", prefix)
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+        if visible_tags is not None:
+            pulumi.set(__self__, "visible_tags", visible_tags)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the template variable.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultValues")
+    def default_values(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        The default values for this template variable.
+        """
+        return pulumi.get(self, "default_values")
+
+    @_builtins.property
+    @pulumi.getter
+    def prefix(self) -> Optional[_builtins.str]:
+        """
+        The tag prefix for this template variable. Defaults to `""`.
+        """
+        return pulumi.get(self, "prefix")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[_builtins.str]:
+        """
+        The type of the template variable. Defaults to `""`.
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter(name="visibleTags")
+    def visible_tags(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        The visible tag values for this template variable.
+        """
+        return pulumi.get(self, "visible_tags")
+
+
+@pulumi.output_type
 class SecurityMonitoringDefaultRuleCase(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -100193,6 +104463,8 @@ class SecurityMonitoringRuleOptionsAnomalyDetectionOptions(dict):
             suggest = "bucket_duration"
         elif key == "detectionTolerance":
             suggest = "detection_tolerance"
+        elif key == "instantaneousBaseline":
+            suggest = "instantaneous_baseline"
         elif key == "learningDuration":
             suggest = "learning_duration"
         elif key == "learningPeriodBaseline":
@@ -100212,11 +104484,13 @@ class SecurityMonitoringRuleOptionsAnomalyDetectionOptions(dict):
     def __init__(__self__, *,
                  bucket_duration: Optional[_builtins.int] = None,
                  detection_tolerance: Optional[_builtins.int] = None,
+                 instantaneous_baseline: Optional[_builtins.bool] = None,
                  learning_duration: Optional[_builtins.int] = None,
                  learning_period_baseline: Optional[_builtins.int] = None):
         """
         :param _builtins.int bucket_duration: Duration in seconds of the time buckets used to aggregate events matched by the rule. Valid values are 300, 600, 900, 1800, 3600, 10800. Valid values are `300`, `600`, `900`, `1800`, `3600`, `10800`.
         :param _builtins.int detection_tolerance: An optional parameter that sets how permissive anomaly detection is. Higher values require higher deviations before triggering a signal. Valid values are 1, 2, 3, 4, 5. Valid values are `1`, `2`, `3`, `4`, `5`.
+        :param _builtins.bool instantaneous_baseline: When set to true, Datadog uses previous values that fall within the defined learning window to construct the baseline, enabling the system to establish an accurate baseline more rapidly rather than relying solely on gradual learning over time. Defaults to `false`.
         :param _builtins.int learning_duration: Learning duration in hours. Anomaly detection waits for at least this amount of historical data before it starts evaluating. Valid values are 1, 6, 12, 24, 48, 168, 336. Valid values are `1`, `6`, `12`, `24`, `48`, `168`, `336`.
         :param _builtins.int learning_period_baseline: An optional override baseline to apply while the rule is in the learning period. Must be greater than or equal to 0.
         """
@@ -100224,6 +104498,8 @@ class SecurityMonitoringRuleOptionsAnomalyDetectionOptions(dict):
             pulumi.set(__self__, "bucket_duration", bucket_duration)
         if detection_tolerance is not None:
             pulumi.set(__self__, "detection_tolerance", detection_tolerance)
+        if instantaneous_baseline is not None:
+            pulumi.set(__self__, "instantaneous_baseline", instantaneous_baseline)
         if learning_duration is not None:
             pulumi.set(__self__, "learning_duration", learning_duration)
         if learning_period_baseline is not None:
@@ -100244,6 +104520,14 @@ class SecurityMonitoringRuleOptionsAnomalyDetectionOptions(dict):
         An optional parameter that sets how permissive anomaly detection is. Higher values require higher deviations before triggering a signal. Valid values are 1, 2, 3, 4, 5. Valid values are `1`, `2`, `3`, `4`, `5`.
         """
         return pulumi.get(self, "detection_tolerance")
+
+    @_builtins.property
+    @pulumi.getter(name="instantaneousBaseline")
+    def instantaneous_baseline(self) -> Optional[_builtins.bool]:
+        """
+        When set to true, Datadog uses previous values that fall within the defined learning window to construct the baseline, enabling the system to establish an accurate baseline more rapidly rather than relying solely on gradual learning over time. Defaults to `false`.
+        """
+        return pulumi.get(self, "instantaneous_baseline")
 
     @_builtins.property
     @pulumi.getter(name="learningDuration")
@@ -101461,7 +105745,7 @@ class ServiceLevelObjectiveSliSpecification(dict):
                  count: Optional['outputs.ServiceLevelObjectiveSliSpecificationCount'] = None,
                  time_slice: Optional['outputs.ServiceLevelObjectiveSliSpecificationTimeSlice'] = None):
         """
-        :param 'ServiceLevelObjectiveSliSpecificationCountArgs' count: A count-based (metric) SLI specification. Composed of a good events formula, a total events formula, and the underlying metric queries.
+        :param 'ServiceLevelObjectiveSliSpecificationCountArgs' count: A count-based (metric) SLI specification. Composed of a good events formula, either a total events formula or a bad events formula (but not both), and the underlying metric queries.
         :param 'ServiceLevelObjectiveSliSpecificationTimeSliceArgs' time_slice: The time slice condition, composed of 3 parts: 1. The timeseries query, 2. The comparator, and 3. The threshold. Optionally, a fourth part, the query interval, can be provided.
         """
         if count is not None:
@@ -101473,7 +105757,7 @@ class ServiceLevelObjectiveSliSpecification(dict):
     @pulumi.getter
     def count(self) -> Optional['outputs.ServiceLevelObjectiveSliSpecificationCount']:
         """
-        A count-based (metric) SLI specification. Composed of a good events formula, a total events formula, and the underlying metric queries.
+        A count-based (metric) SLI specification. Composed of a good events formula, either a total events formula or a bad events formula (but not both), and the underlying metric queries.
         """
         return pulumi.get(self, "count")
 
@@ -101493,6 +105777,8 @@ class ServiceLevelObjectiveSliSpecificationCount(dict):
         suggest = None
         if key == "goodEventsFormula":
             suggest = "good_events_formula"
+        elif key == "badEventsFormula":
+            suggest = "bad_events_formula"
         elif key == "totalEventsFormula":
             suggest = "total_events_formula"
 
@@ -101510,15 +105796,20 @@ class ServiceLevelObjectiveSliSpecificationCount(dict):
     def __init__(__self__, *,
                  good_events_formula: _builtins.str,
                  queries: Sequence['outputs.ServiceLevelObjectiveSliSpecificationCountQuery'],
-                 total_events_formula: _builtins.str):
+                 bad_events_formula: Optional[_builtins.str] = None,
+                 total_events_formula: Optional[_builtins.str] = None):
         """
         :param _builtins.str good_events_formula: The formula that specifies how to compute the good events.
         :param Sequence['ServiceLevelObjectiveSliSpecificationCountQueryArgs'] queries: A list of data-source-specific queries that are referenced in the formulas.
-        :param _builtins.str total_events_formula: The formula that specifies how to compute the total events.
+        :param _builtins.str bad_events_formula: The formula that specifies how to compute the bad events. Mutually exclusive with `total_events_formula`.
+        :param _builtins.str total_events_formula: The formula that specifies how to compute the total events. Mutually exclusive with `bad_events_formula`.
         """
         pulumi.set(__self__, "good_events_formula", good_events_formula)
         pulumi.set(__self__, "queries", queries)
-        pulumi.set(__self__, "total_events_formula", total_events_formula)
+        if bad_events_formula is not None:
+            pulumi.set(__self__, "bad_events_formula", bad_events_formula)
+        if total_events_formula is not None:
+            pulumi.set(__self__, "total_events_formula", total_events_formula)
 
     @_builtins.property
     @pulumi.getter(name="goodEventsFormula")
@@ -101537,10 +105828,18 @@ class ServiceLevelObjectiveSliSpecificationCount(dict):
         return pulumi.get(self, "queries")
 
     @_builtins.property
-    @pulumi.getter(name="totalEventsFormula")
-    def total_events_formula(self) -> _builtins.str:
+    @pulumi.getter(name="badEventsFormula")
+    def bad_events_formula(self) -> Optional[_builtins.str]:
         """
-        The formula that specifies how to compute the total events.
+        The formula that specifies how to compute the bad events. Mutually exclusive with `total_events_formula`.
+        """
+        return pulumi.get(self, "bad_events_formula")
+
+    @_builtins.property
+    @pulumi.getter(name="totalEventsFormula")
+    def total_events_formula(self) -> Optional[_builtins.str]:
+        """
+        The formula that specifies how to compute the total events. Mutually exclusive with `bad_events_formula`.
         """
         return pulumi.get(self, "total_events_formula")
 
@@ -102692,7 +106991,7 @@ class SyntheticsTestApiStepAssertion(dict):
                  targetxpath: Optional['outputs.SyntheticsTestApiStepAssertionTargetxpath'] = None,
                  timings_scope: Optional[_builtins.str] = None):
         """
-        :param _builtins.str type: Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. For API tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). For Network Path tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#synthetics-create-a-network-path-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `multiNetworkHop`, `jitter`, `bodyHash`, `javascript`.
+        :param _builtins.str type: Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. For API tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). For Network Path tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-a-network-path-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `multiNetworkHop`, `jitter`, `bodyHash`, `javascript`.
         :param _builtins.str code: If assertion type is `javascript`, this is the JavaScript code that performs the assertions.
         :param _builtins.str operator: Assertion operator. **Note:** Only some combinations of `type` and `operator` are valid. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). Valid values are `contains`, `doesNotContain`, `is`, `isNot`, `lessThan`, `lessThanOrEqual`, `moreThan`, `moreThanOrEqual`, `matches`, `doesNotMatch`, `validates`, `isInMoreThan`, `isInLessThan`, `doesNotExist`, `isUndefined`, `validatesJSONPath`, `validatesJSONSchema`, `validatesXPath`, `md5`, `sha1`, `sha256`, `is`, `isNot`, `lessThan`, `lessThanOrEqual`, `moreThan`, `moreThanOrEqual`.
         :param _builtins.str property: If assertion type is `header` or `grpcMetadata`, this is the header name. For other assertion types, this is an aggregation property: `avg`, `min`, `max`, or `stddev`.
@@ -102724,7 +107023,7 @@ class SyntheticsTestApiStepAssertion(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. For API tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). For Network Path tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#synthetics-create-a-network-path-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `multiNetworkHop`, `jitter`, `bodyHash`, `javascript`.
+        Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. For API tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). For Network Path tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-a-network-path-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `multiNetworkHop`, `jitter`, `bodyHash`, `javascript`.
         """
         return pulumi.get(self, "type")
 
@@ -103832,6 +108131,7 @@ class SyntheticsTestApiStepRequestFile(dict):
                  type: _builtins.str,
                  bucket_key: Optional[_builtins.str] = None,
                  content: Optional[_builtins.str] = None,
+                 encoding: Optional[_builtins.str] = None,
                  original_file_name: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: Name of the file.
@@ -103839,6 +108139,7 @@ class SyntheticsTestApiStepRequestFile(dict):
         :param _builtins.str type: Type of the file.
         :param _builtins.str bucket_key: Bucket key of the file.
         :param _builtins.str content: Content of the file.
+        :param _builtins.str encoding: Encoding of the file content. Must be `base64` when content contains base64-encoded data.
         :param _builtins.str original_file_name: Original name of the file.
         """
         pulumi.set(__self__, "name", name)
@@ -103848,6 +108149,8 @@ class SyntheticsTestApiStepRequestFile(dict):
             pulumi.set(__self__, "bucket_key", bucket_key)
         if content is not None:
             pulumi.set(__self__, "content", content)
+        if encoding is not None:
+            pulumi.set(__self__, "encoding", encoding)
         if original_file_name is not None:
             pulumi.set(__self__, "original_file_name", original_file_name)
 
@@ -103890,6 +108193,14 @@ class SyntheticsTestApiStepRequestFile(dict):
         Content of the file.
         """
         return pulumi.get(self, "content")
+
+    @_builtins.property
+    @pulumi.getter
+    def encoding(self) -> Optional[_builtins.str]:
+        """
+        Encoding of the file content. Must be `base64` when content contains base64-encoded data.
+        """
+        return pulumi.get(self, "encoding")
 
     @_builtins.property
     @pulumi.getter(name="originalFileName")
@@ -103991,7 +108302,7 @@ class SyntheticsTestAssertion(dict):
                  targetxpath: Optional['outputs.SyntheticsTestAssertionTargetxpath'] = None,
                  timings_scope: Optional[_builtins.str] = None):
         """
-        :param _builtins.str type: Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. For API tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). For Network Path tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#synthetics-create-a-network-path-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `multiNetworkHop`, `jitter`, `bodyHash`, `javascript`.
+        :param _builtins.str type: Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. For API tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). For Network Path tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-a-network-path-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `multiNetworkHop`, `jitter`, `bodyHash`, `javascript`.
         :param _builtins.str code: If assertion type is `javascript`, this is the JavaScript code that performs the assertions.
         :param _builtins.str operator: Assertion operator. **Note:** Only some combinations of `type` and `operator` are valid. Refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). Valid values are `contains`, `doesNotContain`, `is`, `isNot`, `lessThan`, `lessThanOrEqual`, `moreThan`, `moreThanOrEqual`, `matches`, `doesNotMatch`, `validates`, `isInMoreThan`, `isInLessThan`, `doesNotExist`, `isUndefined`, `validatesJSONPath`, `validatesJSONSchema`, `validatesXPath`, `md5`, `sha1`, `sha256`, `is`, `isNot`, `lessThan`, `lessThanOrEqual`, `moreThan`, `moreThanOrEqual`.
         :param _builtins.str property: If assertion type is `header` or `grpcMetadata`, this is the header name. For other assertion types, this is an aggregation property: `avg`, `min`, `max`, or `stddev`.
@@ -104023,7 +108334,7 @@ class SyntheticsTestAssertion(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. For API tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). For Network Path tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#synthetics-create-a-network-path-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `multiNetworkHop`, `jitter`, `bodyHash`, `javascript`.
+        Type of assertion. **Note:** Only some combinations of `type` and `operator` are valid. For API tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-an-api-test). For Network Path tests, refer to `config.assertions` in the [Datadog API reference](https://docs.datadoghq.com/api/latest/synthetics/#create-a-network-path-test). Valid values are `body`, `header`, `statusCode`, `certificate`, `responseTime`, `property`, `recordEvery`, `recordSome`, `tlsVersion`, `minTlsVersion`, `latency`, `packetLossPercentage`, `packetsReceived`, `networkHop`, `receivedMessage`, `grpcHealthcheckStatus`, `grpcMetadata`, `grpcProto`, `connection`, `multiNetworkHop`, `jitter`, `bodyHash`, `javascript`.
         """
         return pulumi.get(self, "type")
 
@@ -107452,6 +111763,7 @@ class SyntheticsTestRequestFile(dict):
                  type: _builtins.str,
                  bucket_key: Optional[_builtins.str] = None,
                  content: Optional[_builtins.str] = None,
+                 encoding: Optional[_builtins.str] = None,
                  original_file_name: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: Name of the file.
@@ -107459,6 +111771,7 @@ class SyntheticsTestRequestFile(dict):
         :param _builtins.str type: Type of the file.
         :param _builtins.str bucket_key: Bucket key of the file.
         :param _builtins.str content: Content of the file.
+        :param _builtins.str encoding: Encoding of the file content. Must be `base64` when content contains base64-encoded data.
         :param _builtins.str original_file_name: Original name of the file.
         """
         pulumi.set(__self__, "name", name)
@@ -107468,6 +111781,8 @@ class SyntheticsTestRequestFile(dict):
             pulumi.set(__self__, "bucket_key", bucket_key)
         if content is not None:
             pulumi.set(__self__, "content", content)
+        if encoding is not None:
+            pulumi.set(__self__, "encoding", encoding)
         if original_file_name is not None:
             pulumi.set(__self__, "original_file_name", original_file_name)
 
@@ -107510,6 +111825,14 @@ class SyntheticsTestRequestFile(dict):
         Content of the file.
         """
         return pulumi.get(self, "content")
+
+    @_builtins.property
+    @pulumi.getter
+    def encoding(self) -> Optional[_builtins.str]:
+        """
+        Encoding of the file content. Must be `base64` when content contains base64-encoded data.
+        """
+        return pulumi.get(self, "encoding")
 
     @_builtins.property
     @pulumi.getter(name="originalFileName")
@@ -111534,11 +115857,13 @@ class GetSecurityMonitoringRulesRuleOptionsAnomalyDetectionOptionsResult(dict):
     def __init__(__self__, *,
                  bucket_duration: Optional[_builtins.int] = None,
                  detection_tolerance: Optional[_builtins.int] = None,
+                 instantaneous_baseline: Optional[_builtins.bool] = None,
                  learning_duration: Optional[_builtins.int] = None,
                  learning_period_baseline: Optional[_builtins.int] = None):
         """
         :param _builtins.int bucket_duration: Duration in seconds of the time buckets used to aggregate events matched by the rule. Valid values are 300, 600, 900, 1800, 3600, 10800.
         :param _builtins.int detection_tolerance: An optional parameter that sets how permissive anomaly detection is. Higher values require higher deviations before triggering a signal. Valid values are 1, 2, 3, 4, 5.
+        :param _builtins.bool instantaneous_baseline: When set to true, Datadog uses previous values that fall within the defined learning window to construct the baseline, enabling the system to establish an accurate baseline more rapidly rather than relying solely on gradual learning over time.
         :param _builtins.int learning_duration: Learning duration in hours. Anomaly detection waits for at least this amount of historical data before it starts evaluating. Valid values are 1, 6, 12, 24, 48, 168, 336.
         :param _builtins.int learning_period_baseline: An optional override baseline to apply while the rule is in the learning period. Must be greater than or equal to 0.
         """
@@ -111546,6 +115871,8 @@ class GetSecurityMonitoringRulesRuleOptionsAnomalyDetectionOptionsResult(dict):
             pulumi.set(__self__, "bucket_duration", bucket_duration)
         if detection_tolerance is not None:
             pulumi.set(__self__, "detection_tolerance", detection_tolerance)
+        if instantaneous_baseline is not None:
+            pulumi.set(__self__, "instantaneous_baseline", instantaneous_baseline)
         if learning_duration is not None:
             pulumi.set(__self__, "learning_duration", learning_duration)
         if learning_period_baseline is not None:
@@ -111566,6 +115893,14 @@ class GetSecurityMonitoringRulesRuleOptionsAnomalyDetectionOptionsResult(dict):
         An optional parameter that sets how permissive anomaly detection is. Higher values require higher deviations before triggering a signal. Valid values are 1, 2, 3, 4, 5.
         """
         return pulumi.get(self, "detection_tolerance")
+
+    @_builtins.property
+    @pulumi.getter(name="instantaneousBaseline")
+    def instantaneous_baseline(self) -> Optional[_builtins.bool]:
+        """
+        When set to true, Datadog uses previous values that fall within the defined learning window to construct the baseline, enabling the system to establish an accurate baseline more rapidly rather than relying solely on gradual learning over time.
+        """
+        return pulumi.get(self, "instantaneous_baseline")
 
     @_builtins.property
     @pulumi.getter(name="learningDuration")

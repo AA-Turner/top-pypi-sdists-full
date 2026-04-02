@@ -3,7 +3,7 @@ Type annotations for medical-imaging service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medical_imaging/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -80,9 +80,11 @@ __all__ = ("HealthImagingClient",)
 
 class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
+    NotAcceptableException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]

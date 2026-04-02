@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: scikit-dimension
+Version: 0.3.4
+Summary: scikit-dimension is a Python module for intrinsic dimension estimation built according to the scikit-learn API and distributed under the 3-Clause BSD license..
+Home-page: https://github.com/j-bac/scikit-dimension
+Maintainer: Jonathan Bac
+License: BSD-3-clause
+Download-URL: https://github.com/j-bac/scikit-dimension
+Platform: UNKNOWN
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved
+Classifier: Programming Language :: Python
+Classifier: Topic :: Scientific/Engineering
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: Unix
+Classifier: Operating System :: MacOS
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Provides-Extra: tests
+Provides-Extra: docs
+License-File: LICENSE
+
+UNKNOWN
+

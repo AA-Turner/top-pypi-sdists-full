@@ -1,5 +1,6 @@
 from .projectbase import ProjectFlow
 from .project_events import ProjectEvent, project_trigger
+from .assets import AssetInstance, EntityRef
 
 # highlight_card requires metaflow features not available in all versions
 try:

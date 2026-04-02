@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-Deprecated"
-version = "1.3.1.20260130"
+version = "1.3.1.20260402"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for Deprecated"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.19.1
+* [mypy](https://github.com/python/mypy/) 1.20.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`c79275d92eb624f5bba59b4e9cdf30b60195d67e`](https://github.com/python/typeshed/commit/c79275d92eb624f5bba59b4e9cdf30b60195d67e).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = []
 [tool.setuptools]
 packages = ['deprecated-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'deprecated-stubs' = ['__init__.pyi', 'classic.pyi', 'params.pyi', 'sphinx.pyi', 'METADATA.toml', 'py.typed']

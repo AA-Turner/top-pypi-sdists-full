@@ -1,27 +1,14 @@
 use anyhow::Result;
 use log::info;
-use lsp_server::{Connection, Message};
+use lsp_server::Connection;
 use lsp_types::{
     CodeActionKind, CodeActionOptions, CodeActionProviderCapability, CompletionOptions,
     DiagnosticOptions, DiagnosticServerCapabilities, FoldingRangeProviderCapability,
     HoverProviderCapability, InitializeParams, OneOf, SelectionRangeProviderCapability,
     ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind, WorkDoneProgressOptions,
-    notification::{DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument},
-    request::{
-        CodeActionRequest, Completion, DocumentDiagnosticRequest, DocumentSymbolRequest,
-        FoldingRangeRequest, GotoDefinition, HoverRequest, InlayHintRequest, References,
-        SelectionRangeRequest,
-    },
 };
 
-use crate::dispatch::{NotificationDispatcher, RequestDispatcher};
-use crate::handlers::{
-    SyntaxTreeRequest, TokensRequest, handle_code_action, handle_completion, handle_did_change,
-    handle_did_close, handle_did_open, handle_document_diagnostic, handle_document_symbol,
-    handle_folding_range, handle_goto_definition, handle_hover, handle_inlay_hints,
-    handle_references, handle_selection_range, handle_syntax_tree, handle_tokens,
-};
-use crate::system::GlobalState;
+use crate::global_state::GlobalState;
 
 pub fn run() -> Result<()> {
     info!("Starting Squawk LSP server");
@@ -90,46 +77,5 @@ fn main_loop(connection: Connection, params: serde_json::Value) -> Result<()> {
     let client_name = init_params.client_info.map(|x| x.name);
     info!("Client name: {client_name:?}");
 
-    let mut system = GlobalState::new();
-
-    for msg in &connection.receiver {
-        match msg {
-            Message::Request(req) => {
-                info!("Received request: method={}, id={:?}", req.method, req.id);
-
-                if connection.handle_shutdown(&req)? {
-                    info!("Received shutdown request, exiting");
-                    return Ok(());
-                }
-
-                RequestDispatcher::new(&connection, req, &system)
-                    .on::<GotoDefinition>(handle_goto_definition)?
-                    .on::<HoverRequest>(handle_hover)?
-                    .on::<CodeActionRequest>(handle_code_action)?
-                    .on::<SelectionRangeRequest>(handle_selection_range)?
-                    .on::<InlayHintRequest>(handle_inlay_hints)?
-                    .on::<DocumentSymbolRequest>(handle_document_symbol)?
-                    .on::<FoldingRangeRequest>(handle_folding_range)?
-                    .on::<Completion>(handle_completion)?
-                    .on::<DocumentDiagnosticRequest>(handle_document_diagnostic)?
-                    .on::<SyntaxTreeRequest>(handle_syntax_tree)?
-                    .on::<TokensRequest>(handle_tokens)?
-                    .on::<References>(handle_references)?
-                    .finish();
-            }
-            Message::Response(resp) => {
-                info!("Received response: id={:?}", resp.id);
-            }
-            Message::Notification(notif) => {
-                info!("Received notification: method={}", notif.method);
-
-                NotificationDispatcher::new(&connection, notif, &mut system)
-                    .on::<DidOpenTextDocument>(handle_did_open)?
-                    .on::<DidChangeTextDocument>(handle_did_change)?
-                    .on::<DidCloseTextDocument>(handle_did_close)?
-                    .finish();
-            }
-        }
-    }
-    Ok(())
+    GlobalState::new(connection.sender).run(connection.receiver)
 }

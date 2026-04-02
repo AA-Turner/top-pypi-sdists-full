@@ -1,0 +1,79 @@
+[tool.poetry]
+name = "ratio"
+version = "0.4.0"
+description = "The Python Web Framework for developers who like to get shit done"
+authors = ["Job Veldhuis <job@baukefrederik.me>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+rich = "^12.6.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+pytest = "^7.4.0"
+pytest-asyncio = "^0.21.0"
+coverage = "^7.2.7"
+asgiref = "^3.5.2"
+ruff = "^0.0.277"
+mypy = "^1.4.1"
+setuptools = "^68.0.0"
+
+[tool.poetry.group.tmp.dependencies]
+uvicorn = "^0.20.0"
+
+[tool.pytest.ini_options]
+asyncio_mode="auto"
+
+[tool.ruff]
+line-length = 88
+select = [
+    "E",
+    "F",
+    "N",
+    "B",
+    "A",
+    "RET",
+    "SIM",
+    "TID",
+    "ARG",
+    "PLC",
+    "PLE",
+    "PLR",
+    "PLW",
+    "RUF"
+]
+ignore = [
+    "E501",     # Reason: the line length is checked and automatically formatted by Black
+    "RET502",   # Reason: the return type is already enforced by Mypy type checking
+    "E999"      # Reason: syntax errors should already be caught by IDE, mypy and unit tests
+]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+per-file-ignores = {}
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+target-version = "py311"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+

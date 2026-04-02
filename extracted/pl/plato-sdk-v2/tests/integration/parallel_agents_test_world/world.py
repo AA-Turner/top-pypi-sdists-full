@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, ClassVar
 
-from plato.agents.runtime.transport import GitTransport
+from plato.transports import GitTransport
 from plato.worlds import Agent, AgentConfig, BaseWorld, Observation, RunConfig, StepResult, Workspace, register_world
 
 

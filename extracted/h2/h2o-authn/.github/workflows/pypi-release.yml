@@ -1,0 +1,43 @@
+name: Release Python package to PyPI
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    name: Test
+    uses: ./.github/workflows/python-test.yml
+
+  build-n-publish:
+    name: Build and publish Python distributions packages to PyPI
+    runs-on: ubuntu-latest
+    needs: [test]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install pypa/build
+        run: |
+          pipx install build
+
+      - name: Build a binary wheel and a source tarball
+        run: |
+          pyproject-build
+
+      - name: Publish distribution 📦 to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verify-metadata: false
+          verbose: true
+          print-hash: true
+
+          # Attentions are disabled temporarily. They do seem to work with the
+          # reusable workflow.
+          # - https://github.com/pypa/gh-action-pypi-publish/issues/166
+          # - https://github.com/pypa/gh-action-pypi-publish/issues/283
+          attestations: false

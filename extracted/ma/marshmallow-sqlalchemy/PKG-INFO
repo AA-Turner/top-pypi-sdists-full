@@ -1,40 +1,25 @@
 Metadata-Version: 2.4
 Name: marshmallow-sqlalchemy
-Version: 1.4.2
+Version: 1.5.0
 Summary: SQLAlchemy integration with the marshmallow (de)serialization library
 Maintainer-email: Steven Loria <sloria1@gmail.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
 Requires-Dist: marshmallow>=3.18.0
 Requires-Dist: SQLAlchemy>=1.4.40,<3.0
-Requires-Dist: typing-extensions; python_version < '3.10'
-Requires-Dist: marshmallow-sqlalchemy[tests] ; extra == "dev"
-Requires-Dist: tox ; extra == "dev"
-Requires-Dist: pre-commit>=3.5,<5.0 ; extra == "dev"
-Requires-Dist: furo==2024.8.6 ; extra == "docs"
-Requires-Dist: sphinx-copybutton==0.5.2 ; extra == "docs"
-Requires-Dist: sphinx-design==0.6.1 ; extra == "docs"
-Requires-Dist: sphinx-issues==5.0.0 ; extra == "docs"
-Requires-Dist: sphinx==8.2.3 ; extra == "docs" and ( python_version >= '3.11')
-Requires-Dist: sphinxext-opengraph==0.10.0 ; extra == "docs"
-Requires-Dist: pytest<9 ; extra == "tests"
-Requires-Dist: pytest-lazy-fixtures ; extra == "tests"
 Project-URL: Changelog, https://marshmallow-sqlalchemy.readthedocs.io/en/latest/changelog.html
 Project-URL: Funding, https://opencollective.com/marshmallow
 Project-URL: Issues, https://github.com/marshmallow-code/marshmallow-sqlalchemy/issues
 Project-URL: Source, https://github.com/marshmallow-code/marshmallow-sqlalchemy
-Provides-Extra: dev
-Provides-Extra: docs
-Provides-Extra: tests
 
 **********************
 marshmallow-sqlalchemy

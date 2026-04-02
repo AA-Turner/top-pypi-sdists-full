@@ -1,0 +1,61 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+    "hatchling",
+]
+
+[project]
+name = "aa-killstats"
+description = "Killboard Stats shows Hall of Shame/Fame, Kills, Top Kills,Loss,etc."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Geuthur", email = "devgeuthur@gmail.com" },
+]
+requires-python = ">=3.10,<3.13"
+classifiers = [
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+dynamic = [
+    "version",
+]
+dependencies = [
+    "allianceauth>=4.12,<=5",
+    "dacite",
+    "django-esi>=8,<=9",
+    "django-eveonline-sde",
+    "django-ninja",
+]
+optional-dependencies.tests-allianceauth-development = [
+    "allianceauth==5.0.0b1",
+    "coverage",
+    "factory-boy",
+]
+optional-dependencies.tests-allianceauth-latest = [
+    "coverage",
+    "factory-boy",
+]
+urls.Changelog = "https://github.com/Geuthur/aa-killstats/blob/master/CHANGELOG.md"
+urls.Documentation = "https://github.com/Geuthur/aa-killstats/blob/master/README.md"
+urls.Donations = "https://ko-fi.com/Geuthur"
+urls.Homepage = "https://github.com/Geuthur/aa-killstats"
+urls.Source = "https://github.com/Geuthur/aa-killstats"
+urls.Tracker = "https://github.com/Geuthur/aa-killstats/issues"
+
+[tool.hatch]
+build.include = [
+    "/killstats",
+]
+version.path = "killstats/__init__.py"

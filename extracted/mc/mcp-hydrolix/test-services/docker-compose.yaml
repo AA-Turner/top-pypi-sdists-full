@@ -1,0 +1,30 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    environment:
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: clickhouse
+      CLICKHOUSE_DB: default
+      TEST_CONFIG: |+
+        <?xml version="1.0" ?>
+        <clickhouse>
+            <max_connections>4096</max_connections>
+            <logger>
+                <console>1</console>
+            </logger>
+            <timezone>UTC</timezone>
+            <custom_settings_prefixes replace="replace">SQL_,hdx_</custom_settings_prefixes>
+        </clickhouse>
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        $(echo "$$TEST_CONFIG" > /etc/clickhouse-server/config.d/tcconfig.xml)
+        exec /entrypoint.sh "$@"
+volumes:
+  clickhouse-data:

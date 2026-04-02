@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Automatically retries internal server errors from GET requests.

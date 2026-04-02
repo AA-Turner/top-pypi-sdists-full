@@ -1,0 +1,301 @@
+[project]
+authors = [{ name = "Cody Fincher", email = "cody.fincher@gmail.com" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Web Environment",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python",
+  "Topic :: Software Development",
+  "Typing :: Typed",
+]
+dependencies = [
+ "litestar>=2.0.1",
+ "saq>=0.26.0",
+]
+description = "Litestar integration for SAQ"
+keywords = ["litestar", "saq"]
+license = { text = "MIT" }
+name = "litestar-saq"
+readme = "README.md"
+requires-python = ">=3.9"
+version = "0.7.1"
+
+[project.optional-dependencies]
+hiredis = ["hiredis"]
+otel = ["opentelemetry-api", "opentelemetry-sdk"]
+psycopg = ["psycopg[pool,binary]"]
+
+[project.urls]
+Changelog = "https://cofin.github.io/litesatr-saq/latest/changelog"
+Discord = "https://discord.gg/X3FJqy8d2j"
+Documentation = "https://cofin.github.io/litesatr-saq/latest/"
+Homepage = "https://cofin.github.io/litesatr-saq/latest/"
+Issue = "https://github.com/cofin/litestar-saq/issues/"
+Source = "https://github.com/cofin/litestar-saq"
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[dependency-groups]
+dev = [{include-group = "build"}, {include-group = "linting"}, {include-group = "test"}]
+build = ["bump-my-version"]
+linting = [
+  "pre-commit",
+  "mypy",
+  "ruff",
+  "types-click",
+  "types-redis",
+  "types-croniter",
+  "pyright",
+  "slotscheck",
+]
+test = [
+  "pytest",
+  "pytest-mock",
+  "httpx",
+  "pytest-cov",
+  "coverage",
+  "pytest-databases",
+  "pytest-sugar",
+  "pytest-asyncio",
+  "pytest-xdist",
+  "anyio",
+  "litestar[jinja,redis,standard]",
+  "opentelemetry-api",
+  "opentelemetry-sdk",
+  "psycopg[pool,binary]",
+  "sniffio",
+  "structlog"
+]
+
+
+[tool.bumpversion]
+allow_dirty = true
+commit = false
+commit_args = "--no-verify"
+current_version = "0.7.1"
+ignore_missing_files = false
+ignore_missing_version = false
+message = "chore(release): bump to `v{new_version}`"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+regex = false
+replace = "{new_version}"
+search = "{current_version}"
+serialize = ["{major}.{minor}.{patch}"]
+sign_tags = false
+tag = false
+tag_message = "chore(release): `v{new_version}`"
+tag_name = "v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+replace = 'version = "{new_version}"'
+search = 'version = "{current_version}"'
+
+
+[[tool.bumpversion.files]]
+filename = "uv.lock"
+replace = """
+name = "litestar-saq"
+version = "{new_version}"
+"""
+search = """
+name = "litestar-saq"
+version = "{current_version}"
+"""
+
+[tool.pytest.ini_options]
+addopts = ["-q", "-ra"]
+filterwarnings = [
+  "ignore::DeprecationWarning:pkg_resources",
+  "ignore::DeprecationWarning:xdist.*",
+  "ignore::PendingDeprecationWarning:rich_click.*",
+]
+minversion = "6.0"
+testpaths = ["tests"]
+tmp_path_retention_policy = "failed"
+tmp_path_retention_count = 3
+asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "auto"
+
+[tool.coverage.report]
+exclude_lines = [
+  'if TYPE_CHECKING:',
+  'pragma: no cover',
+  "if __name__ == .__main__.:",
+  'def __repr__',
+  'if self\.debug:',
+  'if settings\.DEBUG',
+  'raise AssertionError',
+  'raise NotImplementedError',
+  'if 0:',
+  'class .*\bProtocol\):',
+  '@(abc\.)?abstractmethod',
+]
+omit = ["*/tests/*"]
+show_missing = true
+
+
+[tool.coverage.run]
+branch = true
+concurrency = ["multiprocessing" ]
+omit = ["tests/*"]
+parallel = true
+
+[tool.slotscheck]
+strict-imports = false
+
+[tool.ruff]
+exclude = [
+  ".bzr",
+  ".direnv",
+  ".eggs",
+  ".git",
+  ".hg",
+  ".mypy_cache",
+  ".nox",
+  ".pants.d",
+  ".ruff_cache",
+  ".svn",
+  ".tox",
+  ".venv",
+  "__pypackages__",
+  "_build",
+  "buck-out",
+  "build",
+  "dist",
+  "node_modules",
+  "venv",
+  '__pycache__',
+]
+fix = true
+line-length = 120
+lint.fixable = ["ALL"]
+lint.ignore = [
+  "A003",    # flake8-builtins - class attribute {name} is shadowing a python builtin
+  "B010",    # flake8-bugbear - do not call setattr with a constant attribute value
+  "D100",    # pydocstyle - missing docstring in public module
+  "D101",    # pydocstyle - missing docstring in public class
+  "D102",    # pydocstyle - missing docstring in public method
+  "D103",    # pydocstyle - missing docstring in public function
+  "D104",    # pydocstyle - missing docstring in public package
+  "D105",    # pydocstyle - missing docstring in magic method
+  "D106",    # pydocstyle - missing docstring in public nested class
+  "D107",    # pydocstyle - missing docstring in __init__
+  "D202",    # pydocstyle - no blank lines allowed after function docstring
+  "D205",    # pydocstyle - 1 blank line required between summary line and description
+  "D415",    # pydocstyle - first line should end with a period, question mark, or exclamation point
+  "E501",    # pycodestyle line too long, handled by black
+  "PLW2901", # pylint - for loop variable overwritten by assignment target
+  "RUF012",  # Ruff-specific rule - annotated with classvar
+  "ANN401",
+  "FBT",
+  "PLR0913", # too many arguments
+  "PT",
+  "TD",
+  "ARG002",  # ignore for now; investigate
+  "PERF203", # ignore for now; investigate
+  "ISC001",
+  "COM812",
+  "FA100",    # use __future__ import annotations
+  "CPY001",   # copyright at the top of the file
+  "PLC0415",  # import at the top of the file
+  "PGH003",   # Use specific rule codes when ignoring type issues
+  "PLC2701",  # ignore for now; investigate
+  "PLR6301",  # function could be static or class method
+  "RUF029",
+]
+lint.select = ["ALL"]
+# Allow unused variables when underscore-prefixed.
+lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+src = ["litestar_saq", "tests"]
+target-version = "py39"
+unsafe-fixes = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = [
+  "sqlalchemy.ext.declarative.declared_attr",
+  "sqlalchemy.orm.declared_attr.directive",
+  "sqlalchemy.orm.declared_attr",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.*" = [
+  "A",
+  "ARG",
+  "B",
+  "BLE",
+  "C901",
+  "D",
+  "DTZ",
+  "EM",
+  "FBT",
+  "G",
+  "N",
+  "PGH",
+  "PIE",
+  "PLR",
+  "PLW",
+  "PTH",
+  "RSE",
+  "S",
+  "S101",
+  "SIM",
+  "TC",
+  "TRY",
+  "UP006",
+  "SLF001",
+  "ERA001",
+
+]
+"tools/*.py" = [ "PLR0911"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["litestar_saq", "tests"]
+
+[tool.mypy]
+disallow_any_generics = false
+disallow_untyped_decorators = true
+implicit_reexport = false
+show_error_codes = true
+strict = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+disable_error_code = "attr-defined"
+disallow_untyped_decorators = false
+module = "tests.*"
+
+[tool.pyright]
+venvPath = "."
+disableBytesTypePromotions = true
+exclude = [
+  "docs",
+  "tests/helpers.py",
+]
+include = ["litestar_saq"]
+pythonVersion = "3.9"
+strict = ["litestar_saq/**/*"]
+venv = ".venv"
+
+[tool.codespell]
+ignore-words-list = "selectin"
+skip = 'uv.lock,pyproject.toml'

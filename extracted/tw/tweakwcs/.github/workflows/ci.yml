@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - '*.x'
+    tags:
+      - "*"
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@86823142467dd2afcd1bbac57d3a664cf468eb3b  # v2.1.0
+    with:
+      envs: |
+        - linux: check-style
+        - linux: check-security
+        - linux: check-build
+  test:
+    uses: OpenAstronomy/github-actions-workflows/.github/workflows/tox.yml@86823142467dd2afcd1bbac57d3a664cf468eb3b  # v2.1.0
+    with:
+      envs: |
+        - macos: py310-numpy121-xdist
+        - linux: py310-numpy125-xdist
+        - linux: py311-xdist
+          pytest-results-summary: true
+        - macos: py311-xdist
+          pytest-results-summary: true
+        - windows: py311-xdist
+          pytest-results-summary: true
+        - linux: py311-pyargs-xdist
+        - macos: py312-xdist
+          pytest-results-summary: true
+        - linux: py312-numpy21-xdist
+          pytest-results-summary: true
+        - linux: py313-cov-xdist
+          coverage: codecov
+          pytest-results-summary: true
+        - macos: py313-xdist
+          pytest-results-summary: true
+        - windows: py313-xdist
+          pytest-results-summary: true
+        - linux: py313-numpy22-xdist
+          pytest-results-summary: true
+        - macos: py313-numpy22-xdist
+          pytest-results-summary: true
+        - windows: py313-numpy22-xdist
+          pytest-results-summary: true
+        - linux: py313-dev-xdist
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

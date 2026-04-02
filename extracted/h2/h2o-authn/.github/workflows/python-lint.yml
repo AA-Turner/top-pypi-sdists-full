@@ -1,0 +1,37 @@
+name: Python Lint
+
+on:
+  workflow_call:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        id: setup-python
+        with:
+          python-version: "3.11"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-lint-${{ steps.setup-python.outputs.python-version }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-pip-lint-${{ steps.setup-python.outputs.python-version }}-
+            ${{ runner.os }}-pip-lint-
+            ${{ runner.os }}-pip
+
+      - name: Install Hatch
+        run: |
+          pipx install hatch
+          hatch --version
+
+
+      - name: Run Linters
+        run: |
+          hatch run lint:check

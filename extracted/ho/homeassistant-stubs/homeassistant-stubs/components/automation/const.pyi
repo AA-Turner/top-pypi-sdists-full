@@ -1,0 +1,12 @@
+from _typeshed import Incomplete
+
+CONF_TRIGGER_VARIABLES: str
+DOMAIN: str
+CONF_HIDE_ENTITY: str
+CONF_CONDITION_TYPE: str
+CONF_INITIAL_STATE: str
+CONF_BLUEPRINT: str
+CONF_INPUT: str
+CONF_TRACE: str
+DEFAULT_INITIAL_STATE: bool
+LOGGER: Incomplete

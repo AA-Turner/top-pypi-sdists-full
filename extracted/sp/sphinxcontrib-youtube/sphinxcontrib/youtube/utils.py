@@ -2,12 +2,12 @@
 
 import re
 from pathlib import Path
+from typing import ClassVar
 
 import requests
 from docutils import nodes
 from docutils.parsers.rst import Directive, directives
 from sphinx.util import logging
-from sphinx.util.console import brown
 from sphinx.util.display import status_iterator
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,7 @@ class Video(Directive):
     required_arguments = 1
     optional_arguments = 0
     final_argument_whitespace = False
-    option_spec = {
+    option_spec: ClassVar = {
         "width": directives.unchanged,
         "height": directives.unchanged,
         "aspect": directives.unchanged,
@@ -124,7 +124,7 @@ class Video(Directive):
 # -- builder specific methods --------------------------------------------------
 
 
-def visit_video_node_html(self, node, platform_url_privacy=None):
+def visit_video_node_html(self, node, platform_url_privacy=None, additional_attr={}):
     """Visit html video node."""
     aspect = node["aspect"]
     width = node["width"]
@@ -157,6 +157,7 @@ def visit_video_node_html(self, node, platform_url_privacy=None):
         attrs = {
             "src": "{}{}{}".format(platform_url, node["id"], url_parameters),
             "style": css(style),
+            **additional_attr,
         }
     else:
         if width is None:
@@ -174,6 +175,7 @@ def visit_video_node_html(self, node, platform_url_privacy=None):
         attrs = {
             "src": "{}{}{}".format(platform_url, node["id"], url_parameters),
             "style": css(style),
+            **additional_attr,
         }
     if node["align"] is not None:
         div_style["text-align"] = node["align"]
@@ -261,7 +263,7 @@ def download_images(app, env):
     )
     msg = "Downloading remote images..."
     nb_images = len(env.video_remote_images)
-    for src in iterator(env.video_remote_images, msg, brown, nb_images):
+    for src in iterator(env.video_remote_images, msg, "brown", nb_images):
 
         dst = Path(app.outdir) / env.video_remote_images[src]
         if not dst.is_file():

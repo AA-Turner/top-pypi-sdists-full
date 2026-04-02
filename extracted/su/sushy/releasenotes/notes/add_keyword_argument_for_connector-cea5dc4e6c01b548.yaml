@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Adds functionality to pass different requests library session
-    arguments to sushy connector.

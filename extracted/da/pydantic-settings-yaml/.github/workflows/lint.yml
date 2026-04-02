@@ -1,0 +1,26 @@
+name: Lint
+
+on:
+  push:
+    branches:
+      - main
+      - fixes_*
+    paths:
+      - 'src/**'
+      - '!src/pydantic_settings_yaml/__init__.py'
+      - './github/workflows/lint.yaml'
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Run black, flake8, isort, mypy
+        uses: pre-commit/action@v2.0.0

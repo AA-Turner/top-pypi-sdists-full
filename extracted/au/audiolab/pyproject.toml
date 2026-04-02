@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "audiolab"
+authors = [{ name = "Zhendong Peng", email = "pzd17@tsinghua.org.cn" }]
+description = "AudioLab"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.8"
+dynamic = ["version"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "av",
+  "click",
+  "humanize",
+  "jinja2",
+  "requests",
+  "smart_open",
+  "soundfile",
+]
+
+[project.scripts]
+audi = "audiolab.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/pengzhendong/audiolab"
+Documentation = "https://github.com/pengzhendong/audiolab#readme"
+BugTracker = "https://github.com/pengzhendong/audiolab/issues"
+
+[tool.ruff]
+line-length = 120
+
+[tool.setuptools.dynamic]
+version = { file = "VERSION" }
+
+[tool.setuptools.package-data]
+audiolab = ["av/templates/*"]

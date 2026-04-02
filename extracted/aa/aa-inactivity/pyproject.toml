@@ -1,0 +1,83 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "aa-inactivity"
+dynamic = ["version", "description"]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+authors = [
+    { name = "Erik Kalkoken", email = "kalkoken87@gmail.com" },
+    { name = "Rebecca Murphy", email = "rebecca@rcmurphy.me" },
+]
+classifiers = [
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+dependencies = [
+    "aa-memberaudit>=4.0.0",
+    "allianceauth-app-utils>=1.18",
+    "allianceauth>=4,<5",
+    "django-multiselectfield",
+    "py-cord>=2.4.1",
+    "pytz>=2023.3",
+    "humanize>=4.7",
+]
+
+[project.urls]
+Homepage = "https://gitlab.com/eclipse-expeditions/aa-inactivity"
+Source = "https://gitlab.com/eclipse-expeditions/aa-inactivity"
+Changelog = "https://gitlab.com/eclipse-expeditions/aa-inactivity/-/blob/master/CHANGELOG.md"
+Tracker = "https://gitlab.com/eclipse-expeditions/aa-inactivity/-/issues"
+
+[tool.flit.module]
+name = "inactivity"
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+sections = [
+    "FUTURE",
+    "STDLIB",
+    "THIRDPARTY",
+    "DJANGO",
+    "ALLIANCEAUTH",
+    "FIRSTPARTY",
+    "LOCALFOLDER",
+]
+known_allianceauth = ["allianceauth", "app_utils"]
+known_django = ["django", "django_webtest", "esi", "eveuniverse"]
+
+[tool.pylint.'MASTER']
+ignore-patterns = ["__init__.py", "auth_hooks.py", "apps.py"]
+ignore-paths = ["^.*/tests/.*$", "^.*/migrations/.*$"]
+
+[tool.pylint.'BASIC']
+good-names = ["i", "j", "k", "ex", "pk", "id"]
+
+[tool.pylint.'FORMAT']
+max-line-length = 120
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = [
+    "too-many-instance-attributes",
+    "too-few-public-methods",
+    "cyclic-import",
+    "imported-auth-user",
+    "import-outside-toplevel",
+    "fixme",
+]

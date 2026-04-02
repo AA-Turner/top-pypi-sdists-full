@@ -1,0 +1,112 @@
+name: Tests And Linting
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: test-${{ github.head_ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  FORCE_COLOR: "1"
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }} - ${{ matrix.cdist-group }}/3
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        cdist-group: [1, 2, 3]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install additional dependencies
+        run: sudo apt-get update && sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 libmariadb-dev && sudo apt-get autoremove -y  && sudo apt-get clean -y
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Intall dependencies
+        run: uv sync --frozen --all-extras
+
+      - if: matrix.python-version == '3.12'
+        name: Run tests with coverage tracking
+        run: uv run pytest --cdist-group=${{ matrix.cdist-group }}/3 -k "not elasticsearch"
+
+      - if: matrix.python-version != '3.12'
+        name: Run tests without tracking coverage
+        run: uv run pytest --cdist-group=${{ matrix.cdist-group }}/3 -k "not elasticsearch"
+
+      - if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
+      - if: matrix.python-version == '3.12'
+        name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5.5.2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: litestar-org/pytest-databases
+
+  # run elasticsearch in a separate step. it's too slow
+  test_elasticsearch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install additional dependencies
+        run: sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 libmariadb-dev
+
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.9
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Intall dependencies
+        run: uv sync --frozen --all-extras
+
+      - name: Run tests with coverage tracking
+        run: uv run pytest -k elasticsearch
+
+  # sonar:
+  #   needs:
+  #     - test
+  #     - test_elasticsearch
+  #   if: github.event.pull_request.head.repo.fork == false && github.repository_owner == 'litestar-org'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Check out repository
+  #       uses: actions/checkout@v6
+  #       with:
+  #         fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+  #     - name: Download Artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: coverage-xml
+
+  #     - name: Fix coverage file for sonarcloud
+  #       run: sed -i "s/home\/runner\/work\/pytest-databases\/pytest-databases/github\/workspace/g" coverage.xml
+
+  #     - name: SonarCloud Scan
+  #       uses: sonarsource/sonarcloud-github-action@master
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

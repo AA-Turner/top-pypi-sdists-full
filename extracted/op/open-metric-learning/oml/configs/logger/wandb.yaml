@@ -1,3 +1,0 @@
-name: wandb
-args:
-  project: "test_project"

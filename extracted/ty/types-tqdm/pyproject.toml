@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-tqdm"
-version = "4.67.3.20260303"
+version = "4.67.3.20260402"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for tqdm"
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.19.1
+* [mypy](https://github.com/python/mypy/) 1.20.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`0e16ea31d2e188fdc126cb31e7c4fcc6b5a8da96`](https://github.com/python/typeshed/commit/0e16ea31d2e188fdc126cb31e7c4fcc6b5a8da96).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -48,3 +48,6 @@ dependencies = ['types-requests']
 [tool.setuptools]
 packages = ['tqdm-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'tqdm-stubs' = ['__init__.pyi', '_main.pyi', '_monitor.pyi', '_tqdm.pyi', '_tqdm_gui.pyi', '_tqdm_notebook.pyi', '_tqdm_pandas.pyi', '_utils.pyi', 'asyncio.pyi', 'auto.pyi', 'autonotebook.pyi', 'cli.pyi', 'contrib/__init__.pyi', 'contrib/bells.pyi', 'contrib/concurrent.pyi', 'contrib/discord.pyi', 'contrib/itertools.pyi', 'contrib/logging.pyi', 'contrib/slack.pyi', 'contrib/telegram.pyi', 'contrib/utils_worker.pyi', 'dask.pyi', 'gui.pyi', 'keras.pyi', 'notebook.pyi', 'rich.pyi', 'std.pyi', 'tk.pyi', 'utils.pyi', 'version.pyi', 'METADATA.toml', 'py.typed']

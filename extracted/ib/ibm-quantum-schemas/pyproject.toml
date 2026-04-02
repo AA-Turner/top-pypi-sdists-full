@@ -1,0 +1,129 @@
+[build-system]
+requires = ["setuptools", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["ibm_quantum_schemas"]
+
+[tool.setuptools.packages.find]
+include = ["ibm_quantum_schemas", "ibm_quantum_schemas.*"]
+
+[project]
+name = "ibm-quantum-schemas"
+dynamic = ["version"]
+description = "IBM Quantum Pydantic models."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE.txt"]
+authors = [
+    {name = "Qiskit Development Team", email="qiskit@us.ibm.com"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "pydantic>=2.5,<3.0.0",
+    "qiskit>=2.2.0,<3.0.0",
+    "samplomatic>=0.12.0",
+]
+
+[tool.setuptools_scm]
+version_file = "ibm_quantum_schemas/_version.py"
+version_scheme = "guess-next-dev"
+local_scheme = "dirty-tag"
+
+[project.urls]
+Homepage = "https://github.com/Qiskit/ibm-quantum-schemas"
+BugTracker = "https://github.com/Qiskit/ibm-quantum-schemas"
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",                 # Pre-commit hooks
+    "pytest",                     # For running tests
+    "pytest-error-for-skips",     # Plugin to turn skips into errors
+    "ruff",                       # Formatter and linter
+    "towncrier",                  # Changelog management
+]
+
+documentation = [
+    "Sphinx>=6",
+    "sphinx-automodapi",
+    "sphinx-autodoc-typehints<=1.19.2",
+    "sphinxcontrib-katex==0.9.9",
+    "autodoc_pydantic==2.2.0",
+]
+
+[tool.ruff]
+lint.select = [
+    "D1", "D2", "D3", # pydocstyle
+    "E",              # pycodestyle
+    "F",              # pyflake
+    "I",              # isort
+    "SLF",            # private member access rules
+    "UP",             # pyupgrade
+    "TID252",         # relative-imports
+]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+    "E402",   # module-import-not-at-top-of-file
+    "F401",   # unused-import
+    "D212",   # multi-line-summary-first-line
+    "D205",   # missing-blank-line-after-summary
+]
+"test/unit/**/*.py" = [
+    "D100",   #
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.towncrier]
+package = "ibm-quantum-schemas"
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+start_string = "<!-- towncrier release notes start -->\n"
+title_format = "## [{version}](https://github.com/Qiskit/ibm-quantum-schemas/tree/{version}) - {project_date}"
+issue_format = "[#{issue}](https://github.com/Qiskit/ibm-quantum-schemas/issues/{issue})"
+
+[[tool.towncrier.type]]
+directory = "security"
+name = "Security"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "deprecated"
+name = "Deprecated"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "improved"
+name = "Improved"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true

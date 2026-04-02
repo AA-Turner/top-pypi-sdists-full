@@ -1,7 +1,8 @@
 """
 Tests for Python free-threaded mode (PEP 703) following guidelines from:
-- Python Free-Threading Guide: https://py-free-threading.github.io/
-- pytest-run-parallel: https://github.com/Quansight-Labs/pytest-run-parallel
+
+* Python Free-Threading Guide: https://py-free-threading.github.io/
+* pytest-run-parallel: https://github.com/Quansight-Labs/pytest-run-parallel
 """
 
 from __future__ import annotations
@@ -9,16 +10,15 @@ from __future__ import annotations
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
-from typing import TYPE_CHECKING, Callable, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 import pytest
 
 from iso_week_date import IsoWeek, IsoWeekDate
 
 if TYPE_CHECKING:
-    from typing import Any
-
-    from typing_extensions import TypeAlias
+    from collections.abc import Callable
+    from typing import Any, TypeAlias
 
     AnyDict: TypeAlias = dict[str, Any]
 

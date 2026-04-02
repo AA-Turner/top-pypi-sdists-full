@@ -4,17 +4,17 @@ use lsp_types::{
     FullDocumentDiagnosticReport, RelatedFullDocumentDiagnosticReport,
 };
 
-use crate::system::System;
+use crate::global_state::Snapshot;
 
 pub(crate) fn handle_document_diagnostic(
-    system: &dyn System,
+    snapshot: &Snapshot,
     params: DocumentDiagnosticParams,
 ) -> Result<DocumentDiagnosticReportResult> {
     let uri = params.text_document.uri;
 
-    let diagnostics = system
+    let diagnostics = snapshot
         .file(&uri)
-        .map(|file| crate::lint::lint(system.db(), file))
+        .map(|file| crate::lint::lint(snapshot.db(), file))
         .unwrap_or_default();
 
     Ok(DocumentDiagnosticReportResult::Report(

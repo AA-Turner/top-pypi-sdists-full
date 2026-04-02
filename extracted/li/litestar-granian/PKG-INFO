@@ -1,0 +1,92 @@
+Metadata-Version: 2.4
+Name: litestar-granian
+Version: 0.14.2
+Summary: Granian plugin for Litestar
+Project-URL: Changelog, https://cofin.github.io/litesatr-granian/latest/changelog
+Project-URL: Discord, https://discord.gg/X3FJqy8d2j
+Project-URL: Documentation, https://cofin.github.io/litesatr-granian/latest/
+Project-URL: Homepage, https://cofin.github.io/litesatr-granian/latest/
+Project-URL: Issue, https://github.com/cofin/litestar-granian/issues/
+Project-URL: Source, https://github.com/cofin/litestar-granian
+Author-email: Cody Fincher <cody@litestar.dev>
+License: MIT
+License-File: LICENSE
+Keywords: asgi,granian,litestar
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Requires-Dist: granian[pname,reload]>=2.5.0
+Requires-Dist: httptools
+Requires-Dist: litestar>=2.15.0
+Requires-Dist: websockets
+Provides-Extra: rloop
+Requires-Dist: rloop; (sys_platform != 'win32') and extra == 'rloop'
+Provides-Extra: uvloop
+Requires-Dist: uvloop; (sys_platform != 'win32' and platform_python_implementation == 'CPython') and extra == 'uvloop'
+Description-Content-Type: text/markdown
+
+# Litestar Granian Plugin
+
+## Installation
+
+```shell
+pip install litestar-granian
+```
+
+## Usage
+
+Here is a basic application that demonstrates how to use the plugin.
+
+```python
+from __future__ import annotations
+
+from litestar import Controller, Litestar, get
+
+from litestar_granian import GranianPlugin
+
+
+class SampleController(Controller):
+    @get(path="/sample")
+    async def sample_route(self ) -> dict[str, str]:
+        """Sample Route."""
+        return {"sample": "hello-world"}
+
+
+app = Litestar(plugins=[GranianPlugin()], route_handlers=[SampleController])
+
+```
+
+Now, you can use the standard Litestar CLI and it will run with Granian instead of Uvicorn.
+
+```shell
+❯ litestar --app examples.basic:app run
+Using Litestar app from env: 'examples.basic:app'
+Starting granian server process ──────────────────────────────────────────────
+┌──────────────────────────────┬──────────────────────┐
+│ Litestar version             │ 2.1.1                │
+│ Debug mode                   │ Disabled             │
+│ Python Debugger on exception │ Disabled             │
+│ CORS                         │ Disabled             │
+│ CSRF                         │ Disabled             │
+│ OpenAPI                      │ Enabled path=/schema │
+│ Compression                  │ Disabled             │
+└──────────────────────────────┴──────────────────────┘
+[INFO] Starting granian
+[INFO] Listening at: 127.0.0.1:8000
+[INFO] Spawning worker-1 with pid: 2719082
+[INFO] Started worker-1
+[INFO] Started worker-1 runtime-1
+```

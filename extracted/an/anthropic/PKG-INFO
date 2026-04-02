@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: anthropic
-Version: 0.87.0
+Version: 0.88.0
 Summary: The official Python library for the anthropic API
 Project-URL: Homepage, https://github.com/anthropics/anthropic-sdk-python
 Project-URL: Repository, https://github.com/anthropics/anthropic-sdk-python
@@ -33,6 +33,9 @@ Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
+Provides-Extra: aws
+Requires-Dist: boto3>=1.28.57; extra == 'aws'
+Requires-Dist: botocore>=1.31.57; extra == 'aws'
 Provides-Extra: bedrock
 Requires-Dist: boto3>=1.28.57; extra == 'bedrock'
 Requires-Dist: botocore>=1.31.57; extra == 'bedrock'

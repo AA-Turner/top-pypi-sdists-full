@@ -1,0 +1,77 @@
+Metadata-Version: 2.4
+Name: aiohomematic-config
+Version: 2026.3.5
+Summary: Presentation-layer library for Homematic device configuration UI.
+Author-email: SukramJ <sukramj@icloud.com>
+License: MIT License
+Project-URL: Homepage, https://github.com/sukramj/aiohomematic-config
+Project-URL: Source Code, https://github.com/sukramj/aiohomematic-config
+Project-URL: Bug Reports, https://github.com/sukramj/aiohomematic-config/issues
+Project-URL: Changelog, https://github.com/sukramj/aiohomematic-config/blob/devel/changelog.md
+Keywords: home,automation,homematic,configuration,paramset
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Natural Language :: German
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Home Automation
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.14
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohomematic>=2026.3.19
+Requires-Dist: pydantic>=2.10.0
+Dynamic: license-file
+
+# aiohomematic-config
+
+[![CI](https://github.com/sukramj/aiohomematic-config/actions/workflows/test-run.yaml/badge.svg)](https://github.com/sukramj/aiohomematic-config/actions/workflows/test-run.yaml)
+[![codecov](https://codecov.io/gh/sukramj/aiohomematic-config/branch/devel/graph/badge.svg)](https://codecov.io/gh/sukramj/aiohomematic-config)
+[![PyPI](https://img.shields.io/pypi/v/aiohomematic-config.svg)](https://pypi.org/project/aiohomematic-config/)
+
+Presentation-layer library for Homematic device configuration UI.
+
+Transforms Homematic device paramset descriptions into UI-optimized structures. No RPC knowledge, no CCU access -- operates purely on data structures from [aiohomematic](https://github.com/sukramj/aiohomematic).
+
+## Installation
+
+```bash
+pip install aiohomematic-config
+```
+
+## Quick Start
+
+```python
+from aiohomematic_config import FormSchemaGenerator
+
+generator = FormSchemaGenerator(locale="en")
+schema = generator.generate(
+    descriptions=descriptions,
+    current_values=current_values,
+    channel_type="HEATING_CLIMATECONTROL_TRANSCEIVER",
+)
+# schema is a Pydantic model, JSON-serializable
+print(schema.model_dump_json(indent=2))
+```
+
+## Key Components
+
+| Component             | Purpose                                          |
+| --------------------- | ------------------------------------------------ |
+| `FormSchemaGenerator` | ParameterData + values -> JSON form schemas      |
+| `ParameterGrouper`    | Flat parameter list -> grouped sections          |
+| `LabelResolver`       | Technical parameter IDs -> human-readable labels |
+| `ConfigSession`       | Change tracking, undo/redo, dirty state          |
+| `ConfigExporter`      | Serialize/deserialize device configurations      |
+| `WidgetType` mapping  | ParameterType -> appropriate UI widget           |
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.

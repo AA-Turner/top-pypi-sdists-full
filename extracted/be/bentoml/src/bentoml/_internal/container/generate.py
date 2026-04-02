@@ -7,12 +7,13 @@ import typing as t
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from jinja2 import Environment
 from jinja2.loaders import FileSystemLoader
+from jinja2.sandbox import SandboxedEnvironment as Environment
 
 from ..configuration.containers import BentoMLContainer
 from ..utils.filesystem import resolve_user_filepath
 from .frontend.dockerfile import DistroSpec
+from .frontend.dockerfile import get_cuda_base_image
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ def get_templates_variables(
             python_version = python_version.replace(".", "")
         base_image = spec.image.format(spec_version=python_version)
         if docker.cuda_version is not None:
-            base_image = spec.image.format(spec_version=docker.cuda_version)
+            base_image = get_cuda_base_image(docker.distro, docker.cuda_version)
 
     # bento__env
     default_env = {**DEFAULT_BENTO_ENVS, **bento_env}
@@ -153,7 +154,7 @@ def generate_containerfile(
         os.path.join(os.path.dirname(__file__), "frontend", frontend, "templates")
     ]
     ENVIRONMENT = Environment(
-        extensions=["jinja2.ext.do", "jinja2.ext.loopcontrols", "jinja2.ext.debug"],
+        extensions=["jinja2.ext.loopcontrols"],
         trim_blocks=True,
         lstrip_blocks=True,
         loader=FileSystemLoader(TEMPLATES_PATH, followlinks=True),

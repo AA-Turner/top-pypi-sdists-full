@@ -30,6 +30,7 @@ class CSVToDocument:
 
     ```python
     from haystack.components.converters.csv import CSVToDocument
+    from datetime import datetime
     converter = CSVToDocument()
     results = converter.run(sources=["sample.csv"], meta={"date_added": datetime.now().isoformat()})
     documents = results["documents"]
@@ -46,7 +47,7 @@ class CSVToDocument:
         conversion_mode: Literal["file", "row"] = "file",
         delimiter: str = ",",
         quotechar: str = '"',
-    ):
+    ) -> None:
         """
         Creates a CSVToDocument component.
 
@@ -84,7 +85,7 @@ class CSVToDocument:
         *,
         content_column: str | None = None,
         meta: dict[str, Any] | list[dict[str, Any]] | None = None,
-    ):
+    ) -> dict[str, Any]:
         """
         Converts CSV files to a Document (file mode) or to one Document per row (row mode).
 

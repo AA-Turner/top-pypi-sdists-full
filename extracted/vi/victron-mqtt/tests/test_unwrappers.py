@@ -1,0 +1,377 @@
+"""Unit tests for the Victron MQTT unwrappers."""
+import json
+from datetime import UTC, datetime
+
+from victron_mqtt._unwrappers import (
+    VALUE_TYPE_UNWRAPPER,
+    VALUE_TYPE_WRAPPER,
+    unwrap_bitmask,
+    unwrap_bool,
+    unwrap_enum,
+    unwrap_epoch,
+    unwrap_float,
+    unwrap_float_m3_to_liters,
+    unwrap_int,
+    unwrap_int_default_0,
+    unwrap_int_seconds_to_hours,
+    unwrap_int_seconds_to_minutes,
+    unwrap_string,
+    wrap_bitmask,
+    wrap_enum,
+    wrap_epoch,
+    wrap_float,
+    wrap_int,
+    wrap_int_default_0,
+    wrap_int_hours_to_seconds,
+    wrap_int_minutes_to_seconds,
+    wrap_string,
+)
+from victron_mqtt._victron_enums import GenericOnOff, SolarChargerDeviceOffReason
+from victron_mqtt.constants import ValueType, VictronEnum
+
+
+def test_unwrap_bool_true_false_null_and_malformed():
+    """Test the unwrap_bool function with various inputs."""
+    assert unwrap_bool('{"value": true}') is True
+    assert unwrap_bool('{"value": false}') is False
+    assert unwrap_bool('{"value": 1}') is True
+    assert unwrap_bool('{"value": 0}') is False
+    assert unwrap_bool('{"value": null}') is None
+    assert unwrap_bool('not json') is None
+
+
+def test_unwrap_int_and_default():
+    """Test the unwrap_int and unwrap_int_default_0 functions with various inputs."""
+    assert unwrap_int('{"value": 5}') == 5
+    assert unwrap_int('{"value": "7"}') == 7
+    assert unwrap_int('{"value": null}') is None
+    assert unwrap_int('bad') is None
+
+    assert unwrap_int_default_0('{"value": 3}') == 3
+    assert unwrap_int_default_0('{"value": null}') == 0
+    assert unwrap_int_default_0('bad') == 0
+
+
+def test_unwrap_float_variants():
+    """Test the unwrap_float function with various inputs and precisions."""
+    # existing zero tests
+    assert unwrap_float('{"value": 0}', None) == 0.0
+    assert unwrap_float('{"value": 0}', 2) == 0.0
+    assert unwrap_float('{"value": "0"}', 3) == 0.0
+
+    # json_value parameter
+    json_str = '{"value": 2.3456, "other": 1.2344}'
+    assert unwrap_float(json_str, 2, json_value="other") == 1.23
+
+    # None value
+    assert unwrap_float('{"value": null}', None) is None
+    # malformed
+    assert unwrap_float('not json', None) is None
+
+
+def test_unwrap_string():
+    """Test the unwrap_string function with various inputs."""
+    assert unwrap_string('{"value": "abc"}') == "abc"
+    assert unwrap_string('{"value": 1}') == "1"
+    assert unwrap_string('{"value": null}') is None
+    assert unwrap_string('bad') is None
+
+
+def test_unwrap_enum_and_epoch():
+    """Test the unwrap_enum and unwrap_epoch functions with various inputs."""
+    # GenericOnOff: Off=0, On=1
+    res = unwrap_enum('{"value": 1}', GenericOnOff)
+    assert res is GenericOnOff.ON
+    assert unwrap_enum('{"value": null}', GenericOnOff) is None
+    assert unwrap_enum('bad', GenericOnOff) is None
+
+    # epoch
+    ts = 1609459200  # 2021-01-01 00:00:00 UTC
+    dt = datetime.fromtimestamp(ts, tz=UTC)
+    res_dt = unwrap_epoch(json.dumps({"value": ts}))
+    assert isinstance(res_dt, datetime)
+    assert res_dt == dt
+
+def test_unwrap_bitmask():
+    """Test the unwrap_bitmask function with various inputs."""
+    # SolarChargerDeviceOffReason: 0x00=NONE, 0x01=NoInputPower, 0x02=SwitchedOffPowerSwitch, 0x04=SwitchedOffDeviceModeRegister", ...
+    res = unwrap_bitmask('{"value": 0}', SolarChargerDeviceOffReason)
+    assert res == SolarChargerDeviceOffReason.NONE.string
+
+    res = unwrap_bitmask('{"value": 2}', SolarChargerDeviceOffReason)
+    assert res == SolarChargerDeviceOffReason.SWITCHED_OFF_POWER_SWITCH.string
+
+    res = unwrap_bitmask('{"value": 3}', SolarChargerDeviceOffReason)
+    assert res is not None
+    assert SolarChargerDeviceOffReason.NO_INPUT_POWER.string in res
+    assert SolarChargerDeviceOffReason.SWITCHED_OFF_POWER_SWITCH.string in res
+
+    assert unwrap_enum('{"value": null}', SolarChargerDeviceOffReason) is None
+    assert unwrap_enum('bad', SolarChargerDeviceOffReason) is None
+
+def test_unwrap_int_seconds_to_hours():
+    """Test the unwrap_int_seconds_to_hours function with various inputs and precisions."""
+    # Test normal conversion: 3600 seconds = 1 hour
+    assert unwrap_int_seconds_to_hours('{"value": 3600}', None) == 1.0
+    assert unwrap_int_seconds_to_hours('{"value": 7200}', None) == 2.0
+
+    # Test with precision
+    assert unwrap_int_seconds_to_hours('{"value": 1800}', 2) == 0.5  # 30 minutes
+    assert unwrap_int_seconds_to_hours('{"value": 900}', 3) == 0.25  # 15 minutes
+
+    # Test rounding with precision
+    assert unwrap_int_seconds_to_hours('{"value": 3661}', 2) == 1.02  # 1 hour 1 minute 1 second
+
+    # Test null value
+    assert unwrap_int_seconds_to_hours('{"value": null}', None) is None
+    assert unwrap_int_seconds_to_hours('{"value": null}', 2) is None
+
+    # Test malformed JSON
+    assert unwrap_int_seconds_to_hours('bad json', None) is None
+    assert unwrap_int_seconds_to_hours('bad json', 2) is None
+
+    # Test zero seconds
+    assert unwrap_int_seconds_to_hours('{"value": 0}', None) == 0.0
+
+def test_unwrap_int_seconds_to_minutes():
+    """Test the unwrap_int_seconds_to_minutes function with various inputs and precisions."""
+    # Test normal conversion: 3600 seconds = 60 minutes
+    assert unwrap_int_seconds_to_minutes('{"value": 3600}', None) == 60.0
+    assert unwrap_int_seconds_to_minutes('{"value": 7200}', None) == 120.0
+
+    # Test with precision
+    assert unwrap_int_seconds_to_minutes('{"value": 1800}', 2) == 30.0
+    assert unwrap_int_seconds_to_minutes('{"value": 900}', 3) == 15.0
+
+    # Test rounding with precision
+    assert unwrap_int_seconds_to_minutes('{"value": 3661}', 2) == 61.02  # 1 hour 1 minute 1 second
+
+    # Test null value
+    assert unwrap_int_seconds_to_minutes('{"value": null}', None) is None
+    assert unwrap_int_seconds_to_minutes('{"value": null}', 2) is None
+
+    # Test malformed JSON
+    assert unwrap_int_seconds_to_minutes('bad json', None) is None
+    assert unwrap_int_seconds_to_minutes('bad json', 2) is None
+
+    # Test zero seconds
+    assert unwrap_int_seconds_to_minutes('{"value": 0}', None) == 0.0
+
+
+def test_wrap_int_hours_to_seconds():
+    """Test the wrap_int_hours_to_seconds function with various inputs."""
+    # Test normal conversion: 1 hour = 3600 seconds
+    assert json.loads(wrap_int_hours_to_seconds(1)) == {"value": 3600}
+    assert json.loads(wrap_int_hours_to_seconds(2)) == {"value": 7200}
+
+    # Test fractional hours (though function expects int, test edge case)
+    assert json.loads(wrap_int_hours_to_seconds(0)) == {"value": 0}
+
+    # Test None value
+    assert json.loads(wrap_int_hours_to_seconds(None)) == {"value": None}
+
+
+def test_wrap_int_minutes_to_seconds():
+    """Test the wrap_int_minutes_to_seconds function with various inputs."""
+    # Test normal conversion: 1 minute = 60 seconds
+    assert json.loads(wrap_int_minutes_to_seconds(1)) == {"value": 60}
+    assert json.loads(wrap_int_minutes_to_seconds(2)) == {"value": 120}
+
+    # Test fractional minutes (though function expects int, test edge case)
+    assert json.loads(wrap_int_minutes_to_seconds(0)) == {"value": 0}
+
+    # Test None value
+    assert json.loads(wrap_int_minutes_to_seconds(None)) == {"value": None}
+    assert json.loads(wrap_int_hours_to_seconds(0)) == {"value": 0}
+
+    # Test None value
+    assert json.loads(wrap_int_hours_to_seconds(None)) == {"value": None}
+
+
+def test_wrap_functions_and_mappings():
+    """Test the wrap functions and the VALUE_TYPE_UNWRAPPER and VALUE_TYPE_WRAPPER mappings."""
+    # wrap_int
+    assert json.loads(wrap_int(5)) == {"value": 5}
+    assert json.loads(wrap_int(None)) == {"value": None}
+
+    # wrap_int_default_0
+    assert json.loads(wrap_int_default_0(7)) == {"value": 7}
+    assert json.loads(wrap_int_default_0(None)) == {"value": 0}
+
+    # wrap_float and wrap_string
+    assert json.loads(wrap_float(1.23)) == {"value": 1.23}
+    assert json.loads(wrap_string("abc")) == {"value": "abc"}
+
+    # wrap_enum with enum instance
+    assert json.loads(wrap_enum(GenericOnOff.ON, GenericOnOff)) == {"value": GenericOnOff.ON.code}
+    # wrap_enum with string name
+    assert json.loads(wrap_enum("On", GenericOnOff)) == {"value": GenericOnOff.ON.code}
+
+    # wrap_bitmask with enum instance(s)
+    assert json.loads(wrap_bitmask(SolarChargerDeviceOffReason.NO_INPUT_POWER, SolarChargerDeviceOffReason)) == {"value": SolarChargerDeviceOffReason.NO_INPUT_POWER.code}
+    assert json.loads(wrap_bitmask([SolarChargerDeviceOffReason.NO_INPUT_POWER, SolarChargerDeviceOffReason.SWITCHED_OFF_POWER_SWITCH], SolarChargerDeviceOffReason)) == {"value": SolarChargerDeviceOffReason.NO_INPUT_POWER.code + SolarChargerDeviceOffReason.SWITCHED_OFF_POWER_SWITCH.code}
+    # wrap_bitmask with string name(s)
+    assert json.loads(wrap_bitmask("No/Low input power", SolarChargerDeviceOffReason)) == {"value": SolarChargerDeviceOffReason.NO_INPUT_POWER.code}
+    assert json.loads(wrap_bitmask("No/Low input power,Switched off (power switch)", SolarChargerDeviceOffReason)) == {"value": SolarChargerDeviceOffReason.NO_INPUT_POWER.code + SolarChargerDeviceOffReason.SWITCHED_OFF_POWER_SWITCH.code}
+    assert json.loads(wrap_bitmask(["No/Low input power", "Switched off (power switch)"], SolarChargerDeviceOffReason)) == {"value": SolarChargerDeviceOffReason.NO_INPUT_POWER.code + SolarChargerDeviceOffReason.SWITCHED_OFF_POWER_SWITCH.code}
+
+    # wrap_epoch
+    dt = datetime(2020, 1, 2, 3, 4, 5)
+    out = json.loads(wrap_epoch(dt))
+    assert "value" in out
+    # epoch should be close to datetime.timestamp
+    assert abs(out["value"] - datetime.timestamp(dt)) < 1e-6
+
+    # mappings contain expected types
+    assert ValueType.FLOAT in VALUE_TYPE_UNWRAPPER
+    assert ValueType.FLOAT in VALUE_TYPE_WRAPPER
+    assert ValueType.INT_SECONDS_TO_HOURS in VALUE_TYPE_UNWRAPPER
+    assert ValueType.INT_SECONDS_TO_HOURS in VALUE_TYPE_WRAPPER
+    assert ValueType.INT_SECONDS_TO_MINUTES in VALUE_TYPE_UNWRAPPER
+    assert ValueType.INT_SECONDS_TO_MINUTES in VALUE_TYPE_WRAPPER
+    assert callable(VALUE_TYPE_UNWRAPPER[ValueType.FLOAT])
+    assert callable(VALUE_TYPE_WRAPPER[ValueType.FLOAT])
+    assert callable(VALUE_TYPE_UNWRAPPER[ValueType.INT_SECONDS_TO_HOURS])
+    assert callable(VALUE_TYPE_WRAPPER[ValueType.INT_SECONDS_TO_HOURS])
+    assert callable(VALUE_TYPE_UNWRAPPER[ValueType.INT_SECONDS_TO_MINUTES])
+    assert callable(VALUE_TYPE_WRAPPER[ValueType.INT_SECONDS_TO_MINUTES])
+
+
+class TestUnwrapFloatM3ToLiters:
+    """Test unwrap_float_m3_to_liters (lines 69-73)."""
+
+    def test_valid_conversion(self):
+        result = unwrap_float_m3_to_liters('{"value": 0.5}', 1)
+        assert result == 500.0
+
+    def test_valid_no_precision(self):
+        result = unwrap_float_m3_to_liters('{"value": 0.123}', None)
+        assert result == 123.0
+
+    def test_none_value(self):
+        result = unwrap_float_m3_to_liters('{"value": null}', 1)
+        assert result is None
+
+    def test_invalid_json(self):
+        result = unwrap_float_m3_to_liters('bad json', 1)
+        assert result is None
+
+
+class TestUnwrapBitmaskEdgeCases:
+    """Test unwrap_bitmask edge cases (lines 99-100, 103)."""
+
+    def test_invalid_json(self):
+        result = unwrap_bitmask("not json", GenericOnOff)
+        assert result is None
+
+    def test_bitmask_value_zero(self):
+        result = unwrap_bitmask('{"value": 0}', GenericOnOff)
+        assert result == "Off"
+
+    def test_bitmask_combined(self):
+        result = unwrap_bitmask('{"value": 1}', GenericOnOff)
+        assert result is not None
+
+
+class TestWrapEnum:
+    """Test wrap_enum with string input (line 116-117)."""
+
+    def test_wrap_enum_string(self):
+        result = wrap_enum("Off", GenericOnOff)
+        data = json.loads(result)
+        assert data["value"] == 0
+
+    def test_wrap_enum_instance(self):
+        result = wrap_enum(GenericOnOff.ON, GenericOnOff)
+        data = json.loads(result)
+        assert data["value"] == 1
+
+
+class TestWrapEpoch:
+    """Test wrap_epoch (line 169)."""
+
+    def test_wrap_epoch_none(self):
+        result = wrap_epoch(None)
+        data = json.loads(result)
+        assert data["value"] is None
+
+    def test_wrap_epoch_value(self):
+        dt = datetime(2025, 1, 1, 0, 0, 0)
+        result = wrap_epoch(dt)
+        data = json.loads(result)
+        assert isinstance(data["value"], float)
+        assert data["value"] == dt.timestamp()
+
+
+class TestVictronEnumFunctions:
+    """Coverage for all VictronEnum methods."""
+
+    def test_init_sets_fields_and_value(self):
+        member = GenericOnOff.ON
+        assert isinstance(member, VictronEnum)
+        assert member.code == 1
+        assert member.id == "on"
+        assert member.string == "On"
+        assert member.value == (1, "On")
+
+    def test_repr_contains_core_fields(self):
+        member = GenericOnOff.ON
+        result = repr(member)
+        assert "GenericOnOff.ON" in result
+        assert "code=1" in result
+        assert "id=on" in result
+        assert "string=On" in result
+
+    def test_str_returns_string_value(self):
+        assert str(GenericOnOff.OFF) == "Off"
+
+    def test_build_code_lookup(self):
+        lookup = GenericOnOff._build_code_lookup()
+        assert lookup[0] is GenericOnOff.OFF
+        assert lookup[1] is GenericOnOff.ON
+        # Ensure lookup is cached.
+        assert lookup is GenericOnOff._build_code_lookup()
+
+    def test_from_code_found_none_and_default(self):
+        assert GenericOnOff.from_code(1) is GenericOnOff.ON
+        assert GenericOnOff.from_code(999) is None
+        assert GenericOnOff.from_code(999, GenericOnOff.OFF) is GenericOnOff.OFF
+
+    def test_build_string_lookup(self):
+        lookup = GenericOnOff._build_string_lookup()
+        assert lookup["Off"] is GenericOnOff.OFF
+        assert lookup["On"] is GenericOnOff.ON
+        # Ensure lookup is cached.
+        assert lookup is GenericOnOff._build_string_lookup()
+
+    def test_from_string_found_and_not_found(self):
+        assert GenericOnOff.from_string("On") is GenericOnOff.ON
+        try:
+            GenericOnOff.from_string("does-not-exist")
+            assert False, "Expected ValueError"
+        except ValueError as exc:
+            assert "No enum member found with string=does-not-exist" in str(exc)
+
+    def test_build_id_lookup(self):
+        lookup = GenericOnOff._build_id_lookup()
+        assert lookup["off"] is GenericOnOff.OFF
+        assert lookup["on"] is GenericOnOff.ON
+        # Ensure lookup is cached.
+        assert lookup is GenericOnOff._build_id_lookup()
+
+    def test_from_id_found_and_not_found(self):
+        assert GenericOnOff.from_id("on") is GenericOnOff.ON
+        try:
+            GenericOnOff.from_id("does-not-exist")
+            assert False, "Expected ValueError"
+        except ValueError as exc:
+            assert "No enum member found with id=does-not-exist" in str(exc)
+
+    def test_from_id_or_string_by_id_by_string_and_missing(self):
+        assert GenericOnOff.from_id_or_string("on") is GenericOnOff.ON
+        assert GenericOnOff.from_id_or_string("On") is GenericOnOff.ON
+        try:
+            GenericOnOff.from_id_or_string("does-not-exist")
+            assert False, "Expected ValueError"
+        except ValueError as exc:
+            assert "No enum member found with id or string=does-not-exist" in str(exc)

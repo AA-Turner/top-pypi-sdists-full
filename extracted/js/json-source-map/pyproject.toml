@@ -1,0 +1,74 @@
+[tool.poetry]
+authors = ["David Andersson <nderssonpublic@gmail.com>"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Development Status :: 5 - Production/Stable",
+  "Natural Language :: English",
+  "Topic :: Software Development :: Documentation",
+  "Topic :: Software Development :: Disassemblers",
+  "Topic :: Text Processing",
+  "Topic :: Utilities",
+  "Typing :: Typed",
+]
+description = "Calculate the source map for a JSON document."
+documentation = "https://github.com/open-alchemy/json-source-map/wiki"
+exclude = ["tests", ".vscode", ".github"]
+homepage = "https://github.com/open-alchemy/json-source-map/wiki"
+keywords = ["Python", "JSON", "source map"]
+name = "json_source_map"
+packages = [
+  {include = "json_source_map"},
+]
+readme = "README.md"
+repository = "https://github.com/open-alchemy/json-source-map"
+version = "1.0.5"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+[tool.poetry.dev-dependencies]
+black = "^22.12"
+coverage = {extras = ["toml"], version = "^7.0"}
+pytest = "^7.2"
+pytest-cov = "^4.0.0"
+pytest-randomly = "^3.12.0"
+hypothesis = "^6.58.2"
+
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0"]
+
+[tool.isort]
+multi_line_output = 3
+profile = "black"
+
+[tool.pytest.ini_options]
+addopts = "--cov --strict-markers"
+
+[tool.coverage.run]
+branch = true
+source = ['json_source_map']
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_lines = [
+  # Have to re-enable the standard pragma
+  "pragma: no cover", # Don't complain about missing debug-only code:
+  "def __repr__",
+  "if self\\.debug", # Don't complain if tests don't hit defensive assertion code:
+  "raise AssertionError",
+  "raise NotImplementedError", # Don't complain if non-runnable code isn't run:
+  "if 0:",
+  "if __name__ == .__main__.:",
+  "^        \\.\\.\\.$", # Don't complain about print statements not run
+  "print\\(.*\\)",
+]
+fail_under = 100
+show_missing = true
+skip_covered = true

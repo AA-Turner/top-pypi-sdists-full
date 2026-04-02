@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import collections
 from typing import Any, Dict, List, Union
+import warnings
 
 from datadog_api_client.api_client import ApiClient, Endpoint as _Endpoint
 from datadog_api_client.configuration import Configuration
@@ -124,6 +125,15 @@ from datadog_api_client.v2.model.get_rule_version_history_response import GetRul
 from datadog_api_client.v2.model.security_monitoring_signals_list_response import SecurityMonitoringSignalsListResponse
 from datadog_api_client.v2.model.security_monitoring_signals_sort import SecurityMonitoringSignalsSort
 from datadog_api_client.v2.model.security_monitoring_signal import SecurityMonitoringSignal
+from datadog_api_client.v2.model.security_monitoring_signals_bulk_triage_update_response import (
+    SecurityMonitoringSignalsBulkTriageUpdateResponse,
+)
+from datadog_api_client.v2.model.security_monitoring_signals_bulk_assignee_update_request import (
+    SecurityMonitoringSignalsBulkAssigneeUpdateRequest,
+)
+from datadog_api_client.v2.model.security_monitoring_signals_bulk_state_update_request import (
+    SecurityMonitoringSignalsBulkStateUpdateRequest,
+)
 from datadog_api_client.v2.model.security_monitoring_signal_list_request import SecurityMonitoringSignalListRequest
 from datadog_api_client.v2.model.security_monitoring_signal_response import SecurityMonitoringSignalResponse
 from datadog_api_client.v2.model.security_monitoring_signal_triage_update_response import (
@@ -220,6 +230,46 @@ class SecurityMonitoringApi:
                 "body": {
                     "required": True,
                     "openapi_types": (AttachJiraIssueRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._bulk_edit_security_monitoring_signals_assignee_endpoint = _Endpoint(
+            settings={
+                "response_type": (SecurityMonitoringSignalsBulkTriageUpdateResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security_monitoring/signals/bulk/assignee",
+                "operation_id": "bulk_edit_security_monitoring_signals_assignee",
+                "http_method": "PATCH",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (SecurityMonitoringSignalsBulkAssigneeUpdateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._bulk_edit_security_monitoring_signals_state_endpoint = _Endpoint(
+            settings={
+                "response_type": (SecurityMonitoringSignalsBulkTriageUpdateResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security_monitoring/signals/bulk/state",
+                "operation_id": "bulk_edit_security_monitoring_signals_state",
+                "http_method": "PATCH",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (SecurityMonitoringSignalsBulkStateUpdateRequest,),
                     "location": "body",
                 },
             },
@@ -749,7 +799,7 @@ class SecurityMonitoringApi:
         self._edit_security_monitoring_signal_assignee_endpoint = _Endpoint(
             settings={
                 "response_type": (SecurityMonitoringSignalTriageUpdateResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/security_monitoring/signals/{signal_id}/assignee",
                 "operation_id": "edit_security_monitoring_signal_assignee",
                 "http_method": "PATCH",
@@ -775,7 +825,7 @@ class SecurityMonitoringApi:
         self._edit_security_monitoring_signal_incidents_endpoint = _Endpoint(
             settings={
                 "response_type": (SecurityMonitoringSignalTriageUpdateResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/security_monitoring/signals/{signal_id}/incidents",
                 "operation_id": "edit_security_monitoring_signal_incidents",
                 "http_method": "PATCH",
@@ -801,7 +851,7 @@ class SecurityMonitoringApi:
         self._edit_security_monitoring_signal_state_endpoint = _Endpoint(
             settings={
                 "response_type": (SecurityMonitoringSignalTriageUpdateResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/security_monitoring/signals/{signal_id}/state",
                 "operation_id": "edit_security_monitoring_signal_state",
                 "http_method": "PATCH",
@@ -1710,13 +1760,7 @@ class SecurityMonitoringApi:
                 "http_method": "GET",
                 "version": "v2",
             },
-            params_map={
-                "query": {
-                    "openapi_types": (str,),
-                    "attribute": "query",
-                    "location": "query",
-                },
-            },
+            params_map={},
             headers_map={
                 "accept": ["application/json"],
             },
@@ -2735,6 +2779,42 @@ class SecurityMonitoringApi:
         kwargs["body"] = body
 
         return self._attach_jira_issue_endpoint.call_with_http_info(**kwargs)
+
+    def bulk_edit_security_monitoring_signals_assignee(
+        self,
+        body: SecurityMonitoringSignalsBulkAssigneeUpdateRequest,
+    ) -> SecurityMonitoringSignalsBulkTriageUpdateResponse:
+        """Bulk update triage assignee of security signals.
+
+        Change the triage assignees of multiple security signals at once.
+        The maximum number of signals that can be updated in a single request is 199.
+
+        :param body: Attributes describing the signal assignee updates.
+        :type body: SecurityMonitoringSignalsBulkAssigneeUpdateRequest
+        :rtype: SecurityMonitoringSignalsBulkTriageUpdateResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._bulk_edit_security_monitoring_signals_assignee_endpoint.call_with_http_info(**kwargs)
+
+    def bulk_edit_security_monitoring_signals_state(
+        self,
+        body: SecurityMonitoringSignalsBulkStateUpdateRequest,
+    ) -> SecurityMonitoringSignalsBulkTriageUpdateResponse:
+        """Bulk update triage state of security signals.
+
+        Change the triage states of multiple security signals at once.
+        The maximum number of signals that can be updated in a single request is 199.
+
+        :param body: Attributes describing the signal state updates.
+        :type body: SecurityMonitoringSignalsBulkStateUpdateRequest
+        :rtype: SecurityMonitoringSignalsBulkTriageUpdateResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._bulk_edit_security_monitoring_signals_state_endpoint.call_with_http_info(**kwargs)
 
     def bulk_export_security_monitoring_rules(
         self,
@@ -4304,21 +4384,14 @@ class SecurityMonitoringApi:
 
     def list_security_monitoring_critical_assets(
         self,
-        *,
-        query: Union[str, UnsetType] = unset,
     ) -> SecurityMonitoringCriticalAssetsResponse:
         """Get all critical assets.
 
         Get the list of all critical assets.
 
-        :param query: Query string.
-        :type query: str, optional
         :rtype: SecurityMonitoringCriticalAssetsResponse
         """
         kwargs: Dict[str, Any] = {}
-        if query is not unset:
-            kwargs["query"] = query
-
         return self._list_security_monitoring_critical_assets_endpoint.call_with_http_info(**kwargs)
 
     def list_security_monitoring_histsignals(
@@ -4641,7 +4714,7 @@ class SecurityMonitoringApi:
         filter_asset_operating_system_name: Union[str, UnsetType] = unset,
         filter_asset_operating_system_version: Union[str, UnsetType] = unset,
     ) -> ListVulnerabilitiesResponse:
-        """List vulnerabilities.
+        """List vulnerabilities. **Deprecated**.
 
         Get a list of vulnerabilities.
 
@@ -4951,6 +5024,7 @@ class SecurityMonitoringApi:
         if filter_asset_operating_system_version is not unset:
             kwargs["filter_asset_operating_system_version"] = filter_asset_operating_system_version
 
+        warnings.warn("list_vulnerabilities is deprecated", DeprecationWarning, stacklevel=2)
         return self._list_vulnerabilities_endpoint.call_with_http_info(**kwargs)
 
     def list_vulnerable_assets(

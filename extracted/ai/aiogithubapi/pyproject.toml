@@ -1,0 +1,65 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[project]
+name = "aiogithubapi"
+version = "26.0.0"
+description = "Asynchronous Python client for the GitHub API"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.13"
+authors = [
+    { name = "Ludeeus", email = "joasoe@proton.me" },
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "aiohttp>=3.8",
+    "backoff<3",
+]
+
+[project.urls]
+Repository = "https://github.com/ludeeus/aiogithubapi"
+"Bug tracker" = "https://github.com/ludeeus/aiogithubapi/issues"
+
+[dependency-groups]
+dev = [
+    "aresponses>=3.0.0",
+    "black>=25.1.0",
+    "isort>=6.0.1",
+    "pdoc3>=0.11.0",
+    "pylint>=3.2.7",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=7.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["aiogithubapi"]
+
+[tool.hatch.build.targets.sdist]
+include = ["aiogithubapi"]
+
+[tool.black]
+line-length = 100
+target-version = ['py313']
+exclude = 'generated'
+
+[tool.isort]
+combine_as_imports = true
+force_sort_within_sections = true
+profile = "black"
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = "unsubscriptable-object,duplicate-code"
+
+[tool.coverage.run]
+source = ["aiogithubapi"]
+omit = ["setup.py", "example.py", "tests/*"]
+
+[tool.coverage.report]
+exclude_lines = ["if TYPE_CHECKING:", "if sys.version_info.major == "]

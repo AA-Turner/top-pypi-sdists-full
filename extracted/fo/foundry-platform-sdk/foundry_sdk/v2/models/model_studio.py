@@ -33,20 +33,26 @@ class ModelStudioClient:
     The API client for the ModelStudio Resource.
 
     :param auth: Your auth configuration.
-    :param hostname: Your Foundry hostname (for example, "myfoundry.palantirfoundry.com"). This can also include your API gateway service URI.
+    :param hostname: The hostname supplier for resolving base URLs.
     :param config: Optionally specify the configuration for the HTTP session.
     """
 
     def __init__(
         self,
         auth: core.Auth,
-        hostname: str,
+        hostname: typing.Union[str, core.HostnameSupplier],
         config: typing.Optional[core.Config] = None,
     ):
         self._auth = auth
-        self._hostname = hostname
+        if isinstance(hostname, core.HostnameSupplier):
+            self._hostname_supplier = hostname
+        else:
+            self._hostname_supplier = core.create_hostname_supplier(hostname, config)
+        self._hostname = self._hostname_supplier.get_hostname()
         self._config = config
-        self._api_client = core.ApiClient(auth=auth, hostname=hostname, config=config)
+        self._api_client = core.ApiClient(
+            auth=auth, hostname=self._hostname_supplier, config=config
+        )
 
         self.with_streaming_response = _ModelStudioClientStreaming(self)
         self.with_raw_response = _ModelStudioClientRaw(self)
@@ -57,7 +63,7 @@ class ModelStudioClient:
 
         return ModelStudioRunClient(
             auth=self._auth,
-            hostname=self._hostname,
+            hostname=self._hostname_supplier,
             config=self._config,
         )
 
@@ -69,7 +75,7 @@ class ModelStudioClient:
 
         return ModelStudioConfigVersionClient(
             auth=self._auth,
-            hostname=self._hostname,
+            hostname=self._hostname_supplier,
             config=self._config,
         )
 
@@ -100,6 +106,7 @@ class ModelStudioClient:
 
         :raises CreateModelStudioPermissionDenied: Permission denied to create a Model Studio.
         :raises InvalidDisplayName: The display name of a Resource should not be exactly `.` or `..`, contain a forward slash `/` and must be less than or equal to 700 characters.
+        :raises InvalidModelStudioCreateRequest: The request to create a Model Studio contains invalid arguments.
         :raises ResourceNameAlreadyExists: The provided resource name is already in use by another resource in the same folder.
         """
 
@@ -124,6 +131,7 @@ class ModelStudioClient:
                 throwable_errors={
                     "CreateModelStudioPermissionDenied": models_errors.CreateModelStudioPermissionDenied,
                     "InvalidDisplayName": filesystem_errors.InvalidDisplayName,
+                    "InvalidModelStudioCreateRequest": models_errors.InvalidModelStudioCreateRequest,
                     "ResourceNameAlreadyExists": filesystem_errors.ResourceNameAlreadyExists,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
@@ -201,6 +209,7 @@ class ModelStudioClient:
         :rtype: models_models.ModelStudioRun
 
         :raises LaunchModelStudioPermissionDenied: Permission denied to launch a Model Studio run.
+        :raises ModelStudioNotFound: The requested Model Studio was not found.
         """
 
         return self._api_client.call_api(
@@ -221,6 +230,7 @@ class ModelStudioClient:
                 request_timeout=request_timeout,
                 throwable_errors={
                     "LaunchModelStudioPermissionDenied": models_errors.LaunchModelStudioPermissionDenied,
+                    "ModelStudioNotFound": models_errors.ModelStudioNotFound,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
             ),
@@ -254,20 +264,26 @@ class AsyncModelStudioClient:
     The API client for the ModelStudio Resource.
 
     :param auth: Your auth configuration.
-    :param hostname: Your Foundry hostname (for example, "myfoundry.palantirfoundry.com"). This can also include your API gateway service URI.
+    :param hostname: The hostname supplier for resolving base URLs.
     :param config: Optionally specify the configuration for the HTTP session.
     """
 
     def __init__(
         self,
         auth: core.Auth,
-        hostname: str,
+        hostname: typing.Union[str, core.HostnameSupplier],
         config: typing.Optional[core.Config] = None,
     ):
         self._auth = auth
-        self._hostname = hostname
+        if isinstance(hostname, core.HostnameSupplier):
+            self._hostname_supplier = hostname
+        else:
+            self._hostname_supplier = core.create_hostname_supplier(hostname, config)
+        self._hostname = self._hostname_supplier.get_hostname()
         self._config = config
-        self._api_client = core.AsyncApiClient(auth=auth, hostname=hostname, config=config)
+        self._api_client = core.AsyncApiClient(
+            auth=auth, hostname=self._hostname_supplier, config=config
+        )
 
         self.with_streaming_response = _AsyncModelStudioClientStreaming(self)
         self.with_raw_response = _AsyncModelStudioClientRaw(self)
@@ -278,7 +294,7 @@ class AsyncModelStudioClient:
 
         return AsyncModelStudioRunClient(
             auth=self._auth,
-            hostname=self._hostname,
+            hostname=self._hostname_supplier,
             config=self._config,
         )
 
@@ -290,7 +306,7 @@ class AsyncModelStudioClient:
 
         return AsyncModelStudioConfigVersionClient(
             auth=self._auth,
-            hostname=self._hostname,
+            hostname=self._hostname_supplier,
             config=self._config,
         )
 
@@ -321,6 +337,7 @@ class AsyncModelStudioClient:
 
         :raises CreateModelStudioPermissionDenied: Permission denied to create a Model Studio.
         :raises InvalidDisplayName: The display name of a Resource should not be exactly `.` or `..`, contain a forward slash `/` and must be less than or equal to 700 characters.
+        :raises InvalidModelStudioCreateRequest: The request to create a Model Studio contains invalid arguments.
         :raises ResourceNameAlreadyExists: The provided resource name is already in use by another resource in the same folder.
         """
 
@@ -345,6 +362,7 @@ class AsyncModelStudioClient:
                 throwable_errors={
                     "CreateModelStudioPermissionDenied": models_errors.CreateModelStudioPermissionDenied,
                     "InvalidDisplayName": filesystem_errors.InvalidDisplayName,
+                    "InvalidModelStudioCreateRequest": models_errors.InvalidModelStudioCreateRequest,
                     "ResourceNameAlreadyExists": filesystem_errors.ResourceNameAlreadyExists,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
@@ -422,6 +440,7 @@ class AsyncModelStudioClient:
         :rtype: typing.Awaitable[models_models.ModelStudioRun]
 
         :raises LaunchModelStudioPermissionDenied: Permission denied to launch a Model Studio run.
+        :raises ModelStudioNotFound: The requested Model Studio was not found.
         """
 
         return self._api_client.call_api(
@@ -442,6 +461,7 @@ class AsyncModelStudioClient:
                 request_timeout=request_timeout,
                 throwable_errors={
                     "LaunchModelStudioPermissionDenied": models_errors.LaunchModelStudioPermissionDenied,
+                    "ModelStudioNotFound": models_errors.ModelStudioNotFound,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
             ),

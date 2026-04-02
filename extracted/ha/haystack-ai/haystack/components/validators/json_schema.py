@@ -79,10 +79,10 @@ class JsonSchemaValidator:
         }
     })
     print(result)
-    >> {'schema_validator': {'validated': [ChatMessage(_role=<ChatRole.ASSISTANT: 'assistant'>,
-    _content=[TextContent(text="\\n{\\n  "name": "John",\\n  "age": 30\\n}")],
-    _name=None, _meta={'model': 'gpt-4-1106-preview', 'index': 0,
-    'finish_reason': 'stop', 'usage': {'completion_tokens': 17, 'prompt_tokens': 20, 'total_tokens': 37}})]}}
+    # >> {'schema_validator': {'validated': [ChatMessage(_role=<ChatRole.ASSISTANT: 'assistant'>,
+    # _content=[TextContent(text="\\n{\\n  "name": "John",\\n  "age": 30\\n}")],
+    # _name=None, _meta={'model': 'gpt-4-1106-preview', 'index': 0,
+    # 'finish_reason': 'stop', 'usage': {'completion_tokens': 17, 'prompt_tokens': 20, 'total_tokens': 37}})]}}
     ```
     """
 
@@ -99,7 +99,7 @@ class JsonSchemaValidator:
         "JSON string, this is the most important part of the task. Don't use any markdown and don't add any comment."
     )
 
-    def __init__(self, json_schema: dict[str, Any] | None = None, error_template: str | None = None):
+    def __init__(self, json_schema: dict[str, Any] | None = None, error_template: str | None = None) -> None:
         """
         Initialize the JsonSchemaValidator component.
 

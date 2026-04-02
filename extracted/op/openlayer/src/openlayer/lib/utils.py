@@ -1,0 +1,93 @@
+"""Series of helper functions and classes that are used throughout the
+Openlayer SDK.
+"""
+
+import json
+import os
+from typing import Any, Optional
+
+import yaml
+
+
+# ----------------------------- Helper functions ----------------------------- #
+def get_env_variable(name: str) -> Optional[str]:
+    """Returns the value of the specified environment variable.
+
+    Args:
+        name (str): the name of the environment variable.
+
+    Returns:
+        str: the value of the specified environment variable.
+    """
+    try:
+        return os.environ[name]
+    except KeyError:
+        return None
+
+
+def write_yaml(dictionary: dict, filename: str):
+    """Writes the dictionary to a YAML file in the specified directory (`dir`).
+
+    Args:
+        dictionary (dict): the dictionary to write to a YAML file.
+        dir (str): the directory to write the file to.
+    """
+    with open(filename, "w", encoding="UTF-8") as stream:
+        yaml.dump(dictionary, stream)
+
+
+def json_serialize(data):
+    """
+    Recursively attempts to convert data into JSON-serializable formats.
+    """
+    if isinstance(data, (str, int, float, bool, type(None))):
+        return data  # Already JSON-serializable
+    elif isinstance(data, dict):
+        return {k: json_serialize(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [json_serialize(item) for item in data]
+    elif isinstance(data, tuple):
+        return tuple(json_serialize(item) for item in data)
+    elif isinstance(data, type):
+        # Handle model classes/metaclasses
+        return str(data.__name__ if hasattr(data, "__name__") else data)
+    elif hasattr(data, "to_dict") and callable(getattr(data, "to_dict")):
+        # Handle objects with to_dict method (e.g., Attachment)
+        try:
+            return json_serialize(data.to_dict())
+        except Exception:
+            return str(data)
+    elif hasattr(data, "model_dump") and callable(getattr(data, "model_dump")):
+        # Handle Pydantic model instances
+        try:
+            return json_serialize(data.model_dump())
+        except Exception:
+            return str(data)
+    else:
+        # Fallback: Convert to string if not serializable
+        try:
+            json.dumps(data)
+            return data  # Data was serializable
+        except TypeError:
+            return str(data)  # Not serializable, convert to string
+
+
+def safe_serialize_raw_output(response: Any) -> Any:
+    """Return a JSON-safe payload for tracer raw_output fields.
+
+    This helper is intentionally generic so integration tracers can safely
+    serialize provider SDK responses with mixed object types.
+    """
+    try:
+        raw_candidate = response.data if hasattr(response, "data") else response
+
+        if hasattr(raw_candidate, "model_dump") and callable(raw_candidate.model_dump):
+            return json_serialize(raw_candidate.model_dump())
+        if hasattr(raw_candidate, "to_dict") and callable(raw_candidate.to_dict):
+            return json_serialize(raw_candidate.to_dict())
+        if hasattr(raw_candidate, "__dict__"):
+            return json_serialize(raw_candidate.__dict__)
+
+        return json_serialize(raw_candidate)
+    except Exception:
+        return str(response)

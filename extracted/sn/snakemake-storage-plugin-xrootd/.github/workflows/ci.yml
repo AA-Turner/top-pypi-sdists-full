@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+defaults:
+  run:
+    shell: bash -leo pipefail {0} {0}
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v3
+
+      - uses: prefix-dev/setup-pixi@v0.8.3
+
+      - name: Run pre-commit
+        run: pixi exec pre-commit run --all-files
+
+  testing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.8.3
+
+      - name: Run pytest
+        run: pixi run test-coverage
+
+      - name: Run coverage
+        run: pixi run coverage-report

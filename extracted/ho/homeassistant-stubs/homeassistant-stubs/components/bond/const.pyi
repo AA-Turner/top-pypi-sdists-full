@@ -1,0 +1,3 @@
+BRIDGE_MAKE: str
+DOMAIN: str
+CONF_BOND_ID: str

@@ -1,2 +1,0 @@
-class DatafoldSDKException(Exception):
-    pass

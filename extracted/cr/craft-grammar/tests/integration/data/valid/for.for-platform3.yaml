@@ -1,0 +1,6 @@
+plugin: nil
+source-branch:
+build-packages:
+  - package3
+organize:
+  always-organize: to-here

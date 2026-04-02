@@ -1,0 +1,55 @@
+[build-system]
+requires = ['setuptools>=40.8.0', 'wheel>=0.33.0', 'packaging']
+
+[tool.black]
+line-length = 90
+include = '\.pyi?$'
+target-version = ['py37']
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.pyre_configuration
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)
+'''
+
+[tool.towncrier]
+package = 'pip_shims'
+package_dir = 'src'
+filename = 'CHANGELOG.rst'
+directory = 'news/'
+issue_format = '`#{issue} <https://github.com/sarugaku/pip-shims/issues/{issue}>`_'
+template = 'tasks/CHANGELOG.rst.jinja2'
+
+  [[tool.towncrier.type]]
+  directory = 'feature'
+  name = 'Features'
+  showcontent = true
+
+  [[tool.towncrier.type]]
+  directory = 'bugfix'
+  name = 'Bug Fixes'
+  showcontent = true
+
+  [[tool.towncrier.type]]
+  directory = 'trivial'
+  name = 'Trivial Changes'
+  showcontent = false
+
+  [[tool.towncrier.type]]
+  directory = 'docs'
+  name = 'Documentation Updates'
+  showcontent = true
+
+  [[tool.towncrier.type]]
+  directory = 'removal'
+  name = 'Removals and Deprecations'
+  showcontent = true

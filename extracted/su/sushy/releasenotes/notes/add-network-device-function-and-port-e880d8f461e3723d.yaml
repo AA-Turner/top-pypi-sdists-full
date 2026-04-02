@@ -1,4 +1,0 @@
-features:
-  - |
-    Adds support for the NetworkDeviceFunction and NetworkPort
-    resource to the library.

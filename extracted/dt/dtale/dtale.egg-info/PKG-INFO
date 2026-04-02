@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dtale
-Version: 3.21.0
+Version: 3.22.0
 Summary: Web Client for Visualizing Pandas Objects
 Home-page: https://github.com/man-group/dtale
 Author: MAN Alpha Technology
@@ -36,10 +36,10 @@ Requires-Dist: cycler<=0.10.0; python_version == "2.7"
 Requires-Dist: dash<=1.21.0; python_version == "2.7"
 Requires-Dist: dash<=2.0.0; python_version == "3.6"
 Requires-Dist: dash!=2.13.0; python_version == "3.7"
-Requires-Dist: dash<=2.18.2; python_version > "3.7"
+Requires-Dist: dash; python_version > "3.7"
 Requires-Dist: dash-bootstrap-components==0.13.1; python_version == "2.7"
-Requires-Dist: dash-bootstrap-components<=1.7.1; python_version > "3.0"
-Requires-Dist: dash_daq<=0.5.0
+Requires-Dist: dash-bootstrap-components; python_version > "3.0"
+Requires-Dist: dash_daq<=0.5.0; python_version == "2.7"
 Requires-Dist: dataclasses<1; python_version == "3.6"
 Requires-Dist: decorator<=4.4.2; python_version == "2.7"
 Requires-Dist: et_xmlfile<=1.0.1; python_version < "3.6"

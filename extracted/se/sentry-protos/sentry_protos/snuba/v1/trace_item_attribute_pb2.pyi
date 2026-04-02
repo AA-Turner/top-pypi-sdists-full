@@ -264,9 +264,12 @@ class VirtualColumnContext(google.protobuf.message.Message):
     TO_COLUMN_NAME_FIELD_NUMBER: builtins.int
     VALUE_MAP_FIELD_NUMBER: builtins.int
     DEFAULT_VALUE_FIELD_NUMBER: builtins.int
+    FROM_COLUMN_TYPE_FIELD_NUMBER: builtins.int
     from_column_name: builtins.str
     to_column_name: builtins.str
     default_value: builtins.str
+    from_column_type: global___AttributeKey.Type.ValueType
+    """Alternatively, I could just use AttributeKey and deprecate from_column_name, but it might be confusing for the caller"""
     @property
     def value_map(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]: ...
     def __init__(
@@ -276,8 +279,9 @@ class VirtualColumnContext(google.protobuf.message.Message):
         to_column_name: builtins.str = ...,
         value_map: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
         default_value: builtins.str = ...,
+        from_column_type: global___AttributeKey.Type.ValueType = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["default_value", b"default_value", "from_column_name", b"from_column_name", "to_column_name", b"to_column_name", "value_map", b"value_map"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["default_value", b"default_value", "from_column_name", b"from_column_name", "from_column_type", b"from_column_type", "to_column_name", b"to_column_name", "value_map", b"value_map"]) -> None: ...
 
 global___VirtualColumnContext = VirtualColumnContext
 

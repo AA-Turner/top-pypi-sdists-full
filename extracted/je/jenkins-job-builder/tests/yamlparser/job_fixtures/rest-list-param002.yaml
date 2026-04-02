@@ -1,0 +1,15 @@
+- job:
+    name: rest-list-full-job
+    parameters:
+      - rest-list:
+          name: api_environments
+          description: Select an environment from the API registry
+          rest-endpoint: https://api.company.com/v1/environments
+          credentials-id: api-service-token
+          mime-type: APPLICATION_JSON
+          value-expression: $.environments[*].name
+          display-expression: $.environments[*].displayName
+          cache-time: 15
+          default-value: production
+          filter: ^(dev|staging|prod).*
+          value-order: ASC

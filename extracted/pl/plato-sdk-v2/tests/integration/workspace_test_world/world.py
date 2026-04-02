@@ -25,8 +25,8 @@ import sys
 from pathlib import Path
 from typing import Annotated, ClassVar
 
-from plato.agents.runtime.transport import NFSTransport
 from plato.markers import WorkspaceMarker
+from plato.transports import NFSTransport
 from plato.utils.subprocess import run_local, run_ssh
 from plato.worlds import BaseWorld, Observation, StepResult
 from plato.worlds.base import register_world

@@ -13,7 +13,7 @@ Registry:
     - get_registered_agents: Get all registered agents
 
 Runner:
-    - run_agent: Run agents in Docker containers
+    - run_agent: Run agents in Plato VMs
 
 OTel Tracing:
     - instrument: Initialize OTel tracing from environment
@@ -36,14 +36,13 @@ Example (direct execution):
             # Agent implementation
             ...
 
-Example (Docker execution):
+Example (VM execution):
     from plato.agents import run_agent
 
-    container = await run_agent(
+    job_id = await run_agent(
         image="my-agent:latest",
         config={"model_name": "anthropic/claude-sonnet-4", "api_key": "sk-..."},
         instruction="Fix the bug",
-        workspace="my-workspace-volume",
     )
 """
 
@@ -52,7 +51,6 @@ from __future__ import annotations
 __all__ = [
     # Config
     "AgentConfig",
-    "DockerRuntimeConfig",
     "Runtime",
     "RuntimeConfig",
     "Secret",
@@ -71,11 +69,6 @@ __all__ = [
     "ParallelAgentResult",
     "WarmPool",
     "PooledVM",
-    # Artifacts
-    "zip_directory",
-    "upload_artifacts",
-    "upload_artifact",
-    "upload_to_s3",
     # OTel tracing
     "init_tracing",
     "instrument",
@@ -84,12 +77,6 @@ __all__ = [
     "is_initialized",
 ]
 
-from plato.agents.artifacts import (
-    upload_artifact,
-    upload_artifacts,
-    upload_to_s3,
-    zip_directory,
-)
 from plato.agents.base import (
     BaseAgent,
     ConfigT,
@@ -110,7 +97,6 @@ from plato.otel import (
     shutdown_tracing,
 )
 from plato.runtime import (
-    DockerRuntimeConfig,
     Runtime,
     RuntimeConfig,
     VMResources,

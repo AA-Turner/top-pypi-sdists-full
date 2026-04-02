@@ -1,7 +1,87 @@
 import json
 import re
 import requests
-from typing import Dict, List, Optional, Any
+from datetime import datetime, timezone
+from typing import Dict, Iterator, List, Optional, Any, NamedTuple
+
+
+class InvalidAssetInstanceError(Exception):
+    """Raised when an asset instance response cannot be parsed."""
+    pass
+
+
+class EntityRef(NamedTuple):
+    entity_kind: str
+    entity_id: str
+
+
+class AssetInstance(NamedTuple):
+    """A specific version of an asset."""
+    id: str
+    created_at: datetime
+    created_by: EntityRef
+    annotations: Dict[str, str]
+    tags: Dict[str, str]
+    blobs: List[str]
+    kind: str
+    asset_kind: str
+
+
+_RFC3339_RE = re.compile(
+    r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})"
+)
+
+
+def _parse_rfc3339(s: str) -> datetime:
+    """Parse an RFC 3339 timestamp as emitted by the Go backend.
+
+    Go marshals time.Time with nanosecond precision; old versions
+    of Python can't handle this.
+
+    With Python >= 3.11 this entire function can be replaced with
+    datetime.fromisoformat(s) which properly handles RFC 3339 timestamps.
+    """
+    m = _RFC3339_RE.fullmatch(s)
+    if not m:
+        raise ValueError(f"Unexpected timestamp format: {s}")
+    base, frac, tz = m.group(1), m.group(2), m.group(3)
+    offset = "+00:00" if tz == "Z" else tz
+    iso = f"{base}.{frac[:6]}{offset}" if frac else f"{base}{offset}"
+    return datetime.fromisoformat(iso)
+
+
+def _parse_instance(raw: Dict[str, Any]) -> AssetInstance:
+    """Convert a raw API response dict into a typed AssetInstance.
+
+    Raises InvalidAssetInstanceError if the instance data is invalid.
+    """
+    try:
+        instance_id = raw["id"]
+        asset_info = raw["asset"]
+        kind = asset_info["kind"]
+        created_at = _parse_rfc3339(raw["created_at"])
+    except (KeyError, ValueError) as e:
+        raise InvalidAssetInstanceError(f"bad instance data: {e}") from e
+
+    created_by_raw = raw.get("created_by", {})
+    created_by = EntityRef(
+        entity_kind=created_by_raw.get("entity_kind", ""),
+        entity_id=created_by_raw.get("entity_id", ""),
+    )
+    props = raw.get("data_properties") or raw.get("model_properties") or {}
+    tags_list = raw.get("tags") or []
+    tags = {t["key"]: t["value"] for t in tags_list}
+
+    return AssetInstance(
+        id=instance_id,
+        created_at=created_at,
+        created_by=created_by,
+        annotations=props.get("annotations") or {},
+        tags=tags,
+        blobs=props.get("blobs") or [],
+        kind=kind,
+        asset_kind=props.get("data_kind") or props.get("model_kind") or "",
+    )
 
 
 def _sanitize_branch_name(branch: str) -> str:
@@ -109,7 +189,11 @@ def get_data_asset(
     instance: str,
 ) -> Dict[str, Any]:
     """
-    Get a data asset instance. This is a 'peek' API that is it does not track usage.
+    Get a data asset instance without tracking consumption.
+
+    Args:
+        instance: "latest" for the newest version, a specific instance ID,
+            or an alias reference like "@staging".
     """
     endpoint = f"/v1/perimeters/{perimeter}/projects/{project}/branches/{branch}/data/{asset}/instances/{instance}"
     return _make_request(base_url, service_headers, "GET", endpoint)
@@ -126,7 +210,12 @@ def consume_data_asset(
     entity_ref: Dict[str, str],
     instance: str,
 ) -> Dict[str, Any]:
-    """Consume a data asset instance. Same as get_data_asset but tracks usage."""
+    """Consume a data asset instance, recording the consumption in the lineage graph.
+
+    Args:
+        instance: "latest" for the newest version, a specific instance ID,
+            or an alias reference like "@staging".
+    """
     endpoint = f"/v1/perimeters/{perimeter}/projects/{project}/branches/{branch}/data/{asset}/instances/{instance}"
     return _make_request(
         base_url, service_headers, "PUT", endpoint, {"entity_ref": entity_ref}
@@ -143,7 +232,12 @@ def get_model_asset(
     asset: str,
     instance: str,
 ) -> Dict[str, Any]:
-    """Get a model asset instance. This is a 'peek' API that is it does not track usage."""
+    """Get a model asset instance without tracking consumption.
+
+    Args:
+        instance: "latest" for the newest version, a specific instance ID,
+            or an alias reference like "@staging".
+    """
     endpoint = f"/v1/perimeters/{perimeter}/projects/{project}/branches/{branch}/models/{asset}/instances/{instance}"
     return _make_request(base_url, service_headers, "GET", endpoint)
 
@@ -159,7 +253,12 @@ def consume_model_asset(
     entity_ref: Dict[str, str],
     instance: str,
 ) -> Dict[str, Any]:
-    """Consume a model asset instance. Same as get_model_asset but tracks usage."""
+    """Consume a model asset instance, recording the consumption in the lineage graph.
+
+    Args:
+        instance: "latest" for the newest version, a specific instance ID,
+            or an alias reference like "@staging".
+    """
     endpoint = f"/v1/perimeters/{perimeter}/projects/{project}/branches/{branch}/models/{asset}/instances/{instance}"
     return _make_request(
         base_url, service_headers, "PUT", endpoint, {"entity_ref": entity_ref}
@@ -189,6 +288,44 @@ def list_data_assets(
 ) -> Dict[str, Any]:
     """List data assets with the latest instance."""
     endpoint = f"/v1/perimeters/{perimeter}/projects/{project}/branches/{branch}/data"
+    return _make_request(base_url, service_headers, "GET", endpoint)
+
+
+def get_data_asset_summary(
+    base_url: str,
+    service_headers: Dict[str, str],
+    *,
+    perimeter: str,
+    project: str,
+    branch: str,
+    asset: str,
+) -> Dict[str, Any]:
+    """
+    Get a data asset summary including recent instances and lineage.
+
+    Returns an AssetSummary with recent_instances,
+    recently_produced_by, and recently_consumed_by.
+    """
+    endpoint = f"/v1/perimeters/{perimeter}/projects/{project}/branches/{branch}/data/{asset}"
+    return _make_request(base_url, service_headers, "GET", endpoint)
+
+
+def get_model_asset_summary(
+    base_url: str,
+    service_headers: Dict[str, str],
+    *,
+    perimeter: str,
+    project: str,
+    branch: str,
+    asset: str,
+) -> Dict[str, Any]:
+    """
+    Get a model asset summary including recent instances and lineage.
+
+    Returns an AssetSummary with recent_instances,
+    recently_produced_by, and recently_consumed_by.
+    """
+    endpoint = f"/v1/perimeters/{perimeter}/projects/{project}/branches/{branch}/models/{asset}"
     return _make_request(base_url, service_headers, "GET", endpoint)
 
 
@@ -360,16 +497,94 @@ class Asset:
             return {"models": filtered}
         return assets
 
-    def consume_data_asset(self, name, instance="latest"):
+    def _iter_asset_instances(self, kind, name) -> Iterator[AssetInstance]:
         """
-        Consume a data asset instance.
+        Yield AssetInstance objects for the given asset. Currently returns
+        up to 50 instances from a single backend call. The generator shape
+        allows adding transparent pagination here later without changing
+        the public API.
+        """
+        fn = get_data_asset_summary if kind == "data" else get_model_asset_summary
+        summary = fn(
+            self.base_url,
+            self.service_headers,
+            perimeter=self.perimeter,
+            project=self.project,
+            branch=self.branch,
+            asset=name,
+        )
+        for raw in summary.get("recent_instances", []):
+            try:
+                yield _parse_instance(raw)
+            except InvalidAssetInstanceError:
+                # Should never happen with a healthy backend; skip bad entries
+                continue
+
+    def list_data_asset_instances(self, name) -> Iterator[AssetInstance]:
+        """
+        Iterate over recent instances of a data asset, newest first.
 
         Args:
             name: Asset name/id
-            instance: Version to retrieve. Options:
-                - "latest" (default): Most recent version
-                - "v123": Specific version number
-                - "latest-1": Previous version (n versions back)
+
+        Returns:
+            Iterator of AssetInstance named tuples.
+        """
+        return self._iter_asset_instances("data", name)
+
+    def list_model_asset_instances(self, name) -> Iterator[AssetInstance]:
+        """
+        Iterate over recent instances of a model asset, newest first.
+
+        Args:
+            name: Asset name/id
+
+        Returns:
+            Iterator of AssetInstance named tuples.
+        """
+        return self._iter_asset_instances("models", name)
+
+    def peek_data_asset(self, name, instance="latest"):
+        """
+        Get a data asset instance without tracking consumption.
+
+        Args:
+            name: Asset name/id
+            instance: Instance to retrieve. Use "latest" (default) for the most
+                recent version, a specific instance ID (as returned by
+                list_data_asset_instances), or an alias like "@staging".
+        """
+        return get_data_asset(
+            self.base_url, self.service_headers,
+            perimeter=self.perimeter, project=self.project,
+            branch=self.branch, asset=name, instance=instance,
+        )
+
+    def peek_model_asset(self, name, instance="latest"):
+        """
+        Get a model asset instance without tracking consumption.
+
+        Args:
+            name: Asset name/id
+            instance: Instance to retrieve. Use "latest" (default) for the most
+                recent version, a specific instance ID (as returned by
+                list_model_asset_instances), or an alias like "@staging".
+        """
+        return get_model_asset(
+            self.base_url, self.service_headers,
+            perimeter=self.perimeter, project=self.project,
+            branch=self.branch, asset=name, instance=instance,
+        )
+
+    def consume_data_asset(self, name, instance="latest"):
+        """
+        Consume a data asset instance, recording the consumption in the lineage graph.
+
+        Args:
+            name: Asset name/id
+            instance: Instance to retrieve. Use "latest" (default) for the most
+                recent version, a specific instance ID (as returned by
+                list_data_asset_instances), or an alias like "@staging".
         """
         common = {
             "perimeter": self.perimeter,
@@ -386,14 +601,13 @@ class Asset:
 
     def consume_model_asset(self, name, instance="latest"):
         """
-        Consume a model asset instance.
+        Consume a model asset instance, recording the consumption in the lineage graph.
 
         Args:
             name: Asset name/id
-            instance: Version to retrieve. Options:
-                - "latest" (default): Most recent version
-                - "v123": Specific version number
-                - "latest-1": Previous version (n versions back)
+            instance: Instance to retrieve. Use "latest" (default) for the most
+                recent version, a specific instance ID (as returned by
+                list_model_asset_instances), or an alias like "@staging".
         """
         common = {
             "perimeter": self.perimeter,

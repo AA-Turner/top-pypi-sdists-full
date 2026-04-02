@@ -1,53 +1,59 @@
 use anyhow::Result;
-use lsp_server::{Connection, Message, Notification};
+use lsp_server::{Message, Notification};
 use lsp_types::{
-    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
-    PublishDiagnosticsParams,
+    CancelParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams,
+    DidOpenTextDocumentParams, PublishDiagnosticsParams,
     notification::{Notification as _, PublishDiagnostics},
 };
 
+use crate::global_state::GlobalState;
 use crate::lsp_utils;
-use crate::system::System;
+
+pub(crate) fn handle_cancel(state: &mut GlobalState, params: CancelParams) -> Result<()> {
+    let id: lsp_server::RequestId = match params.id {
+        lsp_types::NumberOrString::Number(id) => id.into(),
+        lsp_types::NumberOrString::String(id) => id.into(),
+    };
+    state.cancel(id);
+    Ok(())
+}
 
 pub(crate) fn handle_did_open(
-    _connection: &Connection,
+    state: &mut GlobalState,
     params: DidOpenTextDocumentParams,
-    system: &mut dyn System,
 ) -> Result<()> {
     let uri = params.text_document.uri;
     let content = params.text_document.text;
 
-    system.set(uri, content);
+    state.set(uri, content);
 
     Ok(())
 }
 
 pub(crate) fn handle_did_change(
-    _connection: &Connection,
+    state: &mut GlobalState,
     params: DidChangeTextDocumentParams,
-    system: &mut dyn System,
 ) -> Result<()> {
     let uri = params.text_document.uri;
 
-    let db = system.db();
-    let file = system.file(&uri).unwrap();
+    let db = state.db();
+    let file = state.file(&uri).unwrap();
     let content = file.content(db);
 
     let updated_content = lsp_utils::apply_incremental_changes(content, params.content_changes);
 
-    system.set(uri, updated_content);
+    state.set(uri, updated_content);
 
     Ok(())
 }
 
 pub(crate) fn handle_did_close(
-    connection: &Connection,
+    state: &mut GlobalState,
     params: DidCloseTextDocumentParams,
-    system: &mut dyn System,
 ) -> Result<()> {
     let uri = params.text_document.uri;
 
-    system.remove(&uri);
+    state.remove(&uri);
 
     let publish_params = PublishDiagnosticsParams {
         uri,
@@ -60,9 +66,7 @@ pub(crate) fn handle_did_close(
         params: serde_json::to_value(publish_params)?,
     };
 
-    connection
-        .sender
-        .send(Message::Notification(notification))?;
+    state.send(Message::Notification(notification));
 
     Ok(())
 }

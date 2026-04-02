@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: weave
-Version: 0.52.35
+Version: 0.52.36
 Summary: A toolkit for building composable interactive data driven applications.
 Project-URL: Company, https://wandb.com
-Project-URL: Documentation, https://docs.wandb.com/
+Project-URL: Documentation, https://docs.wandb.ai
 Project-URL: Changes, https://github.com/wandb/weave/releases
 Project-URL: Source Code, https://github.com/wandb/weave
 Project-URL: Issue Tracker, https://github.com/wandb/weave/issues/
@@ -288,7 +288,7 @@ Provides-Extra: langchain-nvidia-ai-endpoints
 Requires-Dist: langchain-core>=0.2.1; extra == 'langchain-nvidia-ai-endpoints'
 Requires-Dist: langchain-nvidia-ai-endpoints; extra == 'langchain-nvidia-ai-endpoints'
 Provides-Extra: litellm
-Requires-Dist: litellm>=1.36.1; extra == 'litellm'
+Requires-Dist: litellm<1.82.7,>=1.36.1; extra == 'litellm'
 Requires-Dist: openai<1.100.0,>=1.99.9; extra == 'litellm'
 Provides-Extra: llamaindex
 Requires-Dist: llama-index>=0.10.35; extra == 'llamaindex'
@@ -315,7 +315,7 @@ Requires-Dist: rich; extra == 'rich'
 Provides-Extra: scorers
 Requires-Dist: huggingface-hub>=0.28.1; extra == 'scorers'
 Requires-Dist: levenshtein>=0.26.0; extra == 'scorers'
-Requires-Dist: litellm>=1.58; extra == 'scorers'
+Requires-Dist: litellm<1.82.7,>=1.58; extra == 'scorers'
 Requires-Dist: numpy>1.21.0; extra == 'scorers'
 Requires-Dist: pip>=20.0; extra == 'scorers'
 Requires-Dist: presidio-analyzer>=2.2.0; extra == 'scorers'
@@ -337,7 +337,7 @@ Requires-Dist: boto3>=1.34.0; extra == 'trace-server'
 Requires-Dist: ddtrace>=2.7.0; extra == 'trace-server'
 Requires-Dist: emoji>=2.12.1; extra == 'trace-server'
 Requires-Dist: google-cloud-storage>=2.7.0; extra == 'trace-server'
-Requires-Dist: litellm>=1.36.1; extra == 'trace-server'
+Requires-Dist: litellm<1.82.7,>=1.36.1; extra == 'trace-server'
 Requires-Dist: openinference-semantic-conventions>=0.1.17; extra == 'trace-server'
 Requires-Dist: opentelemetry-proto>=1.12.0; extra == 'trace-server'
 Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.3; extra == 'trace-server'
@@ -345,7 +345,7 @@ Requires-Dist: redis>=5.0.0; extra == 'trace-server'
 Provides-Extra: verdict
 Requires-Dist: verdict>=0.2.3; (platform_python_implementation != 'PyPy' and python_version < '3.13') and extra == 'verdict'
 Provides-Extra: verifiers
-Requires-Dist: verifiers<0.1.4,>=0.1.3.post0; (python_version >= '3.11') and extra == 'verifiers'
+Requires-Dist: verifiers<0.1.13,>=0.1.3.post0; (python_version >= '3.11') and extra == 'verifiers'
 Provides-Extra: vertexai
 Requires-Dist: shapely<=2.0.6; (platform_python_implementation != 'PyPy') and extra == 'vertexai'
 Requires-Dist: vertexai>=1.70.0; (platform_python_implementation != 'PyPy') and extra == 'vertexai'

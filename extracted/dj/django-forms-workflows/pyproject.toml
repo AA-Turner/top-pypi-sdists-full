@@ -1,0 +1,127 @@
+[tool.poetry]
+name = "django-forms-workflows"
+version = "0.60.0"
+description = "Enterprise-grade, database-driven form builder with approval workflows and external data integration"
+license = "LGPL-3.0-only"
+readme = "README.md"
+homepage = "https://github.com/opensensor/django-forms-workflows"
+repository = "https://github.com/opensensor/django-forms-workflows"
+documentation = "https://django-forms-workflows.readthedocs.io/"
+authors = ["Matt Davis <matt@opensensor.io>"]
+keywords = [
+  "django", "forms", "workflows", "approval", "form-builder", "dynamic-forms",
+  "ldap", "enterprise", "audit", "database-driven", "sso", "saml", "oauth2"
+]
+packages = [
+  { include = "django_forms_workflows" }
+]
+# Make sure non-Python assets ship with the wheel/sdist
+include = [
+  "django_forms_workflows/templates/**",
+  "django_forms_workflows/static/**",
+  "LICENSE",
+  "CHANGELOG.md"
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"
+Django = ">=5.1,<7.0"
+django-crispy-forms = ">=2.0"
+crispy-bootstrap5 = ">=2.0"
+django-nested-admin = ">=4.0"
+celery = ">=5.3"
+python-decouple = ">=3.8"
+requests = ">=2.31"
+
+# Optional SSO dependencies
+social-auth-app-django = { version = ">=5.4", optional = true }
+python3-saml = { version = ">=1.16", optional = true }
+
+# Optional LDAP dependencies (already supported)
+django-auth-ldap = { version = ">=4.0", optional = true }
+python-ldap = { version = ">=3.4", optional = true }
+
+# Optional database drivers
+mssql-django = { version = ">=1.3", optional = true }
+pyodbc = { version = ">=5.0", optional = true }
+psycopg2-binary = { version = ">=2.9", optional = true }
+mysqlclient = { version = ">=2.2", optional = true }
+
+# Optional Gmail API email backend
+google-auth = { version = ">=2.20", optional = true }
+google-api-python-client = { version = ">=2.100", optional = true }
+
+# Optional PDF generation
+weasyprint = { version = ">=60.0", optional = true }
+
+# Optional Excel export
+openpyxl = { version = ">=3.1", optional = true }
+
+# Optional documentation
+sphinx = { version = ">=7.0", optional = true }
+sphinx-rtd-theme = { version = ">=2.0", optional = true }
+sphinx-autodoc-typehints = { version = ">=1.25", optional = true }
+
+# Optional QR code generation
+segno = { version = ">=1.6", optional = true }
+
+# Optional picklist dependencies (country + US state field types)
+django-countries = { version = ">=7.0", optional = true }
+django-localflavor = { version = ">=4.0", optional = true }
+
+# Optional dev/test dependencies
+pytest = { version = ">=7.4", optional = true }
+pytest-django = { version = ">=4.5", optional = true }
+pytest-cov = { version = ">=4.1", optional = true }
+ruff = { version = ">=0.4", optional = true }
+
+[tool.poetry.extras]
+ldap = ["django-auth-ldap", "python-ldap"]
+sso = ["social-auth-app-django", "python3-saml"]
+saml = ["python3-saml"]
+mssql = ["mssql-django", "pyodbc"]
+postgresql = ["psycopg2-binary"]
+mysql = ["mysqlclient"]
+gmail = ["google-auth", "google-api-python-client"]
+pdf = ["weasyprint"]
+excel = ["openpyxl"]
+qr = ["segno"]
+picklists = ["django-countries", "django-localflavor"]
+docs = ["sphinx", "sphinx-rtd-theme", "sphinx-autodoc-typehints"]
+all = [
+  "django-auth-ldap", "python-ldap",
+  "social-auth-app-django", "python3-saml",
+  "mssql-django", "pyodbc",
+  "psycopg2-binary", "mysqlclient",
+  "google-auth", "google-api-python-client",
+  "weasyprint",
+  "openpyxl",
+  "segno",
+  "django-countries", "django-localflavor"
+]
+dev = ["pytest", "pytest-django", "pytest-cov", "ruff"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=7.4"
+pytest-django = ">=4.5"
+pytest-cov = ">=4.1"
+black = ">=23.0"
+isort = ">=5.12"
+flake8 = ">=6.0"
+mypy = ">=1.5"
+django-stubs = ">=4.2"
+twine = "^6.2.0"
+ruff = "^0.14.3"
+
+[build-system]
+requires = ["poetry-core>=1.7.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+pythonpath = ["."]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+

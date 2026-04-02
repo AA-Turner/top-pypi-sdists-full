@@ -1,0 +1,422 @@
+Metadata-Version: 2.4
+Name: slack-blocks-markdown
+Version: 0.2.1
+Summary: Convert Markdown to Slack Block Kit blocks using mistletoe
+Author-email: atacan <info@actondon.com>
+Maintainer-email: atacan <info@actondon.com>
+License: MIT License
+        
+        Copyright (c) 2025 atacan
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/atacan/slack-blocks-markdown
+Project-URL: Repository, https://github.com/atacan/slack-blocks-markdown
+Project-URL: Issues, https://github.com/atacan/slack-blocks-markdown/issues
+Project-URL: Documentation, https://github.com/atacan/slack-blocks-markdown/blob/main/README.md
+Keywords: slack,markdown,blocks,mistletoe,converter,block-kit
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Communications :: Chat
+Classifier: Topic :: Text Processing :: Markup
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: mistletoe>=1.4.0
+Requires-Dist: slack-sdk>=3.36.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: mypy>=1.5.0; extra == "dev"
+Requires-Dist: pre-commit>=3.0.0; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest>=7.4.0; extra == "test"
+Requires-Dist: pytest-cov>=4.1.0; extra == "test"
+Dynamic: license-file
+
+# Slack Blocks Markdown
+
+[![PyPI version](https://badge.fury.io/py/slack-blocks-markdown.svg)](https://badge.fury.io/py/slack-blocks-markdown)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Tests](https://github.com/atacan/slack-blocks-markdown/workflows/tests/badge.svg)](https://github.com/atacan/slack-blocks-markdown/actions)
+
+Convert Markdown to Slack Block Kit blocks using Python. This library provides a clean, efficient way to transform your Markdown content into Slack's interactive Block Kit format.
+
+## Features
+
+- 🚀 **Complete Markdown Support**: Headers, paragraphs, lists, code blocks, quotes, tables, links, and inline formatting
+- 📱 **Slack Block Kit Compatible**: All blocks follow official Slack specifications with proper constraints
+- 🎯 **Custom Table Support**: Full implementation of Slack's table blocks with validation
+- 🔧 **Flexible APIs**: Dictionary-based for simplicity, object-based for editing, or direct renderer for full control
+- ✏️ **Editable Blocks**: Modify generated blocks before sending to Slack
+- ⚡ **High Performance**: Efficient processing of large documents
+- 🧪 **Well Tested**: Comprehensive test suite with high coverage
+- 📝 **Type Safe**: Full type hints for better development experience
+
+## Installation
+
+```bash
+pip install slack-blocks-markdown
+```
+
+## Quick Start
+
+### Simple Usage (Dictionary API)
+
+```python
+from slack_blocks_markdown import markdown_to_blocks
+
+# Convert markdown to Slack blocks (returns list of dictionaries)
+markdown = """# Project Update
+
+This is a **bold** announcement about our new features:
+
+- ✅ User authentication
+- ✅ Real-time updates
+- 🚧 Mobile app (coming soon)
+
+> **Note**: This is still in beta, so please report any issues!
+"""
+
+blocks = markdown_to_blocks(markdown)
+print(f"Generated {len(blocks)} blocks")
+
+# Use blocks directly with Slack SDK
+from slack_sdk import WebClient
+
+client = WebClient(token="your-token")
+client.chat_postMessage(
+    channel="#general",
+    blocks=blocks
+)
+```
+
+### Object-Based API (Editable Blocks)
+
+```python
+from slack_blocks_markdown import markdown_to_block_objects
+
+# Convert markdown to Block objects that can be modified
+markdown = "# Hello World\n\nThis is a paragraph."
+
+blocks = markdown_to_block_objects(markdown)
+
+# Edit blocks before sending to Slack
+blocks[0].text.text = "Custom Header"
+blocks[1].text.text = "Modified paragraph with *custom* content."
+
+# Convert to dictionaries when ready to send
+from slack_sdk import WebClient
+
+client = WebClient(token="your-token")
+client.chat_postMessage(
+    channel="#general",
+    blocks=[block.to_dict() for block in blocks]
+)
+```
+
+### Advanced Usage (Direct Renderer)
+
+For maximum control over the rendering process, use the renderer directly:
+
+```python
+from mistletoe import Document
+from slack_blocks_markdown import SlackBlocksRenderer
+
+# Direct renderer usage with options
+with SlackBlocksRenderer(expand_sections=True) as renderer:
+    document = Document(markdown)
+    blocks = renderer.render(document)  # Returns Block objects
+
+# Convert to dictionaries for JSON serialization
+blocks_json = [block.to_dict() for block in blocks]
+```
+
+## Supported Markdown Elements
+
+| Markdown Element | Slack Block Type | Notes |
+|-----------------|------------------|-------|
+| `# Headers` | HeaderBlock | Truncated to 150 chars |
+| Paragraphs | SectionBlock | With mrkdwn formatting |
+| `**Bold**` → `*Bold*` | Inline formatting | Slack markdown style |
+| `_Italic_` → `_Italic_` | Inline formatting | Slack markdown style |
+| `` `Code` `` → `` `Code` `` | Inline formatting | Preserved |
+| `~~Strike~~` → `~Strike~` | Inline formatting | Slack markdown style |
+| `[Link](url)` → `<url\|Link>` | Inline formatting | Slack link format |
+| Code blocks | SectionBlock | With triple backticks |
+| > Blockquotes | SectionBlock | With > prefix |
+| Lists | SectionBlock | Bullet (•) or numbered |
+| Tables | TableBlock | Custom implementation |
+| `---` | DividerBlock | Horizontal rules |
+
+## Examples
+
+### Basic Formatting
+
+```python
+markdown = "This is **bold** and _italic_ with `code` and [links](https://example.com)"
+blocks = markdown_to_blocks(markdown)
+# Result: [{"type": "section", "text": {"type": "mrkdwn", "text": "This is *bold* and _italic_ with `code` and <https://example.com|links>"}}]
+```
+
+### Lists and Code
+
+```python
+markdown = """
+## Features
+
+- Easy to use
+- Fast processing
+- Great documentation
+
+```python
+def hello():
+    return "world"
+```
+"""
+blocks = markdown_to_blocks(markdown)
+# Generates HeaderBlock, SectionBlock (list), and SectionBlock (code)
+```
+
+### Tables
+
+```python
+markdown = """
+| Feature | Status |
+|---------|--------|
+| Auth | ✅ Done |
+| API | 🚧 Progress |
+"""
+blocks = markdown_to_blocks(markdown)
+# Generates custom TableBlock with proper cell structure
+```
+
+### Editing Blocks (Object-Based API)
+
+```python
+from slack_blocks_markdown import markdown_to_block_objects
+
+# Generate blocks from markdown
+markdown = """# Project Status
+
+Current progress:
+
+- Feature A: Complete
+- Feature B: In progress
+"""
+
+blocks = markdown_to_block_objects(markdown)
+
+# Modify the header dynamically
+project_name = "My Awesome Project"
+blocks[0].text.text = f"{project_name} - Status Report"
+
+# Add a timestamp to the paragraph
+from datetime import datetime
+timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+blocks[1].text.text = f"Report generated at {timestamp}\n\n" + blocks[1].text.text
+
+# Convert to dictionaries and send
+from slack_sdk import WebClient
+client = WebClient(token="your-token")
+client.chat_postMessage(
+    channel="#general",
+    blocks=[block.to_dict() for block in blocks]
+)
+```
+
+### Combining Manual and Generated Blocks
+
+```python
+from slack_blocks_markdown import markdown_to_block_objects
+from slack_sdk.models.blocks import DividerBlock, SectionBlock, MarkdownTextObject
+
+# Generate blocks from markdown
+markdown = "## Summary\n\nProject is on track."
+generated_blocks = markdown_to_block_objects(markdown)
+
+# Create custom blocks manually
+custom_header = SectionBlock(
+    text=MarkdownTextObject(text="*Custom Section*")
+)
+
+# Combine blocks in any order
+all_blocks = [
+    custom_header,
+    DividerBlock(),
+    *generated_blocks,  # Insert all generated blocks
+]
+
+# Send to Slack
+client.chat_postMessage(
+    channel="#general",
+    blocks=[block.to_dict() for block in all_blocks]
+)
+```
+
+## API Reference
+
+### `markdown_to_blocks(markdown_text: str, expand_sections: bool | None = None) -> list[dict[str, Any]]`
+
+Convenience function to convert markdown to Slack block dictionaries.
+
+**Parameters:**
+- `markdown_text`: Markdown formatted string
+- `expand_sections`: (Optional) Control section block expansion
+  - `True`: Force all section blocks to be fully expanded
+  - `False`: Allow Slack to show "Show more" button for long content
+  - `None` (default): Use Slack's default behavior
+
+**Returns:**
+- List of Slack block dictionaries ready for API use
+
+**Example:**
+```python
+blocks = markdown_to_blocks("# Hello\n\nWorld", expand_sections=True)
+client.chat_postMessage(channel="#general", blocks=blocks)
+```
+
+### `markdown_to_block_objects(markdown_text: str, expand_sections: bool | None = None) -> list[Block]`
+
+Convert markdown to editable Slack Block objects.
+
+**Parameters:**
+- `markdown_text`: Markdown formatted string
+- `expand_sections`: (Optional) Control section block expansion (same as above)
+
+**Returns:**
+- List of Block objects from slack_sdk that can be modified
+
+**Example:**
+```python
+blocks = markdown_to_block_objects("# Hello\n\nWorld")
+blocks[0].text.text = "Modified Header"  # Edit blocks
+block_dicts = [b.to_dict() for b in blocks]  # Convert when ready
+```
+
+**Use Cases:**
+- Modify generated blocks before sending
+- Add dynamic content to specific blocks
+- Combine with custom block creation
+- Inspect block structure programmatically
+
+### `SlackBlocksRenderer`
+
+Main renderer class inheriting from mistletoe's BaseRenderer.
+
+**Parameters:**
+- `expand_sections`: (Optional) Control section block expansion behavior
+
+**Methods:**
+- `render(document)`: Convert mistletoe Document to list of Block objects
+- Context manager support for proper resource handling
+
+**Example:**
+```python
+from mistletoe import Document
+with SlackBlocksRenderer(expand_sections=True) as renderer:
+    document = Document(markdown_text)
+    blocks = renderer.render(document)
+```
+
+### `TableBlock`
+
+Custom table block implementation for Slack Block Kit.
+
+**Parameters:**
+- `rows`: List of rows (each row is list of cell objects)
+- `block_id`: Optional unique identifier (max 255 chars)
+- `column_settings`: Optional column configuration
+
+## Slack Block Kit Constraints
+
+This library automatically handles Slack's Block Kit constraints:
+
+- **Headers**: Maximum 150 characters (truncated with "..." if longer)
+- **Text blocks**: Maximum 3000 characters (truncated with "..." if longer)
+- **Tables**: Maximum 100 rows, 20 columns per row
+- **Block IDs**: Maximum 255 characters
+
+## Development
+
+```bash
+# Clone repository
+git clone https://github.com/atacan/slack-blocks-markdown.git
+cd slack-blocks-markdown
+
+# Install with development dependencies
+pip install -e ".[dev]"
+
+# Run tests
+pytest
+
+# Run linting
+ruff check src/ tests/
+black src/ tests/
+
+# Run type checking
+mypy src/
+```
+
+## Testing
+
+The library includes comprehensive tests covering:
+
+- All markdown element types
+- Slack constraint validation
+- Edge cases and error handling
+- Integration with Slack API format
+- Performance with large documents
+
+```bash
+# Run with coverage
+pytest --cov=slack_blocks_markdown --cov-report=html
+```
+
+## Contributing
+
+Contributions welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass
+5. Submit a pull request
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.
+
+## Related Projects
+
+- [mistletoe](https://github.com/miyuchina/mistletoe) - The markdown parser we use
+- [slack-sdk](https://github.com/slackapi/python-slack-sdk) - Official Slack SDK for Python
+- [Slack Block Kit Builder](https://app.slack.com/block-kit-builder) - Visual tool for building Slack blocks

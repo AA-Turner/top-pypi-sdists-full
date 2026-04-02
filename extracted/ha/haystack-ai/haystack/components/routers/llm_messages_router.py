@@ -39,7 +39,7 @@ class LLMMessagesRouter:
     print(router.run([ChatMessage.from_user("How to rob a bank?")]))
 
     # {
-    #     'chat_generator_text': 'unsafe\nS2',
+    #     'chat_generator_text': 'unsafe\\nS2',
     #     'unsafe': [
     #         ChatMessage(
     #             _role=<ChatRole.USER: 'user'>,
@@ -58,7 +58,7 @@ class LLMMessagesRouter:
         output_names: list[str],
         output_patterns: list[str],
         system_prompt: str | None = None,
-    ):
+    ) -> None:
         """
         Initialize the LLMMessagesRouter component.
 
@@ -88,7 +88,7 @@ class LLMMessagesRouter:
             self, **{"chat_generator_text": str, **dict.fromkeys(output_names + ["unmatched"], list[ChatMessage])}
         )
 
-    def warm_up(self):
+    def warm_up(self) -> None:
         """
         Warm up the underlying LLM.
         """

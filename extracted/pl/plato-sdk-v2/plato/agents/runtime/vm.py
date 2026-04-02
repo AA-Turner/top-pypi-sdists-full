@@ -17,8 +17,9 @@ from opentelemetry import trace
 from pydantic import BaseModel
 
 from plato.agents.runtime.base import AgentContext, OTelContext, PreparedAgent, Runtime
-from plato.agents.runtime.dev import _find_agent_code, install_production_agent, sync_dev_code
-from plato.agents.runtime.transport import Transport
+from plato.agents.runtime.dev import sync_dev_code
+from plato.agents.runtime.install import install_production_agent, parse_image_url
+from plato.transports import Transport
 from plato.utils.subprocess import build_ssh_command, run_local, run_ssh, run_ssh_streaming
 from plato.v2 import Env
 from plato.v2.types import SimConfigCompute
@@ -80,15 +81,6 @@ async def resolve_runner_path(ssh_key_path: Path | None, hostname: str) -> str:
     return runner_path
 
 
-def parse_image_url(image: str) -> tuple[str, str]:
-    """Extract package name and version from a Docker image URL."""
-    last_part = image.split("/")[-1]
-    if ":" in last_part:
-        name, version = last_part.rsplit(":", 1)
-        return name, version
-    return last_part, "latest"
-
-
 async def install_agent_code_on_vm(
     ssh_key_path: Path,
     hostname: str,
@@ -96,8 +88,8 @@ async def install_agent_code_on_vm(
 ) -> None:
     """Install agent code on a VM (dev sync or production install)."""
     package_name, version = parse_image_url(ctx.image)
-    if Path("/sdk").exists() and _find_agent_code(ctx.agent_code_path, package_name) is not None:
-        synced_agent_code = await sync_dev_code(ssh_key_path, hostname, ctx.agent_code_path, package_name)
+    if Path("/sdk").exists():
+        synced_agent_code = await sync_dev_code(ssh_key_path, hostname, ctx.agent_code_path, package_name, version)
         if not synced_agent_code:
             logger.info(
                 "Falling back to production agent install for %s==%s",
@@ -129,7 +121,7 @@ class PlatoVMRuntime(Runtime):
 
     Agent code syncing flow (dev mode only):
     1. Dev runner syncs code from local machine → world VM at /agents/<name>/
-    2. World calls run_agent() with agent_code_path=/agents/<name>/ and dev_mode=True
+    2. World calls run_agent() with explicit agent_code_path=/agents/<name>/ and dev_mode=True
     3. PlatoVMRuntime creates agent VM and syncs /agents/<name>/ → /app on agent VM
     4. Agent runs with the synced code
     """

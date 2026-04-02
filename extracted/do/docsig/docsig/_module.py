@@ -22,15 +22,24 @@ from ._stub import Signature as _Signature
 from .messages import Messages as _Messages
 
 
+class _Imports(_t.Dict[str, str]):
+    """Represents python imports."""
+
+
+class _Overloads(_t.Dict[str, "Function"]):
+    """Represents overloaded methods."""
+
+
+class _Children(_t.List[_t.Union["Parent", "Function"]]):
+    """Represents children of an object."""
+
+
 class Error(_Enum):
     """Represents an unrecoverable error."""
 
     SYNTAX = 1
     UNICODE = 2
-
-
-class _Imports(_t.Dict[str, str]):
-    """Represents python imports."""
+    RECURSION = 3
 
 
 class Parent:  # pylint: disable=too-many-instance-attributes
@@ -67,8 +76,8 @@ class Parent:  # pylint: disable=too-many-instance-attributes
         error: Error | None = None,
     ) -> None:
         super().__init__()
-        self._name = "module"
         self._error = error
+        self._directives = directives or _Directives()
         self._ignore_args = ignore_args
         self._ignore_kwargs = ignore_kwargs
         self._check_class_constructor = check_class_constructor
@@ -76,11 +85,12 @@ class Parent:  # pylint: disable=too-many-instance-attributes
         self._imports = imports or _Imports()
         self._overloads = _Overloads()
         if node is None:
+            self._name = "module"
             if not isinstance(self, Function) and error is not None:
                 self._children.append(Function(path, error=error))
         else:
             self._name = node.name
-            self._parse_ast(node, directives or _Directives(), path)
+            self._parse_ast(node, path)
 
     def _parse_ast(
         self,
@@ -90,19 +100,18 @@ class Parent:  # pylint: disable=too-many-instance-attributes
             | _ast.nodes.FunctionDef
             | _ast.nodes.NodeNG
         ),
-        directives: _Directives,
         path: _Path | None = None,
     ) -> None:
         # need to keep track of `comments` as, even though they are
         # resolved in the directive object, they are needed to notify
         # the user in the case that they are invalid
-        parent_comments, parent_disabled = directives.get(
+        parent_comments, parent_disabled = self._directives.get(
             node.lineno,
             (_Comments(), _Messages()),
         )
         if hasattr(node, "body"):
             for subnode in node.body:
-                comments, disabled = directives.get(
+                comments, disabled = self._directives.get(
                     subnode.lineno,
                     (_Comments(), _Messages()),
                 )
@@ -119,7 +128,7 @@ class Parent:  # pylint: disable=too-many-instance-attributes
                     func = Function(
                         subnode,
                         comments,
-                        directives,
+                        self._directives,
                         disabled,
                         path,
                         self._ignore_args,
@@ -145,7 +154,7 @@ class Parent:  # pylint: disable=too-many-instance-attributes
                     self._children.append(
                         Parent(
                             subnode,
-                            directives,
+                            self._directives,
                             path,
                             self._ignore_args,
                             self._ignore_kwargs,
@@ -154,7 +163,7 @@ class Parent:  # pylint: disable=too-many-instance-attributes
                         ),
                     )
                 else:
-                    self._parse_ast(subnode, directives, path)
+                    self._parse_ast(subnode, path)
 
     @property
     def isprotected(self) -> bool:
@@ -364,11 +373,3 @@ class Function(Parent):  # pylint: disable=too-many-instance-attributes
         :param rettype: Return type of the overloaded variant.
         """
         self._signature.overload(rettype)
-
-
-class _Overloads(_t.Dict[str, Function]):
-    """Represents overloaded methods."""
-
-
-class _Children(_t.List[_t.Union[Parent, Function]]):
-    """Represents children of an object."""

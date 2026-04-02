@@ -1,4 +1,0 @@
-name: mlflow
-args:
-  experiment_name: "test_project"
-  tracking_uri: "file:./ml-runs"

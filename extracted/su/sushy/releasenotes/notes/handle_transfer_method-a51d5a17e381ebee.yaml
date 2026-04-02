@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Add TransferMethod for any general error that mentions it.

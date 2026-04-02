@@ -1,0 +1,101 @@
+# -*- coding: utf-8 -*-
+# Copyright 2023, CS GROUP - France, https://www.csgroup.eu/
+#
+# This file is part of EODAG project
+#     https://www.github.com/CS-SI/EODAG
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Any, Dict, Union
+
+import xarray as xr
+from eodag.api.product._assets import Asset as Asset_core
+from eodag.api.product._assets import AssetsDict as AssetsDict_core
+from eodag.utils import DEFAULT_DOWNLOAD_TIMEOUT, DEFAULT_DOWNLOAD_WAIT
+
+if TYPE_CHECKING:
+    from contextlib import nullcontext
+
+    from fsspec.core import OpenFile
+    from rasterio.env import Env
+
+logger = logging.getLogger("eodag-cube.api.product")
+
+
+class AssetsDict(AssetsDict_core):
+    """A UserDict object listing assets contained in a
+    :class:`eodag.api.product._product.EOProduct` resulting from a search.
+
+    :param product: Product resulting from a search
+    :param args: (optional) Arguments used to init the dictionary
+    :param kwargs: (optional) Additional named-arguments used to init the dictionary
+    """
+
+    def __setitem__(self, key: str, value: Dict[str, Any]) -> None:
+        super(AssetsDict_core, self).__setitem__(key, Asset(self.product, key, value))
+
+
+class Asset(Asset_core):
+    """A UserDict object containg one of the assets of a
+    :class:`eodag.api.product._product.EOProduct` resulting from a search.
+
+    :param product: Product resulting from a search
+    :param key: asset key
+    :param args: (optional) Arguments used to init the dictionary
+    :param kwargs: (optional) Additional named-arguments used to init the dictionary
+    """
+
+    def get_file_obj(
+        self,
+        wait: float = DEFAULT_DOWNLOAD_WAIT,
+        timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
+    ) -> OpenFile:
+        """Open asset data using fsspec
+
+        :param wait: (optional) If order is needed, wait time in minutes between two
+                     order status check
+        :param timeout: (optional) If order is needed, maximum time in minutes before
+                        stop checking order status
+        :returns: asset data file object
+        """
+        return self.product.get_file_obj(self.key, wait, timeout)
+
+    def rio_env(self) -> Union[Env, nullcontext]:
+        """Get rasterio environment
+
+        :return: The rasterio environment
+        """
+        return self.product.rio_env(self.get("href"))
+
+    def to_xarray(
+        self,
+        wait: float = DEFAULT_DOWNLOAD_WAIT,
+        timeout: float = DEFAULT_DOWNLOAD_TIMEOUT,
+        **xarray_kwargs: Any,
+    ) -> xr.Dataset:
+        """
+        Return asset data as a :class:`xarray.Dataset`.
+
+        :param wait: (optional) If order is needed, wait time in minutes between two
+                     order status check
+        :param timeout: (optional) If order is needed, maximum time in minutes before
+                        stop checking order status
+        :param xarray_kwargs: (optional) keyword arguments passed to :func:`xarray.open_dataset`
+        :returns: Asset data as a :class:`xarray.Dataset`
+        """
+        xd = self.product.to_xarray(self.key, wait, timeout, **xarray_kwargs)
+        if len(xd) > 1:
+            logger.warning(f"Several Datasets were returned for {self.product} {self.key}: {xd.keys()}")
+        return next(iter(xd.values()))

@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint-and-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest, ubuntu-24.04-arm]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v6
+
+      - run: uv run --python ${{ matrix.python-version }} task lint
+
+      - run: uv run --python ${{ matrix.python-version }} task typecheck
+
+      - run: uv run --python ${{ matrix.python-version }} task test
+
+      - run: uv build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.os }}-${{ matrix.python-version }}
+          path: |
+            dist/*.tar.gz
+            dist/*.whl
+
+  transport-extras:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: no-extras
+            extras: ""
+            expect-serial: fail
+            expect-ble: fail
+          - name: serial-only
+            extras: "[serial]"
+            expect-serial: pass
+            expect-ble: fail
+          - name: ble-only
+            extras: "[ble]"
+            expect-serial: fail
+            expect-ble: pass
+          - name: all
+            extras: "[all]"
+            expect-serial: pass
+            expect-ble: pass
+    name: transport-extras (${{ matrix.name }})
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v6
+
+      - run: uv venv && uv pip install .${{ matrix.extras }}
+
+      - name: serial transport should ${{ matrix.expect-serial }}
+        run: |
+          if [ "${{ matrix.expect-serial }}" = "pass" ]; then
+            .venv/bin/python -c "from smpclient.transport.serial import SMPSerialTransport"
+          else
+            ! .venv/bin/python -c "from smpclient.transport.serial import SMPSerialTransport" 2>/dev/null
+          fi
+
+      - name: ble transport should ${{ matrix.expect-ble }}
+        run: |
+          if [ "${{ matrix.expect-ble }}" = "pass" ]; then
+            .venv/bin/python -c "from smpclient.transport.ble import SMPBLETransport"
+          else
+            ! .venv/bin/python -c "from smpclient.transport.ble import SMPBLETransport" 2>/dev/null
+          fi
+
+      - name: udp transport should pass
+        run: .venv/bin/python -c "from smpclient.transport.udp import SMPUDPTransport"
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - run: uv run task coverage

@@ -73,7 +73,9 @@ class UsageSummaryDate(ModelNormal):
             "csm_host_enterprise_compliance_host_count_top99p": (int,),
             "csm_host_enterprise_cws_host_count_top99p": (int,),
             "csm_host_enterprise_gcp_host_count_top99p": (int,),
+            "csm_host_enterprise_oci_host_count_top99p": (int,),
             "csm_host_enterprise_total_host_count_top99p": (int,),
+            "csm_host_pro_oci_host_count_top99p": (int,),
             "cspm_aas_host_top99p": (int,),
             "cspm_aws_host_top99p": (int,),
             "cspm_azure_host_top99p": (int,),
@@ -129,6 +131,7 @@ class UsageSummaryDate(ModelNormal):
             "incident_management_monthly_active_users_hwm": (int,),
             "incident_management_seats_hwm": (int,),
             "indexed_events_count_sum": (int,),
+            "infra_edge_monitoring_devices_top99p": (int,),
             "infra_host_top99p": (int,),
             "ingested_events_bytes_sum": (int,),
             "iot_device_sum": (int,),
@@ -146,6 +149,7 @@ class UsageSummaryDate(ModelNormal):
             "ndm_netflow_events_sum": (int,),
             "netflow_indexed_events_count_sum": (int,),
             "network_device_wireless_top99p": (int,),
+            "network_path_sum": (int,),
             "npm_host_top99p": (int,),
             "observability_pipelines_bytes_processed_sum": (int,),
             "oci_host_sum": (int,),
@@ -288,7 +292,9 @@ class UsageSummaryDate(ModelNormal):
         "csm_host_enterprise_compliance_host_count_top99p": "csm_host_enterprise_compliance_host_count_top99p",
         "csm_host_enterprise_cws_host_count_top99p": "csm_host_enterprise_cws_host_count_top99p",
         "csm_host_enterprise_gcp_host_count_top99p": "csm_host_enterprise_gcp_host_count_top99p",
+        "csm_host_enterprise_oci_host_count_top99p": "csm_host_enterprise_oci_host_count_top99p",
         "csm_host_enterprise_total_host_count_top99p": "csm_host_enterprise_total_host_count_top99p",
+        "csm_host_pro_oci_host_count_top99p": "csm_host_pro_oci_host_count_top99p",
         "cspm_aas_host_top99p": "cspm_aas_host_top99p",
         "cspm_aws_host_top99p": "cspm_aws_host_top99p",
         "cspm_azure_host_top99p": "cspm_azure_host_top99p",
@@ -344,6 +350,7 @@ class UsageSummaryDate(ModelNormal):
         "incident_management_monthly_active_users_hwm": "incident_management_monthly_active_users_hwm",
         "incident_management_seats_hwm": "incident_management_seats_hwm",
         "indexed_events_count_sum": "indexed_events_count_sum",
+        "infra_edge_monitoring_devices_top99p": "infra_edge_monitoring_devices_top99p",
         "infra_host_top99p": "infra_host_top99p",
         "ingested_events_bytes_sum": "ingested_events_bytes_sum",
         "iot_device_sum": "iot_device_sum",
@@ -361,6 +368,7 @@ class UsageSummaryDate(ModelNormal):
         "ndm_netflow_events_sum": "ndm_netflow_events_sum",
         "netflow_indexed_events_count_sum": "netflow_indexed_events_count_sum",
         "network_device_wireless_top99p": "network_device_wireless_top99p",
+        "network_path_sum": "network_path_sum",
         "npm_host_top99p": "npm_host_top99p",
         "observability_pipelines_bytes_processed_sum": "observability_pipelines_bytes_processed_sum",
         "oci_host_sum": "oci_host_sum",
@@ -504,7 +512,9 @@ class UsageSummaryDate(ModelNormal):
         csm_host_enterprise_compliance_host_count_top99p: Union[int, UnsetType] = unset,
         csm_host_enterprise_cws_host_count_top99p: Union[int, UnsetType] = unset,
         csm_host_enterprise_gcp_host_count_top99p: Union[int, UnsetType] = unset,
+        csm_host_enterprise_oci_host_count_top99p: Union[int, UnsetType] = unset,
         csm_host_enterprise_total_host_count_top99p: Union[int, UnsetType] = unset,
+        csm_host_pro_oci_host_count_top99p: Union[int, UnsetType] = unset,
         cspm_aas_host_top99p: Union[int, UnsetType] = unset,
         cspm_aws_host_top99p: Union[int, UnsetType] = unset,
         cspm_azure_host_top99p: Union[int, UnsetType] = unset,
@@ -560,6 +570,7 @@ class UsageSummaryDate(ModelNormal):
         incident_management_monthly_active_users_hwm: Union[int, UnsetType] = unset,
         incident_management_seats_hwm: Union[int, UnsetType] = unset,
         indexed_events_count_sum: Union[int, UnsetType] = unset,
+        infra_edge_monitoring_devices_top99p: Union[int, UnsetType] = unset,
         infra_host_top99p: Union[int, UnsetType] = unset,
         ingested_events_bytes_sum: Union[int, UnsetType] = unset,
         iot_device_sum: Union[int, UnsetType] = unset,
@@ -577,6 +588,7 @@ class UsageSummaryDate(ModelNormal):
         ndm_netflow_events_sum: Union[int, UnsetType] = unset,
         netflow_indexed_events_count_sum: Union[int, UnsetType] = unset,
         network_device_wireless_top99p: Union[int, UnsetType] = unset,
+        network_path_sum: Union[int, UnsetType] = unset,
         npm_host_top99p: Union[int, UnsetType] = unset,
         observability_pipelines_bytes_processed_sum: Union[int, UnsetType] = unset,
         oci_host_sum: Union[int, UnsetType] = unset,
@@ -819,8 +831,14 @@ class UsageSummaryDate(ModelNormal):
         :param csm_host_enterprise_gcp_host_count_top99p: Shows the 99th percentile of all Cloud Security Management Enterprise GCP hosts over all hours in the current date for the given org.
         :type csm_host_enterprise_gcp_host_count_top99p: int, optional
 
+        :param csm_host_enterprise_oci_host_count_top99p: Shows the 99th percentile of all Cloud Security Management Enterprise OCI hosts over all hours in the current date for the given org.
+        :type csm_host_enterprise_oci_host_count_top99p: int, optional
+
         :param csm_host_enterprise_total_host_count_top99p: Shows the 99th percentile of all Cloud Security Management Enterprise hosts over all hours in the current date for the given org.
         :type csm_host_enterprise_total_host_count_top99p: int, optional
+
+        :param csm_host_pro_oci_host_count_top99p: Shows the 99th percentile of all Cloud Security Management Pro OCI hosts over all hours in the current date for the given org.
+        :type csm_host_pro_oci_host_count_top99p: int, optional
 
         :param cspm_aas_host_top99p: Shows the 99th percentile of all Cloud Security Management Pro Azure app services hosts over all hours in the current date for all organizations.
         :type cspm_aas_host_top99p: int, optional
@@ -987,6 +1005,9 @@ class UsageSummaryDate(ModelNormal):
         :param indexed_events_count_sum: Shows the sum of all log events indexed over all hours in the current date for all organizations.
         :type indexed_events_count_sum: int, optional
 
+        :param infra_edge_monitoring_devices_top99p: Shows the 99th percentile of all Edge Devices Monitoring devices over all hours in the current date for all organizations.
+        :type infra_edge_monitoring_devices_top99p: int, optional
+
         :param infra_host_top99p: Shows the 99th percentile of all distinct infrastructure hosts over all hours in the current date for all organizations.
         :type infra_host_top99p: int, optional
 
@@ -1037,6 +1058,9 @@ class UsageSummaryDate(ModelNormal):
 
         :param network_device_wireless_top99p: Shows the 99th percentile of all Network Device Monitoring wireless devices over all hours in the current date for all organizations.
         :type network_device_wireless_top99p: int, optional
+
+        :param network_path_sum: Shows the sum of all Network Path scheduled tests over all hours in the current date for all organizations.
+        :type network_path_sum: int, optional
 
         :param npm_host_top99p: Shows the 99th percentile of all distinct Cloud Network Monitoring hosts (formerly known as Network hosts) over all hours in the current date for all organizations.
         :type npm_host_top99p: int, optional
@@ -1408,8 +1432,12 @@ class UsageSummaryDate(ModelNormal):
             kwargs["csm_host_enterprise_cws_host_count_top99p"] = csm_host_enterprise_cws_host_count_top99p
         if csm_host_enterprise_gcp_host_count_top99p is not unset:
             kwargs["csm_host_enterprise_gcp_host_count_top99p"] = csm_host_enterprise_gcp_host_count_top99p
+        if csm_host_enterprise_oci_host_count_top99p is not unset:
+            kwargs["csm_host_enterprise_oci_host_count_top99p"] = csm_host_enterprise_oci_host_count_top99p
         if csm_host_enterprise_total_host_count_top99p is not unset:
             kwargs["csm_host_enterprise_total_host_count_top99p"] = csm_host_enterprise_total_host_count_top99p
+        if csm_host_pro_oci_host_count_top99p is not unset:
+            kwargs["csm_host_pro_oci_host_count_top99p"] = csm_host_pro_oci_host_count_top99p
         if cspm_aas_host_top99p is not unset:
             kwargs["cspm_aas_host_top99p"] = cspm_aas_host_top99p
         if cspm_aws_host_top99p is not unset:
@@ -1530,6 +1558,8 @@ class UsageSummaryDate(ModelNormal):
             kwargs["incident_management_seats_hwm"] = incident_management_seats_hwm
         if indexed_events_count_sum is not unset:
             kwargs["indexed_events_count_sum"] = indexed_events_count_sum
+        if infra_edge_monitoring_devices_top99p is not unset:
+            kwargs["infra_edge_monitoring_devices_top99p"] = infra_edge_monitoring_devices_top99p
         if infra_host_top99p is not unset:
             kwargs["infra_host_top99p"] = infra_host_top99p
         if ingested_events_bytes_sum is not unset:
@@ -1564,6 +1594,8 @@ class UsageSummaryDate(ModelNormal):
             kwargs["netflow_indexed_events_count_sum"] = netflow_indexed_events_count_sum
         if network_device_wireless_top99p is not unset:
             kwargs["network_device_wireless_top99p"] = network_device_wireless_top99p
+        if network_path_sum is not unset:
+            kwargs["network_path_sum"] = network_path_sum
         if npm_host_top99p is not unset:
             kwargs["npm_host_top99p"] = npm_host_top99p
         if observability_pipelines_bytes_processed_sum is not unset:

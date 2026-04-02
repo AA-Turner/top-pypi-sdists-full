@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: valkey-glide-sync
-Version: 2.3.0
+Version: 2.3.1
 Summary: Valkey GLIDE Sync client. Supports Valkey and Redis OSS.
 License: Apache-2.0
 Classifier: Topic :: Database

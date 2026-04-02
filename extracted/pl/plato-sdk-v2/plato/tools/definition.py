@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-# Module-level workspace path — set by load_tools(), read by handlers at call time
+# Module-level workspace path used by world-hosted tool handlers at call time.
 _workspace: Path = Path("/workspace")
 
 

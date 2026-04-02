@@ -1,0 +1,34 @@
+[build-system]
+requires = ["maturin~=1.8.0"]
+build-backend = "maturin"
+
+[project]
+name = "pyoxipng"
+requires-python = ">=3.8"
+version = "9.1.1"
+description = "Python wrapper for multithreaded .png image file optimizer oxipng"
+readme = "README.md"
+license = { file = "LICENSE" }
+keywords = [
+    "rust",
+    "image",
+    "optimize",
+    "optimizer",
+    "optimization",
+    "compress",
+    "png",
+]
+authors = [{ name = "Nick Frasser <nfrasser@users.noreply.github.com>" }]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+homepage = "https://github.com/nfrasser/pyoxipng"
+documentation = "https://github.com/nfrasser/pyoxipng#readme"
+repository = "https://github.com/nfrasser/pyoxipng"
+changelog = "https://github.com/nfrasser/pyoxipng/blob/main/CHANGELOG.md"

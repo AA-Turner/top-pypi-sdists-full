@@ -66,6 +66,7 @@
 # DAMAGE.
 
 """Fortran 2003 Syntax Rules."""
+
 # Original author: Pearu Peterson <pearu@cens.ioc.ee>
 # First version created: Oct 2006
 
@@ -129,27 +130,20 @@ class Directive(Base):
 
     Fparser supports the following directive formats:
 
-        1. '!$dir' for generic directives.
-        2. '!dir$' for the flang, ifx or ifort compilers.
+        1. '!$', 'c$' or '*$' followed by any alphabetical character for
+           generic directives.
+        2. '!dir$' or 'cdir$' for the flang, ifx or ifort compilers.
         3. '!gcc$' for the gfortran compiler.
-        4. '!$omp', '!$ompx', 'c$omp', '*$omp', '!$omx', 'c$omx', and '*$omx' for
-        OpenMP directives.
     """
 
     subclass_names = []
-    # TODO #483 - Add OpenACC directive support.
     _directive_formats = [
-        "!$dir",  # Generic directive
-        "!dir$",  # flang, ifx, ifort directives.
-        "cdir$",  # flang, ifx, ifort fixed format directive.
-        "!$omp",  # OpenMP directive
-        "c$omp",  # OpenMP fixed format directive
-        "*$omp",  # OpenMP fixed format directive
-        "!$omx",  # OpenMP fixed format directive
-        "c$omx",  # OpenMP fixed format directive
-        "*$omx",  # OpenMP fixed format directive
-        "!gcc$",  # GCC compiler directive
-        "!$ompx",  # OpenMP extension directive
+        r"\!\$[a-z]",  # Generic directive
+        r"c\$[a-z]",  # Generic directive
+        r"\*\$[a-z]",  # Generic directive
+        r"\!dir\$",  # flang, ifx, ifort directives.
+        r"cdir\$",  # flang, ifx, ifort fixed format directive.
+        r"\!gcc\$",  # GCC compiler directive
     ]
 
     @show_result
@@ -166,13 +160,16 @@ class Directive(Base):
         from fparser.common import readfortran
 
         if isinstance(string, readfortran.Comment):
+            # Inline comments cannot be directives.
+            if string.inline:
+                return
             # Directives must start with one of the specified directive
             # prefixes.
             lower = string.comment.lower()
             if not (
                 any(
                     [
-                        lower.startswith(prefix)
+                        re.match(prefix, lower) is not None
                         for prefix in Directive._directive_formats
                     ]
                 )
@@ -13294,36 +13291,27 @@ for clsname in _names:
             _names.append(n)
             n = n[:-5]
             # Generate 'list' class
-            exec(
-                """\
+            exec("""\
 class %s_List(SequenceBase):
     subclass_names = [\'%s\']
     use_names = []
     def match(string): return SequenceBase.match(r\',\', %s, string)
 
-"""
-                % (n, n, n)
-            )
+""" % (n, n, n))
         elif n.endswith("_Name"):
             _names.append(n)
             n = n[:-5]
-            exec(
-                """\
+            exec("""\
 class %s_Name(Base):
     subclass_names = [\'Name\']
-"""
-                % (n)
-            )
+""" % (n))
         elif n.startswith("Scalar_"):
             _names.append(n)
             n = n[7:]
-            exec(
-                """\
+            exec("""\
 class Scalar_%s(Base):
     subclass_names = [\'%s\']
-"""
-                % (n, n)
-            )
+""" % (n, n))
 
 
 DynamicImport().import_now()

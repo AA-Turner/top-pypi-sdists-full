@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sb3_contrib
-Version: 2.7.1
+Version: 2.8.0
 Summary: Contrib package of Stable Baselines3, experimental code.
 Home-page: https://github.com/Stable-Baselines-Team/stable-baselines3-contrib
 Author: Antonin Raffin
@@ -14,14 +14,14 @@ Project-URL: RL-Zoo, https://github.com/DLR-RM/rl-baselines3-zoo
 Project-URL: SBX, https://github.com/araffin/sbx
 Keywords: reinforcement-learning-algorithms reinforcement-learning machine-learning gym openai stable baselines toolbox python data-science
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: stable_baselines3<3.0,>=2.7.0
+Requires-Dist: stable_baselines3<3.0,>=2.8.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

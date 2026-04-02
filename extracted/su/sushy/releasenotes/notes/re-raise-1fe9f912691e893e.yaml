@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Correctly handles errors on a request that is re-tried after refreshing
-    an authentication token.

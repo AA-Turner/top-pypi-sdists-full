@@ -2373,7 +2373,7 @@ class Parser:
             extend_props(self._parse_properties())
 
             expression = self._parse_heredoc() if self._match(TokenType.ALIAS) else None
-            extend_props(self._parse_properties())
+            extend_props(self._parse_function_properties())
 
             if not expression:
                 if self._match(TokenType.COMMAND):
@@ -3375,7 +3375,7 @@ class Parser:
         )
 
     def _parse_insert(self) -> t.Union[exp.Insert, exp.MultitableInserts]:
-        comments = []
+        comments: list[str] = []
         hint = self._parse_hint()
         overwrite = self._match(TokenType.OVERWRITE)
         ignore = self._match(TokenType.IGNORE)
@@ -6001,7 +6001,7 @@ class Parser:
                     and data_type.is_type(exp.DType.TIMESTAMP)
                     and TIME_ZONE_RE.search(literal)
                 ):
-                    data_type = exp.DataType.build(exp.DType.TIMESTAMPTZ)
+                    data_type = exp.DType.TIMESTAMPTZ.into_expr()
 
                 return self.expression(exp.Cast(this=this, to=data_type))
 
@@ -6883,6 +6883,9 @@ class Parser:
 
         return transformed
 
+    def _parse_function_properties(self) -> t.Optional[exp.Properties]:
+        return self._parse_properties()
+
     def _parse_user_defined_function_expression(self) -> t.Optional[exp.Expr]:
         return self._parse_statement()
 
@@ -7596,7 +7599,7 @@ class Parser:
             fmt = self._parse_at_time_zone(fmt_string)
 
             if not to:
-                to = exp.DataType.build(exp.DType.UNKNOWN)
+                to = exp.DType.UNKNOWN.into_expr()
             if to.this in exp.DataType.TEMPORAL_TYPES:
                 this = self.expression(
                     (exp.StrToDate if to.this == exp.DType.DATE else exp.StrToTime)(
@@ -7620,7 +7623,7 @@ class Parser:
         elif isinstance(to, exp.Identifier):
             to = exp.DataType.build(to.name, dialect=self.dialect, udt=True)
         elif to.this == exp.DType.CHAR and self._match(TokenType.CHARACTER_SET):
-            to = exp.DataType.build(exp.DType.CHARACTER_SET, kind=self._parse_var_or_string())
+            to = exp.DType.CHARACTER_SET.into_expr(kind=self._parse_var_or_string())
 
         return self.build_cast(
             strict=strict,
@@ -7690,9 +7693,8 @@ class Parser:
         this = self._parse_bitwise()
 
         if self._match(TokenType.USING):
-            to: t.Optional[exp.Expr] = exp.DataType.build(
-                exp.DType.CHARACTER_SET,
-                kind=self._parse_var(tokens={TokenType.BINARY}),
+            to: t.Optional[exp.Expr] = exp.DType.CHARACTER_SET.into_expr(
+                kind=self._parse_var(tokens={TokenType.BINARY})
             )
         elif self._match(TokenType.COMMA):
             to = self._parse_types()
@@ -9251,12 +9253,12 @@ class Parser:
 
         return self.expression(exp.WithOperator(this=this, op=op))
 
-    def _parse_wrapped_options(self) -> t.List[t.Optional[exp.Expr]]:
+    def _parse_wrapped_options(self) -> list[exp.Expr]:
         self._match(TokenType.EQ)
         self._match(TokenType.L_PAREN)
 
-        opts: t.List[t.Optional[exp.Expr]] = []
-        option: exp.Expr | t.List[exp.Expr] | None
+        opts: list[exp.Expr] = []
+        option: t.Optional[t.Union[exp.Expr, list[exp.Expr]]]
         while self._curr and not self._match(TokenType.R_PAREN):
             if self._match_text_seq("FORMAT_NAME", "="):
                 # The FORMAT_NAME can be set to an identifier for Snowflake and T-SQL

@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qt-material"
+version = "2.17"
+description = "Material inspired stylesheet for PySide6 and PyQt6."
+readme = "README.md"
+requires-python = ">=3.7"
+license = { text = "BSD-2-Clause" }
+authors = [
+  { name = "Yeison Cardona", email = "yencardonaal@unal.edu.co" }
+]
+maintainers = [
+  { name = "Yeison Cardona", email = "yencardonaal@unal.edu.co" }
+]
+dependencies = [
+  "Jinja2"
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.8"
+]
+
+[project.urls]
+Homepage = "https://github.com/dunderlab/qt-material"
+Download = "https://github.com/dunderlab/qt-material/releases/latest"
+Documentation = "https://qt-material.readthedocs.io/en/latest/"
+Repository = "https://github.com/dunderlab/qt-material.git"
+Issues = "https://github.com/dunderlab/qt-material/issues"
+
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+  "qt_material",
+  "qt_material.resources",
+  "qt_material.resources.source"
+]
+
+[project.entry-points."pyinstaller40"]
+hook-dirs = "qt_material:get_hook_dirs"

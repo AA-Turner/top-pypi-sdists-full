@@ -194,6 +194,7 @@ __all__ = (
     "SearchCriteriaTypeDef",
     "SecretsManagerLocationTypeDef",
     "ServiceQuotaExceededExceptionTypeDef",
+    "SessionFilterTypeDef",
     "SessionSummaryTypeDef",
     "SpanContextTypeDef",
     "StartBrowserSessionRequestTypeDef",
@@ -482,11 +483,8 @@ class ListMemoryRecordsInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
-class ListSessionsInputTypeDef(TypedDict):
-    memoryId: str
-    actorId: str
-    maxResults: NotRequired[int]
-    nextToken: NotRequired[str]
+class SessionFilterTypeDef(TypedDict):
+    eventFilter: NotRequired[Literal["HAS_EVENTS"]]
 
 class SessionSummaryTypeDef(TypedDict):
     sessionId: str
@@ -775,10 +773,25 @@ class ListMemoryRecordsInputPaginateTypeDef(TypedDict):
     memoryStrategyId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
-class ListSessionsInputPaginateTypeDef(TypedDict):
-    memoryId: str
-    actorId: str
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+ListSessionsInputPaginateTypeDef = TypedDict(
+    "ListSessionsInputPaginateTypeDef",
+    {
+        "memoryId": str,
+        "actorId": str,
+        "filter": NotRequired[SessionFilterTypeDef],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+ListSessionsInputTypeDef = TypedDict(
+    "ListSessionsInputTypeDef",
+    {
+        "memoryId": str,
+        "actorId": str,
+        "maxResults": NotRequired[int],
+        "nextToken": NotRequired[str],
+        "filter": NotRequired[SessionFilterTypeDef],
+    },
+)
 
 class ListSessionsOutputTypeDef(TypedDict):
     sessionSummaries: list[SessionSummaryTypeDef]

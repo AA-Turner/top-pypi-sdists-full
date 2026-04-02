@@ -145,6 +145,7 @@ pub(crate) fn handle(
                             title.as_deref(),
                             raw_text.as_str(),
                             options,
+                            ctx.reference_collector.as_ref(),
                         );
                         push_heading(output, ctx, options, heading_level, link_buffer.as_str());
                         return;
@@ -262,6 +263,7 @@ pub(crate) fn handle(
                         title.as_deref(),
                         label.as_str(),
                         options,
+                        ctx.reference_collector.as_ref(),
                     );
                     Some(buf)
                 }
@@ -284,6 +286,7 @@ pub(crate) fn handle(
                 title.as_deref(),
                 label.as_str(),
                 options,
+                ctx.reference_collector.as_ref(),
             );
             Some(buf)
         };
@@ -298,6 +301,7 @@ pub(crate) fn handle(
                 title.as_deref(),
                 label.as_str(),
                 options,
+                ctx.reference_collector.as_ref(),
             );
             Some(buf)
         };
@@ -363,7 +367,20 @@ pub(crate) fn append_markdown_link(
     title: Option<&str>,
     raw_text: &str,
     options: &ConversionOptions,
+    reference_collector: Option<&crate::converter::reference_collector::ReferenceCollectorHandle>,
 ) {
+    if options.link_style == crate::options::validation::LinkStyle::Reference && !href.is_empty() {
+        if let Some(collector) = reference_collector {
+            let ref_num = collector.borrow_mut().get_or_insert(href, title);
+            output.push('[');
+            output.push_str(label);
+            output.push_str("][");
+            output.push_str(&ref_num.to_string());
+            output.push(']');
+            return;
+        }
+    }
+
     output.push('[');
     output.push_str(label);
     output.push_str("](");

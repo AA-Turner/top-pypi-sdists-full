@@ -18,6 +18,10 @@ CA_TOKEN=$(aws codeartifact get-authorization-token \
 
 CA_URL="https://${DOMAIN}-${DOMAIN_OWNER}.d.codeartifact.${REGION}.amazonaws.com/pypi/${REPO}/"
 
-rm -rf dist
-uv build
+# Build only if dist/ doesn't already exist (caller may have already built)
+if [ ! -d dist ] || [ -z "$(ls -A dist)" ]; then
+  rm -rf dist
+  uv build
+fi
+unset UV_PUBLISH_TOKEN
 uv publish --publish-url "$CA_URL" --username aws --password "$CA_TOKEN"

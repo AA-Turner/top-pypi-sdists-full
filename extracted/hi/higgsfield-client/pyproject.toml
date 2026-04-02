@@ -1,0 +1,36 @@
+[project]
+name = "higgsfield-client"
+version = "0.1.0"
+description = "Higgsfield API Python SDK"
+authors = [
+    {name = "Higgsfield", email = "support@higgsfield.ai"}
+]
+license = "Apache-2.0"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "httpx (>=0.21.0,<0.29.0)"
+]
+
+[project.urls]
+homepage = "https://cloud.higgsfield.ai"
+repository = "https://github.com/higgsfield-ai/higgsfield-client"
+
+[tool.poetry]
+packages = [{include = "higgsfield_client", from = "src"}]
+
+[tool.pytest.ini_options]
+testpaths = "tests/"
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+test = [
+    "pytest (>=8.4.2,<9.0.0)",
+    "pytest-asyncio (>=1.2.0,<2.0.0)",
+    "pytest-mock (>=3.15.1,<4.0.0)",
+    "pillow (>=11.3.0,<12.0.0)"
+]

@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    Config option ``agent_type``, which has been deprecated since Mitaka, is now
-    removed. Agents should now use hardcoded values for agent type.

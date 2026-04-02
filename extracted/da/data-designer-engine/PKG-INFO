@@ -1,0 +1,52 @@
+Metadata-Version: 2.4
+Name: data-designer-engine
+Version: 0.5.4
+Summary: Generation engine for DataDesigner synthetic data generation
+License-Expression: Apache-2.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.10
+Requires-Dist: anyascii<1,>=0.3.3
+Requires-Dist: chardet<6,>=3.0.2
+Requires-Dist: data-designer-config==0.5.4
+Requires-Dist: duckdb<2,>=1.5.0
+Requires-Dist: faker<21,>=20.1.0
+Requires-Dist: fsspec<2026,>=2025.3.0
+Requires-Dist: httpx-retries<1,>=0.4.2
+Requires-Dist: httpx<1,>=0.27.2
+Requires-Dist: huggingface-hub<2,>=1.0.1
+Requires-Dist: json-repair<1,>=0.48.0
+Requires-Dist: jsonpath-rust-bindings<2,>=1.0
+Requires-Dist: jsonschema<5,>=4.0.0
+Requires-Dist: lxml<7,>=6.0.2
+Requires-Dist: marko<3,>=2.1.2
+Requires-Dist: mcp<2,>=1.26.0
+Requires-Dist: networkx<4,>=3.0
+Requires-Dist: ruff<1,>=0.14.10
+Requires-Dist: scipy<2,>=1.11.0
+Requires-Dist: sqlfluff<4,>=3.2.0
+Requires-Dist: tiktoken<1,>=0.8.0
+Description-Content-Type: text/markdown
+
+# data-designer-engine
+
+Generation engine for NeMo Data Designer synthetic data generation framework.
+
+This package contains the execution engine that powers Data Designer. It depends on `data-designer-config` and includes heavy dependencies like pandas, numpy, and native HTTP-based LLM integration.
+
+## Installation
+
+```bash
+pip install data-designer-engine
+```
+
+This automatically installs `data-designer-config` as a dependency.
+
+See main [README.md](https://github.com/NVIDIA-NeMo/DataDesigner/blob/main/README.md) for more information.

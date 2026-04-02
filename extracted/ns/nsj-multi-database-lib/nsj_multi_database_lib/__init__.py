@@ -1,0 +1,1 @@
+from nsj_multi_database_lib.decorator.multi_database import multi_database

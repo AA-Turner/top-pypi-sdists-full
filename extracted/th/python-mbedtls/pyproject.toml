@@ -1,0 +1,95 @@
+[tool.black]
+line-length = 79
+target-version = ['py38', 'py39', 'py310', 'py311']
+
+[tool.cibuildwheel]
+skip = "*-manylinux_i686 *-win32"
+test-requires = "-rrequirements/tests.txt"
+test-command = "pytest {project}/tests"
+
+[tool.cibuildwheel.linux]
+before-all = [
+  "./scripts/download-mbedtls.sh $VERSION .local/src",
+  "./scripts/install-mbedtls.sh .local/src",
+]
+
+[tool.cibuildwheel.macos]
+environment.UPSTREAM_DEST="$PWD"
+before-all = [
+  "./scripts/download-mbedtls.sh $VERSION .local/src",
+  "./scripts/install-mbedtls.sh .local/src $UPSTREAM_DEST",
+]
+
+[tool.cibuildwheel.windows]
+before-all = [
+  "powershell -Command Get-Host",
+  "powershell Get-Location",
+  "powershell New-Item -Path . -Name _lib -ItemType directory",
+  "powershell %CD%\\scripts\\download-mbedtls.ps1 %VERSION% _lib\\mbedtls",
+  "powershell %CD%\\scripts\\install-mbedtls.ps1 -ConfigurationType StaticLibrary _lib\\mbedtls",
+  "powershell %CD%\\scripts\\install-mbedtls.ps1 -ConfigurationType DynamicLibrary _lib\\mbedtls",
+  "dir %LIB%",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  '\.\.\.',
+  'assert 0',
+  'def __repr__',
+  'free\(\w+\)',
+  'from typing import ',
+  'from typing_extensions import ',
+  'if sys\.version_info',
+  'pragma: no cover',
+  'raise MemoryError',
+  'raise NotImplementedError',
+]
+include = ['src/*']
+
+[tool.coverage.run]
+plugins = ['Cython.Coverage']
+
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+line_length = 79
+
+[tool.mypy]
+show_error_codes = true
+strict = true
+
+[tool.pylint.master]
+extension-pkg-whitelist='mbedtls'
+load-plugins=[
+  "pylint_per_file_ignores",
+]
+disable=[
+  "missing-class-docstring",
+  "missing-function-docstring",
+  "missing-module-docstring",
+]
+
+[tool.pylint-per-file-ignores]
+"src/mbedtls/"="""
+C0209,
+R0801,
+import-error,
+useless-import-alias,
+"""
+"tests/"="redefined-outer-name"
+
+[tool.pylint.messages_control]
+disable = "C0103"
+
+[tool.pylint.similarities]
+ignore-comments = "yes"
+ignore-docstrings = "yes"
+min-similarity-lines = "8"
+
+[tool.pytest.ini_options]
+markers = "e2e: end-to-end tests"
+
+[tool.ruff]
+ignore = ["E701"]

@@ -1,0 +1,27 @@
+[package]
+name = "test-cluster"
+edition = "2024"
+version.workspace = true
+
+[dependencies]
+node.workspace = true
+types.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+rand.workspace = true
+msim.workspace = true
+anyhow.workspace = true
+fastcrypto.workspace = true
+futures.workspace = true
+sdk.workspace = true
+soma-keys.workspace = true
+rpc.workspace = true
+bytes.workspace = true
+object_store.workspace = true
+url.workspace = true
+scoring = { workspace = true, default-features = false }
+tokio-stream.workspace = true
+tempfile = "3.24.0"
+
+[lints]
+workspace = true

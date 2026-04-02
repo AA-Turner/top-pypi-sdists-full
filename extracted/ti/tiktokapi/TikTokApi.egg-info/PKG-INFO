@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: TikTokApi
-Version: 7.3.2
+Version: 7.3.3
 Summary: The Unofficial TikTok API Wrapper in Python 3.
 Home-page: https://github.com/davidteather/tiktok-api
 Download-URL: https://github.com/davidteather/TikTok-Api/tarball/main
@@ -80,6 +80,14 @@ These sponsors have paid to be placed here or are my own affiliate links which I
         <b></b>
         <div>
          <b>Zernio</b> — Skip TikTok's API review process. Publish videos, schedule posts, manage comments, and pull analytics through our pre-approved TikTok integration. Works with 13 other platforms too.
+        </div>
+    </a>
+    <br>
+    <a href="https://socialapis.io/?utm_source=github&utm_medium=sponsor&utm_campaign=tiktok-api" target="_blank">
+        <img src="https://raw.githubusercontent.com/davidteather/TikTok-Api/main/imgs/socialapis.png" width="96" alt="SocialAPIs">
+        <b></b>
+        <div>
+        <b>SocialAPIs</b> — Facebook data APIs that just work. Extract Pages, Groups, Posts, Reels, Comments, Ads Library & Marketplace via clean JSON endpoints. No proxies, no headless browsers. MCP included!
         </div>
     </a>
     <br>

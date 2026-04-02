@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Adds initial support for the TaskService resource to the library.
-    `TaskService` is responsible for managing tasks.

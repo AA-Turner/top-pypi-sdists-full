@@ -30,6 +30,17 @@ class OrderMixin(Mixin):
             elif isinstance(item, Section):
                 self.pre_order(item.children)
 
+    def on_files(self, files: Files, config: MkDocsConfig) -> Files:
+        """Remove order from file destination URI, to get nicer URLs."""
+        rex = re.compile(r"((?:^|/))([0-9]+[ _])")
+        for file in files:
+            if rex.search(file.dest_uri):
+                file.dest_uri = rex.sub(
+                    lambda m: m.group(1),
+                    file.dest_uri,
+                )
+        return super().on_files(files, config)
+
     def on_nav(
         self,
         nav: Navigation,
@@ -42,7 +53,11 @@ class OrderMixin(Mixin):
         # from the title. It is a common hack to have the folders ordered in the navigation
         rex = re.compile(r"^[0-9]+[ _]")
         for item in nav.items:
-            if isinstance(item, Section) and rex.match(item.title):
+            if (
+                isinstance(item, Section)
+                and item.title
+                and rex.match(item.title)
+            ):
                 item.title = rex.sub("", item.title).capitalize()
 
         # save the nav order for later use

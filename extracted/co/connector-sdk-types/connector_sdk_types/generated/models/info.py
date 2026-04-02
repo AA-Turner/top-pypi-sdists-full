@@ -21,10 +21,10 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from connector_sdk_types.generated.models.access_graph_entitlement_rule import AccessGraphEntitlementRule
 from connector_sdk_types.generated.models.access_graph_entitlement_type import AccessGraphEntitlementType
+from connector_sdk_types.generated.models.access_graph_implied_access_rule import AccessGraphImpliedAccessRule
 from connector_sdk_types.generated.models.app_category import AppCategory
 from connector_sdk_types.generated.models.capability_schema import CapabilitySchema
 from connector_sdk_types.generated.models.entitlement_type import EntitlementType
-from connector_sdk_types.generated.models.implied_access_rule import ImpliedAccessRule
 from connector_sdk_types.generated.models.resource_type import ResourceType
 from typing import Optional, Set
 from typing_extensions import Self
@@ -48,7 +48,7 @@ class Info(BaseModel):
     entitlement_types: List[EntitlementType] = Field(description="A list of entitlement types supported by this connector.")
     access_graph_entitlement_types: Optional[List[AccessGraphEntitlementType]] = Field(default=None, description="A list of entitlement types supported by the access graph capabilities in this connector.")
     access_graph_entitlement_rules: Optional[List[AccessGraphEntitlementRule]] = Field(default=None, description="Rules defining entitlements that automatically exist for every resource of a given type.")
-    implied_access_rules: Optional[List[ImpliedAccessRule]] = Field(default=None, description="Rules defining how entitlements propagate along resource relationships.")
+    implied_access_rules: Optional[List[AccessGraphImpliedAccessRule]] = Field(default=None, description="Rules defining how entitlements propagate along resource relationships.")
     resource_types: List[ResourceType] = Field(description="A list of resource types supported by this connector.")
     request_settings_schema: Dict[str, Any] = Field(description="A JSON schema that tells clients how to send request.settings for this app.")
     __properties: ClassVar[List[str]] = ["app_id", "app_vendor_domain", "version", "capabilities", "capability_schema", "oauth_scopes", "authentication_schema", "credentials_schema", "logo_url", "user_friendly_name", "description", "categories", "entitlement_types", "access_graph_entitlement_types", "access_graph_entitlement_rules", "implied_access_rules", "resource_types", "request_settings_schema"]
@@ -166,7 +166,7 @@ class Info(BaseModel):
             "entitlement_types": [EntitlementType.from_dict(_item) for _item in obj["entitlement_types"]] if obj.get("entitlement_types") is not None else None,
             "access_graph_entitlement_types": [AccessGraphEntitlementType.from_dict(_item) for _item in obj["access_graph_entitlement_types"]] if obj.get("access_graph_entitlement_types") is not None else None,
             "access_graph_entitlement_rules": [AccessGraphEntitlementRule.from_dict(_item) for _item in obj["access_graph_entitlement_rules"]] if obj.get("access_graph_entitlement_rules") is not None else None,
-            "implied_access_rules": [ImpliedAccessRule.from_dict(_item) for _item in obj["implied_access_rules"]] if obj.get("implied_access_rules") is not None else None,
+            "implied_access_rules": [AccessGraphImpliedAccessRule.from_dict(_item) for _item in obj["implied_access_rules"]] if obj.get("implied_access_rules") is not None else None,
             "resource_types": [ResourceType.from_dict(_item) for _item in obj["resource_types"]] if obj.get("resource_types") is not None else None,
             "request_settings_schema": obj.get("request_settings_schema")
         })

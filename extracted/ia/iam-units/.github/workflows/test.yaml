@@ -1,0 +1,72 @@
+name: Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: "0 5 * * *"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        pint-version: ["==0.24.4", ""]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        exclude:
+        # latest version of pint requires minimum 3.11
+        - pint-version: ""
+          python-version: "3.10"
+
+      fail-fast: false
+
+    name: "python:${{ matrix.python-version }} pint:${{ matrix.pint-version }}"
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Set up uv, Python
+      uses: astral-sh/setup-uv@v7
+      with:
+        activate-environment: true
+        enable-cache: true
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install the package and dependencies
+      # Force a specific version of pint
+      run: uv pip install .[tests] pint${{ matrix.pint-version }}
+
+    - name: Test
+      run: |
+        pytest iam_units \
+          -rA -vv --color=yes \
+          --cov=iam_units --cov-report=xml
+
+    - name: Test update code
+      # Analogous to "python -m iam_units.update …", but measures coverage
+      run: coverage run --append -m iam_units.update emissions || exit 0
+
+    - name: Upload test coverage to Codecov.io
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+
+  pre-commit:
+    name: Code quality
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+    - uses: astral-sh/setup-uv@v7
+      with: { enable-cache: true, python-version: "3.14" }
+    - name: Clear and re-create the pre-commit environments
+      run: uvx pre-commit clean
+      if: github.event_name == 'schedule'  # Comment this line to force clear
+    - run: |
+        uvx --with=pre-commit-uv \
+          pre-commit run \
+          --all-files --color=always --show-diff-on-failure --verbose

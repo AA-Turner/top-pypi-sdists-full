@@ -1,6 +1,0 @@
----
-fixes:
-  - |
-    Some vendors like HPE iLO has this kind of implementation that for eject
-    virtual media need to pass empty dictionary otherwise throws Unsupported
-    media type error.

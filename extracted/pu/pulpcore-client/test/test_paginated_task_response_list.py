@@ -71,6 +71,9 @@ class TestPaginatedTaskResponseList(unittest.TestCase):
                         created_resources = [
                             ''
                             ], 
+                        created_resource_prns = [
+                            ''
+                            ], 
                         reserved_resources_record = [
                             ''
                             ], 
@@ -110,6 +113,9 @@ class TestPaginatedTaskResponseList(unittest.TestCase):
                                 suffix = '', )
                             ], 
                         created_resources = [
+                            ''
+                            ], 
+                        created_resource_prns = [
                             ''
                             ], 
                         reserved_resources_record = [

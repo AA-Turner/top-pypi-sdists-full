@@ -1,18 +1,18 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-pysftp"
-version = "0.2.17.20250805"
+version = "0.2.17.20260402"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for pysftp"
 readme = { text = """\
 ## Typing stubs for pysftp
 
-This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
-the [`pysftp`](https://bitbucket.org/dundeemt/pysftp) package. It can be used by type checkers
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`pysftp`](https://bitbucket.org/dundeemt/pysftp) package. It can be used by type checkers
 to check code that uses `pysftp`. This version of
 `types-pysftp` aims to provide accurate annotations for
 `pysftp==0.2.*`.
@@ -25,16 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.16.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.403
+* [mypy](https://github.com/python/mypy/) 1.20.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
+
 It was generated from typeshed commit
-[`084742b431aadc6f368313971a39b5dab5623e47`](https://github.com/python/typeshed/commit/084742b431aadc6f368313971a39b5dab5623e47).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ['types-paramiko']
 
 [project.urls]
@@ -47,3 +48,6 @@ dependencies = ['types-paramiko']
 [tool.setuptools]
 packages = ['pysftp-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'pysftp-stubs' = ['__init__.pyi', 'exceptions.pyi', 'helpers.pyi', 'METADATA.toml', 'py.typed']

@@ -1,0 +1,77 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "robot_descriptions"
+readme = "README.md"
+authors = [
+    {name = "Stéphane Caron", email = "stephane.caron@normalesup.org"},
+]
+maintainers = [
+    {name = "Stéphane Caron", email = "stephane.caron@normalesup.org"},
+]
+dynamic = ['version', 'description']
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Robot Framework :: Library",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "GitPython >=3.1.18",
+    "tqdm >=4.64.0",
+]
+keywords = ["robot", "description", "urdf", "mjcf"]
+
+[project.optional-dependencies]
+opts = [
+    "idyntree >= 8.0.0",
+    "mujoco >=3.2.0",
+    "pin >=2.6.10",
+    "pybullet >=3.2.6",
+    "robomeshcat >=1.0.4",
+    "xacrodoc >=1.1.1",
+    "yourdfpy >=0.0.56",
+]
+
+[project.scripts]
+robot_descriptions = "robot_descriptions.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/robot-descriptions"
+Source = "https://github.com/robot-descriptions/robot_descriptions.py"
+Tracker = "https://github.com/robot-descriptions/robot_descriptions.py/issues"
+Changelog = "https://github.com/robot-descriptions/robot_descriptions.py/blob/main/CHANGELOG.md"
+
+[tool.black]
+line-length = 79
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.lint]
+select = [
+    # pyflakes
+    "F",
+    # pycodestyle
+    "E",
+    "W",
+    # isort
+    "I001",
+    # pydocstyle
+    "D"
+]
+ignore = [
+    "D401",  # good for methods but not for class docstrings
+    "D405",  # British-style section names are also "proper"!
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

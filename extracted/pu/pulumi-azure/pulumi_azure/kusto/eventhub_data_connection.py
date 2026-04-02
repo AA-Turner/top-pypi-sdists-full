@@ -36,6 +36,7 @@ class EventhubDataConnectionArgs:
                  table_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a EventhubDataConnection resource.
+
         :param pulumi.Input[_builtins.str] cluster_name: Specifies the name of the Kusto Cluster this data connection will be added to. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] consumer_group: Specifies the EventHub consumer group this data connection will use for ingestion. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] database_name: Specifies the name of the Kusto Database this data connection will be added to. Changing this forces a new resource to be created.
@@ -279,6 +280,7 @@ class _EventhubDataConnectionState:
                  table_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering EventhubDataConnection resources.
+
         :param pulumi.Input[_builtins.str] cluster_name: Specifies the name of the Kusto Cluster this data connection will be added to. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] compression: Specifies compression type for the connection. Allowed values: `GZip` and `None`. Defaults to `None`. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] consumer_group: Specifies the EventHub consumer group this data connection will use for ingestion. Changing this forces a new resource to be created.
@@ -563,8 +565,7 @@ class EventhubDataConnection(pulumi.CustomResource):
             sku="Standard")
         eventhub = azure.eventhub.EventHub("eventhub",
             name="my-eventhub",
-            namespace_name=eventhub_ns.name,
-            resource_group_name=example.name,
+            namespace_id=eventhub_ns.id,
             partition_count=1,
             message_retention=1)
         consumer_group = azure.eventhub.ConsumerGroup("consumer_group",
@@ -600,6 +601,7 @@ class EventhubDataConnection(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:kusto/eventhubDataConnection:EventhubDataConnection example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.Kusto/clusters/cluster1/databases/database1/dataConnections/eventHubConnection1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -659,8 +661,7 @@ class EventhubDataConnection(pulumi.CustomResource):
             sku="Standard")
         eventhub = azure.eventhub.EventHub("eventhub",
             name="my-eventhub",
-            namespace_name=eventhub_ns.name,
-            resource_group_name=example.name,
+            namespace_id=eventhub_ns.id,
             partition_count=1,
             message_retention=1)
         consumer_group = azure.eventhub.ConsumerGroup("consumer_group",
@@ -696,6 +697,7 @@ class EventhubDataConnection(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:kusto/eventhubDataConnection:EventhubDataConnection example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.Kusto/clusters/cluster1/databases/database1/dataConnections/eventHubConnection1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param EventhubDataConnectionArgs args: The arguments to use to populate this resource's properties.

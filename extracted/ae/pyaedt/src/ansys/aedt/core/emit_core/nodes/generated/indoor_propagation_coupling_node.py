@@ -1,0 +1,384 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2021 - 2026 ANSYS, Inc. and/or its affiliates.
+# SPDX-License-Identifier: MIT
+#
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+from enum import Enum
+
+from ansys.aedt.core.emit_core.nodes.emit_node import EmitNode
+from ansys.aedt.core.internal.checks import min_aedt_version
+
+
+class IndoorPropagationCouplingNode(EmitNode):
+    def __init__(self, emit_obj, result_id, node_id) -> None:
+        EmitNode.__init__(self, emit_obj, result_id, node_id)
+        self._is_component = False
+
+    @property
+    @min_aedt_version("2025.2")
+    def parent(self) -> EmitNode:
+        """The parent of this emit node."""
+        return self._parent
+
+    @property
+    @min_aedt_version("2025.2")
+    def node_type(self) -> str:
+        """The type of this emit node."""
+        return self._node_type
+
+    @min_aedt_version("2025.2")
+    def duplicate(self, new_name: str = "") -> EmitNode:
+        """Duplicate this node"""
+        return self._duplicate(new_name)
+
+    @min_aedt_version("2025.2")
+    def delete(self) -> None:
+        """Delete this node"""
+        self._delete()
+
+    @property
+    @min_aedt_version("2025.2")
+    def table_data(self) -> list[tuple]:
+        """Custom Building Values Table.
+        Table consists of 3 columns.
+        Frequency:
+            Value should be between 1.0 and 100.0e9.
+        Power Loss Coefficient:
+            Value should be between 0.0 and 100.0.
+        Floor Penetration Loss (dB):
+            Value should be between 0.0 and 1000.0.
+        """
+        return self._get_table_data()
+
+    @table_data.setter
+    @min_aedt_version("2025.2")
+    def table_data(self, value: list[tuple]) -> None:
+        self._set_table_data(value)
+
+    @property
+    @min_aedt_version("2025.2")
+    def enabled(self) -> bool:
+        """Enable/Disable coupling.
+
+        Value should be 'true' or 'false'.
+        """
+        val = self._get_property("Enabled")
+        return val == "true"
+
+    @enabled.setter
+    @min_aedt_version("2025.2")
+    def enabled(self, value: bool) -> None:
+        self._set_property("Enabled", f"{str(value).lower()}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def antenna_a(self) -> EmitNode:
+        """First antenna of the pair to apply the coupling values to."""
+        val = self._get_property("Antenna A")
+        return val
+
+    @antenna_a.setter
+    @min_aedt_version("2025.2")
+    def antenna_a(self, value: EmitNode) -> None:
+        self._set_property("Antenna A", f"{value}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def antenna_b(self) -> EmitNode:
+        """Second antenna of the pair to apply the coupling values to."""
+        val = self._get_property("Antenna B")
+        return val
+
+    @antenna_b.setter
+    @min_aedt_version("2025.2")
+    def antenna_b(self, value: EmitNode) -> None:
+        self._set_property("Antenna B", f"{value}")
+
+    class BuildingTypeOption(Enum):
+        RESIDENTIAL_APARTMENT = "ResidentialApartment"
+        RESIDENTIAL_HOUSE = "ResidentialHouse"
+        OFFICE_BUILDING = "OfficeBuilding"
+        COMMERCIAL_BUILDING = "CommercialBuilding"
+        CUSTOM_BUILDING = "CustomBuilding"
+
+    @property
+    @min_aedt_version("2025.2")
+    def building_type(self) -> BuildingTypeOption:
+        """Specify the building type for the Indoor Propagation model."""
+        val = self._get_property("Building Type")
+        val = self.BuildingTypeOption[val.upper()]
+        return val
+
+    @building_type.setter
+    @min_aedt_version("2025.2")
+    def building_type(self, value: BuildingTypeOption) -> None:
+        self._set_property("Building Type", f"{value.value}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def number_of_floors(self) -> int:
+        """The number of floors separating the antennas.
+
+        Value should be between 1 and 3.
+        """
+        val = self._get_property("Number of Floors")
+        return int(val)
+
+    @number_of_floors.setter
+    @min_aedt_version("2025.2")
+    def number_of_floors(self, value: int) -> None:
+        self._set_property("Number of Floors", f"{value}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def custom_fading_margin(self) -> float:
+        """Custom Fading Margin.
+
+        Sets a custom fading margin to be applied to all coupling defined by
+        this node.
+
+        Value should be between 0 and 100.
+        """
+        val = self._get_property("Custom Fading Margin")
+        return float(val)
+
+    @custom_fading_margin.setter
+    @min_aedt_version("2025.2")
+    def custom_fading_margin(self, value: float) -> None:
+        self._set_property("Custom Fading Margin", f"{value}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def polarization_mismatch(self) -> float:
+        """Polarization Mismatch.
+
+        Sets a margin for polarization mismatch to be applied to all coupling
+        defined by this node.
+
+        Value should be between 0 and 100.
+        """
+        val = self._get_property("Polarization Mismatch")
+        return float(val)
+
+    @polarization_mismatch.setter
+    @min_aedt_version("2025.2")
+    def polarization_mismatch(self, value: float) -> None:
+        self._set_property("Polarization Mismatch", f"{value}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def pointing_error_loss(self) -> float:
+        """Pointing Error Loss.
+
+        Sets a margin for pointing error loss to be applied to all coupling
+        defined by this node.
+
+        Value should be between 0 and 100.
+        """
+        val = self._get_property("Pointing Error Loss")
+        return float(val)
+
+    @pointing_error_loss.setter
+    @min_aedt_version("2025.2")
+    def pointing_error_loss(self, value: float) -> None:
+        self._set_property("Pointing Error Loss", f"{value}")
+
+    class FadingTypeOption(Enum):
+        NONE = "NoFading"
+        FAST_FADING_ONLY = "FastFadingOnly"
+        SHADOWING_ONLY = "ShadowingOnly"
+        FAST_FADING_AND_SHADOWING = "ShadowingAndFastFading"
+
+    @property
+    @min_aedt_version("2025.2")
+    def fading_type(self) -> FadingTypeOption:
+        """Specify the type of fading to include."""
+        val = self._get_property("Fading Type")
+        val = self.FadingTypeOption[val.upper()]
+        return val
+
+    @fading_type.setter
+    @min_aedt_version("2025.2")
+    def fading_type(self, value: FadingTypeOption) -> None:
+        self._set_property("Fading Type", f"{value.value}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def fading_availability(self) -> float:
+        """Fading Availability.
+
+        The probability that the propagation loss in dB is below its median
+        value plus the margin.
+
+        Value should be between 0.0 and 100.0.
+        """
+        val = self._get_property("Fading Availability")
+        return float(val)
+
+    @fading_availability.setter
+    @min_aedt_version("2025.2")
+    def fading_availability(self, value: float) -> None:
+        self._set_property("Fading Availability", f"{value}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def std_deviation(self) -> float:
+        """Standard deviation modeling the random amount of shadowing loss.
+
+        Value should be between 0.0 and 100.0.
+        """
+        val = self._get_property("Std Deviation")
+        return float(val)
+
+    @std_deviation.setter
+    @min_aedt_version("2025.2")
+    def std_deviation(self, value: float) -> None:
+        self._set_property("Std Deviation", f"{value}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def include_rain_attenuation(self) -> bool:
+        """Adds a margin for rain attenuation to the computed coupling.
+
+        Value should be 'true' or 'false'.
+        """
+        val = self._get_property("Include Rain Attenuation")
+        return val == "true"
+
+    @include_rain_attenuation.setter
+    @min_aedt_version("2025.2")
+    def include_rain_attenuation(self, value: bool) -> None:
+        self._set_property("Include Rain Attenuation", f"{str(value).lower()}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def rain_availability(self) -> float:
+        """Rain Availability.
+
+        Percentage of time attenuation due to range is < computed margin (range
+        from 99-99.999%).
+
+        Value should be between 99 and 99.999.
+        """
+        val = self._get_property("Rain Availability")
+        return float(val)
+
+    @rain_availability.setter
+    @min_aedt_version("2025.2")
+    def rain_availability(self, value: float) -> None:
+        self._set_property("Rain Availability", f"{value}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def rain_rate(self) -> float:
+        """Rain rate (mm/hr) exceeded for 0.01% of the time.
+
+        Value should be between 0.0 and 1000.0.
+        """
+        val = self._get_property("Rain Rate")
+        return float(val)
+
+    @rain_rate.setter
+    @min_aedt_version("2025.2")
+    def rain_rate(self, value: float) -> None:
+        self._set_property("Rain Rate", f"{value}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def polarization_tilt_angle(self) -> float:
+        """Polarization Tilt Angle.
+
+        Polarization tilt angle of the transmitted signal relative to the
+        horizontal.
+
+        Value should be between 0.0 and 180.0.
+        """
+        val = self._get_property("Polarization Tilt Angle")
+        return float(val)
+
+    @polarization_tilt_angle.setter
+    @min_aedt_version("2025.2")
+    def polarization_tilt_angle(self, value: float) -> None:
+        self._set_property("Polarization Tilt Angle", f"{value}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def include_atmospheric_absorption(self) -> bool:
+        """Include Atmospheric Absorption.
+
+        Adds a margin for atmospheric absorption due to oxygen/water vapor to
+        the computed coupling.
+
+        Value should be 'true' or 'false'.
+        """
+        val = self._get_property("Include Atmospheric Absorption")
+        return val == "true"
+
+    @include_atmospheric_absorption.setter
+    @min_aedt_version("2025.2")
+    def include_atmospheric_absorption(self, value: bool) -> None:
+        self._set_property("Include Atmospheric Absorption", f"{str(value).lower()}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def temperature(self) -> float:
+        """Air temperature in degrees Celsius.
+
+        Value should be between -273.0 and 100.0.
+        """
+        val = self._get_property("Temperature")
+        return float(val)
+
+    @temperature.setter
+    @min_aedt_version("2025.2")
+    def temperature(self, value: float) -> None:
+        self._set_property("Temperature", f"{value}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def total_air_pressure(self) -> float:
+        """Total air pressure.
+
+        Value should be between 0.0 and 2000.0.
+        """
+        val = self._get_property("Total Air Pressure")
+        return float(val)
+
+    @total_air_pressure.setter
+    @min_aedt_version("2025.2")
+    def total_air_pressure(self, value: float) -> None:
+        self._set_property("Total Air Pressure", f"{value}")
+
+    @property
+    @min_aedt_version("2025.2")
+    def water_vapor_concentration(self) -> float:
+        """Water vapor concentration.
+
+        Value should be between 0.0 and 2000.0.
+        """
+        val = self._get_property("Water Vapor Concentration")
+        return float(val)
+
+    @water_vapor_concentration.setter
+    @min_aedt_version("2025.2")
+    def water_vapor_concentration(self, value: float) -> None:
+        self._set_property("Water Vapor Concentration", f"{value}")

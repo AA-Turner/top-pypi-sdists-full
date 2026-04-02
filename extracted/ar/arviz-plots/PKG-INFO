@@ -1,0 +1,62 @@
+Metadata-Version: 2.4
+Name: arviz-plots
+Version: 1.0.0
+Summary: ArviZ-plots provides ready to use and composable plots for Bayesian Workflow.
+Author-email: ArviZ team <arvizdevs@gmail.com>
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Education
+Classifier: Framework :: Matplotlib
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+License-File: LICENSE
+Requires-Dist: arviz-base>=1.0,<1.1
+Requires-Dist: arviz-stats[xarray]>=1.0,<1.1
+Requires-Dist: bokeh>=3.4 ; extra == "bokeh"
+Requires-Dist: sphinx-book-theme ; extra == "doc"
+Requires-Dist: myst-parser[linkify] ; extra == "doc"
+Requires-Dist: myst-nb ; extra == "doc"
+Requires-Dist: sphinx-copybutton ; extra == "doc"
+Requires-Dist: numpydoc ; extra == "doc"
+Requires-Dist: sphinx>=6 ; extra == "doc"
+Requires-Dist: sphinx-design ; extra == "doc"
+Requires-Dist: jupyter-sphinx ; extra == "doc"
+Requires-Dist: h5netcdf[h5py] ; extra == "doc"
+Requires-Dist: plotly<6 ; extra == "doc"
+Requires-Dist: matplotlib>=3.9 ; extra == "matplotlib"
+Requires-Dist: plotly>=5.19 ; extra == "plotly"
+Requires-Dist: webcolors ; extra == "plotly"
+Requires-Dist: hypothesis ; extra == "test"
+Requires-Dist: pytest ; extra == "test"
+Requires-Dist: pytest-cov ; extra == "test"
+Requires-Dist: h5netcdf[h5py] ; extra == "test"
+Requires-Dist: kaleido ; extra == "test"
+Project-URL: documentation, https://arviz-plots.readthedocs.io
+Project-URL: funding, https://opencollective.com/arviz
+Project-URL: source, https://github.com/arviz-devs/arviz-plots
+Project-URL: tracker, https://github.com/arviz-devs/arviz-plots/issues
+Provides-Extra: bokeh
+Provides-Extra: doc
+Provides-Extra: matplotlib
+Provides-Extra: plotly
+Provides-Extra: test
+
+# arviz-plots
+
+[![Run tests](https://github.com/arviz-devs/arviz-plots/actions/workflows/test.yml/badge.svg)](https://github.com/arviz-devs/arviz-plots/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/arviz-devs/arviz-plots/graph/badge.svg?token=1VIPLXCOJQ)](https://codecov.io/gh/arviz-devs/arviz-plots)
+[![Powered by NumFOCUS](https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A)](https://numfocus.org)
+
+ArviZ plotting elements and static battery included plots
+
+We are currently working on splitting ArviZ into independent modules.
+See https://github.com/arviz-devs/arviz/issues/2088 for more details.
+

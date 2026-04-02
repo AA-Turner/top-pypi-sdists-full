@@ -1,4 +1,0 @@
-
-from setuptools import setup
-
-setup(package_data={'html5lib-stubs': ['__init__.pyi', '_ihatexml.pyi', '_inputstream.pyi', '_tokenizer.pyi', '_trie/__init__.pyi', '_trie/_base.pyi', '_trie/py.pyi', '_utils.pyi', 'constants.pyi', 'filters/__init__.pyi', 'filters/alphabeticalattributes.pyi', 'filters/base.pyi', 'filters/inject_meta_charset.pyi', 'filters/lint.pyi', 'filters/optionaltags.pyi', 'filters/sanitizer.pyi', 'filters/whitespace.pyi', 'html5parser.pyi', 'serializer.pyi', 'treeadapters/__init__.pyi', 'treeadapters/genshi.pyi', 'treeadapters/sax.pyi', 'treebuilders/__init__.pyi', 'treebuilders/base.pyi', 'treebuilders/dom.pyi', 'treebuilders/etree.pyi', 'treebuilders/etree_lxml.pyi', 'treewalkers/__init__.pyi', 'treewalkers/base.pyi', 'treewalkers/dom.pyi', 'treewalkers/etree.pyi', 'treewalkers/etree_lxml.pyi', 'treewalkers/genshi.pyi', 'METADATA.toml', 'py.typed']})

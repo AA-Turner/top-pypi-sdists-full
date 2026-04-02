@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: antiword
+Version: 0.1.0
+Summary: Spew anything out as text to stdout
+Home-page: https://github.com/2e0byo/antiword
+License: MIT
+Author: John Maximilian
+Author-email: 2e0byo@gmail.com
+Requires-Python: >=3.9,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Project-URL: Repository, https://github.com/2e0byo/antiword
+Description-Content-Type: text/markdown
+
+# Basic Antiword via libreoffice
+
+This package is nothing more than a convenience wrapper around `libreoffice
+--convert-to txt` which dumps to stdout, cleaning up the generated temporary
+file as it goes.
+
+
+I probably should have written it in bash, but there we go.
+

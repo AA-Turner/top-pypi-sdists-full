@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "airflow-metaplane"
+version = "0.0.6"
+authors = [
+  { name="Metaplane", email="engineering@metaplane.dev" },
+]
+description = "Metaplane Airflow Provider"
+readme = "README.md"
+license = {file = "LICENSE"}
+keywords = [ "airflow-provider", "metaplane", "airflow", "integration" ]
+classifiers = [
+    "Framework :: Apache Airflow :: Provider",
+    "License :: OSI Approved :: Apache Software License"
+]
+requires-python = ">=3.8"
+dependencies = [
+    "requests>=2.27.0",
+    "attrs>=22.1.0",
+    "cattrs>=22.1.0",
+    "apache-airflow>=2.0.0"
+]
+
+[project.entry-points."apache_airflow_provider"]
+provider_info = "airflow_metaplane.get_provider_info:get_provider_info"
+
+[project.optional-dependencies]
+test = [
+    "black>=23.7.0",
+    "pre-commit==2.15.0",
+    "pylint>=2.10.2",
+    "ruff>=0.0.285",
+    "mypy>=1.5.1"
+]

@@ -8,14 +8,12 @@ Copyright 2022-2026, Levente Hunyadi
 
 import datetime
 import logging
-import random
-import time
 from dataclasses import dataclass
 from typing import TypeVar, cast
 
-import requests
+from requests import RequestException, Session
 
-from .api_base import ConfluenceSession
+from .api_base import ConfluenceSessionShared
 from .api_types import (
     ConfluenceAttachment,
     ConfluenceContentProperty,
@@ -113,7 +111,7 @@ class ConfluenceCreatePageRequestV1:
     ancestors: list[ConfluencePageRef]
 
 
-class ConfluenceSessionV1(ConfluenceSession):
+class ConfluenceSessionV1(ConfluenceSessionShared):
     """
     Represents an active connection to a Confluence server.
 
@@ -123,7 +121,7 @@ class ConfluenceSessionV1(ConfluenceSession):
     ```
     """
 
-    def __init__(self, session: requests.Session, *, domain: str | None, base_path: str | None, space_key: str | None) -> None:
+    def __init__(self, session: Session, *, domain: str | None, base_path: str | None, space_key: str | None) -> None:
         super().__init__(session)
         self._init_site(domain=domain, base_path=base_path, space_key=space_key)
 
@@ -248,7 +246,13 @@ class ConfluenceSessionV1(ConfluenceSession):
             attachment_id = "att" + attachment_id
         path = f"/content/{attachment_id}"
         LOGGER.info("Moving attachment to trash: %s", attachment_id)
-        self._delete(ConfluenceVersion.VERSION_1, path)
+        try:
+            self._delete(ConfluenceVersion.VERSION_1, path)
+        except RequestException as e:
+            if e.response is not None and e.response.status_code == 404:
+                LOGGER.warning("Attachment already deleted: %s", attachment_id)
+            else:
+                raise
 
     @override
     def get_page_properties_by_title(self, title: str, *, space_id: str | None = None, space_key: str | None = None) -> ConfluencePageProperties:
@@ -267,27 +271,11 @@ class ConfluenceSessionV1(ConfluenceSession):
         return self._parse_page_properties(page)
 
     @override
-    def get_page(self, page_id: str, *, retries: int = 3, retry_delay: float = 1.0) -> ConfluencePage:
+    def get_page(self, page_id: str) -> ConfluencePage:
         path = f"/content/{page_id}"
         query = {"expand": "body.storage,version,space,ancestors"}
-
-        last_error: requests.HTTPError | None = None
-        for attempt in range(retries + 1):
-            try:
-                page = self._get(ConfluenceVersion.VERSION_1, path, ConfluencePageV1, query=query)
-                return self._parse_page(page)
-            except requests.HTTPError as e:
-                if e.response is not None and e.response.status_code == 404 and attempt < retries:
-                    delay = retry_delay * (2**attempt) + random.uniform(0, 1)
-                    LOGGER.debug("Page %s not found, retrying in %.1f seconds (attempt %d/%d)", page_id, delay, attempt + 1, retries)
-                    time.sleep(delay)
-                    last_error = e
-                else:
-                    raise
-
-        if last_error is not None:
-            raise last_error
-        raise ConfluenceError(f"failed to get page: {page_id}")
+        page = self._get(ConfluenceVersion.VERSION_1, path, ConfluencePageV1, query=query)
+        return self._parse_page(page)
 
     def _parse_page(self, page: ConfluencePageV1) -> ConfluencePage:
         """
@@ -452,7 +440,7 @@ class ConfluenceSessionV1(ConfluenceSession):
         path = f"/content/{page_id}/property/{key}"
         try:
             return self._get(ConfluenceVersion.VERSION_1, path, ConfluenceIdentifiedContentProperty)
-        except requests.HTTPError as e:
+        except RequestException as e:
             if e.response is not None and e.response.status_code == 404:
                 return None
             raise

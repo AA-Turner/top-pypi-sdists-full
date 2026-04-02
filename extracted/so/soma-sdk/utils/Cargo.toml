@@ -1,0 +1,22 @@
+[package]
+name = "utils"
+edition = "2024"
+version.workspace = true
+
+[dependencies]
+types = { path = "../types", default-features = false }
+futures.workspace = true
+tokio.workspace = true
+parking_lot.workspace = true
+serde.workspace = true
+bytes.workspace = true
+tonic.workspace = true
+bcs.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+regex.workspace = true
+chrono.workspace = true
+snap = "1.1.1"
+
+[lints]
+workspace = true

@@ -1,0 +1,45 @@
+[project]
+name = "microsoft-teams-api"
+dynamic = ["version"]
+description = "API package for Microsoft Teams"
+readme = "README.md"
+repository = "https://github.com/microsoft/teams.py"
+keywords = ["microsoft", "teams", "ai", "bot", "agents"]
+license = "MIT"
+authors = [
+    { name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }
+]
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "pydantic>=2.0.0",
+    "microsoft-teams-common",
+    "microsoft-teams-cards",
+    "pyjwt[crypto]>=2.12.0",
+]
+
+[tool.uv.sources]
+"microsoft-teams-common" = { workspace = true }
+"microsoft-teams-cards" = { workspace = true }
+
+[project.urls]
+Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/api/src/microsoft/teams/api"
+
+[build-system]
+requires = ["hatchling", "nbgv-python"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "nbgv"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "python-dotenv>=1.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/microsoft_teams", "src/microsoft"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src"]

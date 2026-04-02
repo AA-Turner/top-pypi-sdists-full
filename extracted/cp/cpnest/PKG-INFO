@@ -1,0 +1,35 @@
+Metadata-Version: 2.4
+Name: cpnest
+Version: 0.12.0
+Summary: CPNest: Parallel nested sampling
+Author-email: Walter Del Pozzo <walter.delpozzo@ligo.org>, John Veitch <john.veitch@ligo.org>
+License: MIT
+Project-URL: Repository, https://github.com/johnveitch/cpnest
+Project-URL: Documentation, https://johnveitch.github.io/cpnest
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.9
+Requires-Python: >=3.9
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: matplotlib
+Requires-Dist: corner
+Requires-Dist: tqdm
+Dynamic: classifier
+Dynamic: description
+Dynamic: license-file
+
+A parallel nested sampler
+
+
+(C) 2015-2025  Walter Del Pozzo, John Veitch
+
+
+

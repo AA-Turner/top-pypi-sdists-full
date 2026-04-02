@@ -15,27 +15,28 @@
 """Cloud Spanner DB-API Connection class unit tests."""
 
 import datetime
-import mock
 import unittest
 import warnings
+
+import mock
 import pytest
 from google.auth.credentials import AnonymousCredentials
 
 from google.cloud.spanner_admin_database_v1 import DatabaseDialect
+from google.cloud.spanner_dbapi import Connection
 from google.cloud.spanner_dbapi.batch_dml_executor import BatchMode
+from google.cloud.spanner_dbapi.connection import CLIENT_TRANSACTION_NOT_STARTED_WARNING
 from google.cloud.spanner_dbapi.exceptions import (
     InterfaceError,
     OperationalError,
     ProgrammingError,
 )
-from google.cloud.spanner_dbapi import Connection
-from google.cloud.spanner_dbapi.connection import CLIENT_TRANSACTION_NOT_STARTED_WARNING
 from google.cloud.spanner_dbapi.parsed_statement import (
-    ParsedStatement,
-    StatementType,
-    Statement,
-    ClientSideStatementType,
     AutocommitDmlMode,
+    ClientSideStatementType,
+    ParsedStatement,
+    Statement,
+    StatementType,
 )
 from google.cloud.spanner_v1.database_sessions_manager import TransactionType
 from tests._builders import build_connection, build_session
@@ -58,8 +59,8 @@ class TestConnection(unittest.TestCase):
     def _make_connection(
         self, database_dialect=DatabaseDialect.DATABASE_DIALECT_UNSPECIFIED, **kwargs
     ):
-        from google.cloud.spanner_v1.instance import Instance
         from google.cloud.spanner_v1.client import Client
+        from google.cloud.spanner_v1.instance import Instance
 
         # We don't need a real Client object to test the constructor
         client = Client(
@@ -211,6 +212,26 @@ class TestConnection(unittest.TestCase):
         connection._autocommit = True
         self.assertIsNone(connection.transaction_checkout())
 
+    def test_transaction_checkout_does_not_call_begin(self):
+        """transaction_checkout must not call Transaction.begin().
+
+        The transaction should be returned with _transaction_id=None so that
+        execute_sql/execute_update can use inline begin via
+        TransactionSelector(begin=...), eliminating a separate
+        BeginTransaction RPC.
+        """
+        connection = Connection(INSTANCE, DATABASE)
+        mock_session = mock.MagicMock()
+        mock_transaction = mock.MagicMock()
+        mock_session.transaction.return_value = mock_transaction
+        connection._session_checkout = mock.MagicMock(return_value=mock_session)
+
+        txn = connection.transaction_checkout()
+
+        self.assertEqual(txn, mock_transaction)
+        self.assertTrue(connection._spanner_transaction_started)
+        mock_transaction.begin.assert_not_called()
+
     def test_snapshot_checkout(self):
         connection = build_connection(read_only=True)
         connection.autocommit = False
@@ -240,8 +261,7 @@ class TestConnection(unittest.TestCase):
         self.assertIsNone(connection.snapshot_checkout())
 
     def test_close(self):
-        from google.cloud.spanner_dbapi import connect
-        from google.cloud.spanner_dbapi import InterfaceError
+        from google.cloud.spanner_dbapi import InterfaceError, connect
 
         connection = connect(
             "test-instance",
@@ -872,15 +892,17 @@ class _Client(object):
     def __init__(self, project="project_id"):
         self.project = project
         self.project_name = "projects/" + self.project
+        self._client_context = None
 
     def instance(self, instance_id="instance_id"):
         return _Instance(name=instance_id, client=self)
 
 
 class _Instance(object):
-    def __init__(self, name="instance_id", client=None):
+    def __init__(self, name="instance_id", client=None, experimental_host=None):
         self.name = name
         self._client = client
+        self.experimental_host = experimental_host
 
     def database(
         self,

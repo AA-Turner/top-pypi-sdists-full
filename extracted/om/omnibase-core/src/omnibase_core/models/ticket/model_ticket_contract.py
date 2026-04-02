@@ -1,0 +1,475 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""TicketContract model for contract-driven ticket execution.
+
+Provides the main contract model for the /ticket-work skill automation system.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from datetime import UTC, datetime
+from typing import Any, ClassVar
+
+import yaml
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+from omnibase_core.enums.enum_core_error_code import EnumCoreErrorCode
+from omnibase_core.enums.ticket import (
+    PHASE_ALLOWED_ACTIONS,
+    EnumTicketAction,
+    EnumTicketPhase,
+    EnumTicketStepStatus,
+)
+from omnibase_core.models.errors.model_onex_error import ModelOnexError
+from omnibase_core.models.ticket.model_clarifying_question import (
+    ModelClarifyingQuestion,
+)
+from omnibase_core.models.ticket.model_gate import ModelGate
+from omnibase_core.models.ticket.model_interface_consumed import (
+    ModelInterfaceConsumed,
+)
+from omnibase_core.models.ticket.model_interface_provided import (
+    ModelInterfaceProvided,
+)
+from omnibase_core.models.ticket.model_requirement import ModelRequirement
+from omnibase_core.models.ticket.model_verification_step import ModelVerificationStep
+from omnibase_core.utils.util_decorators import allow_dict_str_any, allow_string_id
+
+
+@allow_string_id(reason="External Linear ticket identifier (e.g., OMN-1807)")
+@allow_dict_str_any(
+    reason="Context accumulates arbitrary research data during workflow"
+)
+class ModelTicketContract(BaseModel):
+    """Contract model for ticket-driven development workflow.
+
+    This model tracks the complete state of a ticket through its lifecycle,
+    from intake through implementation and review. It enforces phase-based
+    action restrictions and tracks verification and approval gates.
+
+    Mutability:
+        This model is mutable (NOT frozen) to allow state updates during
+        workflow execution. Use update_fingerprint() after modifications.
+
+    YAML Persistence:
+        The contract is designed to be serialized to/from YAML for persistence.
+        Use to_yaml() and from_yaml() methods for serialization.
+    """
+
+    # Ticket identification
+    # string-id-ok: External Linear ticket identifier (e.g., OMN-1807)
+    ticket_id: str = Field(..., description="External ticket ID (e.g., OMN-1807)")
+    title: str = Field(..., description="Ticket title")
+    description: str = Field(default="", description="Ticket description")
+
+    # Workflow state
+    phase: EnumTicketPhase = Field(
+        default=EnumTicketPhase.INTAKE, description="Current workflow phase"
+    )
+
+    # Context and research
+    # dict-str-any-ok: Context accumulates arbitrary research data during workflow
+    context: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Gathered context including code snippets, docs, etc.",
+    )
+
+    # Clarifying questions
+    questions: list[ModelClarifyingQuestion] = Field(
+        default_factory=list, description="Clarifying questions for requirements"
+    )
+
+    # Requirements specification
+    requirements: list[ModelRequirement] = Field(
+        default_factory=list, description="Requirements derived from ticket"
+    )
+
+    # Verification and gates
+    verification_steps: list[ModelVerificationStep] = Field(
+        default_factory=list, description="Verification steps to run"
+    )
+    gates: list[ModelGate] = Field(
+        default_factory=list, description="Approval gates required"
+    )
+
+    # Interface contracts for parallel development
+    interfaces_provided: list[ModelInterfaceProvided] = Field(
+        default_factory=list,
+        description="Interfaces this ticket provides to other tickets",
+    )
+    interfaces_consumed: list[ModelInterfaceConsumed] = Field(
+        default_factory=list,
+        description="Interfaces this ticket consumes (may be mocked)",
+    )
+
+    # Fingerprinting and timestamps
+    contract_fingerprint: str | None = Field(
+        default=None, description="SHA256 fingerprint of contract state"
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(tz=UTC),
+        description="When the contract was created (UTC)",
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(tz=UTC),
+        description="When the contract was last updated (UTC)",
+    )
+
+    # ConfigDict rationale:
+    # - extra="allow": YAML contracts may accumulate additional tool-specific or
+    #   plugin-specific fields during workflow execution. Using "allow" (rather than
+    #   the usual "forbid") ensures graceful deserialization when new optional fields
+    #   are added to persisted contracts.
+    # - NOT frozen: The contract is mutated in-place during workflow execution
+    #   (phase transitions, fingerprint updates, adding questions/requirements).
+    #   Callers must call update_fingerprint() after mutations.
+    # - from_attributes=True: Required for pytest-xdist where workers import classes
+    #   independently (see Pydantic Model Standards in CLAUDE.md).
+    model_config = ConfigDict(
+        extra="allow",
+        from_attributes=True,
+    )
+
+    # =========================================================================
+    # Validators
+    # =========================================================================
+
+    @field_validator("created_at", "updated_at", mode="before")
+    @classmethod
+    def _enforce_utc_timezone(cls, v: Any) -> Any:
+        """Enforce UTC timezone on datetime fields during deserialization.
+
+        Naive datetimes (no timezone info) are assumed UTC and have the UTC
+        timezone attached. Datetimes with a non-UTC timezone are converted
+        to UTC. Already-UTC datetimes pass through unchanged.
+        """
+        if not isinstance(v, datetime):
+            return v
+
+        if v.tzinfo is None:
+            return v.replace(tzinfo=UTC)
+
+        return v.astimezone(UTC)
+
+    # =========================================================================
+    # research_notes as @property (derived from context)
+    # =========================================================================
+
+    @property
+    def research_notes(self) -> str:
+        """Derive research notes from context.
+
+        This is a computed property that extracts research-related information
+        from the context dict. It is NOT included in model_dump() output.
+
+        Handles strings, lists, tuples, sets, generators, and any other
+        iterable by joining elements with newlines. Non-iterable values
+        are coerced via ``str()``.
+
+        Returns:
+            Research notes as a string, or empty string if not present.
+        """
+        notes = self.context.get("research_notes", "")
+        if isinstance(notes, str):
+            return notes
+        if not notes:
+            return ""
+        # Handle any iterable (list, tuple, set, generator, etc.)
+        try:
+            return "\n".join(str(n) for n in notes)
+        except TypeError:
+            # Not iterable -- fall back to str coercion
+            return str(notes)
+
+    # =========================================================================
+    # Phase Enforcement Methods
+    # =========================================================================
+
+    def allowed_actions(self) -> frozenset[EnumTicketAction]:
+        """Get the frozenset of actions allowed in the current phase.
+
+        Returns:
+            Frozenset of EnumTicketAction enum values (not strings).
+        """
+        return PHASE_ALLOWED_ACTIONS.get(self.phase, frozenset())
+
+    def assert_action_allowed(self, action: EnumTicketAction | str) -> None:
+        """Assert that an action is allowed in the current phase.
+
+        Accepts both enum values and strings for CLI ergonomics.
+
+        Args:
+            action: The action to check (enum or string).
+
+        Raises:
+            ModelOnexError: If the action is not allowed in the current phase,
+                or if the action value is not a valid EnumTicketAction.
+        """
+        # Reject non-str, non-enum types early to avoid AttributeError downstream
+        if not isinstance(action, (str, EnumTicketAction)):
+            raise ModelOnexError(
+                message=f"Invalid action type: expected str or EnumTicketAction, got {type(action).__name__}",
+                error_code=EnumCoreErrorCode.VALIDATION_ERROR,
+                action=repr(action),
+                valid_actions=[a.value for a in EnumTicketAction],
+            )
+
+        # Normalize string input to enum
+        if isinstance(action, str):
+            try:
+                action = EnumTicketAction(action)
+            except ValueError as e:
+                raise ModelOnexError(
+                    message=f"Invalid action: {action!r}",
+                    error_code=EnumCoreErrorCode.VALIDATION_ERROR,
+                    action=action,
+                    valid_actions=[a.value for a in EnumTicketAction],
+                ) from e
+
+        allowed = self.allowed_actions()
+        if action not in allowed:
+            raise ModelOnexError(
+                message=(
+                    f"Action {action.value!r} is not allowed in phase {self.phase.value!r}. "
+                    f"Allowed actions: {[a.value for a in allowed]}"
+                ),
+                error_code=EnumCoreErrorCode.VALIDATION_ERROR,
+                action=action.value,
+                phase=self.phase.value,
+                allowed_actions=[a.value for a in allowed],
+            )
+
+    # =========================================================================
+    # Completion Check Methods
+    # =========================================================================
+
+    def is_questions_complete(self) -> bool:
+        """Check if all required questions have non-empty answers."""
+        for q in self.questions:
+            if q.required and (not q.answer or not q.answer.strip()):
+                return False
+        return True
+
+    def is_spec_complete(self) -> bool:
+        """Check if specification is complete.
+
+        Requires at least one requirement, and all requirements must have
+        at least one acceptance criterion.
+        """
+        if not self.requirements:
+            return False
+
+        for req in self.requirements:
+            if not req.acceptance:
+                return False
+
+        return True
+
+    def is_proof_linked_complete(self) -> bool:
+        """True if all requirements have criterion-level proof linkage.
+
+        Stronger than ``is_spec_complete()``: requires every acceptance
+        criterion in every requirement to have at least one proof reference.
+
+        ``is_spec_complete()`` is semantically unchanged by this addition —
+        it still only checks that acceptance criteria exist, not that they
+        have proofs.
+
+        Returns False if there are no requirements (same semantics as
+        ``is_spec_complete()``).
+        """
+        if not self.requirements:
+            return False
+        return all(req.is_proof_complete() for req in self.requirements)
+
+    def is_verification_complete(self) -> bool:
+        """Check if all blocking verification steps have passed or been skipped."""
+        for step in self.verification_steps:
+            if step.blocking:
+                if step.status not in (
+                    EnumTicketStepStatus.PASSED,
+                    EnumTicketStepStatus.SKIPPED,
+                ):
+                    return False
+        return True
+
+    def is_gates_complete(self) -> bool:
+        """Check if all required gates have been approved."""
+        for gate in self.gates:
+            if gate.required and gate.status != EnumTicketStepStatus.APPROVED:
+                return False
+        return True
+
+    def is_done(self) -> bool:
+        """Check if ticket is fully complete.
+
+        Requires phase is DONE and all completion checks pass.
+        """
+        return (
+            self.phase == EnumTicketPhase.DONE
+            and self.is_questions_complete()
+            and self.is_spec_complete()
+            and self.is_verification_complete()
+            and self.is_gates_complete()
+        )
+
+    def pending_questions(self) -> list[ModelClarifyingQuestion]:
+        """Get questions that still need answers."""
+        return [
+            q
+            for q in self.questions
+            if q.required and (not q.answer or not q.answer.strip())
+        ]
+
+    def blocking_verification(self) -> list[ModelVerificationStep]:
+        """Get blocking verification steps that haven't passed."""
+        return [
+            step
+            for step in self.verification_steps
+            if step.blocking
+            and step.status
+            not in (EnumTicketStepStatus.PASSED, EnumTicketStepStatus.SKIPPED)
+        ]
+
+    def pending_gates(self) -> list[ModelGate]:
+        """Get gates that still need approval."""
+        return [
+            gate
+            for gate in self.gates
+            if gate.required and gate.status != EnumTicketStepStatus.APPROVED
+        ]
+
+    # =========================================================================
+    # Fingerprinting Methods
+    # =========================================================================
+
+    def compute_fingerprint(self) -> str:
+        """Compute a 16-character hex SHA256 fingerprint of the contract.
+
+        The fingerprint excludes the contract_fingerprint field itself.
+
+        Collision resistance: 16 hex characters = 64 bits of entropy. By the
+        birthday paradox, collisions become probable around 2^32 (~4 billion)
+        contracts. This is acceptable for per-ticket change detection where
+        the practical corpus is orders of magnitude smaller.
+        """
+        data = self.model_dump(exclude={"contract_fingerprint"})
+        canonical = json.dumps(data, sort_keys=True, default=str)
+        return hashlib.sha256(canonical.encode()).hexdigest()[:16]
+
+    def update_fingerprint(self) -> None:
+        """Update the contract fingerprint and updated_at timestamp."""
+        self.contract_fingerprint = self.compute_fingerprint()
+        self.updated_at = datetime.now(tz=UTC)
+
+    def __repr__(self) -> str:
+        """Return concise representation for debugging."""
+        return (
+            f"ModelTicketContract("
+            f"id={self.ticket_id!r}, "
+            f"phase={self.phase.value!r}, "
+            f"questions={len(self.questions)}, "
+            f"requirements={len(self.requirements)}, "
+            f"verification={len(self.verification_steps)}, "
+            f"gates={len(self.gates)}, "
+            f"interfaces_provided={len(self.interfaces_provided)}, "
+            f"interfaces_consumed={len(self.interfaces_consumed)})"
+        )
+
+    # =========================================================================
+    # Contract Grace Period (Bootstrap Paradox)
+    # =========================================================================
+
+    # Tickets created before this date are exempt from contract requirements.
+    # This handles the bootstrap paradox where tickets exist before the
+    # ModelTicketContract format was introduced (OMN-5461).
+    #
+    # Default: 2026-03-19 (the date contract enforcement was first deployed).
+    # Override via CONTRACT_REQUIRED_AFTER env var (ISO date, e.g. "2026-04-01").
+    CONTRACT_REQUIRED_AFTER: ClassVar[datetime] = datetime.fromisoformat(
+        os.environ.get("CONTRACT_REQUIRED_AFTER", "2026-03-19T00:00:00+00:00")
+    )
+
+    @classmethod
+    def is_contract_required(cls, ticket_created_at: datetime | str) -> bool:
+        """Check whether a ticket is required to have a contract.
+
+        Tickets created before CONTRACT_REQUIRED_AFTER get a grace period
+        and are NOT required to have a contract. This prevents false failures
+        when scanning pre-existing tickets that were created before the
+        contract format was introduced.
+
+        Args:
+            ticket_created_at: When the ticket was created (datetime or ISO string).
+
+        Returns:
+            True if the ticket must have a contract, False if it's in the grace period.
+        """
+        if isinstance(ticket_created_at, str):
+            ticket_created_at = datetime.fromisoformat(ticket_created_at)
+
+        # Ensure timezone-aware comparison
+        if ticket_created_at.tzinfo is None:
+            ticket_created_at = ticket_created_at.replace(tzinfo=UTC)
+
+        return ticket_created_at >= cls.CONTRACT_REQUIRED_AFTER
+
+    # =========================================================================
+    # YAML Serialization
+    # =========================================================================
+
+    def to_yaml(self) -> str:
+        """Serialize the contract to YAML.
+
+        Uses mode='json' to ensure datetime and enum serialization.
+        """
+        data = self.model_dump(mode="json")
+        return yaml.dump(data, default_flow_style=False, sort_keys=False)
+
+    @classmethod
+    def from_yaml(cls, yaml_str: str) -> ModelTicketContract:
+        """Deserialize a contract from YAML.
+
+        Args:
+            yaml_str: YAML string to parse.
+
+        Returns:
+            ModelTicketContract instance.
+
+        Raises:
+            ModelOnexError: If YAML parsing or validation fails.
+        """
+        try:
+            data = yaml.safe_load(yaml_str)
+        except yaml.YAMLError as e:
+            raise ModelOnexError(
+                message=f"Failed to parse YAML: {e}",
+                error_code=EnumCoreErrorCode.CONFIGURATION_PARSE_ERROR,
+            ) from e
+
+        if not isinstance(data, dict):
+            raise ModelOnexError(
+                message=f"Expected dict from YAML, got {type(data).__name__}",
+                error_code=EnumCoreErrorCode.VALIDATION_ERROR,
+            )
+
+        try:
+            return cls.model_validate(data)
+        except ValidationError as e:
+            raise ModelOnexError(
+                message=f"Contract validation failed: {e}",
+                error_code=EnumCoreErrorCode.VALIDATION_ERROR,
+            ) from e
+
+
+# Alias for cleaner imports
+TicketContract = ModelTicketContract
+
+__all__ = [
+    "ModelTicketContract",
+    "TicketContract",
+]

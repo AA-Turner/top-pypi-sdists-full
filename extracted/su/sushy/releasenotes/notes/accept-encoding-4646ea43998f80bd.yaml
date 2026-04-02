@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Adds a work-around for cases where ``Accept-Encoding: identity`` is not
-    accepted.

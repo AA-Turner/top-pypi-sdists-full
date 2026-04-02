@@ -1,0 +1,195 @@
+use crate::error::{WrfError, WrfResult};
+use crate::file::WrfFile;
+use crate::units::{convert_array, parse_units};
+use crate::variables::{get_var_def, VarDim};
+
+/// Options controlling variable computation.
+#[derive(Debug, Clone, Default)]
+pub struct ComputeOpts {
+    /// Requested output units (overrides default).
+    pub units: Option<String>,
+    /// Parcel type for CAPE: "sb", "ml", "mu".
+    pub parcel_type: Option<String>,
+    /// Custom storm motion (u, v) in m/s for SRH.
+    pub storm_motion: Option<(f64, f64)>,
+    /// Integration top (meters AGL) for CAPE, lapse rates, updraft helicity, etc.
+    pub top_m: Option<f64>,
+    /// Bottom of layer (meters AGL) for shear, mean wind, lapse rates, UH, etc.
+    pub bottom_m: Option<f64>,
+    /// Depth for SRH (meters AGL). Default varies by variable.
+    pub depth_m: Option<f64>,
+    /// Custom parcel starting pressure (hPa).
+    pub parcel_pressure: Option<f64>,
+    /// Custom parcel starting temperature (deg C).
+    pub parcel_temperature: Option<f64>,
+    /// Custom parcel starting dewpoint (deg C).
+    pub parcel_dewpoint: Option<f64>,
+    /// Bottom of layer in pressure (hPa) -- alternative to bottom_m for lapse rates.
+    pub bottom_p: Option<f64>,
+    /// Top of layer in pressure (hPa) -- alternative to top_m for lapse rates.
+    pub top_p: Option<f64>,
+    /// Layer type: "fixed" (default) or "effective" (for STP, SRH).
+    pub layer_type: Option<String>,
+    /// Use virtual temperature instead of absolute temperature (for lapse rates).
+    pub use_virtual: Option<bool>,
+    /// Interpolate 2m fields over water bodies smaller than this area (km2).
+    /// 0 or None = disabled. Typical value: 1000.
+    /// Removes lake artifacts in T2/Q2 that corrupt CAPE, STP, etc.
+    pub lake_interp: Option<f64>,
+    /// Use variable intercept parameters (Thompson microphysics) for DBZ.
+    /// Default (None/false) = constant intercepts matching wrf-python defaults.
+    pub use_varint: Option<bool>,
+    /// Use liquid-skin bright-band correction for DBZ.
+    /// Default (None/false) = no correction, matching wrf-python defaults.
+    pub use_liqskin: Option<bool>,
+}
+
+/// The result of computing a WRF variable.
+#[derive(Debug, Clone)]
+pub struct VarOutput {
+    /// Flat data array.
+    pub data: Vec<f64>,
+    /// Shape: `[ny, nx]` for 2-D, `[nz, ny, nx]` for 3-D.
+    pub shape: Vec<usize>,
+    /// Unit string of the returned data.
+    pub units: String,
+    /// Human-readable description.
+    pub description: String,
+}
+
+/// Top-level variable retrieval: look up name, compute, apply unit conversion.
+pub fn getvar(
+    file: &WrfFile,
+    name: &str,
+    timeidx: Option<usize>,
+    opts: &ComputeOpts,
+) -> WrfResult<VarOutput> {
+    let t = timeidx.unwrap_or(0);
+    if t >= file.nt {
+        return Err(WrfError::InvalidParam(format!(
+            "timeidx {t} out of range (file has {} times)",
+            file.nt
+        )));
+    }
+
+    // Look up in computed variable registry first
+    let vardef = match get_var_def(name) {
+        Some(v) => v,
+        None => {
+            // Fallback: try reading as a raw WRF variable directly from the file.
+            // This handles RAINNC, RAINC, PBLH, HFX, LU_INDEX, SWDOWN, TSK, SST, etc.
+            return getvar_raw(file, name, t, opts);
+        }
+    };
+
+    let mut data = (vardef.compute)(file, t, opts)?;
+
+    // Free cached intermediates (full_pressure, temperature, etc.)
+    // so they don't persist beyond this computation.
+    file.clear_cache();
+
+    let shape = match vardef.dim {
+        VarDim::TwoD => vec![file.ny, file.nx],
+        VarDim::ThreeD => vec![file.nz, file.ny, file.nx],
+    };
+
+    // Validate output size
+    let expected = shape.iter().product::<usize>();
+    // Some variables return multi-field (e.g., cape2d returns 4*nxy, uvmet returns 2*nxyz).
+    // Only validate when sizes match the declared dim.
+    let actual_units;
+
+    if let Some(ref req_units) = opts.units {
+        let from = parse_units(vardef.default_units)?;
+        let to = parse_units(req_units)?;
+        convert_array(&mut data, from, to)?;
+        actual_units = req_units.clone();
+    } else {
+        actual_units = vardef.default_units.to_string();
+    }
+
+    // If data length doesn't match the standard shape, adjust shape to reflect
+    // the actual output (multi-field variables).
+    let final_shape = if data.len() == expected {
+        shape
+    } else if data.len() % expected == 0 {
+        let nfields = data.len() / expected;
+        match vardef.dim {
+            VarDim::TwoD => vec![nfields, file.ny, file.nx],
+            VarDim::ThreeD => vec![nfields, file.nz, file.ny, file.nx],
+        }
+    } else {
+        shape
+    };
+
+    Ok(VarOutput {
+        data,
+        shape: final_shape,
+        units: actual_units,
+        description: vardef.description.to_string(),
+    })
+}
+
+/// Fallback: read a raw WRF variable directly from the file.
+/// Used when the variable name is not in the computed registry.
+fn getvar_raw(
+    file: &WrfFile,
+    name: &str,
+    t: usize,
+    opts: &ComputeOpts,
+) -> WrfResult<VarOutput> {
+    // Try reading the variable by its exact name (case-sensitive, uppercase WRF convention)
+    let data = file.read_var(name, t)
+        .or_else(|_| file.read_var(&name.to_uppercase(), t))
+        .map_err(|_| WrfError::UnknownVar(format!(
+            "{name} (not in computed registry and not found as raw variable in file)"
+        )))?;
+
+    let nxy = file.nxy();
+    let nxyz = file.nxyz();
+
+    let shape = if data.len() == nxy {
+        vec![file.ny, file.nx]
+    } else if data.len() == nxyz {
+        vec![file.nz, file.ny, file.nx]
+    } else if data.len() % nxy == 0 {
+        let nlevels = data.len() / nxy;
+        vec![nlevels, file.ny, file.nx]
+    } else {
+        vec![data.len()]
+    };
+
+    // Raw variables don't have a known default unit, but if the user
+    // requests a conversion from/to a specific pair we can try.
+    // Common WRF raw variables and their units:
+    let default_unit = match name.to_uppercase().as_str() {
+        "RAINNC" | "RAINC" | "RAINSH" | "SNOWNC" | "GRAUPELNC" => "mm",
+        "T2" | "TSK" | "SST" => "K",
+        "PSFC" => "Pa",
+        "PBLH" | "SNOWH" => "m",
+        "HFX" | "LH" => "W/m2",
+        "SWDOWN" | "GLW" | "OLR" => "W/m2",
+        "UST" => "m/s",
+        "U10" | "V10" => "m/s",
+        _ => "",
+    };
+
+    let mut data = data;
+    let actual_units = if let Some(ref req_units) = opts.units {
+        if !default_unit.is_empty() {
+            if let (Ok(from), Ok(to)) = (parse_units(default_unit), parse_units(req_units)) {
+                let _ = convert_array(&mut data, from, to);
+            }
+        }
+        req_units.clone()
+    } else {
+        default_unit.to_string()
+    };
+
+    Ok(VarOutput {
+        data,
+        shape,
+        units: actual_units,
+        description: format!("Raw WRF variable: {name}"),
+    })
+}

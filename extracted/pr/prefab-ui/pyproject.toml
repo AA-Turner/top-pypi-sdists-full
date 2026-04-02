@@ -1,0 +1,121 @@
+[project]
+name = "prefab-ui"
+dynamic = ["version"]
+description = "The generative UI framework that even humans can use."
+authors = [{ name = "Jeremiah Lowin" }]
+dependencies = ["pydantic>=2.11", "cyclopts>=4", "rich>=13"]
+requires-python = ">=3.10"
+license = "Apache-2.0"
+readme = "README.md"
+keywords = [
+    "ui",
+    "components",
+    "react",
+    "prefab",
+    "json",
+    "dsl",
+    "MCP",
+    "FastMCP",
+    "generative-ui",
+    "frontend",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://prefab.prefect.io"
+Documentation = "https://prefab.prefect.io"
+Repository = "https://github.com/PrefectHQ/prefab"
+
+[project.scripts]
+prefab = "prefab_ui.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.3",
+    "pytest-asyncio>=1.2.0",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.6.1",
+    "ruff>=0.12.8",
+    "ty>=0.0.25",
+    "prek>=0.1.0",
+    "loq>=0.1.0a3",
+    "jsonschema>=4.26.0",
+    "pytest-cov>=7.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+    "ipython>=8.38.0",
+    "pdbpp>=0.12.1",
+    "pandas>=2.0",
+    "polars>=1.0",
+]
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning>=0.7.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/prefab_ui"]
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+bump = true
+fallback-version = "0.0.0"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+timeout = 5
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+filterwarnings = [
+    "error",
+]
+
+[tool.ty.src]
+include = ["src", "tests"]
+exclude = ["**/node_modules", "**/__pycache__", ".venv", ".git", "dist"]
+
+[tool.ty.environment]
+python-version = "3.10"
+
+[tool.ty.terminal]
+error-on-warning = true
+
+# ty doesn't understand Pydantic's populate_by_name=True, so aliased
+# fields (data_key→dataKey, etc.) produce false positives in tests.
+[[tool.ty.overrides]]
+include = ["tests/**"]
+
+[tool.ty.overrides.rules]
+unknown-argument = "ignore"
+missing-argument = "ignore"
+invalid-argument-type = "ignore"
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+ignore = ["COM812", "PLR0913", "SIM102"]
+extend-select = ["B", "C4", "I", "PIE", "RUF", "SIM", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["prefab_ui"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "I001", "RUF013"]
+"!src/**.py" = ["B", "C4", "PIE", "RUF", "SIM"]
+
+[tool.codespell]
+skip = "renderer/package-lock.json"

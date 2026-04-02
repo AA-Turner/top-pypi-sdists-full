@@ -1,0 +1,210 @@
+#
+# Copyright 2021-2022 Canonical Ltd.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License version 3 as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+import contextlib
+import io
+import pathlib
+import subprocess
+from typing import Any
+
+import pytest
+import responses as responses_module
+from craft_providers.executor import Executor
+from craft_providers.util import env_cmd
+from pydantic import ValidationError
+from pydantic_core import InitErrorDetails
+from typing_extensions import override
+
+# command used by the FakeExecutor
+DEFAULT_FAKE_CMD = ["fake-executor"]
+
+
+class FakeExecutor(Executor):
+    """Fake Executor.
+
+    Provides a fake execution environment meant to be paired with the
+    fake_process fixture for complete control over execution behaviors.
+
+    Calls to each method are recorded in `records_of_<method_name>` for introspection,
+    similar to mock_calls.
+    """
+
+    def __init__(self) -> None:
+        self.records_of_push_file_io: list[dict[str, Any]] = []
+        self.records_of_pull_file: list[dict[str, Any]] = []
+        self.records_of_push_file: list[dict[str, Any]] = []
+        self.records_of_delete: list[dict[str, Any]] = []
+        self.records_of_exists: list[dict[str, Any]] = []
+        self.records_of_mount: list[dict[str, Any]] = []
+        self.records_of_is_running: list[dict[str, Any]] = []
+
+    @override
+    def push_file_io(
+        self,
+        *,
+        destination: pathlib.PurePath,
+        content: io.BytesIO,
+        file_mode: str,
+        group: str = "root",
+        user: str = "root",
+    ) -> None:
+        self.records_of_push_file_io.append(
+            {
+                "destination": destination.as_posix(),
+                "content": content.read(),
+                "file_mode": file_mode,
+                "group": group,
+                "user": user,
+            }
+        )
+
+    @override
+    def execute_popen(
+        self,
+        command: list[str],
+        *,
+        cwd: pathlib.PurePath | None = None,
+        env: dict[str, str | None] | None = None,
+        timeout: float | None = None,
+        **kwargs: Any,
+    ) -> subprocess.Popen[str]:
+        env_args = [] if env is None else env_cmd.formulate_command(env, chdir=cwd)
+
+        final_cmd = [*DEFAULT_FAKE_CMD, *env_args, *command]
+        return subprocess.Popen(final_cmd, **kwargs)
+
+    @override
+    def execute_run(
+        self,
+        command: list[str],
+        *,
+        cwd: pathlib.PurePath | None = None,
+        env: dict[str, str | None] | None = None,
+        timeout: float | None = None,
+        **kwargs: Any,
+    ) -> subprocess.CompletedProcess[Any]:
+        env_args = [] if env is None else env_cmd.formulate_command(env, chdir=cwd)
+
+        final_cmd = [*DEFAULT_FAKE_CMD, *env_args, *command]
+
+        # We're not using an explicit check here because we're getting check from the
+        # calling method.
+        return subprocess.run(final_cmd, timeout=timeout, **kwargs)  # noqa: PLW1510
+
+    @override
+    def pull_file(self, *, source: pathlib.PurePath, destination: pathlib.Path) -> None:
+        self.records_of_pull_file.append(
+            {
+                "source": source,
+                "destination": destination,
+            }
+        )
+
+    @override
+    def push_file(self, *, source: pathlib.Path, destination: pathlib.PurePath) -> None:
+        self.records_of_push_file.append(
+            {
+                "source": source,
+                "destination": destination,
+            }
+        )
+
+    @override
+    def delete(self) -> None:
+        self.records_of_delete.append({})
+
+    @override
+    def exists(self) -> bool:
+        self.records_of_exists.append({})
+        return True
+
+    @override
+    def mount(self, *, host_source: pathlib.Path, target: pathlib.PurePath) -> None:
+        self.records_of_mount.append({"host_source": host_source, "target": target})
+
+    @override
+    def is_running(self) -> bool:
+        self.records_of_is_running.append({})
+        return True
+
+
+@pytest.fixture
+def fake_executor(fake_process):
+    return FakeExecutor()
+
+
+@pytest.fixture
+def responses():
+    """Simple helper to use responses module as a fixture.
+
+    Used for easier integration in tests.
+    """
+    with responses_module.RequestsMock() as rsps:
+        yield rsps
+
+
+@pytest.fixture(
+    params=range(4), ids=("succeed", "fail_once", "fail_twice", "fail_thrice")
+)
+def failure_count(request):
+    return request.param
+
+
+@pytest.fixture(autouse=True)
+def fake_home_temporary_directory(monkeypatch, tmp_path):
+    @contextlib.contextmanager
+    def home_temporary_directory():
+        yield tmp_path
+
+    monkeypatch.setattr(
+        "craft_providers.instance_config.temp_paths.home_temporary_directory",
+        home_temporary_directory,
+    )
+    return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def fake_home_temporary_file(monkeypatch, tmp_path):
+    temp_file = tmp_path / "temp-file"
+
+    @contextlib.contextmanager
+    def home_temporary_file():
+        temp_file.touch()
+        yield temp_file
+        temp_file.unlink(missing_ok=True)
+
+    monkeypatch.setattr(
+        "craft_providers.instance_config.temp_paths.home_temporary_file",
+        home_temporary_file,
+    )
+    return temp_file
+
+
+@pytest.fixture
+def stub_verify_network(fake_process):
+    """Ensures network check for Executor.execute_run(verify_network=True) succeeds."""
+    fake_process.register_subprocess(
+        [*DEFAULT_FAKE_CMD, "bash", "-c", "exec 3<> /dev/tcp/snapcraft.io/443"],
+        returncode=0,
+    )
+
+
+@pytest.fixture
+def fake_validation_error():
+    """Returns a stubbed ValidationError for pydantic."""
+    return ValidationError.from_exception_data(
+        "Field required", [InitErrorDetails(type="missing", loc=(10,), input={})]
+    )

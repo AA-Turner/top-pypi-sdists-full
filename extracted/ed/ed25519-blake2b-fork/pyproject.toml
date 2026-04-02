@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ed25519-blake2b-fork"
+dynamic = ["version"]
+description = "Ed25519 public-key signatures (BLAKE2b fork)"
+readme = "README.md"
+authors = [
+    { name = "Janne Pulkkinen", email = "jannepulk@gmail.com" },
+    { name = "Emanuele Bellocchia", email = "ebellocchia@gmail.com" }
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 2.7",
+    "Programming Language :: Python :: 3.4",
+    "Programming Language :: Python :: 3.5",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security :: Cryptography",
+]
+
+[project.urls]
+Homepage = "https://github.com/ebellocchia/python-ed25519-blake2b"
+
+[tool.setuptools.package-dir]
+ed25519_blake2b = "src/ed25519"
+
+[tool.setuptools]
+packages = ["ed25519_blake2b"]
+
+[tool.setuptools.dynamic]
+version = {attr = "ed25519_blake2b._version.__version__"}

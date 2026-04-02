@@ -1,0 +1,13 @@
+# invalid data - 'for' and 'on' are both present
+
+# no grammar
+plugin: nil
+
+source-branch:
+  - for platform1: branch1
+  - branch2
+
+build-packages:
+  - on riscv64:
+      - package1
+  - package2

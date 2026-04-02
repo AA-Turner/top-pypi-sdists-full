@@ -1,1 +1,0 @@
-"""MindRoom CLI package."""

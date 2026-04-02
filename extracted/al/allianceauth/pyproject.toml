@@ -1,0 +1,111 @@
+[build-system]
+build-backend = "flit_core.buildapi"
+requires = [
+    "flit-core>=3.2,<4",
+]
+
+[project]
+name = "allianceauth"
+readme = "README.md"
+keywords = [
+    "allianceauth",
+    "eveonline",
+]
+license = { file = "LICENSE" }
+authors = [
+    { name = "Alliance Auth", email = "adarnof@gmail.com" },
+]
+requires-python = ">=3.8,<3.13"
+classifiers = [
+    "Environment :: Web Environment",
+    "Framework :: Celery",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+dynamic = [
+    "description",
+    "version",
+]
+dependencies = [
+    "bcrypt<5",
+    "beautifulsoup4",
+    "celery>=5.2,<6",
+    "celery-once>=3.0.1",
+    "django>=4.2,<5",
+    "django-bootstrap-form",
+    "django-bootstrap5>=23.3",
+    "django-celery-beat>=2.3",
+    "django-esi>=7.0.1",
+    "django-redis>=5.2",
+    "django-registration>=3.3,<3.4",
+    "django-solo",
+    "django-sortedm2m",
+    "django-sri",
+    "dnspython",
+    "mysqlclient>=2.1",
+    "openfire-restapi",
+    "packaging>=21",
+    "passlib",
+    "pydiscourse",
+    "python-slugify>=1.2",
+    "pyyaml",
+    "redis>=4",
+    "requests>=2.9.1",
+    "requests-oauthlib",
+    "semantic-version",
+    "slixmpp<1.9",
+    "ua-parser",
+    "user-agents",
+]
+optional-dependencies.docs = [
+    "myst-parser",
+    "sphinx",
+    "sphinx-copybutton",
+    "sphinx-rtd-theme>=2,<3",
+    "sphinx-tabs",
+    "sphinxcontrib-django",
+]
+optional-dependencies.test = [
+    "coverage>=4.3.1",
+    "django-webtest",
+    "requests-mock>=1.2",
+]
+urls.Documentation = "https://allianceauth.readthedocs.io/"
+urls.Homepage = "https://gitlab.com/allianceauth/allianceauth"
+urls.Source = "https://gitlab.com/allianceauth/allianceauth"
+urls.Tracker = "https://gitlab.com/allianceauth/allianceauth/-/issues"
+scripts.allianceauth = "allianceauth.bin.allianceauth:main"
+
+[tool.flit.module]
+name = "allianceauth"
+
+[tool.isort]
+profile = "django"
+sections = [
+    "FUTURE",
+    "STDLIB",
+    "THIRDPARTY",
+    "DJANGO",
+    "ESI",
+    "FIRSTPARTY",
+    "LOCALFOLDER",
+]
+known_esi = [
+    "esi",
+]
+known_django = [
+    "django",
+]
+skip_gitignore = true

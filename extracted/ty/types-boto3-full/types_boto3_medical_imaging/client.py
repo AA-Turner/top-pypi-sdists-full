@@ -80,9 +80,11 @@ __all__ = ("HealthImagingClient",)
 
 class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
+    NotAcceptableException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]

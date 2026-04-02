@@ -23,6 +23,7 @@ class ApplicationKeyArgs:
                  scopes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a ApplicationKey resource.
+
         :param pulumi.Input[_builtins.str] name: Name for Application Key.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] scopes: Authorization scopes for the Application Key. Application Keys configured with no scopes have full access.
         """
@@ -63,6 +64,7 @@ class _ApplicationKeyState:
                  scopes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering ApplicationKey resources.
+
         :param pulumi.Input[_builtins.str] key: The value of the Application Key.
         :param pulumi.Input[_builtins.str] name: Name for Application Key.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] scopes: Authorization scopes for the Application Key. Application Keys configured with no scopes have full access.
@@ -121,7 +123,7 @@ class ApplicationKey(pulumi.CustomResource):
                  scopes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
-        Provides a Datadog Application Key resource. This can be used to create and manage Datadog Application Keys. Import functionality for this resource is deprecated and will be removed in a future release with prior notice. Securely store your application keys using a secret management system or use this resource to create and manage new application keys.
+        Provides a Datadog Application Key resource. This can be used to create and manage Datadog Application Keys. Import is not supported for this resource. Securely store your application keys using a secret management system or use this resource to create and manage new application keys.
 
         ## Example Usage
 
@@ -142,13 +144,6 @@ class ApplicationKey(pulumi.CustomResource):
             ])
         ```
 
-        ## Import
-
-        The `pulumi import` command can be used, for example:
-
-        ```sh
-        $ pulumi import datadog:index/applicationKey:ApplicationKey foo 11111111-2222-3333-4444-555555555555
-        ```
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -162,7 +157,7 @@ class ApplicationKey(pulumi.CustomResource):
                  args: ApplicationKeyArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        Provides a Datadog Application Key resource. This can be used to create and manage Datadog Application Keys. Import functionality for this resource is deprecated and will be removed in a future release with prior notice. Securely store your application keys using a secret management system or use this resource to create and manage new application keys.
+        Provides a Datadog Application Key resource. This can be used to create and manage Datadog Application Keys. Import is not supported for this resource. Securely store your application keys using a secret management system or use this resource to create and manage new application keys.
 
         ## Example Usage
 
@@ -183,13 +178,6 @@ class ApplicationKey(pulumi.CustomResource):
             ])
         ```
 
-        ## Import
-
-        The `pulumi import` command can be used, for example:
-
-        ```sh
-        $ pulumi import datadog:index/applicationKey:ApplicationKey foo 11111111-2222-3333-4444-555555555555
-        ```
 
         :param str resource_name: The name of the resource.
         :param ApplicationKeyArgs args: The arguments to use to populate this resource's properties.

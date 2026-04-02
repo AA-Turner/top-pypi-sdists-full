@@ -91,7 +91,9 @@ checked_find_package (libuhdr
                       VERSION_MIN 1.3)
 
 checked_find_package (TIFF REQUIRED
-                      VERSION_MIN 4.0)
+                      VERSION_MIN 4.0
+                      RECOMMEND_MIN 4.2
+                      RECOMMEND_MIN_REASON "4.2 for GPS support")
 alias_library_if_not_exists (TIFF::TIFF TIFF::tiff)
 
 # JPEG XL
@@ -201,11 +203,9 @@ checked_find_package (R3DSDK NO_RECORD_NOTFOUND)  # RED camera
 set (NUKE_VERSION "7.0" CACHE STRING "Nuke version to target")
 checked_find_package (Nuke NO_RECORD_NOTFOUND)
 
-if (FFmpeg_FOUND OR FREETYPE_FOUND)
+if ((FFmpeg_FOUND OR FREETYPE_FOUND OR TARGET Freetype::Freetype)
+    AND NOT TARGET BZip2::BZip2)
     checked_find_package (BZip2)   # Used by ffmpeg and freetype
-    if (NOT BZIP2_FOUND)
-        set (BZIP2_LIBRARIES "")  # TODO: why does it break without this?
-    endif ()
 endif()
 
 

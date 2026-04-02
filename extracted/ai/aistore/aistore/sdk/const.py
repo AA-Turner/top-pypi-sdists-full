@@ -1,0 +1,303 @@
+#
+# Copyright (c) 2021-2026, NVIDIA CORPORATION. All rights reserved.
+#
+
+# Units
+GB = 10**9
+KIB = 2**10
+MIB = 2**20
+
+# Archive extensions
+EXT_TAR = ".tar"
+EXT_TGZ = ".tgz"
+EXT_TARGZ = ".tar.gz"
+EXT_TARLZ4 = ".tar.lz4"
+EXT_ZIP = ".zip"
+
+# Standard Header Keys
+HEADER_ACCEPT = "Accept"
+HEADER_USER_AGENT = "User-Agent"
+HEADER_CONTENT_TYPE = "Content-Type"
+HEADER_CONTENT_LENGTH = "Content-Length"
+HEADER_LOCATION = "Location"
+HEADER_CONNECTION = "Connection"
+# Standard Header Values
+USER_AGENT_BASE = "ais/python"
+JSON_CONTENT_TYPE = "application/json"
+MSGPACK_CONTENT_TYPE = "application/msgpack"
+# AIS Headers
+AIS_CHECKSUM_TYPE = "ais-checksum-type"
+AIS_CHECKSUM_VALUE = "ais-checksum-value"
+AIS_ACCESS_TIME = "ais-atime"
+AIS_VERSION = "ais-version"
+AIS_CUSTOM_MD = "ais-custom-md"
+AIS_BCK_NAME = "ais-bucket-name"
+AIS_BCK_PROVIDER = "ais-bucket-provider"
+AIS_OBJ_NAME = "ais-name"
+AIS_LOCATION = "ais-location"
+AIS_MIRROR_PATHS = "ais-mirror-paths"
+AIS_MIRROR_COPIES = "ais-mirror-copies"
+AIS_PRESENT = "ais-present"
+# V2-specific headers
+AIS_CHUNKS_COUNT = "ais-chunks-count"
+AIS_CHUNKS_MAX_CHUNK_SIZE = "ais-chunks-max-chunk-size"
+HEADER_LAST_MODIFIED = "Last-Modified"
+HEADER_ETAG = "ETag"
+# V2 property names
+PROPS_CHUNKED = "chunked"
+# Bucket Props Header keys
+HEADER_PREFIX = "Ais-"
+HEADER_BUCKET_PROPS = HEADER_PREFIX + "Bucket-Props"
+HEADER_BUCKET_SUMM = HEADER_PREFIX + "Bucket-Summ"
+HEADER_XACTION_ID = HEADER_PREFIX + "Xaction-Id"
+HEADER_NODE_ID = HEADER_PREFIX + "Node-Id"
+HEADER_NODE_URL = HEADER_PREFIX + "Node-Url"
+HEADER_INV_NAME = HEADER_PREFIX + "Inv-Name"
+# Object Props Header Keys
+HEADER_OBJECT_BLOB_DOWNLOAD = HEADER_PREFIX + "Blob-Download"
+HEADER_OBJECT_BLOB_CHUNK_SIZE = HEADER_PREFIX + "Blob-Chunk"
+HEADER_OBJECT_BLOB_WORKERS = HEADER_PREFIX + "Blob-Workers"
+HEADER_OBJECT_APPEND_HANDLE = HEADER_PREFIX + "Append-Handle"
+HEADER_DIRECT_PUT_LENGTH = HEADER_PREFIX + "Direct-Put-Length"
+# Ref: https://www.rfc-editor.org/rfc/rfc7233#section-2.1
+HEADER_RANGE = "Range"
+# AuthN Headers
+HEADER_AUTHORIZATION = "Authorization"
+
+# URL Params
+# See api/apc/query.go
+QPARAM_WHAT = "what"
+QPARAM_PROVIDER = "provider"
+QPARAM_BCK_TO = "bck_to"
+QPARAM_FLT_PRESENCE = "presence"
+QPARAM_BSUMM_REMOTE = "bsumm_remote"
+QPARAM_KEEP_REMOTE = "keep_bck_md"
+QPARAM_ARCHPATH = "archpath"
+QPARAM_ARCHREGX = "archregx"
+QPARAM_ARCHMODE = "archmode"
+QPARAM_FORCE = "frc"
+QPARAM_PRIMARY_READY_REB = "prr"
+QPARAM_NAMESPACE = "namespace"
+QPARAM_OBJ_APPEND = "append_type"
+QPARAM_OBJ_APPEND_HANDLE = "append_handle"
+QPARAM_OBJ_TO = "object_to"
+DSORT_UUID = "uuid"
+QPARAM_UUID = "uuid"
+QPARAM_LATEST = "latest-ver"
+QPARAM_SYNC = "synchronize"
+QPARAM_NEW_CUSTOM = "set-new-custom"
+# multipart upload
+QPARAM_MPT_UPLOAD_ID = "uploadId"
+QPARAM_MPT_PART_NO = "partNumber"
+# Query params for V2 HEAD
+QPARAM_PROPS = "props"
+# etl
+QPARAM_ETL_NAME = "etl_name"
+QPARAM_ETL_ARGS = "etl_args"
+QPARAM_ETL_PIPELINE = "etl_pipeline"
+QPARAM_ETL_FQN = "etl_fqn"
+# etl websocket
+ETL_WS_PIPELINE = "pipeline"
+ETL_WS_FQN = "fqn"
+ETL_WS_PATH = "path"
+
+# URL Param values
+# See api/apc/query.go
+WHAT_SMAP = "smap"
+WHAT_ONE_XACT_STATUS = "status"
+WHAT_ALL_XACT_STATUS = "status_all"
+WHAT_ALL_RUNNING_STATUS = "running_all"
+WHAT_QUERY_XACT_STATS = "qryxstats"
+WHAT_NODE_STATS_AND_STATUS = "node_status"
+WHAT_LOG = "log"
+
+# Log query params (see api/apc/query.go)
+QPARAM_LOG_SEV = "severity"
+QPARAM_ALL_LOGS = "all"
+
+# URL paths
+URL_PATH_CLUSTER = "cluster"
+URL_PATH_BUCKETS = "buckets"
+URL_PATH_OBJECTS = "objects"
+URL_PATH_HEALTH = "health"
+URL_PATH_DAEMON = "daemon"
+URL_PATH_ETL = "etl"
+URL_PATH_ETL_LOGS = "logs"
+URL_PATH_DSORT = "sort"
+URL_PATH_REVERSE = "reverse"
+DSORT_ABORT = "abort"
+# AuthN
+URL_PATH_AUTHN_USERS = "users"
+URL_PATH_AUTHN_CLUSTERS = "clusters"
+URL_PATH_AUTHN_ROLES = "roles"
+URL_PATH_AUTHN_TOKENS = "tokens"
+URL_PATH_GB = "ml/moss"
+
+# HTTP Methods
+HTTP_METHOD_GET = "get"
+HTTP_METHOD_POST = "post"
+HTTP_METHOD_DELETE = "delete"
+HTTP_METHOD_PUT = "put"
+HTTP_METHOD_HEAD = "head"
+HTTP_METHOD_PATCH = "patch"
+HTTP_BOUNDARY_REGEX = r"boundary=([^;,\s]+)"
+
+# Actions
+# See api/apc/actmsg.go
+ACT_CREATE_BCK = "create-bck"
+ACT_DESTROY_BCK = "destroy-bck"
+ACT_COPY_BCK = "copy-bck"
+ACT_ETL_BCK = "etl-bck"
+ACT_EVICT_REMOTE_BCK = "evict-remote-bck"
+ACT_LIST = "list"
+ACT_MOVE_BCK = "move-bck"
+ACT_PROMOTE = "promote"
+ACT_SUMMARY_BCK = "summary-bck"
+ACT_BLOB_DOWNLOAD = "blob-download"
+# Native Bucket Inventory (NBI) actions
+ACT_CREATE_NBI = "create-inventory"
+ACT_DESTROY_NBI = "destroy-inventory"
+ACT_SHOW_NBI = "show-inventory"
+# Multi-object actions
+ACT_DELETE_OBJECTS = "delete-listrange"
+ACT_EVICT_OBJECTS = "evict-listrange"
+ACT_PREFETCH_OBJECTS = "prefetch-listrange"
+ACT_COPY_OBJECTS = "copy-listrange"
+ACT_TRANSFORM_OBJECTS = "etl-listrange"
+ACT_ARCHIVE_OBJECTS = "archive"
+# Job actions
+ACT_START = "start"
+# Multipart upload actions
+ACT_MPT_UPLOAD = "mpt-upload"
+ACT_MPT_COMPLETE = "mpt-complete"
+ACT_MPT_ABORT = "mpt-abort"
+
+# Defaults
+DEFAULT_CHUNK_SIZE = 32 * KIB
+DEFAULT_PARALLEL_CHUNK_SIZE = 8 * MIB
+DEFAULT_JOB_WAIT_TIMEOUT = 300
+DEFAULT_DSORT_WAIT_TIMEOUT = 300
+DEFAULT_DATASET_MAX_COUNT = 100000
+DEFAULT_JOB_POLL_TIME = 0.2
+DEFAULT_MAX_BUFFER_SIZE = 64 * KIB
+
+# ENCODING
+UTF_ENCODING = "utf-8"
+
+# Status Codes
+STATUS_ACCEPTED = 202
+STATUS_NO_CONTENT = 204
+STATUS_OK = 200
+STATUS_BAD_REQUEST = 400
+STATUS_UNAUTHORIZED = 401
+STATUS_FORBIDDEN = 403
+STATUS_PARTIAL_CONTENT = 206
+STATUS_REDIRECT_TMP = 307
+STATUS_REDIRECT_PERM = 301
+STATUS_INTERNAL_SERVER_ERROR = 500
+
+# Protocol
+HTTP = "http://"
+HTTPS = "https://"
+
+# Environment Variables
+AIS_CLIENT_CA = "AIS_CLIENT_CA"
+AIS_AUTHN_TOKEN = "AIS_AUTHN_TOKEN"
+AIS_CLIENT_CRT = "AIS_CRT"
+AIS_CLIENT_KEY = "AIS_CRT_KEY"
+AIS_READ_TIMEOUT = "AIS_READ_TIMEOUT"
+AIS_CONNECT_TIMEOUT = "AIS_CONNECT_TIMEOUT"
+AIS_MAX_CONN_POOL = "AIS_MAX_CONN_POOL"
+AIS_SKIP_VERIFY = "AIS_SKIP_VERIFY"
+AIS_DIRECT_PUT_CHUNK_SIZE = "AIS_DIRECT_PUT_CHUNK_SIZE"
+AIS_DIRECT_PUT_RETRIES = "AIS_DIRECT_PUT_RETRIES"
+
+# Content Constants
+LOREM = (
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod"
+    " tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim"
+    " veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea"
+    " commodo consequat."
+)
+DUIS = (
+    "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum"
+    " dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non"
+    " proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+    " Et harum quidem.."
+)
+
+# AWS Constants
+AWS_DEFAULT_REGION = "us-east-1"
+
+# Time constants
+NANOSECONDS_IN_SECOND = 1_000_000_000
+
+DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s: %(message)s"
+
+# Ref: https://www.rfc-editor.org/rfc/rfc7233#section-2.1
+BYTE_RANGE_PREFIX_LENGTH = 6
+
+# Custom seed (MLCG32)
+XX_HASH_SEED = 1103515245
+
+# Job Masked Field Constants
+# Ref:
+# ┌──────────────────────────────────────────┬───────────────┬──────────────────────────┐
+# │             bits 20 through 63           │ bits 10–19    │ bits 0–9                 │
+# │        CHANNEL_BUFFERED_COUNT (44 bits)  │ WORKER_COUNT  │ JOGGER_COUNT             │
+# └──────────────────────────────────────────┴───────────────┴──────────────────────────┘
+JOGGER_COUNT_BITS = 10
+WORKER_COUNT_BITS = 10
+CHANNEL_COUNT_BITS = 64 - (JOGGER_COUNT_BITS + WORKER_COUNT_BITS)
+
+# bit‐masks and shifts
+JOGGER_COUNT_MASK = (1 << JOGGER_COUNT_BITS) - 1
+WORKER_COUNT_SHIFT = JOGGER_COUNT_BITS
+WORKER_COUNT_MASK = ((1 << WORKER_COUNT_BITS) - 1) << WORKER_COUNT_SHIFT
+CHANNEL_COUNT_SHIFT = JOGGER_COUNT_BITS + WORKER_COUNT_BITS
+CHANNEL_COUNT_MASK = ((1 << CHANNEL_COUNT_BITS) - 1) << CHANNEL_COUNT_SHIFT
+
+# Multipart Decoder
+MULTIPART_MARKER = b"--"
+WIN_LINE_END = b"\r\n\r\n"
+UNIX_LINE_END = b"\n\n"
+
+# Batch (Get-Batch) API constants
+GB_MISSING_FILES_DIR = "__404__"
+
+# GetBatch (GB) API Constants (see api/ml.go and api/apc/ml.go)
+
+# MossIn/MossOut Constants
+GB_OBJNAME = "objname"
+GB_BCK = "bucket"
+GB_PROVIDER = "provider"
+GB_UNAME = "uname"
+GB_ARCHPATH = "archpath"
+GB_START = "start"
+GB_LENGTH = "length"
+GB_OPAQUE = "opaque"
+GB_ERR_MSG = "err_msg"
+GB_SIZE = "size"
+
+# MossReq Constants
+GB_IN = "in"
+GB_OUTPUT_FMT = "mime"
+GB_CONTINUE_ERR = "coer"
+GB_ONLY_OBJ_NAME = "onob"
+GB_STRM_GET = "strm"
+GB_COLOC = "coloc"
+
+# Colocation Query Param
+QPARAM_COLOC = "coloc"
+
+# MossResp structs
+GB_OUT = "out"
+GB_UUID = "uuid"
+
+# ASCII
+ASCII_CR = 13  # Carriage Return (CR)
+ASCII_LF = 10  # Line Feed (LF)
+ASCII_SPACE = 32  # Space
+ASCII_TAB = 9  # Tab
+
+WHITESPACE_CHARS = {ASCII_CR, ASCII_LF, ASCII_SPACE, ASCII_TAB}

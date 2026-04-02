@@ -1,0 +1,147 @@
+# Copyright 2018 The Nuclio Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+---
+name: Line magic before start code
+cells:
+  - a = 1
+  - b = 2
+  - |
+    %nuclio cmd ls ${HOME}
+  - |
+    # nuclio: start-code
+    c = 3
+  - d = 4
+---
+name: Line magic after start code
+cells:
+  - a = 1
+  - b = 2
+  - |
+    # nuclio: start-code
+    c = 3
+  - |
+    %nuclio cmd ls ${HOME}
+  - d = 4
+---
+name: Line magic after end code
+cells:
+  - a = 1
+  - b = 2
+  - |
+    # nuclio: end-code
+    c = 3
+  - |
+    %nuclio cmd ls ${HOME}
+  - d = 4
+---
+name: Line magic before end code
+cells:
+  - a = 1
+  - b = 2
+  - |
+    %nuclio cmd ls ${HOME}
+  - |
+    # nuclio: end-code
+    c = 3
+  - d = 4
+---
+name: Line magic with code
+cells:
+  - a = 1
+  - b = 2
+  - |
+    %nuclio cmd ls ${HOME}
+    c = 3
+  - |
+    # nuclio: end-code
+  - d = 4
+---
+name: Cell magic before start code
+cells:
+  - a = 1
+  - b = 2
+  - |
+    %%nuclio cmd ls ${HOME}
+  - |
+    # nuclio: start-code
+    c = 3
+  - d = 4
+---
+name: Cell magic after start code
+cells:
+  - a = 1
+  - b = 2
+  - |
+    # nuclio: start-code
+  - |
+    %%nuclio cmd ls ${HOME}
+    c = 3
+  - d = 4
+---
+name: Cell magic after end code
+cells:
+  - a = 1
+  - b = 2
+  - |
+    # nuclio: end-code
+  - |
+    %%nuclio cmd ls ${HOME}
+  - d = 4
+---
+name: Cell magic before end code
+cells:
+  - a = 1
+  - b = 2
+  - |
+    %%nuclio cmd ls ${HOME}
+  - |
+    # nuclio: end-code
+  - d = 4
+---
+name: Cell magic before end code in cell
+cells:
+  - a = 1
+  - b = 2
+  - |
+    %%nuclio cmd ls ${HOME}
+    # nuclio: end-code
+  - d = 4
+---
+name: Cell magic before start code in cell
+cells:
+  - a = 1
+  - b = 2
+  - |
+    %%nuclio cmd ls ${HOME}
+    # nuclio: start-code
+  - d = 4
+---
+name: Cell magic after end code in cell
+cells:
+  - a = 1
+  - b = 2
+  - |
+    # nuclio: end-code
+    %%nuclio cmd ls ${HOME}
+  - d = 4
+---
+name: Cell magic after start code in cell
+cells:
+  - a = 1
+  - b = 2
+  - |
+    # nuclio: start-code
+    %%nuclio cmd ls ${HOME}
+  - d = 4

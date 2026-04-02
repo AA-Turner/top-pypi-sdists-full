@@ -24,6 +24,9 @@ from rich.text import Text
 from plato.chronos.api.registry import (
     get_agent_schema_api_registry_agents__agent_name__schema_get as get_agent_schema_api,
 )
+from plato.chronos.api.registry import (
+    get_world_schema_api_registry_worlds__package_name__schema_get as get_world_schema_api,
+)
 from plato.chronos.api.sessions import complete_session, create_session, link_plato_session
 from plato.chronos.models import (
     CompleteSessionRequest,
@@ -39,7 +42,7 @@ from plato.cli.chronos.dev.profiling import StartupProfiler
 from plato.cli.chronos.dev.ssh import SSHKeyPair
 from plato.cli.chronos.dev.sync import SyncManager
 from plato.cli.chronos.provision import provision_vm
-from plato.cli.chronos.registry import get_world_schema, parse_package_string
+from plato.cli.chronos.registry import parse_package_string
 from plato.cli.chronos.settings import get_settings
 from plato.utils.pypi_index import plato_token_simple_index
 
@@ -119,6 +122,7 @@ async def resolve_agent_images(config: dict, api_key: str | None = None) -> None
             image = await _fetch_agent_image_from_registry(package, version, api_key)
             if image:
                 agent["image"] = image
+                logger.info(f"Resolved agent '{name}': {package}:{version or 'latest'} -> {image}")
             else:
                 raise ValueError(f"Could not resolve image for agent '{name}' (package={package})")
 
@@ -220,12 +224,22 @@ class DevRunner:
 
                         async def _fetch_schema():
                             with self._startup_profiler.time("setup.images.fetch_world_schema"):
-                                world_schema = await get_world_schema(
-                                    world_package, world_version, self.config.world.world_name
-                                )
-                            self.world_image = world_schema.get("image", "")
+                                async with httpx.AsyncClient(
+                                    base_url=settings.chronos_url.rstrip("/"),
+                                    timeout=30.0,
+                                ) as client:
+                                    world_schema = await get_world_schema_api.asyncio(
+                                        client,
+                                        package_name=world_package,
+                                        version=world_version,
+                                        world_name=self.config.world.world_name,
+                                    )
+                            self.world_image = world_schema.image or ""
                             if not self.world_image:
                                 raise ValueError(f"No image found in schema for {world_package}")
+                            logger.info(
+                                f"Resolved world: {world_package}:{world_schema.version} (image={self.world_image})"
+                            )
                             status.update("  Verifying images...")
                             with self._startup_profiler.time("setup.images.ensure_ecr"):
                                 await self._ensure_images()

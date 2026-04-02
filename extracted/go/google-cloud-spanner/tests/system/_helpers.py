@@ -17,14 +17,13 @@ import os
 import time
 
 from google.api_core import exceptions
+from test_utils import retry, system
+
 from google.cloud.spanner_v1 import instance as instance_mod
 from tests import _fixtures
-from test_utils import retry
-from test_utils import system
-
 
 CREATE_INSTANCE_ENVVAR = "GOOGLE_CLOUD_TESTS_CREATE_SPANNER_INSTANCE"
-CREATE_INSTANCE = os.getenv(CREATE_INSTANCE_ENVVAR) is not None
+CREATE_INSTANCE = os.getenv(CREATE_INSTANCE_ENVVAR, "false").lower() == "true"
 
 INSTANCE_ID_ENVVAR = "GOOGLE_CLOUD_TESTS_SPANNER_INSTANCE"
 INSTANCE_ID_DEFAULT = "google-cloud-python-systest"
@@ -60,7 +59,14 @@ USE_EXPERIMENTAL_HOST_ENVVAR = "SPANNER_EXPERIMENTAL_HOST"
 EXPERIMENTAL_HOST = os.getenv(USE_EXPERIMENTAL_HOST_ENVVAR)
 USE_EXPERIMENTAL_HOST = EXPERIMENTAL_HOST is not None
 
-EXPERIMENTAL_HOST_PROJECT = "default"
+CA_CERTIFICATE_ENVVAR = "CA_CERTIFICATE"
+CA_CERTIFICATE = os.getenv(CA_CERTIFICATE_ENVVAR)
+CLIENT_CERTIFICATE_ENVVAR = "CLIENT_CERTIFICATE"
+CLIENT_CERTIFICATE = os.getenv(CLIENT_CERTIFICATE_ENVVAR)
+CLIENT_KEY_ENVVAR = "CLIENT_KEY"
+CLIENT_KEY = os.getenv(CLIENT_KEY_ENVVAR)
+USE_PLAIN_TEXT = CA_CERTIFICATE is None
+
 EXPERIMENTAL_HOST_INSTANCE = "default"
 
 DDL_STATEMENTS = (

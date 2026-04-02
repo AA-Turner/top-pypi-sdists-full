@@ -1,3 +1,0 @@
-name: adadelta
-args:
-  lr: 0.00001

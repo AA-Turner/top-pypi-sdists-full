@@ -1,0 +1,251 @@
+Metadata-Version: 2.4
+Name: wpipe
+Version: 1.0.0
+Summary: Pipeline library with API integration for task orchestration and execution tracking
+Project-URL: Homepage, https://github.com/wisrovi/wpipe
+Project-URL: Documentation, https://wpipe.readthedocs.io/en/latest/
+Project-URL: Repository, https://github.com/wisrovi/wpipe
+Project-URL: Issues, https://github.com/wisrovi/wpipe/issues
+Project-URL: Changelog, https://github.com/wisrovi/wpipe/blob/main/CHANGELOG.md
+Author-email: William Steve Rodriguez Villamizar <wisrovi.rodriguez@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2024 William Rodriguez
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Keywords: api,orchestration,pipeline,tasks,worker,workflow
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Requires-Dist: loguru>=0.7.0
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: pyyaml>=6.0.1
+Requires-Dist: requests>=2.31.0
+Requires-Dist: rich>=13.7.0
+Requires-Dist: tqdm>=4.66.0
+Provides-Extra: dev
+Requires-Dist: black>=23.0.0; extra == 'dev'
+Requires-Dist: mypy>=1.7.0; extra == 'dev'
+Requires-Dist: pytest-cov>=4.1.0; extra == 'dev'
+Requires-Dist: pytest>=7.4.0; extra == 'dev'
+Requires-Dist: ruff>=0.1.0; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: myst-parser>=2.0.0; extra == 'docs'
+Requires-Dist: sphinx-copybutton>=0.5.0; extra == 'docs'
+Requires-Dist: sphinx-design>=0.5.0; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme>=2.0.0; extra == 'docs'
+Requires-Dist: sphinx-sitemap>=2.5.0; extra == 'docs'
+Requires-Dist: sphinx>=7.2.0; extra == 'docs'
+Description-Content-Type: text/markdown
+
+# wpipe - Pipeline Library
+
+[![PyPI version](https://badge.fury.io/py/wpipe.svg)](https://badge.fury.io/py/wpipe)
+[![Python versions](https://img.shields.io/pypi/pyversions/wpipe.svg)](https://pypi.org/project/wpipe/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![LTS](https://img.shields.io/badge/LTS-1.0.0-green.svg)](CHANGELOG.md)
+[![Tests](https://github.com/wisrovi/wpipe/actions/workflows/python-publish.yml/badge.svg)](https://github.com/wisrovi/wpipe/actions)
+
+> **Long Term Support (LTS)**: Version 1.0.0 is the first LTS release with comprehensive examples, type hints, and documentation.
+
+A Python library for creating and executing **sequential** data processing pipelines with task orchestration and API integration.
+
+**Purpose**: Process data through a chain of steps where each step receives output from the previous one. NOT designed for streaming/chunking large datasets - data should fit in memory.
+
+## Features
+
+- **Pipeline Orchestration**: Create pipelines with step functions and classes
+- **Conditional Branches**: Execute different paths based on data conditions
+- **Retry Logic**: Automatic retries for failed steps with configurable parameters
+- **API Integration**: Connect to external APIs for tracking and monitoring
+- **Worker Management**: Register workers and perform health checks
+- **SQLite Storage**: Persist pipeline execution results
+- **YAML Configuration**: Load and manage configurations
+- **Error Handling**: Robust error handling with custom exceptions
+- **Progress Tracking**: Visual progress with rich terminal output
+- **Nested Pipelines**: Compose complex workflows
+
+## Installation
+
+```bash
+pip install wpipe
+```
+
+## Quick Start
+
+```python
+from wpipe import Pipeline
+
+def step1(data):
+    return {"result": data["x"] * 2}
+
+def step2(data):
+    return {"final": data["result"] + 10}
+
+pipeline = Pipeline(verbose=True)
+pipeline.set_steps([
+    (step1, "Step 1", "v1.0"),
+    (step2, "Step 2", "v1.0"),
+])
+
+result = pipeline.run({"x": 5})
+# result = {'result': 10, 'final': 20}
+```
+
+## Retry Logic
+
+Configure automatic retries for unstable steps:
+
+```python
+from wpipe import Pipeline
+
+def unstable_api_call(data):
+    # May fail occasionally
+    return {"data": "success"}
+
+pipeline = Pipeline(
+    verbose=True,
+    max_retries=3,
+    retry_delay=1.0,
+    retry_on_exceptions=(ConnectionError, TimeoutError),
+)
+
+pipeline.set_steps([
+    (unstable_api_call, "API Call", "v1.0"),
+])
+```
+
+## Conditional Pipelines
+
+Execute different branches based on data conditions:
+
+```python
+from wpipe import Pipeline, Condition
+
+def fetch_data(data):
+    return {"data_type": "A", "value": 100}
+
+def process_type_a(data):
+    return {"processed": data["value"] * 2}
+
+def process_type_b(data):
+    return {"processed": data["value"] + 50}
+
+pipeline = Pipeline(verbose=True)
+
+condition = Condition(
+    expression="data_type == 'A'",
+    branch_true=[(process_type_a, "Process A", "v1.0")],
+    branch_false=[(process_type_b, "Process B", "v1.0")],
+)
+
+pipeline.set_steps([
+    (fetch_data, "Fetch", "v1.0"),
+    condition,
+])
+```
+
+## Examples
+
+| Folder | Description |
+|--------|-------------|
+| `basic_pipeline/` | Basic pipeline execution |
+| `conditional_pipeline/` | Conditional branching pipelines |
+| `retry_pipeline/` | Pipelines with retry logic |
+| `api_pipeline/` | Pipeline with API connectivity |
+| `error_handling/` | Error handling patterns |
+| `nested_pipelines/` | Nested pipeline execution |
+| `sqlite_integration/` | SQLite database integration |
+| `yaml_config/` | YAML configuration utilities |
+| `microservice/` | Microservice architecture |
+
+## Running Examples
+
+```bash
+# Basic pipeline
+python examples/basic_pipeline/example_01_basic.py
+
+# Conditional pipeline
+python examples/conditional_pipeline/main.py
+
+# Retry pipeline
+python examples/retry_pipeline/main.py
+
+# API pipeline (requires API server)
+python examples/api_pipeline/example_01_api.py
+```
+
+## Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=wpipe --cov-report=html
+
+# Lint
+ruff check wpipe/
+
+# Type check
+mypy wpipe/
+```
+
+## Code Quality
+
+- **Pylint Score**: 9.47/10
+- **Tests**: 84 passing
+- **Python Support**: 3.9, 3.10, 3.11, 3.12, 3.13
+
+## Architecture
+
+```
+wpipe/
+├── pipe/           # Pipeline and Condition implementation
+├── api_client/    # API communication
+├── sqlite/        # Database operations
+├── log/          # Logging utilities
+├── ram/          # Memory utilities
+├── util/         # YAML utilities
+└── exception/    # Custom exceptions
+```
+
+## Documentation
+
+- [Documentation](https://wpipe.readthedocs.io/) - Full API reference
+- [Changelog](CHANGELOG.md) - Release notes and version history
+- [Examples](examples/) - 100+ examples organized by functionality
+
+## License
+
+MIT License - See LICENSE file
+
+## Author
+
+William Steve Rodriguez Villamizar

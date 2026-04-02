@@ -31,6 +31,7 @@ class TimeSeriesDatabaseConnectionArgs:
                  name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a TimeSeriesDatabaseConnection resource.
+
         :param pulumi.Input[_builtins.str] digital_twins_id: The ID of the Digital Twins. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] eventhub_name: Name of the Event Hub. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] eventhub_namespace_endpoint_uri: URI of the Event Hub Namespace. Changing this forces a new resource to be created.
@@ -192,6 +193,7 @@ class _TimeSeriesDatabaseConnectionState:
                  name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering TimeSeriesDatabaseConnection resources.
+
         :param pulumi.Input[_builtins.str] digital_twins_id: The ID of the Digital Twins. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] eventhub_consumer_group_name: Name of the Event Hub Consumer Group. Changing this forces a new resource to be created. Defaults to `$Default`.
         :param pulumi.Input[_builtins.str] eventhub_name: Name of the Event Hub. Changing this forces a new resource to be created.
@@ -388,8 +390,7 @@ class TimeSeriesDatabaseConnection(pulumi.CustomResource):
             sku="Standard")
         example_event_hub = azure.eventhub.EventHub("example",
             name="exampleEventHub",
-            namespace_name=example_event_hub_namespace.name,
-            resource_group_name=example.name,
+            namespace_id=example_event_hub_namespace.id,
             partition_count=2,
             message_retention=7)
         example_consumer_group = azure.eventhub.ConsumerGroup("example",
@@ -459,6 +460,7 @@ class TimeSeriesDatabaseConnection(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:digitaltwins/timeSeriesDatabaseConnection:TimeSeriesDatabaseConnection example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.DigitalTwins/digitalTwinsInstances/dt1/timeSeriesDatabaseConnections/connection1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -505,8 +507,7 @@ class TimeSeriesDatabaseConnection(pulumi.CustomResource):
             sku="Standard")
         example_event_hub = azure.eventhub.EventHub("example",
             name="exampleEventHub",
-            namespace_name=example_event_hub_namespace.name,
-            resource_group_name=example.name,
+            namespace_id=example_event_hub_namespace.id,
             partition_count=2,
             message_retention=7)
         example_consumer_group = azure.eventhub.ConsumerGroup("example",
@@ -576,6 +577,7 @@ class TimeSeriesDatabaseConnection(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:digitaltwins/timeSeriesDatabaseConnection:TimeSeriesDatabaseConnection example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.DigitalTwins/digitalTwinsInstances/dt1/timeSeriesDatabaseConnections/connection1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param TimeSeriesDatabaseConnectionArgs args: The arguments to use to populate this resource's properties.

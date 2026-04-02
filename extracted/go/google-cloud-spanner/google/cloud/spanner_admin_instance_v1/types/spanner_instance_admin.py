@@ -17,13 +17,12 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
+import google.longrunning.operations_pb2 as operations_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.spanner_admin_instance_v1.types import common
-from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-
 
 __protobuf__ = proto.module(
     package="google.spanner.admin.instance.v1",
@@ -122,6 +121,7 @@ class ReplicaInfo(proto.Message):
                 - Participate in leader election but are not eligible to
                   become leader.
         """
+
         TYPE_UNSPECIFIED = 0
         READ_WRITE = 1
         READ_ONLY = 2
@@ -261,6 +261,7 @@ class InstanceConfig(proto.Message):
             USER_MANAGED (2):
                 User-managed configuration.
         """
+
         TYPE_UNSPECIFIED = 0
         GOOGLE_MANAGED = 1
         USER_MANAGED = 2
@@ -278,6 +279,7 @@ class InstanceConfig(proto.Message):
                 The instance configuration is fully created
                 and ready to be used to create instances.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         READY = 2
@@ -305,6 +307,7 @@ class InstanceConfig(proto.Message):
                 because the project has reached its limit of
                 free instances.
         """
+
         FREE_INSTANCE_AVAILABILITY_UNSPECIFIED = 0
         AVAILABLE = 1
         UNSUPPORTED = 2
@@ -333,6 +336,7 @@ class InstanceConfig(proto.Message):
                 spread across more than one region in a multi-region
                 configuration.
         """
+
         QUORUM_TYPE_UNSPECIFIED = 0
         REGION = 1
         DUAL_REGION = 2
@@ -543,11 +547,24 @@ class AutoscalingConfig(proto.Message):
 
         Attributes:
             high_priority_cpu_utilization_percent (int):
-                Required. The target high priority cpu utilization
+                Optional. The target high priority cpu utilization
                 percentage that the autoscaler should be trying to achieve
                 for the instance. This number is on a scale from 0 (no
                 utilization) to 100 (full utilization). The valid range is
-                [10, 90] inclusive.
+                [10, 90] inclusive. If not specified or set to 0, the
+                autoscaler skips scaling based on high priority CPU
+                utilization.
+            total_cpu_utilization_percent (int):
+                Optional. The target total CPU utilization percentage that
+                the autoscaler should be trying to achieve for the instance.
+                This number is on a scale from 0 (no utilization) to 100
+                (full utilization). The valid range is [10, 90] inclusive.
+                If not specified or set to 0, the autoscaler skips scaling
+                based on total CPU utilization. If both
+                ``high_priority_cpu_utilization_percent`` and
+                ``total_cpu_utilization_percent`` are specified, the
+                autoscaler provisions the larger of the two required compute
+                capacities to satisfy both targets.
             storage_utilization_percent (int):
                 Required. The target storage utilization percentage that the
                 autoscaler should be trying to achieve for the instance.
@@ -558,6 +575,10 @@ class AutoscalingConfig(proto.Message):
         high_priority_cpu_utilization_percent: int = proto.Field(
             proto.INT32,
             number=1,
+        )
+        total_cpu_utilization_percent: int = proto.Field(
+            proto.INT32,
+            number=4,
         )
         storage_utilization_percent: int = proto.Field(
             proto.INT32,
@@ -594,6 +615,58 @@ class AutoscalingConfig(proto.Message):
                     Optional. If specified, overrides the autoscaling target
                     high_priority_cpu_utilization_percent in the top-level
                     autoscaling configuration for the selected replicas.
+                autoscaling_target_total_cpu_utilization_percent (int):
+                    Optional. If specified, overrides the autoscaling target
+                    ``total_cpu_utilization_percent`` in the top-level
+                    autoscaling configuration for the selected replicas.
+                disable_high_priority_cpu_autoscaling (bool):
+                    Optional. If true, disables high priority CPU autoscaling
+                    for the selected replicas and ignores
+                    [high_priority_cpu_utilization_percent][google.spanner.admin.instance.v1.AutoscalingConfig.AutoscalingTargets.high_priority_cpu_utilization_percent]
+                    in the top-level autoscaling configuration.
+
+                    When setting this field to true, setting
+                    [autoscaling_target_high_priority_cpu_utilization_percent][google.spanner.admin.instance.v1.AutoscalingConfig.AsymmetricAutoscalingOption.AutoscalingConfigOverrides.autoscaling_target_high_priority_cpu_utilization_percent]
+                    field to a non-zero value for the same replica is not
+                    supported.
+
+                    If false, the
+                    [autoscaling_target_high_priority_cpu_utilization_percent][google.spanner.admin.instance.v1.AutoscalingConfig.AsymmetricAutoscalingOption.AutoscalingConfigOverrides.autoscaling_target_high_priority_cpu_utilization_percent]
+                    field in the replica will be used if set to a non-zero
+                    value. Otherwise, the
+                    [high_priority_cpu_utilization_percent][google.spanner.admin.instance.v1.AutoscalingConfig.AutoscalingTargets.high_priority_cpu_utilization_percent]
+                    field in the top-level autoscaling configuration will be
+                    used.
+
+                    Setting both
+                    [disable_high_priority_cpu_autoscaling][google.spanner.admin.instance.v1.AutoscalingConfig.AsymmetricAutoscalingOption.AutoscalingConfigOverrides.disable_high_priority_cpu_autoscaling]
+                    and
+                    [disable_total_cpu_autoscaling][google.spanner.admin.instance.v1.AutoscalingConfig.AsymmetricAutoscalingOption.AutoscalingConfigOverrides.disable_total_cpu_autoscaling]
+                    to true for the same replica is not supported.
+                disable_total_cpu_autoscaling (bool):
+                    Optional. If true, disables total CPU autoscaling for the
+                    selected replicas and ignores
+                    [total_cpu_utilization_percent][google.spanner.admin.instance.v1.AutoscalingConfig.AutoscalingTargets.total_cpu_utilization_percent]
+                    in the top-level autoscaling configuration.
+
+                    When setting this field to true, setting
+                    [autoscaling_target_total_cpu_utilization_percent][google.spanner.admin.instance.v1.AutoscalingConfig.AsymmetricAutoscalingOption.AutoscalingConfigOverrides.autoscaling_target_total_cpu_utilization_percent]
+                    field to a non-zero value for the same replica is not
+                    supported.
+
+                    If false, the
+                    [autoscaling_target_total_cpu_utilization_percent][google.spanner.admin.instance.v1.AutoscalingConfig.AsymmetricAutoscalingOption.AutoscalingConfigOverrides.autoscaling_target_total_cpu_utilization_percent]
+                    field in the replica will be used if set to a non-zero
+                    value. Otherwise, the
+                    [total_cpu_utilization_percent][google.spanner.admin.instance.v1.AutoscalingConfig.AutoscalingTargets.total_cpu_utilization_percent]
+                    field in the top-level autoscaling configuration will be
+                    used.
+
+                    Setting both
+                    [disable_high_priority_cpu_autoscaling][google.spanner.admin.instance.v1.AutoscalingConfig.AsymmetricAutoscalingOption.AutoscalingConfigOverrides.disable_high_priority_cpu_autoscaling]
+                    and
+                    [disable_total_cpu_autoscaling][google.spanner.admin.instance.v1.AutoscalingConfig.AsymmetricAutoscalingOption.AutoscalingConfigOverrides.disable_total_cpu_autoscaling]
+                    to true for the same replica is not supported.
             """
 
             autoscaling_limits: "AutoscalingConfig.AutoscalingLimits" = proto.Field(
@@ -604,6 +677,18 @@ class AutoscalingConfig(proto.Message):
             autoscaling_target_high_priority_cpu_utilization_percent: int = proto.Field(
                 proto.INT32,
                 number=2,
+            )
+            autoscaling_target_total_cpu_utilization_percent: int = proto.Field(
+                proto.INT32,
+                number=4,
+            )
+            disable_high_priority_cpu_autoscaling: bool = proto.Field(
+                proto.BOOL,
+                number=5,
+            )
+            disable_total_cpu_autoscaling: bool = proto.Field(
+                proto.BOOL,
+                number=6,
             )
 
         replica_selection: common.ReplicaSelection = proto.Field(
@@ -627,12 +712,12 @@ class AutoscalingConfig(proto.Message):
         number=2,
         message=AutoscalingTargets,
     )
-    asymmetric_autoscaling_options: MutableSequence[
-        AsymmetricAutoscalingOption
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=AsymmetricAutoscalingOption,
+    asymmetric_autoscaling_options: MutableSequence[AsymmetricAutoscalingOption] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=AsymmetricAutoscalingOption,
+        )
     )
 
 
@@ -790,6 +875,7 @@ class Instance(proto.Message):
                 The instance is fully created and ready to do
                 work such as creating databases.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         READY = 2
@@ -811,6 +897,7 @@ class Instance(proto.Message):
                 [node_count, processing_units] should be 0. They come with
                 stricter usage limits and limited support.
         """
+
         INSTANCE_TYPE_UNSPECIFIED = 0
         PROVISIONED = 1
         FREE_INSTANCE = 2
@@ -829,6 +916,7 @@ class Instance(proto.Message):
             ENTERPRISE_PLUS (3):
                 Enterprise Plus edition.
         """
+
         EDITION_UNSPECIFIED = 0
         STANDARD = 1
         ENTERPRISE = 2
@@ -855,6 +943,7 @@ class Instance(proto.Message):
                 delete the default backup schedule once it's
                 created.
         """
+
         DEFAULT_BACKUP_SCHEDULE_TYPE_UNSPECIFIED = 0
         NONE = 1
         AUTOMATIC = 2
@@ -879,12 +968,12 @@ class Instance(proto.Message):
         proto.INT32,
         number=9,
     )
-    replica_compute_capacity: MutableSequence[
-        "ReplicaComputeCapacity"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=19,
-        message="ReplicaComputeCapacity",
+    replica_compute_capacity: MutableSequence["ReplicaComputeCapacity"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=19,
+            message="ReplicaComputeCapacity",
+        )
     )
     autoscaling_config: "AutoscalingConfig" = proto.Field(
         proto.MESSAGE,
@@ -1623,6 +1712,7 @@ class FreeInstanceMetadata(proto.Message):
                 instance, and delete it after the grace period
                 passes if it has not been upgraded.
         """
+
         EXPIRE_BEHAVIOR_UNSPECIFIED = 0
         FREE_TO_PROVISIONED = 1
         REMOVE_AFTER_GRACE_PERIOD = 2
@@ -1828,6 +1918,7 @@ class InstancePartition(proto.Message):
                 ready to do work such as creating placements and
                 using in databases.
         """
+
         STATE_UNSPECIFIED = 0
         CREATING = 1
         READY = 2

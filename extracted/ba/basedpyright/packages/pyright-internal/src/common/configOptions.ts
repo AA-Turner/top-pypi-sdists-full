@@ -189,6 +189,9 @@ export interface DiagnosticRuleSet {
     // Report use of abstract method or variable?
     reportAbstractUsage: DiagnosticLevel;
 
+    // Report instantiation of abstract class with no abstract methods?
+    reportEmptyAbstractUsage: DiagnosticLevel;
+
     // Report argument type incompatibilities?
     reportArgumentType: DiagnosticLevel;
 
@@ -481,6 +484,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportDuplicateImport,
         DiagnosticRule.reportWildcardImportFromLibrary,
         DiagnosticRule.reportAbstractUsage,
+        DiagnosticRule.reportEmptyAbstractUsage,
         DiagnosticRule.reportArgumentType,
         DiagnosticRule.reportAssertTypeFailure,
         DiagnosticRule.reportAssignmentType,
@@ -617,6 +621,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportDuplicateImport: 'none',
         reportWildcardImportFromLibrary: 'none',
         reportAbstractUsage: 'none',
+        reportEmptyAbstractUsage: 'none',
         reportArgumentType: 'none',
         reportAssertTypeFailure: 'none',
         reportAssignmentType: 'none',
@@ -818,6 +823,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleUnannotatedOverride: 'none',
         reportInvalidAbstractMethod: 'none',
         reportSelfClsDefault: 'none',
+        reportEmptyAbstractUsage: 'none',
         allowedUntypedLibraries: [],
     };
 
@@ -938,6 +944,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleUnannotatedOverride: 'none',
         reportInvalidAbstractMethod: 'none',
         reportSelfClsDefault: 'none',
+        reportEmptyAbstractUsage: 'none',
         allowedUntypedLibraries: [],
     };
 
@@ -1057,6 +1064,7 @@ export const getRecommendedDiagnosticRuleSet = (): DiagnosticRuleSet => ({
     reportIncompatibleUnannotatedOverride: 'none', // TODO: change to error when we're confident there's no performance issues with this rule
     reportInvalidAbstractMethod: 'warning',
     reportSelfClsDefault: 'warning',
+    reportEmptyAbstractUsage: 'warning',
     allowedUntypedLibraries: [],
 });
 
@@ -1173,6 +1181,7 @@ export const getAllDiagnosticRuleSet = (): DiagnosticRuleSet => ({
     reportIncompatibleUnannotatedOverride: 'error',
     reportInvalidAbstractMethod: 'error',
     reportSelfClsDefault: 'error',
+    reportEmptyAbstractUsage: 'error',
     allowedUntypedLibraries: [],
 });
 
@@ -1290,6 +1299,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportIncompatibleUnannotatedOverride: 'none',
         reportInvalidAbstractMethod: 'none',
         reportSelfClsDefault: 'none',
+        reportEmptyAbstractUsage: 'none',
         allowedUntypedLibraries: [],
     };
 

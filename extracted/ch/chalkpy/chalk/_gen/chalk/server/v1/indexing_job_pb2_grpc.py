@@ -20,6 +20,11 @@ class IndexingJobServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingJobStatusRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingJobStatusResponse.FromString,
         )
+        self.GetIndexingExport = channel.unary_unary(
+            "/chalk.server.v1.IndexingJobService/GetIndexingExport",
+            request_serializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingExportRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingExportResponse.FromString,
+        )
         self.CancelIndexingJob = channel.unary_unary(
             "/chalk.server.v1.IndexingJobService/CancelIndexingJob",
             request_serializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.CancelIndexingJobRequest.SerializeToString,
@@ -32,6 +37,12 @@ class IndexingJobServiceServicer(object):
 
     def GetIndexingJobStatus(self, request, context):
         """GetIndexingStatus checks if the indexing job has completed successfully for a deployment"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetIndexingExport(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -49,6 +60,11 @@ def add_IndexingJobServiceServicer_to_server(servicer, server):
             servicer.GetIndexingJobStatus,
             request_deserializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingJobStatusRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingJobStatusResponse.SerializeToString,
+        ),
+        "GetIndexingExport": grpc.unary_unary_rpc_method_handler(
+            servicer.GetIndexingExport,
+            request_deserializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingExportRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingExportResponse.SerializeToString,
         ),
         "CancelIndexingJob": grpc.unary_unary_rpc_method_handler(
             servicer.CancelIndexingJob,
@@ -83,6 +99,35 @@ class IndexingJobService(object):
             "/chalk.server.v1.IndexingJobService/GetIndexingJobStatus",
             chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingJobStatusRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingJobStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetIndexingExport(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.IndexingJobService/GetIndexingExport",
+            chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingExportRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_indexing__job__pb2.GetIndexingExportResponse.FromString,
             options,
             channel_credentials,
             insecure,

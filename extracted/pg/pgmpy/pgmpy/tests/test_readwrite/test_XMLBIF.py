@@ -1,11 +1,13 @@
 import os
+import tempfile
 import unittest
-import xml.etree.ElementTree as etree
+from unittest.mock import patch
 
 import numpy as np
 import numpy.testing as np_test
+from skbase.utils.dependencies import _check_soft_dependencies
 
-from pgmpy import config
+from pgmpy import config, logger
 from pgmpy.factors.discrete import TabularCPD
 from pgmpy.models import DiscreteBayesianNetwork
 from pgmpy.readwrite import XMLBIFReader, XMLBIFWriter
@@ -208,6 +210,26 @@ class TestXMLBIFReaderMethods(unittest.TestCase):
     def tearDown(self):
         del self.reader
 
+    def test_make_valid_state_name(self):
+        model = DiscreteBayesianNetwork()
+        writer = XMLBIFWriter(model)
+
+        valid_state = "valid_state"
+        self.assertEqual(writer._make_valid_state_name(valid_state), valid_state)
+
+        with patch.object(logger, "warning") as mock_warning:
+            invalid_state = "invalid-state@123"
+            expected_fixed = "invalid_state_123"
+            result = writer._make_valid_state_name(invalid_state)
+
+            self.assertEqual(result, expected_fixed)
+            mock_warning.assert_called_once()
+            warning_msg = mock_warning.call_args[0][0]
+            self.assertIn(
+                f"State name '{invalid_state}' has been modified to '{expected_fixed}'",
+                warning_msg,
+            )
+
 
 class TestXMLBIFReaderMethodsFile(unittest.TestCase):
     def setUp(self):
@@ -301,9 +323,7 @@ class TestXMLBIFWriterMethodsString(unittest.TestCase):
         self.expected_model = reader.get_model()
         self.writer = XMLBIFWriter(self.expected_model)
 
-        self.model_stateless = DiscreteBayesianNetwork(
-            [("D", "G"), ("I", "G"), ("G", "L"), ("I", "S")]
-        )
+        self.model_stateless = DiscreteBayesianNetwork([("D", "G"), ("I", "G"), ("G", "L"), ("I", "S")])
         self.cpd_d = TabularCPD(variable="D", variable_card=2, values=[[0.6], [0.4]])
         self.cpd_i = TabularCPD(variable="I", variable_card=2, values=[[0.7], [0.3]])
 
@@ -335,14 +355,12 @@ class TestXMLBIFWriterMethodsString(unittest.TestCase):
             evidence_card=[2],
         )
 
-        self.model_stateless.add_cpds(
-            self.cpd_d, self.cpd_i, self.cpd_g, self.cpd_l, self.cpd_s
-        )
+        self.model_stateless.add_cpds(self.cpd_d, self.cpd_i, self.cpd_g, self.cpd_l, self.cpd_s)
         self.writer_stateless = XMLBIFWriter(self.model_stateless)
 
     def test_write_xmlbif_statefull(self):
         self.writer.write_xmlbif("dog_problem_output.xbif")
-        with open("dog_problem_output.xbif", "r") as f:
+        with open("dog_problem_output.xbif") as f:
             file_text = f.read()
         reader = XMLBIFReader(string=file_text)
         model = reader.get_model(state_name_type=str)
@@ -351,7 +369,7 @@ class TestXMLBIFWriterMethodsString(unittest.TestCase):
 
     def test_write_xmlbif_stateless(self):
         self.writer_stateless.write_xmlbif("grade_problem_output.xbif")
-        with open("grade_problem_output.xbif", "r") as f:
+        with open("grade_problem_output.xbif") as f:
             reader = XMLBIFReader(f)
         model = reader.get_model(state_name_type=int)
         self.assert_models_equivelent(self.model_stateless, model)
@@ -361,14 +379,16 @@ class TestXMLBIFWriterMethodsString(unittest.TestCase):
     def assert_models_equivelent(self, expected, got):
         self.assertSetEqual(set(expected.nodes()), set(got.nodes()))
         for node in expected.nodes():
-            self.assertListEqual(
-                sorted(expected.get_parents(node)), sorted(got.get_parents(node))
-            )
+            self.assertListEqual(sorted(expected.get_parents(node)), sorted(got.get_parents(node)))
             cpds_expected = expected.get_cpds(node=node)
             cpds_got = got.get_cpds(node=node)
             self.assertEqual(cpds_expected, cpds_got)
 
 
+@unittest.skipUnless(
+    _check_soft_dependencies("torch", severity="none"),
+    reason="execute only if required dependency present",
+)
 class TestXMLBIFReaderMethodsTorch(unittest.TestCase):
     def setUp(self):
         config.set_backend("torch")
@@ -455,6 +475,10 @@ class TestXMLBIFReaderMethodsTorch(unittest.TestCase):
         config.set_backend("numpy")
 
 
+@unittest.skipUnless(
+    _check_soft_dependencies("torch", severity="none"),
+    reason="execute only if required dependency present",
+)
 class TestXMLBIFReaderMethodsFileTorch(unittest.TestCase):
     def setUp(self):
         config.set_backend("torch")
@@ -544,7 +568,11 @@ class TestXMLBIFReaderMethodsFileTorch(unittest.TestCase):
         config.set_backend("numpy")
 
 
-class TestXMLBIFWriterMethodsString(unittest.TestCase):
+@unittest.skipUnless(
+    _check_soft_dependencies("torch", severity="none"),
+    reason="execute only if required dependency present",
+)
+class TestXMLBIFWriterMethodsStringTorch(unittest.TestCase):
     def setUp(self):
         config.set_backend("torch")
 
@@ -552,9 +580,7 @@ class TestXMLBIFWriterMethodsString(unittest.TestCase):
         self.expected_model = reader.get_model()
         self.writer = XMLBIFWriter(self.expected_model)
 
-        self.model_stateless = DiscreteBayesianNetwork(
-            [("D", "G"), ("I", "G"), ("G", "L"), ("I", "S")]
-        )
+        self.model_stateless = DiscreteBayesianNetwork([("D", "G"), ("I", "G"), ("G", "L"), ("I", "S")])
         self.cpd_d = TabularCPD(variable="D", variable_card=2, values=[[0.6], [0.4]])
         self.cpd_i = TabularCPD(variable="I", variable_card=2, values=[[0.7], [0.3]])
 
@@ -586,14 +612,12 @@ class TestXMLBIFWriterMethodsString(unittest.TestCase):
             evidence_card=[2],
         )
 
-        self.model_stateless.add_cpds(
-            self.cpd_d, self.cpd_i, self.cpd_g, self.cpd_l, self.cpd_s
-        )
+        self.model_stateless.add_cpds(self.cpd_d, self.cpd_i, self.cpd_g, self.cpd_l, self.cpd_s)
         self.writer_stateless = XMLBIFWriter(self.model_stateless)
 
     def test_write_xmlbif_statefull(self):
         self.writer.write_xmlbif("dog_problem_output.xbif")
-        with open("dog_problem_output.xbif", "r") as f:
+        with open("dog_problem_output.xbif") as f:
             file_text = f.read()
         reader = XMLBIFReader(string=file_text)
         model = reader.get_model(state_name_type=str)
@@ -602,7 +626,7 @@ class TestXMLBIFWriterMethodsString(unittest.TestCase):
 
     def test_write_xmlbif_stateless(self):
         self.writer_stateless.write_xmlbif("grade_problem_output.xbif")
-        with open("grade_problem_output.xbif", "r") as f:
+        with open("grade_problem_output.xbif") as f:
             reader = XMLBIFReader(f)
         model = reader.get_model(state_name_type=int)
         self.assert_models_equivelent(self.model_stateless, model)
@@ -612,12 +636,57 @@ class TestXMLBIFWriterMethodsString(unittest.TestCase):
     def assert_models_equivelent(self, expected, got):
         self.assertSetEqual(set(expected.nodes()), set(got.nodes()))
         for node in expected.nodes():
-            self.assertListEqual(
-                sorted(expected.get_parents(node)), sorted(got.get_parents(node))
-            )
+            self.assertListEqual(sorted(expected.get_parents(node)), sorted(got.get_parents(node)))
             cpds_expected = expected.get_cpds(node=node)
             cpds_got = got.get_cpds(node=node)
             self.assertEqual(cpds_expected, cpds_got)
+
+    def test_comma_state_name_warning(self):
+        # Create a simple model with state names containing commas
+        model = DiscreteBayesianNetwork([("A", "B")])
+        cpd_a = TabularCPD(
+            variable="A",
+            variable_card=2,
+            values=[[0.5], [0.5]],
+            state_names={"A": ["state,1", "state,2"]},
+        )
+        cpd_b = TabularCPD(
+            variable="B",
+            variable_card=2,
+            values=[[0.6, 0.4], [0.4, 0.6]],
+            evidence=["A"],
+            evidence_card=[2],
+            state_names={"B": ["yes", "no"], "A": ["state,1", "state,2"]},
+        )
+        model.add_cpds(cpd_a, cpd_b)
+
+        # Test that warning is raised when writing
+        with tempfile.NamedTemporaryFile(suffix=".xmlbif", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            with self.assertLogs("pgmpy", level="WARNING") as cm:
+                writer = XMLBIFWriter(model)
+                writer.write_xmlbif(tmp_path)
+
+                # Verify the warning was logged with the correct variable name
+                self.assertTrue(
+                    any("State name 'state,1' for variable 'A' contains commas" in msg for msg in cm.output),
+                    f"Expected warning about commas in state names, got: {cm.output}",
+                )
+
+            # The file should still be loadable but with modified state names
+            reader = XMLBIFReader(tmp_path)
+            loaded_model = reader.get_model()
+
+            # Check that the state names were modified to be valid XMLBIF identifiers
+            # Commas should be replaced with underscores, but no leading underscore needed
+            self.assertEqual(loaded_model.get_cpds("A").state_names["A"], ["state_1", "state_2"])
+            self.assertEqual(loaded_model.get_cpds("B").state_names["A"], ["state_1", "state_2"])
+            self.assertEqual(loaded_model.get_cpds("B").state_names["B"], ["yes", "no"])
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
     def tearDown(self):
         config.set_backend("numpy")

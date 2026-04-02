@@ -11,6 +11,11 @@ Usage::
     from boto3.session import Session
     from mypy_boto3_ecs import (
         Client,
+        DaemonActiveWaiter,
+        DaemonDeploymentStoppedWaiter,
+        DaemonDeploymentSuccessfulWaiter,
+        DaemonTaskDefinitionActiveWaiter,
+        DaemonTaskDefinitionDeletedWaiter,
         ECSClient,
         ListAccountSettingsPaginator,
         ListAttributesPaginator,
@@ -30,6 +35,11 @@ Usage::
     session = Session()
     client: ECSClient = session.client("ecs")
 
+    daemon_active_waiter: DaemonActiveWaiter = client.get_waiter("daemon_active")
+    daemon_deployment_stopped_waiter: DaemonDeploymentStoppedWaiter = client.get_waiter("daemon_deployment_stopped")
+    daemon_deployment_successful_waiter: DaemonDeploymentSuccessfulWaiter = client.get_waiter("daemon_deployment_successful")
+    daemon_task_definition_active_waiter: DaemonTaskDefinitionActiveWaiter = client.get_waiter("daemon_task_definition_active")
+    daemon_task_definition_deleted_waiter: DaemonTaskDefinitionDeletedWaiter = client.get_waiter("daemon_task_definition_deleted")
     services_inactive_waiter: ServicesInactiveWaiter = client.get_waiter("services_inactive")
     services_stable_waiter: ServicesStableWaiter = client.get_waiter("services_stable")
     tasks_running_waiter: TasksRunningWaiter = client.get_waiter("tasks_running")
@@ -60,6 +70,11 @@ from .paginator import (
     ListTasksPaginator,
 )
 from .waiter import (
+    DaemonActiveWaiter,
+    DaemonDeploymentStoppedWaiter,
+    DaemonDeploymentSuccessfulWaiter,
+    DaemonTaskDefinitionActiveWaiter,
+    DaemonTaskDefinitionDeletedWaiter,
     ServicesInactiveWaiter,
     ServicesStableWaiter,
     TasksRunningWaiter,
@@ -71,6 +86,11 @@ Client = ECSClient
 
 __all__ = (
     "Client",
+    "DaemonActiveWaiter",
+    "DaemonDeploymentStoppedWaiter",
+    "DaemonDeploymentSuccessfulWaiter",
+    "DaemonTaskDefinitionActiveWaiter",
+    "DaemonTaskDefinitionDeletedWaiter",
     "ECSClient",
     "ListAccountSettingsPaginator",
     "ListAttributesPaginator",

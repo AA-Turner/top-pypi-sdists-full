@@ -1,0 +1,84 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "5 1 * * *" # every day at 01:05
+  workflow_dispatch:
+
+env:
+  FORCE_COLOR: "1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    timeout-minutes: 30
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        pyv: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        include:
+          - {os: ubuntu-latest, pyv: "pypy3.11"}
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.pyv }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.pyv }}
+
+      - name: Upgrade pip and nox
+        run: |
+          python -m pip install --upgrade pip nox
+          pip --version
+          nox --version
+
+      - name: Lint code
+        if: ${{ !startsWith(matrix.pyv, 'pypy') }}
+        run: nox -s lint
+
+      # https://github.com/iterative/pytest-servers/pull/122
+      # https://github.com/abiosoft/colima/issues/468
+      # https://github.com/abiosoft/colima/blob/main/docs/FAQ.md#cannot-connect-to-the-docker-daemon-at-unixvarrundockersock-is-the-docker-daemon-running
+      # colima v0.5.6 seems to run more stable than the latest - that has occasional network failures (ports are not open)
+      # see: https://github.com/abiosoft/colima/issues/962
+      - name: Use colima as default docker host on MacOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install qemu
+          brew install lima-additional-guestagents
+          brew install docker lima || true # avoid non-zero exit code if brew link fails
+          sudo curl -L -o /usr/local/bin/colima https://github.com/abiosoft/colima/releases/download/v0.5.6/colima-Darwin-x86_64
+          sudo chmod +x /usr/local/bin/colima
+          colima start
+          sudo ln -vsf "${HOME}"/.colima/default/docker.sock /var/run/docker.sock
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: true
+          HOMEBREW_NO_INSTALL_CLEANUP: true
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: true
+          HOMEBREW_NO_INSTALL_UPGRADE: true
+
+      - name: Run tests
+        id: tests
+        run: nox -s tests-${{ matrix.pyv }}
+        continue-on-error: ${{ matrix.os == 'macos-latest' }}
+        env:
+          COVERAGE_XML: true
+
+      - name: Upload coverage report
+        if: steps.tests.outcome  == 'success'
+        uses: codecov/codecov-action@v5
+
+      - name: Build package
+        run: nox -s build

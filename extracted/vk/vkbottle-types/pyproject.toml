@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "vkbottle-types"
 description = "VK API methods & types for vkbottle."
 license = "MIT"
-version = "5.199.99.16"
+version = "5.199.99.17"
 authors = [{name = "timoniq"}]
 readme = "README.md"
 requires-python = ">=3.10,<4.0"

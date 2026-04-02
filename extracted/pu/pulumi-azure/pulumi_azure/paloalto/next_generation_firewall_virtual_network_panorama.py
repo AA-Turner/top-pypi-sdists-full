@@ -33,6 +33,7 @@ class NextGenerationFirewallVirtualNetworkPanoramaArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a NextGenerationFirewallVirtualNetworkPanorama resource.
+
         :param pulumi.Input['NextGenerationFirewallVirtualNetworkPanoramaNetworkProfileArgs'] network_profile: A `network_profile` block as defined below.
         :param pulumi.Input[_builtins.str] panorama_base64_config: The base64 encoded configuration registration string as defined by your Panorama Server for your Cloud Device Group.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the Resource Group where the Palo Alto Next Generation Firewall Virtual Network Panorama should exist. Changing this forces a new Palo Alto Next Generation Firewall Virtual Network Panorama to be created.
@@ -203,6 +204,7 @@ class _NextGenerationFirewallVirtualNetworkPanoramaState:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering NextGenerationFirewallVirtualNetworkPanorama resources.
+
         :param pulumi.Input[Sequence[pulumi.Input['NextGenerationFirewallVirtualNetworkPanoramaDestinationNatArgs']]] destination_nats: One or more `destination_nat` blocks as defined below.
         :param pulumi.Input['NextGenerationFirewallVirtualNetworkPanoramaDnsSettingsArgs'] dns_settings: A `dns_settings` block as defined below.
         :param pulumi.Input[_builtins.str] location: The Azure Region where the Palo Alto Next Generation Firewall Virtual Network Panorama should exist. Changing this forces a new Palo Alto Next Generation Firewall Virtual Network Panorama to be created.
@@ -472,7 +474,7 @@ class NextGenerationFirewallVirtualNetworkPanorama(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `PaloAltoNetworks.Cloudngfw` - 2025-05-23
+        * `PaloAltoNetworks.Cloudngfw` - 2025-10-08
 
         ## Import
 
@@ -481,6 +483,7 @@ class NextGenerationFirewallVirtualNetworkPanorama(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:paloalto/nextGenerationFirewallVirtualNetworkPanorama:NextGenerationFirewallVirtualNetworkPanorama example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mygroup1/providers/PaloAltoNetworks.Cloudngfw/firewalls/myVNetPanoramaFW
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -583,7 +586,7 @@ class NextGenerationFirewallVirtualNetworkPanorama(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `PaloAltoNetworks.Cloudngfw` - 2025-05-23
+        * `PaloAltoNetworks.Cloudngfw` - 2025-10-08
 
         ## Import
 
@@ -592,6 +595,7 @@ class NextGenerationFirewallVirtualNetworkPanorama(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:paloalto/nextGenerationFirewallVirtualNetworkPanorama:NextGenerationFirewallVirtualNetworkPanorama example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mygroup1/providers/PaloAltoNetworks.Cloudngfw/firewalls/myVNetPanoramaFW
         ```
+
 
         :param str resource_name: The name of the resource.
         :param NextGenerationFirewallVirtualNetworkPanoramaArgs args: The arguments to use to populate this resource's properties.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: locust
-Version: 2.43.3
+Version: 2.43.4
 Summary: Developer-friendly load testing framework
 Project-URL: homepage, https://locust.io/
 Project-URL: repository, https://github.com/locustio/locust
@@ -54,6 +54,8 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.38.0; extra == 'otel'
 Requires-Dist: opentelemetry-instrumentation-requests>=0.59b0; extra == 'otel'
 Requires-Dist: opentelemetry-instrumentation-urllib3>=0.59b0; extra == 'otel'
 Requires-Dist: opentelemetry-sdk>=1.38.0; extra == 'otel'
+Provides-Extra: qdrant
+Requires-Dist: qdrant-client>=1.16.2; extra == 'qdrant'
 Description-Content-Type: text/markdown
 
 # Locust

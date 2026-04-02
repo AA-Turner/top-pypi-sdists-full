@@ -18,6 +18,7 @@ from warnings import warn as _warn
 import astroid as _ast
 
 from . import _decorators
+from ._check import run_checks as _run_checks
 from ._config import Check as _Check
 from ._config import Config as _Config
 from ._config import Ignore as _Ignore
@@ -25,9 +26,7 @@ from ._directives import Directives as _Directives
 from ._files import FILE_INFO as _FILE_INFO
 from ._files import Paths as _Paths
 from ._module import Error as _Error
-from ._module import Function as _Function
 from ._module import Parent as _Parent
-from ._report import Failure as _Failure
 from ._report import Failures as _Failures
 from ._utils import print_checks as _print_checks
 from .messages import NEW as _NEW
@@ -70,57 +69,10 @@ def setup_logger(verbose: bool) -> None:
         logger.addHandler(stream_handler)
 
 
-def _should_check_function(
-    child: _Function,
-    parent: _Parent,
-    config: _Config,
-) -> bool:
-    if child.isoverridden and not config.check.overridden:
-        return False
-
-    if child.isprotected and not config.check.protected:
-        return False
-
-    if child.isdunder and not config.check.dunders:
-        return False
-
-    if child.docstring.bare and config.ignore.no_params:
-        return False
-
-    if child.isinit and (
-        not (config.check.class_ or config.check.class_constructor)
-        or (parent.isprotected and not config.check.protected)
-    ):
-        return False
-
-    return True
-
-
-def _run_check(
-    child: _Parent,
-    parent: _Parent,
-    config: _Config,
-    failures: _Failures,
-) -> None:
-    if isinstance(child, _Function) and _should_check_function(
-        child,
-        parent,
-        config,
-    ):
-        failure = _Failure(child, config.target, config.check.property_returns)
-        if failure:
-            failures.append(failure)
-
-    # recurse for either class methods or, if enabled, nested functions
-    if not isinstance(child, _Function) or config.check.nested:
-        for func in child.children:
-            _run_check(func, child, config, failures)
-
-
-def _from_file(path: _Path, config: _Config) -> _Parent:
+def _parse_from_file(path: _Path, config: _Config) -> _Parent:
     try:
         code = path.read_text(encoding="utf-8")
-        parent = _from_str(
+        parent = _parse_from_string(
             code,
             config,
             str(path)[:-3].replace(_os.sep, ".").replace("-", "_"),
@@ -137,7 +89,7 @@ def _from_file(path: _Path, config: _Config) -> _Parent:
     return parent
 
 
-def _from_str(
+def _parse_from_string(
     code: str,
     config: _Config,
     module_name: str = "",
@@ -169,21 +121,11 @@ def _from_str(
     except _ast.AstroidSyntaxError as err:
         logger.debug(_FILE_INFO, source_name, str(err).replace("\n", " "))
         parent = _Parent(error=_Error.SYNTAX)
+    except RecursionError as err:
+        logger.debug(_FILE_INFO, source_name, str(err).replace("\n", " "))
+        parent = _Parent(error=_Error.RECURSION)
 
     return parent
-
-
-def _get_failures(module: _Parent, config: _Config) -> _Failures:
-    failures = _Failures()
-    for top_level in module.children:
-        if (
-            not top_level.isprotected
-            or config.check.protected
-            or config.check.protected_class_methods
-        ):
-            _run_check(top_level, module, config, failures)
-
-    return failures
 
 
 def _report(
@@ -252,8 +194,8 @@ def runner(path: _Path, config: _Config) -> _Failures:
     :param config: Configuration object.
     :return: Collected failures for the file.
     """
-    module = _from_file(path, config)
-    return _get_failures(module, config)
+    module = _parse_from_file(path, config)
+    return _run_checks(module, config)
 
 
 @_decorators.parse_msgs
@@ -367,20 +309,20 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     if config.list_checks:
         return int(bool(_print_checks()))  # type: ignore
 
-    if string is None:
-        retcodes = [0]
-        paths = _Paths(
-            *path,
-            patterns=config.exclude,
-            excludes=config.excludes,
-            include_ignored=config.include_ignored,
-        )
-        for path_ in paths:
-            failures = runner(path_, config)
-            retcodes.append(_report(failures, config, str(path_)))
+    if string:
+        module = _parse_from_string(string, config)
+        failures = _run_checks(module, config)
+        return _report(failures, config)
 
-        return max(retcodes)
+    retcodes = [0]
+    paths = _Paths(
+        *path,
+        patterns=config.exclude,
+        excludes=config.excludes,
+        include_ignored=config.include_ignored,
+    )
+    for path_ in paths:
+        failures = runner(path_, config)
+        retcodes.append(_report(failures, config, str(path_)))
 
-    module = _from_str(string, config)
-    failures = _get_failures(module, config)
-    return _report(failures, config)
+    return max(retcodes)

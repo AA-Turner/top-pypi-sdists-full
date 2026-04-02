@@ -63,6 +63,7 @@ otel = [
     "opentelemetry-instrumentation-requests>=0.59b0",
     "opentelemetry-instrumentation-urllib3>=0.59b0",
 ]
+qdrant = ["qdrant-client>=1.16.2"]
 
 [project.urls]
 homepage = "https://locust.io/"
@@ -96,19 +97,20 @@ docs = [
     "babel==2.13.0",
     "docutils==0.21.2",
     "imagesize==1.4.1",
-    "snowballstemmer==2.2.0",
+    "snowballstemmer==3.0.1",
     "sphinx-prompt==1.5.0",
     "sphinxcontrib-applehelp==1.0.4",
     "sphinxcontrib-devhelp==1.0.2",
-    "sphinxcontrib-htmlhelp==2.0.1",
+    "sphinxcontrib-htmlhelp==2.1.0",
     "sphinxcontrib-jsmath==1.0.1",
     "sphinxcontrib-qthelp==1.0.3",
-    "sphinxcontrib-serializinghtml==1.1.10",
+    "sphinxcontrib-serializinghtml==2.0.0",
     "sphinxcontrib-googleanalytics>=0.4",
     # these optional dependencies are needed to build the some contrib modules
     "pymilvus>=2.5.0",
     "psycopg[binary]>=3.2.1",
     "pymongo>=4.8.0",
+    "qdrant-client>=1.16.2",
 ]
 milvus = ["pymilvus>=2.5.0"]
 mqtt = ["paho-mqtt>=2.1.0"]
@@ -120,6 +122,7 @@ otel = [
     "opentelemetry-instrumentation-requests>=0.59b0",
     "opentelemetry-instrumentation-urllib3>=0.59b0",
 ]
+qdrant = ["qdrant-client>=1.16.2"]
 
 [project.scripts]
 locust = "locust.main:main"

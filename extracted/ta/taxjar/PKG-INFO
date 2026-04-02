@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: taxjar
+Version: 2.0.1
+Summary: Sales tax API client for Python
+Home-page: https://github.com/taxjar/taxjar-python
+Download-URL: https://github.com/taxjar/taxjar-python/archive/refs/tags/v2.0.1.zip
+Author: TaxJar
+Author-email: support@taxjar.com
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Topic :: Office/Business
+Classifier: Topic :: Office/Business :: Financial
+Classifier: Topic :: Office/Business :: Financial :: Accounting
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+License-File: LICENSE.txt
+Requires-Dist: requests>=2.13.0
+Requires-Dist: jsonobject>=0.9.10
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary

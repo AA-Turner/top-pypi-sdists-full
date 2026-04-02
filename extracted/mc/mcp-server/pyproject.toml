@@ -1,0 +1,16 @@
+[project]
+name = "mcp-server"
+version = "0.1.4"
+description = "A custom MCP server that provides useful tools and resources for AI assistants"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [ "mcp>=1.6.0",]
+[[project.authors]]
+name = "AjinkyaSambare"
+email = "ajinkya@idealabs.fyi"
+
+[build-system]
+requires = [ "hatchling",]
+build-backend = "hatchling.build"
+[project.scripts]
+mcp-server = "mcp_server.server:mcp.run"

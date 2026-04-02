@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyocd
-Version: 0.43.1
+Version: 0.44.0
 Summary: Cortex-M debugger for Python
 Home-page: https://github.com/pyocd/pyOCD
 Maintainer: Chris Reed
@@ -77,7 +77,7 @@ pyOCD
 
 ### News
 
-- The v0.43 release introduces SEGGER RTT and SystemView support with flexible channel configuration in the `run` subcommand
+- The v0.44 release introduces default debug sequences and flash programming support via debug sequences
 
 See the [wiki news page](https://github.com/pyocd/pyOCD/wiki/News) for all recent news.
 

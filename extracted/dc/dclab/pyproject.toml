@@ -1,0 +1,89 @@
+[build-system]
+# Defined by PEP 518:
+requires = [
+    # for building Cython extensions
+    "cython", "numpy", "setuptools", "wheel",
+    # for version management
+    "setuptools>=46", "setuptools_scm[toml]>=6.2"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dclab"
+authors = [
+    # In alphabetical order.
+    {name = "Benedikt Hartmann"},
+    {name = "Eoghan O'Connell"},
+    {name = "Maik Herbig"},
+    {name = "Maximilian Schlögel"},
+    {name = "Nadia Sbaa"},
+    {name = "Paul Müller"},
+    {name = "Philipp Rosendahl"},
+    {name = "Raghava Alajangi"},
+]
+maintainers = [
+    {name = "Paul Müller", email="dev@craban.de"},
+]
+description = "Library for real-time deformability cytometry (RT-DC)"
+readme = "README.rst"
+requires-python = ">=3.9, <4"
+keywords = ["RT-DC", "deformability", "cytometry"]
+classifiers = [
+    'Operating System :: OS Independent',
+    'Programming Language :: Python :: 3',
+    'Topic :: Scientific/Engineering :: Visualization',
+    'Intended Audience :: Science/Research',
+]
+license = "GPL-2.0-or-later"
+# This is not supported in Python 3.8
+# license = "GPL-2.0-or-later"
+dependencies = [
+    "h5py>=3.0.0, <4",
+    "hdf5plugin>=3.3.1, <5",
+    "importlib-resources>=6.0",  # remove when dropping support for Python 3.8
+    "numpy>=1.21, <3",  # CVE-2021-33430
+    "scipy>=1.10.0, <2",  # CVE-2023-25399
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+all = ["dclab[dcor,export,http,s3,tdms]"]
+dcor = ["requests>=2.31.0, <3"]  # CVE-2023-32681
+export = ["fcswrite>=0.5.1",  # fcs export
+          "av",  # avi export
+]
+http = ["requests>=2.31.0, <3"]  # CVE-2023-32681
+s3 = ["boto3>=1.34.31"]
+tdms = ["imageio[ffmpeg]", "nptdms>=0.23.0,<1.9"]
+
+
+[project.scripts]
+dclab-compress = "dclab.cli:compress"
+dclab-condense = "dclab.cli:condense"
+dclab-join = "dclab.cli:join"
+dclab-repack = "dclab.cli:repack"
+dclab-split = "dclab.cli:split"
+dclab-tdms2rtdc = "dclab.cli:tdms2rtdc [tdms]"
+dclab-verify-dataset = "dclab.cli:verify_dataset"
+
+[project.urls]
+source = "https://github.com/DC-Analysis/dclab"
+tracker = "https://github.com/DC-Analysis/dclab/issues"
+documentation = "https://dclab.readthedocs.io/en/stable/"
+changelog = "https://dclab.readthedocs.io/en/stable/sec_changelog.html"
+
+# We need the following, because automatic package discovery does not work
+# when running cibuildwheel on GitHub Actions (there will be a "wheelhouse"
+# directory).
+[tool.setuptools.packages.find]
+include = ["dclab"]
+
+[tool.setuptools_scm]
+write_to = "dclab/_version.py"
+version_scheme = "post-release"
+
+[tool.cibuildwheel]
+# Only build for cpython
+build = "cp*"
+# Only build for 64bit
+archs = "auto64"

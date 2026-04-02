@@ -14,44 +14,45 @@
 
 """Helper functions for Cloud Spanner."""
 
+import base64
 import datetime
 import decimal
-import math
-import time
-import base64
-import threading
 import logging
+import math
+import threading
+import time
 import uuid
 from contextlib import contextmanager
-
-from google.protobuf.struct_pb2 import ListValue
-from google.protobuf.struct_pb2 import Value
-from google.protobuf.message import Message
-from google.protobuf.internal.enum_type_wrapper import EnumTypeWrapper
 
 from google.api_core import datetime_helpers
 from google.api_core.exceptions import Aborted
 from google.cloud._helpers import _date_from_iso8601_date
-from google.cloud.spanner_v1.types import ExecuteSqlRequest
-from google.cloud.spanner_v1.types import TransactionOptions
-from google.cloud.spanner_v1.data_types import JsonObject, Interval
+from google.protobuf.internal.enum_type_wrapper import EnumTypeWrapper
+from google.protobuf.message import Message
+from google.protobuf.struct_pb2 import ListValue, Value
+from google.rpc.error_details_pb2 import RetryInfo
+
+from google.cloud.spanner_v1.data_types import Interval, JsonObject
+from google.cloud.spanner_v1.exceptions import wrap_with_request_id
 from google.cloud.spanner_v1.request_id_header import (
     with_request_id,
     with_request_id_metadata_only,
 )
-from google.cloud.spanner_v1.types import TypeCode
-from google.cloud.spanner_v1.exceptions import wrap_with_request_id
-
-from google.rpc.error_details_pb2 import RetryInfo
+from google.cloud.spanner_v1.types import (
+    ExecuteSqlRequest,
+    RequestOptions,
+    TransactionOptions,
+    TypeCode,
+)
 
 try:
     from opentelemetry.propagate import inject
     from opentelemetry.propagators.textmap import Setter
-    from opentelemetry.semconv.resource import ResourceAttributes
     from opentelemetry.resourcedetector import gcp_resource_detector
     from opentelemetry.resourcedetector.gcp_resource_detector import (
         GoogleCloudResourceDetector,
     )
+    from opentelemetry.semconv.resource import ResourceAttributes
 
     # Overwrite the requests timeout for the detector.
     # This is necessary as the client will wait the full timeout if the
@@ -61,8 +62,8 @@ try:
     HAS_OPENTELEMETRY_INSTALLED = True
 except ImportError:
     HAS_OPENTELEMETRY_INSTALLED = False
-from typing import List, Tuple
 import random
+from typing import List, Tuple
 
 # Validation error messages
 NUMERIC_MAX_SCALE_ERR_MSG = (
@@ -172,7 +173,7 @@ def _merge_query_options(base, merge):
         If the resultant object only has empty fields, returns None.
     """
     combined = base or ExecuteSqlRequest.QueryOptions()
-    if type(combined) is dict:
+    if isinstance(combined, dict):
         combined = ExecuteSqlRequest.QueryOptions(
             optimizer_version=combined.get("optimizer_version", ""),
             optimizer_statistics_package=combined.get(
@@ -180,7 +181,7 @@ def _merge_query_options(base, merge):
             ),
         )
     merge = merge or ExecuteSqlRequest.QueryOptions()
-    if type(merge) is dict:
+    if isinstance(merge, dict):
         merge = ExecuteSqlRequest.QueryOptions(
             optimizer_version=merge.get("optimizer_version", ""),
             optimizer_statistics_package=merge.get("optimizer_statistics_package", ""),
@@ -189,6 +190,103 @@ def _merge_query_options(base, merge):
     if not combined.optimizer_version and not combined.optimizer_statistics_package:
         return None
     return combined
+
+
+def _merge_client_context(base, merge):
+    """Merge higher precedence ClientContext with current ClientContext.
+
+    :type base: :class:`~google.cloud.spanner_v1.types.RequestOptions.ClientContext`
+        or :class:`dict` or None
+    :param base: The current ClientContext that is intended for use.
+
+    :type merge: :class:`~google.cloud.spanner_v1.types.RequestOptions.ClientContext`
+        or :class:`dict` or None
+    :param merge:
+        The ClientContext that has a higher priority than base. These options
+        should overwrite the fields in base.
+
+    :rtype: :class:`~google.cloud.spanner_v1.types.RequestOptions.ClientContext`
+        or None
+    :returns:
+        ClientContext object formed by merging the two given ClientContexts.
+    """
+    if base is None and merge is None:
+        return None
+
+    # Avoid in-place modification of base
+    combined_pb = RequestOptions.ClientContext()._pb
+    if base:
+        base_pb = (
+            RequestOptions.ClientContext(base)._pb
+            if isinstance(base, dict)
+            else base._pb
+        )
+        combined_pb.MergeFrom(base_pb)
+    if merge:
+        merge_pb = (
+            RequestOptions.ClientContext(merge)._pb
+            if isinstance(merge, dict)
+            else merge._pb
+        )
+        combined_pb.MergeFrom(merge_pb)
+
+    combined = RequestOptions.ClientContext(combined_pb)
+
+    if not combined.secure_context:
+        return None
+    return combined
+
+
+def _validate_client_context(client_context):
+    """Validate and convert client_context.
+
+    :type client_context: :class:`~google.cloud.spanner_v1.types.RequestOptions.ClientContext`
+        or :class:`dict`
+    :param client_context: (Optional) Client context to use.
+
+    :rtype: :class:`~google.cloud.spanner_v1.types.RequestOptions.ClientContext`
+    :returns: Validated ClientContext object or None.
+    :raises TypeError: if client_context is not a ClientContext or a dict.
+    """
+    if client_context is not None:
+        if isinstance(client_context, dict):
+            client_context = RequestOptions.ClientContext(client_context)
+        elif not isinstance(client_context, RequestOptions.ClientContext):
+            raise TypeError("client_context must be a ClientContext or a dict")
+    return client_context
+
+
+def _merge_request_options(request_options, client_context):
+    """Merge RequestOptions and ClientContext.
+
+    :type request_options: :class:`~google.cloud.spanner_v1.types.RequestOptions`
+        or :class:`dict` or None
+    :param request_options: The current RequestOptions that is intended for use.
+
+    :type client_context: :class:`~google.cloud.spanner_v1.types.RequestOptions.ClientContext`
+        or :class:`dict` or None
+    :param client_context:
+        The ClientContext to merge into request_options.
+
+    :rtype: :class:`~google.cloud.spanner_v1.types.RequestOptions`
+        or None
+    :returns:
+        RequestOptions object formed by merging the given ClientContext.
+    """
+    if request_options is None and client_context is None:
+        return None
+
+    if request_options is None:
+        request_options = RequestOptions()
+    elif isinstance(request_options, dict):
+        request_options = RequestOptions(request_options)
+
+    if client_context:
+        request_options.client_context = _merge_client_context(
+            client_context, request_options.client_context
+        )
+
+    return request_options
 
 
 def _assert_numeric_precision_and_scale(value):
@@ -224,6 +322,8 @@ def _datetime_to_rfc3339(value):
     """
     # Convert to UTC and then drop the timezone so we can append "Z" in lieu of
     # allowing isoformat to append the "+00:00" zone offset.
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=datetime.timezone.utc)
     value = value.astimezone(datetime.timezone.utc).replace(tzinfo=None)
     return value.isoformat(sep="T", timespec="microseconds") + "Z"
 
@@ -243,6 +343,8 @@ def _datetime_to_rfc3339_nanoseconds(value):
     nanos = str(value.nanosecond).rjust(9, "0").rstrip("0")
     # Convert to UTC and then drop the timezone so we can append "Z" in lieu of
     # allowing isoformat to append the "+00:00" zone offset.
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=datetime.timezone.utc)
     value = value.astimezone(datetime.timezone.utc).replace(tzinfo=None)
     return "{}.{}Z".format(value.isoformat(sep="T", timespec="seconds"), nanos)
 
@@ -635,17 +737,16 @@ def _retry(
 
 
 def _check_rst_stream_error(exc):
-    resumable_error = (
-        any(
-            resumable_message in exc.message
-            for resumable_message in (
-                "RST_STREAM",
-                "Received unexpected EOS on DATA frame from server",
-            )
-        ),
+    resumable_error = any(
+        resumable_message in exc.message
+        for resumable_message in (
+            "RST_STREAM",
+            "Received unexpected EOS on DATA frame from server",
+        )
     )
     if not resumable_error:
         raise
+    return True
 
 
 def _metadata_with_leader_aware_routing(value, **kw):
@@ -868,3 +969,65 @@ def _merge_Transaction_Options(
 
     # Convert protobuf object back into a TransactionOptions instance
     return TransactionOptions(merged_pb)
+
+
+def _create_experimental_host_transport(
+    transport_factory,
+    experimental_host,
+    use_plain_text,
+    ca_certificate,
+    client_certificate,
+    client_key,
+    interceptors=None,
+):
+    """Creates an experimental host transport for Spanner.
+
+    Args:
+        transport_factory (type): The transport class to instantiate (e.g.
+            `SpannerGrpcTransport`).
+        experimental_host (str): The endpoint for the experimental host.
+        use_plain_text (bool): Whether to use a plain text (insecure) connection.
+        ca_certificate (str): Path to the CA certificate file for TLS.
+        client_certificate (str): Path to the client certificate file for mTLS.
+        client_key (str): Path to the client key file for mTLS.
+        interceptors (list): Optional list of interceptors to add to the channel.
+
+    Returns:
+        object: An instance of the transport class created by `transport_factory`.
+
+    Raises:
+        ValueError: If TLS/mTLS configuration is invalid.
+    """
+    import grpc
+    from google.auth.credentials import AnonymousCredentials
+
+    channel = None
+    if use_plain_text:
+        channel = grpc.insecure_channel(target=experimental_host)
+    elif ca_certificate:
+        with open(ca_certificate, "rb") as f:
+            ca_cert = f.read()
+        if client_certificate and client_key:
+            with open(client_certificate, "rb") as f:
+                client_cert = f.read()
+            with open(client_key, "rb") as f:
+                private_key = f.read()
+            ssl_creds = grpc.ssl_channel_credentials(
+                root_certificates=ca_cert,
+                private_key=private_key,
+                certificate_chain=client_cert,
+            )
+        elif client_certificate or client_key:
+            raise ValueError(
+                "Both client_certificate and client_key must be provided for mTLS connection"
+            )
+        else:
+            ssl_creds = grpc.ssl_channel_credentials(root_certificates=ca_cert)
+        channel = grpc.secure_channel(experimental_host, ssl_creds)
+    else:
+        raise ValueError(
+            "TLS/mTLS connection requires ca_certificate to be set for experimental_host"
+        )
+    if interceptors is not None:
+        channel = grpc.intercept_channel(channel, *interceptors)
+    return transport_factory(channel=channel, credentials=AnonymousCredentials())

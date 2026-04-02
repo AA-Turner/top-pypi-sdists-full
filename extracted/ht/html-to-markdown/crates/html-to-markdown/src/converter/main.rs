@@ -196,6 +196,14 @@ pub(crate) fn convert_html_impl(
         }
     }
 
+    let reference_collector = if options.link_style == crate::options::LinkStyle::Reference {
+        Some(std::rc::Rc::new(std::cell::RefCell::new(
+            crate::converter::reference_collector::ReferenceCollector::new(),
+        )))
+    } else {
+        None
+    };
+
     #[cfg(all(feature = "metadata", feature = "visitor"))]
     let ctx = Context::new(
         options,
@@ -203,6 +211,7 @@ pub(crate) fn convert_html_impl(
         metadata_collector,
         visitor,
         structure_collector.as_ref().map(std::rc::Rc::clone),
+        reference_collector.as_ref().map(std::rc::Rc::clone),
     );
     #[cfg(all(feature = "metadata", not(feature = "visitor")))]
     let ctx = Context::new(
@@ -211,6 +220,7 @@ pub(crate) fn convert_html_impl(
         metadata_collector,
         _visitor,
         structure_collector.as_ref().map(std::rc::Rc::clone),
+        reference_collector.as_ref().map(std::rc::Rc::clone),
     );
     #[cfg(all(not(feature = "metadata"), feature = "visitor"))]
     let ctx = Context::new(
@@ -219,6 +229,7 @@ pub(crate) fn convert_html_impl(
         _metadata_collector,
         visitor,
         structure_collector.as_ref().map(std::rc::Rc::clone),
+        reference_collector.as_ref().map(std::rc::Rc::clone),
     );
     #[cfg(all(not(feature = "metadata"), not(feature = "visitor")))]
     let ctx = Context::new(
@@ -227,6 +238,7 @@ pub(crate) fn convert_html_impl(
         _metadata_collector,
         _visitor,
         structure_collector.as_ref().map(std::rc::Rc::clone),
+        reference_collector.as_ref().map(std::rc::Rc::clone),
     );
 
     for child_handle in dom.children() {
@@ -241,6 +253,19 @@ pub(crate) fn convert_html_impl(
     // Drop ctx before unwrapping the structure collector Rc — ctx holds a cloned Rc
     // reference to the same collector, and Rc::try_unwrap requires exactly one reference.
     drop(ctx);
+
+    // Append reference-style link definitions if any were collected
+    if let Some(rc) = reference_collector {
+        if let Ok(collector) = std::rc::Rc::try_unwrap(rc) {
+            let ref_section = collector.into_inner().finish();
+            if !ref_section.is_empty() {
+                let trimmed_len = output.trim_end_matches('\n').len();
+                output.truncate(trimmed_len);
+                output.push_str("\n\n");
+                output.push_str(&ref_section);
+            }
+        }
+    }
 
     // If plain text was requested, discard the markdown output and return plain text.
     // The full pipeline was still run above so that metadata + visitor callbacks fire.

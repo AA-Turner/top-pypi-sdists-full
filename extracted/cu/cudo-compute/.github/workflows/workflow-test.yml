@@ -1,0 +1,69 @@
+name: Publish package to TestPyPI
+
+on: push
+
+jobs:
+  build:
+    name: Generate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+      - name: Gen Swagger File
+        run: python3 tools/swaggerfix.py
+      - name: Run Swagger Codegen
+        uses: ./.github/actions/swagger-codegen
+        with:
+          output: out
+          input: fix.swagger.json
+          action: generate
+      - name: Copy files
+        run: |
+          rm -rf src
+          mkdir -p src
+          cp -r out/cudo_compute src
+          cp helpers/* src/cudo_compute
+          echo "import cudo_compute.auth_config as AuthConfig" >> src/cudo_compute/__init__.py
+          echo "import cudo_compute.cudo_api as cudo_api" >> src/cudo_compute/__init__.py
+          python3 tools/authfix.py
+      - name: Install pypa/build
+        run: >-
+          python3 -m
+          pip install
+          build
+          --user
+      - name: Build a binary wheel and a source tarball
+        run: python3 -m build
+      - name: Store the distribution packages
+        uses: actions/upload-artifact@v3
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish-to-testpypi:
+    name: Publish to TestPyPI
+    needs:
+      - build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/cudo-compute
+
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+
+    steps:
+      - name: Download all the dists
+        uses: actions/download-artifact@v3
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Publish distribution to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/

@@ -1,0 +1,66 @@
+Metadata-Version: 2.4
+Name: aistore
+Version: 1.23.0
+Summary: Client-side APIs to access and utilize clusters, buckets, and objects on AIStore.
+Project-URL: Homepage, https://aistore.nvidia.com
+Project-URL: Documentation, https://aistore.nvidia.com/docs/python-sdk
+Project-URL: Changelog, https://github.com/NVIDIA/aistore/blob/main/python/CHANGELOG.md
+Project-URL: Source, https://github.com/NVIDIA/aistore/tree/main/python/aistore/sdk
+Author-email: Team AIStore <aistore@nvidia.com>
+License-Expression: MIT
+Keywords: AIStore,Artificial Intelligence,Deep Learning,ETL,High Performance,Lightweight Object Storage,Object Storage,Petascale
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.8
+Requires-Dist: braceexpand>=0.1.7
+Requires-Dist: cloudpickle>=3.0.0
+Requires-Dist: humanize>=4.9.0
+Requires-Dist: msgspec>=0.18.5
+Requires-Dist: overrides>=7.4.0
+Requires-Dist: packaging>=23.0
+Requires-Dist: pydantic>=2.5.0
+Requires-Dist: python-dateutil>=2.9.0
+Requires-Dist: pyyaml>=6.0.1
+Requires-Dist: requests>=2.28.2
+Requires-Dist: tenacity>=9.0.0
+Requires-Dist: urllib3>=1.26.18
+Requires-Dist: xxhash>=3.3.0
+Provides-Extra: botocore
+Requires-Dist: wrapt; extra == 'botocore'
+Provides-Extra: etl
+Requires-Dist: aiofiles>=23.2.1; extra == 'etl'
+Requires-Dist: fastapi>=0.109.1; extra == 'etl'
+Requires-Dist: flask>=2.3.0; extra == 'etl'
+Requires-Dist: gunicorn>=23.0.0; extra == 'etl'
+Requires-Dist: httpx>=0.28.0; extra == 'etl'
+Requires-Dist: uvicorn[standard]>=0.32.0; extra == 'etl'
+Provides-Extra: mcp
+Requires-Dist: mcp[cli]>=1.4.1; extra == 'mcp'
+Provides-Extra: pytorch
+Requires-Dist: alive-progress>=3.1.0; extra == 'pytorch'
+Requires-Dist: torch; extra == 'pytorch'
+Requires-Dist: torchdata; extra == 'pytorch'
+Requires-Dist: webdataset>=0.2.100; extra == 'pytorch'
+Description-Content-Type: text/markdown
+
+## AIS Python Components
+
+This package contains the AIStore Python SDK, PyTorch integration, and Botocore patch. 
+See the README files in each module for usage details:
+
+- [SDK](https://github.com/NVIDIA/aistore/blob/main/python/aistore/sdk/README.md)
+- [PyTorch](https://github.com/NVIDIA/aistore/blob/main/python/aistore/pytorch/README.md)
+- [Botocore](https://github.com/NVIDIA/aistore/blob/main/python/aistore/botocore_patch/README.md)
+
+## References
+
+* [AIStore GitHub](https://github.com/NVIDIA/aistore)
+* [Documentation](https://aistore.nvidia.com/docs)
+* [AIStore pip package](https://pypi.org/project/aistore/)
+* [KubeCon 2024 presentation](https://www.youtube.com/watch?v=N-d9cbROndg)
+

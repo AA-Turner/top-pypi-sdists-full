@@ -1,0 +1,26 @@
+[project]
+name = "chevron-blue"
+version = "0.3.0"
+description = "A Python implementation of the mustache template language"
+authors = [{name = "Zanie Blue", email = "contact@zanie.dev"}]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/zanieb/chevron-blue"
+requires-python = ">=3.8"
+
+[project.scripts]
+chevron-blue = "chevron_blue:cli_main"
+
+[build-system]
+requires = ["uv_build>=0.7.0,<0.8.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4.3",
+    "ruff>=0.1.7",
+]
+
+[tool.ruff.lint]
+extend-select = ["I", "W292"]
+preview = true

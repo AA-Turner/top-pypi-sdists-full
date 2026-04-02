@@ -19,10 +19,11 @@ import pytest
 
 from google.cloud import spanner_v1
 from google.cloud.spanner_admin_database_v1 import DatabaseDialect
-from . import _helpers
 from google.cloud.spanner_admin_database_v1.types.backup import (
     CreateBackupEncryptionConfig,
 )
+
+from . import _helpers
 
 
 @pytest.fixture(scope="function")
@@ -115,7 +116,10 @@ def spanner_client():
 
         credentials = AnonymousCredentials()
         return spanner_v1.Client(
-            project=_helpers.EXPERIMENTAL_HOST_PROJECT,
+            use_plain_text=_helpers.USE_PLAIN_TEXT,
+            ca_certificate=_helpers.CA_CERTIFICATE,
+            client_certificate=_helpers.CLIENT_CERTIFICATE,
+            client_key=_helpers.CLIENT_KEY,
             credentials=credentials,
             experimental_host=_helpers.EXPERIMENTAL_HOST,
         )

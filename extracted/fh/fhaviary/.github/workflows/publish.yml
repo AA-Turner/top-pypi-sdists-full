@@ -1,0 +1,88 @@
+name: Publish
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      UV_VENV_CLEAR: 1 # Work around https://github.com/hynek/build-and-inspect-python-package/issues/174
+    steps:
+      - uses: actions/checkout@v6
+      - id: build-fhaviary
+        uses: hynek/build-and-inspect-python-package@v2
+        with:
+          upload-name-suffix: -fhaviary
+      - name: Download built fhaviary artifact to dist/
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ steps.build-fhaviary.outputs.artifact-name }}
+          path: dist
+      - name: Clean up fhaviary build # Work around https://github.com/hynek/build-and-inspect-python-package/issues/174
+        run: rm -r ${{ steps.build-fhaviary.outputs.dist }}
+      - id: build-aviary-gsm8k
+        uses: hynek/build-and-inspect-python-package@v2
+        with:
+          path: packages/gsm8k
+          upload-name-suffix: -gsm8k
+      - name: Download built aviary.gsm8k artifact to dist/
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ steps.build-aviary-gsm8k.outputs.artifact-name }}
+          path: dist
+      - name: Clean up aviary.gsm8k build # Work around https://github.com/hynek/build-and-inspect-python-package/issues/174
+        run: rm -r ${{ steps.build-aviary-gsm8k.outputs.dist }}
+      - id: build-aviary-hotpotqa
+        uses: hynek/build-and-inspect-python-package@v2
+        with:
+          path: packages/hotpotqa
+          upload-name-suffix: -hotpotqa
+      - name: Download built aviary.hotpotqa artifact to dist/
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ steps.build-aviary-hotpotqa.outputs.artifact-name }}
+          path: dist
+      - name: Clean up aviary.hotpotqa build # Work around https://github.com/hynek/build-and-inspect-python-package/issues/174
+        run: rm -r ${{ steps.build-aviary-hotpotqa.outputs.dist }}
+      - id: build-aviary-labbench
+        uses: hynek/build-and-inspect-python-package@v2
+        with:
+          path: packages/labbench
+          upload-name-suffix: -labbench
+      - name: Download built aviary.labbench artifact to dist/
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ steps.build-aviary-labbench.outputs.artifact-name }}
+          path: dist
+      - name: Clean up aviary.labbench build # Work around https://github.com/hynek/build-and-inspect-python-package/issues/174
+        run: rm -r ${{ steps.build-aviary-labbench.outputs.dist }}
+      - id: build-aviary-lfrqa
+        uses: hynek/build-and-inspect-python-package@v2
+        with:
+          path: packages/lfrqa
+          upload-name-suffix: -lfrqa
+      - name: Download built aviary.lfrqa artifact to dist/
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ steps.build-aviary-lfrqa.outputs.artifact-name }}
+          path: dist
+      - name: Clean up aviary.lfrqa build # Work around https://github.com/hynek/build-and-inspect-python-package/issues/174
+        run: rm -r ${{ steps.build-aviary-lfrqa.outputs.dist }}
+      - id: build-aviary-notebook
+        uses: hynek/build-and-inspect-python-package@v2
+        with:
+          path: packages/notebook
+          upload-name-suffix: -notebook
+      - name: Download built aviary.notebook artifact to dist/
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ steps.build-aviary-notebook.outputs.artifact-name }}
+          path: dist
+      - name: Clean up aviary.notebook build # Work around https://github.com/hynek/build-and-inspect-python-package/issues/174
+        run: rm -r ${{ steps.build-aviary-notebook.outputs.dist }}
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flare-capa
-Version: 9.3.1
+Version: 9.4.0
 Summary: The FLARE team's open-source tool to identify capabilities in executable files.
 Author-email: Willi Ballenthin <william.ballenthin@mandiant.com>, Moritz Raabe <moritz.raabe@mandiant.com>, Mike Hunhoff <michael.hunhoff@mandiant.com>
 License: 
@@ -241,45 +241,47 @@ Requires-Dist: dncil>=1.0.2
 Requires-Dist: networkx>=3
 Requires-Dist: dnfile>=0.17.0
 Provides-Extra: dev
-Requires-Dist: pre-commit==4.2.0; extra == "dev"
-Requires-Dist: pytest==8.0.0; extra == "dev"
+Requires-Dist: pre-commit==4.5.0; extra == "dev"
+Requires-Dist: pytest==9.0.2; extra == "dev"
 Requires-Dist: pytest-sugar==1.1.1; extra == "dev"
 Requires-Dist: pytest-instafail==0.5.0; extra == "dev"
 Requires-Dist: flake8==7.3.0; extra == "dev"
-Requires-Dist: flake8-bugbear==24.12.12; extra == "dev"
+Requires-Dist: flake8-bugbear==25.11.29; extra == "dev"
 Requires-Dist: flake8-encodings==0.5.1; extra == "dev"
-Requires-Dist: flake8-comprehensions==3.16.0; extra == "dev"
+Requires-Dist: flake8-comprehensions==3.17.0; extra == "dev"
 Requires-Dist: flake8-logging-format==0.9.0; extra == "dev"
 Requires-Dist: flake8-no-implicit-concat==0.3.5; extra == "dev"
 Requires-Dist: flake8-print==5.0.0; extra == "dev"
 Requires-Dist: flake8-todos==0.3.1; extra == "dev"
-Requires-Dist: flake8-simplify==0.22.0; extra == "dev"
+Requires-Dist: flake8-simplify==0.30.0; extra == "dev"
 Requires-Dist: flake8-use-pathlib==0.3.0; extra == "dev"
 Requires-Dist: flake8-copyright==0.2.4; extra == "dev"
-Requires-Dist: ruff==0.12.0; extra == "dev"
-Requires-Dist: black==25.1.0; extra == "dev"
-Requires-Dist: isort==6.0.0; extra == "dev"
-Requires-Dist: mypy==1.17.1; extra == "dev"
-Requires-Dist: mypy-protobuf==3.6.0; extra == "dev"
-Requires-Dist: PyGithub==2.6.0; extra == "dev"
-Requires-Dist: bump-my-version==1.2.4; extra == "dev"
+Requires-Dist: ruff==0.15.0; extra == "dev"
+Requires-Dist: black==26.3.0; extra == "dev"
+Requires-Dist: isort==8.0.0; extra == "dev"
+Requires-Dist: mypy==1.19.1; extra == "dev"
+Requires-Dist: mypy-protobuf==5.0.0; extra == "dev"
+Requires-Dist: PyGithub==2.9.0; extra == "dev"
+Requires-Dist: bump-my-version==1.3.0; extra == "dev"
 Requires-Dist: types-backports==0.1.3; extra == "dev"
 Requires-Dist: types-colorama==0.4.15.11; extra == "dev"
 Requires-Dist: types-PyYAML==6.0.8; extra == "dev"
-Requires-Dist: types-psutil==7.0.0.20250218; extra == "dev"
-Requires-Dist: types_requests==2.32.0.20240712; extra == "dev"
+Requires-Dist: types-psutil==7.2.0.20251228; extra == "dev"
+Requires-Dist: types_requests==2.33.0.20260327; extra == "dev"
 Requires-Dist: types-protobuf==6.32.1.20250918; extra == "dev"
-Requires-Dist: deptry==0.23.0; extra == "dev"
+Requires-Dist: deptry==0.25.1; extra == "dev"
 Provides-Extra: build
-Requires-Dist: pyinstaller==6.16.0; extra == "build"
-Requires-Dist: setuptools==80.9.0; extra == "build"
-Requires-Dist: build==1.3.0; extra == "build"
+Requires-Dist: pyinstaller==6.19.0; extra == "build"
+Requires-Dist: setuptools==80.10.1; extra == "build"
+Requires-Dist: build==1.4.0; extra == "build"
 Provides-Extra: scripts
 Requires-Dist: jschema_to_python==1.2.3; extra == "scripts"
-Requires-Dist: psutil==7.1.2; extra == "scripts"
+Requires-Dist: psutil==7.2.1; extra == "scripts"
 Requires-Dist: stix2==3.0.1; extra == "scripts"
 Requires-Dist: sarif_om==1.0.4; extra == "scripts"
 Requires-Dist: requests>=2.32.4; extra == "scripts"
+Provides-Extra: ghidra
+Requires-Dist: pyghidra>=3.0.0; extra == "ghidra"
 Dynamic: license-file
 
 <br />
@@ -370,6 +372,8 @@ $ capa.exe suspicious.exe
 Download stable releases of the standalone capa binaries [here](https://github.com/mandiant/capa/releases). You can run the standalone binaries without installation. capa is a command line tool that should be run from the terminal.
 
 To use capa as a library or integrate with another tool, see [doc/installation.md](https://github.com/mandiant/capa/blob/master/doc/installation.md) for further setup instructions.
+
+**Documentation:** [Usage and tips](doc/usage.md) · [Installation](doc/installation.md) · [Limitations](doc/limitations.md) · [FAQ](doc/faq.md)
 
 # capa Explorer Web
 The [capa Explorer Web](https://mandiant.github.io/capa/explorer/) enables you to interactively explore capa results in your web browser. Besides the online version you can download a standalone HTML file for local offline usage.
@@ -575,11 +579,17 @@ It also uses your local changes to the .idb to extract better features, such as 
 ![capa + IDA Pro integration](https://github.com/mandiant/capa/blob/master/doc/img/explorer_expanded.png)
 
 # Ghidra integration
-If you use Ghidra, then you can use the [capa + Ghidra integration](/capa/ghidra/) to run capa's analysis directly on your Ghidra database and render the results in Ghidra's user interface.
+
+capa supports using Ghidra (via [PyGhidra](https://github.com/NationalSecurityAgency/ghidra/tree/master/Ghidra/Features/PyGhidra)) as a feature extraction backend. This allows you to run capa against binaries using Ghidra's analysis engine.
+
+You can run and view capa results in the Ghidra UI using [capa explorer for Ghidra](https://github.com/mandiant/capa/tree/master/capa/ghidra/plugin).
 
 <img src="https://github.com/mandiant/capa/assets/66766340/eeae33f4-99d4-42dc-a5e8-4c1b8c661492" width=300>
 
+You can also run capa from the command line using the [Ghidra backend](https://github.com/mandiant/capa/tree/master/capa/ghidra).
+
 # blog posts
+- [Riding Dragons: capa Harnesses Ghidra](https://www.mandiant.com/resources/blog/capa-harnesses-ghidra)
 - [Dynamic capa: Exploring Executable Run-Time Behavior with the CAPE Sandbox](https://www.mandiant.com/resources/blog/dynamic-capa-executable-behavior-cape-sandbox)
 - [capa v4: casting a wider .NET](https://www.mandiant.com/resources/blog/capa-v4-casting-wider-net) (.NET support)
 - [ELFant in the Room – capa v3](https://www.mandiant.com/resources/elfant-in-the-room-capa-v3) (ELF support)

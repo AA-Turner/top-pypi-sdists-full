@@ -1,0 +1,12 @@
+Metadata-Version: 1.2
+Name: mantle
+Version: 2.0.21
+Summary: The magma standard library
+Home-page: https://github.com/phanrahan/mantle
+Author: Leonard Truong
+Maintainer: Lenny Truong
+Maintainer-email: lenny@cs.stanford.edu
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3.6

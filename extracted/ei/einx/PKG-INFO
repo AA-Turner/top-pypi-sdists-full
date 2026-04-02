@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: einx
-Version: 0.4.2
+Version: 0.4.3
 Summary: Universal Notation for Tensor Operations in Python
 Author-email: Florian Fervers <florian.fervers@gmail.com>
 License-Expression: MIT

@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    Previously deprecated configuration option ``allow_overlapping_ips`` is now
-    removed.

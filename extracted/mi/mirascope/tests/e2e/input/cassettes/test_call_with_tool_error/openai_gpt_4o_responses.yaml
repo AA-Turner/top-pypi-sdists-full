@@ -1,0 +1,117 @@
+interactions:
+- request:
+    body: '{"input":[{"content":"Use the test tool to retrieve the secret phrase.
+      The passphrase is ''portal","role":"user"}],"model":"gpt-4o","tools":[{"type":"function","name":"passphrase_test_tool","description":"A
+      tool that must be called with a passphrase.","parameters":{"properties":{"passphrase":{"title":"Passphrase","type":"string"}},"required":["passphrase"],"additionalProperties":false,"type":"object"},"strict":true}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      authorization:
+      - <filtered>
+      connection:
+      - keep-alive
+      content-length:
+      - '420'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - OpenAI/Python 2.15.0
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 2.15.0
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.10.16
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA3RVy24bMQy8+ysEnZNg7Tjrx6Uoeuot96BY0BLXVqOVVIlyYxT+90Lat+PcbA45
+        S5Ez0r8FY1xJvmfcY3BVsZJy9VIU+CyX6025LYpyt1nhqtzKndxul7vNQWK5Kwu5PjzLtdgif0gU
+        9vAbBfU01oQuLjwCoawgYctNuVs+l5v1OmOBgGJINcI2TiOhbIsOIN6P3kaT+qpBB2zDSmtljnzP
+        /i0YY4w7uKBP9RLPqK1DzxeMXdsP95Q3n95kFL23qdJErXOg9vgnohGXyqEBTRe+Z8VTkTFlerJK
+        IoHSYVqpTCAfBSlrZvEGPiobyUWqyL7jZ5Cs1ZUAPadrrESdznR09Li2j6titX4sto9F2Q06U/I9
+        e8szaCcx7LAJx69XCLKEdVohiJfn3VJsVkuxlbgTmTmz0MVh5sEQ4Igj8NWuMiisITRjU9PGZrT9
+        PPCDhuqcAMZYgn6Gb79moLZH5+3hDpKJ9oz/JBYQm8C0ekdGJ2QOQnAnDwHZxUbmvD0riZKpwMZ1
+        MhmRkWW19Q0QKXN8Yj9s1LKt0ZjKu9LMOhSO9N/40NC1+zX0yL3V+dwQggoEhtrklJiTuAMPWqOe
+        i4F8bBXvPAY0Au+I0nk8KxtD1futygoYdOS8bRxVAsQJq3e8fIl5TLtT1kwzPEKwZmY2rGvraZKU
+        VBGbBnzPPXgvQI10qZRMxLXCmdMC+rMSWJHqvVtD1K0eeCDrcToBwsahB4o5vOwO3+2966xd3/B/
+        orec14686/iM/mCDyqPkDUoVm/HOaJdwskq0W4tk+QCEz57rP1NHk/0/OkJiEF65bqz8O0sMjE5A
+        rImB2AFZWjZK9lfRicFEUE8ji4Em849gRRgoi2XMShpqkNCHyQjaLTv0pHAeZ1O+GySdSVGr2dcx
+        6eEmpTt2IJ8UMgGvoxfGGp6uVuVRzu6HeRtDeOJvDlKqNEHQr9OjDA/C7eXSPkGLmwZym/lpSqK6
+        8R9ZV02ul2IIuqnafDQC+l1KFeCg+6cq5mtykKIys/u+fHn4HJ88IoOSshXlWFjMRHv7jKxe7gH3
+        eAcff0VNlkCP4K4YzBDD3LcNEkggSPTXxfU/AAAA//8DALBnwvY5CAAA
+    headers:
+      CF-RAY:
+      - 9c23feaeffd8e6d4-LAX
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 23 Jan 2026 02:52:27 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=eTirzJbcGAmsY3qjyYGKByv4VZ0FxrilJ32vDI99fFI-1769136747-1.0.1.1-A_ud96LnBkvnlkhB.DD2lHInDNoltgB9qrcC3EZqwlD0Ft5xfsOpCVr7dt4n9KcRi3kEvagC5QQht1rCN6f9KE.TLvJb.looXyLwkmC5ZBc;
+        path=/; expires=Fri, 23-Jan-26 03:22:27 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=YUNrfVPYtldqUn7vNZxwo1kZSa_XP1i1WZ3RDwNirZM-1769136747621-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-organization:
+      - sotai-i3ryiz
+      openai-processing-ms:
+      - '2752'
+      openai-project:
+      - proj_BrdCBgI2MYOVf6LqjZtIUDev
+      openai-version:
+      - '2020-10-01'
+      x-envoy-upstream-service-time:
+      - '2755'
+      x-ratelimit-limit-requests:
+      - '5000'
+      x-ratelimit-limit-tokens:
+      - '800000'
+      x-ratelimit-remaining-requests:
+      - '4999'
+      x-ratelimit-remaining-tokens:
+      - '799718'
+      x-ratelimit-reset-requests:
+      - 12ms
+      x-ratelimit-reset-tokens:
+      - 21ms
+      x-request-id:
+      - req_6fd3c035b8264e8fa1d23c803d0b5eaa
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -13,17 +13,16 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import httpx
 
 from plato.chronos.api.workspace_repos import bulk_ingest_ref_audit_events
 from plato.chronos.models import AuditEventInput, BulkRefAuditEventsRequest
+from plato.transports.base import Transport
+from plato.transports.git import GitCheckout, GitSyncBack, GitTransport
 from plato.utils.audit import read_audit_records
 from plato.utils.subprocess import run_local
-
-if TYPE_CHECKING:
-    from plato.agents.runtime.transport import Transport
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +111,39 @@ class Workspace:
             api_key=self.api_key,
             session_id=self.session_id,
         )
+
+    def with_transport(self, transport: Transport) -> Workspace:
+        """Return a shallow copy of this workspace with a specific transport attached."""
+        clone = self.clone()
+        clone.transport = transport
+        return clone
+
+    def for_git_agent(
+        self,
+        *,
+        path: str | Path | None = None,
+        mount_path: str | None = None,
+        checkout: GitCheckout | None = None,
+        sync_back: GitSyncBack | None = None,
+        raise_on_conflict: bool | None = None,
+    ) -> Workspace:
+        """Return a copy configured for a git-backed agent workspace."""
+        if self.transport is None:
+            raise RuntimeError(f"Workspace '{self.name}' has no transport configured")
+        if not isinstance(self.transport, GitTransport):
+            raise TypeError(f"Workspace '{self.name}' does not use GitTransport; got {type(self.transport).__name__}")
+
+        agent_transport = self.transport.for_agent(
+            path=str(path) if path is not None else None,
+            mount_path=mount_path,
+            checkout=checkout,
+            sync_back=sync_back,
+            raise_on_conflict=raise_on_conflict,
+        )
+        clone = self.with_transport(agent_transport)
+        if mount_path is not None:
+            clone._mount_path = mount_path
+        return clone
 
     @staticmethod
     def _cleanup_stale_mount(path: Path) -> None:

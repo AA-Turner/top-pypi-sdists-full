@@ -1,0 +1,65 @@
+name: RNA-seq normalization CI
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+*"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        tox-env: [py39, py310, py311, py312, py313, docs, linters, package]
+        include:
+          - tox-env: py39
+            python-version: 3.9
+          - tox-env: py310
+            python-version: "3.10"
+          - tox-env: py311
+            python-version: "3.11"
+          - tox-env: py312
+            python-version: "3.12"
+          - tox-env: py313
+            python-version: "3.13"
+          - tox-env: docs
+            python-version: "3.10"
+          - tox-env: linters
+            python-version: "3.10"
+          - tox-env: package
+            python-version: "3.10"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Tox
+        run: python -m pip install --upgrade pip tox
+      - name: Run Tox
+        run: python -m tox -e ${{ matrix.tox-env }} --skip-missing-interpreters false --recreate
+
+  build:
+    runs-on: ubuntu-22.04
+
+    needs: test
+    if: "startsWith(github.ref, 'refs/tags')"
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Install build
+        run: python -m pip install --user build
+      - name: Build a binary wheel and a source tarball
+        run: python -m build --sdist --wheel --outdir dist/ .
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.pypi_token }}

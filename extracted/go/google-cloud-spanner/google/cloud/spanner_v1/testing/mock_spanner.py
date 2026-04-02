@@ -13,27 +13,32 @@
 # limitations under the License.
 import base64
 import inspect
-import grpc
 from concurrent import futures
+from dataclasses import dataclass
 
+import grpc
 from google.protobuf import empty_pb2
+from google.rpc.code_pb2 import OK
 from grpc_status.rpc_status import _Status
 
-from google.cloud.spanner_v1 import (
-    TransactionOptions,
-    ResultSetMetadata,
-)
-from google.cloud.spanner_v1.testing.mock_database_admin import DatabaseAdminServicer
 import google.cloud.spanner_v1.testing.spanner_database_admin_pb2_grpc as database_admin_grpc
 import google.cloud.spanner_v1.testing.spanner_pb2_grpc as spanner_grpc
 import google.cloud.spanner_v1.types.commit_response as commit
 import google.cloud.spanner_v1.types.result_set as result_set
 import google.cloud.spanner_v1.types.spanner as spanner
 import google.cloud.spanner_v1.types.transaction as transaction
+from google.cloud.spanner_v1.testing.mock_database_admin import DatabaseAdminServicer
+from google.cloud.spanner_v1.types.result_set import ResultSetMetadata
+from google.cloud.spanner_v1.types.transaction import TransactionOptions
 
 
 class MockSpanner:
     def __init__(self):
+        self.results = {}
+        self.execute_streaming_sql_results = {}
+        self.errors = {}
+
+    def clear_results(self):
         self.results = {}
         self.execute_streaming_sql_results = {}
         self.errors = {}
@@ -53,10 +58,23 @@ class MockSpanner:
         return result
 
     def add_error(self, method: str, error: _Status):
+        if not hasattr(self, "_errors_list"):
+            self._errors_list = {}
+        if method not in self._errors_list:
+            self._errors_list[method] = []
+        self._errors_list[method].append(error)
         self.errors[method] = error
 
     def pop_error(self, context):
         name = inspect.currentframe().f_back.f_code.co_name
+        if hasattr(self, "_errors_list") and name in self._errors_list:
+            if self._errors_list[name]:
+                error = self._errors_list[name].pop(0)
+                context.abort_with_status(error)
+                return
+            return  # Queue is empty, return normally (no error)
+
+        # Fallback to single error
         error: _Status | None = self.errors.pop(name, None)
         if error:
             context.abort_with_status(error)
@@ -94,6 +112,12 @@ class MockSpanner:
         return partials
 
 
+@dataclass
+class BatchDmlResponseConfig:
+    status: _Status
+    include_transaction_id: bool = True
+
+
 # An in-memory mock Spanner server that can be used for testing.
 class SpannerServicer(spanner_grpc.SpannerServicer):
     def __init__(self):
@@ -103,6 +127,7 @@ class SpannerServicer(spanner_grpc.SpannerServicer):
         self.transaction_counter = 0
         self.transactions = {}
         self._mock_spanner = MockSpanner()
+        self._batch_dml_response_configs = []
 
     @property
     def mock_spanner(self):
@@ -114,6 +139,18 @@ class SpannerServicer(spanner_grpc.SpannerServicer):
 
     def clear_requests(self):
         self._requests = []
+
+    def add_batch_dml_response_status(self, status, include_transaction_id=True):
+        if not hasattr(self, "_batch_dml_response_configs"):
+            self._batch_dml_response_configs = []
+        self._batch_dml_response_configs.append(
+            BatchDmlResponseConfig(
+                status=status, include_transaction_id=include_transaction_id
+            )
+        )
+
+    def clear_results(self):
+        self.mock_spanner.clear_results()
 
     def CreateSession(self, request, context):
         self._requests.append(request)
@@ -176,6 +213,14 @@ class SpannerServicer(spanner_grpc.SpannerServicer):
         self.mock_spanner.pop_error(context)
         response = spanner.ExecuteBatchDmlResponse()
         started_transaction = self.__maybe_create_transaction(request)
+
+        config = None
+        if (
+            hasattr(self, "_batch_dml_response_configs")
+            and self._batch_dml_response_configs
+        ):
+            config = self._batch_dml_response_configs.pop(0)
+
         first = True
         for statement in request.statements:
             result = self.mock_spanner.get_result(statement.sql)
@@ -184,8 +229,16 @@ class SpannerServicer(spanner_grpc.SpannerServicer):
                     self.mock_spanner.get_result(statement.sql)
                 )
                 result.metadata = result_set.ResultSetMetadata(result.metadata)
-                result.metadata.transaction = started_transaction
+                if config is None or config.include_transaction_id:
+                    result.metadata.transaction = started_transaction
+                first = False
             response.result_sets.append(result)
+
+        if config is not None:
+            response.status.CopyFrom(config.status)
+        else:
+            response.status.code = OK
+
         return response
 
     def Read(self, request, context):

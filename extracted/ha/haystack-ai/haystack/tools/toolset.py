@@ -22,115 +22,115 @@ class Toolset:
        to manage and use them as a unit in Haystack pipelines.
 
        Example:
-       ```python
-       from haystack.tools import Tool, Toolset
-       from haystack.components.tools import ToolInvoker
+    ```python
+    from haystack.tools import Tool, Toolset
+    from haystack.components.tools import ToolInvoker
 
-       # Define math functions
-       def add_numbers(a: int, b: int) -> int:
-           return a + b
+    # Define math functions
+    def add_numbers(a: int, b: int) -> int:
+        return a + b
 
-       def subtract_numbers(a: int, b: int) -> int:
-           return a - b
+    def subtract_numbers(a: int, b: int) -> int:
+        return a - b
 
-       # Create tools with proper schemas
-       add_tool = Tool(
-           name="add",
-           description="Add two numbers",
-           parameters={
-               "type": "object",
-               "properties": {
-                   "a": {"type": "integer"},
-                   "b": {"type": "integer"}
-               },
-               "required": ["a", "b"]
-           },
-           function=add_numbers
-       )
+    # Create tools with proper schemas
+    add_tool = Tool(
+        name="add",
+        description="Add two numbers",
+        parameters={
+            "type": "object",
+            "properties": {
+                "a": {"type": "integer"},
+                "b": {"type": "integer"}
+            },
+            "required": ["a", "b"]
+        },
+        function=add_numbers
+    )
 
-       subtract_tool = Tool(
-           name="subtract",
-           description="Subtract b from a",
-           parameters={
-               "type": "object",
-               "properties": {
-                   "a": {"type": "integer"},
-                   "b": {"type": "integer"}
-               },
-               "required": ["a", "b"]
-           },
-           function=subtract_numbers
-       )
+    subtract_tool = Tool(
+        name="subtract",
+        description="Subtract b from a",
+        parameters={
+            "type": "object",
+            "properties": {
+                "a": {"type": "integer"},
+                "b": {"type": "integer"}
+            },
+            "required": ["a", "b"]
+        },
+        function=subtract_numbers
+    )
 
-       # Create a toolset with the math tools
-       math_toolset = Toolset([add_tool, subtract_tool])
+    # Create a toolset with the math tools
+    math_toolset = Toolset([add_tool, subtract_tool])
 
-       # Use the toolset with a ToolInvoker or ChatGenerator component
-       invoker = ToolInvoker(tools=math_toolset)
-       ```
+    # Use the toolset with a ToolInvoker or ChatGenerator component
+    invoker = ToolInvoker(tools=math_toolset)
+    ```
 
     2. Base class for dynamic tool loading:
        By subclassing Toolset, you can create implementations that dynamically load tools
        from external sources like OpenAPI URLs, MCP servers, or other resources.
 
        Example:
-       ```python
-       from haystack.core.serialization import generate_qualified_class_name
-       from haystack.tools import Tool, Toolset
-       from haystack.components.tools import ToolInvoker
+    ```python
+    from haystack.core.serialization import generate_qualified_class_name
+    from haystack.tools import Tool, Toolset
+    from haystack.components.tools import ToolInvoker
 
-       class CalculatorToolset(Toolset):
-           '''A toolset for calculator operations.'''
+    class CalculatorToolset(Toolset):
+        '''A toolset for calculator operations.'''
 
-           def __init__(self):
-               tools = self._create_tools()
-               super().__init__(tools)
+        def __init__(self) -> None:
+            tools = self._create_tools()
+            super().__init__(tools)
 
-           def _create_tools(self):
-               # These Tool instances are obviously defined statically and for illustration purposes only.
-               # In a real-world scenario, you would dynamically load tools from an external source here.
-               tools = []
-               add_tool = Tool(
-                   name="add",
-                   description="Add two numbers",
-                   parameters={
-                       "type": "object",
-                       "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
-                       "required": ["a", "b"],
-                   },
-                   function=lambda a, b: a + b,
-               )
+        def _create_tools(self):
+            # These Tool instances are obviously defined statically and for illustration purposes only.
+            # In a real-world scenario, you would dynamically load tools from an external source here.
+            tools = []
+            add_tool = Tool(
+                name="add",
+                description="Add two numbers",
+                parameters={
+                    "type": "object",
+                    "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+                    "required": ["a", "b"],
+                },
+                function=lambda a, b: a + b,
+            )
 
-               multiply_tool = Tool(
-                   name="multiply",
-                   description="Multiply two numbers",
-                   parameters={
-                       "type": "object",
-                       "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
-                       "required": ["a", "b"],
-                   },
-                   function=lambda a, b: a * b,
-               )
+            multiply_tool = Tool(
+                name="multiply",
+                description="Multiply two numbers",
+                parameters={
+                    "type": "object",
+                    "properties": {"a": {"type": "integer"}, "b": {"type": "integer"}},
+                    "required": ["a", "b"],
+                },
+                function=lambda a, b: a * b,
+            )
 
-               tools.append(add_tool)
-               tools.append(multiply_tool)
+            tools.append(add_tool)
+            tools.append(multiply_tool)
 
-               return tools
+            return tools
 
-           def to_dict(self):
-               return {
-                   "type": generate_qualified_class_name(type(self)),
-                   "data": {},  # no data to serialize as we define the tools dynamically
-               }
+        def to_dict(self):
+            return {
+                "type": generate_qualified_class_name(type(self)),
+                "data": {},  # no data to serialize as we define the tools dynamically
+            }
 
-           @classmethod
-           def from_dict(cls, data):
-               return cls()  # Recreate the tools dynamically during deserialization
+        @classmethod
+        def from_dict(cls, data):
+            return cls()  # Recreate the tools dynamically during deserialization
 
-       # Create the dynamic toolset and use it with ToolInvoker
-       calculator_toolset = CalculatorToolset()
-       invoker = ToolInvoker(tools=calculator_toolset)
-       ```
+    # Create the dynamic toolset and use it with ToolInvoker
+    calculator_toolset = CalculatorToolset()
+    invoker = ToolInvoker(tools=calculator_toolset)
+    ```
 
     Toolset implements the collection interface (__iter__, __contains__, __len__, __getitem__),
     making it behave like a list of Tools. This makes it compatible with components that expect
@@ -146,7 +146,7 @@ class Toolset:
     # Use field() with default_factory to initialize the list
     tools: list[Tool] = field(default_factory=list)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """
         Validate and set up the toolset after initialization.
 
@@ -305,7 +305,7 @@ class Toolset:
         """
         return len(self.tools)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Tool:
         """
         Get a Tool by index.
 
@@ -323,29 +323,29 @@ class _ToolsetWrapper(Toolset):
     their individual configurations while still being usable with ToolInvoker.
     """
 
-    def __init__(self, toolsets: list[Toolset]):
+    def __init__(self, toolsets: list[Toolset]) -> None:
         super().__init__([tool for toolset in toolsets for tool in toolset])
         self.toolsets = toolsets
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Tool]:
         """Iterate over all tools from all toolsets."""
         for toolset in self.toolsets:
             yield from toolset
 
-    def __contains__(self, item):
+    def __contains__(self, item: Any) -> bool:
         """Check if a tool is in any of the toolsets."""
         return any(item in toolset for toolset in self.toolsets)
 
-    def warm_up(self):
+    def warm_up(self) -> None:
         """Warm up all toolsets."""
         for toolset in self.toolsets:
             toolset.warm_up()
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return total number of tools across all toolsets."""
         return sum(len(toolset) for toolset in self.toolsets)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Tool:
         """Get a tool by index across all toolsets."""
         # Leverage iteration instead of manual index tracking
         for i, tool in enumerate(self):
@@ -353,7 +353,7 @@ class _ToolsetWrapper(Toolset):
                 return tool
         raise IndexError("ToolsetWrapper index out of range")
 
-    def __add__(self, other):
+    def __add__(self, other: Toolset | Tool | list[Tool]) -> "_ToolsetWrapper":
         """Add another toolset or tool to this wrapper."""
         if isinstance(other, Toolset):
             return _ToolsetWrapper(self.toolsets + [other])

@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "langwatch-scenario"
+version = "0.7.22"
+description = "The end-to-end agent testing library"
+readme = "README.md"
+authors = [{ name = "LangWatch Team", email = "support@langwatch.ai" }]
+license = { text = "AGPL-3.0" }
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "pytest>=8.1.1",
+    "pytest-rerunfailures>=14.0",
+    "litellm>=1.49.0",
+    "openai>=1.88.0",
+    "python-dotenv>=1.0.1",
+    "termcolor>=2.4.0",
+    "pydantic>=2.7.0",
+    "joblib>=1.4.2",
+    "wrapt>=1.17.2",
+    "pytest-asyncio>=0.26.0",
+    "rich>=13.3.3,<15.0.0",
+    "pksuid>=1.1.2",
+    "httpx>=0.27.0",
+    "rx>=3.2.0",
+    "python-dateutil>=2.9.0.post0",
+    "pydantic-settings>=2.9.1",
+    "langwatch>=0.2.19",
+    "opentelemetry-sdk>=1.20.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "isort",
+    "pytest-cov",
+    "pre-commit",
+    "pyright",
+    "pydantic-ai",
+    "function-schema",
+    "pdoc3",
+    "respx",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/langwatch/scenario"
+"Bug Tracker" = "https://github.com/langwatch/scenario/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scenario*"]
+
+[tool.setuptools.package-data]
+"scenario" = ["_generated/**/*"]
+
+[tool.pytest.ini_options]
+markers = ["agent_test: marks tests as agent scenario tests"]
+
+[dependency-groups]
+dev = [
+    "function-schema>=0.4.5",
+    "pre-commit>=4.2.0",
+    "pydantic-ai>=0.0.52",
+    "pyright>=1.1.405",
+    "pytest-asyncio-concurrent>=0.4.1",
+    "pdoc3>=0.11.6",
+    "respx>=0.22.0",
+]

@@ -27,7 +27,7 @@ class User(BaseModel):
     A reference to a user by their ID and optionally their email address.
     """ # noqa: E501
     id: StrictStr = Field(description="The unique identifier for the user")
-    email: Optional[StrictStr] = Field(default=None, description="The email address of the user")
+    email: Optional[StrictStr] = Field(default=None, description="An email address")
     __properties: ClassVar[List[str]] = ["id", "email"]
 
     model_config = ConfigDict(

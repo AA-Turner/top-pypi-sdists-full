@@ -101,6 +101,12 @@ pub(crate) fn handle_ul(
         }
     }
 
+    if !ctx.in_table_cell {
+        if let Some(ref sc) = ctx.structure_collector {
+            sc.borrow_mut().push_list_start(false);
+        }
+    }
+
     process_list_children(
         *node_handle,
         parser,
@@ -114,6 +120,12 @@ pub(crate) fn handle_ul(
         1,
         dom_ctx,
     );
+
+    if !ctx.in_table_cell {
+        if let Some(ref sc) = ctx.structure_collector {
+            sc.borrow_mut().push_list_end();
+        }
+    }
 
     add_nested_list_trailing_separator(output, ctx);
 

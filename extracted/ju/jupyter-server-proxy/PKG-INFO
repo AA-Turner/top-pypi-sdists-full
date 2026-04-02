@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: jupyter_server_proxy
-Version: 4.4.0
+Version: 4.5.0
 Summary: A Jupyter server extension to run additional processes and proxy to them that comes bundled JupyterLab extension to launch pre-defined processes.
 Project-URL: Documentation, https://jupyter-server-proxy.readthedocs.io
 Project-URL: Source, https://github.com/jupyterhub/jupyter-server-proxy
@@ -57,6 +57,7 @@ Requires-Dist: simpervisor>=1.0.0
 Requires-Dist: tornado>=6.1.0
 Requires-Dist: traitlets>=5.1.0
 Provides-Extra: acceptance
+Requires-Dist: jupyterhub; extra == 'acceptance'
 Requires-Dist: pytest; extra == 'acceptance'
 Requires-Dist: pytest-asyncio; extra == 'acceptance'
 Requires-Dist: pytest-cov; extra == 'acceptance'
@@ -71,7 +72,10 @@ Requires-Dist: jupyter-server>=2; extra == 'lab'
 Requires-Dist: jupyterlab<5.0.0a0,>=4.0.5; extra == 'lab'
 Requires-Dist: nbclassic; extra == 'lab'
 Requires-Dist: notebook>=7; extra == 'lab'
+Provides-Extra: standalone
+Requires-Dist: jupyterhub; extra == 'standalone'
 Provides-Extra: test
+Requires-Dist: jupyterhub; extra == 'test'
 Requires-Dist: pytest; extra == 'test'
 Requires-Dist: pytest-asyncio; extra == 'test'
 Requires-Dist: pytest-cov; extra == 'test'

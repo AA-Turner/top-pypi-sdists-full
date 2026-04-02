@@ -3,7 +3,7 @@ use log::info;
 use lsp_types::request::Request;
 use squawk_ide::db::parse;
 
-use crate::system::System;
+use crate::global_state::Snapshot;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub(crate) struct SyntaxTreeParams {
@@ -19,13 +19,13 @@ impl Request for SyntaxTreeRequest {
     const METHOD: &'static str = "squawk/syntaxTree";
 }
 
-pub(crate) fn handle_syntax_tree(system: &dyn System, params: SyntaxTreeParams) -> Result<String> {
+pub(crate) fn handle_syntax_tree(snapshot: &Snapshot, params: SyntaxTreeParams) -> Result<String> {
     let uri = params.text_document.uri;
 
     info!("Generating syntax tree for: {uri}");
 
-    let db = system.db();
-    let file = system.file(&uri).unwrap();
+    let db = snapshot.db();
+    let file = snapshot.file(&uri).unwrap();
     let parse = parse(db, file);
     let syntax_tree = format!("{:#?}", parse.syntax_node());
 

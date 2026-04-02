@@ -31,6 +31,7 @@ class ProviderArgs:
                  client_secret_file_path: Optional[pulumi.Input[_builtins.str]] = None,
                  disable_correlation_request_id: Optional[pulumi.Input[_builtins.bool]] = None,
                  disable_terraform_partner_id: Optional[pulumi.Input[_builtins.bool]] = None,
+                 enhanced_validation: Optional[pulumi.Input['ProviderEnhancedValidationArgs']] = None,
                  environment: Optional[pulumi.Input[_builtins.str]] = None,
                  features: Optional[pulumi.Input['ProviderFeaturesArgs']] = None,
                  metadata_host: Optional[pulumi.Input[_builtins.str]] = None,
@@ -53,6 +54,7 @@ class ProviderArgs:
                  use_oidc: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a Provider resource.
+
         :param pulumi.Input[_builtins.str] ado_pipeline_service_connection_id: The Azure DevOps Pipeline Service Connection ID.
         :param pulumi.Input[_builtins.str] client_certificate: Base64 encoded PKCS#12 certificate bundle to use when authenticating as a Service Principal using a Client Certificate
         :param pulumi.Input[_builtins.str] client_certificate_password: The password associated with the Client Certificate. For use when authenticating as a Service Principal using a Client Certificate
@@ -105,6 +107,8 @@ class ProviderArgs:
             pulumi.set(__self__, "disable_correlation_request_id", disable_correlation_request_id)
         if disable_terraform_partner_id is not None:
             pulumi.set(__self__, "disable_terraform_partner_id", disable_terraform_partner_id)
+        if enhanced_validation is not None:
+            pulumi.set(__self__, "enhanced_validation", enhanced_validation)
         if environment is None:
             environment = (_utilities.get_env('AZURE_ENVIRONMENT', 'ARM_ENVIRONMENT') or 'public')
         if environment is not None:
@@ -287,6 +291,15 @@ class ProviderArgs:
     @disable_terraform_partner_id.setter
     def disable_terraform_partner_id(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "disable_terraform_partner_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enhancedValidation")
+    def enhanced_validation(self) -> Optional[pulumi.Input['ProviderEnhancedValidationArgs']]:
+        return pulumi.get(self, "enhanced_validation")
+
+    @enhanced_validation.setter
+    def enhanced_validation(self, value: Optional[pulumi.Input['ProviderEnhancedValidationArgs']]):
+        pulumi.set(self, "enhanced_validation", value)
 
     @_builtins.property
     @pulumi.getter
@@ -544,6 +557,7 @@ class Provider(pulumi.ProviderResource):
                  client_secret_file_path: Optional[pulumi.Input[_builtins.str]] = None,
                  disable_correlation_request_id: Optional[pulumi.Input[_builtins.bool]] = None,
                  disable_terraform_partner_id: Optional[pulumi.Input[_builtins.bool]] = None,
+                 enhanced_validation: Optional[pulumi.Input[Union['ProviderEnhancedValidationArgs', 'ProviderEnhancedValidationArgsDict']]] = None,
                  environment: Optional[pulumi.Input[_builtins.str]] = None,
                  features: Optional[pulumi.Input[Union['ProviderFeaturesArgs', 'ProviderFeaturesArgsDict']]] = None,
                  metadata_host: Optional[pulumi.Input[_builtins.str]] = None,
@@ -570,6 +584,7 @@ class Provider(pulumi.ProviderResource):
         settings, however an explicit `Provider` instance may be created and passed during resource
         construction to achieve fine-grained programmatic control over provider settings. See the
         [documentation](https://www.pulumi.com/docs/reference/programming-model/#providers) for more information.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -615,6 +630,7 @@ class Provider(pulumi.ProviderResource):
         construction to achieve fine-grained programmatic control over provider settings. See the
         [documentation](https://www.pulumi.com/docs/reference/programming-model/#providers) for more information.
 
+
         :param str resource_name: The name of the resource.
         :param ProviderArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -641,6 +657,7 @@ class Provider(pulumi.ProviderResource):
                  client_secret_file_path: Optional[pulumi.Input[_builtins.str]] = None,
                  disable_correlation_request_id: Optional[pulumi.Input[_builtins.bool]] = None,
                  disable_terraform_partner_id: Optional[pulumi.Input[_builtins.bool]] = None,
+                 enhanced_validation: Optional[pulumi.Input[Union['ProviderEnhancedValidationArgs', 'ProviderEnhancedValidationArgsDict']]] = None,
                  environment: Optional[pulumi.Input[_builtins.str]] = None,
                  features: Optional[pulumi.Input[Union['ProviderFeaturesArgs', 'ProviderFeaturesArgsDict']]] = None,
                  metadata_host: Optional[pulumi.Input[_builtins.str]] = None,
@@ -681,6 +698,7 @@ class Provider(pulumi.ProviderResource):
             __props__.__dict__["client_secret_file_path"] = None if client_secret_file_path is None else pulumi.Output.secret(client_secret_file_path)
             __props__.__dict__["disable_correlation_request_id"] = pulumi.Output.from_input(disable_correlation_request_id).apply(pulumi.runtime.to_json) if disable_correlation_request_id is not None else None
             __props__.__dict__["disable_terraform_partner_id"] = pulumi.Output.from_input(disable_terraform_partner_id).apply(pulumi.runtime.to_json) if disable_terraform_partner_id is not None else None
+            __props__.__dict__["enhanced_validation"] = pulumi.Output.from_input(enhanced_validation).apply(pulumi.runtime.to_json) if enhanced_validation is not None else None
             if environment is None:
                 environment = (_utilities.get_env('AZURE_ENVIRONMENT', 'ARM_ENVIRONMENT') or 'public')
             __props__.__dict__["environment"] = environment

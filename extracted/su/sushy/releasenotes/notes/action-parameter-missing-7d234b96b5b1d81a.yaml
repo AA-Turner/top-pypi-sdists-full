@@ -1,6 +1,0 @@
----
-fixes:
-  - |
-    Correctly handles error code ``Base.1.12.ActionParameterMissing`` when dealing with
-    hardware that requires ``TransferProtocolType`` for virtual media
-    operations and has different message in RelatedProperties response.

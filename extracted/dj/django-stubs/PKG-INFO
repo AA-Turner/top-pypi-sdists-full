@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-stubs
-Version: 6.0.1
+Version: 6.0.2
 Summary: Mypy stubs for Django
 Author: Maksim Kurnikov
 Author-email: Maksim Kurnikov <maxim.kurnikov@gmail.com>
@@ -19,11 +19,11 @@ Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
 Requires-Dist: django
-Requires-Dist: django-stubs-ext>=6.0.1
+Requires-Dist: django-stubs-ext>=6.0.2
 Requires-Dist: tomli ; python_full_version < '3.11'
 Requires-Dist: types-pyyaml
 Requires-Dist: typing-extensions>=4.11.0
-Requires-Dist: mypy>=1.13,<1.20 ; extra == 'compatible-mypy'
+Requires-Dist: mypy>=1.13,<1.21 ; extra == 'compatible-mypy'
 Requires-Dist: oracledb ; extra == 'oracle'
 Requires-Dist: redis ; extra == 'redis'
 Requires-Dist: types-redis ; extra == 'redis'
@@ -88,6 +88,7 @@ We rely on different `django` and `mypy` versions:
 
 | django-stubs   | Mypy version | Django version | Django partial support | Python version |
 |----------------|--------------|----------------|------------------------|----------------|
+| 6.0.2          | 1.13 - 1.20  | 6.0            | 5.2, 5.1, 5.0          | 3.10 - 3.14    |
 | 6.0.1          | 1.13 - 1.19  | 6.0            | 5.2, 5.1, 5.0          | 3.10 - 3.14    |
 | 6.0.0          | 1.13 - 1.19  | 6.0            | 5.2, 5.1, 5.0          | 3.10 - 3.14    |
 | 5.2.9          | 1.13 - 1.19  | 5.2            | 5.1, 5.0               | 3.10 - 3.13    |
@@ -249,13 +250,7 @@ This happens because these Django classes do not support [`__class_getitem__`](h
 
 ### How can I create a HttpRequest that's guaranteed to have an authenticated user?
 
-Django's built in [`HttpRequest`](https://docs.djangoproject.com/en/stable/ref/request-response/#django.http.HttpRequest) has the attribute `user` that resolves to the type
-
-```python
-Union[User, AnonymousUser]
-```
-
-where `User` is the user model specified by the `AUTH_USER_MODEL` setting.
+Django's built in [`HttpRequest`](https://docs.djangoproject.com/en/stable/ref/request-response/#django.http.HttpRequest) has the attribute `user` that resolves to the type `User | AnonymousUser` where `User` is the user model specified by the `AUTH_USER_MODEL` setting.
 
 If you want a `HttpRequest` that you can type-annotate with where you know that the user is authenticated you can subclass the normal `HttpRequest` class like so:
 

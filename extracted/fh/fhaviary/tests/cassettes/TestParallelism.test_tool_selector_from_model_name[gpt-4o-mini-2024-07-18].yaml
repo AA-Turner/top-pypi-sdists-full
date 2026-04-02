@@ -1,0 +1,230 @@
+interactions:
+  - request:
+      body:
+        '{"messages":[{"role":"user","content":"You are the president of the United
+        States of America. Please move both hands at the same time, and then smile and
+        wave."}],"model":"gpt-4o-mini-2024-07-18","tool_choice":"required","tools":[{"type":"function","function":{"name":"move_left_hand","description":"Move
+        your left hand forward or backward.","parameters":{"type":"object","properties":{"distance":{"description":"Integer
+        distance to move (mm), where forward is positive.","title":"Distance","type":"integer"}},"required":["distance"]}}},{"type":"function","function":{"name":"move_right_hand","description":"Move
+        your right hand forward or backward.","parameters":{"type":"object","properties":{"distance":{"description":"Integer
+        distance to move (mm), where forward is positive.","title":"Distance","type":"integer"}},"required":["distance"]}}},{"type":"function","function":{"name":"smile_and_wave","description":"Smile
+        and wave.","parameters":{"type":"object","properties":{},"required":[]}}}]}'
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate
+        connection:
+          - keep-alive
+        content-length:
+          - "997"
+        content-type:
+          - application/json
+        host:
+          - api.openai.com
+        user-agent:
+          - AsyncOpenAI/Python 1.86.0
+        x-stainless-arch:
+          - arm64
+        x-stainless-async:
+          - async:asyncio
+        x-stainless-lang:
+          - python
+        x-stainless-os:
+          - MacOS
+        x-stainless-package-version:
+          - 1.86.0
+        x-stainless-raw-response:
+          - "true"
+        x-stainless-read-timeout:
+          - "600.0"
+        x-stainless-retry-count:
+          - "0"
+        x-stainless-runtime:
+          - CPython
+        x-stainless-runtime-version:
+          - 3.12.8
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: !!binary |
+          H4sIAAAAAAAAAwAAAP//xFTJbtswEL3rKwie7UKSncW+JYDRIkWapY2DtgmICTWi2HBRScpxYvjf
+          C8mxJTtdcgmqgyDN45t5j+TMIiKEyoyOCeUFBK5L1T+WF+meE+JscDWdniaH1TGUV6k6m5zfTT7S
+          Xs2wdz+QhzXrHbe6VBikNSuYO4SAddbkYDgapftpnDSAthmqmibK0B/avpZG9tM4Hfbjg35y+Mwu
+          rOTo6Zh8jwghZNG8a50mwzkdk7i3jmj0HgTS8WYRIdRZVUcoeC99ABNorwW5NQFNLd1USnWAYK1i
+          HJRqC6+eRee73SxQiklRPGm4jkdPE/41NupJj07NEahOvVXqx7IRlFeGbzapg2/i451ihFADuuFq
+          O0OmMA+sAJPtZCCEghOVRhNq9XRxQ7PGOseb+hDieEm3CMvO37L3KrPzgZpezj5dzLEU397P8fzn
+          Q3Iy/3D0ZmadFMV/c3udHon7L5PLy2QgTox/iPfV/WecPr6FW6+lQgYmYw8ww3+Z/Zu3zfdt52I7
+          zCsP6uWNB2NsgFpdc+Vvo50dosqK0tk7v0OluTTSF8wh+MZZt3eitZBGAq222pOWzuoysGDvsSma
+          DJ97mbYjpEX312CwAVQbT+M1sJWPZRhANv27GRkceIFZS21HB1SZtB0g6nh/qeZ3uVf+pRGvSd8C
+          nGMZMGOlw0zybcftMof1hP3Tss0uN4KpRzeTHFmQ6OrzyDCHSq3mHvWPPqBmuTQCXelkM/xoXrLB
+          EPaGgKMBp9Ey+gUAAP//AwDlMamQCgYAAA==
+      headers:
+        CF-RAY:
+          - 94fbef48a81dcbab-LAX
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Sat, 14 Jun 2025 18:36:42 GMT
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - __cf_bm=a2am9V9P4.ul2caK.O8UFILEVQWGtVAgL8LBIKJNvfw-1749926202-1.0.1.1-p6TyCkUpINm6w4loZUyzMD3kBXqUUVtMv1.GhWkW_VREmf538w_kNqR6rGD5CTWJCHkTxt55I9VLX1TwS20ygvgXFcYrCnYW.QGy5C9oWl8;
+            path=/; expires=Sat, 14-Jun-25 19:06:42 GMT; domain=.api.openai.com; HttpOnly;
+            Secure; SameSite=None
+          - _cfuvid=t4eUyzu_jjJa7hDGlKOLM9puZuq7XGboHudn1Gp8K.8-1749926202593-0.0.1.1-604800000;
+            path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        access-control-expose-headers:
+          - X-Request-ID
+        alt-svc:
+          - h3=":443"; ma=86400
+        cf-cache-status:
+          - DYNAMIC
+        openai-organization:
+          - future-house-xr4tdh
+        openai-processing-ms:
+          - "795"
+        openai-version:
+          - "2020-10-01"
+        strict-transport-security:
+          - max-age=31536000; includeSubDomains; preload
+        x-envoy-upstream-service-time:
+          - "798"
+        x-ratelimit-limit-requests:
+          - "30000"
+        x-ratelimit-limit-tokens:
+          - "150000000"
+        x-ratelimit-remaining-requests:
+          - "29999"
+        x-ratelimit-remaining-tokens:
+          - "149999968"
+        x-ratelimit-reset-requests:
+          - 2ms
+        x-ratelimit-reset-tokens:
+          - 0s
+        x-request-id:
+          - req_d50afe83c456106203279cc8b04d326b
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        '{"messages":[{"role":"user","content":"You are the president of the United
+        States of America. Please move both hands at the same time, and then smile and
+        wave."}],"model":"gpt-4o-mini-2024-07-18","tool_choice":"auto","tools":[{"type":"function","function":{"name":"move_left_hand","description":"Move
+        your left hand forward or backward.","parameters":{"type":"object","properties":{"distance":{"description":"Integer
+        distance to move (mm), where forward is positive.","title":"Distance","type":"integer"}},"required":["distance"]}}},{"type":"function","function":{"name":"move_right_hand","description":"Move
+        your right hand forward or backward.","parameters":{"type":"object","properties":{"distance":{"description":"Integer
+        distance to move (mm), where forward is positive.","title":"Distance","type":"integer"}},"required":["distance"]}}},{"type":"function","function":{"name":"smile_and_wave","description":"Smile
+        and wave.","parameters":{"type":"object","properties":{},"required":[]}}}]}'
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate
+        connection:
+          - keep-alive
+        content-length:
+          - "993"
+        content-type:
+          - application/json
+        host:
+          - api.openai.com
+        user-agent:
+          - AsyncOpenAI/Python 1.86.0
+        x-stainless-arch:
+          - arm64
+        x-stainless-async:
+          - async:asyncio
+        x-stainless-lang:
+          - python
+        x-stainless-os:
+          - MacOS
+        x-stainless-package-version:
+          - 1.86.0
+        x-stainless-raw-response:
+          - "true"
+        x-stainless-read-timeout:
+          - "600.0"
+        x-stainless-retry-count:
+          - "0"
+        x-stainless-runtime:
+          - CPython
+        x-stainless-runtime-version:
+          - 3.12.8
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: !!binary |
+          H4sIAAAAAAAAAwAAAP//xFRdT9swFH3Pr7D83ExpGgrtWxHSphXYymAVG8hy7ZvExR+R7UBL1f8+
+          JaVNWvbBC1oeouQen3vPsX3vKkAIC46HCLOceqYKGZ6KSdw3/vzqzA5ObiYn8/6nb3rxfHZ2OXow
+          uFMxzGwOzG9ZH5hRhQQvjN7AzAL1UGXtHieDQdyPo7gGlOEgK1pW+DAxoRJahHEUJ2F0HHZPXti5
+          EQwcHqKfAUIIrep3pVNzWOAhijrbiALnaAZ4uFuEELZGVhFMnRPOU+1xpwGZ0R50JV2XUrYAb4wk
+          jErZFN48q9Z3s1lUSnI60X2ulupyARM+MvYmub0uz2PdqrdJvSxqQWmp2W6TWvguPjwohhDWVNVc
+          ZR6BSEg9yanmBxkQwtRmpQLtK/V4dYd5bZ3BXXUIUbTGe4R162/deZPZ3vJIwPTq4njqZ0+TL91b
+          cwH04/jzu5m1Isv/m9vrSfF9/OCnX597Qv8YD+bmalzepKP3cOuUkECo5uSJPsK/zP7N2+77vnWx
+          LaSlo/L1jadaG08rdfWVvw8OdghLkxXWzNwBFadCC5cTC9TVztq9E2yF1BJwudeeuLBGFZ548wB1
+          0W7y0su4GSEN2t+C3ngqm3gcbYG9fISDp6Lu393IYJTlwBtqMzpoyYVpAUHL+2s1v8u98S909pb0
+          DcAYFB44KSxwwfYdN8ssVBP2T8t2u1wLxg7so2BAvABbnQeHlJZyM/ewWzoPiqRCZ2ALK+rhh9OC
+          9BJ6lFAY9BgO1sEvAAAA//8DAG0ynAMKBgAA
+      headers:
+        CF-RAY:
+          - 94fbef4e8830cbab-LAX
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Sat, 14 Jun 2025 18:36:43 GMT
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        access-control-expose-headers:
+          - X-Request-ID
+        alt-svc:
+          - h3=":443"; ma=86400
+        cf-cache-status:
+          - DYNAMIC
+        openai-organization:
+          - future-house-xr4tdh
+        openai-processing-ms:
+          - "752"
+        openai-version:
+          - "2020-10-01"
+        strict-transport-security:
+          - max-age=31536000; includeSubDomains; preload
+        x-envoy-upstream-service-time:
+          - "754"
+        x-ratelimit-limit-requests:
+          - "30000"
+        x-ratelimit-limit-tokens:
+          - "150000000"
+        x-ratelimit-remaining-requests:
+          - "29999"
+        x-ratelimit-remaining-tokens:
+          - "149999968"
+        x-ratelimit-reset-requests:
+          - 2ms
+        x-ratelimit-reset-tokens:
+          - 0s
+        x-request-id:
+          - req_7c999009c14e502c9a1a35d94387e171
+      status:
+        code: 200
+        message: OK
+version: 1

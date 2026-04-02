@@ -1,0 +1,260 @@
+"""Define the MultiFiMetaModel class."""
+from itertools import chain
+
+import numpy as np
+
+from openmdao.components.meta_model_unstructured_comp import MetaModelUnStructuredComp
+from openmdao.utils.array_utils import shape_to_len
+
+
+def _get_name_fi(name, fi_index):
+    """
+    Generate variable name taking into account fidelity level.
+
+    Parameters
+    ----------
+    name : str
+        base name
+    fi_index : int
+        fidelity level
+
+    Returns
+    -------
+    str
+        variable name
+    """
+    if fi_index > 0:
+        return "%s_fi%d" % (name, fi_index + 1)
+    else:
+        return name
+
+
+class MultiFiMetaModelUnStructuredComp(MetaModelUnStructuredComp):
+    """
+    Generalize MetaModel to be able to train surrogates with multi-fidelity training inputs.
+
+    For a given number of levels of fidelity **nfi** (given at initialization)
+    the corresponding training input variables *train_[invar]_fi[2..nfi]* and
+    *train_[outvar]_fi[2..nfi]* are automatically created
+    besides the given *train_[invar]* and *train_[outvar]* variables.
+    Note the index starts at 2, the index 1 is omitted considering
+    the simple name *var* is equivalent to *var_fi1* which is intended
+    to be the data of highest fidelity.
+
+    The surrogate models are trained with a list of (m samples, n dim)
+    ndarrays built from the various training input data. By convention,
+    the fidelities are intended to be ordered from highest to lowest fidelity.
+    Obviously for a given level of fidelity corresponding lists
+    *train_[var]_fi[n]* have to be of the same size.
+
+    Thus given the initialization::
+
+    >>> mm = MultiFiMetaModelUnStructuredComp(nfi=2)`
+    >>> mm.add_input('x1', 0.)
+    >>> mm.add_input('x2', 0.)
+    >>> mm.add_output('y1', 0.)
+    >>> mm.add_output('y2', 0.)
+
+    the following supplementary training input variables
+    ``train_x1_fi2`` and ``train_x2_fi2`` are created together with the classic
+    ones ``train_x1`` and ``train_x2`` and the output variables ``train_y1_fi2``
+    and ``train_y2_fi2`` are created as well.
+    The embedded surrogate for y1 will be trained with a couple (X, Y).
+
+    Where X is the list [X_fi1, X_fi2] where X_fi1 is an (m1, 2) ndarray
+    filled with the m1 samples [x1 value, x2 value], X_fi2 is an (m2, 2) ndarray
+    filled with the m2 samples [x1_fi2 value, x2_fi2 value]
+
+    Where Y is a list [Y1_fi1, Y1_fi2] where Y1_fi1 is a (m1, 1) ndarray of
+    y1 values and Y1_fi2 a (m2, 1) ndarray y1_fi2 values.
+
+    .. note:: when *nfi* ==1 a :class:`MultiFiMetaModelUnStructuredComp` object behaves as
+        a :class:`MetaModelUnStructured` object.
+
+    Parameters
+    ----------
+    **kwargs : dict of keyword arguments
+        Keyword arguments that will be mapped into the Component options.
+
+    Attributes
+    ----------
+    _input_sizes : list
+        Stores the size of the inputs at each level.
+    _static_input_sizes : list
+        Stores the size of the inputs at each level for inputs added outside of setup.
+    _nfi : float
+        number of levels of fidelity
+    _training_input : dict
+        Training data for inputs.
+    """
+
+    def __init__(self, **kwargs):
+        """
+        Initialize all attributes.
+        """
+        super().__init__(**kwargs)
+
+        nfi = self._nfi = self.options['nfi']
+
+        # generalize MetaModelUnStructured training inputs to a list of training inputs
+        self._training_input = nfi * [np.empty(0)]
+        self._input_sizes = nfi * [0]
+
+        self._static_input_sizes = nfi * [0]
+
+        self._no_check_partials = True
+
+    def initialize(self):
+        """
+        Declare options.
+        """
+        super().initialize()
+
+        self.options.declare('nfi', types=int, default=1, lower=1,
+                             desc='Number of levels of fidelity.')
+
+    def _setup_procs(self, pathname, comm, prob_meta):
+        """
+        Execute first phase of the setup process.
+
+        Distribute processors, assign pathnames, and call setup on the component.
+
+        Parameters
+        ----------
+        pathname : str
+            Global name of the system, including the path.
+        comm : MPI.Comm or <FakeComm>
+            MPI communicator object.
+        prob_meta : dict
+            Problem level options.
+        """
+        self._input_sizes = list(self._static_input_sizes)
+
+        super()._setup_procs(pathname, comm, prob_meta)
+
+    def add_input(self, name, val=1.0, **kwargs):
+        """
+        Add an input variable to the component.
+
+        Parameters
+        ----------
+        name : str
+            Name of the variable in this component's namespace.
+        val : float or list or tuple or ndarray
+            The initial value of the variable being added in user-defined units. Default is 1.0.
+        **kwargs : dict
+            Additional arguments to be passed to the add_input method of the base class.
+        """
+        metadata = super().add_input(name, val=val, **kwargs)
+        if self.options['vec_size'] > 1:
+            input_size = metadata['val'][0].size
+        else:
+            input_size = metadata['val'].size
+
+        if self._static_mode:
+            self._static_input_sizes[0] += input_size
+        else:
+            self._input_sizes[0] += input_size
+
+        # Add train_<invar>_fi<n>
+        for fi in range(self._nfi):
+            if fi > 0:
+                train_name = 'train_' + _get_name_fi(name, fi)
+                self.options.declare(
+                    train_name, default=None, desc='Training data for %s' % train_name)
+                if self._static_mode:
+                    self._static_input_sizes[fi] += input_size
+                else:
+                    self._input_sizes[fi] += input_size
+
+    def add_output(self, name, val=1.0, **kwargs):
+        """
+        Add an output variable to the component.
+
+        Parameters
+        ----------
+        name : str
+            Name of the variable in this component's namespace.
+        val : float or list or tuple or ndarray
+            The initial value of the variable being added in user-defined units. Default is 1.0.
+        **kwargs : dict
+            Additional arguments to be passed to the add_output method of the base class.
+        """
+        super().add_output(name, val, **kwargs)
+        self._training_output[name] = self._nfi * [np.empty(0)]
+
+        # Add train_<outvar>_fi<n>
+        for fi in range(self._nfi):
+            if fi > 0:
+                train_name = 'train_' + _get_name_fi(name, fi)
+                self.options.declare(
+                    train_name, default=None, desc='Training data for %s' % train_name)
+
+    def _train(self):
+        """
+        Override MetaModelUnStructured _train method to take into account multi-fidelity input data.
+        """
+        if self._nfi == 1:
+            # shortcut: fallback to base class behaviour immediatly
+            super()._train()
+            return
+
+        num_sample = self._nfi * [None]
+        for name_root, _ in chain(self._surrogate_input_names, self._surrogate_output_names):
+            for fi in range(self._nfi):
+                name = _get_name_fi(name_root, fi)
+                val = self.options['train_' + name]
+                if num_sample[fi] is None:
+                    num_sample[fi] = len(val)
+                elif len(val) != num_sample[fi]:
+                    msg = f"{self.msginfo}: Each variable must have the same number " \
+                          f"of training points. Expected {num_sample[fi]} but found {len(val)} " \
+                          f"points for '{name}'."
+                    raise RuntimeError(msg)
+
+        inputs = [np.zeros((num_sample[fi], self._input_sizes[fi]))
+                  for fi in range(self._nfi)]
+
+        # add training data for each input
+        idx = self._nfi * [0]
+        for name_root, sz in self._surrogate_input_names:
+            for fi in range(self._nfi):
+                name = _get_name_fi(name_root, fi)
+                val = self.options['train_' + name]
+                if isinstance(val[0], float):
+                    inputs[fi][:, idx[fi]] = val
+                    idx[fi] += 1
+                else:
+                    for row_idx, v in enumerate(val):
+                        v = np.asarray(v)
+                        inputs[fi][row_idx, idx[fi]:idx[fi] + sz] = v.flat
+
+        # add training data for each output
+        outputs = self._nfi * [None]
+        for name_root, shape in self._surrogate_output_names:
+            output_size = shape_to_len(shape)
+            for fi in range(self._nfi):
+                name_fi = _get_name_fi(name_root, fi)
+                outputs[fi] = np.zeros((num_sample[fi], output_size))
+
+                val = self.options['train_' + name_fi]
+
+                if isinstance(val[0], float):
+                    outputs[fi][:, 0] = val
+                else:
+                    for row_idx, v in enumerate(val):
+                        v = np.asarray(v)
+                        outputs[fi][row_idx, :] = v.flat
+
+            self._training_output[name] = []
+            self._training_output[name].extend(outputs)
+
+            surrogate = self._metadata(name_root).get('surrogate')
+            if surrogate is None:
+                msg = f"{self.msginfo}: No surrogate specified for output '{name_root}'"
+                raise RuntimeError(msg)
+            else:
+                surrogate.train_multifi(inputs, self._training_output[name])
+
+        self._training_input = inputs
+        self.train = False

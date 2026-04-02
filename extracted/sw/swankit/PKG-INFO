@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: swankit
+Version: 0.2.4
+Summary: Base toolkit for SwanLab
+Project-URL: Homepage, https://swanlab.cn
+Project-URL: Source, https://github.com/SwanHubX/SwanLab-Toolkit
+Project-URL: Bug Reports, https://github.com/SwanHubX/SwanLab-Toolkit/issues
+Author-email: Cunyue <team@swanhub.co>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Requires-Python: >=3.8
+Requires-Dist: pyyaml
+Description-Content-Type: text/markdown
+
+# SwanLab-Toolkit ☝️🤓
+
+SwanLab工具箱，如果你想自定义地接入swanlab，试试这个！

@@ -1,0 +1,197 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+import httpx
+
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
+from ..._compat import cached_property
+from ..._resource import SyncAPIResource, AsyncAPIResource
+from ..._response import (
+    to_raw_response_wrapper,
+    to_streamed_response_wrapper,
+    async_to_raw_response_wrapper,
+    async_to_streamed_response_wrapper,
+)
+from ..._base_client import make_request_options
+from ...types.customers import customer_portal_create_params
+from ...types.customer_portal_session import CustomerPortalSession
+
+__all__ = ["CustomerPortalResource", "AsyncCustomerPortalResource"]
+
+
+class CustomerPortalResource(SyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> CustomerPortalResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/dodopayments/dodopayments-python#accessing-raw-response-data-eg-headers
+        """
+        return CustomerPortalResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> CustomerPortalResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/dodopayments/dodopayments-python#with_streaming_response
+        """
+        return CustomerPortalResourceWithStreamingResponse(self)
+
+    def create(
+        self,
+        customer_id: str,
+        *,
+        return_url: str | Omit = omit,
+        send_email: bool | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> CustomerPortalSession:
+        """Args:
+          return_url: Optional return URL for this session.
+
+        Overrides the business-level default. This
+              URL will be shown as a "Return to {business}" back button in the portal.
+
+          send_email: If true, will send link to user.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not customer_id:
+            raise ValueError(f"Expected a non-empty value for `customer_id` but received {customer_id!r}")
+        return self._post(
+            path_template("/customers/{customer_id}/customer-portal/session", customer_id=customer_id),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "return_url": return_url,
+                        "send_email": send_email,
+                    },
+                    customer_portal_create_params.CustomerPortalCreateParams,
+                ),
+            ),
+            cast_to=CustomerPortalSession,
+        )
+
+
+class AsyncCustomerPortalResource(AsyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> AsyncCustomerPortalResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/dodopayments/dodopayments-python#accessing-raw-response-data-eg-headers
+        """
+        return AsyncCustomerPortalResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> AsyncCustomerPortalResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/dodopayments/dodopayments-python#with_streaming_response
+        """
+        return AsyncCustomerPortalResourceWithStreamingResponse(self)
+
+    async def create(
+        self,
+        customer_id: str,
+        *,
+        return_url: str | Omit = omit,
+        send_email: bool | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> CustomerPortalSession:
+        """Args:
+          return_url: Optional return URL for this session.
+
+        Overrides the business-level default. This
+              URL will be shown as a "Return to {business}" back button in the portal.
+
+          send_email: If true, will send link to user.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not customer_id:
+            raise ValueError(f"Expected a non-empty value for `customer_id` but received {customer_id!r}")
+        return await self._post(
+            path_template("/customers/{customer_id}/customer-portal/session", customer_id=customer_id),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform(
+                    {
+                        "return_url": return_url,
+                        "send_email": send_email,
+                    },
+                    customer_portal_create_params.CustomerPortalCreateParams,
+                ),
+            ),
+            cast_to=CustomerPortalSession,
+        )
+
+
+class CustomerPortalResourceWithRawResponse:
+    def __init__(self, customer_portal: CustomerPortalResource) -> None:
+        self._customer_portal = customer_portal
+
+        self.create = to_raw_response_wrapper(
+            customer_portal.create,
+        )
+
+
+class AsyncCustomerPortalResourceWithRawResponse:
+    def __init__(self, customer_portal: AsyncCustomerPortalResource) -> None:
+        self._customer_portal = customer_portal
+
+        self.create = async_to_raw_response_wrapper(
+            customer_portal.create,
+        )
+
+
+class CustomerPortalResourceWithStreamingResponse:
+    def __init__(self, customer_portal: CustomerPortalResource) -> None:
+        self._customer_portal = customer_portal
+
+        self.create = to_streamed_response_wrapper(
+            customer_portal.create,
+        )
+
+
+class AsyncCustomerPortalResourceWithStreamingResponse:
+    def __init__(self, customer_portal: AsyncCustomerPortalResource) -> None:
+        self._customer_portal = customer_portal
+
+        self.create = async_to_streamed_response_wrapper(
+            customer_portal.create,
+        )

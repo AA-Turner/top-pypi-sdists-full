@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Adds support for the Redfish EventService resource.
-    `EventService` is responsible for managing event subscriptions and
-    generates the events sent to subscribers.

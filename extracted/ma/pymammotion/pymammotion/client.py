@@ -101,6 +101,44 @@ def _apply_mow_path_geojson(device: MowingDevice) -> None:
     )
 
 
+def _apply_mow_progress_geojson(device: MowingDevice) -> None:
+    """Generate and store the mow-progress GeoJSON on *device*.
+
+    Slices ``device.map.current_mow_path`` to ``now_index`` (from
+    ``report_data.work.now_index``) and stores the resulting GeoJSON in
+    ``device.map.generated_mow_progress_geojson``.
+
+    A no-op when the RTK location is unknown or ``now_index`` is 0.
+    """
+    from shapely.geometry import Point
+
+    from pymammotion.data.model.generate_geojson import GeojsonGenerator
+    from pymammotion.utility.map import CoordinateConverter
+
+    rtk = device.location.RTK
+    work = device.report_data.work
+    now_index = work.now_index
+    ub_path_hash = work.ub_path_hash
+    if rtk.latitude == 0 or now_index <= 0 or not device.map.current_mow_path:
+        return
+
+    # Decode exact device position from path_pos_x/y (raw int ÷ 10000 → ENU metres).
+    # Non-zero values give a more precise start point for the remaining-path line.
+    path_pos_x = work.path_pos_x / 10000.0
+    path_pos_y = work.path_pos_y / 10000.0
+    path_pos = (path_pos_x, path_pos_y) if (path_pos_x != 0.0 or path_pos_y != 0.0) else None
+
+    conv = CoordinateConverter(rtk.latitude, rtk.longitude)
+    rtk_ll = conv.enu_to_lla(0, 0)
+    device.map.generated_mow_progress_geojson = GeojsonGenerator.generate_mow_progress_geojson(
+        device.map,
+        now_index,
+        Point(rtk_ll.latitude, rtk_ll.longitude),
+        ub_path_hash=ub_path_hash,
+        path_pos=path_pos,
+    )
+
+
 def _apply_dynamics_line_geojson(device: MowingDevice) -> None:
     """Generate and store the dynamics-line GeoJSON on *device*.
 
@@ -189,7 +227,7 @@ class MammotionClient:
             device = snapshot.raw
             task_ids = device.events.work_tasks_event.ids
             work = device.report_data.work
-            actively_working = bool(task_ids) and work.path_hash != 0
+            actively_working = bool(task_ids) and work.ub_path_hash != 0
             path_missing = not device.map.current_mow_path and actively_working
 
             if path_missing:
@@ -208,6 +246,9 @@ class MammotionClient:
                     )
                 except Exception:  # noqa: BLE001
                     _logger.warning("Auto-trigger MowPathSaga failed for %s", device_name, exc_info=True)
+
+            if actively_working and device.map.current_mow_path and work.now_index > 0:
+                _apply_mow_progress_geojson(device)
 
         sub = handle.subscribe_state_changed(_on_state_changed)
         self._watcher_subscriptions[device_name] = sub
@@ -741,6 +782,7 @@ class MammotionClient:
         acct_session.mammotion_http = cloud_client.mammotion_http
         acct_session.cloud_client = cloud_client
         acct_session.user_account = self._extract_user_account(cloud_client.mammotion_http)
+        acct_session.token_manager = TokenManager(account, cloud_client.mammotion_http, cloud_client)
 
         transport = self._setup_aliyun_transport(cloud_client)
         acct_session.aliyun_transport = transport
@@ -815,6 +857,8 @@ class MammotionClient:
 
         if mqtt_creds := MQTTConnection.from_dict(mqtt_raw) if isinstance(mqtt_raw, dict) else mqtt_raw:
             mammotion_http.mqtt_credentials = mqtt_creds
+            if acct_session.token_manager is None:
+                acct_session.token_manager = TokenManager(account, mammotion_http)
             transport = self._setup_mammotion_transport(mqtt_creds, mammotion_http)
             acct_session.mammotion_transport = transport
             ua = acct_session.user_account

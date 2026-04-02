@@ -8,19 +8,19 @@ use squawk_ide::code_actions::code_actions;
 use squawk_ide::db::line_index;
 
 use crate::diagnostic::{AssociatedDiagnosticData, DIAGNOSTIC_NAME};
+use crate::global_state::Snapshot;
 use crate::lsp_utils;
-use crate::system::System;
 
 pub(crate) fn handle_code_action(
-    system: &dyn System,
+    snapshot: &Snapshot,
     params: CodeActionParams,
 ) -> Result<Option<CodeActionResponse>> {
     let uri = params.text_document.uri;
 
     let mut actions: CodeActionResponse = vec![];
 
-    let db = system.db();
-    let file = system.file(&uri).unwrap();
+    let db = snapshot.db();
+    let file = snapshot.file(&uri).unwrap();
     let line_index = line_index(db, file);
     let offset = lsp_utils::offset(&line_index, params.range.start).unwrap();
 

@@ -1,0 +1,86 @@
+Metadata-Version: 2.4
+Name: hy
+Version: 1.2.0
+Summary: A Lisp dialect embedded in Python
+Home-page: http://hylang.org/
+Author: Paul Tagliamonte
+Author-email: tag@pault.ag
+License: Expat
+Project-URL: Documentation, http://hylang.org/hy/doc
+Project-URL: Source, https://github.com/hylang/hy
+Platform: any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: DFSG approved
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Hy
+Classifier: Programming Language :: Lisp
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Environment :: WebAssembly :: Emscripten
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Topic :: Software Development :: Compilers
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >= 3.9, < 3.15
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+License-File: AUTHORS
+Requires-Dist: funcparserlib~=1.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Hy
+==
+
+.. image:: https://img.shields.io/pypi/v/hy.svg
+   :target: https://pypi.python.org/pypi/hy
+   :alt: Version
+
+.. image:: https://raw.github.com/hylang/shyte/18f6925e08684b0e1f52b2cc2c803989cd62cd91/imgs/xkcd.png
+   :target: https://xkcd.com/224/
+   :alt: XKCD #224
+
+.. comment
+   :title: We lost the documentation on quantum mechanics. You'll have to decode the regexes yourself.
+
+Lisp and Python should love each other. Let's make it happen.
+
+Hy is a Lisp dialect that's embedded in Python. Since Hy transforms its Lisp
+code into Python abstract syntax tree (AST) objects, you have the whole
+beautiful world of Python at your fingertips, in Lisp form.
+
+To install the latest release of Hy, just use the command ``pip3 install
+--user hy``. Then you can start an interactive read-eval-print loop (REPL) with
+the command ``hy``, or run a Hy program with ``hy myprogram.hy``.
+
+* `The Hy homepage <http://hylang.org>`__
+* `Try Hy with a web console <http://hylang.org/try-hy>`__
+
+Project
+-------
+
+* Code: https://github.com/hylang/hy
+* Documentation: http://hylang.org/hy/doc
+* Bug reports: We have no bugs! Your bugs are your own! (https://github.com/hylang/hy/issues)
+* License: MIT (Expat)
+* Community: Join us on `Github Discussions <https://github.com/hylang/hy/discussions>`__
+* `Stack Overflow: The [hy] tag <https://stackoverflow.com/questions/tagged/hy>`__
+
+Hy's current maintainer is `Kodi Arfer <https://github.com/Kodiologist>`__. He takes responsibility for answering user questions, which should primarily be asked on Stack Overflow or GitHub Discussions, but feel free to `poke him <http://arfer.net/elsewhere>`__ if he's missed a question or you've found a serious security issue.
+
+.. image:: https://i.imgur.com/QbPMXTN.png
+   :alt: Cuddles the Hacker
+
+(fan art from the one and only `doctormo <http://doctormo.deviantart.com/art/Cuddles-the-Hacker-372184766>`__)

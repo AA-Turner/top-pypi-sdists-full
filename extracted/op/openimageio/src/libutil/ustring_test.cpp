@@ -169,6 +169,12 @@ test_ustring()
     OIIO_CHECK_EQUAL(whichtype, ustring("foo"));
     OIIO_CHECK_ASSERT((std::is_same<decltype(whichtype), ustring>::value));
     OIIO_CHECK_ASSERT(!(std::is_same<decltype(whichtype), const char*>::value));
+
+    // Test some edge cases for fmt formatting
+    Strutil::print("Test print empty ustring: '{}'\n", empty);
+    Strutil::print("Test print default initialized ustring: '{}'\n", uninit);
+    OIIO_CHECK_EQUAL(Strutil::format("{}", empty),
+                     Strutil::format("{}", uninit));
 }
 
 
@@ -322,6 +328,19 @@ verify_no_collisions()
 int
 main(int argc, char* argv[])
 {
+#if !defined(NDEBUG) || defined(OIIO_CI) || defined(OIIO_CODE_COVERAGE)
+    // For the sake of test time, reduce the default number of benchmark
+    // trials for DEBUG, CI, and code coverage builds. Explicit use of
+    // --trials or --iterations will override this, since it comes before the
+    // getargs() call.
+    ntrials = 1;
+#endif
+#if !defined(NDEBUG)
+    // For debug+CI combination runs, reduce to truly one iteration.
+    if (Strutil::stoi(Sysutil::getenv("OpenImageIO_CI")) != 0)
+        iterations = 1;
+#endif
+
     getargs(argc, argv);
 
     test_ustring();

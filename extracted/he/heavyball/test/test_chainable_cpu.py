@@ -1,7 +1,9 @@
 import os
 
+import pytest
 import torch
 
+import heavyball
 import heavyball.chainable as C
 import heavyball.utils
 
@@ -34,7 +36,7 @@ def test_branch_merges_multiple_paths():
     def merge_fn(outputs):
         return [sum(vals) / len(vals) for vals in zip(*outputs)]
 
-    branch = C.Branch([[double], [negate]], merge_fn)
+    branch = C.Parallel([[double], [negate]], merge_fn)
 
     update = [torch.ones(2)]
     grad = [torch.ones(2)]
@@ -63,3 +65,55 @@ def test_set_indices_assigns_transform_ids():
     param = [torch.nn.Parameter(torch.ones(1))]
 
     assigned(state_fn, group, update, grad, param)
+
+
+# Optimizers whose chains are purely elementwise must NOT need gather
+_EXPECT_NO_GATHER = {
+    "SGD",
+    "AdamW",
+    "NAdam",
+    "AdEMAMix",
+    "UnscaledAdamW",
+    "AdamC",
+    "RMSprop",
+    "SFAdamW",
+    "ADOPT",
+    "LaProp",
+}
+
+# Optimizers whose chains use shape-dependent or global-reduction ops must need gather
+_EXPECT_GATHER = {
+    "SOAP",
+    "SOAPNAdam",
+    "SOAPAdEMAMix",
+    "SOLP",
+    "Muon",
+    "MuonLaProp",
+    "OrthoLaProp",
+    "LaPropOrtho",
+    "PSGDKron",
+    "LATHER",
+    "PSGDLRA",
+    "PSGDPRO",
+    "SUDSAdamW",
+    "Scion",
+    "SignLaProp",
+    "MSAMLaProp",
+    "HyperBallAdamW",
+    "MuonAdamW",
+}
+
+_SKIP_INSTANTIATE = {"SplitOpt", "SAMWrapper"}
+
+_ALL_OPTS = [n for n in heavyball.__all__ if n not in _SKIP_INSTANTIATE and n in (_EXPECT_NO_GATHER | _EXPECT_GATHER)]
+
+
+@pytest.mark.parametrize("opt_name", _ALL_OPTS)
+def test_needs_gather_flag(opt_name):
+    params = [torch.nn.Parameter(torch.randn(4, 4))]
+    extra = {"max_lr": 0.0025} if opt_name == "AdamC" else {}
+    opt = getattr(heavyball, opt_name)(params, lr=1e-3, **extra)
+    if opt_name in _EXPECT_NO_GATHER:
+        assert not opt._needs_gather, f"{opt_name} should be elementwise (no gather needed)"
+    elif opt_name in _EXPECT_GATHER:
+        assert opt._needs_gather, f"{opt_name} should require full param gather"

@@ -15,7 +15,6 @@ from plato._generated.models import (
 )
 from plato.markers import FieldMarker, WorkspaceMarker
 from plato.runtime import (
-    DockerRuntimeConfig,
     RuntimeConfig,
     VMResources,
     VMRuntimeConfig,
@@ -30,7 +29,6 @@ EnvConfig = EnvFromArtifact | EnvFromSimulator | EnvFromResource
 # Re-export for backwards compatibility
 __all__ = [
     "DevConfig",
-    "DockerRuntimeConfig",
     "RuntimeConfig",
     "SessionConfig",
     "VMResources",
@@ -135,7 +133,7 @@ class AgentConfig(BaseModel):
             Resolved to a Docker image URI by the Chronos backend before launch.
         image: Docker image URI for the agent (set by Chronos after resolving package,
             or provided directly for local/test runs).
-        runtime: Runtime configuration (docker or vm with resources)
+        runtime: Runtime configuration (VM resources)
         config: Agent-specific configuration passed to the agent
         max_parallel: Maximum number of concurrent agent VMs for this config.
             When set, the world enforces a shared semaphore across all calls

@@ -1,0 +1,8 @@
+name: skdim
+dependencies:
+  - numpy
+  - scipy
+  - scikit-learn
+  - numba
+  - matplotlib
+  - pandas

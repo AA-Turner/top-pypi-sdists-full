@@ -166,6 +166,10 @@ class Geocif:
             self.parser.getint("ML", "spatial_neighbor_k")
             if self.parser.has_option("ML", "spatial_neighbor_k") else 5
         )
+        self.remove_last_month = (
+            self.parser.getboolean("ML", "remove_last_month")
+            if self.parser.has_option("ML", "remove_last_month") else False
+        )
 
     def _setup_feature_dictionaries(self):
         """Setup feature dictionaries and database paths."""
@@ -276,8 +280,9 @@ class Geocif:
         self.alpha = self.parser.getfloat("ML", "alpha")
         self.estimate_ci = self.parser.getboolean("ML", "estimate_ci")
         self.estimate_ci_for_all = self.parser.getboolean("ML", "estimate_ci_for_all")
+        self.ci_method = self.parser.get("ML", "ci_method", fallback="crepes")
         self.check_yield_trend = False
-        
+
         if self.model_name == "ngboost":
             self.cat_features = [col for col in self.cat_features if col != "Region"]
 
@@ -324,7 +329,10 @@ class Geocif:
     def _setup_tabular_flags(self):
         """Flags for tabular models."""
         self.do_xai = False
-        self.estimate_ci = False
+        self.alpha = self.parser.getfloat("ML", "alpha")
+        self.estimate_ci = self.parser.getboolean("ML", "estimate_ci")
+        self.estimate_ci_for_all = self.parser.getboolean("ML", "estimate_ci_for_all")
+        self.ci_method = self.parser.get("ML", "ci_method", fallback="crepes")
         self.cat_features = [col for col in self.cat_features if col != "Region"]
 
     def _setup_tree_flags(self):
@@ -339,6 +347,7 @@ class Geocif:
         self.alpha = self.parser.getfloat("ML", "alpha")
         self.estimate_ci = self.parser.getboolean("ML", "estimate_ci")
         self.estimate_ci_for_all = self.parser.getboolean("ML", "estimate_ci_for_all")
+        self.ci_method = self.parser.get("ML", "ci_method", fallback="crepes")
         self.cat_features = [col for col in self.cat_features if col != "Region"]
 
     def _setup_standard_ml_flags(self):
@@ -347,6 +356,7 @@ class Geocif:
         self.estimate_ci = self.parser.getboolean("ML", "estimate_ci")
         self.estimate_ci_for_all = self.parser.getboolean("ML", "estimate_ci_for_all")
         self.alpha = self.parser.getfloat("ML", "alpha")
+        self.ci_method = self.parser.get("ML", "ci_method", fallback="crepes")
         self.check_yield_trend = self.parser.getboolean("ML", "check_yield_trend")
 
     def _setup_seasons_and_stages(self):
@@ -635,12 +645,33 @@ class Geocif:
         if self.run_ml:
             self._execute_ml_pipeline(dict_selected_features, dict_best_cei)
 
+    def _filter_low_production_regions(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Exclude bottom-5th-pct production regions and regions with ≤3 data points."""
+        if "Area (ha)" not in df.columns or self.target not in df.columns:
+            return df
+        counts = df.groupby("Region")[self.target].count()
+        prod = df.groupby("Region").apply(
+            lambda g: (g["Area (ha)"] * g[self.target]).mean()
+        )
+        threshold = prod.quantile(0.05)
+        keep = prod.index[(prod >= threshold) & (counts > 3)]
+        n_excluded = len(prod) - len(keep)
+        if n_excluded:
+            self.logger.info(
+                f"  Region filter: excluding {n_excluded} of {len(prod)} regions "
+                f"(bottom-5%-production or ≤3 observations)"
+            )
+        return df[df["Region"].isin(keep)].copy()
+
     def _prepare_ml_dataframe(self) -> pd.DataFrame:
         """Convert raw data into ML-ready format."""
         df = self._filter_by_simulation_stages()
         df = self._filter_by_cei_categories(df)
         df = self.create_ml_dataframe(df)
-        
+
+        if self.parser.getboolean("DEFAULT", "filter_low_production_regions", fallback=False):
+            df = self._filter_low_production_regions(df)
+
         self._save_ml_dataframe(df)
         df[self.cat_features] = df[self.cat_features].astype("category")
         
@@ -930,6 +961,7 @@ class Geocif:
         df = self._apply_cumulative_or_stage_selection(df)
         df = self._filter_single_time_period_features(df)
         df = self._filter_current_month_partial_data(df)
+        df = self._remove_last_month_data(df)
         df = self._update_column_names(df)
         df = self._add_engineered_features(df)
         df = self._add_region_clusters(df)
@@ -1081,6 +1113,38 @@ class Geocif:
             if mon == current_month and current_day < 25:
                 cols_to_drop.append(col)
         
+        return df.drop(columns=cols_to_drop)
+
+    def _remove_last_month_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Drop feature columns from the last available time period."""
+        if not self.remove_last_month:
+            return df
+
+        if self.forecast_season != self.today_year:
+            return df
+
+        current_month = ar.utcnow().month
+        current_day = ar.utcnow().day
+
+        # After _filter_current_month_partial_data:
+        # day < 25 → current month already dropped → last available = current_month - 1
+        # day >= 25 → current month kept → last available = current_month
+        last_month = (current_month - 1 if current_month > 1 else 12) if current_day < 25 else current_month
+
+        cols_to_drop = []
+        for col in df.columns:
+            if "_" not in col:
+                continue
+            try:
+                mon = stages.get_stage_information_dict(col, self.method).get("Starting Stage")
+            except (ValueError, IndexError, KeyError):
+                continue
+            if mon == last_month:
+                cols_to_drop.append(col)
+
+        if cols_to_drop:
+            self.logger.info(f"  remove_last_month: dropping {len(cols_to_drop)} columns from stage {last_month}")
+
         return df.drop(columns=cols_to_drop)
 
     def _update_column_names(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -1432,10 +1496,14 @@ class Geocif:
         
         if self.model_name == "ngboost":
             return self._predict_ngboost_with_ci(X_test)
+        elif self.model_name == "tabpfn":
+            return self._predict_tabpfn_with_quantiles(X_test)
+        elif self.model_name == "tabicl":
+            return self._predict_tabicl_with_quantiles(X_test)
         elif self.model_name in ["logistic", "catboost"] and self.model_type == "CLASSIFICATION":
             return self._predict_classification_with_proba(X_test)
         else:
-            return self._predict_with_mapie(X_test)
+            return self._predict_with_conformal(X_test)
 
     def _predict_ngboost_with_ci(self, X_test: pd.DataFrame) -> Tuple:
         """NGBoost-specific prediction with confidence intervals."""
@@ -1458,20 +1526,86 @@ class Geocif:
         
         return y_pred, y_pred_ci, {}
 
+    def _predict_tabpfn_with_quantiles(self, X_test: pd.DataFrame) -> Tuple:
+        """TabPFN native quantile regression for prediction intervals."""
+        lower_q = self.alpha / 2
+        upper_q = 1.0 - self.alpha / 2
+
+        y_pred = self.model.predict(X_test)
+        q_preds = self.model.predict(
+            X_test, output_type="quantiles", quantiles=[lower_q, upper_q]
+        )
+
+        # Handle both list-of-arrays and 2D-array returns
+        q_arr = np.asarray(q_preds)
+        self.logger.debug(f"  TabPFN quantile raw type={type(q_preds)}, array shape={q_arr.shape}")
+        if q_arr.ndim == 2 and q_arr.shape[1] >= 2:
+            # Shape (n_samples, n_quantiles)
+            lower = q_arr[:, 0]
+            upper = q_arr[:, -1]
+        else:
+            # List of arrays: [lower_array, upper_array]
+            lower = np.asarray(q_preds[0])
+            upper = np.asarray(q_preds[-1])
+
+        # Match expected shape: (n_samples, 2, 1) → flattens to [lower, upper] per sample
+        y_pred_ci = np.stack([lower, upper], axis=1)[:, :, np.newaxis]
+        self.logger.debug(f"  TabPFN CI shape={y_pred_ci.shape}, sample[0]: [{lower[0]:.3f}, {upper[0]:.3f}]")
+
+        return y_pred, y_pred_ci, {}
+
+    def _predict_tabicl_with_quantiles(self, X_test: pd.DataFrame) -> Tuple:
+        """TabICL native quantile regression for prediction intervals."""
+        lower_q = self.alpha / 2
+        upper_q = 1.0 - self.alpha / 2
+
+        y_pred = self.model.predict(X_test)
+        q_preds = self.model.predict(
+            X_test, output_type="quantiles", alphas=[lower_q, upper_q]
+        )
+
+        # Handle both list-of-arrays and 2D-array returns
+        q_arr = np.asarray(q_preds)
+        self.logger.debug(f"  TabICL quantile raw type={type(q_preds)}, array shape={q_arr.shape}")
+        if q_arr.ndim == 2 and q_arr.shape[1] >= 2:
+            # Shape (n_samples, n_quantiles)
+            lower = q_arr[:, 0]
+            upper = q_arr[:, -1]
+        else:
+            # List of arrays: [lower_array, upper_array]
+            lower = np.asarray(q_preds[0])
+            upper = np.asarray(q_preds[-1])
+
+        # Match expected shape: (n_samples, 2, 1) → flattens to [lower, upper] per sample
+        y_pred_ci = np.stack([lower, upper], axis=1)[:, :, np.newaxis]
+        self.logger.debug(f"  TabICL CI shape={y_pred_ci.shape}, sample[0]: [{lower[0]:.3f}, {upper[0]:.3f}]")
+
+        return y_pred, y_pred_ci, {}
+
     def _predict_classification_with_proba(self, X_test: pd.DataFrame) -> Tuple:
         """Classification with probabilities."""
         y_pred = self.model.predict(X_test)
         y_pred_ci = self.model.predict_proba(X_test)
         return y_pred, y_pred_ci, {}
 
-    def _predict_with_mapie(self, X_test: pd.DataFrame) -> Tuple:
-        """Predict using MAPIE for confidence intervals."""
-        y_pred, y_pred_ci = self.model.predict(X_test, alpha=self.alpha)
-        best_hyperparameters = self.model.get_params().copy()
-        
-        if "estimator" in best_hyperparameters:
-            del best_hyperparameters["estimator"]
-        
+    def _predict_with_conformal(self, X_test: pd.DataFrame) -> Tuple:
+        """Predict using conformal prediction (crepes or MAPIE)."""
+        if hasattr(self.model, 'predict_int'):
+            # crepes WrapRegressor
+            y_pred = self.model.predict(X_test)
+            intervals = self.model.predict_int(X_test, confidence=1 - self.alpha)
+            y_pred_ci = intervals[:, :, np.newaxis]  # (n, 2) → (n, 2, 1)
+        else:
+            # MAPIE SplitConformalRegressor
+            y_pred, y_pred_ci = self.model.predict_interval(X_test)
+
+        best_hyperparameters = {}
+        try:
+            inner = getattr(self.model, 'learner', None) or getattr(self.model, 'estimator', self.model)
+            best_hyperparameters = inner.get_params().copy()
+        except AttributeError:
+            pass
+
         return y_pred, y_pred_ci, best_hyperparameters
 
     def _predict_point_estimates(
@@ -1695,6 +1829,19 @@ class Geocif:
             if col not in df.columns:
                 df.loc[:, col] = np.nan
 
+        # Last observed year and yield per region
+        obs_map = getattr(self, 'last_observed_map', {})
+        regions = df_region["Region"].values
+        df.loc[:, "Last Observed Year"] = [
+            obs_map[r][0] if r in obs_map else np.nan for r in regions
+        ]
+        last_yields = [
+            obs_map[r][1] if r in obs_map else np.nan for r in regions
+        ]
+        df.loc[:, f"Last Observed {self.target}"] = [
+            np.around(v, 3) if not np.isnan(v) else np.nan for v in last_yields
+        ]
+
     def _create_result_index(self, df: pd.DataFrame) -> pd.Series:
         """Create unique index for results."""
         index_columns = [
@@ -1890,6 +2037,17 @@ class Geocif:
         
         self.y_train = df_region_train[self.target_column]
 
+        # Compute last available observed year and yield PER REGION
+        df_valid = df_region_train.dropna(subset=[self.target_column])
+        self.last_observed_map = {}  # {region_name: (year, yield)}
+        if not df_valid.empty:
+            for region, grp in df_valid.groupby("Region"):
+                last_row = grp.loc[grp["Harvest Year"].idxmax()]
+                self.last_observed_map[region] = (
+                    int(last_row["Harvest Year"]),
+                    float(last_row[self.target_column]),
+                )
+
     # Add debug logging in _clean_training_features
     def _clean_training_features(self, X_train: pd.DataFrame) -> pd.DataFrame:
         """Drop columns with NaNs except lag yield and neighbor columns."""
@@ -1964,8 +2122,8 @@ class Geocif:
             try:
                 model = self.model.estimator_
             except AttributeError:
-                model = (self.model if self.model_name == "catboost" 
-                        else self.model.estimator)
+                model = getattr(self.model, 'learner',
+                        getattr(self.model, 'estimator', self.model))
         else:
             model = self.model
         
@@ -1989,12 +2147,12 @@ class ModelTrainer:
         """Main training orchestrator."""
         X_train = self._prepare_training_data(df_region)
         self._save_training_data(X_train, df_region, dir_output)
-        
+
         X_train_scaled = self._scale_if_needed(X_train, scaler)
-        
+
         self._train_base_model(df_region, X_train_scaled)
-        self._add_confidence_intervals_if_needed()
         self._fit_final_model(X_train, X_train_scaled, df_region)
+        self._add_confidence_intervals_if_needed(X_train)
     
     def _prepare_training_data(self, df_region: pd.DataFrame) -> pd.DataFrame:
         """Extract and prepare features for training."""
@@ -2043,20 +2201,28 @@ class ModelTrainer:
             cat_features=self.obj.cat_features,
         )
     
-    def _add_confidence_intervals_if_needed(self):
+    def _add_confidence_intervals_if_needed(self, X_train=None):
         """Wrap model with confidence interval estimator."""
         if not self.obj.estimate_ci:
             return
-        
-        if not (self.obj.estimate_ci_for_all or 
+
+        if not (self.obj.estimate_ci_for_all or
                 self.obj.forecast_season == self.obj.today_year):
             return
-        
+
         self.obj.model = trainers.estimate_ci(
-            self.obj.model_type, 
-            self.obj.model_name, 
-            self.obj.model
+            self.obj.model_type,
+            self.obj.model_name,
+            self.obj.model,
+            self.obj.alpha,
+            self.obj.ci_method,
         )
+        # Calibrate/conformalize with training data
+        if X_train is not None:
+            if hasattr(self.obj.model, 'calibrate'):
+                self.obj.model.calibrate(X_train, self.obj.y_train.values)
+            elif hasattr(self.obj.model, 'conformalize'):
+                self.obj.model.conformalize(X_train, self.obj.y_train)
     
     def _fit_final_model(
         self, 
@@ -2109,7 +2275,7 @@ class BaseFitter:
 
 class CatBoostFitter(BaseFitter):
     """CatBoost-specific fitting."""
-    
+
     def fit(self, X_train: pd.DataFrame, X_train_scaled, df_region: pd.DataFrame):
         self.obj.model.fit(
             X_train,
@@ -2269,7 +2435,7 @@ class DesregFitter(BaseFitter):
 
 class DefaultFitter(BaseFitter):
     """Default fitter for standard sklearn-like models."""
-    
+
     def fit(self, X_train: pd.DataFrame, X_train_scaled, df_region: pd.DataFrame):
         try:
             self.obj.model.fit(X_train, self.obj.y_train)

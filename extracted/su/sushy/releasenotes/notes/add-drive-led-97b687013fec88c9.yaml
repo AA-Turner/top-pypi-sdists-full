@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Adds the ``IndicatorLED`` property to the ``Drive`` resource. The state of
-    the LED can be read and can be changed via the ``.set_indicator_led()``
-    method of the ``Drive`` sushy class.

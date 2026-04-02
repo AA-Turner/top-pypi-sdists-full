@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-cffi"
-version = "2.0.0.20260316"
+version = "2.0.0.20260402"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for cffi"
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.19.1
+* [mypy](https://github.com/python/mypy/) 1.20.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`e71841fe4b390b101174d340bdef569a19940057`](https://github.com/python/typeshed/commit/e71841fe4b390b101174d340bdef569a19940057).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -46,9 +46,9 @@ dependencies = ['types-setuptools']
 "Chat" = "https://gitter.im/python/typing"
 
 [tool.setuptools]
-packages = ['_cffi_backend-stubs', 'cffi-stubs']
+packages = ['cffi-stubs', '_cffi_backend-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'_cffi_backend-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']
 'cffi-stubs' = ['__init__.pyi', 'api.pyi', 'backend_ctypes.pyi', 'cffi_opcode.pyi', 'commontypes.pyi', 'cparser.pyi', 'error.pyi', 'ffiplatform.pyi', 'lock.pyi', 'model.pyi', 'pkgconfig.pyi', 'recompiler.pyi', 'setuptools_ext.pyi', 'vengine_cpy.pyi', 'vengine_gen.pyi', 'verifier.pyi', 'METADATA.toml', 'py.typed']
+'_cffi_backend-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']

@@ -1,0 +1,158 @@
+name: Doc Build Dev Nightly
+
+on:
+  schedule: # UTC at 0500
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+  pull-requests: read
+  issues: read
+
+env:
+  DOCUMENTATION_CNAME: "fluent.docs.pyansys.com"
+  FLUENT_STABLE_IMAGE: ${{ vars.FLUENT_STABLE_IMAGE_DEV }}
+  DOC_DEPLOYMENT_IMAGE_TAG: v27.1.latest
+  ANSYSLMD_LICENSE_FILE: ${{ format('1055@{0}', secrets.LICENSE_SERVER) }}
+  PYFLUENT_TIMEOUT_FORCE_EXIT: 30
+  PYFLUENT_LAUNCH_CONTAINER: 1
+  PYFLUENT_LOGGING: "DEBUG"
+  PYFLUENT_WATCHDOG_DEBUG: "OFF"
+  PYFLUENT_HIDE_LOG_SECRETS: 1
+  PYFLUENT_SKIP_API_UPGRADE_ADVICE: 1
+
+jobs:
+  build_dev_docs:
+    name: "Build Documentation"
+    runs-on: [self-hosted, pyfluent]
+
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: "3.11"
+
+      - name: Clean Docker Data
+        run: make docker-clean-all-except-supported-images
+        env:
+          FLUENT_STABLE_IMAGE_DEV: ${{ vars.FLUENT_STABLE_IMAGE_DEV }}
+
+      - name: Install OS packages
+        run: |
+          sudo apt update
+          sudo apt-get install pandoc libegl1 make xvfb libfontconfig1 libxrender1 libxkbcommon-x11-0 -y
+
+      - name: Install pyfluent
+        run: make install
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ghcr.io
+          username: ansys-bot
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull Fluent docker image
+        run: make docker-pull
+        env:
+          FLUENT_IMAGE_TAG: ${{ env.FLUENT_STABLE_IMAGE }}
+
+      - name: Run API codegen
+        run: make api-codegen
+        env:
+          FLUENT_IMAGE_TAG: ${{ env.FLUENT_STABLE_IMAGE }}
+
+      - name: Install again after codegen
+        run: |
+          rm -rf dist
+          make install > /dev/null
+
+      - name: Execute exhaust_system_settings_api.py
+        run: |
+          python examples/00-fluent/exhaust_system_settings_api.py
+        env:
+          FLUENT_IMAGE_TAG: ${{ env.FLUENT_STABLE_IMAGE }}
+          PYFLUENT_CONTAINER_INSECURE_MODE: 1
+
+      - name: Execute external_compressible_flow.py
+        run: |
+          python examples/00-fluent/external_compressible_flow.py
+        env:
+          FLUENT_IMAGE_TAG: ${{ env.FLUENT_STABLE_IMAGE }}
+          PYFLUENT_CONTAINER_INSECURE_MODE: 1
+
+      - name: Execute mixing_elbow_settings_api.py
+        run: |
+          python examples/00-fluent/mixing_elbow_settings_api.py
+        env:
+          FLUENT_IMAGE_TAG: ${{ env.FLUENT_STABLE_IMAGE }}
+          PYFLUENT_CONTAINER_INSECURE_MODE: 1
+
+      - name: Execute modeling_cavitation.py
+        run: |
+          python examples/00-fluent/modeling_cavitation.py
+        env:
+          FLUENT_IMAGE_TAG: ${{ env.FLUENT_STABLE_IMAGE }}
+          PYFLUENT_CONTAINER_INSECURE_MODE: 1
+
+      - name: Execute species_transport.py
+        run: |
+          python examples/00-fluent/species_transport.py
+        env:
+          FLUENT_IMAGE_TAG: ${{ env.FLUENT_STABLE_IMAGE }}
+          PYFLUENT_CONTAINER_INSECURE_MODE: 1
+
+      - name: Build All Documentation
+        run: |
+          pip install -r requirements/requirements_build.txt
+          pip install ansys-fluent-core[docs,reader,tests]
+          make build-all-docs
+        env:
+          FLUENT_IMAGE_TAG: ${{ env.DOC_DEPLOYMENT_IMAGE_TAG }}
+          BUILD_ALL_DOCS: 1
+
+      - name: Zip HTML Documentation before upload
+        env:
+          DOC_DEPLOYMENT_IMG: ${{ env.DOC_DEPLOYMENT_IMAGE_TAG }}
+        run: |
+          sudo apt install zip -y
+          pushd doc/_build/html
+          zip -r ../../../HTML-Documentation-tag-${DOC_DEPLOYMENT_IMG}.zip .
+          popd
+
+      - name: Upload HTML Documentation
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: HTML-Documentation-tag-${{ env.DOC_DEPLOYMENT_IMAGE_TAG }}
+          path: HTML-Documentation-tag-${{ env.DOC_DEPLOYMENT_IMAGE_TAG }}.zip
+          retention-days: 7
+
+      - name: Clean Docker Data
+        run: make docker-clean-all-except-supported-images
+        env:
+          FLUENT_STABLE_IMAGE_DEV: ${{ vars.FLUENT_STABLE_IMAGE_DEV }}
+
+  deploy_dev_docs:
+    name: "Deploy Documentation"
+    runs-on: public-ubuntu-latest-8-cores
+    needs: [build_dev_docs]
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: "Deploy development documentation"
+        uses: ansys/actions/doc-deploy-dev@v10.2
+        with:
+          doc-artifact-name: "HTML-Documentation-tag-${{ env.DOC_DEPLOYMENT_IMAGE_TAG }}"
+          decompress-artifact: true
+          cname: ${{ env.DOCUMENTATION_CNAME }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          bot-user: ${{ secrets.PYANSYS_CI_BOT_USERNAME }}
+          bot-email: ${{ secrets.PYANSYS_CI_BOT_EMAIL }}

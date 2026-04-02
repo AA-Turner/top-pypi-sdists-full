@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: emails
-Version: 1.0.1
+Version: 1.0.2
 Summary: Modern python library for emails.
 Home-page: https://github.com/lavr/python-emails
 Author: Sergey Lavrinenko
@@ -33,6 +33,8 @@ Requires-Dist: lxml; extra == "html"
 Requires-Dist: chardet; extra == "html"
 Requires-Dist: requests; extra == "html"
 Requires-Dist: premailer; extra == "html"
+Provides-Extra: jinja
+Requires-Dist: jinja2; extra == "jinja"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

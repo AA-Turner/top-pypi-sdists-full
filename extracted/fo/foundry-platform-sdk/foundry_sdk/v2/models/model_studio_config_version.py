@@ -30,20 +30,26 @@ class ModelStudioConfigVersionClient:
     The API client for the ModelStudioConfigVersion Resource.
 
     :param auth: Your auth configuration.
-    :param hostname: Your Foundry hostname (for example, "myfoundry.palantirfoundry.com"). This can also include your API gateway service URI.
+    :param hostname: The hostname supplier for resolving base URLs.
     :param config: Optionally specify the configuration for the HTTP session.
     """
 
     def __init__(
         self,
         auth: core.Auth,
-        hostname: str,
+        hostname: typing.Union[str, core.HostnameSupplier],
         config: typing.Optional[core.Config] = None,
     ):
         self._auth = auth
-        self._hostname = hostname
+        if isinstance(hostname, core.HostnameSupplier):
+            self._hostname_supplier = hostname
+        else:
+            self._hostname_supplier = core.create_hostname_supplier(hostname, config)
+        self._hostname = self._hostname_supplier.get_hostname()
         self._config = config
-        self._api_client = core.ApiClient(auth=auth, hostname=hostname, config=config)
+        self._api_client = core.ApiClient(
+            auth=auth, hostname=self._hostname_supplier, config=config
+        )
 
         self.with_streaming_response = _ModelStudioConfigVersionClientStreaming(self)
         self.with_raw_response = _ModelStudioConfigVersionClientRaw(self)
@@ -85,7 +91,10 @@ class ModelStudioConfigVersionClient:
         :return: Returns the result object.
         :rtype: models_models.ModelStudioConfigVersion
 
+        :raises CreateConfigValidationError: The provided configuration is invalid.
         :raises CreateModelStudioConfigVersionPermissionDenied: Could not create the ModelStudioConfigVersion.
+        :raises ModelStudioNotFound: The requested Model Studio was not found.
+        :raises TrainerNotFound: The specified trainer does not exist.
         """
 
         return self._api_client.call_api(
@@ -112,7 +121,10 @@ class ModelStudioConfigVersionClient:
                 response_type=models_models.ModelStudioConfigVersion,
                 request_timeout=request_timeout,
                 throwable_errors={
+                    "CreateConfigValidationError": models_errors.CreateConfigValidationError,
                     "CreateModelStudioConfigVersionPermissionDenied": models_errors.CreateModelStudioConfigVersionPermissionDenied,
+                    "ModelStudioNotFound": models_errors.ModelStudioNotFound,
+                    "TrainerNotFound": models_errors.TrainerNotFound,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
             ),
@@ -144,6 +156,7 @@ class ModelStudioConfigVersionClient:
         :rtype: models_models.ModelStudioConfigVersion
 
         :raises ModelStudioConfigVersionNotFound: The requested Model Studio configuration version was not found.
+        :raises ModelStudioNotFound: The requested Model Studio was not found.
         """
 
         return self._api_client.call_api(
@@ -165,6 +178,7 @@ class ModelStudioConfigVersionClient:
                 request_timeout=request_timeout,
                 throwable_errors={
                     "ModelStudioConfigVersionNotFound": models_errors.ModelStudioConfigVersionNotFound,
+                    "ModelStudioNotFound": models_errors.ModelStudioNotFound,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
             ),
@@ -193,6 +207,7 @@ class ModelStudioConfigVersionClient:
         :rtype: typing.Optional[models_models.ModelStudioConfigVersion]
 
         :raises LatestModelStudioConfigVersionsPermissionDenied: Could not latest the ModelStudioConfigVersion.
+        :raises ModelStudioNotFound: The requested Model Studio was not found.
         """
 
         return self._api_client.call_api(
@@ -213,6 +228,7 @@ class ModelStudioConfigVersionClient:
                 request_timeout=request_timeout,
                 throwable_errors={
                     "LatestModelStudioConfigVersionsPermissionDenied": models_errors.LatestModelStudioConfigVersionsPermissionDenied,
+                    "ModelStudioNotFound": models_errors.ModelStudioNotFound,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
             ),
@@ -245,6 +261,8 @@ class ModelStudioConfigVersionClient:
         :type request_timeout: Optional[int]
         :return: Returns the result object.
         :rtype: core.ResourceIterator[models_models.ModelStudioConfigVersion]
+
+        :raises ModelStudioNotFound: The requested Model Studio was not found.
         """
 
         return self._api_client.call_api(
@@ -265,7 +283,9 @@ class ModelStudioConfigVersionClient:
                 body=None,
                 response_type=models_models.ListModelStudioConfigVersionsResponse,
                 request_timeout=request_timeout,
-                throwable_errors={},
+                throwable_errors={
+                    "ModelStudioNotFound": models_errors.ModelStudioNotFound,
+                },
                 response_mode=_sdk_internal.get("response_mode", "ITERATOR"),
             ),
         )
@@ -302,20 +322,26 @@ class AsyncModelStudioConfigVersionClient:
     The API client for the ModelStudioConfigVersion Resource.
 
     :param auth: Your auth configuration.
-    :param hostname: Your Foundry hostname (for example, "myfoundry.palantirfoundry.com"). This can also include your API gateway service URI.
+    :param hostname: The hostname supplier for resolving base URLs.
     :param config: Optionally specify the configuration for the HTTP session.
     """
 
     def __init__(
         self,
         auth: core.Auth,
-        hostname: str,
+        hostname: typing.Union[str, core.HostnameSupplier],
         config: typing.Optional[core.Config] = None,
     ):
         self._auth = auth
-        self._hostname = hostname
+        if isinstance(hostname, core.HostnameSupplier):
+            self._hostname_supplier = hostname
+        else:
+            self._hostname_supplier = core.create_hostname_supplier(hostname, config)
+        self._hostname = self._hostname_supplier.get_hostname()
         self._config = config
-        self._api_client = core.AsyncApiClient(auth=auth, hostname=hostname, config=config)
+        self._api_client = core.AsyncApiClient(
+            auth=auth, hostname=self._hostname_supplier, config=config
+        )
 
         self.with_streaming_response = _AsyncModelStudioConfigVersionClientStreaming(self)
         self.with_raw_response = _AsyncModelStudioConfigVersionClientRaw(self)
@@ -357,7 +383,10 @@ class AsyncModelStudioConfigVersionClient:
         :return: Returns the result object.
         :rtype: typing.Awaitable[models_models.ModelStudioConfigVersion]
 
+        :raises CreateConfigValidationError: The provided configuration is invalid.
         :raises CreateModelStudioConfigVersionPermissionDenied: Could not create the ModelStudioConfigVersion.
+        :raises ModelStudioNotFound: The requested Model Studio was not found.
+        :raises TrainerNotFound: The specified trainer does not exist.
         """
 
         return self._api_client.call_api(
@@ -384,7 +413,10 @@ class AsyncModelStudioConfigVersionClient:
                 response_type=models_models.ModelStudioConfigVersion,
                 request_timeout=request_timeout,
                 throwable_errors={
+                    "CreateConfigValidationError": models_errors.CreateConfigValidationError,
                     "CreateModelStudioConfigVersionPermissionDenied": models_errors.CreateModelStudioConfigVersionPermissionDenied,
+                    "ModelStudioNotFound": models_errors.ModelStudioNotFound,
+                    "TrainerNotFound": models_errors.TrainerNotFound,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
             ),
@@ -416,6 +448,7 @@ class AsyncModelStudioConfigVersionClient:
         :rtype: typing.Awaitable[models_models.ModelStudioConfigVersion]
 
         :raises ModelStudioConfigVersionNotFound: The requested Model Studio configuration version was not found.
+        :raises ModelStudioNotFound: The requested Model Studio was not found.
         """
 
         return self._api_client.call_api(
@@ -437,6 +470,7 @@ class AsyncModelStudioConfigVersionClient:
                 request_timeout=request_timeout,
                 throwable_errors={
                     "ModelStudioConfigVersionNotFound": models_errors.ModelStudioConfigVersionNotFound,
+                    "ModelStudioNotFound": models_errors.ModelStudioNotFound,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
             ),
@@ -465,6 +499,7 @@ class AsyncModelStudioConfigVersionClient:
         :rtype: typing.Awaitable[typing.Optional[models_models.ModelStudioConfigVersion]]
 
         :raises LatestModelStudioConfigVersionsPermissionDenied: Could not latest the ModelStudioConfigVersion.
+        :raises ModelStudioNotFound: The requested Model Studio was not found.
         """
 
         return self._api_client.call_api(
@@ -485,6 +520,7 @@ class AsyncModelStudioConfigVersionClient:
                 request_timeout=request_timeout,
                 throwable_errors={
                     "LatestModelStudioConfigVersionsPermissionDenied": models_errors.LatestModelStudioConfigVersionsPermissionDenied,
+                    "ModelStudioNotFound": models_errors.ModelStudioNotFound,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
             ),
@@ -517,6 +553,8 @@ class AsyncModelStudioConfigVersionClient:
         :type request_timeout: Optional[int]
         :return: Returns the result object.
         :rtype: core.AsyncResourceIterator[models_models.ModelStudioConfigVersion]
+
+        :raises ModelStudioNotFound: The requested Model Studio was not found.
         """
 
         return self._api_client.call_api(
@@ -537,7 +575,9 @@ class AsyncModelStudioConfigVersionClient:
                 body=None,
                 response_type=models_models.ListModelStudioConfigVersionsResponse,
                 request_timeout=request_timeout,
-                throwable_errors={},
+                throwable_errors={
+                    "ModelStudioNotFound": models_errors.ModelStudioNotFound,
+                },
                 response_mode=_sdk_internal.get("response_mode", "ITERATOR"),
             ),
         )

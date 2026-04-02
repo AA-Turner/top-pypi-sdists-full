@@ -1,6 +1,0 @@
----
-upgrade:
-  - |
-    The ``gateway_external_network_id`` config option has been removed.
-    Systems where this option was set will now be able to support multiple
-    external networks for routers.

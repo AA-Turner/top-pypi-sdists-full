@@ -1,0 +1,71 @@
+name: BinaryBuilder.jl
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '*.md'
+      - 'LICENSE'
+      - '*.cff'
+      - '*.yml'
+      - '*.yaml'
+      - 'docs/**'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '*.md'
+      - 'LICENSE'
+      - '*.cff'
+      - '*.yml'
+      - '*.yaml'
+      - 'docs/**'
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  build:
+    name: Build on ${{ matrix.platform }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - x86_64-linux-gnu-libgfortran5-cxx11
+          - x86_64-apple-darwin-libgfortran5-cxx11
+          - aarch64-linux-gnu-libgfortran5-cxx11
+          - aarch64-apple-darwin-libgfortran5-cxx11
+          - x86_64-w64-mingw32-libgfortran5-cxx11
+          - i686-w64-mingw32-libgfortran5-cxx11
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.7"
+          arch: x64
+
+      - uses: julia-actions/cache@v2
+
+      - name: Set environment variables
+        run: |
+          echo "BINARYBUILDER_AUTOMATIC_APPLE=true" >> $GITHUB_ENV
+          git fetch --tags
+          echo "UNO_RELEASE=$(git describe --tags $(git rev-list --tags --max-count=1) | sed 's/^v//')" >> $GITHUB_ENV
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "UNO_COMMIT=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+            echo "UNO_URL=${{ github.event.pull_request.head.repo.clone_url }}" >> $GITHUB_ENV
+          else
+            echo "UNO_COMMIT=${{ github.sha }}" >> $GITHUB_ENV
+            echo "UNO_URL=https://github.com/${{ github.repository }}.git" >> $GITHUB_ENV
+          fi
+
+      - name: Compile Uno_jll.jl for ${{ matrix.platform }}
+        run: |
+          julia --color=yes -e 'using Pkg; Pkg.add("BinaryBuilder")'
+          # julia --color=yes .github/julia/build_tarballs_utils.jl ${{ matrix.platform }} --verbose --deploy=local
+          julia --color=yes .github/julia/build_tarballs_yggdrasil.jl ${{ matrix.platform }} --verbose --deploy=local
+          julia --color=yes .github/julia/build_tarballs_release.jl ${{ matrix.platform }} --verbose --deploy=local

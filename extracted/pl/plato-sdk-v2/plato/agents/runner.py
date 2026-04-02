@@ -1,9 +1,10 @@
-"""Agent runner - run agents in Docker containers or VMs."""
+"""Agent runner for VM-backed agent execution."""
 
 from __future__ import annotations
 
 import asyncio
 import base64
+import inspect
 import json
 import logging
 import os
@@ -15,12 +16,18 @@ from typing import TYPE_CHECKING
 
 from opentelemetry import trace
 
-from plato.agents.runtime import DockerRuntime, PlatoVMRuntime
+from plato.agents.runtime import PlatoVMRuntime
 from plato.agents.runtime.base import AgentContext, PreparedAgent, Runtime
-from plato.agents.runtime.transport import NFSTransport, SSHFSTransport, Transport
 from plato.agents.runtime.vm import VMConfig
 from plato.chronos.models import AuditEventInput, Operation
 from plato.runtime import VMRuntimeConfig
+from plato.tools.mcp import scoped_mcp_url
+from plato.tools.request_context import (
+    ToolRequestContext,
+    register_client_context,
+    unregister_client_context,
+)
+from plato.transports import NFSTransport, SSHFSTransport, Transport
 from plato.utils.audit import (
     AuditScopeContext,
     audit_ignore_filter,
@@ -85,24 +92,21 @@ def create_runtime(
 ) -> Runtime:
     """Create a runtime instance based on agent config."""
     runtime_cfg = agent.runtime
-    if runtime_cfg.type == "vm":
-        if session is None:
-            raise ValueError("session is required for VM mode")
-        if not isinstance(runtime_cfg, VMRuntimeConfig):
-            raise ValueError("VMRuntimeConfig required for VM mode")
-        return PlatoVMRuntime(
-            session=session,
-            ssh_key_path=ssh_key_path,
-            vm_config=VMConfig(
-                cpus=runtime_cfg.vm.cpus or 2,
-                memory=runtime_cfg.vm.memory or 4096,
-                disk=runtime_cfg.vm.disk or 10240,
-                timeout=runtime_cfg.vm.timeout or 7200,
-            ),
-            warm_pool=warm_pool,
-        )
-    else:
-        return DockerRuntime()
+    if session is None:
+        raise ValueError("session is required for VM mode")
+    if not isinstance(runtime_cfg, VMRuntimeConfig):
+        raise ValueError("VMRuntimeConfig required for VM mode")
+    return PlatoVMRuntime(
+        session=session,
+        ssh_key_path=ssh_key_path,
+        vm_config=VMConfig(
+            cpus=runtime_cfg.vm.cpus or 2,
+            memory=runtime_cfg.vm.memory or 4096,
+            disk=runtime_cfg.vm.disk or 10240,
+            timeout=runtime_cfg.vm.timeout or 7200,
+        ),
+        warm_pool=warm_pool,
+    )
 
 
 class AgentRunner:
@@ -145,7 +149,7 @@ class AgentRunner:
         self._exit_condition: Callable[[], Awaitable[bool]] | None = None
         self._max_continuations: int = 2
         self._continuation_instruction: str = "Continue. Complete all remaining work."
-        # File trigger settings (set via with_file_triggers())
+        # File trigger settings (set via with_file_triggers_from())
         self._file_trigger_patterns: list[str] | None = None
         self._trigger_server_url: str | None = None
         # Populated after run() completes — hex span ID of the agent.execution.output span
@@ -199,26 +203,6 @@ class AgentRunner:
         self._continuation_instruction = continuation_instruction
         return self
 
-    def with_file_triggers(
-        self,
-        patterns: list[str],
-        trigger_server_url: str,
-    ) -> AgentRunner:
-        """Configure file-pattern checkpoint triggers.
-
-        Starts a file watcher sidecar on the agent VM that monitors workspace
-        directories for files matching *patterns* and pushes trigger events
-        (with span context) to the world VM's trigger server.
-
-        Args:
-            patterns: Glob patterns to watch, e.g. ``["**/progress.json"]``.
-            trigger_server_url: TCP address of the world's trigger server,
-                e.g. ``"10.0.0.1:8765"``.
-        """
-        self._file_trigger_patterns = patterns
-        self._trigger_server_url = trigger_server_url
-        return self
-
     def with_file_triggers_from(self, ctx: object) -> AgentRunner:
         """Configure file triggers from a :class:`CheckpointContext`.
 
@@ -250,6 +234,38 @@ class AgentRunner:
     def _default_agent_name(self) -> str:
         return self._agent.image.split("/")[-1].split(":")[0]
 
+    def _build_run_agent_config(
+        self,
+        prepared: PreparedAgent,
+    ) -> dict[str, object]:
+        config: dict[str, object] = dict(self._agent.config or {})
+        mcp_server_url = config.get("mcp_server_url")
+        if isinstance(mcp_server_url, str) and mcp_server_url:
+            config["mcp_server_url"] = scoped_mcp_url(
+                mcp_server_url,
+                client_id=prepared.agent_id,
+            )
+        return config
+
+    def _register_tool_request_context(
+        self,
+        prepared: PreparedAgent,
+        *,
+        instruction: str,
+        display_name: str | None,
+        attempt: int,
+    ) -> None:
+        register_client_context(
+            ToolRequestContext(
+                client_id=prepared.agent_id,
+                display_name=display_name,
+                instruction=instruction,
+                session_id=os.environ.get("SESSION_ID"),
+                image=self._agent.image,
+                attempt=attempt,
+            )
+        )
+
     def _audit_workspace_name(self, transport: Transport) -> str:
         workspace_name = getattr(transport, "workspace_name", None)
         if workspace_name:
@@ -258,14 +274,13 @@ class AgentRunner:
         fallback = Path(mount_path).name or "workspace"
         return fallback
 
-    def _configure_audit_scopes(self, display_name: str | None = None) -> list[AuditScope]:
+    def _configure_audit_scopes(self) -> list[AuditScope]:
         """Create one audit scope per tracked NFS/SSHFS-mounted workspace.
 
         Each scope gets its own *copy* of the transport so that parallel
         ``AgentRunner`` instances don't overwrite each other's ``audit_key``
         on a shared ``Transport`` object.
         """
-        del display_name
         scopes: list[AuditScope] = []
 
         for transport in self._all_transports():
@@ -686,7 +701,7 @@ class AgentRunner:
 
     async def _run_impl(self, instruction: str, display_name: str | None = None) -> str:
         current_display_name = display_name or self._display_name
-        audit_scopes = self._configure_audit_scopes(current_display_name)
+        audit_scopes = self._configure_audit_scopes()
 
         # Read workspace references AFTER _configure_audit_scopes, which may
         # replace them with per-runner copies carrying the correct audit_key.
@@ -697,16 +712,12 @@ class AgentRunner:
             self._runtime.workspace = ws
             self._runtime.workspaces = self._default_workspaces
 
-        # Derive string path for ctx.workspace (used by DockerRuntime)
-        workspace_path = ws.path if ws else None
-
         runtime_dict = self._agent.runtime.model_dump()
         prep_ctx = AgentContext(
             image=self._agent.image,
             config=self._agent.config,
             instruction="",
             display_name=current_display_name,
-            workspace=workspace_path,
             runtime=runtime_dict,
             agent_code_path=self._agent_code_path,
         )
@@ -724,15 +735,23 @@ class AgentRunner:
                 display_name=current_display_name,
             )
 
+            run_agent_config = self._build_run_agent_config(prepared)
+
             total_attempts = 1 + (self._max_continuations if self._exit_condition else 0)
 
             for attempt in range(total_attempts):
                 is_continuation = attempt > 0
                 current_instruction = self._continuation_instruction if is_continuation else instruction
+                self._register_tool_request_context(
+                    prepared,
+                    instruction=current_instruction,
+                    display_name=current_display_name,
+                    attempt=attempt + 1,
+                )
 
                 # Inject continue_session into agent config for continuation
                 # runs so the agent can use --continue on the CLI.
-                agent_config = self._agent.config
+                agent_config = dict(run_agent_config)
                 if is_continuation:
                     agent_config = {**agent_config, "continue_session": True}
 
@@ -741,7 +760,6 @@ class AgentRunner:
                     config=agent_config,
                     instruction=current_instruction,
                     display_name=current_display_name,
-                    workspace=workspace_path,
                     runtime=runtime_dict,
                     agent_code_path=self._agent_code_path,
                 )
@@ -808,6 +826,8 @@ class AgentRunner:
                 if run_error is None:
                     final_error = exc
                 logger.exception("Post-run hook failed on VM %s", prepared.agent_id)
+            finally:
+                unregister_client_context(prepared.agent_id)
 
             logger.info("Cleaning up agent VM %s", prepared.agent_id)
             try:
@@ -838,30 +858,27 @@ async def run_agent(
     agent: AgentConfig,
     instruction: str,
     display_name: str | None = None,
-    workspace: str | None = None,
     session: Session | None = None,
     ssh_key_path: Path | None = None,
     local_agent_path: Path | None = None,
 ) -> str:
-    """Run an agent in a Docker container or VM (one-shot convenience function).
+    """Run an agent in a VM (one-shot convenience function).
 
     Args:
         agent: Agent configuration (image, runtime, config)
         instruction: Task instruction for the agent
-        workspace: Docker volume name (docker) or path to sync (vm)
         session: Plato session (required for VM mode)
         ssh_key_path: SSH key for rsync to VM (vm mode)
         local_agent_path: Path to agent code on world VM for syncing (vm mode)
 
     Returns:
-        Container name (docker) or job ID (vm)
+        VM job ID
     """
     ctx = AgentContext(
         image=agent.image,
         config=agent.config,
         instruction=instruction,
         display_name=display_name,
-        workspace=workspace,
         agent_code_path=local_agent_path,
     )
     runtime = create_runtime(agent, session=session, ssh_key_path=ssh_key_path)
@@ -880,7 +897,7 @@ def discover_agents() -> None:
     discover_plugins("plato.agents")
 
 
-async def _run_agent_cli(instruction: str, tools_path: str | None = None) -> None:
+async def _run_agent_cli(instruction: str) -> None:
     """Run an agent with config from environment."""
     from plato.agents.base import get_registered_agents
     from plato.otel import instrument, shutdown_tracing
@@ -920,9 +937,14 @@ async def _run_agent_cli(instruction: str, tools_path: str | None = None) -> Non
     agent = agent_cls()
     config_class = agent_cls.get_config_class()
     agent.config = config_class(**config_dict)
+    tools_path: str | None = None
 
     try:
-        await agent.run(instruction, tools_path=tools_path)
+        run_sig = inspect.signature(agent.run)
+        if "tools_path" in run_sig.parameters:
+            await agent.run(instruction, tools_path=tools_path)
+        else:
+            await agent.run(instruction)
     finally:
         from plato.vm_metrics import shutdown_metrics
 
@@ -964,7 +986,6 @@ def main() -> None:
     run_parser = subparsers.add_parser("run", help="Run an agent")
     run_parser.add_argument("--instruction", "-i", help="Task instruction")
     run_parser.add_argument("--instruction-b64", help="Base64 encoded instruction")
-    run_parser.add_argument("--tools-path", help="Path to pickled plato tools (.pkl)")
     run_parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
 
     reset_parser = subparsers.add_parser("reset-commands", help="Print pooled VM reset commands as JSON")
@@ -994,7 +1015,7 @@ def main() -> None:
         else:
             parser.error("--instruction or --instruction-b64 required")
 
-        asyncio.run(_run_agent_cli(instruction, tools_path=args.tools_path))
+        asyncio.run(_run_agent_cli(instruction))
     elif args.command == "reset-commands":
         try:
             _reset_commands_cli(args.workspace_paths)

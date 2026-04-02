@@ -1,0 +1,47 @@
+[package]
+name = "consensus"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+types.workspace = true
+protocol-config.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+utils.workspace = true
+bytes.workspace = true
+async-trait.workspace = true
+bcs.workspace = true
+futures.workspace = true
+parking_lot.workspace = true
+rand.workspace = true
+thiserror.workspace = true
+tokio-stream.workspace = true
+tokio-util.workspace = true
+itertools.workspace = true
+tonic.workspace = true
+prost.workspace = true
+tap.workspace = true
+tower.workspace = true
+http.workspace = true
+tonic-prost.workspace = true
+soma-tls.workspace = true
+soma-http.workspace = true
+tonic-rustls.workspace = true
+nom = "7.1.3"
+
+tower-http.workspace = true
+cfg-if.workspace = true
+msim = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile.workspace = true
+rstest.workspace = true
+msim.workspace = true
+
+[build-dependencies]
+tonic-build.workspace = true
+tonic-prost-build.workspace = true
+
+[lints]
+workspace = true

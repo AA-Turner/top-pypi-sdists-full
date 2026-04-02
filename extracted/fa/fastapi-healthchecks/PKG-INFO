@@ -1,0 +1,81 @@
+Metadata-Version: 2.1
+Name: fastapi-healthchecks
+Version: 1.1.0
+Summary: FastAPI Healthchecks
+License: MIT
+Keywords: fastapi,healthcheck
+Author: RockITSoft
+Requires-Python: >=3.10,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Provides-Extra: all
+Provides-Extra: ceph
+Provides-Extra: http
+Provides-Extra: postgres
+Provides-Extra: rabbitmq
+Provides-Extra: redis
+Requires-Dist: aio-pika (>=7) ; extra == "all" or extra == "rabbitmq"
+Requires-Dist: aioboto3 (>=9.3) ; extra == "all" or extra == "ceph"
+Requires-Dist: aiohttp[speedups] (>=3) ; extra == "all" or extra == "http"
+Requires-Dist: asyncpg (>=0.25.0) ; extra == "all" or extra == "postgres"
+Requires-Dist: fastapi (>=0.70.1)
+Requires-Dist: pydantic (>=2.5)
+Requires-Dist: pydantic-settings (>=2.1)
+Requires-Dist: redis (>=4) ; extra == "all" or extra == "redis"
+Description-Content-Type: text/markdown
+
+# FastAPI health checks
+
+Configurable health checks endpoints for FastAPI applications.
+
+## Quickstart
+
+```python
+app = FastAPI()
+app.include_router(
+    HealthcheckRouter(
+        Probe(
+            name="readiness",
+            checks=[
+                PostgreSqlCheck(host="db.example.com", username=..., password=...),
+                RedisCheck(host="redis.example.com", username=..., password=...),
+            ],
+        ),
+        Probe(
+            name="liveness",
+            checks=[
+                ...,
+            ],
+        ),
+    ),
+    prefix="/health",
+)
+```
+
+The probes from this example will be available as `GET /health/readiness` and `GET /health/liveness`.
+
+## Bundled checks
+
+* `PostgreSqlCheck` – checks PostgreSQL server availability
+* `RedisCheck` – checks Redis server availability
+* `RabbitMqCheck` – checks RabbitMQ server availability
+* `SettingsCheck` – validates settings models based on pydantic BaseModel
+* `HttpCheck` – checks availability of specified URL
+* `CephCheck` – checks Ceph server availability
+
+## Custom checks
+
+You can create your own checks by providing custom `fastapi_healthchecks.checks.Check` implementations. Like this:
+
+```python
+class MaintenanceCheck(Check):
+    async def __call__(self) -> CheckResult:
+        if is_maintenance():
+            return CheckResult(name="Maintenance", passed=False, details="Closed for maintenance")
+        else:
+            return CheckResult(name="Maintenance", passed=True)
+```
+

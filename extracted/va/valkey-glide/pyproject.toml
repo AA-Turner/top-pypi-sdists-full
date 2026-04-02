@@ -1,6 +1,6 @@
 [project]
 name = "valkey-glide"
-version = "2.3.0"
+version = "2.3.1"
 description = "Valkey GLIDE Async client. Supports Valkey and Redis OSS."
 requires-python = ">=3.9"
 dependencies = [

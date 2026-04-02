@@ -1,0 +1,50 @@
+Metadata-Version: 1.1
+Name: pgmock
+Version: 1.3.7
+Summary: A library for mocking Postgres queries
+Home-page: https://github.com/CloverHealth/pgmock
+Author: Clover Health
+Author-email: oss@cloverhealth.com
+License: BSD 3-Clause
+Description: pgmock
+        ######
+        
+        pgmock provides utilities for obtaining and mocking out expressions in Postgres queries. For a quick start and
+        a full tutorial on using pgmock, view the documentation link below.
+        
+        Documentation
+        =============
+        
+        `View the pgmock docs here <http://pgmock.readthedocs.io/>`_.
+        
+        Installation
+        ============
+        
+        pgmock can be installed with::
+        
+            pip3 install pgmock
+        
+        
+        Contributing Guide
+        ==================
+        
+        For information on setting up pgmock for development and contributing changes, view `CONTRIBUTING.rst <CONTRIBUTING.rst>`_.
+        
+        Primary Authors
+        ===============
+        
+        - @wesleykendall (Wes Kendall)
+        - @chris-hartfield (Chris Hartfield)
+        - @dargueta (Diego Argueta)
+        - @VincentLa (Vincent La)
+        
+        Other contributors can be found in the AUTHORS file
+        
+        
+Platform: UNKNOWN
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 4 - Beta
+Classifier: Operating System :: OS Independent

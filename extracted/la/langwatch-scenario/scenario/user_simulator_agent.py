@@ -1,0 +1,281 @@
+"""
+Simulate realistic user interactions using Scenario’s user simulator tools for robust agent testing
+
+This module provides the UserSimulatorAgent class, which simulates human user
+behavior in conversations with agents under test. The simulator generates
+contextually appropriate user messages based on the scenario description and
+conversation history.
+"""
+
+import logging
+from typing import Optional, cast
+
+import litellm
+from litellm import Choices
+from litellm.files.main import ModelResponse
+
+from scenario.cache import scenario_cache
+from scenario.agent_adapter import AgentAdapter
+from scenario._utils.utils import reverse_roles
+from scenario.config import ModelConfig, ScenarioConfig
+
+from ._error_messages import agent_not_configured_error_message
+from .types import AgentInput, AgentReturnTypes, AgentRole
+
+
+logger = logging.getLogger("scenario")
+
+
+class UserSimulatorAgent(AgentAdapter):
+    """
+    Agent that simulates realistic user behavior in scenario conversations.
+
+    This agent generates user messages that are appropriate for the given scenario
+    context, simulating how a real human user would interact with the agent under test.
+    It uses an LLM to generate natural, contextually relevant user inputs that help
+    drive the conversation forward according to the scenario description.
+
+    Attributes:
+        role: Always AgentRole.USER for user simulator agents
+        model: LLM model identifier to use for generating user messages
+        api_base: Optional base URL where the model is hosted
+        api_key: Optional API key for the model provider
+        temperature: Sampling temperature for response generation
+        max_tokens: Maximum tokens to generate in user messages
+        system_prompt: Custom system prompt to override default user simulation behavior
+
+    Example:
+        ```
+        import scenario
+
+        # Basic user simulator with default behavior
+        user_sim = scenario.UserSimulatorAgent(
+            model="openai/gpt-4.1-mini"
+        )
+
+        # Customized user simulator
+        custom_user_sim = scenario.UserSimulatorAgent(
+            model="openai/gpt-4.1-mini",
+            temperature=0.3,
+            system_prompt="You are a technical user who asks detailed questions"
+        )
+
+        # Use in scenario
+        result = await scenario.run(
+            name="user interaction test",
+            description="User seeks help with Python programming",
+            agents=[
+                my_programming_agent,
+                user_sim,
+                scenario.JudgeAgent(criteria=["Provides helpful code examples"])
+            ]
+        )
+        ```
+
+    Note:
+        - The user simulator automatically generates short, natural user messages
+        - It follows the scenario description to stay on topic
+        - Messages are generated in a casual, human-like style (lowercase, brief, etc.)
+        - The simulator will not act as an assistant - it only generates user inputs
+    """
+
+    role = AgentRole.USER
+
+    model: str
+    api_base: Optional[str]
+    api_key: Optional[str]
+    temperature: float
+    max_tokens: Optional[int]
+    system_prompt: Optional[str]
+    _extra_params: dict
+
+    _TEMPERATURE_UNSET = object()
+
+    def __init__(
+        self,
+        *,
+        model: Optional[str] = None,
+        api_base: Optional[str] = None,
+        api_key: Optional[str] = None,
+        temperature: float = _TEMPERATURE_UNSET,  # type: ignore[assignment]
+        max_tokens: Optional[int] = None,
+        system_prompt: Optional[str] = None,
+        **extra_params,
+    ):
+        """
+        Initialize a user simulator agent.
+
+        Args:
+            model: LLM model identifier (e.g., "openai/gpt-4.1-mini").
+                   If not provided, uses the default model from global configuration.
+            api_base: Optional base URL where the model is hosted. If not provided,
+                      uses the base URL from global configuration.
+            api_key: API key for the model provider. If not provided,
+                     uses the key from global configuration or environment.
+            temperature: Sampling temperature for message generation (0.0-1.0).
+                        Lower values make responses more deterministic.
+            max_tokens: Maximum number of tokens to generate in user messages.
+                       If not provided, uses model defaults.
+            system_prompt: Custom system prompt to override default user simulation behavior.
+                          Use this to create specialized user personas or behaviors.
+
+        Raises:
+            Exception: If no model is configured either in parameters or global config
+
+        Example:
+            ```
+            # Basic user simulator
+            user_sim = UserSimulatorAgent(model="openai/gpt-4.1-mini")
+
+            # User simulator with custom persona
+            expert_user = UserSimulatorAgent(
+                model="openai/gpt-4.1-mini",
+                temperature=0.2,
+                system_prompt='''
+                You are an expert software developer testing an AI coding assistant.
+                Ask challenging, technical questions and be demanding about code quality.
+                '''
+            )
+            ```
+
+        Note:
+            Advanced usage: Additional parameters can be passed as keyword arguments
+            (e.g., headers, timeout, client) for specialized configurations. These are
+            experimental and may not be supported in future versions.
+        """
+        _temp_was_set = temperature is not self._TEMPERATURE_UNSET
+
+        self.api_base = api_base
+        self.api_key = api_key
+        self.temperature = temperature if _temp_was_set else 0.0
+        self.max_tokens = max_tokens
+        self.system_prompt = system_prompt
+
+        if model:
+            self.model = model
+
+        if ScenarioConfig.default_config is not None and isinstance(
+            ScenarioConfig.default_config.default_model, str
+        ):
+            self.model = model or ScenarioConfig.default_config.default_model
+            self._extra_params = extra_params
+        elif ScenarioConfig.default_config is not None and isinstance(
+            ScenarioConfig.default_config.default_model, ModelConfig
+        ):
+            self.model = model or ScenarioConfig.default_config.default_model.model
+            self.api_base = (
+                api_base or ScenarioConfig.default_config.default_model.api_base
+            )
+            self.api_key = (
+                api_key or ScenarioConfig.default_config.default_model.api_key
+            )
+            if not _temp_was_set:
+                self.temperature = (
+                    ScenarioConfig.default_config.default_model.temperature or 0.0
+                )
+            self.max_tokens = (
+                max_tokens or ScenarioConfig.default_config.default_model.max_tokens
+            )
+            # Extract extra params from ModelConfig
+            config_dict = ScenarioConfig.default_config.default_model.model_dump(
+                exclude_none=True
+            )
+            config_dict.pop("model", None)
+            config_dict.pop("api_base", None)
+            config_dict.pop("api_key", None)
+            config_dict.pop("temperature", None)
+            config_dict.pop("max_tokens", None)
+            # Merge: config extras < agent extra_params
+            self._extra_params = {**config_dict, **extra_params}
+        else:
+            self._extra_params = extra_params
+
+        if not hasattr(self, "model"):
+            raise Exception(agent_not_configured_error_message("UserSimulatorAgent"))
+
+    @scenario_cache()
+    async def call(
+        self,
+        input: AgentInput,
+    ) -> AgentReturnTypes:
+        """
+        Generate the next user message in the conversation.
+
+        This method analyzes the current conversation state and scenario context
+        to generate an appropriate user message that moves the conversation forward
+        in a realistic, human-like manner.
+
+        Args:
+            input: AgentInput containing conversation history and scenario context
+
+        Returns:
+            AgentReturnTypes: A user message in OpenAI format that continues the conversation
+
+        Note:
+            - Messages are generated in a casual, human-like style
+            - The simulator follows the scenario description to stay contextually relevant
+            - Uses role reversal internally to work around LLM biases toward assistant roles
+            - Results are cached when cache_key is configured for deterministic testing
+        """
+
+        scenario = input.scenario_state
+
+        messages = [
+            {
+                "role": "system",
+                "content": self.system_prompt
+                or f"""
+<role>
+You are pretending to be a user, you are testing an AI Agent (shown as the user role) based on a scenario.
+Approach this naturally, as a human user would, with very short inputs, few words, all lowercase, imperative, not periods, like when they google or talk to chatgpt.
+</role>
+
+<goal>
+Your goal (assistant) is to interact with the Agent Under Test (user) as if you were a human user to see if it can complete the scenario successfully.
+</goal>
+
+<scenario>
+{scenario.description}
+</scenario>
+
+<rules>
+- DO NOT carry over any requests yourself, YOU ARE NOT the assistant today, you are the user, send the user message and just STOP.
+</rules>
+""",
+            },
+            {"role": "assistant", "content": "Hello, how can I help you today?"},
+            *input.messages,
+        ]
+
+        # User to assistant role reversal
+        # LLM models are biased to always be the assistant not the user, so we need to do this reversal otherwise models like GPT 4.5 is
+        # super confused, and Claude 3.7 even starts throwing exceptions.
+        messages = reverse_roles(messages)
+
+        response = cast(
+            ModelResponse,
+            litellm.completion(
+                model=self.model,
+                messages=messages,
+                temperature=self.temperature,
+                api_key=self.api_key,
+                api_base=self.api_base,
+                max_tokens=self.max_tokens,
+                tools=[],
+                **self._extra_params,
+            ),
+        )
+
+        # Extract the content from the response
+        if hasattr(response, "choices") and len(response.choices) > 0:
+            message = cast(Choices, response.choices[0]).message
+
+            message_content = message.content
+            if message_content is None:
+                raise Exception(f"No response from LLM: {response.__repr__()}")
+
+            return {"role": "user", "content": message_content}
+        else:
+            raise Exception(
+                f"Unexpected response format from LLM: {response.__repr__()}"
+            )

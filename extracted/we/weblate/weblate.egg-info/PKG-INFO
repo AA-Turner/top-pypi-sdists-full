@@ -1,0 +1,229 @@
+Metadata-Version: 2.4
+Name: weblate
+Version: 5.16.2
+Summary: A web-based continuous localization system with tight version control integration
+Author-email: Michal Čihař <michal@weblate.org>
+License-Expression: GPL-3.0-or-later
+Project-URL: Documentation, https://docs.weblate.org/
+Project-URL: Download, https://weblate.org/download/
+Project-URL: Funding, https://weblate.org/donate/
+Project-URL: Homepage, https://weblate.org/
+Project-URL: Issue Tracker, https://github.com/WeblateOrg/weblate/issues
+Project-URL: Release Notes, https://docs.weblate.org/en/latest/changes.html
+Project-URL: Source Code, https://github.com/WeblateOrg/weblate
+Project-URL: X, https://x.com/WeblateOrg
+Keywords: gettext,git,i18n,l10n,mercurial,translate
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Software Development :: Internationalization
+Classifier: Topic :: Software Development :: Localization
+Requires-Python: >=3.12
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: aeidon<1.16,>=1.15
+Requires-Dist: ahocorasick-rs<1.1.0,>=0.22.0
+Requires-Dist: altcha<1.1,>=0.2.0
+Requires-Dist: borgbackup<1.5,>=1.4.0
+Requires-Dist: celery[redis]<5.7,>=5.5.3
+Requires-Dist: certifi>=2026.2.25
+Requires-Dist: charset-normalizer<4.0,>=3.4.0
+Requires-Dist: confusable-homoglyphs<3.4,>=3.3.1
+Requires-Dist: crispy-bootstrap3==2024.1
+Requires-Dist: crispy-bootstrap5==2025.6
+Requires-Dist: cryptography>=45.0.1
+Requires-Dist: cssselect<1.5,>=1.3.0
+Requires-Dist: cyrtranslit<1.3.0,>=1.2.0
+Requires-Dist: Cython<3.3,>=3.1.0
+Requires-Dist: dateparser<1.4.0,>=1.2.0
+Requires-Dist: diff-match-patch==20241021
+Requires-Dist: disposable-email-domains>=0.0.125
+Requires-Dist: django-appconf<1.3,>=1.1.0
+Requires-Dist: django-celery-beat<2.10,>=2.8.0
+Requires-Dist: django-compressor<5,>=4.5.1
+Requires-Dist: django-cors-headers<4.10,>=4.7.0
+Requires-Dist: django-crispy-forms<2.7,>=2.4
+Requires-Dist: django-filter<25.3,>=24.3
+Requires-Dist: django-otp-webauthn<0.9,>=0.6.0
+Requires-Dist: django-otp<2.0,>=1.7.0
+Requires-Dist: django-redis<6.1,>=6.0.0
+Requires-Dist: Django[argon2]<6.0,>=5.2
+Requires-Dist: djangorestframework-csv<3.1,>=3.0.2
+Requires-Dist: djangorestframework<3.17,>=3.16.0
+Requires-Dist: docutils<0.23,>=0.21.2
+Requires-Dist: drf-spectacular[sidecar]<0.30,>=0.28.0
+Requires-Dist: drf-standardized-errors[openapi]<0.16,>=0.14.1
+Requires-Dist: fedora-messaging<4.0,>=3.9.0
+Requires-Dist: filelock<4,>=3.18.0
+Requires-Dist: fluent.syntax<0.20,>=0.19.0
+Requires-Dist: GitPython<3.2,>=3.1.43
+Requires-Dist: hiredis<3.4,>=3.1.0
+Requires-Dist: html2text<2025.4.16,>=2025.4.15
+Requires-Dist: iniparse==0.5
+Requires-Dist: jsonschema<5,>=4.24.0
+Requires-Dist: lxml<6.1,>=5.4.0
+Requires-Dist: mistletoe<1.6,>=1.4.0
+Requires-Dist: nh3<0.4,>=0.2.20
+Requires-Dist: openpyxl<3.2,>=3.1.5
+Requires-Dist: packaging<27,>=25
+Requires-Dist: phply<1.3,>=1.2.6
+Requires-Dist: Pillow<13,>=11.0.0
+Requires-Dist: pyaskalono<0.3.0,>=0.2.0
+Requires-Dist: pycairo>=1.20.0
+Requires-Dist: Pygments<3.0,>=2.19.0
+Requires-Dist: PyGObject<3.55.0,>=3.54.5
+Requires-Dist: pyicumessageformat<1.1,>=1.0.0
+Requires-Dist: pyparsing<3.4,>=3.2.0
+Requires-Dist: python-dateutil>=2.9.0.post0
+Requires-Dist: qrcode<8.3,>=8.2
+Requires-Dist: rapidfuzz<3.15,>=3.12.1
+Requires-Dist: redis<8.0.0,>=5.2.0
+Requires-Dist: regex<2027,>=2024.11.6
+Requires-Dist: requests<2.33,>=2.32.2
+Requires-Dist: ruamel.yaml<0.20.0,>=0.18.0
+Requires-Dist: sentry-sdk<3.0,>=2.28.0
+Requires-Dist: siphashc<3.0,>=2.5
+Requires-Dist: social-auth-app-django<6.0.0,>=5.5.1
+Requires-Dist: social-auth-core<5.0.0,>=4.7.0
+Requires-Dist: tesserocr<2.11.0,>=2.8.0
+Requires-Dist: translate-toolkit[toml]<3.20,>=3.19.2
+Requires-Dist: translation-finder<3.0,>=2.22
+Requires-Dist: unidecode<1.5,>=1.4.0
+Requires-Dist: urllib3[brotli,zstd]<3.0,>=2.6.3
+Requires-Dist: user-agents<2.3,>=2.2.0
+Requires-Dist: weblate-fonts==2026.1
+Requires-Dist: weblate-language-data>=2026.3
+Requires-Dist: weblate-schemas==2025.6
+Provides-Extra: alibaba
+Requires-Dist: aliyun-python-sdk-alimt<4.0.0,>=3.2.0; extra == "alibaba"
+Requires-Dist: aliyun-python-sdk-core<3.0.0,>=2.16.0; extra == "alibaba"
+Provides-Extra: all
+Requires-Dist: weblate[alibaba,amazon,gelf,gerrit,google,ldap,mercurial,openai,postgres,zxcvbn]; extra == "all"
+Provides-Extra: amazon
+Requires-Dist: boto3<2.0,>=1.38.0; extra == "amazon"
+Provides-Extra: gelf
+Requires-Dist: logging-gelf<0.1,>=0.0.32; extra == "gelf"
+Provides-Extra: gerrit
+Requires-Dist: git-review<2.6.0,>=2.4.0; extra == "gerrit"
+Provides-Extra: google
+Requires-Dist: google-cloud-storage<3.10,>=3.4.0; extra == "google"
+Requires-Dist: google-cloud-translate<4.0,>=3.21.0; extra == "google"
+Provides-Extra: ldap
+Requires-Dist: django-auth-ldap<6.0.0,>=4.6.0; extra == "ldap"
+Provides-Extra: mercurial
+Requires-Dist: mercurial<7.3,>=6.8.0; extra == "mercurial"
+Provides-Extra: mysql
+Requires-Dist: mysqlclient<3,>=2.1.1; extra == "mysql"
+Provides-Extra: openai
+Requires-Dist: openai<3.0,>=2.0; extra == "openai"
+Provides-Extra: postgres
+Requires-Dist: psycopg[binary]<3.4,>=3.2.11; extra == "postgres"
+Provides-Extra: saml
+Requires-Dist: python3-saml>=1.16.0; extra == "saml"
+Provides-Extra: saml2idp
+Requires-Dist: djangosaml2idp==0.7.2; extra == "saml2idp"
+Provides-Extra: wlhosted
+Requires-Dist: wlhosted; extra == "wlhosted"
+Provides-Extra: wllegal
+Requires-Dist: wllegal>=2026.2; extra == "wllegal"
+Provides-Extra: wsgi
+Requires-Dist: granian==2.7.2; extra == "wsgi"
+Provides-Extra: zxcvbn
+Requires-Dist: django-zxcvbn-password-validator<1.6,>=1.4.5; extra == "zxcvbn"
+Dynamic: license-file
+
+.. image:: https://s.weblate.org/cdn/Logo-Darktext-borders.png
+   :alt: Weblate
+   :target: https://weblate.org/
+   :height: 80px
+
+**Weblate is libre software web-based continuous localization system,
+used by over 2500 libre projects and companies in more than 165 countries.**
+
+Install it, or use the Hosted Weblate service at `weblate.org`_.
+
+.. image:: https://img.shields.io/badge/website-weblate.org-blue.svg
+    :alt: Website
+    :target: https://weblate.org/
+
+.. image:: https://hosted.weblate.org/widget/weblate/svg-badge.svg
+    :alt: Translation status
+    :target: https://hosted.weblate.org/engage/weblate/
+
+.. image:: https://www.bestpractices.dev/projects/552/badge
+    :alt: CII Best Practices
+    :target: https://www.bestpractices.dev/en/projects/552
+
+.. image:: https://api.reuse.software/badge/github.com/WeblateOrg/weblate
+    :alt: REUSE status
+    :target: https://api.reuse.software/info/github.com/WeblateOrg/weblate
+
+.. image:: https://img.shields.io/pypi/v/weblate.svg
+    :target: https://pypi.org/project/Weblate/
+
+.. image:: https://readthedocs.org/projects/weblate/badge/
+    :target: https://docs.weblate.org/
+
+.. image:: https://img.shields.io/github/license/WeblateOrg/weblate.svg
+    :alt: License
+    :target: https://github.com/WeblateOrg/weblate/blob/main/COPYING
+
+Support
+-------
+
+Weblate is libre software with optional professional support and cloud
+hosting offerings. Check out https://weblate.org/hosting/ for more information.
+
+Documentation
+-------------
+
+To be found in the ``docs`` directory of the source code, or
+viewed online on https://docs.weblate.org/
+
+Installation
+------------
+
+Setup instructions:
+
+https://docs.weblate.org/en/latest/admin/install.html
+
+Bugs
+----
+
+Please report feature requests and problems to:
+
+https://github.com/WeblateOrg/weblate/issues
+
+Stats
+-----
+
+.. image:: https://repobeats.axiom.co/api/embed/e0cfcc1b19f13f78669d3a93ca26b59974faaa22.svg
+   :alt: Repobeats analytics image
+
+License
+-------
+
+Copyright © Michal Čihař michal@weblate.org
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the `GNU General Public License
+<https://www.gnu.org/licenses/gpl-3.0.html>`_ for more details.
+
+.. _weblate.org: https://weblate.org/

@@ -1,35 +1,25 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: textblob
-Version: 0.19.0
+Version: 0.20.0
 Summary: Simple, Pythonic text processing. Sentiment analysis, part-of-speech tagging, noun phrase parsing, and more.
 Keywords: textblob,nlp,linguistics,nltk,pattern
-Author-email: Steven Loria <sloria1@gmail.com>
-Requires-Python: >=3.9
+Author-email: Steven Loria <oss@stevenloria.com>
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
+License-Expression: MIT
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Text Processing :: Linguistic
+License-File: LICENSE
 Requires-Dist: nltk>=3.9
-Requires-Dist: textblob[tests] ; extra == "dev"
-Requires-Dist: tox ; extra == "dev"
-Requires-Dist: pre-commit~=3.5 ; extra == "dev"
-Requires-Dist: sphinx==8.0.2 ; extra == "docs"
-Requires-Dist: sphinx-issues==4.1.0 ; extra == "docs"
-Requires-Dist: PyYAML==6.0.2 ; extra == "docs"
-Requires-Dist: pytest ; extra == "tests"
-Requires-Dist: numpy ; extra == "tests"
 Project-URL: Changelog, https://textblob.readthedocs.io/en/latest/changelog.html
 Project-URL: Issues, https://github.com/sloria/TextBlob/issues
 Project-URL: Source, https://github.com/sloria/TextBlob
-Provides-Extra: dev
-Provides-Extra: docs
-Provides-Extra: tests
 
 
 TextBlob: Simplified Text Processing

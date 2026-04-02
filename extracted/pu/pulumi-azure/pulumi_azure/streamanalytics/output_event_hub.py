@@ -34,6 +34,7 @@ class OutputEventHubArgs:
                  shared_access_policy_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a OutputEventHub resource.
+
         :param pulumi.Input[_builtins.str] eventhub_name: The name of the Event Hub.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the Resource Group where the Stream Analytics Job exists. Changing this forces a new resource to be created.
         :param pulumi.Input['OutputEventHubSerializationArgs'] serialization: A `serialization` block as defined below.
@@ -213,6 +214,7 @@ class _OutputEventHubState:
                  stream_analytics_job_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering OutputEventHub resources.
+
         :param pulumi.Input[_builtins.str] authentication_mode: The authentication mode for the Stream Output. Possible values are `Msi` and `ConnectionString`. Defaults to `ConnectionString`.
         :param pulumi.Input[_builtins.str] eventhub_name: The name of the Event Hub.
         :param pulumi.Input[_builtins.str] name: The name of the Stream Output. Changing this forces a new resource to be created.
@@ -421,8 +423,7 @@ class OutputEventHub(pulumi.CustomResource):
             capacity=1)
         example_event_hub = azure.eventhub.EventHub("example",
             name="example-eventhub",
-            namespace_name=example_event_hub_namespace.name,
-            resource_group_name=example_resource_group.name,
+            namespace_id=example_event_hub_namespace.id,
             partition_count=2,
             message_retention=1)
         example_output_event_hub = azure.streamanalytics.OutputEventHub("example",
@@ -452,6 +453,7 @@ class OutputEventHub(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:streamanalytics/outputEventHub:OutputEventHub example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.StreamAnalytics/streamingJobs/job1/outputs/output1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -495,8 +497,7 @@ class OutputEventHub(pulumi.CustomResource):
             capacity=1)
         example_event_hub = azure.eventhub.EventHub("example",
             name="example-eventhub",
-            namespace_name=example_event_hub_namespace.name,
-            resource_group_name=example_resource_group.name,
+            namespace_id=example_event_hub_namespace.id,
             partition_count=2,
             message_retention=1)
         example_output_event_hub = azure.streamanalytics.OutputEventHub("example",
@@ -526,6 +527,7 @@ class OutputEventHub(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:streamanalytics/outputEventHub:OutputEventHub example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.StreamAnalytics/streamingJobs/job1/outputs/output1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param OutputEventHubArgs args: The arguments to use to populate this resource's properties.

@@ -1,3 +1,0 @@
-import ctypes
-
-def f() -> ctypes._CData: ...

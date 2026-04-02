@@ -27,6 +27,7 @@ class BackupInstanceBlogStorageArgs:
                  storage_account_container_names: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a BackupInstanceBlogStorage resource.
+
         :param pulumi.Input[_builtins.str] backup_policy_id: The ID of the Backup Policy.
         :param pulumi.Input[_builtins.str] storage_account_id: The ID of the source Storage Account. Changing this forces a new Backup Instance Blob Storage to be created.
         :param pulumi.Input[_builtins.str] vault_id: The ID of the Backup Vault within which the Backup Instance Blob Storage should exist. Changing this forces a new Backup Instance Blob Storage to be created.
@@ -133,6 +134,7 @@ class _BackupInstanceBlogStorageState:
                  vault_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering BackupInstanceBlogStorage resources.
+
         :param pulumi.Input[_builtins.str] backup_policy_id: The ID of the Backup Policy.
         :param pulumi.Input[_builtins.str] location: The location of the source Storage Account. Changing this forces a new Backup Instance Blob Storage to be created.
         :param pulumi.Input[_builtins.str] name: The name which should be used for this Backup Instance Blob Storage. Changing this forces a new Backup Instance Blob Storage to be created.
@@ -307,7 +309,7 @@ class BackupInstanceBlogStorage(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.DataProtection` - 2024-04-01
+        * `Microsoft.DataProtection` - 2025-07-01
 
         ## Import
 
@@ -316,6 +318,7 @@ class BackupInstanceBlogStorage(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:dataprotection/backupInstanceBlogStorage:BackupInstanceBlogStorage example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.DataProtection/backupVaults/vault1/backupInstances/backupInstance1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -383,7 +386,7 @@ class BackupInstanceBlogStorage(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.DataProtection` - 2024-04-01
+        * `Microsoft.DataProtection` - 2025-07-01
 
         ## Import
 
@@ -392,6 +395,7 @@ class BackupInstanceBlogStorage(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:dataprotection/backupInstanceBlogStorage:BackupInstanceBlogStorage example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.DataProtection/backupVaults/vault1/backupInstances/backupInstance1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param BackupInstanceBlogStorageArgs args: The arguments to use to populate this resource's properties.

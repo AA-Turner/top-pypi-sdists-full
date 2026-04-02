@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kopf
-Version: 1.44.4
+Version: 1.44.5
 Summary: Kubernetes Operator Pythonic Framework (Kopf)
 Author-email: Sergey Vasilyev <nolar@nolar.info>
 Maintainer-email: Sergey Vasilyev <nolar@nolar.info>

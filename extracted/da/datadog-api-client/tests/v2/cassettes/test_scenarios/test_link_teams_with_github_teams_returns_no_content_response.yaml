@@ -1,0 +1,18 @@
+interactions:
+- request:
+    body: '{"data":{"attributes":{"selection_state":[{"external_id":{"type":"organization","value":"1"}}],"source":"github","type":"link"},"type":"team_sync_bulk"}}'
+    headers:
+      accept:
+      - '*/*'
+      content-type:
+      - application/json
+    method: POST
+    uri: https://api.datadoghq.com/api/v2/team/sync
+  response:
+    body:
+      string: ''
+    headers: {}
+    status:
+      code: 204
+      message: No Content
+version: 1

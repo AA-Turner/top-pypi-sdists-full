@@ -26,6 +26,7 @@ class ConsumerGroupArgs:
                  user_metadata: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a ConsumerGroup resource.
+
         :param pulumi.Input[_builtins.str] eventhub_name: Specifies the name of the EventHub. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] namespace_name: Specifies the name of the grandparent EventHub Namespace. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group in which the EventHub Consumer Group's grandparent Namespace exists. Changing this forces a new resource to be created.
@@ -111,6 +112,7 @@ class _ConsumerGroupState:
                  user_metadata: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ConsumerGroup resources.
+
         :param pulumi.Input[_builtins.str] eventhub_name: Specifies the name of the EventHub. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] name: Specifies the name of the EventHub Consumer Group resource. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] namespace_name: Specifies the name of the grandparent EventHub Namespace. Changing this forces a new resource to be created.
@@ -224,8 +226,7 @@ class ConsumerGroup(pulumi.CustomResource):
             })
         example_event_hub = azure.eventhub.EventHub("example",
             name="acceptanceTestEventHub",
-            namespace_name=example_event_hub_namespace.name,
-            resource_group_name=example.name,
+            namespace_id=example_event_hub_namespace.id,
             partition_count=2,
             message_retention=2)
         example_consumer_group = azure.eventhub.ConsumerGroup("example",
@@ -250,6 +251,7 @@ class ConsumerGroup(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:eventhub/consumerGroup:ConsumerGroup consumerGroup1 /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.EventHub/namespaces/namespace1/eventhubs/eventhub1/consumerGroups/consumerGroup1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -288,8 +290,7 @@ class ConsumerGroup(pulumi.CustomResource):
             })
         example_event_hub = azure.eventhub.EventHub("example",
             name="acceptanceTestEventHub",
-            namespace_name=example_event_hub_namespace.name,
-            resource_group_name=example.name,
+            namespace_id=example_event_hub_namespace.id,
             partition_count=2,
             message_retention=2)
         example_consumer_group = azure.eventhub.ConsumerGroup("example",
@@ -314,6 +315,7 @@ class ConsumerGroup(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:eventhub/consumerGroup:ConsumerGroup consumerGroup1 /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.EventHub/namespaces/namespace1/eventhubs/eventhub1/consumerGroups/consumerGroup1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param ConsumerGroupArgs args: The arguments to use to populate this resource's properties.

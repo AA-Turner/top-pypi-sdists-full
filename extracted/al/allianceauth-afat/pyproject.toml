@@ -1,0 +1,68 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+    "hatchling",
+]
+
+[project]
+name = "allianceauth-afat"
+description = "Another Fleet Activity Tracking tool for Alliance Auth"
+readme = "README.md"
+keywords = [
+    "allianceauth",
+    "eveonline",
+    "fleet",
+    "fleet-activity",
+    "fleet-tracking",
+    "tracking",
+]
+license = { file = "LICENSE" }
+authors = [
+    { name = "Peter Pfeufer", email = "develop@ppfeufer.de" },
+]
+requires-python = ">=3.10,<3.14"
+classifiers = [
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+dynamic = [
+    "version",
+]
+dependencies = [
+    "allianceauth>=4.12",
+    "django-esi>=8.3.1",
+    "django-eveonline-sde>=0.0.1b1",
+    "unidecode>=1.3.4",
+]
+optional-dependencies.tests-allianceauth-latest = [
+    "allianceauth-securegroups",
+    "coverage",
+    "django-webtest",
+    "fittings",
+]
+urls.Changelog = "https://github.com/ppfeufer/allianceauth-afat/blob/master/CHANGELOG.md"
+urls.Codecov = "https://codecov.io/gh/ppfeufer/allianceauth-afat"
+urls.Discord = "https://discord.gg/fjnHAmk"
+urls.Documentation = "https://github.com/ppfeufer/allianceauth-afat/blob/master/README.md"
+urls.Donation = "https://ko-fi.com/ppfeufer"
+urls.GitHub = "https://github.com/ppfeufer/allianceauth-afat"
+urls.Tracker = "https://github.com/ppfeufer/allianceauth-afat/issues"
+urls.Translation = "https://weblate.ppfeufer.de/projects/alliance-auth-apps/allianceauth-afat/"
+
+[tool.hatch]
+build.include = [
+    "/afat",
+]
+version.path = "afat/__init__.py"

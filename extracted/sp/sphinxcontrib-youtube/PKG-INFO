@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinxcontrib-youtube
-Version: 1.4.1
+Version: 1.5.0
 Summary: Sphinx "youtube" extension.
 Author-email: Chris Pickel <sfiera@gmail.com>
 Maintainer-email: "David A. Ham" <david.ham@imperial.ac.uk>
@@ -15,7 +15,8 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Documentation
 Classifier: Topic :: Utilities
-Requires-Dist: Sphinx>=6.1
+License-File: LICENCE
+Requires-Dist: Sphinx>=7.2
 Requires-Dist: requests
 Requires-Dist: nox ; extra == "dev"
 Requires-Dist: sphinx-copybutton ; extra == "doc"

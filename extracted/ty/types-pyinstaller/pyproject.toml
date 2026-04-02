@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-pyinstaller"
-version = "6.19.0.20260322"
+version = "6.19.0.20260402"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for pyinstaller"
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.19.1
+* [mypy](https://github.com/python/mypy/) 1.20.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`282b1a838a565f10a4b2e9139adc26ab828b2e9d`](https://github.com/python/typeshed/commit/282b1a838a565f10a4b2e9139adc26ab828b2e9d).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -46,9 +46,9 @@ dependencies = []
 "Chat" = "https://gitter.im/python/typing"
 
 [tool.setuptools]
-packages = ['PyInstaller-stubs', 'pyi_splash-stubs']
+packages = ['pyi_splash-stubs', 'PyInstaller-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'PyInstaller-stubs' = ['__init__.pyi', '__main__.pyi', 'building/__init__.pyi', 'building/api.pyi', 'building/build_main.pyi', 'building/datastruct.pyi', 'building/splash.pyi', 'compat.pyi', 'depend/__init__.pyi', 'depend/analysis.pyi', 'depend/imphookapi.pyi', 'isolated/__init__.pyi', 'isolated/_parent.pyi', 'lib/__init__.pyi', 'lib/modulegraph/__init__.pyi', 'lib/modulegraph/modulegraph.pyi', 'utils/__init__.pyi', 'utils/hooks/__init__.pyi', 'utils/hooks/conda.pyi', 'utils/win32/versioninfo.pyi', 'METADATA.toml', 'py.typed']
 'pyi_splash-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']
+'PyInstaller-stubs' = ['__init__.pyi', '__main__.pyi', 'building/__init__.pyi', 'building/api.pyi', 'building/build_main.pyi', 'building/datastruct.pyi', 'building/splash.pyi', 'compat.pyi', 'depend/__init__.pyi', 'depend/analysis.pyi', 'depend/imphookapi.pyi', 'isolated/__init__.pyi', 'isolated/_parent.pyi', 'lib/__init__.pyi', 'lib/modulegraph/__init__.pyi', 'lib/modulegraph/modulegraph.pyi', 'utils/__init__.pyi', 'utils/hooks/__init__.pyi', 'utils/hooks/conda.pyi', 'utils/win32/versioninfo.pyi', 'METADATA.toml', 'py.typed']

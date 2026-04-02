@@ -97,6 +97,12 @@ def needs_complex_comparison(data_type):
     return False
 
 
+# When every column is a join key, value structs would otherwise be empty. Spark 3.5+
+# fails in ExpressionEncoder with: "each serializer expression should contain at least
+# one BoundReference". A single bound column avoids an empty `struct()`.
+_EMPTY_VALUE_STRUCT_FIELD = "__prophecy_diff_empty_values_anchor__"
+
+
 class DataFrameDiff:
     COMPUTED_DIFFS = {}
 
@@ -370,6 +376,20 @@ class DataFrameDiff:
             for col in value_columns
         ]
 
+        if not left_value_exprs:
+            # No value columns (all columns are keys): empty struct() breaks Spark's encoder.
+            anchor_col = key_columns[0]
+            left_value_exprs = [
+                F.col(DataFrameDiff.prophecy_sc("left", anchor_col)).alias(
+                    _EMPTY_VALUE_STRUCT_FIELD
+                )
+            ]
+            right_value_exprs = [
+                F.col(DataFrameDiff.prophecy_sc("right", anchor_col)).alias(
+                    _EMPTY_VALUE_STRUCT_FIELD
+                )
+            ]
+
         left_struct = F.struct(*left_value_exprs).alias("left_values")
         right_struct = F.struct(*right_value_exprs).alias("right_values")
 
@@ -489,7 +509,11 @@ class DataFrameDiff:
 
         comparison_struct = "compared_values"
 
-        fields = joined_df.select(f"{comparison_struct}.*").columns
+        fields = [
+            c
+            for c in joined_df.select(f"{comparison_struct}.*").columns
+            if c != _EMPTY_VALUE_STRUCT_FIELD
+        ]
 
         # Build aggregators for match and mismatch counts for each specified column
         per_column_aggregators = []

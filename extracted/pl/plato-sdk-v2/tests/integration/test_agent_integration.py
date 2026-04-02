@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.integration,
+    pytest.mark.timeout(300),
     pytest.mark.skipif(not os.environ.get("PLATO_API_KEY"), reason="PLATO_API_KEY not set"),
 ]
 
@@ -49,20 +50,18 @@ CLAUDE_CODE_CONFIG = CONFIGS_DIR / "agent-claude-code-test.json"
 CODEX_CONFIG = CONFIGS_DIR / "agent-codex-test.json"
 
 
-def _build_fuse_dir(tmp_path: Path) -> Path:
-    """Build plato-fuse binary and return a directory containing it."""
-    from .conftest import build_plato_fuse_binary
-
-    binary = build_plato_fuse_binary((2, 34))
+def _build_fuse_dir(tmp_path: Path, staged_fuse_dir: Path) -> Path:
+    """Stage the prebuilt plato-fuse binary in a test-local directory."""
     fuse_dir = tmp_path / "plato-fuse"
     fuse_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(binary, fuse_dir / "plato-fuse")
+    shutil.copy2(staged_fuse_dir / "plato-fuse", fuse_dir / "plato-fuse")
+    (fuse_dir / "plato-fuse").chmod(0o755)
     return fuse_dir
 
 
-def _run_agent_test(config_path: Path, tmp_path: Path) -> tuple[int, str]:
+def _run_agent_test(config_path: Path, tmp_path: Path, staged_fuse_dir: Path) -> tuple[int, str]:
     """Run an agent test via TestRunner, return (exit_code, session_id)."""
-    fuse_dir = _build_fuse_dir(tmp_path)
+    fuse_dir = _build_fuse_dir(tmp_path, staged_fuse_dir)
     config = TestConfig.from_file(config_path)
     config = config.model_copy(update={"dev": config.dev.model_copy(update={"extra_sync": {"plato-fuse": fuse_dir}})})
     runner = TestRunner(
@@ -103,9 +102,9 @@ class TestClaudeCodeAgent:
     """Integration tests for the claude-code agent with MCP tools."""
 
     @skip_no_anthropic
-    def test_mcp_tools_and_atif(self, tmp_path: Path, chronos_client):
+    def test_mcp_tools_and_atif(self, tmp_path: Path, chronos_client, plato_fuse_binary_dir: Path):
         """Claude Code connects to MCP tools, calls them correctly, emits ATIF spans."""
-        exit_code, session_id = _run_agent_test(CLAUDE_CODE_CONFIG, tmp_path)
+        exit_code, session_id = _run_agent_test(CLAUDE_CODE_CONFIG, tmp_path, plato_fuse_binary_dir)
         assert exit_code == 0, f"Agent test world failed (exit {exit_code})"
 
         atif_spans = _get_atif_step_spans(chronos_client, session_id)
@@ -137,9 +136,9 @@ class TestClaudeCodeAgent:
         )
 
     @skip_no_anthropic
-    def test_trajectory_api(self, tmp_path: Path, chronos_client):
+    def test_trajectory_api(self, tmp_path: Path, chronos_client, plato_fuse_binary_dir: Path):
         """Trajectory API returns structured agent trace with valid steps."""
-        exit_code, session_id = _run_agent_test(CLAUDE_CODE_CONFIG, tmp_path)
+        exit_code, session_id = _run_agent_test(CLAUDE_CODE_CONFIG, tmp_path, plato_fuse_binary_dir)
         assert exit_code == 0, f"Agent test world failed (exit {exit_code})"
 
         trajectory = chronos_client.get_trajectory(session_id)
@@ -164,9 +163,9 @@ class TestCodexAgent:
     """Integration tests for the codex agent with MCP tools."""
 
     @skip_no_openai
-    def test_mcp_tools_and_atif(self, tmp_path: Path, chronos_client):
+    def test_mcp_tools_and_atif(self, tmp_path: Path, chronos_client, plato_fuse_binary_dir: Path):
         """Codex connects to MCP tools, calls them correctly, emits ATIF spans."""
-        exit_code, session_id = _run_agent_test(CODEX_CONFIG, tmp_path)
+        exit_code, session_id = _run_agent_test(CODEX_CONFIG, tmp_path, plato_fuse_binary_dir)
         assert exit_code == 0, f"Agent test world failed (exit {exit_code})"
 
         atif_spans = _get_atif_step_spans(chronos_client, session_id)
@@ -199,9 +198,9 @@ class TestCodexAgent:
         )
 
     @skip_no_openai
-    def test_trajectory_api(self, tmp_path: Path, chronos_client):
+    def test_trajectory_api(self, tmp_path: Path, chronos_client, plato_fuse_binary_dir: Path):
         """Trajectory API returns structured agent trace with valid steps."""
-        exit_code, session_id = _run_agent_test(CODEX_CONFIG, tmp_path)
+        exit_code, session_id = _run_agent_test(CODEX_CONFIG, tmp_path, plato_fuse_binary_dir)
         assert exit_code == 0, f"Agent test world failed (exit {exit_code})"
 
         trajectory = chronos_client.get_trajectory(session_id)

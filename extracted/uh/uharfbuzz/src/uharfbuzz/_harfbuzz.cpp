@@ -46,14 +46,7 @@
         "name": "uharfbuzz._harfbuzz",
         "sources": [
             "src/uharfbuzz/_harfbuzz.pyx",
-            "harfbuzz/src/harfbuzz-subset.cc",
-            "harfbuzz/src/hb-coretext.cc",
-            "harfbuzz/src/hb-coretext-font.cc",
-            "harfbuzz/src/hb-coretext-shape.cc",
-            "harfbuzz/src/hb-directwrite.cc",
-            "harfbuzz/src/hb-directwrite-font.cc",
-            "harfbuzz/src/hb-directwrite-shape.cc",
-            "harfbuzz/src/hb-uniscribe.cc"
+            "harfbuzz/src/harfbuzz-subset.cc"
         ]
     },
     "module_name": "uharfbuzz._harfbuzz"

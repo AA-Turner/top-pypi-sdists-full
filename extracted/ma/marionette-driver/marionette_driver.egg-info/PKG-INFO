@@ -1,0 +1,44 @@
+Metadata-Version: 2.4
+Name: marionette_driver
+Version: 3.6.0
+Summary: Marionette Driver
+Home-page: https://wiki.mozilla.org/Auto-tools/Projects/Marionette
+Author: Auto-tools
+Author-email: dev-webdriver@mozilla.org
+License: MPL
+Keywords: mozilla
+Classifier: Development Status :: 7 - Inactive
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Utilities
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.8
+Requires-Dist: mozrunner>=7.4.0
+Requires-Dist: mozversion>=2.1.0
+Requires-Dist: psutil==5.9.8; sys_platform == "darwin"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Note marionette_driver is no longer supported.
+
+For more information see https://firefox-source-docs.mozilla.org/python/marionette_driver.html

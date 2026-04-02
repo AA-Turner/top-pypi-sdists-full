@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-pyserial"
-version = "3.5.0.20251001"
+version = "3.5.0.20260402"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for pyserial"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.405
+* [mypy](https://github.com/python/mypy/) 1.20.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`91055c730ffcda6311654cf32d663858ece69bad`](https://github.com/python/typeshed/commit/91055c730ffcda6311654cf32d663858ece69bad).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = []
 [tool.setuptools]
 packages = ['serial-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'serial-stubs' = ['__init__.pyi', '__main__.pyi', 'rfc2217.pyi', 'rs485.pyi', 'serialcli.pyi', 'serialjava.pyi', 'serialposix.pyi', 'serialutil.pyi', 'serialwin32.pyi', 'threaded/__init__.pyi', 'tools/__init__.pyi', 'tools/hexlify_codec.pyi', 'tools/list_ports.pyi', 'tools/list_ports_common.pyi', 'tools/list_ports_linux.pyi', 'tools/list_ports_osx.pyi', 'tools/list_ports_posix.pyi', 'tools/list_ports_windows.pyi', 'tools/miniterm.pyi', 'urlhandler/__init__.pyi', 'urlhandler/protocol_alt.pyi', 'urlhandler/protocol_cp2110.pyi', 'urlhandler/protocol_hwgrep.pyi', 'urlhandler/protocol_loop.pyi', 'urlhandler/protocol_rfc2217.pyi', 'urlhandler/protocol_socket.pyi', 'urlhandler/protocol_spy.pyi', 'win32.pyi', 'METADATA.toml', 'py.typed']

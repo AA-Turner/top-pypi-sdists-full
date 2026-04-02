@@ -66,6 +66,27 @@ class GetIndexingJobStatusResponse(_message.Message):
         status: _Optional[_Union[IndexingJobStatus, str]] = ...,
     ) -> None: ...
 
+class GetIndexingExportRequest(_message.Message):
+    __slots__ = ("deployment_id", "directory_prefix_enum", "shadow_run_id")
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    DIRECTORY_PREFIX_ENUM_FIELD_NUMBER: _ClassVar[int]
+    SHADOW_RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    directory_prefix_enum: DirectoryOptions
+    shadow_run_id: str
+    def __init__(
+        self,
+        deployment_id: _Optional[str] = ...,
+        directory_prefix_enum: _Optional[_Union[DirectoryOptions, str]] = ...,
+        shadow_run_id: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetIndexingExportResponse(_message.Message):
+    __slots__ = ("export",)
+    EXPORT_FIELD_NUMBER: _ClassVar[int]
+    export: _export_pb2.Export
+    def __init__(self, export: _Optional[_Union[_export_pb2.Export, _Mapping]] = ...) -> None: ...
+
 class CancelIndexingJobRequest(_message.Message):
     __slots__ = ("deployment_id", "build_id")
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]

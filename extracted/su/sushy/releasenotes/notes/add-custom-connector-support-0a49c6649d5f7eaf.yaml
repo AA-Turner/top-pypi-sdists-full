@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Adds the ability to specify user-defined connector object on creation
-    of a root Sushy instance.

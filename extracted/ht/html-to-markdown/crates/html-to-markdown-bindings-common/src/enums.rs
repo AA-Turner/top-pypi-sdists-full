@@ -5,8 +5,8 @@
 //! JSON parsing in bindings.
 
 use html_to_markdown_rs::{
-    CodeBlockStyle, HeadingStyle, HighlightStyle, ListIndentType, NewlineStyle, OutputFormat, PreprocessingPreset,
-    WhitespaceMode,
+    CodeBlockStyle, HeadingStyle, HighlightStyle, LinkStyle, ListIndentType, NewlineStyle, OutputFormat,
+    PreprocessingPreset, WhitespaceMode,
 };
 use serde::{Deserialize, Serialize};
 
@@ -190,6 +190,34 @@ impl From<HighlightStyle> for HighlightStyleWrapper {
             HighlightStyle::Html => Self::Html,
             HighlightStyle::Bold => Self::Bold,
             HighlightStyle::None => Self::None,
+        }
+    }
+}
+
+/// Wrapper for `LinkStyle` enum with serde support.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LinkStyleWrapper {
+    /// Inline links: `[text](url)`
+    Inline,
+    /// Reference-style links: `[text][1]` with definitions at end
+    Reference,
+}
+
+impl From<LinkStyleWrapper> for LinkStyle {
+    fn from(wrapper: LinkStyleWrapper) -> Self {
+        match wrapper {
+            LinkStyleWrapper::Inline => Self::Inline,
+            LinkStyleWrapper::Reference => Self::Reference,
+        }
+    }
+}
+
+impl From<LinkStyle> for LinkStyleWrapper {
+    fn from(style: LinkStyle) -> Self {
+        match style {
+            LinkStyle::Inline => Self::Inline,
+            LinkStyle::Reference => Self::Reference,
         }
     }
 }

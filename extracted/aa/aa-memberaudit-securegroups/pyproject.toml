@@ -1,0 +1,61 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+    "hatchling",
+]
+
+[project]
+name = "aa-memberaudit-securegroups"
+description = "Member Audit Secure Groups integration for Alliance Auth."
+readme = "README.md"
+keywords = [
+    "allianceauth",
+    "memberaudit",
+    "securegroups",
+]
+license = { file = "LICENSE" }
+maintainers = [{ name = "Peter Pfeufer", email = "develop@ppfeufer.de" }]
+authors = [
+    { name = "Erik Kalkoken", email = "kalkoken87@gmail.com" },
+    { name = "Peter Pfeufer", email = "develop@ppfeufer.de" },
+    { name = "Rebecca Murphy", email = "rebecca@rcmurphy.me" },
+]
+requires-python = "~=3.8"
+classifiers = [
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.0",
+    "Framework :: Django :: 4.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+dynamic = [
+    "version",
+]
+dependencies = [
+    "aa-memberaudit>=3.3.1",
+    "allianceauth>=3",
+    "allianceauth-securegroups>=0.5.1",
+]
+[project.urls]
+Changelog = "https://gitlab.com/eclipse-expeditions/aa-memberaudit-securegroups/-/blob/master/CHANGELOG.md"
+Documentation = "https://gitlab.com/eclipse-expeditions/aa-memberaudit-securegroups/-/blob/master/README.md"
+Homepage = "https://gitlab.com/eclipse-expeditions/aa-memberaudit-securegroups/"
+Source = "https://gitlab.com/eclipse-expeditions/aa-memberaudit-securegroups.git"
+Tracker = "https://gitlab.com/eclipse-expeditions/aa-memberaudit-securegroups/-/issues"
+
+[tool.hatch.build]
+include = ["/memberaudit_securegroups"]
+
+[tool.hatch.version]
+path = "memberaudit_securegroups/__init__.py"

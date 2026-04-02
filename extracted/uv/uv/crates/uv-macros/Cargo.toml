@@ -1,6 +1,6 @@
 [package]
 name = "uv-macros"
-version = "0.0.35"
+version = "0.0.36"
 description = "This is an internal component crate of uv"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -13,6 +13,7 @@ readme = "README.md"
 [lib]
 proc-macro = true
 doctest = false
+test = false
 
 [lints]
 workspace = true

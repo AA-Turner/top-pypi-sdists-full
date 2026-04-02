@@ -1,0 +1,40 @@
+from _typeshed import Incomplete
+from homeassistant.const import Platform as Platform
+from typing import Final, Literal
+
+DOMAIN: Final[str]
+LOGGER: Incomplete
+ANNA_WITH_ADAM: Final[str]
+API: Final[str]
+AVAILABLE: Final[str]
+DEV_CLASS: Final[str]
+FLOW_SMILE: Final[str]
+FLOW_STRETCH: Final[str]
+FLOW_TYPE: Final[str]
+GATEWAY: Final[str]
+LOCATION: Final[str]
+PW_TYPE: Final[str]
+REBOOT: Final[str]
+SMILE: Final[str]
+SMILE_OPEN_THERM: Final[str]
+SMILE_THERMO: Final[str]
+STRETCH: Final[str]
+STRETCH_USERNAME: Final[str]
+UNKNOWN_SMILE: Final[str]
+PLATFORMS: Final[list[str]]
+ZEROCONF_MAP: Final[dict[str, str]]
+type NumberType = Literal['maximum_boiler_temperature', 'max_dhw_temperature', 'temperature_offset']
+type SelectType = Literal['select_dhw_mode', 'select_gateway_mode', 'select_regulation_mode', 'select_schedule', 'select_zone_profile']
+type SelectOptionsType = Literal['available_schedules', 'dhw_modes', 'gateway_modes', 'regulation_modes', 'zone_profiles']
+DEFAULT_MAX_TEMP: Final[int]
+DEFAULT_MIN_TEMP: Final[int]
+DEFAULT_PORT: Final[int]
+DEFAULT_UPDATE_INTERVAL: Incomplete
+DEFAULT_USERNAME: Final[str]
+P1_UPDATE_INTERVAL: Incomplete
+MASTER_THERMOSTATS: Final[list[str]]
+SELECT_DHW_MODE: Final[str]
+SELECT_GATEWAY_MODE: Final[str]
+SELECT_REGULATION_MODE: Final[str]
+SELECT_SCHEDULE: Final[str]
+SELECT_ZONE_PROFILE: Final[str]

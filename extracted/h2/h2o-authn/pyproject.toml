@@ -1,0 +1,118 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[project]
+authors = [
+  {name = "H2O.ai", email = "support@h2o.ai"},
+]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Topic :: Internet",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Security",
+  "Topic :: Utilities",
+]
+dependencies = [
+  "httpx>=0.23",
+  "httpx>=0.25.1; python_version >= '3.14'",
+]
+description = "H2O Python Clients Authentication Helpers"
+license = "Apache-2.0"
+name = "h2o-authn"
+readme = "README.md"
+requires-python = ">=3.9"
+version = "3.1.0"
+
+[project.urls]
+Documentation = "https://github.com/h2oai/authn-py#readme"
+Issues = "https://github.com/h2oai/authn-py/issues"
+Source = "https://github.com/h2oai/authn-py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/h2o_authn"]
+
+[project.optional-dependencies]
+discovery = ["h2o-cloud-discovery>=1.1,<4.0"]
+
+[[tool.hatch.envs.test.matrix]]
+httpx = ["httpx0.23", "httpx0.24", "httpx0.25", "httpx0.26", "httpx0.27", "httpx0.28"]
+python = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
+[[tool.hatch.envs.test.matrix]]
+httpx = ["httpx0.25", "httpx0.26", "httpx0.27", "httpx0.28"]
+python = ["3.14"]
+
+[tool.hatch.envs.test.overrides]
+matrix.httpx.dependencies = [
+  {value = "httpx==0.23.*", if = ["httpx0.23"]},
+  {value = "httpx==0.24.*", if = ["httpx0.24"]},
+  {value = "httpx==0.25.*", if = ["httpx0.25"]},
+  {value = "httpx==0.26.*", if = ["httpx0.26"]},
+  {value = "httpx==0.27.*", if = ["httpx0.27"]},
+  {value = "httpx==0.28.*", if = ["httpx0.28"]},
+]
+
+[tool.hatch.envs.test]
+dependencies = [
+  "pytest-asyncio~=0.21",
+  "pytest~=7.2",
+  "respx>=0.16",
+  "time-machine~=2.10",
+]
+dev-mode = false
+features = ["discovery"]
+
+[tool.hatch.envs.test.scripts]
+pytest = "python -m pytest {args}"
+
+[tool.hatch.envs.devtest]
+dev-mode = true
+template = "test"
+
+[tool.hatch.envs.lint]
+dependencies = [
+  "mypy~=1.1",
+  "ruff==0.1.11",
+]
+features = ["discovery"]
+
+[tool.hatch.envs.lint.scripts]
+check = [
+  "ruff format --check .",
+  "ruff check .",
+  "mypy src",
+]
+fix = [
+  "ruff check --fix .",
+  "ruff format .",
+  "check",
+]
+
+[tool.hatch.envs.docs]
+dependencies = [
+  "pydoc-markdown~=4.8",
+]
+
+[tool.hatch.envs.docs.scripts]
+generate = "pydoc-markdown"
+
+[tool.ruff]
+extend-select = ["I", "B", "A", "ERA"]
+line-length = 88 # Same as black.
+src = ["src", "test"]
+target-version = "py37"
+
+[tool.ruff.format]
+docstring-code-format = true
+skip-magic-trailing-comma = true
+
+[tool.ruff.isort]
+case-sensitive = false
+force-single-line = true
+force-sort-within-sections = true
+known-first-party = ["h2o_authn"]
+order-by-type = false
+relative-imports-order = "closest-to-furthest"
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]

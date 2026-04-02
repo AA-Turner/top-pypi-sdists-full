@@ -1,0 +1,76 @@
+# Copyright (c) Metakernel Development Team.
+# Distributed under the terms of the Modified BSD License.
+from __future__ import annotations
+
+import os
+import urllib.parse as urlparse
+import urllib.request
+
+from metakernel import Magic, MetaKernel, option
+
+
+def download(url: str, filename: str) -> None:
+    g = urllib.request.urlopen(url)
+    with open(filename, "wb") as f:
+        f.write(g.read())
+
+
+class DownloadMagic(Magic):
+    @option(
+        "-f",
+        "--filename",
+        action="store",
+        default=None,
+        help="use the provided name as filename",
+    )
+    def line_download(self, url: str, filename: str | None = None) -> None:
+        """
+        %download URL [-f FILENAME] - download file from URL
+
+        This line magic will download and save a file. By
+        default it will use the same filename as the URL.
+        You can give it another name using -f.
+
+        Examples:
+            %%download http://some/file/from/internet.txt -f myfile.txt
+            %%download http://some/file/from/program.ss
+
+        """
+        if filename is None:
+            if url.count(" ") == 1:
+                url, filename = url.split(" ")
+            elif url.count(" ") == 0:
+                parts = urlparse.urlsplit(url)
+                # ('http', 'example.com', '/somefile.zip', '', '')
+                path = parts[2]
+                filename = os.path.basename(path)
+            else:
+                raise Exception(f"invalid arguments to %download: '{url}'")
+        _basename, extname = os.path.splitext(filename)
+        if extname == "":
+            filename += ".html"
+        filename = filename.replace("~", "")
+        filename = filename.replace("%20", "_")
+        try:
+            download(url, filename)
+            self.kernel.Print(f"Downloaded '{filename}'.")
+        except Exception as e:
+            self.kernel.Error(str(e))
+
+
+def register_magics(kernel: MetaKernel) -> None:
+    kernel.register_magics(DownloadMagic)
+
+
+def register_ipython_magics() -> None:
+    from metakernel import IPythonKernel
+    from metakernel.magic import register_line_magic
+
+    kernel = IPythonKernel()
+    magic = DownloadMagic(kernel)
+    # Make magics callable:
+    kernel.line_magics["download"] = magic
+
+    @register_line_magic
+    def download(line: str) -> None:
+        kernel.call_magic("%download " + line)

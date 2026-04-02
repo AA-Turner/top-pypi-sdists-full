@@ -1,0 +1,76 @@
+Metadata-Version: 2.4
+Name: fcswrite
+Version: 0.6.4
+Summary: Write .fcs files (flow cytometry)
+Author: Paul Müller, Philipp Rosendahl
+Maintainer-email: Paul Müller <dev@craban.de>
+License: BSD-3-Clause
+Project-URL: source, https://github.com/DC-analysis/fcswrite
+Project-URL: tracker, https://github.com/DC-analysis/fcswrite/issues
+Project-URL: changelog, https://raw.githubusercontent.com/DC-analysis/fcswrite/refs/heads/master/CHANGELOG
+Keywords: fcs,flow cytometry,flow cytometry standard
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Visualization
+Classifier: Intended Audience :: Science/Research
+Requires-Python: <4,>=3.6
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: numpy>=1.22.0
+Dynamic: license-file
+
+fcswrite
+========
+
+|PyPI Version| |Build Status| |Coverage Status|
+
+
+fcswrite allows you to write .fcs files, a file format used in flow cytometry.
+Currently, fcswrite partially supports the `FCS3.0
+<https://doi.org/10.1002%2F%28SICI%291097-0320%2819970601%2928%3A2%3C118%3A%3AAID-CYTO3%3E3.0.CO%3B2-B>`__
+file format - Contributions to fcswrite are welcome.
+
+
+Compatibility
+-------------
+fcswrite was tested (not thoroughly) with these softwares/libraries:
+
+- FlowJo: `<https://www.flowjo.com/>`__
+- Flowing Software: `<http://flowingsoftware.btk.fi>`__
+- fcsparser: `<https://pypi.org/project/fcsparser/>`__
+  (and thus `FlowCytometryTools <https://pypi.org/project/FlowCytometryTools/>`__)
+- Python Flow Cytometry (FCM) Tools: `<https://pypi.python.org/pypi/fcm>`__
+  (please note that FCM is horribly outdated)
+
+
+Installation
+------------
+Install with pip:
+::
+
+    pip install fcswrite
+
+
+Requirements:
+
+- Python >= 3.6
+- `numpy <https://github.com/numpy/numpy>`__
+
+
+Testing
+-------
+Running tests
+
+::
+
+    pip install -r tests requirements
+    pytest tests
+
+    
+
+.. |PyPI Version| image:: https://img.shields.io/pypi/v/fcswrite.svg
+   :target: https://pypi.python.org/pypi/fcswrite
+.. |Build Status| image:: https://img.shields.io/github/actions/workflow/status/DC-analysis/fcswrite/check.yml
+   :target: https://github.com/DC-analysis/fcswrite/actions?query=workflow%3AChecks
+.. |Coverage Status| image:: https://img.shields.io/codecov/c/github/DC-analysis/fcswrite/master.svg
+   :target: https://codecov.io/gh/DC-analysis/fcswrite

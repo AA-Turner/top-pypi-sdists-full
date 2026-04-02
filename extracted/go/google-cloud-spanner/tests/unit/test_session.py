@@ -13,56 +13,59 @@
 # limitations under the License.
 
 
-import google.api_core.gapic_v1.method
-from google.cloud.spanner_v1._opentelemetry_tracing import (
-    trace_call,
-    GCP_RESOURCE_NAME_PREFIX,
-)
-import mock
 import datetime
+from datetime import timezone
+
+import google.api_core.gapic_v1.method
+import grpc
+import mock
+from google.api_core.exceptions import Aborted, Cancelled, NotFound, Unknown
+from google.cloud._helpers import UTC, _datetime_to_pb_timestamp
+from google.protobuf.duration_pb2 import Duration
+from google.protobuf.struct_pb2 import Struct, Value
+from google.rpc.error_details_pb2 import RetryInfo
+
 from google.cloud.spanner_v1 import (
-    Transaction as TransactionPB,
-    TransactionOptions,
-    CommitResponse,
+    BeginTransactionRequest,
     CommitRequest,
+    CommitResponse,
+    CreateSessionRequest,
+    DefaultTransactionOptions,
+    ExecuteSqlRequest,
     RequestOptions,
     SpannerClient,
-    CreateSessionRequest,
-    Session as SessionRequestProto,
-    ExecuteSqlRequest,
+    TransactionOptions,
     TypeCode,
-    BeginTransactionRequest,
 )
-from google.cloud._helpers import UTC, _datetime_to_pb_timestamp
-from google.cloud.spanner_v1._helpers import _delay_until_retry
-from google.cloud.spanner_v1.transaction import Transaction
-from tests._builders import (
-    build_spanner_api,
-    build_session,
-    build_transaction_pb,
-    build_commit_response_pb,
-)
-from tests._helpers import (
-    OpenTelemetryBase,
-    LIB_VERSION,
-    StatusCode,
-    enrich_with_otel_scope,
-)
-import grpc
-from google.cloud.spanner_v1.session import Session
-from google.cloud.spanner_v1.snapshot import Snapshot
-from google.cloud.spanner_v1.database import Database
-from google.cloud.spanner_v1.keyset import KeySet
-from google.protobuf.duration_pb2 import Duration
-from google.rpc.error_details_pb2 import RetryInfo
-from google.api_core.exceptions import Unknown, Aborted, NotFound, Cancelled
-from google.protobuf.struct_pb2 import Struct, Value
-from google.cloud.spanner_v1.batch import Batch
-from google.cloud.spanner_v1 import DefaultTransactionOptions
-from google.cloud.spanner_v1.request_id_header import REQ_RAND_PROCESS_ID
+from google.cloud.spanner_v1 import Session as SessionRequestProto
+from google.cloud.spanner_v1 import Transaction as TransactionPB
 from google.cloud.spanner_v1._helpers import (
     AtomicCounter,
+    _delay_until_retry,
     _metadata_with_request_id,
+)
+from google.cloud.spanner_v1._opentelemetry_tracing import (
+    GCP_RESOURCE_NAME_PREFIX,
+    trace_call,
+)
+from google.cloud.spanner_v1.batch import Batch
+from google.cloud.spanner_v1.database import Database
+from google.cloud.spanner_v1.keyset import KeySet
+from google.cloud.spanner_v1.request_id_header import REQ_RAND_PROCESS_ID
+from google.cloud.spanner_v1.session import Session
+from google.cloud.spanner_v1.snapshot import Snapshot
+from google.cloud.spanner_v1.transaction import Transaction
+from tests._builders import (
+    build_commit_response_pb,
+    build_session,
+    build_spanner_api,
+    build_transaction_pb,
+)
+from tests._helpers import (
+    LIB_VERSION,
+    OpenTelemetryBase,
+    StatusCode,
+    enrich_with_otel_scope,
 )
 
 TABLE_NAME = "citizens"
@@ -123,8 +126,8 @@ def inject_into_mock_database(mockdb):
         ):
             """Context manager for gRPC calls with error augmentation."""
             from google.cloud.spanner_v1._helpers import (
-                _metadata_with_request_id_and_req_id,
                 _augment_errors_with_request_id,
+                _metadata_with_request_id_and_req_id,
             )
 
             if span is None:
@@ -190,10 +193,16 @@ class TestSession(OpenTelemetryBase):
     ):
         database = mock.create_autospec(Database, instance=True)
         database.name = name
+        database.database_id = name.split("/")[-1]
         database.log_commit_stats = False
         database.database_role = database_role
         database._route_to_leader_enabled = True
         database.default_transaction_options = default_transaction_options
+        database._instance = mock.Mock()
+        database._instance.instance_id = name.split("/")[3]
+        database._instance._client = mock.Mock()
+        database._instance._client.project = name.split("/")[1]
+        database._instance._client._client_context = None
         inject_into_mock_database(database)
 
         return database
@@ -1257,7 +1266,7 @@ class TestSession(OpenTelemetryBase):
         ]
         TRANSACTION_ID = b"FACEDACE"
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
-        now = datetime.datetime.utcnow().replace(tzinfo=UTC)
+        now = datetime.datetime.now(timezone.utc).replace(tzinfo=UTC)
         now_pb = _datetime_to_pb_timestamp(now)
         response = CommitResponse(commit_timestamp=now_pb)
         gax_api = self._make_spanner_api()
@@ -1385,7 +1394,7 @@ class TestSession(OpenTelemetryBase):
 
     def test_run_in_transaction_w_abort_no_retry_metadata(self):
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
-        now = datetime.datetime.utcnow().replace(tzinfo=UTC)
+        now = datetime.datetime.now(timezone.utc).replace(tzinfo=UTC)
         now_pb = _datetime_to_pb_timestamp(now)
         aborted = _make_rpc_error(Aborted, trailing_metadata=[])
         response = CommitResponse(commit_timestamp=now_pb)
@@ -1497,7 +1506,7 @@ class TestSession(OpenTelemetryBase):
         ]
         aborted = _make_rpc_error(Aborted, trailing_metadata=trailing_metadata)
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
-        now = datetime.datetime.utcnow().replace(tzinfo=UTC)
+        now = datetime.datetime.now(timezone.utc).replace(tzinfo=UTC)
         now_pb = _datetime_to_pb_timestamp(now)
         response = CommitResponse(commit_timestamp=now_pb)
         gax_api = self._make_spanner_api()
@@ -1604,7 +1613,7 @@ class TestSession(OpenTelemetryBase):
         RETRY_SECONDS = 1
         RETRY_NANOS = 3456
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
-        now = datetime.datetime.utcnow().replace(tzinfo=UTC)
+        now = datetime.datetime.now(timezone.utc).replace(tzinfo=UTC)
         now_pb = _datetime_to_pb_timestamp(now)
         response = CommitResponse(commit_timestamp=now_pb)
         retry_info = RetryInfo(
@@ -1681,7 +1690,7 @@ class TestSession(OpenTelemetryBase):
         RETRY_SECONDS = 1
         RETRY_NANOS = 3456
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
-        now = datetime.datetime.utcnow().replace(tzinfo=UTC)
+        now = datetime.datetime.now(timezone.utc).replace(tzinfo=UTC)
         now_pb = _datetime_to_pb_timestamp(now)
         response = CommitResponse(commit_timestamp=now_pb)
         retry_info = RetryInfo(
@@ -1778,9 +1787,13 @@ class TestSession(OpenTelemetryBase):
         def _time(_results=[1, 2, 4, 8]):
             return _results.pop(0)
 
-        with mock.patch("time.time", _time), mock.patch(
-            "google.cloud.spanner_v1._helpers.random.random", return_value=0
-        ), mock.patch("time.sleep") as sleep_mock:
+        with (
+            mock.patch("time.time", _time),
+            mock.patch(
+                "google.cloud.spanner_v1._helpers.random.random", return_value=0
+            ),
+            mock.patch("time.sleep") as sleep_mock,
+        ):
             # Exception has request_id attribute added
             with self.assertRaises(Aborted) as context:
                 session.run_in_transaction(unit_of_work, timeout_secs=8)
@@ -1899,7 +1912,7 @@ class TestSession(OpenTelemetryBase):
 
     def test_run_in_transaction_w_commit_stats_success(self):
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
-        now = datetime.datetime.utcnow().replace(tzinfo=UTC)
+        now = datetime.datetime.now(timezone.utc).replace(tzinfo=UTC)
         now_pb = _datetime_to_pb_timestamp(now)
         commit_stats = CommitResponse.CommitStats(mutation_count=4)
         response = CommitResponse(commit_timestamp=now_pb, commit_stats=commit_stats)
@@ -2029,7 +2042,7 @@ class TestSession(OpenTelemetryBase):
 
     def test_run_in_transaction_w_transaction_tag(self):
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
-        now = datetime.datetime.utcnow().replace(tzinfo=UTC)
+        now = datetime.datetime.now(timezone.utc).replace(tzinfo=UTC)
         now_pb = _datetime_to_pb_timestamp(now)
         commit_stats = CommitResponse.CommitStats(mutation_count=4)
         response = CommitResponse(commit_timestamp=now_pb, commit_stats=commit_stats)
@@ -2097,7 +2110,7 @@ class TestSession(OpenTelemetryBase):
 
     def test_run_in_transaction_w_exclude_txn_from_change_streams(self):
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
-        now = datetime.datetime.utcnow().replace(tzinfo=UTC)
+        now = datetime.datetime.now(timezone.utc).replace(tzinfo=UTC)
         now_pb = _datetime_to_pb_timestamp(now)
         commit_stats = CommitResponse.CommitStats(mutation_count=4)
         response = CommitResponse(commit_timestamp=now_pb, commit_stats=commit_stats)
@@ -2174,7 +2187,7 @@ class TestSession(OpenTelemetryBase):
         ]
         aborted = _make_rpc_error(Aborted, trailing_metadata=trailing_metadata)
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
-        now = datetime.datetime.utcnow().replace(tzinfo=UTC)
+        now = datetime.datetime.now(timezone.utc).replace(tzinfo=UTC)
         now_pb = _datetime_to_pb_timestamp(now)
         response = CommitResponse(commit_timestamp=now_pb)
         gax_api = self._make_spanner_api()

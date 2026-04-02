@@ -1,0 +1,231 @@
+"""Extended tests for agent factory to reach 100% coverage."""
+
+from pydantic_ai.models.test import TestModel
+
+from pydantic_deep import (
+    DeepAgentDeps,
+    StateBackend,
+    create_deep_agent,
+)
+from pydantic_deep.types import Skill
+
+TEST_MODEL = TestModel()
+
+
+class TestCreateDeepAgentExtended:
+    """Extended tests for create_deep_agent factory."""
+
+    def test_create_without_skills(self):
+        """Test creating an agent without skills toolset."""
+        agent = create_deep_agent(model=TEST_MODEL, include_skills=False)
+        assert agent is not None
+
+    def test_create_without_general_purpose_subagent(self):
+        """Test creating without general-purpose subagent."""
+        agent = create_deep_agent(
+            model=TEST_MODEL,
+            include_general_purpose_subagent=False,
+        )
+        assert agent is not None
+
+    def test_create_with_custom_toolsets(self):
+        """Test creating with additional custom toolsets."""
+        from pydantic_ai.toolsets import FunctionToolset
+
+        custom_toolset = FunctionToolset(id="custom")
+
+        @custom_toolset.tool
+        async def custom_tool() -> str:
+            """Custom tool."""
+            return "custom"
+
+        agent = create_deep_agent(
+            model=TEST_MODEL,
+            toolsets=[custom_toolset],
+        )
+        assert agent is not None
+
+    def test_create_with_custom_tools(self):
+        """Test creating with additional custom tools."""
+
+        async def custom_function() -> str:
+            """Custom function."""
+            return "custom"
+
+        agent = create_deep_agent(
+            model=TEST_MODEL,
+            tools=[custom_function],
+        )
+        assert agent is not None
+
+    def test_create_with_skills_list(self):
+        """Test creating with pre-loaded skills."""
+        skills: list[Skill] = [
+            {
+                "name": "test-skill",
+                "description": "A test skill",
+                "path": "/tmp/test-skill",
+                "tags": ["test"],
+                "version": "1.0.0",
+                "author": "Test",
+                "frontmatter_loaded": True,
+            },
+        ]
+        agent = create_deep_agent(
+            model=TEST_MODEL,
+            skills=skills,
+        )
+        assert agent is not None
+
+    def test_create_with_skill_directories(self, tmp_path):
+        """Test creating with skill directories."""
+        # Create a test skill
+        skill_dir = tmp_path / "test-skill"
+        skill_dir.mkdir()
+        skill_file = skill_dir / "SKILL.md"
+        skill_file.write_text("""---
+name: test-skill
+description: A test skill
+version: 1.0.0
+---
+
+# Test Skill Instructions
+
+This is a test skill.
+""")
+
+        agent = create_deep_agent(
+            model=TEST_MODEL,
+            skill_directories=[str(tmp_path)],
+        )
+        assert agent is not None
+
+    def test_create_with_interrupt_on_edit_file(self):
+        """Test creating with edit_file in interrupt_on."""
+        agent = create_deep_agent(
+            model=TEST_MODEL,
+            interrupt_on={"edit_file": True},
+        )
+        assert agent is not None
+
+    def test_create_with_output_type_and_interrupt_on(self):
+        """Test creating with both output_type and interrupt_on."""
+        from pydantic import BaseModel
+
+        class TestOutput(BaseModel):
+            result: str
+
+        agent = create_deep_agent(
+            model=TEST_MODEL,
+            output_type=TestOutput,
+            interrupt_on={"write_file": True},
+        )
+        assert agent is not None
+
+    def test_create_with_user_capabilities(self):
+        """Test creating with user-provided capabilities."""
+        from pydantic_ai.capabilities import Thinking
+
+        agent = create_deep_agent(
+            model=TEST_MODEL,
+            capabilities=[Thinking(effort="low")],
+        )
+        assert agent is not None
+
+    def test_create_with_custom_retries(self):
+        """Test creating an agent with custom retries value."""
+        agent = create_deep_agent(model=TEST_MODEL, retries=5)
+        assert agent is not None
+
+    def test_default_retries_is_three(self):
+        """Test that the default retries value is 3."""
+        from pydantic_ai.toolsets.function import FunctionToolset
+
+        agent = create_deep_agent(model=TEST_MODEL, cost_tracking=False)
+
+        # Find the console toolset and verify retries
+        for toolset in agent._user_toolsets:
+            if isinstance(toolset, FunctionToolset) and toolset._id == "deep-console":
+                assert toolset.max_retries == 3
+                for tool in toolset.tools.values():
+                    assert tool.max_retries == 3
+                break
+
+    def test_retries_propagated_to_console_toolset(self):
+        """Test that retries value is propagated to console toolset tools."""
+        from pydantic_ai.toolsets.function import FunctionToolset
+
+        agent = create_deep_agent(model=TEST_MODEL, retries=5, cost_tracking=False)
+
+        # Find the console toolset and verify retries
+        for toolset in agent._user_toolsets:
+            if isinstance(toolset, FunctionToolset) and toolset._id == "deep-console":
+                assert toolset.max_retries == 5
+                # write_file specifically should have the custom retries
+                assert toolset.tools["write_file"].max_retries == 5
+                break
+
+
+class TestDeepAgentDepsExtended:
+    """Extended tests for DeepAgentDeps."""
+
+    def test_post_init_syncs_files(self):
+        """Test that __post_init__ syncs files to StateBackend."""
+        backend = StateBackend()
+        files = {
+            "/test.txt": {
+                "content": ["test content"],
+                "created_at": "2024-01-01",
+                "modified_at": "2024-01-01",
+            }
+        }
+        _ = DeepAgentDeps(backend=backend, files=files)
+
+        # Files should be synced to backend
+        assert "/test.txt" in backend.files
+
+    def test_post_init_with_non_state_backend(self, local_backend):
+        """Test that __post_init__ works with non-StateBackend."""
+        # This covers the branch where backend is NOT a StateBackend
+        deps = DeepAgentDeps(backend=local_backend)
+        assert deps.backend is local_backend
+        # files dict should remain empty (not synced from backend)
+        assert deps.files == {}
+
+    def test_get_files_summary_empty(self):
+        """Test get_files_summary with empty files."""
+        deps = DeepAgentDeps(backend=StateBackend())
+        # Ensure files is empty
+        deps.files.clear()
+        summary = deps.get_files_summary()
+        assert summary == ""
+
+    def test_get_files_summary_with_files(self):
+        """Test get_files_summary with files."""
+        deps = DeepAgentDeps(backend=StateBackend())
+        deps.files["/test.txt"] = {
+            "content": ["line1", "line2"],
+            "created_at": "2024-01-01",
+            "modified_at": "2024-01-01",
+        }
+
+        summary = deps.get_files_summary()
+        assert "Files in Memory" in summary
+        assert "/test.txt" in summary
+        assert "2 lines" in summary
+
+    def test_get_subagents_summary_empty(self):
+        """Test get_subagents_summary with no subagents."""
+        deps = DeepAgentDeps(backend=StateBackend())
+        summary = deps.get_subagents_summary()
+        assert summary == ""
+
+    def test_get_subagents_summary_with_subagents(self):
+        """Test get_subagents_summary with subagents."""
+        deps = DeepAgentDeps(backend=StateBackend())
+        deps.subagents = {"researcher": object(), "writer": object()}
+
+        summary = deps.get_subagents_summary()
+        assert "Available Subagents" in summary
+        assert "researcher" in summary
+        assert "writer" in summary

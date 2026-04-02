@@ -29,7 +29,8 @@ _table.add_row("Usage", "from geocif import experiments; experiments.run(cfg)")
 _table.add_row("cfg", "\\[geobase.txt, countries.txt, crops.txt, geocif.txt]")
 _console.print(Panel(_table, title="[bold bright_white]GeoCIF Experiments Runner[/]", border_style="bright_blue", padding=(1, 2)))
 
-plt.style.use("default")
+import scienceplots  # noqa: F401 — required to register the 'science' style (SciencePlots ≥2.0.0)
+plt.style.use(["science", "no-latex"])
 sklearn.set_config(transform_output="pandas")
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -151,12 +152,36 @@ def _get_best_models_from_exp0(parser, model_experiment):
     return result
 
 
-def experiment_1_cei_ablation(logger, parser, best_models, all_ceis):
-    """Experiment 1: Run each CEI type individually using the best model per country."""
+def experiment_2_region_filter(logger, parser, best_models):
+    """Experiment 2: Exclude low-production / data-sparse regions, retrain+test on rest."""
+    countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
+    orig_models = {c: parser.get(c, "models") for c in countries}
+    orig_experiment_name = parser.get("DEFAULT", "experiment_name")
+
+    for country, model in best_models.items():
+        parser.set(country, "models", f'["{model}"]')
+
+    parser.set("DEFAULT", "experiment_name", "region_filter")
+    parser.set("DEFAULT", "filter_low_production_regions", "True")
+
+    inputs = gc.gather_inputs(parser)
+    gc.execute_models(inputs, logger, parser)
+
+    # Restore originals
+    parser.set("DEFAULT", "filter_low_production_regions", "False")
+    parser.set("DEFAULT", "experiment_name", orig_experiment_name)
+    for country, orig in orig_models.items():
+        parser.set(country, "models", orig)
+
+    return parser
+
+
+def experiment_1_cid_ablation(logger, parser, best_models, all_cids):
+    """Experiment 1: Run each CID type individually using the best model per country."""
     countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
 
     # Save originals — use_ceis lives in [DEFAULT], not [ML]
-    orig_use_ceis = parser.get("DEFAULT", "use_ceis")
+    orig_use_cids = parser.get("DEFAULT", "use_ceis")
     orig_experiment_name = parser.get("ML", "experiment_name")
     orig_models = {c: parser.get(c, "models") for c in countries}
 
@@ -164,16 +189,16 @@ def experiment_1_cei_ablation(logger, parser, best_models, all_ceis):
     for country, model in best_models.items():
         parser.set(country, "models", f'["{model}"]')
 
-    for cei in all_ceis:
-        logger.info(f"  CEI ablation: {cei}")
-        parser.set("ML", "experiment_name", f"cei_{cei}")
-        parser.set("DEFAULT", "use_ceis", f'["{cei}"]')
+    for cid in all_cids:
+        logger.info(f"  CID ablation: {cid}")
+        parser.set("ML", "experiment_name", f"cid_{cid}")
+        parser.set("DEFAULT", "use_ceis", f'["{cid}"]')
 
         inputs = gc.gather_inputs(parser)
         gc.execute_models(inputs, logger, parser)
 
     # Restore originals
-    parser.set("DEFAULT", "use_ceis", orig_use_ceis)
+    parser.set("DEFAULT", "use_ceis", orig_use_cids)
     parser.set("ML", "experiment_name", orig_experiment_name)
     for country, orig in orig_models.items():
         parser.set(country, "models", orig)
@@ -303,7 +328,7 @@ def analyze_optimization(parser, study, logger):
     dir_output = Path(parser.get("PATHS", "dir_output"))
     project_name = parser.get("DEFAULT", "project_name")
     today = ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY")
-    dir_plots = dir_output / project_name / "ml" / "analysis" / today / "optimization"
+    dir_plots = dir_output / project_name / "ml" / "optimization" / today
     os.makedirs(dir_plots, exist_ok=True)
     _save_config(parser, dir_plots)
 
@@ -365,6 +390,262 @@ def analyze_optimization(parser, study, logger):
 
 
 # ---------------------------------------------------------------------------
+# Bradley-Terry / Plackett-Luce model intercomparison
+# ---------------------------------------------------------------------------
+
+def _compute_instance_scores(df, metric="rmse"):
+    """Compute a scalar error score per (Country, Crop, Region, Harvest Year, Model)."""
+    obs_col, pred_col = _get_obs_pred_cols(df)
+    if not obs_col:
+        return pd.DataFrame()
+
+    def _score(g):
+        obs = g[obs_col]
+        pred = g[pred_col]
+        valid = obs.notna() & pred.notna() & (obs != 0)
+        if valid.sum() < 1:
+            return np.nan
+        o, p = obs[valid].values, pred[valid].values
+        if metric == "rmse":
+            return np.sqrt(np.mean((o - p) ** 2))
+        elif metric == "mae":
+            return np.mean(np.abs(o - p))
+        else:  # mape
+            return np.mean(np.abs((o - p) / o)) * 100
+
+    scores = (
+        df.groupby(["Country", "Crop", "Region", "Harvest Year", "Model"])
+        .apply(_score)
+        .reset_index(name="score")
+    )
+    return scores.dropna(subset=["score"])
+
+
+def _build_pairwise_comparisons(df_scores):
+    """Return (models, comparisons) for Bradley-Terry; lower score = winner."""
+    models = sorted(df_scores["Model"].unique())
+    idx = {m: i for i, m in enumerate(models)}
+    comparisons = []
+    for _, grp in df_scores.groupby(["Country", "Crop", "Region", "Harvest Year"]):
+        grp = grp.dropna(subset=["score"])
+        if len(grp) < 2:
+            continue
+        rows = list(grp.itertuples())
+        for r1 in rows:
+            for r2 in rows:
+                if r1.Model != r2.Model and r1.score < r2.score:
+                    comparisons.append((idx[r1.Model], idx[r2.Model]))
+    return models, comparisons
+
+
+def _build_full_rankings(df_scores):
+    """Return (models, rankings) for Plackett-Luce; each ranking ordered best→worst."""
+    models = sorted(df_scores["Model"].unique())
+    idx = {m: i for i, m in enumerate(models)}
+    rankings = []
+    for _, grp in df_scores.groupby(["Country", "Crop", "Region", "Harvest Year"]):
+        grp = grp.dropna(subset=["score"]).sort_values("score")
+        if len(grp) < 2:
+            continue
+        rankings.append([idx[m] for m in grp["Model"]])
+    return models, rankings
+
+
+def _bootstrap_bt(n_items, instance_comparisons_map, n_bootstrap=200, rng=None):
+    """Bootstrap BT by resampling instances. Returns array (n_bootstrap, n_items)."""
+    import choix
+    if rng is None:
+        rng = np.random.default_rng(42)
+    instance_keys = list(instance_comparisons_map.keys())
+    boots = []
+    for _ in range(n_bootstrap):
+        sampled_idx = rng.choice(len(instance_keys), size=len(instance_keys), replace=True)
+        sample_comps = [c for i in sampled_idx for c in instance_comparisons_map[instance_keys[i]]]
+        if len(sample_comps) < n_items:
+            continue
+        try:
+            boots.append(choix.ilsr_pairwise(n_items, sample_comps, alpha=0.01))
+        except Exception:
+            pass
+    return np.array(boots) if boots else np.empty((0, n_items))
+
+
+def analyze_model_ranking(parser, logger, metric="rmse", n_bootstrap=200):
+    """Bradley-Terry / Plackett-Luce model intercomparison with bootstrap CIs."""
+    try:
+        import choix
+    except ImportError:
+        logger.warning("choix not installed — skipping model ranking analysis (pip install choix)")
+        return
+
+    logger.info("Model ranking analysis (Bradley-Terry / Plackett-Luce)...")
+
+    # Load model comparison results
+    model_exp_list = [("models", "model_comparison", "", "str", [])]
+    df = _load_experiment_results(parser, model_exp_list)
+    if df.empty:
+        logger.warning("No model comparison results found for ranking analysis")
+        return
+
+    dir_output = Path(parser.get("PATHS", "dir_output"))
+    project_name = parser.get("DEFAULT", "project_name")
+    today = ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY")
+    dir_plots = dir_output / project_name / "ml" / "experiments" / today / "model_ranking"
+    os.makedirs(dir_plots, exist_ok=True)
+
+    df_scores = _compute_instance_scores(df, metric=metric)
+    if df_scores.empty or df_scores["Model"].nunique() < 2:
+        logger.warning("Insufficient data for model ranking analysis")
+        return
+
+    models, comparisons = _build_pairwise_comparisons(df_scores)
+    n = len(models)
+    if len(comparisons) < n:
+        logger.warning("Too few pairwise comparisons for Bradley-Terry fit")
+        return
+
+    # ── Bradley-Terry global fit ──────────────────────────────────────────────
+    bt_params = choix.ilsr_pairwise(n, comparisons, alpha=0.01)
+
+    # Build instance→comparisons map for bootstrap (resample at instance level)
+    instance_comps = {}
+    idx = {m: i for i, m in enumerate(models)}
+    for key, grp in df_scores.groupby(["Country", "Crop", "Region", "Harvest Year"]):
+        grp = grp.dropna(subset=["score"])
+        pairs = []
+        rows = list(grp.itertuples())
+        for r1 in rows:
+            for r2 in rows:
+                if r1.Model != r2.Model and r1.score < r2.score:
+                    pairs.append((idx[r1.Model], idx[r2.Model]))
+        if pairs:
+            instance_comps[key] = pairs
+
+    boots = _bootstrap_bt(n, instance_comps, n_bootstrap=n_bootstrap)
+    ci_lo = np.percentile(boots, 2.5, axis=0) if len(boots) else bt_params
+    ci_hi = np.percentile(boots, 97.5, axis=0) if len(boots) else bt_params
+
+    order = np.argsort(bt_params)[::-1]
+    sorted_models = [models[i] for i in order]
+    sorted_params = bt_params[order]
+    sorted_lo = ci_lo[order]
+    sorted_hi = ci_hi[order]
+
+    fig, ax = plt.subplots(figsize=(max(6, n * 1.2), 5))
+    x = np.arange(n)
+    ax.bar(x, sorted_params, color="steelblue", alpha=0.8)
+    ax.errorbar(x, sorted_params,
+                yerr=[sorted_params - sorted_lo, sorted_hi - sorted_params],
+                fmt="none", color="black", capsize=5)
+    ax.set_xticks(x)
+    ax.set_xticklabels(sorted_models, rotation=30, ha="right")
+    ax.set_ylabel("Log-strength score")
+    ax.set_title(f"Bradley-Terry Model Strengths ± 95% CI ({metric.upper()})")
+    ax.axhline(0, color="gray", linestyle="--", linewidth=0.8)
+    plt.tight_layout()
+    fig.savefig(dir_plots / "bt_strength_scores.png", dpi=250)
+    plt.close(fig)
+
+    # ── Win matrix ────────────────────────────────────────────────────────────
+    win_matrix = np.zeros((n, n), dtype=int)
+    for w, l in comparisons:
+        win_matrix[w, l] += 1
+    total = win_matrix + win_matrix.T
+    with np.errstate(divide="ignore", invalid="ignore"):
+        win_rate = np.where(total > 0, win_matrix / total, np.nan)
+
+    fig, ax = plt.subplots(figsize=(max(5, n * 1.1), max(4, n * 0.9)))
+    sns.heatmap(
+        win_rate, annot=True, fmt=".2f", cmap="RdYlGn",
+        xticklabels=models, yticklabels=models,
+        ax=ax, linewidths=0.5, vmin=0, vmax=1,
+        cbar_kws={"label": "Win rate (row beats col)"},
+    )
+    ax.set_title(f"Pairwise Win Rate ({metric.upper()})")
+    plt.tight_layout()
+    fig.savefig(dir_plots / "win_matrix.png", dpi=250)
+    plt.close(fig)
+
+    # ── Plackett-Luce ─────────────────────────────────────────────────────────
+    models_pl, rankings = _build_full_rankings(df_scores)
+    pl_params = None
+    if len(rankings) >= n:
+        try:
+            pl_params = choix.ilsr_rankings(n, rankings, alpha=0.01)
+        except Exception as e:
+            logger.warning(f"Plackett-Luce fit failed: {e}")
+
+    if pl_params is not None:
+        fig, ax = plt.subplots(figsize=(max(6, n * 1.2), 5))
+        x = np.arange(n)
+        w = 0.35
+        bt_norm = bt_params - bt_params.min()
+        pl_norm = pl_params - pl_params.min()
+        ax.bar(x - w / 2, bt_norm[order], w, label="Bradley-Terry", color="steelblue", alpha=0.8)
+        ax.bar(x + w / 2, pl_norm[order], w, label="Plackett-Luce", color="coral", alpha=0.8)
+        ax.set_xticks(x)
+        ax.set_xticklabels(sorted_models, rotation=30, ha="right")
+        ax.set_ylabel("Normalised strength score")
+        ax.set_title(f"BT vs Plackett-Luce Scores ({metric.upper()})")
+        ax.legend()
+        plt.tight_layout()
+        fig.savefig(dir_plots / "pl_vs_bt_scores.png", dpi=250)
+        plt.close(fig)
+
+    # ── Stratified fits ───────────────────────────────────────────────────────
+    for strata_cols, fname in [
+        (["Country"], "stratified_by_country"),
+        (["Crop"],    "stratified_by_crop"),
+        (["Country", "Crop"], "stratified_by_country_crop"),
+    ]:
+        strata_scores = {}
+        for key, grp in df_scores.groupby(strata_cols):
+            label = " / ".join(key) if isinstance(key, tuple) else key
+            if grp["Model"].nunique() < 2:
+                continue
+            _, comps = _build_pairwise_comparisons(grp)
+            if len(comps) < n:
+                continue
+            try:
+                p = choix.ilsr_pairwise(n, comps, alpha=0.01)
+                strata_scores[label] = p
+            except Exception:
+                pass
+
+        if not strata_scores:
+            continue
+
+        labels = list(strata_scores.keys())
+        scores_mat = np.array([strata_scores[l] for l in labels])  # (n_strata, n_models)
+        fig, ax = plt.subplots(figsize=(max(8, len(labels) * 1.4), 5))
+        x = np.arange(len(labels))
+        bar_w = 0.8 / n
+        colors = plt.cm.tab10(np.linspace(0, 1, n))
+        for mi, model in enumerate(models):
+            ax.bar(x + mi * bar_w - 0.4 + bar_w / 2,
+                   scores_mat[:, mi], bar_w, label=model, color=colors[mi], alpha=0.85)
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, rotation=30, ha="right")
+        ax.set_ylabel("Log-strength score")
+        ax.set_title(f"BT Strengths by {' / '.join(strata_cols)} ({metric.upper()})")
+        ax.legend(title="Model", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
+        plt.tight_layout()
+        fig.savefig(dir_plots / f"{fname}.png", dpi=250)
+        plt.close(fig)
+
+    # ── Save scores CSV ───────────────────────────────────────────────────────
+    rows = [{"Model": models[i], "BT_score": bt_params[i],
+             "BT_ci_lo": ci_lo[i], "BT_ci_hi": ci_hi[i],
+             "PL_score": pl_params[i] if pl_params is not None else np.nan}
+            for i in range(n)]
+    pd.DataFrame(rows).sort_values("BT_score", ascending=False).to_csv(
+        dir_plots / "model_ranking_scores.csv", index=False
+    )
+
+    logger.info(f"Model ranking plots saved to {dir_plots}")
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 
@@ -398,11 +679,11 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
     for _, values in hp_space:
         total_combos *= len(values)
 
-    all_ceis = ast.literal_eval(parser.get("ML", "use_ceis"))
+    all_cids = ast.literal_eval(parser.get("ML", "use_ceis"))
 
     params = gc._build_summary_params(parser, inputs)
     params.append(("Exp 0: models", ", ".join(model_experiment)))
-    params.append(("Exp 1: CEIs", ", ".join(all_ceis)))
+    params.append(("Exp 1: CIDs", ", ".join(all_cids)))
     params.append(("Optimization", f"Optuna TPE, {n_trials} trials"))
     for name, values in hp_space:
         params.append((f"  {name}", ", ".join(str(v) for v in values)))
@@ -418,16 +699,24 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
     # tuple only provides the experiment label ("models") for plot grouping
     model_exp_list = [("models", "model_comparison", "", "str", model_experiment)]
     analyze_experiments(parser, model_exp_list, logger)
+    analyze_model_ranking(parser, logger, metric="rmse", n_bootstrap=200)
 
-    # Experiment 1: CEI ablation — run each CEI type individually with best model
-    logger.info("Experiment 1: CEI ablation")
-    all_ceis = ast.literal_eval(parser.get("ML", "use_ceis"))
+    # Experiment 1: CID ablation — run each CID type individually with best model
+    logger.info("Experiment 1: CID ablation")
+    all_cids = ast.literal_eval(parser.get("ML", "use_ceis"))
     best_models = _get_best_models_from_exp0(parser, model_experiment)
     logger.info(f"  Best models from Exp 0: {best_models}")
-    parser = experiment_1_cei_ablation(logger, parser, best_models, all_ceis)
+    parser = experiment_1_cid_ablation(logger, parser, best_models, all_cids)
 
-    cei_exp_list = [("ceis", "", "", "str", all_ceis)]
-    analyze_experiments(parser, cei_exp_list, logger)
+    cid_exp_list = [("cids", "", "", "str", all_cids)]
+    analyze_experiments(parser, cid_exp_list, logger, best_models=best_models)
+
+    # Experiment 2: Region filter
+    logger.info("Experiment 2: Region filter")
+    parser = experiment_2_region_filter(logger, parser, best_models)
+
+    region_exp_list = [("region_filter", "region_filter", "", "str", list(best_models.values()))]
+    analyze_experiments(parser, region_exp_list, logger)
 
     # Bayesian hyperparameter optimization
     logger.info(f"Starting Optuna optimization ({n_trials} trials)...")
@@ -458,6 +747,32 @@ def _compute_metrics(group):
     mae = mean_absolute_error(obs, pred)
     mape_val = np.mean(np.abs((obs - pred) / obs)) * 100
     return pd.Series({"RMSE": rmse, "R2": r2, "MAE": mae, "MAPE": mape_val})
+
+
+def _load_all_cids_reference(parser, best_models):
+    """Load model_comparison results for best model per country, tagged as 'All CIDs'.
+
+    Returns a DataFrame with experiment='cids', param_value='All CIDs' ready to
+    concat with the CID ablation data so the 3 CID plots include a baseline.
+    """
+    exp_list = [("models", "model_comparison", "", "str", list(best_models.values()))]
+    df = _load_experiment_results(parser, exp_list)
+    if df.empty:
+        return pd.DataFrame()
+
+    # Keep only the best model rows for each country
+    frames = []
+    for country, model in best_models.items():
+        mask = (df["Country"] == country) & (df["param_value"] == model)
+        frames.append(df[mask])
+
+    if not frames:
+        return pd.DataFrame()
+
+    ref = pd.concat(frames, ignore_index=True).copy()
+    ref["experiment"] = "cids"
+    ref["param_value"] = "All CIDs"
+    return ref
 
 
 def _load_experiment_results(parser, experiments):
@@ -508,13 +823,19 @@ def _load_experiment_results(parser, experiments):
         df_all.loc[mask, "experiment"] = "models"
         df_all.loc[mask, "param_value"] = df_all.loc[mask, "Model"]
 
-    # For CEI ablation experiments (cei_<type>), extract CEI type as param_value
-    cei_mask = df_all["Experiment Name"].str.startswith("cei_")
-    if cei_mask.any():
-        df_all.loc[cei_mask, "experiment"] = "ceis"
-        df_all.loc[cei_mask, "param_value"] = (
-            df_all.loc[cei_mask, "Experiment Name"].str.replace("cei_", "", n=1)
+    # For CID ablation experiments (cid_<type>), extract CID type as param_value
+    cid_mask = df_all["Experiment Name"].str.startswith("cid_")
+    if cid_mask.any():
+        df_all.loc[cid_mask, "experiment"] = "cids"
+        df_all.loc[cid_mask, "param_value"] = (
+            df_all.loc[cid_mask, "Experiment Name"].str.replace("cid_", "", n=1, regex=False)
         )
+
+    # For region_filter experiment, use Model column as param_value
+    if "region_filter" in df_all["Experiment Name"].values:
+        mask = df_all["Experiment Name"] == "region_filter"
+        df_all.loc[mask, "experiment"] = "region_filter"
+        df_all.loc[mask, "param_value"] = df_all.loc[mask, "Model"]
 
     return df_all[df_all["experiment"] != "unknown"].copy()
 
@@ -700,9 +1021,15 @@ def _plot_feature_frequency(df_exp_data, experiment_name, dir_plots):
         return
 
     # Parse string-encoded feature lists
-    df_exp["_parsed_features"] = df_exp["Selected Features"].apply(
-        lambda x: ast.literal_eval(x) if isinstance(x, str) else x
-    )
+    def _safe_parse(x):
+        if isinstance(x, list):
+            return x
+        try:
+            return ast.literal_eval(x)
+        except Exception:
+            return []
+
+    df_exp["_parsed_features"] = df_exp["Selected Features"].apply(_safe_parse)
 
     # Deduplicate: one feature list per (Country, Crop, Region, Harvest Year, param_value)
     dedup_cols = ["Country", "Crop", "Region", "Harvest Year", "param_value"]
@@ -771,26 +1098,31 @@ def _plot_mape_by_year(df_exp_data, experiment_name, dir_plots):
     plt.close(fig)
 
 
-def _plot_mape_by_cei(df_exp_data, experiment_name, dir_plots):
-    """Bar chart of mean MAPE per CEI type."""
+def _plot_mape_by_cid(df_exp_data, experiment_name, dir_plots):
+    """Bar chart of mean MAPE per CID type."""
     df_exp = _compute_ape(_filter_experiment(df_exp_data, experiment_name))
     if df_exp.empty:
         return
 
     mape = df_exp.groupby("param_value")["APE"].mean().sort_values()
+    # Place "All CIDs" first
+    if "All CIDs" in mape.index:
+        all_cids_val = mape.pop("All CIDs")
+        mape = pd.concat([pd.Series({"All CIDs": all_cids_val}), mape])
     fig, ax = plt.subplots(figsize=(max(8, len(mape) * 0.8), 5))
-    mape.plot(kind="bar", ax=ax, color="steelblue")
-    ax.set_xlabel("CEI Type")
+    bar_colors = ["black" if idx == "All CIDs" else "steelblue" for idx in mape.index]
+    mape.plot(kind="bar", ax=ax, color=bar_colors)
+    ax.set_xlabel("CID Type")
     ax.set_ylabel("MAPE (%)")
-    ax.set_title(f"MAPE by CEI Type — {experiment_name}")
+    ax.set_title(f"MAPE by CID Type — {experiment_name}")
     ax.tick_params(axis="x", rotation=45)
     plt.tight_layout()
-    fig.savefig(dir_plots / f"mape_by_cei_{experiment_name}.png", dpi=250)
+    fig.savefig(dir_plots / f"mape_by_cid_{experiment_name}.png", dpi=250)
     plt.close(fig)
 
 
-def _plot_mape_by_cei_region(df_exp_data, experiment_name, dir_plots):
-    """Heatmap of MAPE: regions (rows) vs CEI types (cols), ordered by production %."""
+def _plot_mape_by_cid_region(df_exp_data, experiment_name, dir_plots):
+    """Heatmap of MAPE: regions (rows) vs CID types (cols), ordered by production %."""
     df_exp = _compute_ape(_filter_experiment(df_exp_data, experiment_name))
     if df_exp.empty:
         return
@@ -807,19 +1139,26 @@ def _plot_mape_by_cei_region(df_exp_data, experiment_name, dir_plots):
 
         # Order by production %
         pivot = _order_by_production(pivot, prod_pct, ascending=False)
+        # Place "All CIDs" first column
+        if "All CIDs" in pivot.columns:
+            cols = ["All CIDs"] + [c for c in pivot.columns if c != "All CIDs"]
+            pivot = pivot[cols]
 
         fig, ax = plt.subplots(figsize=(max(8, len(pivot.columns) * 1.2), max(5, len(pivot) * 0.4)))
         sns.heatmap(pivot, annot=True, fmt=".1f", cmap="YlOrRd", ax=ax, linewidths=0.5)
-        ax.set_title(f"MAPE by Region × CEI — {country}\n({experiment_name})")
-        ax.set_xlabel("CEI Type")
+        ax.set_title(f"MAPE by Region × CID — {country}\n({experiment_name})")
+        ax.set_xlabel("CID Type")
         ax.set_ylabel("Region (% of production)")
+        for tick in ax.get_xticklabels():
+            if tick.get_text() == "All CIDs":
+                tick.set_fontweight("bold")
         plt.tight_layout()
-        fig.savefig(dir_plots / f"mape_by_cei_region_{experiment_name}_{country}.png", dpi=250)
+        fig.savefig(dir_plots / f"mape_by_cid_region_{experiment_name}_{country}.png", dpi=250)
         plt.close(fig)
 
 
-def _plot_mape_by_cei_year(df_exp_data, experiment_name, dir_plots):
-    """Line plot of MAPE by harvest year, one line per CEI type."""
+def _plot_mape_by_cid_year(df_exp_data, experiment_name, dir_plots):
+    """Line plot of MAPE by harvest year, one line per CID type."""
     df_exp = _compute_ape(_filter_experiment(df_exp_data, experiment_name))
     if df_exp.empty or "Harvest Year" not in df_exp.columns:
         return
@@ -831,19 +1170,72 @@ def _plot_mape_by_cei_year(df_exp_data, experiment_name, dir_plots):
     )
 
     fig, ax = plt.subplots(figsize=(10, 5))
-    for pv, grp in mape_by_year.groupby("param_value"):
-        ax.plot(grp["Harvest Year"], grp["MAPE"], marker="o", label=pv)
+    cid_names = sorted(pv for pv in mape_by_year["param_value"].unique() if pv != "All CIDs")
+    cmap = plt.cm.get_cmap("tab20", max(len(cid_names), 1))
+    cid_colors = {name: cmap(i) for i, name in enumerate(cid_names)}
+    # Plot individual CIDs first, then "All CIDs" on top
+    groups = dict(list(mape_by_year.groupby("param_value")))
+    for pv in cid_names:
+        if pv in groups:
+            grp = groups[pv]
+            ax.plot(grp["Harvest Year"], grp["MAPE"], marker="o", label=pv, color=cid_colors[pv])
+    if "All CIDs" in groups:
+        grp = groups["All CIDs"]
+        ax.plot(grp["Harvest Year"], grp["MAPE"], marker="o", label="All CIDs",
+                color="black", linewidth=2.5, zorder=10)
     ax.set_xlabel("Harvest Year")
     ax.set_ylabel("MAPE (%)")
-    ax.set_title(f"MAPE by Year × CEI — {experiment_name}")
-    ax.legend(title="CEI Type", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
+    ax.set_title(f"MAPE by Year × CID — {experiment_name}")
+    # Place "All CIDs" first in legend
+    handles, labels = ax.get_legend_handles_labels()
+    if "All CIDs" in labels:
+        idx = labels.index("All CIDs")
+        handles = [handles[idx]] + handles[:idx] + handles[idx + 1:]
+        labels = [labels[idx]] + labels[:idx] + labels[idx + 1:]
+    ax.legend(handles, labels, title="CID Type", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
-    fig.savefig(dir_plots / f"mape_by_cei_year_{experiment_name}.png", dpi=250)
+    fig.savefig(dir_plots / f"mape_by_cid_year_{experiment_name}.png", dpi=250)
     plt.close(fig)
 
 
-def analyze_experiments(parser, experiments, logger):
+def _plot_cid_rank_by_year(df_exp_data, experiment_name, dir_plots):
+    """Heatmap of CID rank per harvest year (rank 1 = lowest MAPE that year)."""
+    df_exp = _compute_ape(_filter_experiment(df_exp_data, experiment_name))
+    if df_exp.empty or "Harvest Year" not in df_exp.columns:
+        return
+
+    mape_by_year = (
+        df_exp.groupby(["Harvest Year", "param_value"])["APE"]
+        .mean().reset_index().rename(columns={"APE": "MAPE"})
+    )
+    mape_by_year["Rank"] = mape_by_year.groupby("Harvest Year")["MAPE"].rank(method="min")
+
+    pivot = mape_by_year.pivot(index="Harvest Year", columns="param_value", values="Rank")
+    # Place "All CIDs" first column
+    if "All CIDs" in pivot.columns:
+        cols = ["All CIDs"] + [c for c in pivot.columns if c != "All CIDs"]
+        pivot = pivot[cols]
+
+    n_cids = len(pivot.columns)
+    fig, ax = plt.subplots(figsize=(max(8, n_cids * 1.0), max(4, len(pivot) * 0.5)))
+    sns.heatmap(
+        pivot, annot=True, fmt=".0f", cmap="RdYlGn_r",
+        ax=ax, linewidths=0.5, vmin=1, vmax=n_cids,
+        cbar_kws={"label": "Rank (1 = best)"},
+    )
+    ax.set_title(f"CID Rank by Year (1 = lowest MAPE) — {experiment_name}")
+    ax.set_xlabel("CID Type")
+    ax.set_ylabel("Harvest Year")
+    for tick in ax.get_xticklabels():
+        if tick.get_text() == "All CIDs":
+            tick.set_fontweight("bold")
+    plt.tight_layout()
+    fig.savefig(dir_plots / f"cid_rank_by_year_{experiment_name}.png", dpi=250)
+    plt.close(fig)
+
+
+def analyze_experiments(parser, experiments, logger, best_models=None):
     """Read experiment results from DB and generate comparison plots."""
     logger.info("Analyzing experiment results...")
 
@@ -852,10 +1244,17 @@ def analyze_experiments(parser, experiments, logger):
         logger.warning("No experiment results found in database")
         return
 
+    # Inject All-CIDs reference into CID ablation data
+    experiment_names = [name for name, *_ in experiments]
+    if "cids" in experiment_names and best_models:
+        df_ref = _load_all_cids_reference(parser, best_models)
+        if not df_ref.empty:
+            df_exp = pd.concat([df_exp, df_ref], ignore_index=True)
+
     dir_output = Path(parser.get("PATHS", "dir_output"))
     project_name = parser.get("DEFAULT", "project_name")
     today = ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY")
-    dir_plots = dir_output / project_name / "ml" / "analysis" / today / "experiments"
+    dir_plots = dir_output / project_name / "ml" / "experiments" / today
     os.makedirs(dir_plots, exist_ok=True)
     _save_config(parser, dir_plots)
 
@@ -875,20 +1274,26 @@ def analyze_experiments(parser, experiments, logger):
     df_metrics.to_csv(dir_plots / "experiment_metrics.csv", index=False)
     logger.info(f"Saved experiment metrics to {dir_plots / 'experiment_metrics.csv'}")
     
-    # Generate all plots
-    experiment_names = [name for name, *_ in experiments]
+    # Generate all plots — wrap each call so one failure doesn't skip the rest
+    def _safe_plot(fn, *args, name=""):
+        try:
+            fn(*args)
+        except Exception as e:
+            logger.warning(f"Plot {name or fn.__name__} failed: {e}")
+
     for exp_name in experiment_names:
         logger.info(f"  Plotting {exp_name}...")
-        _plot_heatmap(df_metrics, exp_name, dir_plots)
-        _plot_boxplot(df_exp, exp_name, dir_plots)
-        _plot_regional_mape(df_metrics, df_exp, exp_name, dir_plots)
-        _plot_error_distribution(df_exp, exp_name, dir_plots)
-        _plot_feature_frequency(df_exp, exp_name, dir_plots)
-        _plot_mape_by_year(df_exp, exp_name, dir_plots)
-        if exp_name == "ceis":
-            _plot_mape_by_cei(df_exp, exp_name, dir_plots)
-            _plot_mape_by_cei_region(df_exp, exp_name, dir_plots)
-            _plot_mape_by_cei_year(df_exp, exp_name, dir_plots)
+        _safe_plot(_plot_heatmap, df_metrics, exp_name, dir_plots)
+        _safe_plot(_plot_boxplot, df_exp, exp_name, dir_plots)
+        _safe_plot(_plot_regional_mape, df_metrics, df_exp, exp_name, dir_plots)
+        _safe_plot(_plot_error_distribution, df_exp, exp_name, dir_plots)
+        _safe_plot(_plot_feature_frequency, df_exp, exp_name, dir_plots)
+        _safe_plot(_plot_mape_by_year, df_exp, exp_name, dir_plots)
+        if exp_name == "cids":
+            _safe_plot(_plot_mape_by_cid, df_exp, exp_name, dir_plots)
+            _safe_plot(_plot_mape_by_cid_region, df_exp, exp_name, dir_plots)
+            _safe_plot(_plot_mape_by_cid_year, df_exp, exp_name, dir_plots)
+            _safe_plot(_plot_cid_rank_by_year, df_exp, exp_name, dir_plots)
 
     _plot_overall_comparison(df_metrics, experiments, dir_plots)
 

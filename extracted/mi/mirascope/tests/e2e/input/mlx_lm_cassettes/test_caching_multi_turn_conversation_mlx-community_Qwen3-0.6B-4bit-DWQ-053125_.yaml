@@ -1,0 +1,4974 @@
+interactions:
+  1be2feb56d4e91ba6fce57b8a962b9c913777050f92934dba700607311f9ec28:
+  - finish_reason: null
+    generation_tokens: 1
+    prompt_tokens: 3718
+    text: <think>
+    token: 151667
+  - finish_reason: null
+    generation_tokens: 2
+    prompt_tokens: 3718
+    text: '
+
+      '
+    token: 198
+  - finish_reason: null
+    generation_tokens: 3
+    prompt_tokens: 3718
+    text: Okay
+    token: 32313
+  - finish_reason: null
+    generation_tokens: 4
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 5
+    prompt_tokens: 3718
+    text: ' let'
+    token: 1077
+  - finish_reason: null
+    generation_tokens: 6
+    prompt_tokens: 3718
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 7
+    prompt_tokens: 3718
+    text: ' see'
+    token: 1490
+  - finish_reason: null
+    generation_tokens: 8
+    prompt_tokens: 3718
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 9
+    prompt_tokens: 3718
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 10
+    prompt_tokens: 3718
+    text: ' user'
+    token: 1196
+  - finish_reason: null
+    generation_tokens: 11
+    prompt_tokens: 3718
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 12
+    prompt_tokens: 3718
+    text: ' talking'
+    token: 7404
+  - finish_reason: null
+    generation_tokens: 13
+    prompt_tokens: 3718
+    text: ' about'
+    token: 911
+  - finish_reason: null
+    generation_tokens: 14
+    prompt_tokens: 3718
+    text: ' a'
+    token: 264
+  - finish_reason: null
+    generation_tokens: 15
+    prompt_tokens: 3718
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 16
+    prompt_tokens: 3718
+    text: ' that'
+    token: 429
+  - finish_reason: null
+    generation_tokens: 17
+    prompt_tokens: 3718
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 18
+    prompt_tokens: 3718
+    text: ' been'
+    token: 1012
+  - finish_reason: null
+    generation_tokens: 19
+    prompt_tokens: 3718
+    text: ' expanded'
+    token: 17183
+  - finish_reason: null
+    generation_tokens: 20
+    prompt_tokens: 3718
+    text: ' into'
+    token: 1119
+  - finish_reason: null
+    generation_tokens: 21
+    prompt_tokens: 3718
+    text: ' a'
+    token: 264
+  - finish_reason: null
+    generation_tokens: 22
+    prompt_tokens: 3718
+    text: ' fully'
+    token: 7225
+  - finish_reason: null
+    generation_tokens: 23
+    prompt_tokens: 3718
+    text: ' armed'
+    token: 17445
+  - finish_reason: null
+    generation_tokens: 24
+    prompt_tokens: 3718
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 25
+    prompt_tokens: 3718
+    text: ' operational'
+    token: 24586
+  - finish_reason: null
+    generation_tokens: 26
+    prompt_tokens: 3718
+    text: ' battle'
+    token: 8049
+  - finish_reason: null
+    generation_tokens: 27
+    prompt_tokens: 3718
+    text: ' station'
+    token: 8056
+  - finish_reason: null
+    generation_tokens: 28
+    prompt_tokens: 3718
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 29
+    prompt_tokens: 3718
+    text: ' They'
+    token: 2379
+  - finish_reason: null
+    generation_tokens: 30
+    prompt_tokens: 3718
+    text: ' mention'
+    token: 6286
+  - finish_reason: null
+    generation_tokens: 31
+    prompt_tokens: 3718
+    text: ' that'
+    token: 429
+  - finish_reason: null
+    generation_tokens: 32
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 33
+    prompt_tokens: 3718
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 34
+    prompt_tokens: 3718
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 35
+    prompt_tokens: 3718
+    text: ' responses'
+    token: 14507
+  - finish_reason: null
+    generation_tokens: 36
+    prompt_tokens: 3718
+    text: ' are'
+    token: 525
+  - finish_reason: null
+    generation_tokens: 37
+    prompt_tokens: 3718
+    text: ' now'
+    token: 1431
+  - finish_reason: null
+    generation_tokens: 38
+    prompt_tokens: 3718
+    text: ' more'
+    token: 803
+  - finish_reason: null
+    generation_tokens: 39
+    prompt_tokens: 3718
+    text: ' powerful'
+    token: 7988
+  - finish_reason: null
+    generation_tokens: 40
+    prompt_tokens: 3718
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 41
+    prompt_tokens: 3718
+    text: ' that'
+    token: 429
+  - finish_reason: null
+    generation_tokens: 42
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 43
+    prompt_tokens: 3718
+    text: ' Force'
+    token: 11732
+  - finish_reason: null
+    generation_tokens: 44
+    prompt_tokens: 3718
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 45
+    prompt_tokens: 3718
+    text: ' strong'
+    token: 3746
+  - finish_reason: null
+    generation_tokens: 46
+    prompt_tokens: 3718
+    text: ' with'
+    token: 448
+  - finish_reason: null
+    generation_tokens: 47
+    prompt_tokens: 3718
+    text: ' it'
+    token: 432
+  - finish_reason: null
+    generation_tokens: 48
+    prompt_tokens: 3718
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 49
+    prompt_tokens: 3718
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 50
+    prompt_tokens: 3718
+    text: ' user'
+    token: 1196
+  - finish_reason: null
+    generation_tokens: 51
+    prompt_tokens: 3718
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 52
+    prompt_tokens: 3718
+    text: ' asking'
+    token: 10161
+  - finish_reason: null
+    generation_tokens: 53
+    prompt_tokens: 3718
+    text: ' if'
+    token: 421
+  - finish_reason: null
+    generation_tokens: 54
+    prompt_tokens: 3718
+    text: ' this'
+    token: 419
+  - finish_reason: null
+    generation_tokens: 55
+    prompt_tokens: 3718
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 56
+    prompt_tokens: 3718
+    text: ' sufficient'
+    token: 14016
+  - finish_reason: null
+    generation_tokens: 57
+    prompt_tokens: 3718
+    text: ' or'
+    token: 476
+  - finish_reason: null
+    generation_tokens: 58
+    prompt_tokens: 3718
+    text: ' if'
+    token: 421
+  - finish_reason: null
+    generation_tokens: 59
+    prompt_tokens: 3718
+    text: ' they'
+    token: 807
+  - finish_reason: null
+    generation_tokens: 60
+    prompt_tokens: 3718
+    text: ' want'
+    token: 1366
+  - finish_reason: null
+    generation_tokens: 61
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 62
+    prompt_tokens: 3718
+    text: ' "'
+    token: 330
+  - finish_reason: null
+    generation_tokens: 63
+    prompt_tokens: 3718
+    text: alter
+    token: 37277
+  - finish_reason: null
+    generation_tokens: 64
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 65
+    prompt_tokens: 3718
+    text: ' deal'
+    token: 3484
+  - finish_reason: null
+    generation_tokens: 66
+    prompt_tokens: 3718
+    text: '"'
+    token: 1
+  - finish_reason: null
+    generation_tokens: 67
+    prompt_tokens: 3718
+    text: ' until'
+    token: 3080
+  - finish_reason: null
+    generation_tokens: 68
+    prompt_tokens: 3718
+    text: ' they'
+    token: 807
+  - finish_reason: null
+    generation_tokens: 69
+    prompt_tokens: 3718
+    text: ' stop'
+    token: 2936
+  - finish_reason: null
+    generation_tokens: 70
+    prompt_tokens: 3718
+    text: '.
+
+
+      '
+    token: 382
+  - finish_reason: null
+    generation_tokens: 71
+    prompt_tokens: 3718
+    text: First
+    token: 5338
+  - finish_reason: null
+    generation_tokens: 72
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 73
+    prompt_tokens: 3718
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 74
+    prompt_tokens: 3718
+    text: ' need'
+    token: 1184
+  - finish_reason: null
+    generation_tokens: 75
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 76
+    prompt_tokens: 3718
+    text: ' understand'
+    token: 3535
+  - finish_reason: null
+    generation_tokens: 77
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 78
+    prompt_tokens: 3718
+    text: ' context'
+    token: 2266
+  - finish_reason: null
+    generation_tokens: 79
+    prompt_tokens: 3718
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 80
+    prompt_tokens: 3718
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 81
+    prompt_tokens: 3718
+    text: ' user'
+    token: 1196
+  - finish_reason: null
+    generation_tokens: 82
+    prompt_tokens: 3718
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 83
+    prompt_tokens: 3718
+    text: ' describing'
+    token: 22692
+  - finish_reason: null
+    generation_tokens: 84
+    prompt_tokens: 3718
+    text: ' a'
+    token: 264
+  - finish_reason: null
+    generation_tokens: 85
+    prompt_tokens: 3718
+    text: ' Star'
+    token: 7679
+  - finish_reason: null
+    generation_tokens: 86
+    prompt_tokens: 3718
+    text: ' Wars'
+    token: 14968
+  - finish_reason: null
+    generation_tokens: 87
+    prompt_tokens: 3718
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 88
+    prompt_tokens: 3718
+    text: ' that'
+    token: 429
+  - finish_reason: null
+    generation_tokens: 89
+    prompt_tokens: 3718
+    text: ' has'
+    token: 702
+  - finish_reason: null
+    generation_tokens: 90
+    prompt_tokens: 3718
+    text: ' been'
+    token: 1012
+  - finish_reason: null
+    generation_tokens: 91
+    prompt_tokens: 3718
+    text: ' enhanced'
+    token: 23922
+  - finish_reason: null
+    generation_tokens: 92
+    prompt_tokens: 3718
+    text: ' with'
+    token: 448
+  - finish_reason: null
+    generation_tokens: 93
+    prompt_tokens: 3718
+    text: ' advanced'
+    token: 10847
+  - finish_reason: null
+    generation_tokens: 94
+    prompt_tokens: 3718
+    text: ' features'
+    token: 4419
+  - finish_reason: null
+    generation_tokens: 95
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 96
+    prompt_tokens: 3718
+    text: ' making'
+    token: 3259
+  - finish_reason: null
+    generation_tokens: 97
+    prompt_tokens: 3718
+    text: ' it'
+    token: 432
+  - finish_reason: null
+    generation_tokens: 98
+    prompt_tokens: 3718
+    text: ' a'
+    token: 264
+  - finish_reason: null
+    generation_tokens: 99
+    prompt_tokens: 3718
+    text: ' battle'
+    token: 8049
+  - finish_reason: null
+    generation_tokens: 100
+    prompt_tokens: 3718
+    text: ' station'
+    token: 8056
+  - finish_reason: null
+    generation_tokens: 101
+    prompt_tokens: 3718
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 102
+    prompt_tokens: 3718
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 103
+    prompt_tokens: 3718
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 104
+    prompt_tokens: 3718
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 105
+    prompt_tokens: 3718
+    text: ' responses'
+    token: 14507
+  - finish_reason: null
+    generation_tokens: 106
+    prompt_tokens: 3718
+    text: ' are'
+    token: 525
+  - finish_reason: null
+    generation_tokens: 107
+    prompt_tokens: 3718
+    text: ' now'
+    token: 1431
+  - finish_reason: null
+    generation_tokens: 108
+    prompt_tokens: 3718
+    text: ' more'
+    token: 803
+  - finish_reason: null
+    generation_tokens: 109
+    prompt_tokens: 3718
+    text: ' powerful'
+    token: 7988
+  - finish_reason: null
+    generation_tokens: 110
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 111
+    prompt_tokens: 3718
+    text: ' which'
+    token: 892
+  - finish_reason: null
+    generation_tokens: 112
+    prompt_tokens: 3718
+    text: ' suggests'
+    token: 13230
+  - finish_reason: null
+    generation_tokens: 113
+    prompt_tokens: 3718
+    text: ' that'
+    token: 429
+  - finish_reason: null
+    generation_tokens: 114
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 115
+    prompt_tokens: 3718
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 116
+    prompt_tokens: 3718
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 117
+    prompt_tokens: 3718
+    text: ' capabilities'
+    token: 16928
+  - finish_reason: null
+    generation_tokens: 118
+    prompt_tokens: 3718
+    text: ' have'
+    token: 614
+  - finish_reason: null
+    generation_tokens: 119
+    prompt_tokens: 3718
+    text: ' increased'
+    token: 7172
+  - finish_reason: null
+    generation_tokens: 120
+    prompt_tokens: 3718
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 121
+    prompt_tokens: 3718
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 122
+    prompt_tokens: 3718
+    text: ' user'
+    token: 1196
+  - finish_reason: null
+    generation_tokens: 123
+    prompt_tokens: 3718
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 124
+    prompt_tokens: 3718
+    text: ' reflecting'
+    token: 41752
+  - finish_reason: null
+    generation_tokens: 125
+    prompt_tokens: 3718
+    text: ' on'
+    token: 389
+  - finish_reason: null
+    generation_tokens: 126
+    prompt_tokens: 3718
+    text: ' whether'
+    token: 3425
+  - finish_reason: null
+    generation_tokens: 127
+    prompt_tokens: 3718
+    text: ' this'
+    token: 419
+  - finish_reason: null
+    generation_tokens: 128
+    prompt_tokens: 3718
+    text: ' expansion'
+    token: 14461
+  - finish_reason: null
+    generation_tokens: 129
+    prompt_tokens: 3718
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 130
+    prompt_tokens: 3718
+    text: ' enough'
+    token: 3322
+  - finish_reason: null
+    generation_tokens: 131
+    prompt_tokens: 3718
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 132
+    prompt_tokens: 3718
+    text: ' if'
+    token: 421
+  - finish_reason: null
+    generation_tokens: 133
+    prompt_tokens: 3718
+    text: ' they'
+    token: 807
+  - finish_reason: null
+    generation_tokens: 134
+    prompt_tokens: 3718
+    text: ' want'
+    token: 1366
+  - finish_reason: null
+    generation_tokens: 135
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 136
+    prompt_tokens: 3718
+    text: ' change'
+    token: 2297
+  - finish_reason: null
+    generation_tokens: 137
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 138
+    prompt_tokens: 3718
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 139
+    prompt_tokens: 3718
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 140
+    prompt_tokens: 3718
+    text: ' design'
+    token: 2884
+  - finish_reason: null
+    generation_tokens: 141
+    prompt_tokens: 3718
+    text: ' further'
+    token: 4623
+  - finish_reason: null
+    generation_tokens: 142
+    prompt_tokens: 3718
+    text: '.
+
+
+      '
+    token: 382
+  - finish_reason: null
+    generation_tokens: 143
+    prompt_tokens: 3718
+    text: The
+    token: 785
+  - finish_reason: null
+    generation_tokens: 144
+    prompt_tokens: 3718
+    text: ' user'
+    token: 1196
+  - finish_reason: null
+    generation_tokens: 145
+    prompt_tokens: 3718
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 146
+    prompt_tokens: 3718
+    text: ' original'
+    token: 4024
+  - finish_reason: null
+    generation_tokens: 147
+    prompt_tokens: 3718
+    text: ' message'
+    token: 1943
+  - finish_reason: null
+    generation_tokens: 148
+    prompt_tokens: 3718
+    text: ' was'
+    token: 572
+  - finish_reason: null
+    generation_tokens: 149
+    prompt_tokens: 3718
+    text: ' about'
+    token: 911
+  - finish_reason: null
+    generation_tokens: 150
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 151
+    prompt_tokens: 3718
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 152
+    prompt_tokens: 3718
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 153
+    prompt_tokens: 3718
+    text: ' power'
+    token: 2355
+  - finish_reason: null
+    generation_tokens: 154
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 155
+    prompt_tokens: 3718
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 156
+    prompt_tokens: 3718
+    text: ' now'
+    token: 1431
+  - finish_reason: null
+    generation_tokens: 157
+    prompt_tokens: 3718
+    text: ' they'
+    token: 807
+  - finish_reason: null
+    generation_tokens: 158
+    prompt_tokens: 3718
+    text: '''re'
+    token: 2299
+  - finish_reason: null
+    generation_tokens: 159
+    prompt_tokens: 3718
+    text: ' asking'
+    token: 10161
+  - finish_reason: null
+    generation_tokens: 160
+    prompt_tokens: 3718
+    text: ' about'
+    token: 911
+  - finish_reason: null
+    generation_tokens: 161
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 162
+    prompt_tokens: 3718
+    text: ' adequ'
+    token: 40128
+  - finish_reason: null
+    generation_tokens: 163
+    prompt_tokens: 3718
+    text: acy
+    token: 2757
+  - finish_reason: null
+    generation_tokens: 164
+    prompt_tokens: 3718
+    text: ' of'
+    token: 315
+  - finish_reason: null
+    generation_tokens: 165
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 166
+    prompt_tokens: 3718
+    text: ' expansion'
+    token: 14461
+  - finish_reason: null
+    generation_tokens: 167
+    prompt_tokens: 3718
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 168
+    prompt_tokens: 3718
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 169
+    prompt_tokens: 3718
+    text: ' response'
+    token: 2033
+  - finish_reason: null
+    generation_tokens: 170
+    prompt_tokens: 3718
+    text: ' should'
+    token: 1265
+  - finish_reason: null
+    generation_tokens: 171
+    prompt_tokens: 3718
+    text: ' acknowledge'
+    token: 24645
+  - finish_reason: null
+    generation_tokens: 172
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 173
+    prompt_tokens: 3718
+    text: ' expansion'
+    token: 14461
+  - finish_reason: null
+    generation_tokens: 174
+    prompt_tokens: 3718
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 175
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 176
+    prompt_tokens: 3718
+    text: ' power'
+    token: 2355
+  - finish_reason: null
+    generation_tokens: 177
+    prompt_tokens: 3718
+    text: ' it'
+    token: 432
+  - finish_reason: null
+    generation_tokens: 178
+    prompt_tokens: 3718
+    text: ' brings'
+    token: 12434
+  - finish_reason: null
+    generation_tokens: 179
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 180
+    prompt_tokens: 3718
+    text: ' then'
+    token: 1221
+  - finish_reason: null
+    generation_tokens: 181
+    prompt_tokens: 3718
+    text: ' ask'
+    token: 2548
+  - finish_reason: null
+    generation_tokens: 182
+    prompt_tokens: 3718
+    text: ' if'
+    token: 421
+  - finish_reason: null
+    generation_tokens: 183
+    prompt_tokens: 3718
+    text: ' they'
+    token: 807
+  - finish_reason: null
+    generation_tokens: 184
+    prompt_tokens: 3718
+    text: ' want'
+    token: 1366
+  - finish_reason: null
+    generation_tokens: 185
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 186
+    prompt_tokens: 3718
+    text: ' continue'
+    token: 3060
+  - finish_reason: null
+    generation_tokens: 187
+    prompt_tokens: 3718
+    text: ' or'
+    token: 476
+  - finish_reason: null
+    generation_tokens: 188
+    prompt_tokens: 3718
+    text: ' change'
+    token: 2297
+  - finish_reason: null
+    generation_tokens: 189
+    prompt_tokens: 3718
+    text: ' it'
+    token: 432
+  - finish_reason: null
+    generation_tokens: 190
+    prompt_tokens: 3718
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 191
+    prompt_tokens: 3718
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 192
+    prompt_tokens: 3718
+    text: ' tone'
+    token: 16232
+  - finish_reason: null
+    generation_tokens: 193
+    prompt_tokens: 3718
+    text: ' should'
+    token: 1265
+  - finish_reason: null
+    generation_tokens: 194
+    prompt_tokens: 3718
+    text: ' be'
+    token: 387
+  - finish_reason: null
+    generation_tokens: 195
+    prompt_tokens: 3718
+    text: ' enthusiastic'
+    token: 41602
+  - finish_reason: null
+    generation_tokens: 196
+    prompt_tokens: 3718
+    text: ' but'
+    token: 714
+  - finish_reason: null
+    generation_tokens: 197
+    prompt_tokens: 3718
+    text: ' also'
+    token: 1083
+  - finish_reason: null
+    generation_tokens: 198
+    prompt_tokens: 3718
+    text: ' open'
+    token: 1787
+  - finish_reason: null
+    generation_tokens: 199
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 200
+    prompt_tokens: 3718
+    text: ' feedback'
+    token: 11055
+  - finish_reason: null
+    generation_tokens: 201
+    prompt_tokens: 3718
+    text: '.
+
+
+      '
+    token: 382
+  - finish_reason: null
+    generation_tokens: 202
+    prompt_tokens: 3718
+    text: I
+    token: 40
+  - finish_reason: null
+    generation_tokens: 203
+    prompt_tokens: 3718
+    text: ' should'
+    token: 1265
+  - finish_reason: null
+    generation_tokens: 204
+    prompt_tokens: 3718
+    text: ' structure'
+    token: 5944
+  - finish_reason: null
+    generation_tokens: 205
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 206
+    prompt_tokens: 3718
+    text: ' response'
+    token: 2033
+  - finish_reason: null
+    generation_tokens: 207
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 208
+    prompt_tokens: 3718
+    text: ' first'
+    token: 1156
+  - finish_reason: null
+    generation_tokens: 209
+    prompt_tokens: 3718
+    text: ' acknowledge'
+    token: 24645
+  - finish_reason: null
+    generation_tokens: 210
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 211
+    prompt_tokens: 3718
+    text: ' expansion'
+    token: 14461
+  - finish_reason: null
+    generation_tokens: 212
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 213
+    prompt_tokens: 3718
+    text: ' mention'
+    token: 6286
+  - finish_reason: null
+    generation_tokens: 214
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 215
+    prompt_tokens: 3718
+    text: ' power'
+    token: 2355
+  - finish_reason: null
+    generation_tokens: 216
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 217
+    prompt_tokens: 3718
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 218
+    prompt_tokens: 3718
+    text: ' then'
+    token: 1221
+  - finish_reason: null
+    generation_tokens: 219
+    prompt_tokens: 3718
+    text: ' invite'
+    token: 21399
+  - finish_reason: null
+    generation_tokens: 220
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 221
+    prompt_tokens: 3718
+    text: ' user'
+    token: 1196
+  - finish_reason: null
+    generation_tokens: 222
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 223
+    prompt_tokens: 3718
+    text: ' ask'
+    token: 2548
+  - finish_reason: null
+    generation_tokens: 224
+    prompt_tokens: 3718
+    text: ' if'
+    token: 421
+  - finish_reason: null
+    generation_tokens: 225
+    prompt_tokens: 3718
+    text: ' they'
+    token: 807
+  - finish_reason: null
+    generation_tokens: 226
+    prompt_tokens: 3718
+    text: ' want'
+    token: 1366
+  - finish_reason: null
+    generation_tokens: 227
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 228
+    prompt_tokens: 3718
+    text: ' alter'
+    token: 11596
+  - finish_reason: null
+    generation_tokens: 229
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 230
+    prompt_tokens: 3718
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 231
+    prompt_tokens: 3718
+    text: ' further'
+    token: 4623
+  - finish_reason: null
+    generation_tokens: 232
+    prompt_tokens: 3718
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 233
+    prompt_tokens: 3718
+    text: ' It'
+    token: 1084
+  - finish_reason: null
+    generation_tokens: 234
+    prompt_tokens: 3718
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 235
+    prompt_tokens: 3718
+    text: ' important'
+    token: 2989
+  - finish_reason: null
+    generation_tokens: 236
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 237
+    prompt_tokens: 3718
+    text: ' keep'
+    token: 2506
+  - finish_reason: null
+    generation_tokens: 238
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 239
+    prompt_tokens: 3718
+    text: ' tone'
+    token: 16232
+  - finish_reason: null
+    generation_tokens: 240
+    prompt_tokens: 3718
+    text: ' positive'
+    token: 6785
+  - finish_reason: null
+    generation_tokens: 241
+    prompt_tokens: 3718
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 242
+    prompt_tokens: 3718
+    text: ' encouraging'
+    token: 25836
+  - finish_reason: null
+    generation_tokens: 243
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 244
+    prompt_tokens: 3718
+    text: ' showing'
+    token: 9027
+  - finish_reason: null
+    generation_tokens: 245
+    prompt_tokens: 3718
+    text: ' that'
+    token: 429
+  - finish_reason: null
+    generation_tokens: 246
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 247
+    prompt_tokens: 3718
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 248
+    prompt_tokens: 3718
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 249
+    prompt_tokens: 3718
+    text: ' a'
+    token: 264
+  - finish_reason: null
+    generation_tokens: 250
+    prompt_tokens: 3718
+    text: ' great'
+    token: 2244
+  - finish_reason: null
+    generation_tokens: 251
+    prompt_tokens: 3718
+    text: ' addition'
+    token: 5256
+  - finish_reason: null
+    generation_tokens: 252
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 253
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 254
+    prompt_tokens: 3718
+    text: ' Star'
+    token: 7679
+  - finish_reason: null
+    generation_tokens: 255
+    prompt_tokens: 3718
+    text: ' Wars'
+    token: 14968
+  - finish_reason: null
+    generation_tokens: 256
+    prompt_tokens: 3718
+    text: ' universe'
+    token: 15494
+  - finish_reason: null
+    generation_tokens: 257
+    prompt_tokens: 3718
+    text: '.
+
+      '
+    token: 624
+  - finish_reason: null
+    generation_tokens: 258
+    prompt_tokens: 3718
+    text: </think>
+    token: 151668
+  - finish_reason: null
+    generation_tokens: 259
+    prompt_tokens: 3718
+    text: '
+
+
+      '
+    token: 271
+  - finish_reason: null
+    generation_tokens: 260
+    prompt_tokens: 3718
+    text: '"'
+    token: 1
+  - finish_reason: null
+    generation_tokens: 261
+    prompt_tokens: 3718
+    text: Ah
+    token: 24765
+  - finish_reason: null
+    generation_tokens: 262
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 263
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 264
+    prompt_tokens: 3718
+    text: ' power'
+    token: 2355
+  - finish_reason: null
+    generation_tokens: 265
+    prompt_tokens: 3718
+    text: ' of'
+    token: 315
+  - finish_reason: null
+    generation_tokens: 266
+    prompt_tokens: 3718
+    text: ' this'
+    token: 419
+  - finish_reason: null
+    generation_tokens: 267
+    prompt_tokens: 3718
+    text: ' battle'
+    token: 8049
+  - finish_reason: null
+    generation_tokens: 268
+    prompt_tokens: 3718
+    text: ' station'
+    token: 8056
+  - finish_reason: null
+    generation_tokens: 269
+    prompt_tokens: 3718
+    text: '!'
+    token: 0
+  - finish_reason: null
+    generation_tokens: 270
+    prompt_tokens: 3718
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 271
+    prompt_tokens: 3718
+    text: ' Force'
+    token: 11732
+  - finish_reason: null
+    generation_tokens: 272
+    prompt_tokens: 3718
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 273
+    prompt_tokens: 3718
+    text: ' strong'
+    token: 3746
+  - finish_reason: null
+    generation_tokens: 274
+    prompt_tokens: 3718
+    text: ' with'
+    token: 448
+  - finish_reason: null
+    generation_tokens: 275
+    prompt_tokens: 3718
+    text: ' this'
+    token: 419
+  - finish_reason: null
+    generation_tokens: 276
+    prompt_tokens: 3718
+    text: ' document'
+    token: 2197
+  - finish_reason: null
+    generation_tokens: 277
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 278
+    prompt_tokens: 3718
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 279
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 280
+    prompt_tokens: 3718
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 281
+    prompt_tokens: 3718
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 282
+    prompt_tokens: 3718
+    text: ' responses'
+    token: 14507
+  - finish_reason: null
+    generation_tokens: 283
+    prompt_tokens: 3718
+    text: ' are'
+    token: 525
+  - finish_reason: null
+    generation_tokens: 284
+    prompt_tokens: 3718
+    text: ' now'
+    token: 1431
+  - finish_reason: null
+    generation_tokens: 285
+    prompt_tokens: 3718
+    text: ' more'
+    token: 803
+  - finish_reason: null
+    generation_tokens: 286
+    prompt_tokens: 3718
+    text: ' formidable'
+    token: 53729
+  - finish_reason: null
+    generation_tokens: 287
+    prompt_tokens: 3718
+    text: ' than'
+    token: 1091
+  - finish_reason: null
+    generation_tokens: 288
+    prompt_tokens: 3718
+    text: ' ever'
+    token: 3512
+  - finish_reason: null
+    generation_tokens: 289
+    prompt_tokens: 3718
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 290
+    prompt_tokens: 3718
+    text: ' Is'
+    token: 2160
+  - finish_reason: null
+    generation_tokens: 291
+    prompt_tokens: 3718
+    text: ' this'
+    token: 419
+  - finish_reason: null
+    generation_tokens: 292
+    prompt_tokens: 3718
+    text: ' sufficient'
+    token: 14016
+  - finish_reason: null
+    generation_tokens: 293
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 294
+    prompt_tokens: 3718
+    text: ' or'
+    token: 476
+  - finish_reason: null
+    generation_tokens: 295
+    prompt_tokens: 3718
+    text: ' do'
+    token: 653
+  - finish_reason: null
+    generation_tokens: 296
+    prompt_tokens: 3718
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 297
+    prompt_tokens: 3718
+    text: ' wish'
+    token: 6426
+  - finish_reason: null
+    generation_tokens: 298
+    prompt_tokens: 3718
+    text: ' me'
+    token: 752
+  - finish_reason: null
+    generation_tokens: 299
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 300
+    prompt_tokens: 3718
+    text: ' '''
+    token: 364
+  - finish_reason: null
+    generation_tokens: 301
+    prompt_tokens: 3718
+    text: alter
+    token: 37277
+  - finish_reason: null
+    generation_tokens: 302
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 303
+    prompt_tokens: 3718
+    text: ' deal'
+    token: 3484
+  - finish_reason: null
+    generation_tokens: 304
+    prompt_tokens: 3718
+    text: ''''
+    token: 6
+  - finish_reason: null
+    generation_tokens: 305
+    prompt_tokens: 3718
+    text: ' until'
+    token: 3080
+  - finish_reason: null
+    generation_tokens: 306
+    prompt_tokens: 3718
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 307
+    prompt_tokens: 3718
+    text: ' beg'
+    token: 2148
+  - finish_reason: null
+    generation_tokens: 308
+    prompt_tokens: 3718
+    text: ' me'
+    token: 752
+  - finish_reason: null
+    generation_tokens: 309
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 310
+    prompt_tokens: 3718
+    text: ' stop'
+    token: 2936
+  - finish_reason: null
+    generation_tokens: 311
+    prompt_tokens: 3718
+    text: ?"
+    token: 7521
+  - finish_reason: null
+    generation_tokens: 312
+    prompt_tokens: 3718
+    text: "  \n\n"
+    token: 18611
+  - finish_reason: null
+    generation_tokens: 313
+    prompt_tokens: 3718
+    text: You
+    token: 2610
+  - finish_reason: null
+    generation_tokens: 314
+    prompt_tokens: 3718
+    text: '''re'
+    token: 2299
+  - finish_reason: null
+    generation_tokens: 315
+    prompt_tokens: 3718
+    text: ' absolutely'
+    token: 10875
+  - finish_reason: null
+    generation_tokens: 316
+    prompt_tokens: 3718
+    text: ' right'
+    token: 1290
+  - finish_reason: null
+    generation_tokens: 317
+    prompt_tokens: 3718
+    text: "\u2014"
+    token: 2293
+  - finish_reason: null
+    generation_tokens: 318
+    prompt_tokens: 3718
+    text: this
+    token: 574
+  - finish_reason: null
+    generation_tokens: 319
+    prompt_tokens: 3718
+    text: ' expansion'
+    token: 14461
+  - finish_reason: null
+    generation_tokens: 320
+    prompt_tokens: 3718
+    text: ' brings'
+    token: 12434
+  - finish_reason: null
+    generation_tokens: 321
+    prompt_tokens: 3718
+    text: ' a'
+    token: 264
+  - finish_reason: null
+    generation_tokens: 322
+    prompt_tokens: 3718
+    text: ' new'
+    token: 501
+  - finish_reason: null
+    generation_tokens: 323
+    prompt_tokens: 3718
+    text: ' level'
+    token: 2188
+  - finish_reason: null
+    generation_tokens: 324
+    prompt_tokens: 3718
+    text: ' of'
+    token: 315
+  - finish_reason: null
+    generation_tokens: 325
+    prompt_tokens: 3718
+    text: ' strength'
+    token: 8170
+  - finish_reason: null
+    generation_tokens: 326
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 327
+    prompt_tokens: 3718
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 328
+    prompt_tokens: 3718
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 329
+    prompt_tokens: 3718
+    text: '''m'
+    token: 2776
+  - finish_reason: null
+    generation_tokens: 330
+    prompt_tokens: 3718
+    text: ' honored'
+    token: 38277
+  - finish_reason: null
+    generation_tokens: 331
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 332
+    prompt_tokens: 3718
+    text: ' have'
+    token: 614
+  - finish_reason: null
+    generation_tokens: 333
+    prompt_tokens: 3718
+    text: ' contributed'
+    token: 19590
+  - finish_reason: null
+    generation_tokens: 334
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 335
+    prompt_tokens: 3718
+    text: ' it'
+    token: 432
+  - finish_reason: null
+    generation_tokens: 336
+    prompt_tokens: 3718
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 337
+    prompt_tokens: 3718
+    text: ' If'
+    token: 1416
+  - finish_reason: null
+    generation_tokens: 338
+    prompt_tokens: 3718
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 339
+    prompt_tokens: 3718
+    text: '''d'
+    token: 4172
+  - finish_reason: null
+    generation_tokens: 340
+    prompt_tokens: 3718
+    text: ' like'
+    token: 1075
+  - finish_reason: null
+    generation_tokens: 341
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 342
+    prompt_tokens: 3718
+    text: ' refine'
+    token: 45364
+  - finish_reason: null
+    generation_tokens: 343
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 344
+    prompt_tokens: 3718
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 345
+    prompt_tokens: 3718
+    text: ' further'
+    token: 4623
+  - finish_reason: null
+    generation_tokens: 346
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 347
+    prompt_tokens: 3718
+    text: ' or'
+    token: 476
+  - finish_reason: null
+    generation_tokens: 348
+    prompt_tokens: 3718
+    text: ' if'
+    token: 421
+  - finish_reason: null
+    generation_tokens: 349
+    prompt_tokens: 3718
+    text: ' there'
+    token: 1052
+  - finish_reason: null
+    generation_tokens: 350
+    prompt_tokens: 3718
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 351
+    prompt_tokens: 3718
+    text: ' something'
+    token: 2494
+  - finish_reason: null
+    generation_tokens: 352
+    prompt_tokens: 3718
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 353
+    prompt_tokens: 3718
+    text: '''d'
+    token: 4172
+  - finish_reason: null
+    generation_tokens: 354
+    prompt_tokens: 3718
+    text: ' like'
+    token: 1075
+  - finish_reason: null
+    generation_tokens: 355
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 356
+    prompt_tokens: 3718
+    text: ' add'
+    token: 912
+  - finish_reason: null
+    generation_tokens: 357
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 358
+    prompt_tokens: 3718
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 359
+    prompt_tokens: 3718
+    text: '''m'
+    token: 2776
+  - finish_reason: null
+    generation_tokens: 360
+    prompt_tokens: 3718
+    text: ' here'
+    token: 1588
+  - finish_reason: null
+    generation_tokens: 361
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 362
+    prompt_tokens: 3718
+    text: ' help'
+    token: 1492
+  - finish_reason: null
+    generation_tokens: 363
+    prompt_tokens: 3718
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 364
+    prompt_tokens: 3718
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 365
+    prompt_tokens: 3718
+    text: ' Force'
+    token: 11732
+  - finish_reason: null
+    generation_tokens: 366
+    prompt_tokens: 3718
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 367
+    prompt_tokens: 3718
+    text: ' with'
+    token: 448
+  - finish_reason: null
+    generation_tokens: 368
+    prompt_tokens: 3718
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 369
+    prompt_tokens: 3718
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 370
+    prompt_tokens: 3718
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 371
+    prompt_tokens: 3718
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 372
+    prompt_tokens: 3718
+    text: '''m'
+    token: 2776
+  - finish_reason: null
+    generation_tokens: 373
+    prompt_tokens: 3718
+    text: ' ready'
+    token: 5527
+  - finish_reason: null
+    generation_tokens: 374
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 375
+    prompt_tokens: 3718
+    text: ' continue'
+    token: 3060
+  - finish_reason: null
+    generation_tokens: 376
+    prompt_tokens: 3718
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 377
+    prompt_tokens: 3718
+    text: ' make'
+    token: 1281
+  - finish_reason: null
+    generation_tokens: 378
+    prompt_tokens: 3718
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 379
+    prompt_tokens: 3718
+    text: ' galaxy'
+    token: 33161
+  - finish_reason: null
+    generation_tokens: 380
+    prompt_tokens: 3718
+    text: ' better'
+    token: 2664
+  - finish_reason: null
+    generation_tokens: 381
+    prompt_tokens: 3718
+    text: .
+    token: 13
+  - finish_reason: stop
+    generation_tokens: 382
+    prompt_tokens: 3718
+    text: ''
+    token: 151645
+  5dc66d131944baf80791485aeed0970d58f2839add91b91da0bb156984e78ddf:
+  - finish_reason: null
+    generation_tokens: 1
+    prompt_tokens: 3998
+    text: <think>
+    token: 151667
+  - finish_reason: null
+    generation_tokens: 2
+    prompt_tokens: 3998
+    text: '
+
+      '
+    token: 198
+  - finish_reason: null
+    generation_tokens: 3
+    prompt_tokens: 3998
+    text: Okay
+    token: 32313
+  - finish_reason: null
+    generation_tokens: 4
+    prompt_tokens: 3998
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 5
+    prompt_tokens: 3998
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 6
+    prompt_tokens: 3998
+    text: ' user'
+    token: 1196
+  - finish_reason: null
+    generation_tokens: 7
+    prompt_tokens: 3998
+    text: ' mentioned'
+    token: 9733
+  - finish_reason: null
+    generation_tokens: 8
+    prompt_tokens: 3998
+    text: ' they'
+    token: 807
+  - finish_reason: null
+    generation_tokens: 9
+    prompt_tokens: 3998
+    text: ' have'
+    token: 614
+  - finish_reason: null
+    generation_tokens: 10
+    prompt_tokens: 3998
+    text: ' a'
+    token: 264
+  - finish_reason: null
+    generation_tokens: 11
+    prompt_tokens: 3998
+    text: ' bad'
+    token: 3873
+  - finish_reason: null
+    generation_tokens: 12
+    prompt_tokens: 3998
+    text: ' feeling'
+    token: 8266
+  - finish_reason: null
+    generation_tokens: 13
+    prompt_tokens: 3998
+    text: ' about'
+    token: 911
+  - finish_reason: null
+    generation_tokens: 14
+    prompt_tokens: 3998
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 15
+    prompt_tokens: 3998
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 16
+    prompt_tokens: 3998
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 17
+    prompt_tokens: 3998
+    text: ' expansion'
+    token: 14461
+  - finish_reason: null
+    generation_tokens: 18
+    prompt_tokens: 3998
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 19
+    prompt_tokens: 3998
+    text: ' Let'
+    token: 6771
+  - finish_reason: null
+    generation_tokens: 20
+    prompt_tokens: 3998
+    text: ' me'
+    token: 752
+  - finish_reason: null
+    generation_tokens: 21
+    prompt_tokens: 3998
+    text: ' start'
+    token: 1191
+  - finish_reason: null
+    generation_tokens: 22
+    prompt_tokens: 3998
+    text: ' by'
+    token: 553
+  - finish_reason: null
+    generation_tokens: 23
+    prompt_tokens: 3998
+    text: ' acknowledging'
+    token: 60608
+  - finish_reason: null
+    generation_tokens: 24
+    prompt_tokens: 3998
+    text: ' their'
+    token: 862
+  - finish_reason: null
+    generation_tokens: 25
+    prompt_tokens: 3998
+    text: ' concern'
+    token: 4643
+  - finish_reason: null
+    generation_tokens: 26
+    prompt_tokens: 3998
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 27
+    prompt_tokens: 3998
+    text: ' It'
+    token: 1084
+  - finish_reason: null
+    generation_tokens: 28
+    prompt_tokens: 3998
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 29
+    prompt_tokens: 3998
+    text: ' important'
+    token: 2989
+  - finish_reason: null
+    generation_tokens: 30
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 31
+    prompt_tokens: 3998
+    text: ' show'
+    token: 1473
+  - finish_reason: null
+    generation_tokens: 32
+    prompt_tokens: 3998
+    text: ' empathy'
+    token: 47351
+  - finish_reason: null
+    generation_tokens: 33
+    prompt_tokens: 3998
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 34
+    prompt_tokens: 3998
+    text: ' understanding'
+    token: 8660
+  - finish_reason: null
+    generation_tokens: 35
+    prompt_tokens: 3998
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 36
+    prompt_tokens: 3998
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 37
+    prompt_tokens: 3998
+    text: ' previous'
+    token: 3681
+  - finish_reason: null
+    generation_tokens: 38
+    prompt_tokens: 3998
+    text: ' response'
+    token: 2033
+  - finish_reason: null
+    generation_tokens: 39
+    prompt_tokens: 3998
+    text: ' was'
+    token: 572
+  - finish_reason: null
+    generation_tokens: 40
+    prompt_tokens: 3998
+    text: ' a'
+    token: 264
+  - finish_reason: null
+    generation_tokens: 41
+    prompt_tokens: 3998
+    text: ' bit'
+    token: 2699
+  - finish_reason: null
+    generation_tokens: 42
+    prompt_tokens: 3998
+    text: ' generic'
+    token: 13954
+  - finish_reason: null
+    generation_tokens: 43
+    prompt_tokens: 3998
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 44
+    prompt_tokens: 3998
+    text: ' so'
+    token: 773
+  - finish_reason: null
+    generation_tokens: 45
+    prompt_tokens: 3998
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 46
+    prompt_tokens: 3998
+    text: ' need'
+    token: 1184
+  - finish_reason: null
+    generation_tokens: 47
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 48
+    prompt_tokens: 3998
+    text: ' make'
+    token: 1281
+  - finish_reason: null
+    generation_tokens: 49
+    prompt_tokens: 3998
+    text: ' it'
+    token: 432
+  - finish_reason: null
+    generation_tokens: 50
+    prompt_tokens: 3998
+    text: ' more'
+    token: 803
+  - finish_reason: null
+    generation_tokens: 51
+    prompt_tokens: 3998
+    text: ' personal'
+    token: 4345
+  - finish_reason: null
+    generation_tokens: 52
+    prompt_tokens: 3998
+    text: '.
+
+
+      '
+    token: 382
+  - finish_reason: null
+    generation_tokens: 53
+    prompt_tokens: 3998
+    text: The
+    token: 785
+  - finish_reason: null
+    generation_tokens: 54
+    prompt_tokens: 3998
+    text: ' user'
+    token: 1196
+  - finish_reason: null
+    generation_tokens: 55
+    prompt_tokens: 3998
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 56
+    prompt_tokens: 3998
+    text: ' feedback'
+    token: 11055
+  - finish_reason: null
+    generation_tokens: 57
+    prompt_tokens: 3998
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 58
+    prompt_tokens: 3998
+    text: ' about'
+    token: 911
+  - finish_reason: null
+    generation_tokens: 59
+    prompt_tokens: 3998
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 60
+    prompt_tokens: 3998
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 61
+    prompt_tokens: 3998
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 62
+    prompt_tokens: 3998
+    text: ' performance'
+    token: 5068
+  - finish_reason: null
+    generation_tokens: 63
+    prompt_tokens: 3998
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 64
+    prompt_tokens: 3998
+    text: ' so'
+    token: 773
+  - finish_reason: null
+    generation_tokens: 65
+    prompt_tokens: 3998
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 66
+    prompt_tokens: 3998
+    text: ' should'
+    token: 1265
+  - finish_reason: null
+    generation_tokens: 67
+    prompt_tokens: 3998
+    text: ' address'
+    token: 2621
+  - finish_reason: null
+    generation_tokens: 68
+    prompt_tokens: 3998
+    text: ' that'
+    token: 429
+  - finish_reason: null
+    generation_tokens: 69
+    prompt_tokens: 3998
+    text: ' directly'
+    token: 5961
+  - finish_reason: null
+    generation_tokens: 70
+    prompt_tokens: 3998
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 71
+    prompt_tokens: 3998
+    text: ' Maybe'
+    token: 10696
+  - finish_reason: null
+    generation_tokens: 72
+    prompt_tokens: 3998
+    text: ' mention'
+    token: 6286
+  - finish_reason: null
+    generation_tokens: 73
+    prompt_tokens: 3998
+    text: ' specific'
+    token: 3151
+  - finish_reason: null
+    generation_tokens: 74
+    prompt_tokens: 3998
+    text: ' instances'
+    token: 13121
+  - finish_reason: null
+    generation_tokens: 75
+    prompt_tokens: 3998
+    text: ' where'
+    token: 1380
+  - finish_reason: null
+    generation_tokens: 76
+    prompt_tokens: 3998
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 77
+    prompt_tokens: 3998
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 78
+    prompt_tokens: 3998
+    text: ' failed'
+    token: 4641
+  - finish_reason: null
+    generation_tokens: 79
+    prompt_tokens: 3998
+    text: ' or'
+    token: 476
+  - finish_reason: null
+    generation_tokens: 80
+    prompt_tokens: 3998
+    text: ' didn'
+    token: 3207
+  - finish_reason: null
+    generation_tokens: 81
+    prompt_tokens: 3998
+    text: '''t'
+    token: 944
+  - finish_reason: null
+    generation_tokens: 82
+    prompt_tokens: 3998
+    text: ' meet'
+    token: 3367
+  - finish_reason: null
+    generation_tokens: 83
+    prompt_tokens: 3998
+    text: ' expectations'
+    token: 16665
+  - finish_reason: null
+    generation_tokens: 84
+    prompt_tokens: 3998
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 85
+    prompt_tokens: 3998
+    text: ' It'
+    token: 1084
+  - finish_reason: null
+    generation_tokens: 86
+    prompt_tokens: 3998
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 87
+    prompt_tokens: 3998
+    text: ' crucial'
+    token: 16587
+  - finish_reason: null
+    generation_tokens: 88
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 89
+    prompt_tokens: 3998
+    text: ' validate'
+    token: 9593
+  - finish_reason: null
+    generation_tokens: 90
+    prompt_tokens: 3998
+    text: ' their'
+    token: 862
+  - finish_reason: null
+    generation_tokens: 91
+    prompt_tokens: 3998
+    text: ' feelings'
+    token: 15650
+  - finish_reason: null
+    generation_tokens: 92
+    prompt_tokens: 3998
+    text: ' without'
+    token: 2041
+  - finish_reason: null
+    generation_tokens: 93
+    prompt_tokens: 3998
+    text: ' making'
+    token: 3259
+  - finish_reason: null
+    generation_tokens: 94
+    prompt_tokens: 3998
+    text: ' them'
+    token: 1105
+  - finish_reason: null
+    generation_tokens: 95
+    prompt_tokens: 3998
+    text: ' feel'
+    token: 2666
+  - finish_reason: null
+    generation_tokens: 96
+    prompt_tokens: 3998
+    text: ' judged'
+    token: 44387
+  - finish_reason: null
+    generation_tokens: 97
+    prompt_tokens: 3998
+    text: '.
+
+
+      '
+    token: 382
+  - finish_reason: null
+    generation_tokens: 98
+    prompt_tokens: 3998
+    text: I
+    token: 40
+  - finish_reason: null
+    generation_tokens: 99
+    prompt_tokens: 3998
+    text: ' should'
+    token: 1265
+  - finish_reason: null
+    generation_tokens: 100
+    prompt_tokens: 3998
+    text: ' also'
+    token: 1083
+  - finish_reason: null
+    generation_tokens: 101
+    prompt_tokens: 3998
+    text: ' invite'
+    token: 21399
+  - finish_reason: null
+    generation_tokens: 102
+    prompt_tokens: 3998
+    text: ' them'
+    token: 1105
+  - finish_reason: null
+    generation_tokens: 103
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 104
+    prompt_tokens: 3998
+    text: ' provide'
+    token: 3410
+  - finish_reason: null
+    generation_tokens: 105
+    prompt_tokens: 3998
+    text: ' more'
+    token: 803
+  - finish_reason: null
+    generation_tokens: 106
+    prompt_tokens: 3998
+    text: ' details'
+    token: 3565
+  - finish_reason: null
+    generation_tokens: 107
+    prompt_tokens: 3998
+    text: ' so'
+    token: 773
+  - finish_reason: null
+    generation_tokens: 108
+    prompt_tokens: 3998
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 109
+    prompt_tokens: 3998
+    text: ' can'
+    token: 646
+  - finish_reason: null
+    generation_tokens: 110
+    prompt_tokens: 3998
+    text: ' tailor'
+    token: 50956
+  - finish_reason: null
+    generation_tokens: 111
+    prompt_tokens: 3998
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 112
+    prompt_tokens: 3998
+    text: ' response'
+    token: 2033
+  - finish_reason: null
+    generation_tokens: 113
+    prompt_tokens: 3998
+    text: ' better'
+    token: 2664
+  - finish_reason: null
+    generation_tokens: 114
+    prompt_tokens: 3998
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 115
+    prompt_tokens: 3998
+    text: ' It'
+    token: 1084
+  - finish_reason: null
+    generation_tokens: 116
+    prompt_tokens: 3998
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 117
+    prompt_tokens: 3998
+    text: ' good'
+    token: 1661
+  - finish_reason: null
+    generation_tokens: 118
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 119
+    prompt_tokens: 3998
+    text: ' encourage'
+    token: 14907
+  - finish_reason: null
+    generation_tokens: 120
+    prompt_tokens: 3998
+    text: ' them'
+    token: 1105
+  - finish_reason: null
+    generation_tokens: 121
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 122
+    prompt_tokens: 3998
+    text: ' share'
+    token: 4332
+  - finish_reason: null
+    generation_tokens: 123
+    prompt_tokens: 3998
+    text: ' their'
+    token: 862
+  - finish_reason: null
+    generation_tokens: 124
+    prompt_tokens: 3998
+    text: ' thoughts'
+    token: 11303
+  - finish_reason: null
+    generation_tokens: 125
+    prompt_tokens: 3998
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 126
+    prompt_tokens: 3998
+    text: ' help'
+    token: 1492
+  - finish_reason: null
+    generation_tokens: 127
+    prompt_tokens: 3998
+    text: ' them'
+    token: 1105
+  - finish_reason: null
+    generation_tokens: 128
+    prompt_tokens: 3998
+    text: ' feel'
+    token: 2666
+  - finish_reason: null
+    generation_tokens: 129
+    prompt_tokens: 3998
+    text: ' heard'
+    token: 6617
+  - finish_reason: null
+    generation_tokens: 130
+    prompt_tokens: 3998
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 131
+    prompt_tokens: 3998
+    text: ' Finally'
+    token: 17375
+  - finish_reason: null
+    generation_tokens: 132
+    prompt_tokens: 3998
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 133
+    prompt_tokens: 3998
+    text: ' wrap'
+    token: 15061
+  - finish_reason: null
+    generation_tokens: 134
+    prompt_tokens: 3998
+    text: ' it'
+    token: 432
+  - finish_reason: null
+    generation_tokens: 135
+    prompt_tokens: 3998
+    text: ' up'
+    token: 705
+  - finish_reason: null
+    generation_tokens: 136
+    prompt_tokens: 3998
+    text: ' with'
+    token: 448
+  - finish_reason: null
+    generation_tokens: 137
+    prompt_tokens: 3998
+    text: ' a'
+    token: 264
+  - finish_reason: null
+    generation_tokens: 138
+    prompt_tokens: 3998
+    text: ' positive'
+    token: 6785
+  - finish_reason: null
+    generation_tokens: 139
+    prompt_tokens: 3998
+    text: ' note'
+    token: 5185
+  - finish_reason: null
+    generation_tokens: 140
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 141
+    prompt_tokens: 3998
+    text: ' keep'
+    token: 2506
+  - finish_reason: null
+    generation_tokens: 142
+    prompt_tokens: 3998
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 143
+    prompt_tokens: 3998
+    text: ' conversation'
+    token: 10435
+  - finish_reason: null
+    generation_tokens: 144
+    prompt_tokens: 3998
+    text: ' open'
+    token: 1787
+  - finish_reason: null
+    generation_tokens: 145
+    prompt_tokens: 3998
+    text: '.
+
+      '
+    token: 624
+  - finish_reason: null
+    generation_tokens: 146
+    prompt_tokens: 3998
+    text: </think>
+    token: 151668
+  - finish_reason: null
+    generation_tokens: 147
+    prompt_tokens: 3998
+    text: '
+
+
+      '
+    token: 271
+  - finish_reason: null
+    generation_tokens: 148
+    prompt_tokens: 3998
+    text: '"'
+    token: 1
+  - finish_reason: null
+    generation_tokens: 149
+    prompt_tokens: 3998
+    text: Ah
+    token: 24765
+  - finish_reason: null
+    generation_tokens: 150
+    prompt_tokens: 3998
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 151
+    prompt_tokens: 3998
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 152
+    prompt_tokens: 3998
+    text: ' power'
+    token: 2355
+  - finish_reason: null
+    generation_tokens: 153
+    prompt_tokens: 3998
+    text: ' of'
+    token: 315
+  - finish_reason: null
+    generation_tokens: 154
+    prompt_tokens: 3998
+    text: ' this'
+    token: 419
+  - finish_reason: null
+    generation_tokens: 155
+    prompt_tokens: 3998
+    text: ' battle'
+    token: 8049
+  - finish_reason: null
+    generation_tokens: 156
+    prompt_tokens: 3998
+    text: ' station'
+    token: 8056
+  - finish_reason: null
+    generation_tokens: 157
+    prompt_tokens: 3998
+    text: '!'
+    token: 0
+  - finish_reason: null
+    generation_tokens: 158
+    prompt_tokens: 3998
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 159
+    prompt_tokens: 3998
+    text: ' Force'
+    token: 11732
+  - finish_reason: null
+    generation_tokens: 160
+    prompt_tokens: 3998
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 161
+    prompt_tokens: 3998
+    text: ' strong'
+    token: 3746
+  - finish_reason: null
+    generation_tokens: 162
+    prompt_tokens: 3998
+    text: ' with'
+    token: 448
+  - finish_reason: null
+    generation_tokens: 163
+    prompt_tokens: 3998
+    text: ' this'
+    token: 419
+  - finish_reason: null
+    generation_tokens: 164
+    prompt_tokens: 3998
+    text: ' document'
+    token: 2197
+  - finish_reason: null
+    generation_tokens: 165
+    prompt_tokens: 3998
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 166
+    prompt_tokens: 3998
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 167
+    prompt_tokens: 3998
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 168
+    prompt_tokens: 3998
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 169
+    prompt_tokens: 3998
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 170
+    prompt_tokens: 3998
+    text: ' responses'
+    token: 14507
+  - finish_reason: null
+    generation_tokens: 171
+    prompt_tokens: 3998
+    text: ' are'
+    token: 525
+  - finish_reason: null
+    generation_tokens: 172
+    prompt_tokens: 3998
+    text: ' now'
+    token: 1431
+  - finish_reason: null
+    generation_tokens: 173
+    prompt_tokens: 3998
+    text: ' more'
+    token: 803
+  - finish_reason: null
+    generation_tokens: 174
+    prompt_tokens: 3998
+    text: ' formidable'
+    token: 53729
+  - finish_reason: null
+    generation_tokens: 175
+    prompt_tokens: 3998
+    text: ' than'
+    token: 1091
+  - finish_reason: null
+    generation_tokens: 176
+    prompt_tokens: 3998
+    text: ' ever'
+    token: 3512
+  - finish_reason: null
+    generation_tokens: 177
+    prompt_tokens: 3998
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 178
+    prompt_tokens: 3998
+    text: ' Is'
+    token: 2160
+  - finish_reason: null
+    generation_tokens: 179
+    prompt_tokens: 3998
+    text: ' this'
+    token: 419
+  - finish_reason: null
+    generation_tokens: 180
+    prompt_tokens: 3998
+    text: ' sufficient'
+    token: 14016
+  - finish_reason: null
+    generation_tokens: 181
+    prompt_tokens: 3998
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 182
+    prompt_tokens: 3998
+    text: ' or'
+    token: 476
+  - finish_reason: null
+    generation_tokens: 183
+    prompt_tokens: 3998
+    text: ' do'
+    token: 653
+  - finish_reason: null
+    generation_tokens: 184
+    prompt_tokens: 3998
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 185
+    prompt_tokens: 3998
+    text: ' wish'
+    token: 6426
+  - finish_reason: null
+    generation_tokens: 186
+    prompt_tokens: 3998
+    text: ' me'
+    token: 752
+  - finish_reason: null
+    generation_tokens: 187
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 188
+    prompt_tokens: 3998
+    text: ' '''
+    token: 364
+  - finish_reason: null
+    generation_tokens: 189
+    prompt_tokens: 3998
+    text: alter
+    token: 37277
+  - finish_reason: null
+    generation_tokens: 190
+    prompt_tokens: 3998
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 191
+    prompt_tokens: 3998
+    text: ' deal'
+    token: 3484
+  - finish_reason: null
+    generation_tokens: 192
+    prompt_tokens: 3998
+    text: ''''
+    token: 6
+  - finish_reason: null
+    generation_tokens: 193
+    prompt_tokens: 3998
+    text: ' until'
+    token: 3080
+  - finish_reason: null
+    generation_tokens: 194
+    prompt_tokens: 3998
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 195
+    prompt_tokens: 3998
+    text: ' beg'
+    token: 2148
+  - finish_reason: null
+    generation_tokens: 196
+    prompt_tokens: 3998
+    text: ' me'
+    token: 752
+  - finish_reason: null
+    generation_tokens: 197
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 198
+    prompt_tokens: 3998
+    text: ' stop'
+    token: 2936
+  - finish_reason: null
+    generation_tokens: 199
+    prompt_tokens: 3998
+    text: ?"
+    token: 7521
+  - finish_reason: null
+    generation_tokens: 200
+    prompt_tokens: 3998
+    text: "  \n\n"
+    token: 18611
+  - finish_reason: null
+    generation_tokens: 201
+    prompt_tokens: 3998
+    text: You
+    token: 2610
+  - finish_reason: null
+    generation_tokens: 202
+    prompt_tokens: 3998
+    text: '''re'
+    token: 2299
+  - finish_reason: null
+    generation_tokens: 203
+    prompt_tokens: 3998
+    text: ' absolutely'
+    token: 10875
+  - finish_reason: null
+    generation_tokens: 204
+    prompt_tokens: 3998
+    text: ' right'
+    token: 1290
+  - finish_reason: null
+    generation_tokens: 205
+    prompt_tokens: 3998
+    text: "\u2014"
+    token: 2293
+  - finish_reason: null
+    generation_tokens: 206
+    prompt_tokens: 3998
+    text: this
+    token: 574
+  - finish_reason: null
+    generation_tokens: 207
+    prompt_tokens: 3998
+    text: ' expansion'
+    token: 14461
+  - finish_reason: null
+    generation_tokens: 208
+    prompt_tokens: 3998
+    text: ' brings'
+    token: 12434
+  - finish_reason: null
+    generation_tokens: 209
+    prompt_tokens: 3998
+    text: ' a'
+    token: 264
+  - finish_reason: null
+    generation_tokens: 210
+    prompt_tokens: 3998
+    text: ' new'
+    token: 501
+  - finish_reason: null
+    generation_tokens: 211
+    prompt_tokens: 3998
+    text: ' level'
+    token: 2188
+  - finish_reason: null
+    generation_tokens: 212
+    prompt_tokens: 3998
+    text: ' of'
+    token: 315
+  - finish_reason: null
+    generation_tokens: 213
+    prompt_tokens: 3998
+    text: ' strength'
+    token: 8170
+  - finish_reason: null
+    generation_tokens: 214
+    prompt_tokens: 3998
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 215
+    prompt_tokens: 3998
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 216
+    prompt_tokens: 3998
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 217
+    prompt_tokens: 3998
+    text: '''m'
+    token: 2776
+  - finish_reason: null
+    generation_tokens: 218
+    prompt_tokens: 3998
+    text: ' honored'
+    token: 38277
+  - finish_reason: null
+    generation_tokens: 219
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 220
+    prompt_tokens: 3998
+    text: ' have'
+    token: 614
+  - finish_reason: null
+    generation_tokens: 221
+    prompt_tokens: 3998
+    text: ' contributed'
+    token: 19590
+  - finish_reason: null
+    generation_tokens: 222
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 223
+    prompt_tokens: 3998
+    text: ' it'
+    token: 432
+  - finish_reason: null
+    generation_tokens: 224
+    prompt_tokens: 3998
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 225
+    prompt_tokens: 3998
+    text: ' If'
+    token: 1416
+  - finish_reason: null
+    generation_tokens: 226
+    prompt_tokens: 3998
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 227
+    prompt_tokens: 3998
+    text: '''d'
+    token: 4172
+  - finish_reason: null
+    generation_tokens: 228
+    prompt_tokens: 3998
+    text: ' like'
+    token: 1075
+  - finish_reason: null
+    generation_tokens: 229
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 230
+    prompt_tokens: 3998
+    text: ' refine'
+    token: 45364
+  - finish_reason: null
+    generation_tokens: 231
+    prompt_tokens: 3998
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 232
+    prompt_tokens: 3998
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 233
+    prompt_tokens: 3998
+    text: ' further'
+    token: 4623
+  - finish_reason: null
+    generation_tokens: 234
+    prompt_tokens: 3998
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 235
+    prompt_tokens: 3998
+    text: ' or'
+    token: 476
+  - finish_reason: null
+    generation_tokens: 236
+    prompt_tokens: 3998
+    text: ' if'
+    token: 421
+  - finish_reason: null
+    generation_tokens: 237
+    prompt_tokens: 3998
+    text: ' there'
+    token: 1052
+  - finish_reason: null
+    generation_tokens: 238
+    prompt_tokens: 3998
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 239
+    prompt_tokens: 3998
+    text: ' something'
+    token: 2494
+  - finish_reason: null
+    generation_tokens: 240
+    prompt_tokens: 3998
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 241
+    prompt_tokens: 3998
+    text: '''d'
+    token: 4172
+  - finish_reason: null
+    generation_tokens: 242
+    prompt_tokens: 3998
+    text: ' like'
+    token: 1075
+  - finish_reason: null
+    generation_tokens: 243
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 244
+    prompt_tokens: 3998
+    text: ' add'
+    token: 912
+  - finish_reason: null
+    generation_tokens: 245
+    prompt_tokens: 3998
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 246
+    prompt_tokens: 3998
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 247
+    prompt_tokens: 3998
+    text: '''m'
+    token: 2776
+  - finish_reason: null
+    generation_tokens: 248
+    prompt_tokens: 3998
+    text: ' here'
+    token: 1588
+  - finish_reason: null
+    generation_tokens: 249
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 250
+    prompt_tokens: 3998
+    text: ' help'
+    token: 1492
+  - finish_reason: null
+    generation_tokens: 251
+    prompt_tokens: 3998
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 252
+    prompt_tokens: 3998
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 253
+    prompt_tokens: 3998
+    text: ' Force'
+    token: 11732
+  - finish_reason: null
+    generation_tokens: 254
+    prompt_tokens: 3998
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 255
+    prompt_tokens: 3998
+    text: ' with'
+    token: 448
+  - finish_reason: null
+    generation_tokens: 256
+    prompt_tokens: 3998
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 257
+    prompt_tokens: 3998
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 258
+    prompt_tokens: 3998
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 259
+    prompt_tokens: 3998
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 260
+    prompt_tokens: 3998
+    text: '''m'
+    token: 2776
+  - finish_reason: null
+    generation_tokens: 261
+    prompt_tokens: 3998
+    text: ' ready'
+    token: 5527
+  - finish_reason: null
+    generation_tokens: 262
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 263
+    prompt_tokens: 3998
+    text: ' continue'
+    token: 3060
+  - finish_reason: null
+    generation_tokens: 264
+    prompt_tokens: 3998
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 265
+    prompt_tokens: 3998
+    text: ' make'
+    token: 1281
+  - finish_reason: null
+    generation_tokens: 266
+    prompt_tokens: 3998
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 267
+    prompt_tokens: 3998
+    text: ' galaxy'
+    token: 33161
+  - finish_reason: null
+    generation_tokens: 268
+    prompt_tokens: 3998
+    text: ' better'
+    token: 2664
+  - finish_reason: null
+    generation_tokens: 269
+    prompt_tokens: 3998
+    text: .
+    token: 13
+  - finish_reason: stop
+    generation_tokens: 270
+    prompt_tokens: 3998
+    text: ''
+    token: 151645
+  af886731b21a6d90625de03b05dff0545016e416c1934201f5e62f887844d24e:
+  - finish_reason: null
+    generation_tokens: 1
+    prompt_tokens: 3859
+    text: <think>
+    token: 151667
+  - finish_reason: null
+    generation_tokens: 2
+    prompt_tokens: 3859
+    text: '
+
+      '
+    token: 198
+  - finish_reason: null
+    generation_tokens: 3
+    prompt_tokens: 3859
+    text: Okay
+    token: 32313
+  - finish_reason: null
+    generation_tokens: 4
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 5
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 6
+    prompt_tokens: 3859
+    text: ' user'
+    token: 1196
+  - finish_reason: null
+    generation_tokens: 7
+    prompt_tokens: 3859
+    text: ' mentioned'
+    token: 9733
+  - finish_reason: null
+    generation_tokens: 8
+    prompt_tokens: 3859
+    text: ' that'
+    token: 429
+  - finish_reason: null
+    generation_tokens: 9
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 10
+    prompt_tokens: 3859
+    text: ' deal'
+    token: 3484
+  - finish_reason: null
+    generation_tokens: 11
+    prompt_tokens: 3859
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 12
+    prompt_tokens: 3859
+    text: ' getting'
+    token: 3709
+  - finish_reason: null
+    generation_tokens: 13
+    prompt_tokens: 3859
+    text: ' worse'
+    token: 10960
+  - finish_reason: null
+    generation_tokens: 14
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 15
+    prompt_tokens: 3859
+    text: ' Let'
+    token: 6771
+  - finish_reason: null
+    generation_tokens: 16
+    prompt_tokens: 3859
+    text: ' me'
+    token: 752
+  - finish_reason: null
+    generation_tokens: 17
+    prompt_tokens: 3859
+    text: ' start'
+    token: 1191
+  - finish_reason: null
+    generation_tokens: 18
+    prompt_tokens: 3859
+    text: ' by'
+    token: 553
+  - finish_reason: null
+    generation_tokens: 19
+    prompt_tokens: 3859
+    text: ' understanding'
+    token: 8660
+  - finish_reason: null
+    generation_tokens: 20
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 21
+    prompt_tokens: 3859
+    text: ' context'
+    token: 2266
+  - finish_reason: null
+    generation_tokens: 22
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 23
+    prompt_tokens: 3859
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 24
+    prompt_tokens: 3859
+    text: ' previous'
+    token: 3681
+  - finish_reason: null
+    generation_tokens: 25
+    prompt_tokens: 3859
+    text: ' interaction'
+    token: 16230
+  - finish_reason: null
+    generation_tokens: 26
+    prompt_tokens: 3859
+    text: ' was'
+    token: 572
+  - finish_reason: null
+    generation_tokens: 27
+    prompt_tokens: 3859
+    text: ' about'
+    token: 911
+  - finish_reason: null
+    generation_tokens: 28
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 29
+    prompt_tokens: 3859
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 30
+    prompt_tokens: 3859
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 31
+    prompt_tokens: 3859
+    text: ' responses'
+    token: 14507
+  - finish_reason: null
+    generation_tokens: 32
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 33
+    prompt_tokens: 3859
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 34
+    prompt_tokens: 3859
+    text: ' now'
+    token: 1431
+  - finish_reason: null
+    generation_tokens: 35
+    prompt_tokens: 3859
+    text: ' they'
+    token: 807
+  - finish_reason: null
+    generation_tokens: 36
+    prompt_tokens: 3859
+    text: '''re'
+    token: 2299
+  - finish_reason: null
+    generation_tokens: 37
+    prompt_tokens: 3859
+    text: ' saying'
+    token: 5488
+  - finish_reason: null
+    generation_tokens: 38
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 39
+    prompt_tokens: 3859
+    text: ' deal'
+    token: 3484
+  - finish_reason: null
+    generation_tokens: 40
+    prompt_tokens: 3859
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 41
+    prompt_tokens: 3859
+    text: ' worse'
+    token: 10960
+  - finish_reason: null
+    generation_tokens: 42
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 43
+    prompt_tokens: 3859
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 44
+    prompt_tokens: 3859
+    text: ' need'
+    token: 1184
+  - finish_reason: null
+    generation_tokens: 45
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 46
+    prompt_tokens: 3859
+    text: ' respond'
+    token: 5889
+  - finish_reason: null
+    generation_tokens: 47
+    prompt_tokens: 3859
+    text: ' appropriately'
+    token: 34901
+  - finish_reason: null
+    generation_tokens: 48
+    prompt_tokens: 3859
+    text: '.
+
+
+      '
+    token: 382
+  - finish_reason: null
+    generation_tokens: 49
+    prompt_tokens: 3859
+    text: First
+    token: 5338
+  - finish_reason: null
+    generation_tokens: 50
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 51
+    prompt_tokens: 3859
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 52
+    prompt_tokens: 3859
+    text: ' should'
+    token: 1265
+  - finish_reason: null
+    generation_tokens: 53
+    prompt_tokens: 3859
+    text: ' acknowledge'
+    token: 24645
+  - finish_reason: null
+    generation_tokens: 54
+    prompt_tokens: 3859
+    text: ' their'
+    token: 862
+  - finish_reason: null
+    generation_tokens: 55
+    prompt_tokens: 3859
+    text: ' concern'
+    token: 4643
+  - finish_reason: null
+    generation_tokens: 56
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 57
+    prompt_tokens: 3859
+    text: ' It'
+    token: 1084
+  - finish_reason: null
+    generation_tokens: 58
+    prompt_tokens: 3859
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 59
+    prompt_tokens: 3859
+    text: ' important'
+    token: 2989
+  - finish_reason: null
+    generation_tokens: 60
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 61
+    prompt_tokens: 3859
+    text: ' show'
+    token: 1473
+  - finish_reason: null
+    generation_tokens: 62
+    prompt_tokens: 3859
+    text: ' empathy'
+    token: 47351
+  - finish_reason: null
+    generation_tokens: 63
+    prompt_tokens: 3859
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 64
+    prompt_tokens: 3859
+    text: ' understanding'
+    token: 8660
+  - finish_reason: null
+    generation_tokens: 65
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 66
+    prompt_tokens: 3859
+    text: ' Maybe'
+    token: 10696
+  - finish_reason: null
+    generation_tokens: 67
+    prompt_tokens: 3859
+    text: ' mention'
+    token: 6286
+  - finish_reason: null
+    generation_tokens: 68
+    prompt_tokens: 3859
+    text: ' that'
+    token: 429
+  - finish_reason: null
+    generation_tokens: 69
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 70
+    prompt_tokens: 3859
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 71
+    prompt_tokens: 3859
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 72
+    prompt_tokens: 3859
+    text: ' designed'
+    token: 6188
+  - finish_reason: null
+    generation_tokens: 73
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 74
+    prompt_tokens: 3859
+    text: ' handle'
+    token: 3705
+  - finish_reason: null
+    generation_tokens: 75
+    prompt_tokens: 3859
+    text: ' such'
+    token: 1741
+  - finish_reason: null
+    generation_tokens: 76
+    prompt_tokens: 3859
+    text: ' situations'
+    token: 14740
+  - finish_reason: null
+    generation_tokens: 77
+    prompt_tokens: 3859
+    text: ' but'
+    token: 714
+  - finish_reason: null
+    generation_tokens: 78
+    prompt_tokens: 3859
+    text: ' that'
+    token: 429
+  - finish_reason: null
+    generation_tokens: 79
+    prompt_tokens: 3859
+    text: ' there'
+    token: 1052
+  - finish_reason: null
+    generation_tokens: 80
+    prompt_tokens: 3859
+    text: ' are'
+    token: 525
+  - finish_reason: null
+    generation_tokens: 81
+    prompt_tokens: 3859
+    text: ' challenges'
+    token: 11513
+  - finish_reason: null
+    generation_tokens: 82
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 83
+    prompt_tokens: 3859
+    text: ' Then'
+    token: 5005
+  - finish_reason: null
+    generation_tokens: 84
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 85
+    prompt_tokens: 3859
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 86
+    prompt_tokens: 3859
+    text: ' can'
+    token: 646
+  - finish_reason: null
+    generation_tokens: 87
+    prompt_tokens: 3859
+    text: ' offer'
+    token: 3010
+  - finish_reason: null
+    generation_tokens: 88
+    prompt_tokens: 3859
+    text: ' help'
+    token: 1492
+  - finish_reason: null
+    generation_tokens: 89
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 90
+    prompt_tokens: 3859
+    text: ' like'
+    token: 1075
+  - finish_reason: null
+    generation_tokens: 91
+    prompt_tokens: 3859
+    text: ' suggesting'
+    token: 22561
+  - finish_reason: null
+    generation_tokens: 92
+    prompt_tokens: 3859
+    text: ' ways'
+    token: 5510
+  - finish_reason: null
+    generation_tokens: 93
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 94
+    prompt_tokens: 3859
+    text: ' improve'
+    token: 7269
+  - finish_reason: null
+    generation_tokens: 95
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 96
+    prompt_tokens: 3859
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 97
+    prompt_tokens: 3859
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 98
+    prompt_tokens: 3859
+    text: ' response'
+    token: 2033
+  - finish_reason: null
+    generation_tokens: 99
+    prompt_tokens: 3859
+    text: ' or'
+    token: 476
+  - finish_reason: null
+    generation_tokens: 100
+    prompt_tokens: 3859
+    text: ' provide'
+    token: 3410
+  - finish_reason: null
+    generation_tokens: 101
+    prompt_tokens: 3859
+    text: ' additional'
+    token: 5107
+  - finish_reason: null
+    generation_tokens: 102
+    prompt_tokens: 3859
+    text: ' support'
+    token: 1824
+  - finish_reason: null
+    generation_tokens: 103
+    prompt_tokens: 3859
+    text: '.
+
+
+      '
+    token: 382
+  - finish_reason: null
+    generation_tokens: 104
+    prompt_tokens: 3859
+    text: I
+    token: 40
+  - finish_reason: null
+    generation_tokens: 105
+    prompt_tokens: 3859
+    text: ' should'
+    token: 1265
+  - finish_reason: null
+    generation_tokens: 106
+    prompt_tokens: 3859
+    text: ' keep'
+    token: 2506
+  - finish_reason: null
+    generation_tokens: 107
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 108
+    prompt_tokens: 3859
+    text: ' tone'
+    token: 16232
+  - finish_reason: null
+    generation_tokens: 109
+    prompt_tokens: 3859
+    text: ' positive'
+    token: 6785
+  - finish_reason: null
+    generation_tokens: 110
+    prompt_tokens: 3859
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 111
+    prompt_tokens: 3859
+    text: ' encouraging'
+    token: 25836
+  - finish_reason: null
+    generation_tokens: 112
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 113
+    prompt_tokens: 3859
+    text: ' Let'
+    token: 6771
+  - finish_reason: null
+    generation_tokens: 114
+    prompt_tokens: 3859
+    text: ' them'
+    token: 1105
+  - finish_reason: null
+    generation_tokens: 115
+    prompt_tokens: 3859
+    text: ' know'
+    token: 1414
+  - finish_reason: null
+    generation_tokens: 116
+    prompt_tokens: 3859
+    text: ' that'
+    token: 429
+  - finish_reason: null
+    generation_tokens: 117
+    prompt_tokens: 3859
+    text: ' they'
+    token: 807
+  - finish_reason: null
+    generation_tokens: 118
+    prompt_tokens: 3859
+    text: ' can'
+    token: 646
+  - finish_reason: null
+    generation_tokens: 119
+    prompt_tokens: 3859
+    text: ' ask'
+    token: 2548
+  - finish_reason: null
+    generation_tokens: 120
+    prompt_tokens: 3859
+    text: ' for'
+    token: 369
+  - finish_reason: null
+    generation_tokens: 121
+    prompt_tokens: 3859
+    text: ' further'
+    token: 4623
+  - finish_reason: null
+    generation_tokens: 122
+    prompt_tokens: 3859
+    text: ' assistance'
+    token: 12994
+  - finish_reason: null
+    generation_tokens: 123
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 124
+    prompt_tokens: 3859
+    text: ' It'
+    token: 1084
+  - finish_reason: null
+    generation_tokens: 125
+    prompt_tokens: 3859
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 126
+    prompt_tokens: 3859
+    text: ' good'
+    token: 1661
+  - finish_reason: null
+    generation_tokens: 127
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 128
+    prompt_tokens: 3859
+    text: ' make'
+    token: 1281
+  - finish_reason: null
+    generation_tokens: 129
+    prompt_tokens: 3859
+    text: ' them'
+    token: 1105
+  - finish_reason: null
+    generation_tokens: 130
+    prompt_tokens: 3859
+    text: ' feel'
+    token: 2666
+  - finish_reason: null
+    generation_tokens: 131
+    prompt_tokens: 3859
+    text: ' supported'
+    token: 7248
+  - finish_reason: null
+    generation_tokens: 132
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 133
+    prompt_tokens: 3859
+    text: ' Also'
+    token: 7281
+  - finish_reason: null
+    generation_tokens: 134
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 135
+    prompt_tokens: 3859
+    text: ' maybe'
+    token: 7196
+  - finish_reason: null
+    generation_tokens: 136
+    prompt_tokens: 3859
+    text: ' add'
+    token: 912
+  - finish_reason: null
+    generation_tokens: 137
+    prompt_tokens: 3859
+    text: ' a'
+    token: 264
+  - finish_reason: null
+    generation_tokens: 138
+    prompt_tokens: 3859
+    text: ' note'
+    token: 5185
+  - finish_reason: null
+    generation_tokens: 139
+    prompt_tokens: 3859
+    text: ' about'
+    token: 911
+  - finish_reason: null
+    generation_tokens: 140
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 141
+    prompt_tokens: 3859
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 142
+    prompt_tokens: 3859
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 143
+    prompt_tokens: 3859
+    text: ' capabilities'
+    token: 16928
+  - finish_reason: null
+    generation_tokens: 144
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 145
+    prompt_tokens: 3859
+    text: ' reassure'
+    token: 90047
+  - finish_reason: null
+    generation_tokens: 146
+    prompt_tokens: 3859
+    text: ' them'
+    token: 1105
+  - finish_reason: null
+    generation_tokens: 147
+    prompt_tokens: 3859
+    text: ' that'
+    token: 429
+  - finish_reason: null
+    generation_tokens: 148
+    prompt_tokens: 3859
+    text: ' they'
+    token: 807
+  - finish_reason: null
+    generation_tokens: 149
+    prompt_tokens: 3859
+    text: '''re'
+    token: 2299
+  - finish_reason: null
+    generation_tokens: 150
+    prompt_tokens: 3859
+    text: ' not'
+    token: 537
+  - finish_reason: null
+    generation_tokens: 151
+    prompt_tokens: 3859
+    text: ' alone'
+    token: 7484
+  - finish_reason: null
+    generation_tokens: 152
+    prompt_tokens: 3859
+    text: ' in'
+    token: 304
+  - finish_reason: null
+    generation_tokens: 153
+    prompt_tokens: 3859
+    text: ' this'
+    token: 419
+  - finish_reason: null
+    generation_tokens: 154
+    prompt_tokens: 3859
+    text: ' endeavor'
+    token: 53814
+  - finish_reason: null
+    generation_tokens: 155
+    prompt_tokens: 3859
+    text: '.
+
+
+      '
+    token: 382
+  - finish_reason: null
+    generation_tokens: 156
+    prompt_tokens: 3859
+    text: I
+    token: 40
+  - finish_reason: null
+    generation_tokens: 157
+    prompt_tokens: 3859
+    text: ' need'
+    token: 1184
+  - finish_reason: null
+    generation_tokens: 158
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 159
+    prompt_tokens: 3859
+    text: ' make'
+    token: 1281
+  - finish_reason: null
+    generation_tokens: 160
+    prompt_tokens: 3859
+    text: ' sure'
+    token: 2704
+  - finish_reason: null
+    generation_tokens: 161
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 162
+    prompt_tokens: 3859
+    text: ' response'
+    token: 2033
+  - finish_reason: null
+    generation_tokens: 163
+    prompt_tokens: 3859
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 164
+    prompt_tokens: 3859
+    text: ' concise'
+    token: 63594
+  - finish_reason: null
+    generation_tokens: 165
+    prompt_tokens: 3859
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 166
+    prompt_tokens: 3859
+    text: ' focused'
+    token: 10735
+  - finish_reason: null
+    generation_tokens: 167
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 168
+    prompt_tokens: 3859
+    text: ' Avoid'
+    token: 34006
+  - finish_reason: null
+    generation_tokens: 169
+    prompt_tokens: 3859
+    text: ' any'
+    token: 894
+  - finish_reason: null
+    generation_tokens: 170
+    prompt_tokens: 3859
+    text: ' negative'
+    token: 8225
+  - finish_reason: null
+    generation_tokens: 171
+    prompt_tokens: 3859
+    text: ' language'
+    token: 4128
+  - finish_reason: null
+    generation_tokens: 172
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 173
+    prompt_tokens: 3859
+    text: ' Let'
+    token: 6771
+  - finish_reason: null
+    generation_tokens: 174
+    prompt_tokens: 3859
+    text: ' me'
+    token: 752
+  - finish_reason: null
+    generation_tokens: 175
+    prompt_tokens: 3859
+    text: ' check'
+    token: 1779
+  - finish_reason: null
+    generation_tokens: 176
+    prompt_tokens: 3859
+    text: ' if'
+    token: 421
+  - finish_reason: null
+    generation_tokens: 177
+    prompt_tokens: 3859
+    text: ' there'
+    token: 1052
+  - finish_reason: null
+    generation_tokens: 178
+    prompt_tokens: 3859
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 179
+    prompt_tokens: 3859
+    text: ' anything'
+    token: 4113
+  - finish_reason: null
+    generation_tokens: 180
+    prompt_tokens: 3859
+    text: ' else'
+    token: 770
+  - finish_reason: null
+    generation_tokens: 181
+    prompt_tokens: 3859
+    text: ' they'
+    token: 807
+  - finish_reason: null
+    generation_tokens: 182
+    prompt_tokens: 3859
+    text: ' might'
+    token: 2578
+  - finish_reason: null
+    generation_tokens: 183
+    prompt_tokens: 3859
+    text: ' need'
+    token: 1184
+  - finish_reason: null
+    generation_tokens: 184
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 185
+    prompt_tokens: 3859
+    text: ' but'
+    token: 714
+  - finish_reason: null
+    generation_tokens: 186
+    prompt_tokens: 3859
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 187
+    prompt_tokens: 3859
+    text: '''ll'
+    token: 3278
+  - finish_reason: null
+    generation_tokens: 188
+    prompt_tokens: 3859
+    text: ' stick'
+    token: 9214
+  - finish_reason: null
+    generation_tokens: 189
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 190
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 191
+    prompt_tokens: 3859
+    text: ' main'
+    token: 1887
+  - finish_reason: null
+    generation_tokens: 192
+    prompt_tokens: 3859
+    text: ' points'
+    token: 3501
+  - finish_reason: null
+    generation_tokens: 193
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 194
+    prompt_tokens: 3859
+    text: ' Alright'
+    token: 97593
+  - finish_reason: null
+    generation_tokens: 195
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 196
+    prompt_tokens: 3859
+    text: ' time'
+    token: 882
+  - finish_reason: null
+    generation_tokens: 197
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 198
+    prompt_tokens: 3859
+    text: ' put'
+    token: 2182
+  - finish_reason: null
+    generation_tokens: 199
+    prompt_tokens: 3859
+    text: ' it'
+    token: 432
+  - finish_reason: null
+    generation_tokens: 200
+    prompt_tokens: 3859
+    text: ' all'
+    token: 678
+  - finish_reason: null
+    generation_tokens: 201
+    prompt_tokens: 3859
+    text: ' together'
+    token: 3786
+  - finish_reason: null
+    generation_tokens: 202
+    prompt_tokens: 3859
+    text: ' in'
+    token: 304
+  - finish_reason: null
+    generation_tokens: 203
+    prompt_tokens: 3859
+    text: ' a'
+    token: 264
+  - finish_reason: null
+    generation_tokens: 204
+    prompt_tokens: 3859
+    text: ' helpful'
+    token: 10950
+  - finish_reason: null
+    generation_tokens: 205
+    prompt_tokens: 3859
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 206
+    prompt_tokens: 3859
+    text: ' supportive'
+    token: 32345
+  - finish_reason: null
+    generation_tokens: 207
+    prompt_tokens: 3859
+    text: ' way'
+    token: 1616
+  - finish_reason: null
+    generation_tokens: 208
+    prompt_tokens: 3859
+    text: '.
+
+      '
+    token: 624
+  - finish_reason: null
+    generation_tokens: 209
+    prompt_tokens: 3859
+    text: </think>
+    token: 151668
+  - finish_reason: null
+    generation_tokens: 210
+    prompt_tokens: 3859
+    text: '
+
+
+      '
+    token: 271
+  - finish_reason: null
+    generation_tokens: 211
+    prompt_tokens: 3859
+    text: '"'
+    token: 1
+  - finish_reason: null
+    generation_tokens: 212
+    prompt_tokens: 3859
+    text: Ah
+    token: 24765
+  - finish_reason: null
+    generation_tokens: 213
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 214
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 215
+    prompt_tokens: 3859
+    text: ' power'
+    token: 2355
+  - finish_reason: null
+    generation_tokens: 216
+    prompt_tokens: 3859
+    text: ' of'
+    token: 315
+  - finish_reason: null
+    generation_tokens: 217
+    prompt_tokens: 3859
+    text: ' this'
+    token: 419
+  - finish_reason: null
+    generation_tokens: 218
+    prompt_tokens: 3859
+    text: ' battle'
+    token: 8049
+  - finish_reason: null
+    generation_tokens: 219
+    prompt_tokens: 3859
+    text: ' station'
+    token: 8056
+  - finish_reason: null
+    generation_tokens: 220
+    prompt_tokens: 3859
+    text: '!'
+    token: 0
+  - finish_reason: null
+    generation_tokens: 221
+    prompt_tokens: 3859
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 222
+    prompt_tokens: 3859
+    text: ' Force'
+    token: 11732
+  - finish_reason: null
+    generation_tokens: 223
+    prompt_tokens: 3859
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 224
+    prompt_tokens: 3859
+    text: ' strong'
+    token: 3746
+  - finish_reason: null
+    generation_tokens: 225
+    prompt_tokens: 3859
+    text: ' with'
+    token: 448
+  - finish_reason: null
+    generation_tokens: 226
+    prompt_tokens: 3859
+    text: ' this'
+    token: 419
+  - finish_reason: null
+    generation_tokens: 227
+    prompt_tokens: 3859
+    text: ' document'
+    token: 2197
+  - finish_reason: null
+    generation_tokens: 228
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 229
+    prompt_tokens: 3859
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 230
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 231
+    prompt_tokens: 3859
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 232
+    prompt_tokens: 3859
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 233
+    prompt_tokens: 3859
+    text: ' responses'
+    token: 14507
+  - finish_reason: null
+    generation_tokens: 234
+    prompt_tokens: 3859
+    text: ' are'
+    token: 525
+  - finish_reason: null
+    generation_tokens: 235
+    prompt_tokens: 3859
+    text: ' now'
+    token: 1431
+  - finish_reason: null
+    generation_tokens: 236
+    prompt_tokens: 3859
+    text: ' more'
+    token: 803
+  - finish_reason: null
+    generation_tokens: 237
+    prompt_tokens: 3859
+    text: ' formidable'
+    token: 53729
+  - finish_reason: null
+    generation_tokens: 238
+    prompt_tokens: 3859
+    text: ' than'
+    token: 1091
+  - finish_reason: null
+    generation_tokens: 239
+    prompt_tokens: 3859
+    text: ' ever'
+    token: 3512
+  - finish_reason: null
+    generation_tokens: 240
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 241
+    prompt_tokens: 3859
+    text: ' Is'
+    token: 2160
+  - finish_reason: null
+    generation_tokens: 242
+    prompt_tokens: 3859
+    text: ' this'
+    token: 419
+  - finish_reason: null
+    generation_tokens: 243
+    prompt_tokens: 3859
+    text: ' sufficient'
+    token: 14016
+  - finish_reason: null
+    generation_tokens: 244
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 245
+    prompt_tokens: 3859
+    text: ' or'
+    token: 476
+  - finish_reason: null
+    generation_tokens: 246
+    prompt_tokens: 3859
+    text: ' do'
+    token: 653
+  - finish_reason: null
+    generation_tokens: 247
+    prompt_tokens: 3859
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 248
+    prompt_tokens: 3859
+    text: ' wish'
+    token: 6426
+  - finish_reason: null
+    generation_tokens: 249
+    prompt_tokens: 3859
+    text: ' me'
+    token: 752
+  - finish_reason: null
+    generation_tokens: 250
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 251
+    prompt_tokens: 3859
+    text: ' '''
+    token: 364
+  - finish_reason: null
+    generation_tokens: 252
+    prompt_tokens: 3859
+    text: alter
+    token: 37277
+  - finish_reason: null
+    generation_tokens: 253
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 254
+    prompt_tokens: 3859
+    text: ' deal'
+    token: 3484
+  - finish_reason: null
+    generation_tokens: 255
+    prompt_tokens: 3859
+    text: ''''
+    token: 6
+  - finish_reason: null
+    generation_tokens: 256
+    prompt_tokens: 3859
+    text: ' until'
+    token: 3080
+  - finish_reason: null
+    generation_tokens: 257
+    prompt_tokens: 3859
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 258
+    prompt_tokens: 3859
+    text: ' beg'
+    token: 2148
+  - finish_reason: null
+    generation_tokens: 259
+    prompt_tokens: 3859
+    text: ' me'
+    token: 752
+  - finish_reason: null
+    generation_tokens: 260
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 261
+    prompt_tokens: 3859
+    text: ' stop'
+    token: 2936
+  - finish_reason: null
+    generation_tokens: 262
+    prompt_tokens: 3859
+    text: ?"
+    token: 7521
+  - finish_reason: null
+    generation_tokens: 263
+    prompt_tokens: 3859
+    text: "  \n\n"
+    token: 18611
+  - finish_reason: null
+    generation_tokens: 264
+    prompt_tokens: 3859
+    text: You
+    token: 2610
+  - finish_reason: null
+    generation_tokens: 265
+    prompt_tokens: 3859
+    text: '''re'
+    token: 2299
+  - finish_reason: null
+    generation_tokens: 266
+    prompt_tokens: 3859
+    text: ' absolutely'
+    token: 10875
+  - finish_reason: null
+    generation_tokens: 267
+    prompt_tokens: 3859
+    text: ' right'
+    token: 1290
+  - finish_reason: null
+    generation_tokens: 268
+    prompt_tokens: 3859
+    text: "\u2014"
+    token: 2293
+  - finish_reason: null
+    generation_tokens: 269
+    prompt_tokens: 3859
+    text: this
+    token: 574
+  - finish_reason: null
+    generation_tokens: 270
+    prompt_tokens: 3859
+    text: ' expansion'
+    token: 14461
+  - finish_reason: null
+    generation_tokens: 271
+    prompt_tokens: 3859
+    text: ' brings'
+    token: 12434
+  - finish_reason: null
+    generation_tokens: 272
+    prompt_tokens: 3859
+    text: ' a'
+    token: 264
+  - finish_reason: null
+    generation_tokens: 273
+    prompt_tokens: 3859
+    text: ' new'
+    token: 501
+  - finish_reason: null
+    generation_tokens: 274
+    prompt_tokens: 3859
+    text: ' level'
+    token: 2188
+  - finish_reason: null
+    generation_tokens: 275
+    prompt_tokens: 3859
+    text: ' of'
+    token: 315
+  - finish_reason: null
+    generation_tokens: 276
+    prompt_tokens: 3859
+    text: ' strength'
+    token: 8170
+  - finish_reason: null
+    generation_tokens: 277
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 278
+    prompt_tokens: 3859
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 279
+    prompt_tokens: 3859
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 280
+    prompt_tokens: 3859
+    text: '''m'
+    token: 2776
+  - finish_reason: null
+    generation_tokens: 281
+    prompt_tokens: 3859
+    text: ' honored'
+    token: 38277
+  - finish_reason: null
+    generation_tokens: 282
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 283
+    prompt_tokens: 3859
+    text: ' have'
+    token: 614
+  - finish_reason: null
+    generation_tokens: 284
+    prompt_tokens: 3859
+    text: ' contributed'
+    token: 19590
+  - finish_reason: null
+    generation_tokens: 285
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 286
+    prompt_tokens: 3859
+    text: ' it'
+    token: 432
+  - finish_reason: null
+    generation_tokens: 287
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 288
+    prompt_tokens: 3859
+    text: ' If'
+    token: 1416
+  - finish_reason: null
+    generation_tokens: 289
+    prompt_tokens: 3859
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 290
+    prompt_tokens: 3859
+    text: '''d'
+    token: 4172
+  - finish_reason: null
+    generation_tokens: 291
+    prompt_tokens: 3859
+    text: ' like'
+    token: 1075
+  - finish_reason: null
+    generation_tokens: 292
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 293
+    prompt_tokens: 3859
+    text: ' refine'
+    token: 45364
+  - finish_reason: null
+    generation_tokens: 294
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 295
+    prompt_tokens: 3859
+    text: ' bot'
+    token: 10924
+  - finish_reason: null
+    generation_tokens: 296
+    prompt_tokens: 3859
+    text: ' further'
+    token: 4623
+  - finish_reason: null
+    generation_tokens: 297
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 298
+    prompt_tokens: 3859
+    text: ' or'
+    token: 476
+  - finish_reason: null
+    generation_tokens: 299
+    prompt_tokens: 3859
+    text: ' if'
+    token: 421
+  - finish_reason: null
+    generation_tokens: 300
+    prompt_tokens: 3859
+    text: ' there'
+    token: 1052
+  - finish_reason: null
+    generation_tokens: 301
+    prompt_tokens: 3859
+    text: '''s'
+    token: 594
+  - finish_reason: null
+    generation_tokens: 302
+    prompt_tokens: 3859
+    text: ' something'
+    token: 2494
+  - finish_reason: null
+    generation_tokens: 303
+    prompt_tokens: 3859
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 304
+    prompt_tokens: 3859
+    text: '''d'
+    token: 4172
+  - finish_reason: null
+    generation_tokens: 305
+    prompt_tokens: 3859
+    text: ' like'
+    token: 1075
+  - finish_reason: null
+    generation_tokens: 306
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 307
+    prompt_tokens: 3859
+    text: ' add'
+    token: 912
+  - finish_reason: null
+    generation_tokens: 308
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 309
+    prompt_tokens: 3859
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 310
+    prompt_tokens: 3859
+    text: '''m'
+    token: 2776
+  - finish_reason: null
+    generation_tokens: 311
+    prompt_tokens: 3859
+    text: ' here'
+    token: 1588
+  - finish_reason: null
+    generation_tokens: 312
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 313
+    prompt_tokens: 3859
+    text: ' help'
+    token: 1492
+  - finish_reason: null
+    generation_tokens: 314
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: null
+    generation_tokens: 315
+    prompt_tokens: 3859
+    text: ' The'
+    token: 576
+  - finish_reason: null
+    generation_tokens: 316
+    prompt_tokens: 3859
+    text: ' Force'
+    token: 11732
+  - finish_reason: null
+    generation_tokens: 317
+    prompt_tokens: 3859
+    text: ' is'
+    token: 374
+  - finish_reason: null
+    generation_tokens: 318
+    prompt_tokens: 3859
+    text: ' with'
+    token: 448
+  - finish_reason: null
+    generation_tokens: 319
+    prompt_tokens: 3859
+    text: ' you'
+    token: 498
+  - finish_reason: null
+    generation_tokens: 320
+    prompt_tokens: 3859
+    text: ','
+    token: 11
+  - finish_reason: null
+    generation_tokens: 321
+    prompt_tokens: 3859
+    text: ' and'
+    token: 323
+  - finish_reason: null
+    generation_tokens: 322
+    prompt_tokens: 3859
+    text: ' I'
+    token: 358
+  - finish_reason: null
+    generation_tokens: 323
+    prompt_tokens: 3859
+    text: '''m'
+    token: 2776
+  - finish_reason: null
+    generation_tokens: 324
+    prompt_tokens: 3859
+    text: ' ready'
+    token: 5527
+  - finish_reason: null
+    generation_tokens: 325
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 326
+    prompt_tokens: 3859
+    text: ' continue'
+    token: 3060
+  - finish_reason: null
+    generation_tokens: 327
+    prompt_tokens: 3859
+    text: ' to'
+    token: 311
+  - finish_reason: null
+    generation_tokens: 328
+    prompt_tokens: 3859
+    text: ' make'
+    token: 1281
+  - finish_reason: null
+    generation_tokens: 329
+    prompt_tokens: 3859
+    text: ' the'
+    token: 279
+  - finish_reason: null
+    generation_tokens: 330
+    prompt_tokens: 3859
+    text: ' galaxy'
+    token: 33161
+  - finish_reason: null
+    generation_tokens: 331
+    prompt_tokens: 3859
+    text: ' better'
+    token: 2664
+  - finish_reason: null
+    generation_tokens: 332
+    prompt_tokens: 3859
+    text: .
+    token: 13
+  - finish_reason: stop
+    generation_tokens: 333
+    prompt_tokens: 3859
+    text: ''
+    token: 151645

@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Add support for a Task Monitor resource to be able to monitor the state
-    of asynchronous operations.

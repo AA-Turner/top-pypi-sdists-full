@@ -1,0 +1,94 @@
+[build-system]
+requires = [
+	"setuptools>=77",
+	"setuptools_scm[toml]>=3.4.1",
+	# jaraco/skeleton#174
+	"coherent.licensed",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jaraco.windows"
+authors = [
+	{ name = "Jason R. Coombs", email = "jaraco@jaraco.com" },
+]
+description = "Windows Routines by Jason R. Coombs"
+readme = "README.rst"
+classifiers = [
+	"Development Status :: 5 - Production/Stable",
+	"Intended Audience :: Developers",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3 :: Only",
+	"Operating System :: Microsoft :: Windows",
+]
+requires-python = ">=3.9"
+license = "MIT"
+dependencies = [
+	"more_itertools",
+	"jaraco.ui",
+	"jaraco.collections",
+	"jaraco.text",
+	"jaraco.structures>=1.1.1",
+	"path",
+	"tempora",
+	"jaraco.functools",
+]
+dynamic = ["version"]
+
+[project.urls]
+Source = "https://github.com/jaraco/jaraco.windows"
+
+[project.optional-dependencies]
+test = [
+	# upstream
+	"pytest >= 6, != 8.1.*",
+
+	# local
+]
+
+doc = [
+	# upstream
+	"sphinx >= 3.5",
+	"jaraco.packaging >= 9.3",
+	"rst.linker >= 1.9",
+	"furo",
+	"sphinx-lint",
+
+	# local
+	"pywin32",
+]
+
+check = [
+	"pytest-checkdocs >= 2.4",
+	"pytest-ruff >= 0.2.1; sys_platform != 'cygwin'",
+]
+
+cover = [
+	"pytest-cov",
+]
+
+enabler = [
+	"pytest-enabler >= 2.2",
+]
+
+type = [
+	# upstream
+	"pytest-mypy",
+
+	# local
+]
+
+
+[project.scripts]
+xmouse = "jaraco.windows.xmouse:Command.invoke"
+mklink = "jaraco.windows.filesystem:mklink"
+find-symlinks = "jaraco.windows.filesystem:find_symlinks_cmd"
+enver = "jaraco.windows.environ:enver"
+pclip = "jaraco.windows.clipboard:paste_stdout"
+gclip = "jaraco.windows.clipboard:stdin_copy"
+
+[tool.distutils.sdist]
+formats = "zip"
+
+
+[tool.setuptools_scm]

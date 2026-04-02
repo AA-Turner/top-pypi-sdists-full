@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Extend the NetworkAdapters resource to include information about the firmware.

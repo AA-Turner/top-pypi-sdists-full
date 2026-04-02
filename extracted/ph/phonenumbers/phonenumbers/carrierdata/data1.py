@@ -19,6 +19,16 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '553199752':{'en': 'Telemig Celular'},
+ '553199753':{'en': 'Telemig Celular'},
+ '553199755':{'en': 'Telemig Celular'},
+ '553199756':{'en': 'Telemig Celular'},
+ '553199757':{'en': 'Telemig Celular'},
+ '553199758':{'en': 'Telemig Celular'},
+ '553199759':{'en': 'Telemig Celular'},
+ '553199761':{'en': 'Telemig Celular'},
+ '553199762':{'en': 'Telemig Celular'},
+ '553199763':{'en': 'Telemig Celular'},
  '553199764':{'en': 'Telemig Celular'},
  '553199765':{'en': 'Telemig Celular'},
  '553199766':{'en': 'Telemig Celular'},
@@ -10009,14 +10019,4 @@ data = {
  '5730527':{'en': 'Tigo'},
  '5730528':{'en': 'Tigo'},
  '5730529':{'en': 'Tigo'},
- '573053':{'en': 'Tigo'},
- '5730540':{'en': 'Movil Exito'},
- '5730541':{'en': 'Movil Exito'},
- '5730542':{'en': 'Movil Exito'},
- '5730543':{'en': 'Movil Exito'},
- '5730544':{'en': 'Movil Exito'},
- '5730545':{'en': 'Movil Exito'},
- '5730546':{'en': 'Movil Exito'},
- '5730547':{'en': 'Movil Exito'},
- '5730548':{'en': 'Movil Exito'},
 }

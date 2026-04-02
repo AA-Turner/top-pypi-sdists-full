@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: assemblyline
-Version: 4.7.2.3
+Version: 4.7.2.4
 Summary: Assemblyline 4 - Automated malware analysis framework
 Home-page: https://github.com/CybercentreCanada/assemblyline-base
 Author: CCCS Assemblyline development team
@@ -24,25 +24,20 @@ Requires-Dist: urllib3>=2.6.0
 Requires-Dist: python-baseconv
 Requires-Dist: boto3
 Requires-Dist: pysftp
-Requires-Dist: netifaces
-Requires-Dist: pyroute2.core
 Requires-Dist: redis
 Requires-Dist: requests[socks]
 Requires-Dist: elasticsearch<9.0.0,>=8.0.0
 Requires-Dist: python-datemath!=3.0.2
 Requires-Dist: packaging
-Requires-Dist: tabulate
 Requires-Dist: PyYAML
-Requires-Dist: easydict
 Requires-Dist: bcrypt
 Requires-Dist: cart
-Requires-Dist: cccs-ssdeep
+Requires-Dist: assemblyline-toolbox>=0.4.0
 Requires-Dist: python-magic
 Requires-Dist: pytz
 Requires-Dist: apscheduler
 Requires-Dist: websocket_client<1.0.0
 Requires-Dist: elastic-apm[flask]>=6.13.0
-Requires-Dist: cython
 Requires-Dist: docker
 Requires-Dist: kubernetes>18
 Requires-Dist: notifications-python-client
@@ -52,7 +47,6 @@ Requires-Dist: azure-identity
 Requires-Dist: msoffcrypto-tool
 Requires-Dist: chardet<6
 Requires-Dist: yara-python
-Requires-Dist: python-tlsh
 Requires-Dist: hauntedhouse==0.1.10
 Requires-Dist: magika
 Requires-Dist: paramiko<4

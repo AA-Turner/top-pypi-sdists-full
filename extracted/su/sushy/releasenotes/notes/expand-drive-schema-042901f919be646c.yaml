@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Adds ``CapacityBites``, ``Manufacturer``, ``Model``, ``PartNumber``,
-    ``SerialNumber`` and ``Status`` properties to the ``Drive`` resource.

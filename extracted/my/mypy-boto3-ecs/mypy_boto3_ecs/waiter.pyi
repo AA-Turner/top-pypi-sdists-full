@@ -12,6 +12,11 @@ Usage::
 
     from mypy_boto3_ecs.client import ECSClient
     from mypy_boto3_ecs.waiter import (
+        DaemonActiveWaiter,
+        DaemonDeploymentStoppedWaiter,
+        DaemonDeploymentSuccessfulWaiter,
+        DaemonTaskDefinitionActiveWaiter,
+        DaemonTaskDefinitionDeletedWaiter,
         ServicesInactiveWaiter,
         ServicesStableWaiter,
         TasksRunningWaiter,
@@ -21,6 +26,11 @@ Usage::
     session = Session()
     client: ECSClient = session.client("ecs")
 
+    daemon_active_waiter: DaemonActiveWaiter = client.get_waiter("daemon_active")
+    daemon_deployment_stopped_waiter: DaemonDeploymentStoppedWaiter = client.get_waiter("daemon_deployment_stopped")
+    daemon_deployment_successful_waiter: DaemonDeploymentSuccessfulWaiter = client.get_waiter("daemon_deployment_successful")
+    daemon_task_definition_active_waiter: DaemonTaskDefinitionActiveWaiter = client.get_waiter("daemon_task_definition_active")
+    daemon_task_definition_deleted_waiter: DaemonTaskDefinitionDeletedWaiter = client.get_waiter("daemon_task_definition_deleted")
     services_inactive_waiter: ServicesInactiveWaiter = client.get_waiter("services_inactive")
     services_stable_waiter: ServicesStableWaiter = client.get_waiter("services_stable")
     tasks_running_waiter: TasksRunningWaiter = client.get_waiter("tasks_running")
@@ -35,6 +45,11 @@ import sys
 from botocore.waiter import Waiter
 
 from .type_defs import (
+    DescribeDaemonDeploymentsRequestWaitExtraTypeDef,
+    DescribeDaemonDeploymentsRequestWaitTypeDef,
+    DescribeDaemonRequestWaitTypeDef,
+    DescribeDaemonTaskDefinitionRequestWaitExtraTypeDef,
+    DescribeDaemonTaskDefinitionRequestWaitTypeDef,
     DescribeServicesRequestWaitExtraTypeDef,
     DescribeServicesRequestWaitTypeDef,
     DescribeTasksRequestWaitExtraTypeDef,
@@ -47,11 +62,81 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "DaemonActiveWaiter",
+    "DaemonDeploymentStoppedWaiter",
+    "DaemonDeploymentSuccessfulWaiter",
+    "DaemonTaskDefinitionActiveWaiter",
+    "DaemonTaskDefinitionDeletedWaiter",
     "ServicesInactiveWaiter",
     "ServicesStableWaiter",
     "TasksRunningWaiter",
     "TasksStoppedWaiter",
 )
+
+class DaemonActiveWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/waiter/DaemonActive.html#ECS.Waiter.DaemonActive)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/waiters/#daemonactivewaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeDaemonRequestWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/waiter/DaemonActive.html#ECS.Waiter.DaemonActive.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/waiters/#daemonactivewaiter)
+        """
+
+class DaemonDeploymentStoppedWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/waiter/DaemonDeploymentStopped.html#ECS.Waiter.DaemonDeploymentStopped)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/waiters/#daemondeploymentstoppedwaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeDaemonDeploymentsRequestWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/waiter/DaemonDeploymentStopped.html#ECS.Waiter.DaemonDeploymentStopped.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/waiters/#daemondeploymentstoppedwaiter)
+        """
+
+class DaemonDeploymentSuccessfulWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/waiter/DaemonDeploymentSuccessful.html#ECS.Waiter.DaemonDeploymentSuccessful)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/waiters/#daemondeploymentsuccessfulwaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeDaemonDeploymentsRequestWaitExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/waiter/DaemonDeploymentSuccessful.html#ECS.Waiter.DaemonDeploymentSuccessful.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/waiters/#daemondeploymentsuccessfulwaiter)
+        """
+
+class DaemonTaskDefinitionActiveWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/waiter/DaemonTaskDefinitionActive.html#ECS.Waiter.DaemonTaskDefinitionActive)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/waiters/#daemontaskdefinitionactivewaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeDaemonTaskDefinitionRequestWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/waiter/DaemonTaskDefinitionActive.html#ECS.Waiter.DaemonTaskDefinitionActive.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/waiters/#daemontaskdefinitionactivewaiter)
+        """
+
+class DaemonTaskDefinitionDeletedWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/waiter/DaemonTaskDefinitionDeleted.html#ECS.Waiter.DaemonTaskDefinitionDeleted)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/waiters/#daemontaskdefinitiondeletedwaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeDaemonTaskDefinitionRequestWaitExtraTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/waiter/DaemonTaskDefinitionDeleted.html#ECS.Waiter.DaemonTaskDefinitionDeleted.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/waiters/#daemontaskdefinitiondeletedwaiter)
+        """
 
 class ServicesInactiveWaiter(Waiter):
     """

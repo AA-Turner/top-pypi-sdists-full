@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: loompy
+Version: 3.0.8
+Summary: Work with Loom files for single-cell RNA-seq data
+Home-page: https://github.com/linnarsson-lab/loompy
+Download-URL: https://github.com/linnarsson-lab/loompy/archive/3.0.8.tar.gz
+Author: Linnarsson Lab
+Author-email: sten.linnarsson@ki.se
+License: BSD
+Keywords: loom omics transcriptomics bioinformatics
+Requires-Python: >=3.6
+License-File: LICENSE
+Requires-Dist: h5py
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: setuptools
+Requires-Dist: numba
+Requires-Dist: click
+Requires-Dist: numpy-groupies

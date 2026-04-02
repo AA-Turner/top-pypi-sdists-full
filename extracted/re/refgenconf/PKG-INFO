@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: refgenconf
-Version: 0.13.0
+Version: 0.13.1
 Summary: A standardized configuration object for reference genome assemblies
 Author: Nathan Sheffield, Vince Reuter, Michal Stolarczyk
 License-Expression: BSD-2-Clause

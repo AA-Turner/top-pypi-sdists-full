@@ -1,0 +1,174 @@
+[tool.poetry]
+packages = [{ include = "ixmp4" }, { include = "ixmp4/py.typed" }]
+requires-poetry = ">=2.0,<3.0"
+
+[project]
+name = "ixmp4"
+authors = [
+    { name = "Max Wolschlager", email = "<wolschlager@iiasa.ac.at>" },
+    { name = "Fridolin Glatter", email = "<glatter@iiasa.ac.at>" },
+    { name = "Daniel Huppmann", email = "<huppmann@iiasa.ac.at>" },
+    { name = "Philip Hackstock", email = "<hackstock@iiasa.ac.at>" },
+    { name = "Pino Mussak", email = "<mussak@iiasa.ac.at>" }
+]
+description = "a data warehouse for scenario analysis"
+dynamic = []
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.10, <3.15"
+dependencies = [
+    "alembic>=1.12.0",
+    "fastapi>=0.100.0",
+    "httpx[http2]>=0.25.0",
+    "openpyxl>=3.0.9",
+    # remove legacy-handling in timeseries- and meta-repositories when dropping pandas < 2.2
+    "pandas>=2.1.1",
+    "pandera>=0.24.0",
+    "psycopg[binary]>=3.1.12",
+    "pydantic>=2.3.0",
+    "pydantic-settings>=2.1.0",
+    "PyJWT>=2.4.0",
+    "python-dotenv>=1.0.1",
+    "rich>=13.5.2",
+    "SQLAlchemy[mypy]>=2.0.22",
+    "SQLAlchemy-Utils>=0.41.0",
+    "toml>=0.10.2",
+    "typer>=0.9.0",
+]
+version = "0.14.0"
+
+[project.scripts]
+ixmp4 = "ixmp4.__main__:app"
+
+[project.urls]
+documentation = "https://docs.ece.iiasa.ac.at/projects/ixmp4"
+homepage = "https://software.ece.iiasa.ac.at"
+repository = "https://github.com/iiasa/ixmp4"
+
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+sphinx = ">=7.2.4"
+sphinx-multiversion = ">=0.2.4"
+sphinx-rtd-theme = ">=2.0.0"
+sphinxcontrib-bibtex = ">=2.6.1"
+sphinxcontrib-openapi = ">=0.8.1"
+setuptools = ">=69.2.0"
+
+[tool.poetry.group.server]
+optional = true
+
+[tool.poetry.group.server.dependencies]
+uvicorn = { extras = ["standard"], version = ">=0.24.0" }
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+build = ">=1.0.3"
+mypy = ">=1.13.0"
+pandas-stubs = ">=2.0.0.230412"
+pre-commit = ">=3.3.3"
+ptvsd = ">=4.3.2"
+pytest = ">=8.0.0"
+pytest-benchmark = ">=4.0.0"
+pytest-cov = ">=4.1.0"
+ruff = ">=0.2.0"
+snakeviz = ">=2.1.1"
+types-toml = ">=0.10.8.7"
+pytest-alembic = ">=0.12.1"
+
+[tool.poetry.group.tutorial]
+optional = true
+
+[tool.poetry.group.tutorial.dependencies]
+ipykernel = ">=6.27.1"
+
+[build-system]
+build-backend = "poetry_dynamic_versioning.backend"
+requires = ["poetry-core>=1.2.0", "poetry-dynamic-versioning"]
+
+[tool.mypy]
+exclude = ['^ixmp4\/db\/migrations\/']
+disable_error_code = ['override']
+show_error_codes = true
+plugins = ['pandera.mypy', 'pydantic.mypy']
+# The following are equivalent to --strict mypy as seen in 
+# https://mypy.readthedocs.io/en/stable/existing_code.html#introduce-stricter-options
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+strict_equality = true
+extra_checks = true
+check_untyped_defs = true
+disallow_subclassing_any = true
+disallow_untyped_decorators = true
+disallow_any_generics = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+#TODO enable this in a follow-up PR to satisfy --strict
+# no_implicit_reexport = true
+warn_return_any = true
+# These are bonus, it seems:
+disallow_any_unimported = true
+no_implicit_optional = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+# Removing this introduces several errors
+module = ["uvicorn.workers", "sqlalchemy_utils"]
+# Without this, mypy is still fine, but pyproject.toml complains
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.ruff]
+exclude = [
+    ".git",
+    "__pycache__",
+    "*.egg-info",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".venv",
+    "example.py",
+    "import.py",
+]
+line-length = 88
+
+[tool.ruff.format]
+# Enable reformatting of code snippets in docstrings.
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = ["C9", "E", "F", "I", "W"]
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore unused imports:
+"__init__.py" = ["F401"]
+"ixmp4/data/db/optimization/base.py" = ["F401"]
+"ixmp4/data/db/iamc/base.py" = ["F401"]
+# Ignore importing * and resulting possibly missing imports:
+"ixmp4/db/__init__.py" = ["F403", "F405"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.coverage.report]
+exclude_also = [
+    # Imports only used by type checkers
+    "if TYPE_CHECKING:",
+    # Exclude ellipses used in function stubs
+    "^\\s*\\.\\.\\.",
+]
+
+[tool.poetry-dynamic-versioning]
+enable = false
+style = "pep440"
+vcs = "git"

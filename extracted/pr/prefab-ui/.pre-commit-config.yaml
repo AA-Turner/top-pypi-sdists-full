@@ -1,0 +1,61 @@
+fail_fast: false
+
+repos:
+  - repo: https://github.com/abravalheri/validate-pyproject
+    rev: v0.24.1
+    hooks:
+      - id: validate-pyproject
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        types_or: [yaml, json5, javascript, tsx, ts, css]
+        exclude: ^(renderer/src/ui/|docs/(embed|renderer)\.js|docs/_renderer/)
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.0
+    hooks:
+      - id: ruff-check
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty check
+        entry: uv run --isolated ty check
+        language: system
+        types: [python]
+        files: ^src/|^tests/
+        pass_filenames: false
+        require_serial: true
+
+      - id: tsc
+        name: tsc (renderer type check)
+        entry: bash -c 'cd renderer && npx tsc --noEmit'
+        language: system
+        files: ^renderer/.*\.(ts|tsx)$
+        pass_filenames: false
+        require_serial: true
+
+      - id: loq
+        name: loq (file size limits)
+        entry: uv run loq
+        language: system
+        pass_filenames: false
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: no-commit-to-branch
+        name: prevent commits to main
+        args: [--branch, main]
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        exclude: ^(docs/(embed|renderer|playground)\.js|docs/_renderer/.*|src/prefab_ui/renderer/(app|generative)\.html)$
+        additional_dependencies:
+          - tomli

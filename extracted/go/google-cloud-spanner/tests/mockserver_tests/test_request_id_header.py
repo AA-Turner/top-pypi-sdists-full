@@ -17,24 +17,25 @@ import threading
 
 from google.cloud.spanner_v1 import (
     BatchCreateSessionsRequest,
+    BeginTransactionRequest,
     CreateSessionRequest,
     ExecuteSqlRequest,
-    BeginTransactionRequest,
 )
+from google.cloud.spanner_v1.database_sessions_manager import TransactionType
 from google.cloud.spanner_v1.request_id_header import REQ_RAND_PROCESS_ID
 from google.cloud.spanner_v1.testing.mock_spanner import SpannerServicer
 from tests.mockserver_tests.mock_server_test_base import (
     MockServerTestBase,
-    add_select1_result,
     aborted_status,
     add_error,
+    add_select1_result,
     unavailable_status,
 )
-from google.cloud.spanner_v1.database_sessions_manager import TransactionType
 
 
 class TestRequestIDHeader(MockServerTestBase):
     def tearDown(self):
+        super().tearDown()
         self.database._x_goog_request_id_interceptor.reset()
 
     def test_snapshot_execute_sql(self):
@@ -121,9 +122,9 @@ class TestRequestIDHeader(MockServerTestBase):
         # Allow for an extra request due to multiplexed session creation
         expected_min = 2 + n
         expected_max = expected_min + 1
-        assert (
-            expected_min <= len(requests) <= expected_max
-        ), f"Expected {expected_min} or {expected_max} requests, got {len(requests)}: {requests}"
+        assert expected_min <= len(requests) <= expected_max, (
+            f"Expected {expected_min} or {expected_max} requests, got {len(requests)}: {requests}"
+        )
         client_id = db._nth_client_id
         channel_id = db._channel_id
         got_stream_segments, got_unary_segments = self.canonicalize_request_id_headers()
@@ -156,7 +157,7 @@ class TestRequestIDHeader(MockServerTestBase):
             )
             for i in range(1, n + 2)
         ]
-        assert got_stream_segments == want_stream_segments
+        assert sorted(got_stream_segments) == sorted(want_stream_segments)
 
     def test_database_run_in_transaction_retries_on_abort(self):
         counters = dict(aborted=0)

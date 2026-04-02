@@ -681,6 +681,8 @@ class PedmDeploymentUpdateCommand(base.ArgparseCommand):
             if isinstance(status, admin_types.EntityStatus) and not status.success:
                 raise base.CommandError(f'Failed to update policy "{status.entity_uid}": {status.message}')
 
+        utils.get_logger().info('Successfully updated deployment: %s', deployment.name or deployment.deployment_uid)
+
 
 class PedmDeploymentDeleteCommand(base.ArgparseCommand):
     def __init__(self):
@@ -745,9 +747,12 @@ class PedmDeploymentDownloadCommand(base.ArgparseCommand):
         token = f'{host}:{deployment.deployment_uid}:{utils.base64_url_encode(deployment.private_key)}'
         filename = kwargs.get('file')
         if filename:
+            if os.path.isdir(filename):
+                raise base.CommandError(f'"{filename}" is a directory. Please provide a full file path, e.g. "{os.path.join(filename, "deployment-token.txt")}"')
             with open(filename, 'wt') as f:
                 f.write(token)
-                return None
+            utils.get_logger().info('Deployment token saved to: %s', os.path.abspath(filename))
+            return None
 
         if not kwargs.get('verbose'):
             return token
@@ -882,11 +887,24 @@ class PedmAgentDeleteCommand(base.ArgparseCommand):
         if len(agent_uid_list) == 0:
             return
 
-        statuses = plugin.modify_agents( remove_agents=agent_uid_list)
+        force = kwargs.get('force') is True
+        if not force:
+            answer = prompt_utils.user_choice(f'Do you want to delete {len(agent_uid_list)} agent(s)?', 'yN')
+            if answer.lower() not in {'y', 'yes'}:
+                return
+
+        statuses = plugin.modify_agents(remove_agents=agent_uid_list)
+        deleted_count = 0
         if isinstance(statuses.remove, list):
             for status in statuses.remove:
-                if isinstance(status, admin_types.EntityStatus) and not status.success:
-                    utils.get_logger().warning(f'Failed to remove agent "{status.entity_uid}": {status.message}')
+                if isinstance(status, admin_types.EntityStatus):
+                    if status.success:
+                        deleted_count += 1
+                        utils.get_logger().info('Agent "%s" deleted successfully.', status.entity_uid)
+                    else:
+                        utils.get_logger().warning(f'Failed to remove agent "{status.entity_uid}": {status.message}')
+        if deleted_count > 0:
+            utils.get_logger().info('%d agent(s) deleted successfully.', deleted_count)
 
 
 class PedmAgentEditCommand(base.ArgparseCommand):
@@ -905,9 +923,8 @@ class PedmAgentEditCommand(base.ArgparseCommand):
 
         deployment_uid = kwargs.get('deployment')
         if deployment_uid:
-            deployment = plugin.deployments.get_entity(deployment_uid)
-            if not deployment:
-                raise base.CommandError(f'Deployment "{deployment_uid}" does not exist')
+            deployment = PedmUtils.resolve_single_deployment(plugin, deployment_uid)
+            deployment_uid = deployment.deployment_uid
         else:
             deployment_uid = None
 
@@ -939,8 +956,11 @@ class PedmAgentEditCommand(base.ArgparseCommand):
             statuses = plugin.modify_agents(update_agents=update_agents)
             if isinstance(statuses.update, list):
                 for status in statuses.update:
-                    if isinstance(status, admin_types.EntityStatus) and not status.success:
-                        utils.get_logger().warning(f'Failed to update agent "{status.entity_uid}": {status.message}')
+                    if isinstance(status, admin_types.EntityStatus):
+                        if status.success:
+                            utils.get_logger().info(f'Agent "{status.entity_uid}" updated successfully.')
+                        else:
+                            utils.get_logger().warning(f'Failed to update agent "{status.entity_uid}": {status.message}')
 
 
 class PedmAgentListCommand(base.ArgparseCommand):
@@ -1236,12 +1256,6 @@ class PedmPolicyMixin:
     def get_policy_filter(plugin: admin_plugin.PedmPlugin, **kwargs) -> Dict[str, Any]:
         policy_filter: Dict[str, Any] = {}
         for f in PedmPolicyMixin.ALL_FILTERS:
-            arg_name = f'{f.lower()}_filter'
-            p_filter: Any = kwargs.get(arg_name)
-            if not p_filter: continue
-            if isinstance(p_filter, str):
-                p_filter = [p_filter]
-
             if f == 'USER':
                 filter_name = 'UserCheck'
             elif f == 'MACHINE':
@@ -1256,21 +1270,31 @@ class PedmPolicyMixin:
                 filter_name = 'DayCheck'
             else:
                 continue
-            if '*' in p_filter:
-                policy_filter[filter_name] = ['*']
+
+            arg_name = f'{f.lower()}_filter'
+            p_filter: Any = kwargs.get(arg_name)
+            if p_filter:
+                if isinstance(p_filter, str):
+                    p_filter = [p_filter]
+                if '*' in p_filter:
+                    policy_filter[filter_name] = ['*']
+                else:
+                    if f == 'USER':
+                        policy_filter[filter_name] = PedmPolicyAddCommand.resolve_collections(plugin, [3, 6, 103], p_filter)
+                    elif f == 'MACHINE':
+                        policy_filter[filter_name] = PedmPolicyAddCommand.resolve_collections(plugin, [1, 101], p_filter)
+                    elif f == 'APP':
+                        policy_filter[filter_name] = PedmPolicyAddCommand.resolve_collections(plugin, [2, 102], p_filter)
+                    elif f == 'DATE':
+                        policy_filter[filter_name] = PedmPolicyAddCommand.resolve_dates(p_filter)
+                    elif f == 'TIME':
+                        policy_filter[filter_name] = PedmPolicyAddCommand.resolve_times(p_filter)
+                    elif f == 'DAY':
+                        policy_filter[filter_name] = PedmPolicyAddCommand.resolve_days(p_filter)
             else:
-                if f == 'USER':
-                    policy_filter[filter_name] = PedmPolicyAddCommand.resolve_collections(plugin, [3, 6, 103], p_filter)
-                elif f == 'MACHINE':
-                    policy_filter[filter_name] = PedmPolicyAddCommand.resolve_collections(plugin, [1, 101], p_filter)
-                elif f == 'APP':
-                    policy_filter[filter_name] = PedmPolicyAddCommand.resolve_collections(plugin, [2, 102], p_filter)
-                elif f == 'DATE':
-                    policy_filter[filter_name] = PedmPolicyAddCommand.resolve_dates(p_filter)
-                elif f == 'TIME':
-                    policy_filter[filter_name] = PedmPolicyAddCommand.resolve_times(p_filter)
-                elif f == 'DAY':
-                    policy_filter[filter_name] = PedmPolicyAddCommand.resolve_days(p_filter)
+                if filter_name not in policy_filter:
+                    policy_filter[filter_name] = []
+
         risk_level = kwargs.get('risk_level')
         if isinstance(risk_level, int):
             if risk_level < 0 or risk_level > 100:
@@ -2157,10 +2181,19 @@ class PedmApprovalViewCommand(base.ArgparseCommand):
             approval.expire_in
         )
 
-        row = [approval.approval_uid, approval_type, approval_status, approval.agent_uid, approval.account_info,
-               approval.application_info, approval.justification, approval.expire_in, approval.created]
-
         fmt = kwargs.get('format')
+        justification = approval.justification
+        if fmt != 'json' and isinstance(justification, str):
+            try:
+                parsed = json.loads(justification)
+                if isinstance(parsed, dict):
+                    justification = parsed.get('text', justification)
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        row = [approval.approval_uid, approval_type, approval_status, approval.agent_uid, approval.account_info,
+               approval.application_info, justification, approval.expire_in, approval.created]
+
         if fmt == 'json':
             table = [row]
         else:
@@ -2186,6 +2219,7 @@ class PedmApprovalListCommand(base.ArgparseCommand):
             approval_type = approval_type.lower()
         else:
             approval_type = None
+        fmt = kwargs.get('format')
         table: List[List[Any]] = []
         headers = ['approval_uid', 'approval_type', 'status', 'agent_uid', 'account_info', 'application_info', 'justification', 'expire_in', 'created']
         for approval in plugin.approvals.get_all_entities():
@@ -2201,12 +2235,19 @@ class PedmApprovalListCommand(base.ArgparseCommand):
 
             account_info = [y[:30] for y in (f'{k}={v}' for k, v in approval.account_info.items())]
             application_info = [y[:30] for y in (f'{k}={v}' for k, v in approval.application_info.items())]
+            justification = approval.justification
+            if fmt != 'json' and isinstance(justification, str):
+                try:
+                    parsed = json.loads(justification)
+                    if isinstance(parsed, dict):
+                        justification = parsed.get('text', justification)
+                except (json.JSONDecodeError, ValueError):
+                    pass
             table.append([approval.approval_uid, pedm_shared.approval_type_to_name(approval.approval_type),
-                          status, approval.agent_uid, account_info, application_info, approval.justification,
+                          status, approval.agent_uid, account_info, application_info, justification,
                           approval.expire_in, approval.created])
 
         table.sort(key=lambda x: x[8], reverse=True)
-        fmt = kwargs.get('format')
         if fmt != 'json':
             headers = [report_utils.field_to_title(x) for x in headers]
         return report_utils.dump_report_data(table, headers, fmt=fmt, filename=kwargs.get('output'))

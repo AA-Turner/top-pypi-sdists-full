@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip_upgrader
-Version: 2.4.0
+Version: 2.4.1
 Summary: An interactive pip requirements upgrader. It also updates the version in your requirements.txt file.
 Project-URL: Homepage, https://github.com/simion/pip-upgrader
 Author-email: Simion Baws <simion.agv@gmail.com>
@@ -144,8 +144,8 @@ uv run ruff format --check .       # check formatting
 Releases are published to PyPI automatically via GitHub Actions when a version tag is pushed:
 
 ```sh
-git tag v2.3.0
-git push origin v2.3.0
+git tag v2.4.0
+git push origin v2.4.0
 ```
 
 This triggers the `publish.yml` workflow which builds and publishes to PyPI using trusted publishers (OIDC).

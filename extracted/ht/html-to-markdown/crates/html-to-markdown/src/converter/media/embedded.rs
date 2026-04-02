@@ -78,11 +78,20 @@ pub(crate) fn handle_audio(
     };
 
     if should_output_media_link(&src) {
-        output.push('[');
-        output.push_str(&src);
-        output.push_str("](");
-        output.push_str(&src);
-        output.push(')');
+        if let Some(ref collector) = ctx.reference_collector {
+            let ref_num = collector.borrow_mut().get_or_insert(&src, None);
+            output.push('[');
+            output.push_str(&src);
+            output.push_str("][");
+            output.push_str(&ref_num.to_string());
+            output.push(']');
+        } else {
+            output.push('[');
+            output.push_str(&src);
+            output.push_str("](");
+            output.push_str(&src);
+            output.push(')');
+        }
         if !ctx.in_paragraph && !ctx.convert_as_inline {
             output.push_str("\n\n");
         }
@@ -132,11 +141,20 @@ pub(crate) fn handle_video(
     };
 
     if should_output_media_link(&src) {
-        output.push('[');
-        output.push_str(&src);
-        output.push_str("](");
-        output.push_str(&src);
-        output.push(')');
+        if let Some(ref collector) = ctx.reference_collector {
+            let ref_num = collector.borrow_mut().get_or_insert(&src, None);
+            output.push('[');
+            output.push_str(&src);
+            output.push_str("][");
+            output.push_str(&ref_num.to_string());
+            output.push(']');
+        } else {
+            output.push('[');
+            output.push_str(&src);
+            output.push_str("](");
+            output.push_str(&src);
+            output.push(')');
+        }
         if !ctx.in_paragraph && !ctx.convert_as_inline {
             output.push_str("\n\n");
         }
@@ -199,11 +217,20 @@ pub(crate) fn handle_iframe(tag: &HTMLTag, output: &mut String, ctx: &Context) {
         .map_or(Cow::Borrowed(""), |v| v.as_utf8_str());
 
     if !src.is_empty() {
-        output.push('[');
-        output.push_str(&src);
-        output.push_str("](");
-        output.push_str(&src);
-        output.push(')');
+        if let Some(ref collector) = ctx.reference_collector {
+            let ref_num = collector.borrow_mut().get_or_insert(&src, None);
+            output.push('[');
+            output.push_str(&src);
+            output.push_str("][");
+            output.push_str(&ref_num.to_string());
+            output.push(']');
+        } else {
+            output.push('[');
+            output.push_str(&src);
+            output.push_str("](");
+            output.push_str(&src);
+            output.push(')');
+        }
         if !ctx.in_paragraph && !ctx.convert_as_inline {
             output.push_str("\n\n");
         }

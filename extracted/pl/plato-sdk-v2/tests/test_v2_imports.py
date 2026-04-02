@@ -108,59 +108,6 @@ class TestEnvHelpers:
         assert env.alias == "test"
 
 
-class TestChronosCallback:
-    """Test ChronosCallback utility class."""
-
-    def test_import_chronos_callback(self):
-        """Test importing ChronosCallback."""
-        from plato.agents.callback import ChronosCallback
-
-        assert ChronosCallback is not None
-
-    def test_callback_disabled_without_config(self):
-        """Test callback is disabled when not configured."""
-        from plato.agents.callback import ChronosCallback
-
-        callback = ChronosCallback(callback_url="", session_id="")
-        assert not callback.enabled
-
-    def test_callback_enabled_with_config(self):
-        """Test callback is enabled when configured."""
-        from plato.agents.callback import ChronosCallback
-
-        callback = ChronosCallback(callback_url="http://localhost:8001", session_id="test-session")
-        assert callback.enabled
-
-    def test_find_trajectory_returns_none_for_missing_file(self, tmp_path):
-        """Test find_trajectory returns None when file doesn't exist."""
-        from plato.agents.callback import ChronosCallback
-
-        callback = ChronosCallback(callback_url="http://localhost:8001", session_id="test-session")
-
-        result = callback.find_trajectory(str(tmp_path))
-        assert result is None
-
-    def test_find_trajectory_returns_atif(self, tmp_path):
-        """Test find_trajectory returns ATIF trajectory when present."""
-        import json
-
-        from plato.agents.callback import ChronosCallback
-
-        # Create agent/trajectory.json
-        agent_dir = tmp_path / "agent"
-        agent_dir.mkdir()
-        trajectory_file = agent_dir / "trajectory.json"
-
-        atif_data = {"schema_version": "ATIF-v1.5", "task": {"description": "test"}, "steps": []}
-        trajectory_file.write_text(json.dumps(atif_data))
-
-        callback = ChronosCallback(callback_url="http://localhost:8001", session_id="test-session")
-
-        result = callback.find_trajectory(str(tmp_path))
-        assert result is not None
-        assert result["schema_version"] == "ATIF-v1.5"
-
-
 class TestSessionSerialization:
     """Test Session serialization/deserialization."""
 

@@ -1,19 +1,22 @@
 import random
+import warnings
 import xml.dom.minidom as md
 import xml.etree.ElementTree as etree
-from io import BytesIO
 from itertools import chain
 
 import networkx as nx
-import numpy as np
 
-from pgmpy.factors.discrete import State, TabularCPD
+from pgmpy import logger
+from pgmpy.factors.discrete import TabularCPD
 from pgmpy.models import DiscreteBayesianNetwork
+from pgmpy.utils import compat_fns
 
 
-class XDSLReader(object):
+class XDSLReader:
     """
     Initializes the reader object for XDSL file formats[1] created through GeNIe[2].
+    Note that XDSLReader only supports cpt blocks from the XDSL file format; elements like
+    'deterministic' need to be aapropriately converted into 'cpt' elements before usage.
 
     Parameters
     ----------
@@ -46,6 +49,7 @@ class XDSLReader(object):
         else:
             raise ValueError("Must specify either path or string")
         self.network_name = self.network.attrib["id"]
+        self.cpt_elements = self.network.find("nodes").findall("cpt")
         self.variables = self.get_variables()
         self.variable_parents = self.get_parents()
         self.edge_list = self.get_edges()
@@ -62,8 +66,14 @@ class XDSLReader(object):
         >>> reader.get_variables()
         ['asia', 'tub', 'smoke', 'lung', 'either', 'xray', 'bronc', 'dysp']
         """
-        nodes = self.network.find("nodes")
-        variables = [variable.attrib["id"] for variable in nodes.findall("cpt")]
+        variables = [variable.attrib["id"] for variable in self.cpt_elements]
+        for var in variables:
+            if isinstance(var, str) and (" " in var):
+                raise ValueError(
+                    f"XDSLReader does not support models with node names"
+                    f" that contain whitespaces. Failed to process node: {var}"
+                )
+
         return variables
 
     def get_parents(self):
@@ -85,8 +95,7 @@ class XDSLReader(object):
         }
         """
         variable_parents = {}
-        nodes = self.network.find("nodes").findall("cpt")
-        for node in nodes:
+        for node in self.cpt_elements:
             parents = node.find("parents")
             if parents is not None:
                 variable_parents[node.attrib["id"]] = parents.text.split(" ")
@@ -112,11 +121,7 @@ class XDSLReader(object):
         ['either', 'dysp'],
         ['bronc', 'dysp']]
         """
-        edge_list = [
-            [value, key]
-            for key in self.variable_parents
-            for value in self.variable_parents[key]
-        ]
+        edge_list = [[value, key] for key in self.variable_parents for value in self.variable_parents[key]]
         return edge_list
 
     def get_states(self):
@@ -138,12 +143,9 @@ class XDSLReader(object):
         dysp': ['Absent', 'Present']
         }
         """
-        nodes = self.network.find("nodes").findall("cpt")
         variable_states = {}
-        for cpt in nodes:
-            variable_states[cpt.attrib["id"]] = [
-                state.attrib["id"] for state in cpt.findall("state")
-            ]
+        for cpt in self.cpt_elements:
+            variable_states[cpt.attrib["id"]] = [state.attrib["id"] for state in cpt.findall("state")]
         return variable_states
 
     def get_values(self):
@@ -165,9 +167,7 @@ class XDSLReader(object):
         }
         """
         variable_CPD = {}
-        nodes = self.network.find("nodes").findall("cpt")
-        for cpt in nodes:
-
+        for cpt in self.cpt_elements:
             combined_prob = cpt.find("probabilities")
             num_states = len([state for state in cpt.findall("state")])
             cpd_arr = [[] for k in range(num_states)]
@@ -206,10 +206,7 @@ class XDSLReader(object):
 
         tabular_cpds = []
         for var, values in self.variable_CPD.items():
-            evidence_card = [
-                len(self.variable_states[evidence_var])
-                for evidence_var in self.variable_parents[var]
-            ]
+            evidence_card = [len(self.variable_states[evidence_var]) for evidence_var in self.variable_parents[var]]
             cpd = TabularCPD(
                 var,
                 len(self.variable_states[var]),
@@ -228,7 +225,7 @@ class XDSLReader(object):
         return model
 
 
-class XDSLWriter(object):
+class XDSLWriter:
     """
     Initialise a XDSL writer object to export pgmpy models to XDSL file format[1] used by GeNIe[2].
 
@@ -252,10 +249,10 @@ class XDSLWriter(object):
     Examples
     ---------
     >>> from pgmpy.readwrite import XDSLWriter
-    >>> from pgmpy.utils import get_example_model
-    >>> asia = get_example_model('asia')
+    >>> from pgmpy.example_models import load_model
+    >>> asia = load_model("bnlearn/asia")
     >>> writer = XDSLWriter(asia)
-    >>> writer.write_xdsl('asia.xdsl')
+    >>> writer.write("asia.xdsl")
 
     Reference
     ---------
@@ -300,7 +297,7 @@ class XDSLWriter(object):
 
         Examples
         --------
-        >>> writer = XMLBIFWriter(model)
+        >>> writer = XDSLWriter(model)
         >>> writer.get_variables()
         {'asia': <Element 'cpt' at 0x000001DC6BFA1350>,
         'tub': <Element 'cpt' at 0x000001DC6BFA35B0>,
@@ -315,6 +312,8 @@ class XDSLWriter(object):
         nodes_elem = etree.SubElement(self.root, "nodes")
 
         for var in self.model.nodes:
+            if isinstance(var, str) and " " in var:
+                logger.warning(f" Node '{var}' contains whitespaces. This can create issues when loading the model. ")
             variable_tag[var] = etree.SubElement(nodes_elem, "cpt", {"id": var})
 
         return variable_tag
@@ -329,7 +328,7 @@ class XDSLWriter(object):
 
         Examples
         -------
-        >>> writer = XMLBIFWriter(model)
+        >>> writer = XDSLWriter(model)
         >>> writer.get_values()
         {'asia': <TabularCPD representing P(asia:2) at 0x1885817c830>,
         'tub': <TabularCPD representing P(tub:2 | asia:2) at 0x1885a7e57c0>,
@@ -350,8 +349,15 @@ class XDSLWriter(object):
             cpt_elem = self.variables[var]
             states = cpd.state_names[cpd.variable]
 
+            # Check for commas in state names and warn if found
             for st in states:
-                etree.SubElement(cpt_elem, "state", {"id": str(st)})
+                st_str = str(st)
+                if "," in st_str:
+                    logger.warning(
+                        f"State name '{st_str}' for variable '{var}' contains commas. "
+                        "This may cause issues when loading the file. Consider removing any special characters."
+                    )
+                etree.SubElement(cpt_elem, "state", {"id": st_str})
 
             evidence = cpd.variables
             if len(evidence) > 1:
@@ -361,11 +367,12 @@ class XDSLWriter(object):
 
             # Add the <probabilities> element.
             probs_elem = etree.SubElement(cpt_elem, "probabilities")
-            values = np.array(cpd.get_values())
+            values = cpd.get_values()
 
-            # Flatten in column-major order so that for each parent configuration the probabilities for all states are listed.
-            flat_values = values.flatten(order="F")
-            probs_elem.text = " ".join("{:.16f}".format(float(x)) for x in flat_values)
+            # Flatten in column-major order so that for each parent
+            #  configuration the probabilities for all states are listed.
+            flat_values = compat_fns.ravel_f(values)
+            probs_elem.text = " ".join(f"{float(x):.16f}" for x in flat_values)
 
             outcome_tag[var] = cpd
 
@@ -399,15 +406,13 @@ class XDSLWriter(object):
             # Appearance details (colors, font).
             etree.SubElement(node_elem, "interior", {"color": "e5f6f7"})
             etree.SubElement(node_elem, "outline", {"color": "000080"})
-            etree.SubElement(
-                node_elem, "font", {"color": "000000", "name": "Arial", "size": "8"}
-            )
+            etree.SubElement(node_elem, "font", {"color": "000000", "name": "Arial", "size": "8"})
 
             # Set node position (x1, y1, x2, y2).
             # Provide random position to each node.
             pos_x, pos_y = random.randint(0, 100), random.randint(0, 100)
             pos_elem = etree.SubElement(node_elem, "position")
-            pos_elem.text = f"{pos_x} {pos_y} {pos_x+72} {pos_y+48}"
+            pos_elem.text = f"{pos_x} {pos_y} {pos_x + 72} {pos_y + 48}"
 
             etree.SubElement(
                 node_elem,
@@ -415,7 +420,7 @@ class XDSLWriter(object):
                 {"active": "true", "width": "128", "height": "128"},
             )
 
-    def write_xdsl(self, filename=None):
+    def write(self, filename=None):
         """
         Write the xdsl data into the file.
 
@@ -426,10 +431,10 @@ class XDSLWriter(object):
         Examples
         --------
         >>> from pgmpy.readwrite import XDSLWriter
-        >>> from pgmpy.utils import get_example_model
-        >>> model = get_example_model('asia')
+        >>> from pgmpy.example_models import load_model
+        >>> model = load_model("bnlearn/asia")
         >>> writer = XDSLWriter(model)
-        >>> writer.write_xdsl('asia.xdsl')
+        >>> writer.write("asia.xdsl")
         """
         xml_str = etree.tostring(self.root, encoding=self.encoding)
         parsed = md.parseString(xml_str)
@@ -438,3 +443,9 @@ class XDSLWriter(object):
         if filename is not None:
             with open(filename, "wb") as f:
                 f.write(pretty_xml_str)
+
+    def write_xdsl(self, filename):
+        warnings.warn(
+            "`XDSLWriter.write_xdsl` is deprecated. Please use `XDSLWriter.write` instead.", FutureWarning, stacklevel=2
+        )
+        self.write(filename)

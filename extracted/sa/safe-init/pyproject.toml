@@ -1,0 +1,166 @@
+[project]
+name = "safe-init"
+version = "1.4.0"
+description = "Safe Init is a Python library that enhances AWS Lambda functions with advanced error handling, logging, monitoring, and resilience features, providing comprehensive observability and reliability for serverless applications."
+authors = [{ name = "Maciej Wilczyński", email = "maciej@lupine.software" }]
+requires-python = ">=3.11,<3.12"
+readme = "README.md"
+license = "MIT"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Logging",
+    "Topic :: System :: Monitoring",
+    "Typing :: Typed",
+]
+dependencies = [
+    "structlog>=24.1.0,<25",
+    "sentry-sdk<2.0.0",
+    "requests>=2.31.0,<3",
+    "awslambdaric>=2.0.10",
+    "boto3>=1.20.0",
+    "boto3-type-annotations>=0.3.1",
+    "datadog-lambda",
+    "ddtrace",
+    "redis>=4.0.0,<6",
+]
+
+[project.urls]
+Repository = "https://github.com/kalepa/safe-init"
+Documentation = "https://safe-init.readthedocs.io/en/latest/"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.3.1,<8",
+    "mypy>=1.4.1,<2",
+    "types-ujson>=5.8.0.0",
+    "types-colorama>=0.4.15.11",
+    "types-urllib3>=1.26.25.13,<2.0.0",
+    "types-requests>=2.31.0.1",
+    "boto3-type-annotations-with-docs>=0.3.1",
+    "fastapi>=0.95.0,<0.96",
+    "starlette>=0.27.0,<0.28",
+    "coverage>=7.4.4,<8",
+    "pytest-cov>=4.1.0,<5",
+    "mkdocs>=1.5.3,<2",
+    "mkdocstrings[python]>=0.24.1,<0.25",
+    "mkdocs-gen-files>=0.5.0,<0.6",
+    "mkdocs-literate-nav>=0.6.1,<0.7",
+    "mkdocs-section-index>=0.3.8,<0.4",
+    "pre-commit>=3.7.0,<4",
+    "httpx>=0.27.0,<0.28",
+]
+
+[tool.uv]
+
+[[tool.uv.index]]
+name = "PyPI"
+url = "https://pypi.org/simple/"
+default = true
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "safe_init",
+    "safe_init/py.typed",
+]
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "safe_init",
+    "safe_init/py.typed",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 120
+preview = true
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+skip = ["__init__.py"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["test/", "tests/", "scripts/", "bin/", "**/__init__.py"]
+
+[tool.ruff.lint]
+select = [
+    "A",
+    "B",
+    "C",
+    "E",
+    "F",
+    "G",
+    "I",
+    "N",
+    "Q",
+    "S",
+    "T",
+    "W",
+    "ANN",
+    "ARG",
+    "BLE",
+    "COM",
+    "DJ",
+    "DTZ",
+    "EM",
+    "ERA",
+    "EXE",
+    "FBT",
+    "ICN",
+    "INP",
+    "ISC",
+    "NPY",
+    "PD",
+    "PGH",
+    "PIE",
+    "PL",
+    "PT",
+    "PTH",
+    "PYI",
+    "RET",
+    "RSE",
+    "RUF",
+    "SIM",
+    "SLF",
+    "TCH",
+    "TID",
+    "TRY",
+    "UP",
+    "YTT",
+]
+extend-ignore = [
+    "ANN101",
+    "BLE001",
+    "ANN003",
+    "PLR0912",
+    "PLW0602",
+    "PLW0603",
+    "C901",
+    "PLR0913",
+    "PTH110",
+    "PTH123",
+    "S108",
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+show_error_codes = true
+disallow_untyped_calls = false
+disallow_any_generics = false
+warn_return_any = false
+ignore_missing_imports = true
+disable_error_code = "abstract"
+exclude = ['^test/', '^scripts/', '^bin/', '.*__init__.py']

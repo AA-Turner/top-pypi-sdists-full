@@ -96,8 +96,7 @@ class ChatPromptBuilder:
     # 'index': 0, 'finish_reason': 'stop', 'usage': {'prompt_tokens': 27, 'completion_tokens': 681, 'total_tokens':
     # 708}})]}}
 
-    messages = [system_message, ChatMessage.from_user("What's the weather forecast for {{location}} in the next
-    {{day_count}} days?")]
+    messages = [system_message, ChatMessage.from_user("What's the weather forecast for {{location}} in the next {{day_count}} days?")]
 
     res = pipe.run(data={"prompt_builder": {"template_variables": {"location": location, "day_count": "5"},
                                         "template": messages}})
@@ -135,14 +134,14 @@ class ChatPromptBuilder:
     builder = ChatPromptBuilder(template=template)
     builder.run(user_name="John", images=images)
     ```
-    """
+    """  # noqa: E501
 
     def __init__(
         self,
         template: list[ChatMessage] | str | None = None,
         required_variables: list[str] | Literal["*"] | None = None,
         variables: list[str] | None = None,
-    ):
+    ) -> None:
         """
         Constructs a ChatPromptBuilder component.
 
@@ -212,7 +211,7 @@ class ChatPromptBuilder:
         self,
         template: list[ChatMessage] | str | None = None,
         template_variables: dict[str, Any] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, list[ChatMessage]]:
         """
         Renders the prompt template with the provided variables.
@@ -297,7 +296,7 @@ class ChatPromptBuilder:
 
         return messages
 
-    def _validate_variables(self, provided_variables: set[str]):
+    def _validate_variables(self, provided_variables: set[str]) -> None:
         """
         Checks if all the required template variables are provided.
 

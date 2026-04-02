@@ -1,0 +1,19 @@
+[package]
+name = "pylibsql"
+version = "0.1.11"
+edition = "2024"
+readme = "README.md"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = "0.25.1"
+libsql = { version = "0.9.22", features = ["encryption"]  }
+tokio = { version = "1.47.0", features = [ "rt-multi-thread" ] }
+tracing-subscriber = "0.3.19"
+
+[build-dependencies]
+version_check = "0.9.5"
+# used where logic has to be version/distribution specific, e.g. pypy
+pyo3-build-config = { version = "0.25.1" }

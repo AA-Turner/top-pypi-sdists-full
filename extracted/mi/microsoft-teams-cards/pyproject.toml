@@ -1,0 +1,34 @@
+[project]
+name = "microsoft-teams-cards"
+dynamic = ["version"]
+description = "Cards package for Microsoft Teams"
+readme = "README.md"
+repository = "https://github.com/microsoft/teams.py"
+keywords = ["microsoft", "teams", "ai", "bot", "agents"]
+license = "MIT"
+authors = [
+    { name = "Microsoft", email = "TeamsAISDKFeedback@microsoft.com" }
+]
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "coverage>=7.8.0",
+    "pytest>=8.3.5",
+    "ruff>=0.11.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/microsoft/teams.py/tree/main/packages/cards/src/microsoft/teams/cards"
+
+[build-system]
+requires = ["hatchling", "nbgv-python"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "nbgv"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/microsoft_teams", "src/microsoft"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src"]
+

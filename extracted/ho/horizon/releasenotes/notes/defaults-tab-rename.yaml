@@ -1,4 +1,0 @@
----
-upgrade:
-  - The "Defaults" tab now renamed to "Default Quotas" for clarity
-    and better reflection of containing information.

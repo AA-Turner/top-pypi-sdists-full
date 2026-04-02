@@ -33,20 +33,26 @@ class StreamClient:
     The API client for the Stream Resource.
 
     :param auth: Your auth configuration.
-    :param hostname: Your Foundry hostname (for example, "myfoundry.palantirfoundry.com"). This can also include your API gateway service URI.
+    :param hostname: The hostname supplier for resolving base URLs.
     :param config: Optionally specify the configuration for the HTTP session.
     """
 
     def __init__(
         self,
         auth: core.Auth,
-        hostname: str,
+        hostname: typing.Union[str, core.HostnameSupplier],
         config: typing.Optional[core.Config] = None,
     ):
         self._auth = auth
-        self._hostname = hostname
+        if isinstance(hostname, core.HostnameSupplier):
+            self._hostname_supplier = hostname
+        else:
+            self._hostname_supplier = core.create_hostname_supplier(hostname, config)
+        self._hostname = self._hostname_supplier.get_hostname()
         self._config = config
-        self._api_client = core.ApiClient(auth=auth, hostname=hostname, config=config)
+        self._api_client = core.ApiClient(
+            auth=auth, hostname=self._hostname_supplier, config=config
+        )
 
         self.with_streaming_response = _StreamClientStreaming(self)
         self.with_raw_response = _StreamClientRaw(self)
@@ -57,7 +63,7 @@ class StreamClient:
 
         return SubscriberClient(
             auth=self._auth,
-            hostname=self._hostname,
+            hostname=self._hostname_supplier,
             config=self._config,
         )
 
@@ -148,7 +154,6 @@ class StreamClient:
         dataset_rid: core_models.DatasetRid,
         stream_branch_name: core_models.BranchName,
         *,
-        preview: typing.Optional[core_models.PreviewMode] = None,
         request_timeout: typing.Optional[core.Timeout] = None,
         _sdk_internal: core.SdkInternal = {},
     ) -> streams_models.Stream:
@@ -160,8 +165,6 @@ class StreamClient:
         :type dataset_rid: DatasetRid
         :param stream_branch_name:
         :type stream_branch_name: BranchName
-        :param preview: Enables the use of preview functionality.
-        :type preview: Optional[PreviewMode]
         :param request_timeout: timeout setting for this request in seconds.
         :type request_timeout: Optional[int]
         :return: Returns the result object.
@@ -177,9 +180,7 @@ class StreamClient:
             core.RequestInfo(
                 method="GET",
                 resource_path="/v2/streams/datasets/{datasetRid}/streams/{streamBranchName}",
-                query_params={
-                    "preview": preview,
-                },
+                query_params={},
                 path_params={
                     "datasetRid": dataset_rid,
                     "streamBranchName": stream_branch_name,
@@ -254,6 +255,7 @@ class StreamClient:
                     "GetEndOffsetsForStreamPermissionDenied": streams_errors.GetEndOffsetsForStreamPermissionDenied,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
+                endpoint_type=core.EndpointType.HIGH_SCALE,
             ),
         )
 
@@ -324,6 +326,7 @@ class StreamClient:
                     "GetRecordsFromStreamPermissionDenied": streams_errors.GetRecordsFromStreamPermissionDenied,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
+                endpoint_type=core.EndpointType.HIGH_SCALE,
             ),
         )
 
@@ -336,7 +339,6 @@ class StreamClient:
         stream_branch_name: core_models.BranchName,
         body: bytes,
         *,
-        preview: typing.Optional[core_models.PreviewMode] = None,
         view_rid: typing.Optional[streams_models.ViewRid] = None,
         request_timeout: typing.Optional[core.Timeout] = None,
         _sdk_internal: core.SdkInternal = {},
@@ -350,8 +352,6 @@ class StreamClient:
         :type stream_branch_name: BranchName
         :param body: The binary record to publish to the stream
         :type body: bytes
-        :param preview: Enables the use of preview functionality.
-        :type preview: Optional[PreviewMode]
         :param view_rid: If provided, this endpoint will only write to the stream corresponding to the specified view RID. If not provided, this endpoint will write to the latest stream on the branch.  Providing this value is an advanced configuration, to be used when additional control over the underlying streaming data structures is needed.
         :type view_rid: Optional[ViewRid]
         :param request_timeout: timeout setting for this request in seconds.
@@ -367,7 +367,6 @@ class StreamClient:
                 method="POST",
                 resource_path="/v2/highScale/streams/datasets/{datasetRid}/streams/{streamBranchName}/publishBinaryRecord",
                 query_params={
-                    "preview": preview,
                     "viewRid": view_rid,
                 },
                 path_params={
@@ -384,6 +383,7 @@ class StreamClient:
                     "PublishBinaryRecordToStreamPermissionDenied": streams_errors.PublishBinaryRecordToStreamPermissionDenied,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
+                endpoint_type=core.EndpointType.HIGH_SCALE,
             ),
         )
 
@@ -396,7 +396,6 @@ class StreamClient:
         stream_branch_name: core_models.BranchName,
         *,
         record: streams_models.Record,
-        preview: typing.Optional[core_models.PreviewMode] = None,
         view_rid: typing.Optional[streams_models.ViewRid] = None,
         request_timeout: typing.Optional[core.Timeout] = None,
         _sdk_internal: core.SdkInternal = {},
@@ -411,8 +410,6 @@ class StreamClient:
         :type stream_branch_name: BranchName
         :param record: The record to publish to the stream
         :type record: Record
-        :param preview: Enables the use of preview functionality.
-        :type preview: Optional[PreviewMode]
         :param view_rid: If provided, this endpoint will only write to the stream corresponding to the specified view RID. If not provided, this endpoint will write the latest stream on the branch.  Providing this value is an advanced configuration, to be used when additional control over the underlying streaming data structures is needed.
         :type view_rid: Optional[ViewRid]
         :param request_timeout: timeout setting for this request in seconds.
@@ -427,9 +424,7 @@ class StreamClient:
             core.RequestInfo(
                 method="POST",
                 resource_path="/v2/highScale/streams/datasets/{datasetRid}/streams/{streamBranchName}/publishRecord",
-                query_params={
-                    "preview": preview,
-                },
+                query_params={},
                 path_params={
                     "datasetRid": dataset_rid,
                     "streamBranchName": stream_branch_name,
@@ -447,6 +442,7 @@ class StreamClient:
                     "PublishRecordToStreamPermissionDenied": streams_errors.PublishRecordToStreamPermissionDenied,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
+                endpoint_type=core.EndpointType.HIGH_SCALE,
             ),
         )
 
@@ -459,7 +455,6 @@ class StreamClient:
         stream_branch_name: core_models.BranchName,
         *,
         records: typing.List[streams_models.Record],
-        preview: typing.Optional[core_models.PreviewMode] = None,
         view_rid: typing.Optional[streams_models.ViewRid] = None,
         request_timeout: typing.Optional[core.Timeout] = None,
         _sdk_internal: core.SdkInternal = {},
@@ -474,8 +469,6 @@ class StreamClient:
         :type stream_branch_name: BranchName
         :param records: The records to publish to the stream
         :type records: List[Record]
-        :param preview: Enables the use of preview functionality.
-        :type preview: Optional[PreviewMode]
         :param view_rid: If provided, this endpoint will only write to the stream corresponding to the specified view RID. If not provided, this endpoint will write to the latest stream on the branch.  Providing this value is an advanced configuration, to be used when additional control over the underlying streaming data structures is needed.
         :type view_rid: Optional[ViewRid]
         :param request_timeout: timeout setting for this request in seconds.
@@ -490,9 +483,7 @@ class StreamClient:
             core.RequestInfo(
                 method="POST",
                 resource_path="/v2/highScale/streams/datasets/{datasetRid}/streams/{streamBranchName}/publishRecords",
-                query_params={
-                    "preview": preview,
-                },
+                query_params={},
                 path_params={
                     "datasetRid": dataset_rid,
                     "streamBranchName": stream_branch_name,
@@ -510,6 +501,7 @@ class StreamClient:
                     "PublishRecordsToStreamPermissionDenied": streams_errors.PublishRecordsToStreamPermissionDenied,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
+                endpoint_type=core.EndpointType.HIGH_SCALE,
             ),
         )
 
@@ -644,20 +636,26 @@ class AsyncStreamClient:
     The API client for the Stream Resource.
 
     :param auth: Your auth configuration.
-    :param hostname: Your Foundry hostname (for example, "myfoundry.palantirfoundry.com"). This can also include your API gateway service URI.
+    :param hostname: The hostname supplier for resolving base URLs.
     :param config: Optionally specify the configuration for the HTTP session.
     """
 
     def __init__(
         self,
         auth: core.Auth,
-        hostname: str,
+        hostname: typing.Union[str, core.HostnameSupplier],
         config: typing.Optional[core.Config] = None,
     ):
         self._auth = auth
-        self._hostname = hostname
+        if isinstance(hostname, core.HostnameSupplier):
+            self._hostname_supplier = hostname
+        else:
+            self._hostname_supplier = core.create_hostname_supplier(hostname, config)
+        self._hostname = self._hostname_supplier.get_hostname()
         self._config = config
-        self._api_client = core.AsyncApiClient(auth=auth, hostname=hostname, config=config)
+        self._api_client = core.AsyncApiClient(
+            auth=auth, hostname=self._hostname_supplier, config=config
+        )
 
         self.with_streaming_response = _AsyncStreamClientStreaming(self)
         self.with_raw_response = _AsyncStreamClientRaw(self)
@@ -668,7 +666,7 @@ class AsyncStreamClient:
 
         return AsyncSubscriberClient(
             auth=self._auth,
-            hostname=self._hostname,
+            hostname=self._hostname_supplier,
             config=self._config,
         )
 
@@ -759,7 +757,6 @@ class AsyncStreamClient:
         dataset_rid: core_models.DatasetRid,
         stream_branch_name: core_models.BranchName,
         *,
-        preview: typing.Optional[core_models.PreviewMode] = None,
         request_timeout: typing.Optional[core.Timeout] = None,
         _sdk_internal: core.SdkInternal = {},
     ) -> typing.Awaitable[streams_models.Stream]:
@@ -771,8 +768,6 @@ class AsyncStreamClient:
         :type dataset_rid: DatasetRid
         :param stream_branch_name:
         :type stream_branch_name: BranchName
-        :param preview: Enables the use of preview functionality.
-        :type preview: Optional[PreviewMode]
         :param request_timeout: timeout setting for this request in seconds.
         :type request_timeout: Optional[int]
         :return: Returns the result object.
@@ -788,9 +783,7 @@ class AsyncStreamClient:
             core.RequestInfo(
                 method="GET",
                 resource_path="/v2/streams/datasets/{datasetRid}/streams/{streamBranchName}",
-                query_params={
-                    "preview": preview,
-                },
+                query_params={},
                 path_params={
                     "datasetRid": dataset_rid,
                     "streamBranchName": stream_branch_name,
@@ -865,6 +858,7 @@ class AsyncStreamClient:
                     "GetEndOffsetsForStreamPermissionDenied": streams_errors.GetEndOffsetsForStreamPermissionDenied,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
+                endpoint_type=core.EndpointType.HIGH_SCALE,
             ),
         )
 
@@ -935,6 +929,7 @@ class AsyncStreamClient:
                     "GetRecordsFromStreamPermissionDenied": streams_errors.GetRecordsFromStreamPermissionDenied,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
+                endpoint_type=core.EndpointType.HIGH_SCALE,
             ),
         )
 
@@ -947,7 +942,6 @@ class AsyncStreamClient:
         stream_branch_name: core_models.BranchName,
         body: bytes,
         *,
-        preview: typing.Optional[core_models.PreviewMode] = None,
         view_rid: typing.Optional[streams_models.ViewRid] = None,
         request_timeout: typing.Optional[core.Timeout] = None,
         _sdk_internal: core.SdkInternal = {},
@@ -961,8 +955,6 @@ class AsyncStreamClient:
         :type stream_branch_name: BranchName
         :param body: The binary record to publish to the stream
         :type body: bytes
-        :param preview: Enables the use of preview functionality.
-        :type preview: Optional[PreviewMode]
         :param view_rid: If provided, this endpoint will only write to the stream corresponding to the specified view RID. If not provided, this endpoint will write to the latest stream on the branch.  Providing this value is an advanced configuration, to be used when additional control over the underlying streaming data structures is needed.
         :type view_rid: Optional[ViewRid]
         :param request_timeout: timeout setting for this request in seconds.
@@ -978,7 +970,6 @@ class AsyncStreamClient:
                 method="POST",
                 resource_path="/v2/highScale/streams/datasets/{datasetRid}/streams/{streamBranchName}/publishBinaryRecord",
                 query_params={
-                    "preview": preview,
                     "viewRid": view_rid,
                 },
                 path_params={
@@ -995,6 +986,7 @@ class AsyncStreamClient:
                     "PublishBinaryRecordToStreamPermissionDenied": streams_errors.PublishBinaryRecordToStreamPermissionDenied,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
+                endpoint_type=core.EndpointType.HIGH_SCALE,
             ),
         )
 
@@ -1007,7 +999,6 @@ class AsyncStreamClient:
         stream_branch_name: core_models.BranchName,
         *,
         record: streams_models.Record,
-        preview: typing.Optional[core_models.PreviewMode] = None,
         view_rid: typing.Optional[streams_models.ViewRid] = None,
         request_timeout: typing.Optional[core.Timeout] = None,
         _sdk_internal: core.SdkInternal = {},
@@ -1022,8 +1013,6 @@ class AsyncStreamClient:
         :type stream_branch_name: BranchName
         :param record: The record to publish to the stream
         :type record: Record
-        :param preview: Enables the use of preview functionality.
-        :type preview: Optional[PreviewMode]
         :param view_rid: If provided, this endpoint will only write to the stream corresponding to the specified view RID. If not provided, this endpoint will write the latest stream on the branch.  Providing this value is an advanced configuration, to be used when additional control over the underlying streaming data structures is needed.
         :type view_rid: Optional[ViewRid]
         :param request_timeout: timeout setting for this request in seconds.
@@ -1038,9 +1027,7 @@ class AsyncStreamClient:
             core.RequestInfo(
                 method="POST",
                 resource_path="/v2/highScale/streams/datasets/{datasetRid}/streams/{streamBranchName}/publishRecord",
-                query_params={
-                    "preview": preview,
-                },
+                query_params={},
                 path_params={
                     "datasetRid": dataset_rid,
                     "streamBranchName": stream_branch_name,
@@ -1058,6 +1045,7 @@ class AsyncStreamClient:
                     "PublishRecordToStreamPermissionDenied": streams_errors.PublishRecordToStreamPermissionDenied,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
+                endpoint_type=core.EndpointType.HIGH_SCALE,
             ),
         )
 
@@ -1070,7 +1058,6 @@ class AsyncStreamClient:
         stream_branch_name: core_models.BranchName,
         *,
         records: typing.List[streams_models.Record],
-        preview: typing.Optional[core_models.PreviewMode] = None,
         view_rid: typing.Optional[streams_models.ViewRid] = None,
         request_timeout: typing.Optional[core.Timeout] = None,
         _sdk_internal: core.SdkInternal = {},
@@ -1085,8 +1072,6 @@ class AsyncStreamClient:
         :type stream_branch_name: BranchName
         :param records: The records to publish to the stream
         :type records: List[Record]
-        :param preview: Enables the use of preview functionality.
-        :type preview: Optional[PreviewMode]
         :param view_rid: If provided, this endpoint will only write to the stream corresponding to the specified view RID. If not provided, this endpoint will write to the latest stream on the branch.  Providing this value is an advanced configuration, to be used when additional control over the underlying streaming data structures is needed.
         :type view_rid: Optional[ViewRid]
         :param request_timeout: timeout setting for this request in seconds.
@@ -1101,9 +1086,7 @@ class AsyncStreamClient:
             core.RequestInfo(
                 method="POST",
                 resource_path="/v2/highScale/streams/datasets/{datasetRid}/streams/{streamBranchName}/publishRecords",
-                query_params={
-                    "preview": preview,
-                },
+                query_params={},
                 path_params={
                     "datasetRid": dataset_rid,
                     "streamBranchName": stream_branch_name,
@@ -1121,6 +1104,7 @@ class AsyncStreamClient:
                     "PublishRecordsToStreamPermissionDenied": streams_errors.PublishRecordsToStreamPermissionDenied,
                 },
                 response_mode=_sdk_internal.get("response_mode"),
+                endpoint_type=core.EndpointType.HIGH_SCALE,
             ),
         )
 

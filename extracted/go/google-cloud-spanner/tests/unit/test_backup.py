@@ -14,6 +14,7 @@
 
 
 import unittest
+from datetime import timezone
 
 import mock
 
@@ -34,9 +35,10 @@ class _BaseTest(unittest.TestCase):
     @staticmethod
     def _make_timestamp():
         import datetime
+
         from google.cloud._helpers import UTC
 
-        return datetime.datetime.utcnow().replace(tzinfo=UTC)
+        return datetime.datetime.now(timezone.utc).replace(tzinfo=UTC)
 
 
 class TestBackup(_BaseTest):
@@ -226,10 +228,9 @@ class TestBackup(_BaseTest):
         self.assertEqual(backup._encryption_config, expected)
 
     def test_create_grpc_error(self):
-        from google.api_core.exceptions import GoogleAPICallError
-        from google.api_core.exceptions import Unknown
-        from google.cloud.spanner_admin_database_v1 import Backup
-        from google.cloud.spanner_admin_database_v1 import CreateBackupRequest
+        from google.api_core.exceptions import GoogleAPICallError, Unknown
+
+        from google.cloud.spanner_admin_database_v1 import Backup, CreateBackupRequest
 
         client = _Client()
         api = client.database_admin_api = self._make_database_admin_api()
@@ -262,8 +263,8 @@ class TestBackup(_BaseTest):
 
     def test_create_already_exists(self):
         from google.cloud.exceptions import Conflict
-        from google.cloud.spanner_admin_database_v1 import Backup
-        from google.cloud.spanner_admin_database_v1 import CreateBackupRequest
+
+        from google.cloud.spanner_admin_database_v1 import Backup, CreateBackupRequest
 
         client = _Client()
         api = client.database_admin_api = self._make_database_admin_api()
@@ -296,8 +297,8 @@ class TestBackup(_BaseTest):
 
     def test_create_instance_not_found(self):
         from google.cloud.exceptions import NotFound
-        from google.cloud.spanner_admin_database_v1 import Backup
-        from google.cloud.spanner_admin_database_v1 import CreateBackupRequest
+
+        from google.cloud.spanner_admin_database_v1 import Backup, CreateBackupRequest
 
         client = _Client()
         api = client.database_admin_api = self._make_database_admin_api()
@@ -344,12 +345,13 @@ class TestBackup(_BaseTest):
             backup.create()
 
     def test_create_success(self):
-        from google.cloud.spanner_admin_database_v1 import Backup
-        from google.cloud.spanner_admin_database_v1 import CreateBackupRequest
-        from google.cloud.spanner_admin_database_v1 import CreateBackupEncryptionConfig
-        from datetime import datetime
-        from datetime import timedelta
-        from datetime import timezone
+        from datetime import datetime, timedelta, timezone
+
+        from google.cloud.spanner_admin_database_v1 import (
+            Backup,
+            CreateBackupEncryptionConfig,
+            CreateBackupRequest,
+        )
 
         op_future = object()
         client = _Client()
@@ -357,7 +359,7 @@ class TestBackup(_BaseTest):
         api.create_backup.return_value = op_future
 
         instance = _Instance(self.INSTANCE_NAME, client=client)
-        version_timestamp = datetime.utcnow() - timedelta(minutes=5)
+        version_timestamp = datetime.now(timezone.utc) - timedelta(minutes=5)
         version_timestamp = version_timestamp.replace(tzinfo=timezone.utc)
         expire_timestamp = self._make_timestamp()
         encryption_config = {"encryption_type": 3, "kms_key_name": "key_name"}
@@ -551,8 +553,7 @@ class TestBackup(_BaseTest):
         )
 
     def test_reload_success(self):
-        from google.cloud.spanner_admin_database_v1 import Backup
-        from google.cloud.spanner_admin_database_v1 import EncryptionInfo
+        from google.cloud.spanner_admin_database_v1 import Backup, EncryptionInfo
 
         timestamp = self._make_timestamp()
         encryption_info = EncryptionInfo(kms_key_version="kms_key_version")
@@ -592,6 +593,7 @@ class TestBackup(_BaseTest):
 
     def test_update_expire_time_grpc_error(self):
         from google.api_core.exceptions import Unknown
+
         from google.cloud.spanner_admin_database_v1 import Backup
 
         client = _Client()
@@ -617,6 +619,7 @@ class TestBackup(_BaseTest):
 
     def test_update_expire_time_not_found(self):
         from google.api_core.exceptions import NotFound
+
         from google.cloud.spanner_admin_database_v1 import Backup
 
         client = _Client()
@@ -679,10 +682,12 @@ class _Client(object):
     def __init__(self, project=TestBackup.PROJECT_ID):
         self.project = project
         self.project_name = "projects/" + self.project
+        self._client_context = None
 
 
 class _Instance(object):
-    def __init__(self, name, client=None):
+    def __init__(self, name, client=None, experimental_host=None):
         self.name = name
         self.instance_id = name.rsplit("/", 1)[1]
         self._client = client
+        self.experimental_host = experimental_host

@@ -1,32 +1,26 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
 name = "iso-week-date"
-version = "2.2.2"
+version = "2.3.0"
 description = "Toolkit to work with str representing ISO Week date format"
-
-license = {file = "LICENSE"}
-readme = "README.md"
-requires-python = ">=3.9"
 authors = [{name = "Francesco Bruzzesi"}]
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.10"
 
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
-    "Programming Language :: Python :: Free Threading :: 2 - Beta",
-    # "Programming Language :: Python :: Free Threading :: 3 - Stable",
-    # "Programming Language :: Python :: Free Threading :: 4 - Resilient",
-    "License :: OSI Approved :: MIT License",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Typing :: Typed",
-    "Development Status :: 5 - Production/Stable",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Free Threading :: 2 - Beta",
+  # "Programming Language :: Python :: Free Threading :: 3 - Stable",
+  # "Programming Language :: Python :: Free Threading :: 4 - Resilient",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+  "Development Status :: 5 - Production/Stable",
 ]
 
 [project.urls]
@@ -40,68 +34,57 @@ polars = ["polars>=0.18.0"]
 pydantic = ["pydantic>=2.4.0"]
 all = ["iso-week-date[pandas,polars,pydantic]"]
 
-[dependency-groups]
-lint = ["ruff>=0.12.0"]
-tests = [
-    "pytest",
-    "pytest-cov",
-    "pytest-env",
-    "pytest-run-parallel",
-    "coverage",
-    "covdefaults",
-    "typing_extensions",
-]
+[build-system]
+requires = ["uv_build>=0.11.0,<0.12.0"]
+build-backend = "uv_build"
 
-extra = [
-    "hatch",
-    "interrogate",
-    "pre-commit",
+[dependency-groups]
+tests = [
+  "pytest",
+  "pytest-cov",
+  "pytest-env",
+  "pytest-run-parallel",
+  "coverage",
+  "covdefaults",
+  "typing_extensions",
 ]
 
 docs = [
-    "mkdocs>=1.4.2",
-    "mkdocs-material>=9.2.0",
-    "mkdocstrings[python]",
-    "mkdocstrings-python>=1.16",
-    "mkdocs-autorefs",
+  "markdown-exec[ansi]",
+  "mkdocs-autorefs",
+  "mkdocstrings-python",
+  "zensical",
 ]
 
 typing = [
-    "mypy",
-    "pyright",
-    "ty",
-    "pandas-stubs",
-    "typing-extensions>=4.4.0; python_version < '3.11'",
-]
-
-slotscheck = [
-    "slotscheck>=0.19.1",
+  "mypy",
+  "pyright",
+  "ty",
+  "pandas-stubs",
+  "typing-extensions>=4.4.0; python_version < '3.11'",
+  {include-group = "tests"},
 ]
 
 local-dev = [
     "iso-week-date[pandas,polars,pydantic]",
+    "prek>=0.3.4",
     {include-group = "docs"},
-    {include-group = "extra"},
-    {include-group = "lint"},
     {include-group = "tests"},
     {include-group = "typing"},
-    {include-group = "slotscheck"},
 ]
 
-[tool.hatch.build.targets.sdist]
-include = [
-  "iso_week_date/*",
+[tool.uv.build-backend]
+source-include = [
+  "src/*",
   "tests/*",
 ]
-
-[tool.hatch.build.targets.wheel]
-include = [
-  "iso_week_date/*",
+wheel-include = [
+  "src/*",
 ]
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py310"
 fix = true
 
 extend-exclude = ["bump-version.py"]
@@ -187,10 +170,11 @@ env = [
 ]
 
 [tool.coverage.run]
-source = ["iso_week_date/"]
+source = ["src/"]
 plugins = ["covdefaults"]
 
 [tool.coverage.report]
+fail_under = 95
 exclude_also = [
   "if TYPE_CHECKING:",
   "@abstractmethod",
@@ -199,3 +183,17 @@ exclude_also = [
 
 [tool.ty.rules]
 invalid-super-argument = "ignore"
+
+[tool.rumdl]
+line-length = 120
+flavor = "mkdocs"
+include = ["docs/**", "README.md"]
+disable = [
+  "MD033",  # Inline HTML found
+  "MD051",  # Link fragment are create dynamically for the API Reference
+]
+
+[tool.rumdl.MD007]
+# Keep list indentation consistent
+indent = 4
+start-indented = false

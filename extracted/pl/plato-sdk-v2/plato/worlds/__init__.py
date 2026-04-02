@@ -93,6 +93,7 @@ from plato.worlds.session_review_models import (
     SessionReviewSummary,
 )
 from plato.worlds.slack import disable_slack_notifications, enable_slack_notifications
+from plato.worlds.stage_tracking import disable_stage_tracking, enable_stage_tracking
 
 __all__ = [
     # Base
@@ -134,7 +135,10 @@ __all__ = [
     "FromArg",
     "load_durable",
     "load_durable_path",
-    # Slack notifications
+    # Stage tracking (also handles server-side Slack notifications)
+    "enable_stage_tracking",
+    "disable_stage_tracking",
+    # Slack notifications (backward-compatible aliases)
     "enable_slack_notifications",
     "disable_slack_notifications",
     # Human annotation

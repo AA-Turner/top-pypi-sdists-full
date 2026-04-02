@@ -1,0 +1,140 @@
+[build-system]
+requires = ["setuptools >= 64", "wheel", "setuptools_scm[toml] >= 7"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trx-python"
+dynamic = ["version"]
+description = "A community-oriented file format for tractography"
+readme = "README.md"
+license = {text = "BSD License"}
+requires-python = ">=3.11"
+authors = [
+    {name = "The TRX developers"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "deepdiff",
+    "nibabel >= 5",
+    "numpy >= 1.22",
+    "typer >= 0.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "spin >= 0.13",
+    "setuptools_scm",
+]
+doc = [
+    "matplotlib",
+    "numpydoc",
+    "pydata-sphinx-theme >= 0.16.1",
+    "sphinx >= 8.2.0",
+    "sphinx-autoapi >= 3.4.0",
+    "sphinx-design",
+    "sphinx-gallery",
+]
+style = [
+    "codespell",
+    "pre-commit",
+    "ruff",
+]
+test = [
+    "psutil",
+    "pytest >= 7",
+    "pytest-console-scripts >= 0",
+    "pytest-cov",
+]
+all = [
+    "trx-python[dev]",
+    "trx-python[doc]",
+    "trx-python[style]",
+    "trx-python[test]",
+]
+
+[project.urls]
+Homepage = "https://github.com/tee-ar-ex/trx-python"
+Documentation = "https://tee-ar-ex.github.io/trx-python/"
+Repository = "https://github.com/tee-ar-ex/trx-python"
+
+[project.scripts]
+trx = "trx.cli:main"
+trx_concatenate_tractograms = "trx.cli:concatenate_tractograms_cmd"
+trx_convert_dsi_studio = "trx.cli:convert_dsi_cmd"
+trx_convert_tractogram = "trx.cli:convert_cmd"
+trx_generate_from_scratch = "trx.cli:generate_cmd"
+trx_manipulate_datatype = "trx.cli:manipulate_dtype_cmd"
+trx_simple_compare = "trx.cli:compare_cmd"
+trx_validate = "trx.cli:validate_cmd"
+trx_verify_header_compatibility = "trx.cli:verify_header_cmd"
+trx_visualize_overlap = "trx.cli:visualize_cmd"
+trx_info = "trx.cli:info_cmd"
+
+[tool.setuptools]
+packages = ["trx"]
+include-package-data = true
+
+[tool.setuptools_scm]
+write_to = "trx/_version.py"
+fallback_version = "0.0"
+local_scheme = "no-local-version"
+
+[tool.codespell]
+ignore-words-list = "astroid"
+
+[tool.spin]
+package = "trx"
+
+[tool.spin.commands]
+"Setup" = [".spin/cmds.py:setup"]
+"Build" = ["spin.cmds.pip.install"]
+"Test" = [".spin/cmds.py:test", ".spin/cmds.py:lint"]
+"Docs" = [".spin/cmds.py:docs"]
+"Clean" = [".spin/cmds.py:clean"]
+
+[tool.numpydoc_validation]
+checks = [
+    "all",   # report on all checks, except the below
+    # These we we ignore:
+    "GL01",  # Docstring should start in the line immediately after the quotes
+    "GL02",  # Closing quotes on own line (doesn't work on Python 3.13 anyway)
+    "EX01",
+    "EX02",  # examples failed (we test them separately)
+    "ES01",  # no extended summary
+    "SA01",  # no see also
+    "YD01",  # no yields section
+    "SA04",  # no description in See Also
+    "PR04",  # Parameter "shape (n_channels" has no type
+    "RT02",  # The first line of the Returns section should
+]
+# remember to use single quotes for regex in TOML
+exclude = [  # don't report on objects that match any of these regex
+    '\.undocumented_method$',
+    '\.__repr__$',
+    '\.__str__$',
+    '\.__len__$',
+    '\.__getitem__$',
+    '\.__deepcopy__$',
+]
+exclude_files = [ # don't process filepaths that match these regex
+    '^trx/tests/.*',
+    '^module/gui.*',
+    '^examples/.*',
+]
+override_SS05 = [  # override SS05 to allow docstrings starting with these words
+    '^Process ',
+    '^Assess ',
+    '^Access ',
+]

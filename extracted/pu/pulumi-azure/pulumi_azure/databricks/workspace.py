@@ -43,6 +43,7 @@ class WorkspaceArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a Workspace resource.
+
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the Resource Group in which the Databricks Workspace should exist. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] sku: The `sku` to use for the Databricks Workspace. Possible values are `standard`, `premium`, or `trial`.
                
@@ -403,6 +404,7 @@ class _WorkspaceState:
                  workspace_url: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Workspace resources.
+
         :param pulumi.Input[_builtins.str] access_connector_id: Access Connector ID to use when default storage account firewall is enabled. 
                
                > **Note:** The `access_connector_id` field is only required if `default_storage_firewall_enabled` is set to `true`.
@@ -891,7 +893,7 @@ class Workspace(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.Databricks` - 2024-05-01, 2022-10-01-preview
+        * `Microsoft.Databricks` - 2026-01-01
 
         * `Microsoft.Network` - 2025-01-01, 2023-09-01
 
@@ -902,6 +904,7 @@ class Workspace(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:databricks/workspace:Workspace workspace1 /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.Databricks/workspaces/workspace1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -986,7 +989,7 @@ class Workspace(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.Databricks` - 2024-05-01, 2022-10-01-preview
+        * `Microsoft.Databricks` - 2026-01-01
 
         * `Microsoft.Network` - 2025-01-01, 2023-09-01
 
@@ -997,6 +1000,7 @@ class Workspace(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:databricks/workspace:Workspace workspace1 /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.Databricks/workspaces/workspace1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param WorkspaceArgs args: The arguments to use to populate this resource's properties.

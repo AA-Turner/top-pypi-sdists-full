@@ -1,0 +1,252 @@
+base-config:
+  company: Fireworks
+  documentation_url: https://fireworks.ai/models
+  open_source: false
+  supports:
+    files: false
+    tools: true
+  metadata:
+    available_as_evaluator: false
+    available_for_everyone: true
+    ignored_for_cost: false
+  properties:
+    reasoning_model: false
+  costs_per_million_token:
+    cache:
+      read_discount: 1
+    batch:
+      input_discount: 0.5
+      output_discount: 0.5
+
+qwen-models:
+  base-config:
+    company: Alibaba
+    open_source: true
+    supports:
+      temperature: true
+    default_parameters:
+      temperature: 0.7
+
+  fireworks/qwen3-235b-a22b:
+    label: Qwen 3 (235B)
+    release_date: 2025-04-28
+    metadata:
+      deprecated: true
+    properties:
+      context_window: 128_000
+      max_tokens: 32_768
+      training_cutoff: "2024-08"
+      reasoning_model: true
+    supports:
+      images: false
+    costs_per_million_token:
+      input: 0.22
+      output: 0.88
+
+llama-4-models:
+  base-config:
+    company: Meta
+    open_source: true
+
+  fireworks/llama4-maverick-instruct-basic:
+    label: Llama 4 Maverick
+    release_date: 2025-04-05
+    properties:
+      context_window: 1_000_000
+      max_tokens: 16_384
+      training_cutoff: "2024-08"
+    costs_per_million_token:
+      input: 0.22
+      output: 0.88
+    supports:
+      images: true
+    metadata:
+      deprecated: true
+
+  fireworks/llama4-scout-instruct-basic:
+    label: Llama 4 Scout
+    release_date: 2025-04-05
+    properties:
+      context_window: 10_000_000
+      max_tokens: 16_384
+      training_cutoff: "2024-08"
+    costs_per_million_token:
+      input: 0.15
+      output: 0.6
+    supports:
+      images: true
+    metadata:
+      deprecated: true
+
+deepseek-models:
+  base-config:
+    company: DeepSeek
+    open_source: true
+    supports:
+      images: false
+      temperature: true
+    default_parameters:
+      temperature: 1
+
+  fireworks/deepseek-r1:
+    label: DeepSeek R1
+    release_date: 2025-01-20
+    properties:
+      context_window: 163_840
+      max_tokens: 163_840
+      training_cutoff: null
+      reasoning_model: true
+    metadata:
+      deprecated: true
+    costs_per_million_token:
+      input: 1.35
+      output: 5.4
+
+  fireworks/deepseek-v3-0324:
+    label: DeepSeek V3 (03/24/2025)
+    release_date: 2025-03-24
+    properties:
+      context_window: 131_072
+      max_tokens: 131_072
+    metadata:
+      deprecated: true
+    costs_per_million_token:
+      input: 0.9
+      output: 0.9
+
+  fireworks/deepseek-v3:
+    label: DeepSeek V3
+    release_date: 2024-12-26
+    properties:
+      context_window: 131_072
+      max_tokens: 131_072
+    metadata:
+      deprecated: true
+    costs_per_million_token:
+      input: 0.9
+      output: 0.9
+
+  fireworks/deepseek-v3p1:
+    label: DeepSeek V3.1
+    release_date: 2025-08-21
+    properties:
+      context_window: 163_840
+      max_tokens: 163_840
+      reasoning_model: false
+    costs_per_million_token:
+      input: 0.56
+      output: 1.68
+
+  fireworks/deepseek-v3p2:
+    label: DeepSeek V3.2 (Nonthinking)
+    release_date: 2025-12-01
+    properties:
+      context_window: 160_000
+      max_tokens: 20_480
+      reasoning_model: false
+    default_parameters:
+      reasoning_effort: "none"
+    costs_per_million_token:
+      input: 0.56
+      output: 1.68
+      cache:
+        read: 0.28
+    alternative_keys:
+      - fireworks/deepseek-v3p2-thinking:
+          label: DeepSeek V3.2 (Thinking)
+          properties:
+            reasoning_model: true
+          default_parameters:
+            reasoning_effort: "high"
+
+openai-models:
+  base-config:
+    company: OpenAI
+    open_source: true
+    supports:
+      images: false
+
+  fireworks/gpt-oss-120b:
+    label: GPT OSS 120B
+    release_date: 2025-08-05
+    properties:
+      context_window: 128_000
+      max_tokens: 32_768
+      training_cutoff: null
+      reasoning_model: true
+    costs_per_million_token:
+      input: 0.15
+      output: 0.60
+
+  fireworks/gpt-oss-20b:
+    label: GPT OSS 20B
+    release_date: 2025-08-05
+    properties:
+      context_window: 128_000
+      max_tokens: 32_768
+      training_cutoff: null
+      reasoning_model: true
+    costs_per_million_token:
+      input: 0.07
+      output: 0.3
+
+kimi-models:
+  base-config:
+    company: Kimi
+    open_source: true
+    documentation_url: https://www.kimi.com/
+    supports:
+      images: false
+
+  fireworks/kimi-k2-instruct-0905:
+    label: Kimi K2 Instruct 0905
+    release_date: 2025-09-04
+    properties:
+      context_window: 256_000
+      max_tokens: 256_000
+      training_cutoff: null
+      reasoning_model: false
+    supports:
+      images: false
+    costs_per_million_token:
+      input: 0.60
+      output: 2.50
+
+minimax-models:
+  base-config:
+    company: MiniMax AI
+    documentation_url: https://platform.minimax.io/docs
+    open_source: true
+    supports:
+      images: false
+      files: false
+      tools: true
+      temperature: true
+    metadata:
+      available_as_evaluator: false
+      available_for_everyone: true
+      ignored_for_cost: false
+    default_parameters:
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 40
+
+  fireworks/minimax-m2:
+    label: MiniMax-M2
+    release_date: 2025-10-26
+    metadata:
+      deprecated: true
+    properties:
+      context_window: 204_800
+      max_tokens: 131_000
+      reasoning_model: true
+      training_cutoff: null
+    supports:
+      tools: true
+      temperature: true
+    default_parameters: # taken from https://huggingface.co/MiniMaxAI/MiniMax-M2#inference-parameters 
+      temperature: 1.0
+      top_p: 0.95
+    costs_per_million_token:
+      input: 0.30
+      output: 1.20

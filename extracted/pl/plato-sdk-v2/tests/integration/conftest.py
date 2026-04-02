@@ -26,12 +26,18 @@ CI_SESSION_BASE_TAG = "ci.test"
 load_dotenv()
 
 
-# Skip tests that require PLATO_API_KEY
 def pytest_collection_modifyitems(config, items):  # type: ignore[no-untyped-def]
-    """Skip integration tests that require PLATO_API_KEY if not set.
+    """Configure integration test collection.
 
-    Tests in test_browser_agent.py and TestE2EBrowserAgentBasic do NOT require PLATO_API_KEY.
+    - Disables the global 10s unit test timeout for integration tests.
+    - Skips tests that require PLATO_API_KEY if not set
+      (except browser agent tests and basic E2E tests).
     """
+    # Disable the global 10s unit test timeout for integration tests
+    for item in items:
+        if not item.get_closest_marker("timeout"):
+            item.add_marker(pytest.mark.timeout(0))
+
     if not os.environ.get("PLATO_API_KEY"):
         skip_marker = pytest.mark.skip(reason="PLATO_API_KEY not set")
         for item in items:

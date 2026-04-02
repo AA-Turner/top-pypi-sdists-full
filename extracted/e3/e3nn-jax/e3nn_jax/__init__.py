@@ -1,4 +1,4 @@
-__version__ = "0.20.8"
+__version__ = "0.21.0"
 
 from e3nn_jax._src.config import config
 from e3nn_jax._src.rotation import (
@@ -117,7 +117,6 @@ from e3nn_jax._src.tensor_product_with_spherical_harmonics import (
 )
 from e3nn_jax._src.so3grid import SO3Signal
 from e3nn_jax._src.utils.vmap import vmap
-
 
 # make submodules flax and haiku available
 from e3nn_jax import flax, haiku, equinox

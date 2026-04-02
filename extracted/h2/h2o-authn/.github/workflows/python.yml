@@ -1,0 +1,21 @@
+name: Python
+
+on:
+  push:
+    branches: [main]
+
+  pull_request:
+  merge_group:
+
+jobs:
+  test:
+    name: Test
+    uses: ./.github/workflows/python-test.yml
+
+  build:
+    name: Build
+    uses: ./.github/workflows/python-build.yml
+
+  lint:
+    name: Lint
+    uses: ./.github/workflows/python-lint.yml

@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pipecatcloud"
+dynamic = ["version"]
+requires-python = ">=3.10"
+description = "Cloud hosting for Pipecat AI applications"
+license = { text = "BSD 2-Clause License" }
+readme = "README.md"
+keywords = ["pipecat", "pipecat-ai", "voice", "ai", "llm"]
+dependencies = [
+    "aiohttp>=3.11.12,<4.0.0",
+    "fastapi>=0.115.6,<1.0.0",
+    "loguru~=0.7.3",
+    "python-dotenv>=1.0.1,<2.0.0",
+    "uvicorn>=0.32.0,<1.0.0",
+    "typer>=0.20.0,<1",
+    "synchronicity>=0.11,<1.0.0",
+    "toml~=0.10.2",
+    "questionary~=2.1.0"
+]
+
+[project.optional-dependencies]
+pipecat = ["pipecat-ai>=0.0.79"]
+
+[dependency-groups]
+dev = [
+    "build~=1.2.2",
+    "grpcio-tools~=1.67.1",
+    "pre-commit~=4.2.0",
+    "pyright~=1.1.402",
+    "pytest~=8.4.1",
+    "pytest-asyncio~=1.0.0",
+    "ruff~=0.12.1",
+    "setuptools~=78.1.1",
+    "setuptools_scm~=8.3.1",
+]
+
+[project.scripts]
+pcc = "pipecatcloud.__main__:main"
+pipecatcloud = "pipecatcloud.__main__:main"
+
+[project.entry-points."pipecat_cli.extensions"]
+cloud = "pipecatcloud.cli.entry_point:entrypoint_cli_typer"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pipecatcloud*"]
+
+[tool.setuptools.package-data]
+pipecatcloud = ["py.typed"]
+
+[tool.ruff]
+exclude = ["*_pb2.py"]
+line-length = 100
+
+[project.urls]
+Website = "https://docs.pipecat.daily.co/"
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
+fallback_version = "0.0.0-dev"

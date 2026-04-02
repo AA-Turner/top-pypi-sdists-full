@@ -1,0 +1,188 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "strands-agents-evals"
+dynamic = ["version"]
+description = "Evaluation framework for Strands"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "AWS", email = "opensource@amazon.com"},
+]
+
+dependencies = [
+    "pydantic>=2.4.0,<3.0.0",
+    "rich>=14.0.0,<15.0.0",
+    "strands-agents>=1.0.0",
+    "strands-agents-tools>=0.1.0,<1.0.0",
+    "typing-extensions>=4.13.2,<5.0.0",
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-instrumentation-threading>=0.51b0,<1.00b0",
+    "boto3>=1.26.0",
+    "tenacity>=8.0.0,<10.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/strands_evals"]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0.0,<10.0.0",
+    "pytest-cov>=7.0.0,<8.0.0",
+    "pytest-asyncio>=1.0.0,<1.4.0",
+    "pytest-xdist>=3.0.0,<4.0.0",
+]
+
+dev = [
+    "hatch>=1.0.0,<2.0.0",
+    "mypy>=1.15.0,<2.0.0",
+    "pre-commit>=3.2.0,<4.6.0",
+    "ruff>=0.13.0,<0.15.0",
+]
+
+langfuse = ["langfuse>=2.0.0,<4"]
+otel = ["opentelemetry-exporter-otlp-proto-http>=1.30.0,<2.0.0"]
+langchain = [
+    "langchain>=0.3.0",
+    "langchain-aws>=0.2.0",
+    "langgraph>=0.2.0",
+    "openinference-instrumentation-langchain>=0.1.0",
+    "opentelemetry-instrumentation-langchain>=0.40.0,<0.50.0",
+]
+
+[tool.ruff]
+line-length = 120
+include = ["src/**/*.py", "tests/**/*.py", "tests_integ/**/*.py"]
+
+[tool.hatch.envs.hatch-test]
+installer = "uv"
+extra-args = ["-n", "auto", "-vv"]
+features = ["otel", "langfuse", "langchain"]
+dependencies = [
+    "pytest>=8.0.0,<10.0.0",
+    "pytest-cov>=7.0.0,<8.0.0",
+    "pytest-asyncio>=1.0.0,<1.4.0",
+    "pytest-xdist>=3.0.0,<4.0.0",
+    "moto>=5.1.0,<6.0.0",
+]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.13", "3.12", "3.11", "3.10"]
+
+[tool.hatch.envs.default.scripts]
+list = [
+    "echo 'Scripts commands available for default env:'; hatch env show --json | jq --raw-output '.default.scripts | keys[]'"
+]
+format = [
+  "hatch fmt --formatter",
+]
+test-format = [
+    "hatch fmt --formatter --check",
+]
+lint = [
+    "hatch fmt --linter"
+]
+test-lint = [
+    "hatch fmt --linter --check"
+]
+
+test-integ = "hatch test tests_integ {args}"
+
+prepare = [
+    "hatch fmt --linter",
+    "hatch fmt --formatter",
+    "hatch run test-lint",
+    "hatch test --all"
+]
+
+
+[tool.hatch.envs.hatch-static-analysis]
+installer = "uv"
+features = ["otel", "langfuse"]
+dependencies = [
+  "mypy>=1.15.0,<2.0.0",
+  "ruff>=0.13.0,<0.15.0",
+  # Include required pacakge dependencies for mypy
+  "strands-agents-evals @ {root:uri}",
+]
+
+
+[tool.hatch.envs.hatch-static-analysis.scripts]
+format-check = [
+    "ruff format --check"
+]
+format-fix = [
+    "ruff format"
+]
+lint-check = [
+    "ruff check",
+    "mypy -p src"
+]
+lint-fix = [
+    "ruff check --fix"
+]
+
+[tool.ruff.lint]
+select = [
+  "E", # pycodestyle
+  "F", # pyflakes
+  "I", # isort
+  "B", # flake8-bugbear
+  "T20", # flake8-print (disallow print statements)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/strands_evals/evaluators/prompt_templates/*" = ["E501"] # line-length
+"src/strands_evals/generators/prompt_template/*" = ["E501"] # line-length
+
+[tool.mypy]
+# Disable strict checks that cause false positives with Generic classes
+disable_error_code = [
+    "no-redef",  # Allows property setters without "already defined" errors
+    "attr-defined",  # Allows property.setter pattern in Generic classes
+    "import-untyped",  # Allows imports from modules without type stubs
+]
+# Allow untyped decorators (helps with @property in Generic classes)
+disallow_untyped_decorators = false
+
+[tool.hatch.version]
+source = "vcs"  # Use git tags for versioning
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = "test_*.py"
+[tool.hatch.envs.default]
+dependencies = [
+    "pytest>=8.0.0,<10.0.0",
+    "pytest-cov>=7.0.0,<8.0.0",
+    "pytest-asyncio>=1.0.0,<1.4.0",  # This fixed the async support
+    "pytest-xdist>=3.0.0,<4.0.0",
+    "moto>=5.1.0,<6.0.0",
+]
+extra-dependencies = [
+    "hatch>=1.0.0,<2.0.0",
+    "mypy>=1.15.0,<2.0.0",
+    "pre-commit>=3.2.0,<4.6.0",
+    "ruff>=0.13.0,<0.15.0",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src/strands_evals"]
+context = "thread"
+parallel = true
+concurrency = ["thread", "multiprocessing"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.coverage.html]
+directory = "build/coverage/html"
+
+[tool.coverage.xml]
+output = "build/coverage/coverage.xml"

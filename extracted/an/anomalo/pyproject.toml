@@ -1,0 +1,37 @@
+[build-system]
+requires = ["poetry-core>=1.2.0,<2.1.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "anomalo"
+version = "0.40.0"
+description = "Python bindings for the Anomalo API"
+homepage = "https://anomalo.com"
+license = "Apache-2.0"
+authors = ["Anomalo <support@anomalo.com>"]
+readme = "README.public.md"
+classifiers = [
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+dataclasses-json = "^0.5.7"
+fire = "^0.7.0"
+pyyaml = "^6.0.1"
+requests = "^2.20.0"
+tenacity = "^8.1.0"
+casefy = "^1.1.0"
+
+[tool.poetry.dev-dependencies]
+
+[tool.poetry.scripts]
+anomalo = "anomalo:anomalo.main"
+
+
+[tool.ruff]
+extend = "../../pyproject.toml"
+target-version = "py38"
+
+# vim: ft=cfg

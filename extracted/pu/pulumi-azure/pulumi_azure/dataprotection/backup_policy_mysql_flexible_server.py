@@ -29,6 +29,7 @@ class BackupPolicyMysqlFlexibleServerArgs:
                  time_zone: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a BackupPolicyMysqlFlexibleServer resource.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] backup_repeating_time_intervals: Specifies a list of repeating time interval. It supports weekly back. It should follow `ISO 8601` repeating time interval format. Changing this forces a new resource to be created.
         :param pulumi.Input['BackupPolicyMysqlFlexibleServerDefaultRetentionRuleArgs'] default_retention_rule: A `default_retention_rule` block as defined below. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] vault_id: The ID of the Backup Vault where the Backup Policy MySQL Flexible Server should exist. Changing this forces a new resource to be created.
@@ -130,6 +131,7 @@ class _BackupPolicyMysqlFlexibleServerState:
                  vault_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering BackupPolicyMysqlFlexibleServer resources.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] backup_repeating_time_intervals: Specifies a list of repeating time interval. It supports weekly back. It should follow `ISO 8601` repeating time interval format. Changing this forces a new resource to be created.
         :param pulumi.Input['BackupPolicyMysqlFlexibleServerDefaultRetentionRuleArgs'] default_retention_rule: A `default_retention_rule` block as defined below. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] name: Specifies the name of the Backup Policy for the MySQL Flexible Server. Changing this forces a new resource to be created.
@@ -316,7 +318,7 @@ class BackupPolicyMysqlFlexibleServer(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.DataProtection` - 2024-04-01
+        * `Microsoft.DataProtection` - 2025-07-01
 
         ## Import
 
@@ -325,6 +327,7 @@ class BackupPolicyMysqlFlexibleServer(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:dataprotection/backupPolicyMysqlFlexibleServer:BackupPolicyMysqlFlexibleServer example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.DataProtection/backupVaults/vault1/backupPolicies/backupPolicy1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -421,7 +424,7 @@ class BackupPolicyMysqlFlexibleServer(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.DataProtection` - 2024-04-01
+        * `Microsoft.DataProtection` - 2025-07-01
 
         ## Import
 
@@ -430,6 +433,7 @@ class BackupPolicyMysqlFlexibleServer(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:dataprotection/backupPolicyMysqlFlexibleServer:BackupPolicyMysqlFlexibleServer example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.DataProtection/backupVaults/vault1/backupPolicies/backupPolicy1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param BackupPolicyMysqlFlexibleServerArgs args: The arguments to use to populate this resource's properties.

@@ -1,0 +1,55 @@
+Metadata-Version: 2.3
+Name: keboola.vcr
+Version: 0.3.1
+Summary: VCR recording, sanitization, and validation for Keboola component HTTP interactions
+License: MIT
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: vcrpy>=8.1.1,<9
+Requires-Dist: freezegun>=1.5.5,<2
+Requires-Python: >=3.10
+Project-URL: Homepage, https://github.com/keboola/python-vcr-tests
+Project-URL: Repository, https://github.com/keboola/python-vcr-tests
+Description-Content-Type: text/markdown
+
+# keboola.vcr
+
+VCR recording, sanitization, and validation for Keboola component HTTP interactions.
+
+## Installation
+
+```bash
+pip install keboola.vcr
+```
+
+## Usage
+
+```python
+from keboola.vcr.recorder import VCRRecorder
+from keboola.vcr.sanitizers import DefaultSanitizer
+
+recorder = VCRRecorder(
+    cassette_dir="tests/cassettes/my_test",
+    secrets={"api_key": "secret"},
+)
+```
+
+## Features
+
+- **Recording**: Captures real HTTP interactions via vcrpy and stores them as JSON cassettes
+- **Sanitization**: Redacts secrets, tokens, and sensitive fields before saving cassettes
+- **Scaffolding**: Generates test directory structures from component config definitions
+- **Validation**: Compares output snapshots to detect regressions
+
+## Development
+
+```bash
+uv sync --all-groups
+uv run pytest tests/
+```

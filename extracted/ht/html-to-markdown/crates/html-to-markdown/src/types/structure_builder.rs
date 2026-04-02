@@ -226,7 +226,8 @@ fn make_node_id(node_type: &str, text: &str, index: usize) -> String {
     let mut hasher = DefaultHasher::new();
     node_type.hash(&mut hasher);
     // Only hash a prefix of the text to keep cost bounded.
-    text[..text.len().min(64)].hash(&mut hasher);
+    let end = crate::converter::utility::content::floor_char_boundary(text, text.len().min(64));
+    text[..end].hash(&mut hasher);
     index.hash(&mut hasher);
     let digest = hasher.finish();
     format!("{node_type}-{digest:016x}")

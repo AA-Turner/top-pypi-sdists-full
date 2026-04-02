@@ -1,0 +1,24 @@
+coverage:
+  status:
+    project:
+      default:
+        # basic
+        target: auto
+        threshold: 2%
+        base: auto
+        paths:
+          - "pyfixest"
+        # advanced settings
+        branches:
+          - master
+        if_ci_failed: error
+        informational: false
+        only_pulls: false
+        ignore:
+          - "pyfixest/utils/dgps.py"
+          - "pyfixest/utils/_exceptions.py"
+          # cannot compute codecov for numba files (but all are tested)
+          - "pyfixest/estimation/numba/*"
+
+comment:
+  show_diff_only: false

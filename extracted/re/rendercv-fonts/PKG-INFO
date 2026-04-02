@@ -1,0 +1,15 @@
+Metadata-Version: 2.3
+Name: rendercv-fonts
+Version: 0.5.1
+Summary: Some fonts for RenderCV
+Project-URL: Source, https://github.com/rendercv/rendercv-fonts
+Author-email: Sina Atalay <dev@atalay.biz>
+License: MIT
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# rendercv-fonts
+
+A Python package with some fonts for the `rendercv` package.

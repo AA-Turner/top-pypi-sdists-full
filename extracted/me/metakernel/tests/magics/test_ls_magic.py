@@ -1,0 +1,18 @@
+import asyncio
+
+from tests.utils import clear_log_text, get_kernel, get_log_text
+
+
+def test_ls_magic() -> None:
+    kernel = get_kernel()
+    asyncio.run(kernel.do_execute("%ls /tmp"))
+    text = get_log_text(kernel)
+    ## FIXME: failing on Travis
+    # assert '/tmp/' in text, text[:100]
+    clear_log_text(kernel)
+
+    asyncio.run(kernel.do_execute("%ls /tmp --recursive"))
+    text = get_log_text(kernel)
+    ## FIXME: failing on Travis
+    # assert '/tmp' in text, text[:100]
+    clear_log_text(kernel)

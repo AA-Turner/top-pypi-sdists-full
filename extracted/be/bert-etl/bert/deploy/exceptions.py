@@ -1,3 +1,0 @@
-class DeployException(Exception):
-    pass
-

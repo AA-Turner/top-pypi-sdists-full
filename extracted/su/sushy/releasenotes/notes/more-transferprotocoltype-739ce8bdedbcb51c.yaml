@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Add TransferProtocolType for any general error that mentions it

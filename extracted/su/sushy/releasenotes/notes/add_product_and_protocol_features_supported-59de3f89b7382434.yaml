@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Adds `Product` and `ProductFeaturesSupported` properties support to
-    the Redfish `Root Service`

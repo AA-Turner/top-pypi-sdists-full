@@ -1,13 +1,14 @@
+from __future__ import annotations
+
+import importlib.metadata
 import itertools
 import sys
-from collections.abc import Callable
 from functools import cached_property, partial
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mypy.build import PRI_MED, PRI_MYPY
 from mypy.modulefinder import mypy_path
 from mypy.nodes import MypyFile, TypeInfo
-from mypy.options import Options
 from mypy.plugin import (
     AnalyzeTypeContext,
     AttributeContext,
@@ -18,7 +19,6 @@ from mypy.plugin import (
     Plugin,
     ReportConfigContext,
 )
-from mypy.types import Type as MypyType
 from typing_extensions import override
 
 from mypy_django_plugin.config import DjangoPluginConfig
@@ -43,6 +43,7 @@ from mypy_django_plugin.transformers.managers import (
     add_as_manager_to_queryset_class,
     create_new_manager_class_from_from_queryset_method,
     reparametrize_any_manager_hook,
+    reparametrize_any_queryset_hook,
     resolve_manager_method,
 )
 from mypy_django_plugin.transformers.models import (
@@ -52,6 +53,12 @@ from mypy_django_plugin.transformers.models import (
     set_auth_user_model_boolean_fields,
 )
 from mypy_django_plugin.transformers.request import check_querydict_is_mutable
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from mypy.options import Options
+    from mypy.types import Type as MypyType
 
 
 class NewSemanalDjangoPlugin(Plugin):
@@ -232,6 +239,8 @@ class NewSemanalDjangoPlugin(Plugin):
         info = self._get_typeinfo_or_none(fullname)
         if info and info.has_base(fullnames.BASE_MANAGER_CLASS_FULLNAME):
             return reparametrize_any_manager_hook
+        if info and info.has_base(fullnames.QUERYSET_CLASS_FULLNAME):
+            return reparametrize_any_queryset_hook
         return None
 
     @override
@@ -324,7 +333,13 @@ class NewSemanalDjangoPlugin(Plugin):
         # Cache would be cleared if any settings do change.
         extra_data = {
             "AUTH_USER_MODEL": self.django_context.settings.AUTH_USER_MODEL,
+            "django_version": importlib.metadata.version("django"),
+            "django_stubs_version": importlib.metadata.version("django-stubs"),
         }
+        try:
+            extra_data["django_stubs_ext_version"] = importlib.metadata.version("django-stubs-ext")
+        except importlib.metadata.PackageNotFoundError:
+            pass
         return self.plugin_config.to_json(extra_data)
 
 

@@ -1317,6 +1317,7 @@ class CreateServerlessCacheRequestTypeDef(TypedDict):
     SubnetIds: NotRequired[Sequence[str]]
     SnapshotRetentionLimit: NotRequired[int]
     DailySnapshotTime: NotRequired[str]
+    NetworkType: NotRequired[NetworkTypeType]
 
 class ModifyServerlessCacheRequestTypeDef(TypedDict):
     ServerlessCacheName: str
@@ -1348,6 +1349,7 @@ class ServerlessCacheTypeDef(TypedDict):
     SubnetIds: NotRequired[list[str]]
     SnapshotRetentionLimit: NotRequired[int]
     DailySnapshotTime: NotRequired[str]
+    NetworkType: NotRequired[NetworkTypeType]
 
 class DescribeUpdateActionsMessagePaginateTypeDef(TypedDict):
     ServiceUpdateName: NotRequired[str]

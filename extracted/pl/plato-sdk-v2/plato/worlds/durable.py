@@ -38,6 +38,7 @@ import re
 import string
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, ClassVar, Generic, TypeVar, Union, cast, get_args, get_origin, get_type_hints
 
@@ -559,26 +560,130 @@ def _resolve_deps(
     return resolved
 
 
-async def _notify_stage(stage_name: str, output_type: str, elapsed: float, base_path: str) -> None:
-    """Send slack notification for stage completion. Imported lazily to avoid circular deps."""
+def _get_otel_ids() -> tuple[str | None, str | None]:
+    """Extract trace_id and span_id from the current OTel context, if available."""
     try:
-        from plato.worlds.slack import notify_stage_complete
+        from opentelemetry import trace
 
-        await notify_stage_complete(stage_name, output_type, elapsed, base_path)
+        span = trace.get_current_span()
+        ctx = span.get_span_context()
+        if ctx and ctx.is_valid:
+            return format(ctx.trace_id, "032x"), format(ctx.span_id, "016x")
     except Exception:
-        logger.error("Slack notification failed for stage %s", stage_name, exc_info=True)
+        pass
+    return None, None
 
 
-def _notify_stage_sync(stage_name: str, output_type: str, elapsed: float, base_path: str) -> None:
-    """Sync version — uses existing loop if available, otherwise creates one with a 5s timeout."""
+def _start_otel_span(name: str) -> Any:
+    """Start a new OTel span as a context manager. Returns a no-op if OTel is unavailable."""
     try:
-        loop = asyncio.get_running_loop()
-        loop.create_task(_notify_stage(stage_name, output_type, elapsed, base_path))
-    except RuntimeError:
-        try:
-            asyncio.run(asyncio.wait_for(_notify_stage(stage_name, output_type, elapsed, base_path), timeout=5.0))
-        except Exception:
-            logger.error("Slack notification failed for stage %s", stage_name, exc_info=True)
+        from opentelemetry import trace
+
+        tracer = trace.get_tracer("plato.durable")
+        return tracer.start_as_current_span(name)
+    except Exception:
+        import contextlib
+
+        return contextlib.nullcontext()
+
+
+async def _report_stage_started(
+    stage_name: str,
+    output_type: str,
+    base_path: str,
+    args_snapshot: dict[str, Any] | None,
+    started_at: datetime,
+) -> str | None:
+    """Report stage started to Chronos. Returns public_id for parent tracking."""
+    try:
+        from plato.worlds.stage_tracking import report_stage
+
+        trace_id, span_id = _get_otel_ids()
+        return await report_stage(
+            stage_name=stage_name,
+            stage_type="durable",
+            status="started",
+            started_at=started_at,
+            output_type=output_type,
+            base_path=base_path,
+            args_snapshot=args_snapshot,
+            trace_id=trace_id,
+            span_id=span_id,
+        )
+    except Exception:
+        logger.debug("Stage tracking (started) failed for %s", stage_name, exc_info=True)
+        return None
+
+
+async def _report_stage_completed(
+    stage_name: str, output_type: str, elapsed: float, base_path: str, started_at: datetime
+) -> None:
+    """Report stage completed to Chronos. Also sends Slack notification via server."""
+    try:
+        from plato.worlds.stage_tracking import report_stage
+
+        await report_stage(
+            stage_name=stage_name,
+            stage_type="durable",
+            status="completed",
+            started_at=started_at,
+            output_type=output_type,
+            completed_at=datetime.now(timezone.utc),
+            elapsed_seconds=elapsed,
+            base_path=base_path,
+        )
+    except Exception:
+        logger.debug("Stage tracking (completed) failed for %s", stage_name, exc_info=True)
+
+
+async def _report_stage_failed(
+    stage_name: str, output_type: str, base_path: str, started_at: datetime, error: str
+) -> None:
+    """Report stage failure to Chronos."""
+    try:
+        from plato.worlds.stage_tracking import report_stage
+
+        await report_stage(
+            stage_name=stage_name,
+            stage_type="durable",
+            status="failed",
+            started_at=started_at,
+            output_type=output_type,
+            completed_at=datetime.now(timezone.utc),
+            base_path=base_path,
+            error_message=error[:2000],
+        )
+    except Exception:
+        logger.debug("Stage tracking (failed) failed for %s", stage_name, exc_info=True)
+
+
+def _report_stage_sync(
+    stage_name: str,
+    output_type: str,
+    elapsed: float,
+    base_path: str,
+    started_at: datetime,
+    trace_id: str | None = None,
+    span_id: str | None = None,
+) -> None:
+    """Sync version of completed stage reporting."""
+    try:
+        from plato.worlds.stage_tracking import report_stage_sync
+
+        report_stage_sync(
+            stage_name=stage_name,
+            stage_type="durable",
+            status="completed",
+            started_at=started_at,
+            output_type=output_type,
+            completed_at=datetime.now(timezone.utc),
+            elapsed_seconds=elapsed,
+            base_path=base_path,
+            trace_id=trace_id,
+            span_id=span_id,
+        )
+    except Exception:
+        logger.debug("Stage tracking (completed sync) failed for %s", stage_name, exc_info=True)
 
 
 def durable(
@@ -657,21 +762,45 @@ def durable(
                     dep_values = _resolve_deps(requires_params, fmt)
                     kwargs.update(dep_values)
 
-                token = _durable_base_path.set(bp)
-                t0 = time.monotonic()
-                try:
-                    result = await fn(*args, **kwargs)
-                finally:
-                    _durable_base_path.reset(token)
-                elapsed = time.monotonic() - t0
-                _save_typed_outputs(result, bp)
-                try:
-                    asyncio.get_running_loop().create_task(
-                        _notify_stage(fn.__name__, return_type.__name__, elapsed, str(bp))
+                from plato.worlds.stage_tracking import _current_stage_public_id, serialize_args
+
+                with _start_otel_span(fn.__name__):
+                    stage_started_at = datetime.now(timezone.utc)
+                    stage_public_id = await _report_stage_started(
+                        fn.__name__,
+                        return_type.__name__,
+                        str(bp),
+                        serialize_args(fmt),
+                        stage_started_at,
                     )
-                except Exception:
-                    logger.error("Failed to schedule Slack notification for %s", fn.__name__, exc_info=True)
-                return result
+                    parent_token = _current_stage_public_id.set(stage_public_id)
+                    token = _durable_base_path.set(bp)
+                    t0 = time.monotonic()
+                    try:
+                        result = await fn(*args, **kwargs)
+                    except Exception as exc:
+                        _durable_base_path.reset(token)
+                        _current_stage_public_id.reset(parent_token)
+                        await _report_stage_failed(
+                            fn.__name__,
+                            return_type.__name__,
+                            str(bp),
+                            stage_started_at,
+                            str(exc),
+                        )
+                        raise
+                    _durable_base_path.reset(token)
+                    _current_stage_public_id.reset(parent_token)
+                    elapsed = time.monotonic() - t0
+                    _save_typed_outputs(result, bp)
+                    await _report_stage_completed(
+                        fn.__name__,
+                        return_type.__name__,
+                        elapsed,
+                        str(bp),
+                        stage_started_at,
+                    )
+                    return result
 
             async_wrapper.__durable_path__ = resolved_path
             async_wrapper.__durable_return_type__ = return_type
@@ -703,16 +832,54 @@ def durable(
                     dep_values = _resolve_deps(requires_params, fmt)
                     kwargs.update(dep_values)
 
-                token = _durable_base_path.set(bp)
-                t0 = time.monotonic()
-                try:
-                    result = fn(*args, **kwargs)
-                finally:
+                from plato.worlds.stage_tracking import report_stage_sync as _report_sync
+                from plato.worlds.stage_tracking import serialize_args
+
+                with _start_otel_span(fn.__name__):
+                    stage_started_at = datetime.now(timezone.utc)
+                    trace_id, span_id = _get_otel_ids()
+                    _report_sync(
+                        stage_name=fn.__name__,
+                        stage_type="durable",
+                        status="started",
+                        started_at=stage_started_at,
+                        output_type=return_type.__name__,
+                        base_path=str(bp),
+                        args_snapshot=serialize_args(fmt),
+                        trace_id=trace_id,
+                        span_id=span_id,
+                    )
+                    token = _durable_base_path.set(bp)
+                    t0 = time.monotonic()
+                    try:
+                        result = fn(*args, **kwargs)
+                    except Exception as exc:
+                        _durable_base_path.reset(token)
+                        _report_sync(
+                            stage_name=fn.__name__,
+                            stage_type="durable",
+                            status="failed",
+                            started_at=stage_started_at,
+                            output_type=return_type.__name__,
+                            base_path=str(bp),
+                            error_message=str(exc)[:2000],
+                            trace_id=trace_id,
+                            span_id=span_id,
+                        )
+                        raise
                     _durable_base_path.reset(token)
-                elapsed = time.monotonic() - t0
-                _save_typed_outputs(result, bp)
-                _notify_stage_sync(fn.__name__, return_type.__name__, elapsed, str(bp))
-                return result
+                    elapsed = time.monotonic() - t0
+                    _save_typed_outputs(result, bp)
+                    _report_stage_sync(
+                        fn.__name__,
+                        return_type.__name__,
+                        elapsed,
+                        str(bp),
+                        stage_started_at,
+                        trace_id=trace_id,
+                        span_id=span_id,
+                    )
+                    return result
 
             sync_wrapper.__durable_path__ = resolved_path
             sync_wrapper.__durable_return_type__ = return_type

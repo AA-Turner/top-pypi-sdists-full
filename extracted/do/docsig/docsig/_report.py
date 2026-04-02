@@ -10,7 +10,7 @@ return the highest exit code.
 
 from __future__ import annotations as _
 
-import contextlib
+import contextlib as _contextlib
 import typing as _t
 
 from astroid.nodes.scoped_nodes import scoped_nodes as _scoped_nodes
@@ -30,6 +30,10 @@ from .messages import Messages as _Messages
 
 _MIN_MATCH = 0.8
 _MAX_MATCH = 1.0
+
+
+class Failures(_t.List["Failure"]):
+    """Sequence of Failure instances (one per function checked)."""
 
 
 class Failed(_t.NamedTuple):
@@ -139,7 +143,7 @@ class Failure(_t.List[Failed]):
             # then we know that they aren't almost equal, param1 is
             # missing and does need to be inserted in the docstring
             if is_equal:
-                with contextlib.suppress(IndexError):
+                with _contextlib.suppress(IndexError):
                     is_equal = to[count].name != from_[count + 1].name
 
             if not is_equal:
@@ -316,6 +320,8 @@ class Failure(_t.List[Failed]):
             self._retcode = 123
         if self._func.error == _Error.UNICODE:
             self._add(_E[902])
+        if self._func.error == _Error.RECURSION:
+            self._add(_E[903])
 
     @property
     def name(self) -> str:
@@ -331,7 +337,3 @@ class Failure(_t.List[Failed]):
     def retcode(self) -> int:
         """Exit code (non-zero if any check failed)."""
         return self._retcode
-
-
-class Failures(_t.List[Failure]):
-    """Sequence of Failure instances (one per function checked)."""

@@ -1,0 +1,64 @@
+[project]
+name = "PyMemoryEditor"
+dynamic = ["version"]
+description = "Multi-platform library developed with ctypes for reading, writing and searching at process memory, in a simple and friendly way with Python 3."
+authors = [
+    { name = "Jean Loui Bernard Silva de Jesus", email = "jeanextreme002@gmail.com" },
+]
+license = "MIT"
+readme = "README.md"
+keywords = [
+    "memory",
+    "address",
+    "pointer",
+    "process",
+    "virtual",
+    "writer",
+    "reader",
+    "editor",
+    "override",
+    "win32", "api", "ctypes", "linux", "ptrace",
+    "cheat", "scanner", "debug", "track",
+    "readprocessmemory", "writeprocessmemory"
+]
+
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Security",
+    "Topic :: System :: Monitoring"
+]
+exclude = ["tests", ".flake8"]
+requires-python = ">=3.6"
+dependencies = ["psutil"]
+
+[project.optional-dependencies]
+tests = [
+  "pytest",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/JeanExtreme002/PyMemoryEditor"
+
+[tool.hatch.version]
+path = "PyMemoryEditor/__init__.py"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+pymemoryeditor = "PyMemoryEditor.sample.application:main"

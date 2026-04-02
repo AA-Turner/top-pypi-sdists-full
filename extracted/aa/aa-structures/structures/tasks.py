@@ -1,0 +1,281 @@
+"""Tasks for Structures."""
+
+from typing import Iterable, Optional
+
+from celery import Task, chain, shared_task
+
+from django.contrib.auth.models import User
+from django.db.models import QuerySet
+
+from allianceauth.notifications import notify
+from allianceauth.services.hooks import get_extension_logger
+from allianceauth.services.tasks import QueueOnce
+from app_utils.esi import retry_task_on_esi_error_and_offline
+from app_utils.logging import LoggerAddTag
+
+from . import __title__
+from .app_settings import STRUCTURES_TASKS_TIME_LIMIT
+from .core.notification_types import NotificationType
+from .models import (
+    EveSovereigntyMap,
+    FuelAlertConfig,
+    JumpFuelAlertConfig,
+    Notification,
+    Owner,
+    Webhook,
+)
+
+logger = LoggerAddTag(get_extension_logger(__name__), __title__)
+
+TASK_PRIORITY_HIGH = 2
+
+
+@shared_task(time_limit=STRUCTURES_TASKS_TIME_LIMIT)
+def update_all_structures():
+    """Update all structures.
+
+    Main task for starting regular update of all structures
+    and related data from ESI.
+    """
+    chain(update_sov_map.si(), update_structures.si()).delay()
+
+
+@shared_task(bind=True, base=QueueOnce, time_limit=STRUCTURES_TASKS_TIME_LIMIT)
+def update_sov_map(self: Task):
+    """Update sovereignty map from ESI."""
+    with retry_task_on_esi_error_and_offline(self):
+        EveSovereigntyMap.objects.update_or_create_all_from_esi()
+
+
+@shared_task(time_limit=STRUCTURES_TASKS_TIME_LIMIT)
+def update_structures():
+    """Update all structures for all active owners from ESI."""
+    for owner in Owner.objects.all():
+        if owner.is_active:
+            update_structures_for_owner.delay(owner.pk)
+
+    if (
+        Owner.objects.filter(is_active=True).count() > 0
+        and Owner.objects.filter(is_active=True, is_alliance_main=True).count() == 0
+    ):
+        logger.warning(
+            "No owner configured to process alliance wide notifications. "
+            "Please set 'is alliance main' to True for the designated owner."
+        )
+
+
+@shared_task(time_limit=STRUCTURES_TASKS_TIME_LIMIT)
+def update_all_for_owner(owner_pk: int, user_pk: Optional[int] = None):
+    """Update structures and notifications for owner from ESI."""
+    chain(
+        update_structures_for_owner.si(owner_pk, user_pk),
+        process_notifications_for_owner.si(owner_pk, user_pk),
+    ).delay()
+
+
+@shared_task(time_limit=STRUCTURES_TASKS_TIME_LIMIT)
+def update_structures_for_owner(owner_pk: int, user_pk: Optional[int] = None):
+    """Fetch all structures for owner and update related corp assets from ESI."""
+    chain(
+        update_structures_esi_for_owner.si(owner_pk, user_pk),
+        update_structures_assets_for_owner.si(owner_pk, user_pk),
+    ).delay()
+
+
+@shared_task(
+    bind=True,
+    base=QueueOnce,
+    once={"keys": ["owner_pk"], "graceful": True},
+    time_limit=STRUCTURES_TASKS_TIME_LIMIT,
+)
+def update_structures_esi_for_owner(
+    self: Task, owner_pk: int, user_pk: Optional[int] = None
+):
+    """Update all structures for an owner from ESI.
+
+    Optionally notify user_pk about the result.
+    """
+    owner = Owner.objects.get(pk=owner_pk)
+    with retry_task_on_esi_error_and_offline(self):
+        owner.update_structures_esi(_get_user(user_pk))
+
+
+@shared_task(
+    bind=True,
+    base=QueueOnce,
+    once={"keys": ["owner_pk"], "graceful": True},
+    time_limit=STRUCTURES_TASKS_TIME_LIMIT,
+)
+def update_structures_assets_for_owner(
+    self: Task, owner_pk: int, user_pk: Optional[int] = None
+):
+    """Update all related assets for an owner from ESI.
+
+    Optionally notify user_pk about the result.
+    """
+    owner = Owner.objects.get(pk=owner_pk)
+    with retry_task_on_esi_error_and_offline(self):
+        owner.update_asset_esi(_get_user(user_pk))
+
+
+@shared_task(time_limit=STRUCTURES_TASKS_TIME_LIMIT)
+def fetch_all_notifications():
+    """Fetch notifications for all owners and send new fuel notifications."""
+    for owner in Owner.objects.filter(is_active=True):
+        owner.update_is_up()
+        process_notifications_for_owner.apply_async(
+            kwargs={"owner_pk": owner.pk}, priority=TASK_PRIORITY_HIGH
+        )
+
+    for config_pk in FuelAlertConfig.objects.filter(is_enabled=True).values_list(
+        "pk", flat=True
+    ):
+        send_structure_fuel_notifications_for_config.delay(config_pk)
+
+    for config_pk in JumpFuelAlertConfig.objects.filter(is_enabled=True).values_list(
+        "pk", flat=True
+    ):
+        send_jump_fuel_notifications_for_config.delay(config_pk)
+
+
+@shared_task(time_limit=STRUCTURES_TASKS_TIME_LIMIT)
+def process_notifications_for_owner(owner_pk: int, user_pk: Optional[int] = None):
+    """Fetch all notification for owner from ESI and processes them."""
+    chain(
+        fetch_notification_for_owner.si(owner_pk=owner_pk, user_pk=user_pk).set(
+            priority=TASK_PRIORITY_HIGH
+        ),
+        update_notifications_structure_relations.si(owner_pk=owner_pk).set(
+            priority=TASK_PRIORITY_HIGH
+        ),
+        send_new_notifications_for_owner.si(owner_pk=owner_pk).set(
+            priority=TASK_PRIORITY_HIGH
+        ),
+        generate_new_timers_for_owner.si(owner_pk=owner_pk).set(
+            priority=TASK_PRIORITY_HIGH
+        ),
+    ).delay()
+
+
+@shared_task(
+    bind=True,
+    base=QueueOnce,
+    once={"keys": ["owner_pk"], "graceful": True},
+    time_limit=STRUCTURES_TASKS_TIME_LIMIT,
+)
+def fetch_notification_for_owner(
+    self: Task, owner_pk: int, user_pk: Optional[int] = None
+):
+    """Fetch notifications from ESI.
+
+    Optionally notify user_pk about the result.
+    """
+    owner = Owner.objects.get(pk=owner_pk)
+    with retry_task_on_esi_error_and_offline(self):
+        owner.fetch_notifications_esi(_get_user(user_pk))
+
+
+@shared_task(time_limit=STRUCTURES_TASKS_TIME_LIMIT)
+def update_notifications_structure_relations(owner_pk: int) -> int:
+    """Update structure relation for existing notifications if needed.
+
+    Returns number of updated notifications.
+    """
+    owner = Owner.objects.get(pk=owner_pk)
+    notif_need_update_qs: QuerySet[Notification] = owner.notification_set.filter(
+        notif_type__in=NotificationType.structure_related(), structures__isnull=True
+    )
+    notif_need_update_count = notif_need_update_qs.count()
+    updated_count = 0
+    if notif_need_update_count > 0:
+        for notif in notif_need_update_qs:
+            if notif.update_related_structures():
+                updated_count += 1
+        logger.info(
+            "%s: Updated structure relation for %d of %d relevant notifications",
+            owner,
+            updated_count,
+            notif_need_update_count,
+        )
+    return updated_count
+
+
+@shared_task(time_limit=STRUCTURES_TASKS_TIME_LIMIT)
+def generate_new_timers_for_owner(owner_pk: int):
+    """Generate new timers for given owner."""
+    owner = Owner.objects.get(pk=owner_pk)
+    owner.add_or_remove_timers_from_notifications()
+
+
+@shared_task(time_limit=STRUCTURES_TASKS_TIME_LIMIT)
+def send_new_notifications_for_owner(owner_pk: int):
+    """Send new notifications to Discord."""
+    owner = Owner.objects.get(pk=owner_pk)
+    owner.send_new_notifications()
+    send_queued_messages_for_webhooks(owner.webhooks.filter(is_active=True))
+
+
+@shared_task(time_limit=STRUCTURES_TASKS_TIME_LIMIT)
+def send_structure_fuel_notifications_for_config(config_pk: int):
+    """Send structure fuel notifications for a config."""
+    FuelAlertConfig.objects.get(pk=config_pk).send_new_notifications()
+    send_queued_messages_for_webhooks(FuelAlertConfig.relevant_webhooks())
+
+
+@shared_task(time_limit=STRUCTURES_TASKS_TIME_LIMIT)
+def send_jump_fuel_notifications_for_config(config_pk: int):
+    """Send jump fuel notifications for a config."""
+    JumpFuelAlertConfig.objects.get(pk=config_pk).send_new_notifications()
+    send_queued_messages_for_webhooks(JumpFuelAlertConfig.relevant_webhooks())
+
+
+def send_queued_messages_for_webhooks(webhooks: Iterable[Webhook]):
+    """Send queued message for given webhooks."""
+    for webhook in webhooks:
+        if webhook.queue_size() > 0:
+            send_messages_for_webhook.apply_async(
+                kwargs={"webhook_pk": webhook.pk}, priority=TASK_PRIORITY_HIGH
+            )
+
+
+@shared_task(base=QueueOnce, time_limit=STRUCTURES_TASKS_TIME_LIMIT)
+def send_messages_for_webhook(webhook_pk: int) -> None:
+    """Send all currently queued messages for given webhook to Discord."""
+    Webhook.objects.send_queued_messages_for_webhook(webhook_pk)
+
+
+@shared_task(time_limit=STRUCTURES_TASKS_TIME_LIMIT)
+def send_test_notifications_to_webhook(
+    webhook_pk, user_pk: Optional[int] = None
+) -> None:
+    """Send test notification to given webhook."""
+    webhook = Webhook.objects.get(pk=webhook_pk)
+    user = _get_user(user_pk)
+    send_report, send_success = webhook.send_test_message(user)
+    if user:
+        result_text = "completed successfully" if send_success else "has failed"
+        message = f"Test notification to webhook {webhook} {result_text}.\n"
+        if send_success:
+            user_text = "OK"
+            level = "success"
+        else:
+            user_text = "FAILED"
+            level = "danger"
+            message += f"Error: {send_report}"
+        notify(
+            user=user,
+            title=f"{__title__}: Test notification to {webhook}: {user_text}",
+            message=message,
+            level=level,
+        )
+
+
+def _get_user(user_pk: Optional[int]) -> Optional[User]:
+    """Fetch the user or return None."""
+    if not user_pk:
+        return None
+    try:
+        return User.objects.get(pk=user_pk)
+    except User.DoesNotExist:
+        logger.warning("Ignoring non-existing user with pk %s", user_pk)
+        return None

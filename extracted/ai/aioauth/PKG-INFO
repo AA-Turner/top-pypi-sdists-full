@@ -1,0 +1,83 @@
+Metadata-Version: 2.4
+Name: aioauth
+Version: 2.0.0
+Summary: Asynchronous OAuth 2.0 framework for Python 3.
+Author-email: Ali Aliyev <ali@aliev.me>
+Project-URL: homepage, https://github.com/aliev/aioauth
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python
+Classifier: Topic :: Internet
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development
+Classifier: Typing :: Typed
+Classifier: Development Status :: 1 - Planning
+Classifier: Environment :: Web Environment
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
+Classifier: Topic :: Internet :: WWW/HTTP
+Requires-Python: >=3.9.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: typing_extensions
+Provides-Extra: dev
+Requires-Dist: build; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: bandit; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: mkdocs; extra == "docs"
+Requires-Dist: mkdocs-material; extra == "docs"
+Requires-Dist: mkdocstrings[python]; extra == "docs"
+Provides-Extra: fastapi
+Requires-Dist: aioauth-fastapi>=0.0.1; extra == "fastapi"
+Dynamic: license-file
+
+## Asynchronous OAuth 2.0 framework for Python 3
+
+[![Build Status](https://github.com/aliev/aioauth/workflows/CI/badge.svg?branch=master)](https://github.com/aliev/aioauth/actions/workflows/ci.yml?query=branch%3Amaster)
+[![codecov](https://codecov.io/gh/aliev/aioauth/graph/badge.svg?token=NREOWPB586)](https://codecov.io/gh/aliev/aioauth)
+[![License](https://img.shields.io/github/license/aliev/aioauth)](https://github.com/aliev/aioauth/blob/master/LICENSE)
+[![PyPi](https://badgen.net/pypi/v/aioauth)](https://pypi.org/project/aioauth/)
+[![Python 3.9](https://img.shields.io/badge/python-3.9-blue.svg)](https://www.python.org/downloads/release/python-390/)
+
+`aioauth` implements [OAuth 2.0 protocol](https://tools.ietf.org/html/rfc6749) and can be used in asynchronous frameworks like [FastAPI / Starlette](https://github.com/tiangolo/fastapi), [aiohttp](https://github.com/aio-libs/aiohttp). It can work with any databases like `MongoDB`, `PostgreSQL`, `MySQL` and ORMs like [gino](https://python-gino.org/), [sqlalchemy](https://www.sqlalchemy.org/) or [databases](https://pypi.org/project/databases/) over simple [BaseStorage](aioauth/storage.py) interface.
+
+## Why this project exists?
+
+There are few great OAuth frameworks for Python like [oauthlib](https://github.com/oauthlib/oauthlib) and [authlib](https://github.com/lepture/authlib), but they do not support asyncio and rewriting these libraries to asyncio is a significant challenge (see issues [here](https://github.com/lepture/authlib/issues/63) and [here](https://github.com/oauthlib/oauthlib/issues/415)).
+
+## Supported RFCs
+
+- [x] [The OAuth 2.0 Authorization Framework](https://tools.ietf.org/html/rfc6749)
+- [X] [OAuth 2.0 Token Introspection](https://tools.ietf.org/html/rfc7662)
+- [X] [Proof Key for Code Exchange by OAuth Public Clients](https://tools.ietf.org/html/rfc7636)
+- [x] OpenID support
+
+## Installation
+
+```
+python -m pip install aioauth
+```
+
+## Examples
+
+The project example is located in the [examples](examples) directory and uses FastAPI as the server.
+
+## [API Reference and User Guide](https://aliev.me/aioauth/)

@@ -4,17 +4,17 @@ use lsp_types::{DocumentSymbol, DocumentSymbolParams, DocumentSymbolResponse, Sy
 use squawk_ide::db::line_index;
 use squawk_ide::document_symbols::{DocumentSymbolKind, document_symbols};
 
+use crate::global_state::Snapshot;
 use crate::lsp_utils;
-use crate::system::System;
 
 pub(crate) fn handle_document_symbol(
-    system: &dyn System,
+    snapshot: &Snapshot,
     params: DocumentSymbolParams,
 ) -> Result<Option<DocumentSymbolResponse>> {
     let uri = params.text_document.uri;
 
-    let db = system.db();
-    let file = system.file(&uri).unwrap();
+    let db = snapshot.db();
+    let file = snapshot.file(&uri).unwrap();
     let line_index = line_index(db, file);
 
     let symbols = document_symbols(db, file);

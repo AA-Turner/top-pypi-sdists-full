@@ -57,6 +57,7 @@ ImageSetWorkflowStatusType = Literal[
     "UPDATED",
     "UPDATE_FAILED",
     "UPDATING",
+    "UPDATING_FOR_STUDY_CONSISTENCY",
 ]
 JobStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "SUBMITTED"]
 ListDICOMImportJobsPaginatorName = Literal["list_dicom_import_jobs"]

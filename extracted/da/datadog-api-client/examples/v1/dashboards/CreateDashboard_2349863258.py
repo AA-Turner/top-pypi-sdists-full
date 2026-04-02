@@ -35,6 +35,7 @@ body = Dashboard(
                 title="",
                 title_size="16",
                 title_align=WidgetTextAlign.LEFT,
+                description="Example widget description",
                 time=WidgetLegacyLiveSpan(),
                 type=QueryValueWidgetDefinitionType.QUERY_VALUE,
                 requests=[

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smbprotocol
-Version: 1.16.0
+Version: 1.16.1
 Summary: Interact with a server using the SMB 2/3 Protocol
 Author-email: Jordan Borean <jborean93@gmail.com>
 License-Expression: MIT

@@ -106,8 +106,10 @@ class Replicator:
         return {}
 
     def create_or_update_remote(self, upstream_distribution):
-        if not upstream_distribution.get("repository") and not upstream_distribution.get(
-            "publication"
+        if (
+            not upstream_distribution.get("repository")
+            and not upstream_distribution.get("repository_version")
+            and not upstream_distribution.get("publication")
         ):
             return None
         url = self.url(upstream_distribution)
@@ -171,10 +173,11 @@ class Replicator:
     def distribution_extra_fields(self, repository, upstream_distribution):
         """
         Return the fields that need to be updated/cleared on distributions for idempotence.
+
+        Note: repository, publication, and repository_version are NOT included here.
+        They are all updated atomically in finalize_replication after all syncs complete.
         """
         return {
-            "repository": get_url(repository),
-            "publication": None,
             "base_path": upstream_distribution["base_path"],
         }
 
@@ -189,7 +192,6 @@ class Replicator:
                 return None
             needs_update = self.needs_update(distribution_data, distro)
             if needs_update:
-                # Update the distribution
                 dispatch(
                     ageneral_update,
                     task_group=self.task_group,
@@ -202,15 +204,15 @@ class Replicator:
                     },
                 )
         except self.distribution_model_cls.DoesNotExist:
-            # Dispatch a task to create the distribution
-            distribution_data["name"] = upstream_distribution["name"]
+            create_data = dict(distribution_data)
+            create_data["name"] = upstream_distribution["name"]
             dispatch(
                 general_create,
                 task_group=self.task_group,
                 shared_resources=[repository, self.server],
                 exclusive_resources=self.distros_uris,
                 args=(self.app_label, self.distribution_serializer_name),
-                kwargs={"data": distribution_data},
+                kwargs={"data": create_data},
             )
 
     def sync_params(self, repository, remote):

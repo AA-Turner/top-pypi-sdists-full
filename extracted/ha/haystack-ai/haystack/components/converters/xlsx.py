@@ -34,12 +34,13 @@ class XLSXToDocument:
 
     ```python
     from haystack.components.converters.xlsx import XLSXToDocument
+    from datetime import datetime
 
     converter = XLSXToDocument()
     results = converter.run(sources=["sample.xlsx"], meta={"date_added": datetime.now().isoformat()})
     documents = results["documents"]
     print(documents[0].content)
-    # ",A,B\n1,col_a,col_b\n2,1.5,test\n"
+    # ",A,B\\n1,col_a,col_b\\n2,1.5,test\\n"
     ```
     """
 
@@ -52,7 +53,7 @@ class XLSXToDocument:
         *,
         link_format: Literal["markdown", "plain", "none"] = "none",
         store_full_path: bool = False,
-    ):
+    ) -> None:
         """
         Creates a XLSXToDocument component.
 

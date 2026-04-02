@@ -21,7 +21,7 @@ requires-python = ">=3.8"
 dependencies = [
     "nodejs-wheel-binaries>=20.13.1",
 ]
-version = "1.38.4"
+version = "1.39.0"
 
 [project.urls]
 repository = "https://github.com/detachhead/basedpyright"
@@ -75,6 +75,7 @@ default-groups = [
 no-build-package = [
     "libcst",
 ]
+exclude-newer = "1 week"
 
 [tool.pdm.version]
 source = "call"

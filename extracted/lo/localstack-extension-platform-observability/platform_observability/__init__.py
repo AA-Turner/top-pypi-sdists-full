@@ -1,1 +1,0 @@
-name = "platform_observability"

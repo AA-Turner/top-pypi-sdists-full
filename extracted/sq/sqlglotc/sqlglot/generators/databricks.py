@@ -73,6 +73,17 @@ class DatabricksGenerator(SparkGenerator):
         exp.DType.NULL: "VOID",
     }
 
+    def create_sql(self, expression: exp.Create) -> str:
+        body = expression.expression
+        if (
+            body
+            and not isinstance(body, exp.Return)
+            and expression.kind == "FUNCTION"
+            and any(p.args.get("is_table") for p in expression.find_all(exp.ReturnsProperty))
+        ):
+            expression.set("expression", exp.Return(this=body))
+        return super().create_sql(expression)
+
     def columndef_sql(self, expression: exp.ColumnDef, sep: str = " ") -> str:
         constraint = expression.find(exp.GeneratedAsIdentityColumnConstraint)
         kind = expression.kind
@@ -82,7 +93,7 @@ class DatabricksGenerator(SparkGenerator):
             and kind.this in exp.DataType.INTEGER_TYPES
         ):
             # only BIGINT generated identity constraints are supported
-            expression.set("kind", exp.DataType.build(exp.DType.BIGINT))
+            expression.set("kind", exp.DType.BIGINT.into_expr())
 
         return super().columndef_sql(expression, sep)
 

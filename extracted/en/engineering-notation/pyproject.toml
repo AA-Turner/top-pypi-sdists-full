@@ -1,14 +1,18 @@
 [project]
 name = "engineering-notation"
-version = "0.12.0"
+version = "0.13.1"
 description = "Easy engineering notation"
 readme = "readme.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = []
 
 [dependency-groups]
 dev = [
     "mypy>=1.19.1",
+    "numpy>=2.4.1",
     "pytest>=9.0.2",
     "ruff>=0.14.14",
 ]
+
+[tool.uv]
+package = true

@@ -152,31 +152,3 @@ class TestOTelTracing:
 
         tracer = get_tracer("test")
         assert tracer is not None
-
-
-class TestLoggingUtils:
-    """Tests for logging utility functions."""
-
-    def test_zip_directory(self):
-        """Test zip_directory creates valid zip."""
-        import io
-        import zipfile
-
-        from plato.agents.artifacts import zip_directory
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Create some files
-            with open(os.path.join(tmpdir, "test.log"), "w") as f:
-                f.write("test log content")
-            os.makedirs(os.path.join(tmpdir, "subdir"))
-            with open(os.path.join(tmpdir, "subdir", "nested.log"), "w") as f:
-                f.write("nested content")
-
-            # Zip it
-            zip_bytes = zip_directory(tmpdir)
-
-            # Verify it's a valid zip
-            zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
-            names = zf.namelist()
-            assert "test.log" in names
-            assert "subdir/nested.log" in names or "subdir\\nested.log" in names

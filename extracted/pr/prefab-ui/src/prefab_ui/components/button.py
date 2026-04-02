@@ -1,0 +1,115 @@
+"""Button component following shadcn/ui conventions.
+
+Buttons support multiple variants and sizes, with automatic dark mode styling.
+
+**Example:**
+
+```python
+from prefab_ui.components import Button
+
+Button("Click me")
+Button("Save", variant="default")
+Button("Delete", variant="destructive")
+Button("Cancel", variant="outline")
+Button("More options", variant="ghost")
+Button("Learn more", variant="link")
+
+# Sizes
+Button("Small", size="sm")
+Button("Large", size="lg")
+Button("Icon", size="icon")
+```
+"""
+
+from __future__ import annotations
+
+from typing import Any, Literal, overload
+
+from pydantic import Field
+
+from prefab_ui.actions import Action
+from prefab_ui.components.base import Component
+from prefab_ui.rx import RxStr
+
+ButtonVariant = (
+    Literal[
+        "default",
+        "destructive",
+        "outline",
+        "secondary",
+        "ghost",
+        "link",
+        "success",
+        "warning",
+        "info",
+    ]
+    | RxStr
+)
+ButtonSize = Literal[
+    "default", "xs", "sm", "lg", "icon", "icon-xs", "icon-sm", "icon-lg"
+]
+ButtonType = Literal["submit", "button", "reset"]
+
+
+class Button(Component):
+    """A button component with multiple variants and sizes.
+
+    Args:
+        label: Button text
+        variant: Visual style - "default", "destructive", "outline", "secondary", "ghost", "link", "success", "warning", "info"
+        size: Button size - "default", "xs", "sm", "lg", "icon", "icon-xs", "icon-sm", "icon-lg"
+        disabled: Whether the button is disabled
+        css_class: Additional CSS classes to apply
+
+    **Example:**
+
+    ```python
+    Button("Save Changes")
+    Button("Delete", variant="destructive")
+    Button("Cancel", variant="outline", size="sm")
+    ```
+    """
+
+    type: Literal["Button"] = "Button"
+    label: RxStr = Field(description="Button text")
+    icon: str | None = Field(
+        default=None,
+        description="Lucide icon name (kebab-case, e.g. 'arrow-right')",
+    )
+    variant: ButtonVariant = Field(
+        default="default",
+        description="Visual variant: default, destructive, outline, secondary, ghost, link, success, warning, info",
+    )
+    size: ButtonSize = Field(
+        default="default",
+        description="Size: default, xs, sm, lg, icon, icon-xs, icon-sm, icon-lg",
+    )
+    button_type: ButtonType | None = Field(
+        default=None,
+        alias="buttonType",
+        description=(
+            "HTML button type: 'submit' (default in forms), 'button' "
+            "(no form submit), or 'reset'. Use 'button' for cancel/close "
+            "actions inside a Form."
+        ),
+    )
+    disabled: bool | RxStr = Field(
+        default=False, description="Whether the button is disabled"
+    )
+    on_click: Action | list[Action] | None = Field(
+        default=None,
+        alias="onClick",
+        description="Action(s) to execute when clicked",
+    )
+
+    @overload
+    def __init__(self, label: str, /, **kwargs: Any) -> None: ...
+
+    @overload
+    def __init__(self, *, label: str, **kwargs: Any) -> None: ...
+
+    def __init__(self, label: str | None = None, **kwargs: Any) -> None:
+        """Accept label as positional or keyword argument."""
+        if label is not None:
+            kwargs["label"] = label
+        super().__init__(**kwargs)

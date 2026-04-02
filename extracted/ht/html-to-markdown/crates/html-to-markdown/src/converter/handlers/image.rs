@@ -146,7 +146,14 @@ pub fn handle_img(
             visitor.visit_image(&node_ctx, &src, &alt, title.as_deref())
         };
         match visit_result {
-            VisitResult::Continue => Some(format_image_markdown(&src, &alt, title.as_deref(), should_use_alt_text)),
+            VisitResult::Continue => Some(format_image_markdown(
+                &src,
+                &alt,
+                title.as_deref(),
+                should_use_alt_text,
+                options.link_style,
+                ctx.reference_collector.as_ref(),
+            )),
             VisitResult::Custom(custom) => Some(custom),
             VisitResult::Skip => None,
             VisitResult::Error(err) => {
@@ -158,11 +165,25 @@ pub fn handle_img(
             VisitResult::PreserveHtml => Some(serialize_node(node_handle, parser)),
         }
     } else {
-        Some(format_image_markdown(&src, &alt, title.as_deref(), should_use_alt_text))
+        Some(format_image_markdown(
+            &src,
+            &alt,
+            title.as_deref(),
+            should_use_alt_text,
+            options.link_style,
+            ctx.reference_collector.as_ref(),
+        ))
     };
 
     #[cfg(not(feature = "visitor"))]
-    let image_output = Some(format_image_markdown(&src, &alt, title.as_deref(), should_use_alt_text));
+    let image_output = Some(format_image_markdown(
+        &src,
+        &alt,
+        title.as_deref(),
+        should_use_alt_text,
+        options.link_style,
+        ctx.reference_collector.as_ref(),
+    ));
 
     // Only output image if skip_images is not enabled
     if !options.skip_images {
@@ -192,27 +213,51 @@ pub fn handle_img(
             }
         }
     }
+
+    if let Some(ref sc) = ctx.structure_collector {
+        let src_opt = if src.is_empty() { None } else { Some(src.as_ref()) };
+        let alt_opt = if alt.is_empty() { None } else { Some(alt.as_ref()) };
+        sc.borrow_mut().push_image(src_opt, alt_opt);
+    }
 }
 
 /// Format an image as Markdown syntax.
 ///
 /// If `use_alt_only` is true, returns just the alt text.
 /// Otherwise returns the full `![alt](src "title")` syntax.
-fn format_image_markdown(src: &str, alt: &str, title: Option<&str>, use_alt_only: bool) -> String {
+fn format_image_markdown(
+    src: &str,
+    alt: &str,
+    title: Option<&str>,
+    use_alt_only: bool,
+    link_style: crate::options::validation::LinkStyle,
+    reference_collector: Option<&crate::converter::reference_collector::ReferenceCollectorHandle>,
+) -> String {
     if use_alt_only {
-        alt.to_string()
-    } else {
-        let mut buf = String::with_capacity(src.len() + alt.len() + 10);
-        buf.push_str("![");
-        buf.push_str(alt);
-        buf.push_str("](");
-        buf.push_str(src);
-        if let Some(title_text) = title {
-            buf.push_str(" \"");
-            buf.push_str(title_text);
-            buf.push('"');
-        }
-        buf.push(')');
-        buf
+        return alt.to_string();
     }
+    if link_style == crate::options::validation::LinkStyle::Reference {
+        if let Some(collector) = reference_collector {
+            let ref_num = collector.borrow_mut().get_or_insert(src, title);
+            let mut buf = String::with_capacity(alt.len() + 10);
+            buf.push_str("![");
+            buf.push_str(alt);
+            buf.push_str("][");
+            buf.push_str(&ref_num.to_string());
+            buf.push(']');
+            return buf;
+        }
+    }
+    let mut buf = String::with_capacity(src.len() + alt.len() + 10);
+    buf.push_str("![");
+    buf.push_str(alt);
+    buf.push_str("](");
+    buf.push_str(src);
+    if let Some(title_text) = title {
+        buf.push_str(" \"");
+        buf.push_str(title_text);
+        buf.push('"');
+    }
+    buf.push(')');
+    buf
 }

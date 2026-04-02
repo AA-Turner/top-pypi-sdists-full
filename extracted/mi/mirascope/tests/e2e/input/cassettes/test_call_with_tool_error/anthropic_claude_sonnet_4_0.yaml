@@ -1,0 +1,335 @@
+interactions:
+- request:
+    body: '{"max_tokens":16000,"messages":[{"role":"user","content":"Use the test
+      tool to retrieve the secret phrase. The passphrase is ''portal"}],"model":"claude-sonnet-4-0","tools":[{"name":"passphrase_test_tool","description":"A
+      tool that must be called with a passphrase.","input_schema":{"properties":{"passphrase":{"title":"Passphrase","type":"string"}},"required":["passphrase"],"additionalProperties":false,"type":"object"},"cache_control":{"type":"ephemeral"}}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      anthropic-version:
+      - '2023-06-01'
+      connection:
+      - keep-alive
+      content-length:
+      - '460'
+      content-type:
+      - application/json
+      host:
+      - api.anthropic.com
+      user-agent:
+      - Anthropic/Python 0.76.0
+      x-api-key:
+      - <filtered>
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 0.76.0
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.10.16
+      x-stainless-timeout:
+      - '600'
+    method: POST
+    uri: https://api.anthropic.com/v1/messages
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/3VR3UrDMBR+lZIbbzpZZ4fSyzGGWgQVZAOREJrDGk2TLjmZ+6Hv7kmhbFO8KG2/
+        v3Py5cgaK0GzglVaBAkjb40BHOWjyXgyHU+znKVMSeIbv+bj7HE+/1zdy7fnxWG5elXl4a5+8kvS
+        4L6FqALvxRoIcFZHQHivPAqDBFXWINBX8X4c9Ai7yPSvgj1caZ0EDwnW9IDHBK3VybfCuodaSmtr
+        J0ixtyFpnd0qCfKadekpkRycMoa943+gzWelzUyJWN4s1nm2m71km5lakcqIJvpO2TxO5tEXM0wb
+        aLXjGR/F1qHQrOs+UubRttyBoOYux/eEh00AU5HJBK1TFvp6KK8PpilfYDwr8klG/YiqBl5RFipr
+        +KViPPBEy/+4wRsHQFtDA05oPm3+6k9sVv9mu5TZgOfQbU7HAbdVFbWjwNFB46VK4SSV8AP6Szf9
+        RQIAAA==
+    headers:
+      CF-RAY:
+      - 9c23fe25ff5e51f0-LAX
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 23 Jan 2026 02:52:05 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Robots-Tag:
+      - none
+      anthropic-organization-id:
+      - 217a607f-ed5e-40af-8a7d-f83ed52d59d6
+      anthropic-ratelimit-input-tokens-limit:
+      - '2000000'
+      anthropic-ratelimit-input-tokens-remaining:
+      - '2000000'
+      anthropic-ratelimit-input-tokens-reset:
+      - '2026-01-23T02:52:04Z'
+      anthropic-ratelimit-output-tokens-limit:
+      - '400000'
+      anthropic-ratelimit-output-tokens-remaining:
+      - '400000'
+      anthropic-ratelimit-output-tokens-reset:
+      - '2026-01-23T02:52:05Z'
+      anthropic-ratelimit-requests-limit:
+      - '4000'
+      anthropic-ratelimit-requests-remaining:
+      - '3999'
+      anthropic-ratelimit-requests-reset:
+      - '2026-01-23T02:52:02Z'
+      anthropic-ratelimit-tokens-limit:
+      - '2400000'
+      anthropic-ratelimit-tokens-remaining:
+      - '2400000'
+      anthropic-ratelimit-tokens-reset:
+      - '2026-01-23T02:52:04Z'
+      cf-cache-status:
+      - DYNAMIC
+      request-id:
+      - req_011CXPYyEk6rhPURhsXooi5M
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-envoy-upstream-service-time:
+      - '2408'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"max_tokens":16000,"messages":[{"role":"user","content":"Use the test
+      tool to retrieve the secret phrase. The passphrase is ''portal"},{"role":"assistant","content":[{"citations":null,"text":"I''ll
+      use the test tool with the passphrase you provided.","type":"text"},{"id":"toolu_01BKo1nKttK3Fg41xBQ1qBiX","input":{"passphrase":"portal"},"name":"passphrase_test_tool","type":"tool_use"}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_01BKo1nKttK3Fg41xBQ1qBiX","content":"Incorrect
+      passhrase: The correct passphrase is ''cake''. Try again.","cache_control":{"type":"ephemeral"}}]}],"model":"claude-sonnet-4-0","tools":[{"name":"passphrase_test_tool","description":"A
+      tool that must be called with a passphrase.","input_schema":{"properties":{"passphrase":{"title":"Passphrase","type":"string"}},"required":["passphrase"],"additionalProperties":false,"type":"object"},"cache_control":{"type":"ephemeral"}}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      anthropic-version:
+      - '2023-06-01'
+      connection:
+      - keep-alive
+      content-length:
+      - '925'
+      content-type:
+      - application/json
+      host:
+      - api.anthropic.com
+      user-agent:
+      - Anthropic/Python 0.76.0
+      x-api-key:
+      - <filtered>
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 0.76.0
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.10.16
+      x-stainless-timeout:
+      - '600'
+    method: POST
+    uri: https://api.anthropic.com/v1/messages
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/3VSyU7DMBD9FcuXXlLUFIJEbggEHHpgk6iEUDQ409pqYgd7TDf13xlXVG1BvWSZ
+        t8zMs9eydTU2spSqgVhjPzhrkfoX/eFgWAyK/EJm0tSMt2FaDfLHfPL0PF49tFjA2w3c3z6NPleX
+        zKFlh4mFIcAUueBdkwoQggkElriknCXkr/J9veMTLhKyfZXyVaPoWNFpDwFFr3OeoOmJOQRhrHLe
+        o6IzkWjkXMO12iggDII0ED9Q/JIObUwQPQUz7J2JEZJoWeyXAqZgrJgb0id0pdxk+zm5XRUD7tJI
+        /5HzOC/06HFix7N8rGn0Ui+u44O9Y5aFNun2dhWPSVXSJQ/bRV54fYCnI+Ah5WbzkclArqs8Ap/G
+        cfMtEPArolUssbFpMhm3kbPb1pZ7zNAGWRbDgjMHpbFS7EXG2eqYMdjhDNensJ02NcBOY4semqpo
+        //P3aK7/optMukiHpatLXgf9t1GcjUHPi6aLUoOvOYQfQqI2a5kCAAA=
+    headers:
+      CF-RAY:
+      - 9c23fe368ac051f0-LAX
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 23 Jan 2026 02:52:08 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Robots-Tag:
+      - none
+      anthropic-organization-id:
+      - 217a607f-ed5e-40af-8a7d-f83ed52d59d6
+      anthropic-ratelimit-input-tokens-limit:
+      - '2000000'
+      anthropic-ratelimit-input-tokens-remaining:
+      - '2000000'
+      anthropic-ratelimit-input-tokens-reset:
+      - '2026-01-23T02:52:07Z'
+      anthropic-ratelimit-output-tokens-limit:
+      - '400000'
+      anthropic-ratelimit-output-tokens-remaining:
+      - '400000'
+      anthropic-ratelimit-output-tokens-reset:
+      - '2026-01-23T02:52:08Z'
+      anthropic-ratelimit-requests-limit:
+      - '4000'
+      anthropic-ratelimit-requests-remaining:
+      - '3999'
+      anthropic-ratelimit-requests-reset:
+      - '2026-01-23T02:52:05Z'
+      anthropic-ratelimit-tokens-limit:
+      - '2400000'
+      anthropic-ratelimit-tokens-remaining:
+      - '2400000'
+      anthropic-ratelimit-tokens-reset:
+      - '2026-01-23T02:52:07Z'
+      cf-cache-status:
+      - DYNAMIC
+      request-id:
+      - req_011CXPYyS3zg5KYcNv2FuLc4
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-envoy-upstream-service-time:
+      - '2704'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"max_tokens":16000,"messages":[{"role":"user","content":"Use the test
+      tool to retrieve the secret phrase. The passphrase is ''portal"},{"role":"assistant","content":[{"citations":null,"text":"I''ll
+      use the test tool with the passphrase you provided.","type":"text"},{"id":"toolu_01BKo1nKttK3Fg41xBQ1qBiX","input":{"passphrase":"portal"},"name":"passphrase_test_tool","type":"tool_use"}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_01BKo1nKttK3Fg41xBQ1qBiX","content":"Incorrect
+      passhrase: The correct passphrase is ''cake''. Try again.","cache_control":null}]},{"role":"assistant","content":[{"citations":null,"text":"The
+      passphrase ''portal'' was incorrect. The tool indicates that the correct passphrase
+      is ''cake''. Let me try again with the correct passphrase:","type":"text"},{"id":"toolu_0135hLPfnXk1XhtLSdxAuHnF","input":{"passphrase":"cake"},"name":"passphrase_test_tool","type":"tool_use"}]},{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_0135hLPfnXk1XhtLSdxAuHnF","content":"The
+      cake is a lie.","cache_control":{"type":"ephemeral"}}]}],"model":"claude-sonnet-4-0","tools":[{"name":"passphrase_test_tool","description":"A
+      tool that must be called with a passphrase.","input_schema":{"properties":{"passphrase":{"title":"Passphrase","type":"string"}},"required":["passphrase"],"additionalProperties":false,"type":"object"},"cache_control":{"type":"ephemeral"}}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      anthropic-version:
+      - '2023-06-01'
+      connection:
+      - keep-alive
+      content-length:
+      - '1411'
+      content-type:
+      - application/json
+      host:
+      - api.anthropic.com
+      user-agent:
+      - Anthropic/Python 0.76.0
+      x-api-key:
+      - <filtered>
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 0.76.0
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.10.16
+      x-stainless-timeout:
+      - '600'
+    method: POST
+    uri: https://api.anthropic.com/v1/messages
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/3WRT0/DMAzFv0rwhUuH1rEN1CNoJ06IcWIoyhJrjdYmJXYGaOp3xy2a+CdOcd7v
+        xfZTjtBGhw1UYBuTHU4ohoA8mU9m09liuijnUIB3wlva6Wl5t0Tacrui9etq7W5ur8rtfRnEw+8d
+        Di4kMjsUIcVmEAyRJzaBRbIxMEpVPR1Pfsa3gYxHBQ/ZWmlwph7Jh53iGpWNKaFl1Umjrk6GUJ1b
+        s8fzYsSENqHQTyJl8nhApzxVagProYGY5aqMajxebAD65wKIY6cTGkkrYzE4zTkNMUZA+JIxWNkv
+        5KYpII+RqiP40GXWHPcYCKrl5bVkMrZGLUsY9jHon47piQt2/7HT22EAdjW2mEyjF+1f/xct69+0
+        LyBm/i7NZDvCdPAWNXtMEnT4CGeSg77/AO25t7v5AQAA
+    headers:
+      CF-RAY:
+      - 9c23fe48392c51f0-LAX
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 23 Jan 2026 02:52:10 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Robots-Tag:
+      - none
+      anthropic-organization-id:
+      - 217a607f-ed5e-40af-8a7d-f83ed52d59d6
+      anthropic-ratelimit-input-tokens-limit:
+      - '2000000'
+      anthropic-ratelimit-input-tokens-remaining:
+      - '2000000'
+      anthropic-ratelimit-input-tokens-reset:
+      - '2026-01-23T02:52:10Z'
+      anthropic-ratelimit-output-tokens-limit:
+      - '400000'
+      anthropic-ratelimit-output-tokens-remaining:
+      - '400000'
+      anthropic-ratelimit-output-tokens-reset:
+      - '2026-01-23T02:52:10Z'
+      anthropic-ratelimit-requests-limit:
+      - '4000'
+      anthropic-ratelimit-requests-remaining:
+      - '3999'
+      anthropic-ratelimit-requests-reset:
+      - '2026-01-23T02:52:08Z'
+      anthropic-ratelimit-tokens-limit:
+      - '2400000'
+      anthropic-ratelimit-tokens-remaining:
+      - '2400000'
+      anthropic-ratelimit-tokens-reset:
+      - '2026-01-23T02:52:10Z'
+      cf-cache-status:
+      - DYNAMIC
+      request-id:
+      - req_011CXPYyeBWEhvYmS1qRko7R
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-envoy-upstream-service-time:
+      - '2337'
+    status:
+      code: 200
+      message: OK
+version: 1

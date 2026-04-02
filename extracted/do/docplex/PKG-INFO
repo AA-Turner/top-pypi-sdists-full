@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docplex
-Version: 2.32.262
+Version: 2.32.264
 Summary: The IBM Decision Optimization CPLEX Modeling for Python
 Home-page: https://www.ibm.com/cloud/decision-optimization-for-watson-studio
 Author: The IBM Decision Optimization on Cloud team
@@ -23,8 +23,6 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 License-File: LICENSE.txt
 Requires-Dist: six
-Requires-Dist: hashable-list
-Requires-Dist: ordered-set
 Dynamic: license-file
 
 DOcplex, IBM Decision Optimization Modeling for Python
@@ -59,7 +57,7 @@ Installation
 Changelog
 ---------
 
-Changed in 2.32.262:
+Changed in 2.32.264:
 ````````````````````
 
 * Added official support for Python 3.13 & 3.14

@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    The ``Actions`` field in the ``Volume`` resource was incorrectly specified
-    as being required. This fix makes the field optional.

@@ -1,19 +1,19 @@
-"""Backwards-compatible re-exports. Use plato.agents.runtime.transport instead."""
+"""Backwards-compatible re-exports. Prefer ``plato.transports``."""
 
-from plato.agents.runtime.transport import (
+from plato.transports import (
     NFSTransport,
     RsyncTransport,
     Transport,
     rsync_from,
     rsync_to,
 )
-from plato.agents.runtime.transport import (
+from plato.transports import (
     NFSTransport as NFSWorkspace,
 )
-from plato.agents.runtime.transport import (
+from plato.transports import (
     RsyncTransport as RsyncWorkspace,
 )
-from plato.agents.runtime.transport import (
+from plato.transports import (
     Transport as Workspace,
 )
 

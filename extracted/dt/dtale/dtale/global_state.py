@@ -1,3 +1,5 @@
+import io
+import pickle
 import string
 import inspect
 
@@ -247,6 +249,145 @@ class DtaleArcticDBInstance(DtaleInstance):
 class DtaleBaseStore(dict):
     def build_instance(self, data_id, data=None):
         return DtaleInstance(data)
+
+
+class RestrictedUnpickler(pickle.Unpickler):
+    """Restrict unpickling to known-safe types used by DtaleInstance.
+
+    Uses exact-module matching for sensitive standard-library modules and
+    prefix-based matching for numpy/pandas (whose internal module paths
+    change across Python and library versions).
+    """
+
+    # Exact module -> allowed names (for std-lib and dtale modules)
+    ALLOWED_MODULES = {
+        "builtins": {
+            "object",
+            "set",
+            "frozenset",
+            "dict",
+            "list",
+            "tuple",
+            "bytes",
+            "bytearray",
+            "True",
+            "False",
+            "None",
+            "complex",
+            "float",
+            "int",
+            "str",
+            "slice",
+            "range",
+            "type",
+        },
+        "__builtin__": {  # Python 2
+            "object",
+            "set",
+            "frozenset",
+            "dict",
+            "list",
+            "tuple",
+            "bytes",
+            "bytearray",
+            "True",
+            "False",
+            "None",
+            "complex",
+            "float",
+            "int",
+            "str",
+            "slice",
+            "range",
+            "type",
+            "unicode",
+            "long",
+            "xrange",
+            "basestring",
+        },
+        "collections": {"OrderedDict", "defaultdict", "deque"},
+        "datetime": {"datetime", "date", "time", "timedelta", "timezone"},
+        "_codecs": {"encode"},
+        "copyreg": {"_reconstructor"},
+        "copy_reg": {"_reconstructor"},  # Python 2
+        "functools": {"partial"},
+        "dtale.global_state": {"DtaleInstance"},
+    }
+
+    # Prefix -> allowed names (handles version-varying submodule paths)
+    ALLOWED_PREFIXES = {
+        "numpy": {
+            "ndarray",
+            "dtype",
+            "array",
+            "int64",
+            "float64",
+            "bool_",
+            "str_",
+            "bytes_",
+            "nan",
+            "scalar",
+            "_reconstruct",
+            "_frombuffer",
+        },
+        "pandas": {
+            "DataFrame",
+            "Series",
+            "Index",
+            "_new_Index",
+            "RangeIndex",
+            "DatetimeIndex",
+            "Int64Index",
+            "Float64Index",
+            "MultiIndex",
+            "Categorical",
+            "Timestamp",
+            "Timedelta",
+            "NaT",
+            "NaTType",
+            "StringDtype",
+            "CategoricalDtype",
+            "DatetimeTZDtype",
+            "DatetimeArray",
+            "TimedeltaArray",
+            "IntervalArray",
+            "SparseArray",
+            "StringArray",
+            "BooleanArray",
+            "IntegerArray",
+            "FloatingArray",
+            "ArrowExtensionArray",
+            "BlockManager",
+            "SingleBlockManager",
+            "new_block",
+            "_unpickle_block",
+            "__pyx_unpickle_NDArrayBacked",
+            "MonthEnd",
+            "BusinessDay",
+            "Day",
+            "Hour",
+            "Minute",
+            "Second",
+        },
+    }
+
+    def find_class(self, module, name):
+        # Check exact module match first
+        allowed = self.ALLOWED_MODULES.get(module)
+        if allowed is not None and name in allowed:
+            return pickle.Unpickler.find_class(self, module, name)
+
+        # Check prefix-based match for numpy/pandas submodules
+        for prefix, names in self.ALLOWED_PREFIXES.items():
+            if (module == prefix or module.startswith(prefix + ".")) and name in names:
+                return pickle.Unpickler.find_class(self, module, name)
+
+        raise pickle.UnpicklingError("Forbidden unpickle: {}.{}".format(module, name))
+
+
+def safe_loads(data):
+    """Deserialize pickle data using RestrictedUnpickler."""
+    return RestrictedUnpickler(io.BytesIO(data)).load()
 
 
 class DtaleArcticDB(DtaleBaseStore):
@@ -768,47 +909,54 @@ def use_shelve_store(directory):
     :type directory: str
     :return: None
     """
-    import shelve
-    import time
     from os.path import join
-    from threading import Thread
 
-    class DtaleShelf(DtaleBaseStore):
-        """Interface allowing dtale to use 'shelf' databases for global data storage."""
+    try:
+        import dbm
+    except ImportError:
+        import anydbm as dbm  # Python 2
 
-        def __init__(self, filename):
-            self.filename = filename
-            self.db = shelve.open(self.filename, flag="c", writeback=True)
-            # super hacky autosave
-            t = Thread(target=self.save_db)
-            t.daemon = True
-            t.start()
+    from contextlib import closing
 
-        def get(self, key):
-            # using str here because shelve doesn't support int keys
-            key = str(key)
-            return self.db.get(key)
+    class SafeShelfStore(DtaleBaseStore):
+        """DBM-backed store with safe deserialization."""
 
-        def __setitem__(self, key, value):
-            key = str(key)
-            self.db[key] = value
-            self.db.sync()
+        def __init__(self, path):
+            self.path = path
 
-        def __delitem__(self, key):
-            key = str(key)
-            del self.db[key]
-            self.db.sync()
+        def _open(self, flag="r"):
+            return closing(dbm.open(self.path, flag))
 
         def __contains__(self, key):
-            key = str(key)
-            return key in self.db
+            with self._open() as db:
+                return str(key).encode() in db
+
+        def get(self, key):
+            with self._open() as db:
+                raw = db.get(str(key).encode())
+                if raw is None:
+                    return None
+                return safe_loads(raw)
+
+        def __setitem__(self, key, value):
+            with self._open(flag="c") as db:
+                db[str(key).encode()] = pickle.dumps(value)
+
+        def __delitem__(self, key):
+            with self._open(flag="w") as db:
+                del db[str(key).encode()]
+
+        def __iter__(self):
+            with self._open() as db:
+                return iter([k.decode() for k in db.keys()])
 
         def clear(self):
-            self.db.clear()
-            self.db.sync()
+            with self._open(flag="n"):
+                pass
 
         def to_dict(self):
-            return dict(self.db)
+            with self._open() as db:
+                return {k.decode(): safe_loads(db[k]) for k in db.keys()}
 
         def items(self):
             return self.to_dict().items()
@@ -817,18 +965,14 @@ def use_shelve_store(directory):
             return self.to_dict().keys()
 
         def __len__(self):
-            return len(self.db)
-
-        def save_db(self):
-            while True:
-                self.db.sync()
-                time.sleep(5)
+            with self._open() as db:
+                return len(db.keys())
 
     def create_shelf(name):
         file_path = join(directory, name)
-        return DtaleShelf(file_path)
+        return SafeShelfStore(file_path)
 
-    use_store(DtaleShelf, create_shelf)
+    use_store(SafeShelfStore, create_shelf)
 
 
 def use_redis_store(directory, *args, **kwargs):
@@ -840,7 +984,6 @@ def use_redis_store(directory, *args, **kwargs):
     :param kwargs: All other keyword arguments supported by the redislite.Redis() class
     :return: None
     """
-    import pickle
     from os.path import join
 
     try:
@@ -885,7 +1028,7 @@ def use_redis_store(directory, *args, **kwargs):
         def get(self, name, *args, **kwargs):
             value = super(Redis, self).get(name, *args, **kwargs)
             if value is not None:
-                return pickle.loads(value)
+                return safe_loads(value)
 
         def keys(self):
             return [str(k) for k in super(Redis, self).keys()]

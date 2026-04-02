@@ -27,6 +27,8 @@ from agilicus import (
     RuleCondition,
     HttpRuleCondition,
     EmptiableObjectType,
+    TimeperiodPolicyTemplate,
+    TimeOfDayCondition,
 )
 
 from ..output.table import (
@@ -373,3 +375,48 @@ def kick_policy_template(ctx, instance_id, org_id=None, **kwargs):
         instance_id,
         policy_template_instance=existing,
     )
+
+
+def parse_time_of_day_string(time_of_day) -> TimeOfDayCondition:
+    split_str = time_of_day.split(":")
+    hour = split_str[0]
+    minute = 0
+    if len(split_str) > 1:
+        minute = split_str[0]
+    return TimeOfDayCondition(hour=int(hour), minute=int(minute))
+
+
+def set_timeperiod_policy(
+    ctx, name, timezone, day, start_time_of_day, end_time_of_day, label=None, **kwargs
+):
+    org_id = get_org_from_input_or_ctx(ctx, **kwargs)
+
+    token = context.get_token(ctx)
+    apiclient = context.get_apiclient(ctx, token)
+
+    timeperiod = TimeperiodPolicyTemplate(
+        timezone,
+        list(day),
+        list(label or []),
+        start_time_of_day=parse_time_of_day_string(start_time_of_day),
+        end_time_of_day=parse_time_of_day_string(end_time_of_day),
+        template_type="timeperiod",
+    )
+
+    spec = PolicyTemplateInstanceSpec(
+        org_id=org_id,
+        name=name,
+        template=timeperiod,
+    )
+
+    tmpl = PolicyTemplateInstance(spec=spec)
+    templates_api = apiclient.policy_templates_api
+    resp, _ = create_or_update(
+        tmpl,
+        lambda obj: templates_api.create_policy_template_instance(obj),
+        lambda guid, obj: templates_api.replace_policy_template_instance(
+            guid, policy_template_instance=obj
+        ),
+        to_dict=False,
+    )
+    return resp

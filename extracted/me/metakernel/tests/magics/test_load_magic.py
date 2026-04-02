@@ -1,0 +1,9 @@
+import asyncio
+
+from tests.utils import get_kernel
+
+
+def test_load_magic() -> None:
+    kernel = get_kernel()
+    ret = asyncio.run(kernel.do_execute("%%load %s" % __file__))
+    assert "def test_load_magic" in ret["payload"][0]["text"]

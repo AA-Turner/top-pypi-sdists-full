@@ -1,0 +1,559 @@
+#
+# Copyright (c) 2022-2026, NVIDIA CORPORATION. All rights reserved.
+#
+
+from dataclasses import dataclass
+from io import BufferedWriter
+from typing import Dict, Optional
+import os
+from urllib.parse import quote
+
+from requests import Response
+from requests.structures import CaseInsensitiveDict
+from aistore.sdk.archive_config import ArchiveConfig
+from aistore.sdk.blob_download_config import BlobDownloadConfig
+from aistore.sdk.etl import ETLConfig
+from aistore.sdk.const import (
+    BYTE_RANGE_PREFIX_LENGTH,
+    HTTP_METHOD_DELETE,
+    HTTP_METHOD_HEAD,
+    QPARAM_ARCHPATH,
+    QPARAM_ARCHREGX,
+    QPARAM_ARCHMODE,
+    QPARAM_ETL_NAME,
+    QPARAM_ETL_ARGS,
+    QPARAM_LATEST,
+    QPARAM_PROPS,
+    QPARAM_SYNC,
+    QPARAM_OBJ_TO,
+    ACT_PROMOTE,
+    HTTP_METHOD_POST,
+    HTTP_METHOD_PUT,
+    URL_PATH_OBJECTS,
+    HEADER_RANGE,
+    ACT_BLOB_DOWNLOAD,
+    HEADER_OBJECT_BLOB_DOWNLOAD,
+    HEADER_OBJECT_BLOB_WORKERS,
+    HEADER_OBJECT_BLOB_CHUNK_SIZE,
+)
+from aistore.sdk.provider import Provider
+from aistore.sdk.obj.object_client import ObjectClient
+from aistore.sdk.obj.object_reader import ObjectReader
+from aistore.sdk.obj.object_writer import ObjectWriter
+from aistore.sdk.obj.multipart_upload import MultipartUpload
+from aistore.sdk.request_client import RequestClient
+from aistore.sdk.types import (
+    ActionMsg,
+    PromoteAPIArgs,
+    BlobMsg,
+)
+from aistore.sdk.obj.object_props import ObjectProps
+from aistore.sdk.obj.object_attributes import ObjectAttributesV2
+
+
+@dataclass
+class BucketDetails:
+    """
+    Metadata about a bucket, used by objects within that bucket.
+    """
+
+    name: str
+    provider: Provider
+    qparams: Dict[str, str]
+    path: str
+
+
+# pylint: disable=too-many-public-methods
+class Object:
+    """
+    Provides methods for interacting with an object in AIS.
+
+    Args:
+        client (RequestClient): Client used for all http requests.
+        bck_details (BucketDetails): Metadata about the bucket to which this object belongs.
+        name (str): Name of the object.
+        props (ObjectProps, optional): Properties of the object, as updated by head(), optionally pre-initialized.
+    """
+
+    def __init__(
+        self,
+        client: RequestClient,
+        bck_details: BucketDetails,
+        name: str,
+        props: Optional[ObjectProps] = None,
+    ):
+        self._client = client
+        self._bck_details = bck_details
+        self._bck_path = f"{URL_PATH_OBJECTS}/{ bck_details.name}"
+        self._name = name
+        self._props = props
+        self._object_path = f"{self._bck_path}/{quote(name)}"
+
+    @property
+    def bucket_name(self) -> str:
+        """Name of the bucket where this object resides."""
+        return self._bck_details.name
+
+    @property
+    def bucket_provider(self) -> Provider:
+        """Provider of the bucket where this object resides (e.g. ais, s3, gcp)."""
+        return self._bck_details.provider
+
+    @property
+    def query_params(self) -> Dict[str, str]:
+        """Query params used as a base for constructing all requests for this object."""
+        return self._bck_details.qparams
+
+    @property
+    def name(self) -> str:
+        """Name of this object."""
+        return self._name
+
+    @property
+    def uname(self) -> str:
+        """
+        Unified name (uname) of this object, which combines the bucket path and object name.
+
+        Returns:
+            str: The unified name in the format bucket_path/object_name
+        """
+        return os.path.join(self._bck_details.path, self.name)
+
+    @property
+    def props(self) -> ObjectProps:
+        """
+        Get the latest properties of the object.
+
+        This will make a HEAD request to the AIStore cluster to fetch up-to-date object headers
+        and refresh the internal `_props` cache. Use this when you want to ensure you're accessing
+        the most recent metadata for the object.
+
+        Returns:
+            ObjectProps: The latest object properties from the server.
+        """
+        self.head()
+        # Head must always set _props
+        assert self._props is not None
+        return self._props
+
+    @property
+    def props_cached(self) -> Optional[ObjectProps]:
+        """
+        Get the cached object properties (without making a network call).
+
+        This is useful when:
+        - You want to avoid a network request.
+        - You're sure the cached `_props` was already set via a previous call to `head()` or during object construction.
+
+        Returns:
+            ObjectProps or None: Cached object properties, or None if not set.
+        """
+        return self._props
+
+    def head(self) -> CaseInsensitiveDict:
+        """
+        Requests object properties and returns headers. Updates props.
+
+        Deprecation notice:
+            This is the legacy HEAD(object) v1 call. It remains supported in AIS 4.2,
+            but new development should target Object HEAD v2 when available in the SDK.
+            The v1 path is planned for removal in a future major release.
+
+        Returns:
+            Response header with the object properties.
+
+        Raises:
+            requests.RequestException: "There was an ambiguous exception that occurred while handling..."
+            requests.ConnectionError: Connection error
+            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ReadTimeout: Timed out waiting response from AIStore
+            requests.exceptions.HTTPError(404): The object does not exist
+        """
+        headers = self._client.request(
+            HTTP_METHOD_HEAD,
+            path=self._object_path,
+            params=self.query_params,
+        ).headers
+        self._props = ObjectProps(headers)
+        return headers
+
+    def head_v2(self, props: str = "") -> ObjectAttributesV2:
+        """
+        Make a HEAD request with selective property retrieval (V2 API).
+
+        EXPERIMENTAL: This API is experimental and may change in future releases.
+
+        This method allows requesting specific object properties, reducing
+        response size and processing overhead when only certain attributes
+        are needed.
+
+        Args:
+            props: Comma-separated list of properties to retrieve.
+                   Available values: name, size, version, checksum, atime, present,
+                   copies, ec, custom, location, chunked, last-modified, etag.
+                   See: https://github.com/NVIDIA/aistore/blob/main/api/apc/lsmsg.go
+                   If empty, returns default properties (name, size).
+
+
+        Returns:
+            ObjectAttributesV2: Parsed V2 object attributes (includes chunk info, last-modified, etag).
+        """
+        params = self.query_params.copy()
+        # Always set props to trigger V2 endpoint; default to "name,size"
+        params[QPARAM_PROPS] = props if props else "name,size"
+
+        headers = self._client.request(
+            HTTP_METHOD_HEAD,
+            path=self._object_path,
+            params=params,
+        ).headers
+        return ObjectAttributesV2(headers)
+
+    # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals, too-many-branches
+    # TODO: consolidate validation rules to reduce branch count
+    def get_reader(
+        self,
+        archive_config: Optional[ArchiveConfig] = None,
+        blob_download_config: Optional[BlobDownloadConfig] = None,
+        chunk_size: Optional[int] = None,
+        etl: Optional[ETLConfig] = None,
+        writer: Optional[BufferedWriter] = None,
+        latest: bool = False,
+        byte_range: Optional[str] = None,
+        direct: bool = False,
+        num_workers: Optional[int] = None,
+    ) -> ObjectReader:
+        """
+        Creates and returns an ObjectReader with access to object contents
+        and optionally writes to a provided writer.
+
+        Args:
+            archive_config (Optional[ArchiveConfig]): Settings for archive extraction.
+            blob_download_config (Optional[BlobDownloadConfig]): Settings for using blob download.
+            chunk_size (Optional[int]): Chunk size in bytes. For parallel downloads (num_workers
+                set), defaults to the server-provided optimal size. For sequential reads,
+                defaults to DEFAULT_CHUNK_SIZE.
+            etl (Optional[ETLConfig]): Settings for ETL-specific operations (name, args).
+            writer (Optional[BufferedWriter]): User-provided writer for writing content output.
+                The user is responsible for closing the writer.
+            latest (bool, optional): GET the latest object version from the associated remote bucket.
+            byte_range (Optional[str]): Byte range in RFC 7233 format for single-range requests
+                (e.g., "bytes=0-499", "bytes=500-", "bytes=-500").
+                See: https://www.rfc-editor.org/rfc/rfc7233#section-2.1.
+            direct (bool, optional): If True, the object content is read directly from the target node,
+                bypassing the proxy.
+            num_workers (Optional[int]): If provided, enable parallel download — the
+                object is split into byte ranges fetched concurrently by this many workers.
+
+        Returns:
+            ObjectReader: An iterator for streaming object content.
+
+        Raises:
+            ValueError: If `byte_range` is used with `blob_download_config`.
+            requests.RequestException: If an error occurs during the request.
+            requests.ConnectionError: If there is a connection error.
+            requests.ConnectionTimeout: If the connection times out.
+            requests.ReadTimeout: If the read operation times out.
+        """
+
+        params = self.query_params.copy()
+        headers = {}
+        byte_range_tuple = (None, None)
+
+        # Archive Configuration
+        if archive_config:
+            if archive_config.mode:
+                params[QPARAM_ARCHMODE] = archive_config.mode.value
+            params.update(
+                {
+                    QPARAM_ARCHPATH: archive_config.archpath,
+                    QPARAM_ARCHREGX: archive_config.regex,
+                }
+            )
+
+        # Blob Download Configuration
+        if blob_download_config:
+            headers.update(
+                {
+                    HEADER_OBJECT_BLOB_DOWNLOAD: "true",
+                    HEADER_OBJECT_BLOB_CHUNK_SIZE: blob_download_config.chunk_size,
+                    HEADER_OBJECT_BLOB_WORKERS: blob_download_config.num_workers,
+                }
+            )
+
+        # ETL Configuration
+        if etl:
+            etl.update_qparams(params)
+
+        # Latest Object Version
+        if latest:
+            params[QPARAM_LATEST] = "true"
+
+        # Byte Range Validation
+        if byte_range and blob_download_config:
+            raise ValueError("Cannot use `byte_range` with `blob_download_config`.")
+
+        # Parallel download validation
+        if num_workers is not None:
+            if num_workers < 2:
+                raise ValueError("`num_workers` must be at least 2.")
+            if byte_range:
+                raise ValueError(
+                    "Cannot use `num_workers` with `byte_range`. "
+                    "Parallel download is for full object retrieval."
+                )
+            if blob_download_config:
+                raise ValueError(
+                    "Cannot use `num_workers` with `blob_download_config`."
+                )
+            if etl:
+                raise ValueError(
+                    "Cannot use `num_workers` with `etl`. "
+                    "Parallel download issues raw range reads that bypass ETL."
+                )
+
+        if byte_range:
+            # For range formatting, see the spec:
+            # https://www.rfc-editor.org/rfc/rfc7233#section-2.1
+            headers = {HEADER_RANGE: byte_range}
+            # Extract left (range_l) and right (range_r) bounds from the byte range string
+            headers[HEADER_RANGE] = byte_range
+            byte_range_l, _, byte_range_r = byte_range[
+                BYTE_RANGE_PREFIX_LENGTH:
+            ].partition("-")
+            byte_range_tuple = (
+                int(byte_range_l) if byte_range_l else None,
+                int(byte_range_r) if byte_range_r else None,
+            )
+
+        # Object Client
+        obj_client = ObjectClient(
+            request_client=self._client,
+            path=self._object_path,
+            params=params,
+            headers=headers,
+            byte_range=byte_range_tuple,
+            uname=(
+                self.uname if direct or (num_workers is not None) else None
+            ),  # Auto-enable direct mode for parallel downloads to skip proxy redirects
+        )
+
+        obj_reader = ObjectReader(
+            object_client=obj_client,
+            chunk_size=chunk_size,
+            num_workers=num_workers,
+        )
+
+        if writer:
+            writer.writelines(obj_reader)
+
+        return obj_reader
+
+    def get_semantic_url(self) -> str:
+        """
+        Get the semantic URL to the object
+
+        Returns:
+            Semantic URL to get object
+        """
+
+        return f"{self.bucket_provider.value}://{self.bucket_name}/{self._name}"
+
+    def get_url(self, archpath: str = "", etl: Optional[ETLConfig] = None) -> str:
+        """
+        Get the full url to the object including base url and any query parameters
+
+        Args:
+            archpath (str, optional): If the object is an archive, use `archpath` to extract a single file
+                from the archive
+            etl (ETLConfig, optional): Settings for ETL-specific operations (name, meta).
+
+        Returns:
+            Full URL to get object
+
+        """
+        params = self.query_params.copy()
+        if archpath:
+            params[QPARAM_ARCHPATH] = archpath
+
+        # ETL Configuration
+        if etl:
+            params[QPARAM_ETL_NAME] = etl.name
+            if etl.args:
+                params[QPARAM_ETL_ARGS] = etl.args
+
+        return self._client.get_full_url(self._object_path, params)
+
+    def get_writer(self) -> ObjectWriter:
+        """
+        Create an ObjectWriter to write to object contents and attributes.
+
+        Returns:
+            An ObjectWriter which can be used to write to an object's contents and attributes.
+        """
+        return ObjectWriter(self._client, self._object_path, self.query_params)
+
+    def multipart_upload(self) -> MultipartUpload:
+        """
+        Create a multipart upload for this object.
+
+        Returns:
+            MultipartUpload: A multipart upload instance for this object.
+        """
+        return MultipartUpload(self._client, self._object_path, self.query_params)
+
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def promote(
+        self,
+        path: str,
+        target_id: str = "",
+        recursive: bool = False,
+        overwrite_dest: bool = False,
+        delete_source: bool = False,
+        src_not_file_share: bool = False,
+    ) -> str:
+        """
+        Promotes a file or folder an AIS target can access to a bucket in AIS storage.
+        These files can be either on the physical disk of an AIS target itself or on a network file system
+        the cluster can access.
+        See more info here: https://aiatscale.org/blog/2022/03/17/promote
+
+        Args:
+            path (str): Path to file or folder the AIS cluster can reach
+            target_id (str, optional): Promote files from a specific target node
+            recursive (bool, optional): Recursively promote objects from files in directories inside the path
+            overwrite_dest (bool, optional): Overwrite objects already on AIS
+            delete_source (bool, optional): Delete the source files when done promoting
+            src_not_file_share (bool, optional): Optimize if the source is guaranteed to not be on a file share
+
+        Returns:
+            Job ID (as str) that can be used to check the status of the operation, or empty if job is done synchronously
+
+        Raises:
+            requests.RequestException: "There was an ambiguous exception that occurred while handling..."
+            requests.ConnectionError: Connection error
+            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ReadTimeout: Timed out waiting response from AIStore
+            AISError: Path does not exist on the AIS cluster storage
+        """
+        value = PromoteAPIArgs(
+            source_path=path,
+            object_name=self.name,
+            target_id=target_id,
+            recursive=recursive,
+            overwrite_dest=overwrite_dest,
+            delete_source=delete_source,
+            src_not_file_share=src_not_file_share,
+        ).as_dict()
+        json_val = ActionMsg(action=ACT_PROMOTE, name=path, value=value).model_dump()
+
+        return self._client.request(
+            HTTP_METHOD_POST,
+            path=self._bck_path,
+            params=self.query_params,
+            json=json_val,
+        ).text
+
+    def delete(self) -> Response:
+        """
+        Delete an object from a bucket.
+
+        Returns:
+            None
+
+        Raises:
+            requests.RequestException: "There was an ambiguous exception that occurred while handling..."
+            requests.ConnectionError: Connection error
+            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ReadTimeout: Timed out waiting response from AIStore
+            requests.exceptions.HTTPError(404): The object does not exist
+        """
+        return self._client.request(
+            HTTP_METHOD_DELETE,
+            path=self._object_path,
+            params=self.query_params,
+        )
+
+    def copy(
+        self,
+        to_obj: "Object",
+        etl: Optional[ETLConfig] = None,
+        latest: bool = False,
+        sync: bool = False,
+    ) -> Response:
+        """
+        Copy this object to another object (which specifies the destination bucket and name),
+        optionally with ETL transformation.
+
+        Args:
+            to_obj (Object): Destination object specifying both the target bucket and object name
+            etl (ETLConfig, optional): ETL configuration for transforming the object during copy
+            latest (bool, optional): GET the latest object version from the associated remote bucket.
+            sync (bool, optional): In addition to the latest, also entails removing remotely deleted objects
+
+        Returns:
+            Response: The response from the copy operation
+
+        Raises:
+            requests.RequestException: "There's an ambiguous exception that occurred while handling..."
+            requests.ConnectionError: Connection error
+            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.ReadTimeout: Timed out waiting response from AIStore
+            requests.exceptions.HTTPError: Service unavailable
+
+        """
+        # Create query parameters for the destination
+        query_params = self.query_params.copy()
+
+        # Use uname for destination bucket+object
+        query_params[QPARAM_OBJ_TO] = to_obj.uname
+        query_params[QPARAM_LATEST] = "true" if latest else "false"
+        query_params[QPARAM_SYNC] = "true" if sync else "false"
+
+        # Add ETL configuration if provided
+        if etl:
+            etl.update_qparams(query_params)
+
+        return self._client.request(
+            HTTP_METHOD_PUT,
+            path=self._object_path,
+            params=query_params,
+        )
+
+    def blob_download(
+        self,
+        chunk_size: int = None,
+        num_workers: int = None,
+        latest: bool = False,
+    ) -> str:
+        """
+        A special facility to download very large remote objects a.k.a. BLOBs
+        Returns job ID that for the blob download operation.
+
+        Args:
+            chunk_size (int): chunk size in bytes
+            num_workers (int): number of concurrent blob-downloading workers (readers)
+            latest (bool): GET the latest object version from the associated remote bucket
+
+        Returns:
+            Job ID (as str) that can be used to check the status of the operation
+
+        Raises:
+            aistore.sdk.errors.AISError: All other types of errors with AIStore
+            requests.ConnectionError: Connection error
+            requests.ConnectionTimeout: Timed out connecting to AIStore
+            requests.exceptions.HTTPError: Service unavailable
+            requests.RequestException: "There was an ambiguous exception that occurred while handling..."
+        """
+        params = self.query_params.copy()
+        value = BlobMsg(
+            chunk_size=chunk_size,
+            num_workers=num_workers,
+            latest=latest,
+        ).as_dict()
+        json_val = ActionMsg(
+            action=ACT_BLOB_DOWNLOAD, value=value, name=self.name
+        ).model_dump()
+        return self._client.request(
+            HTTP_METHOD_POST, path=self._bck_path, params=params, json=json_val
+        ).text

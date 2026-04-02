@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: transformer_engine_torch
+Version: 2.13.0
+Summary: Transformer acceleration library - Torch Lib
+Requires-Python: >=3.10.0
+Requires-Dist: torch>=2.1
+Requires-Dist: einops
+Requires-Dist: onnxscript
+Requires-Dist: onnx
+Requires-Dist: packaging
+Requires-Dist: pydantic
+Requires-Dist: nvdlfw-inspect
+Requires-Dist: transformer_engine_cu12==2.13.0
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

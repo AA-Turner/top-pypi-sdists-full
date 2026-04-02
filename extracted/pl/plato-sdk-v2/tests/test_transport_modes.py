@@ -6,11 +6,12 @@ from typing import cast
 
 import pytest
 
-from plato.agents.runtime.transport import GitTransport, NFSTransport, RsyncTransport
+from plato.transports import GitCheckout, GitSyncBack, GitTransport, NFSTransport, RsyncTransport
 from plato.v2.async_.environment import Environment
 from plato.worlds.base import BaseWorld
 from plato.worlds.config import GitTransportConfig, MergeAgentConfig, RunConfig, SessionConfig
 from plato.worlds.models import Observation, StepResult
+from plato.worlds.workspace import Workspace
 
 
 class _TestWorld(BaseWorld[RunConfig]):
@@ -147,7 +148,7 @@ async def test_nfs_transport_initialize_exports_with_crossmnt(monkeypatch):
         commands.append(command)
         return 0, "", ""
 
-    monkeypatch.setattr("plato.agents.runtime.transport.run_local", fake_run_local)
+    monkeypatch.setattr("plato.transports.nfs.run_local", fake_run_local)
 
     t = NFSTransport("/workspace", "10.100.0.9", Path("/tmp/test-key"))
     await t.initialize()
@@ -181,7 +182,7 @@ async def test_nfs_transport_initialize_raises_on_export_failure(monkeypatch):
             return 1, "", "permission denied"
         return 0, "", ""
 
-    monkeypatch.setattr("plato.agents.runtime.transport.run_local", fake_run_local)
+    monkeypatch.setattr("plato.transports.nfs.run_local", fake_run_local)
 
     t = NFSTransport("/workspace", "10.100.0.9", Path("/tmp/test-key"))
     with pytest.raises(RuntimeError, match="Failed to configure NFS exports"):
@@ -197,7 +198,7 @@ async def test_nfs_transport_initialize_raises_on_nfsd_mount_failure(monkeypatch
             return 1, "", "modprobe failed"
         return 0, "", ""
 
-    monkeypatch.setattr("plato.agents.runtime.transport.run_local", fake_run_local)
+    monkeypatch.setattr("plato.transports.nfs.run_local", fake_run_local)
 
     t = NFSTransport("/workspace", "10.100.0.9", Path("/tmp/test-key"))
     with pytest.raises(RuntimeError, match="Failed to mount nfsd filesystem"):
@@ -213,7 +214,7 @@ async def test_nfs_transport_initialize_raises_on_server_start_failure(monkeypat
             return 1, "", "systemctl start failed"
         return 0, "", ""
 
-    monkeypatch.setattr("plato.agents.runtime.transport.run_local", fake_run_local)
+    monkeypatch.setattr("plato.transports.nfs.run_local", fake_run_local)
 
     t = NFSTransport("/workspace", "10.100.0.9", Path("/tmp/test-key"))
     with pytest.raises(RuntimeError, match="Failed to start NFS server"):
@@ -229,7 +230,7 @@ async def test_nfs_transport_initialize_installs_nfs_server_if_missing(monkeypat
         commands.append(command)
         return 0, "", ""
 
-    monkeypatch.setattr("plato.agents.runtime.transport.run_local", fake_run_local)
+    monkeypatch.setattr("plato.transports.nfs.run_local", fake_run_local)
 
     t = NFSTransport("/workspace", "10.100.0.9", Path("/tmp/test-key"))
     await t.initialize()
@@ -252,7 +253,7 @@ async def test_nfs_transport_refresh_exports(monkeypatch):
         commands.append(command)
         return 0, "", ""
 
-    monkeypatch.setattr("plato.agents.runtime.transport.run_local", fake_run_local)
+    monkeypatch.setattr("plato.transports.nfs.run_local", fake_run_local)
 
     t = NFSTransport("/workspace", "10.100.0.9", Path("/tmp/test-key"))
     await t.refresh_exports()
@@ -267,7 +268,7 @@ async def test_nfs_transport_refresh_exports_warns_on_failure(monkeypatch, caplo
     async def fake_run_local(command: str, timeout: int = 60):
         return 1, "", "exportfs failed"
 
-    monkeypatch.setattr("plato.agents.runtime.transport.run_local", fake_run_local)
+    monkeypatch.setattr("plato.transports.nfs.run_local", fake_run_local)
 
     t = NFSTransport("/workspace", "10.100.0.9", Path("/tmp/test-key"))
     # Should not raise
@@ -319,8 +320,8 @@ async def test_setup_agent_mounts_correct_nfs_source(monkeypatch):
         ssh_cmds.append(command)
         return 0, "", ""
 
-    monkeypatch.setattr("plato.agents.runtime.transport.run_local", fake_run_local)
-    monkeypatch.setattr("plato.agents.runtime.transport.run_ssh", fake_run_ssh)
+    monkeypatch.setattr("plato.transports.nfs.run_local", fake_run_local)
+    monkeypatch.setattr("plato.transports.nfs.run_ssh", fake_run_ssh)
 
     t = NFSTransport(
         "/workspace/recordings",
@@ -350,8 +351,8 @@ async def test_setup_agent_mounts_full_path(monkeypatch):
         ssh_cmds.append(command)
         return 0, "", ""
 
-    monkeypatch.setattr("plato.agents.runtime.transport.run_local", fake_run_local)
-    monkeypatch.setattr("plato.agents.runtime.transport.run_ssh", fake_run_ssh)
+    monkeypatch.setattr("plato.transports.nfs.run_local", fake_run_local)
+    monkeypatch.setattr("plato.transports.nfs.run_ssh", fake_run_ssh)
 
     t = NFSTransport("/workspace", "10.100.0.9", Path("/tmp/key"))
     await t.setup_agent(None, "10.100.1.5")
@@ -373,8 +374,8 @@ async def test_setup_agent_enables_read_write_audit_for_tracked_workspaces(monke
         ssh_cmds.append(command)
         return 0, "", ""
 
-    monkeypatch.setattr("plato.agents.runtime.transport.run_local", fake_run_local)
-    monkeypatch.setattr("plato.agents.runtime.transport.run_ssh", fake_run_ssh)
+    monkeypatch.setattr("plato.transports.nfs.run_local", fake_run_local)
+    monkeypatch.setattr("plato.transports.nfs.run_ssh", fake_run_ssh)
 
     t = NFSTransport(
         "/workspace",
@@ -404,8 +405,8 @@ async def test_setup_agent_raises_on_mount_failure(monkeypatch):
             return 1, "", "mount.nfs: access denied"
         return 0, "", ""
 
-    monkeypatch.setattr("plato.agents.runtime.transport.run_local", fake_run_local)
-    monkeypatch.setattr("plato.agents.runtime.transport.run_ssh", fake_run_ssh)
+    monkeypatch.setattr("plato.transports.nfs.run_local", fake_run_local)
+    monkeypatch.setattr("plato.transports.nfs.run_ssh", fake_run_ssh)
 
     t = NFSTransport("/workspace", "10.100.0.9", Path("/tmp/key"))
     with pytest.raises(RuntimeError, match="Failed to mount NFS on agent VM"):
@@ -457,7 +458,7 @@ async def test_prepare_creates_workspace_directory(monkeypatch):
         commands.append(command)
         return 0, "", ""
 
-    monkeypatch.setattr("plato.agents.runtime.transport.run_local", fake_run_local)
+    monkeypatch.setattr("plato.transports.nfs.run_local", fake_run_local)
 
     t = NFSTransport("/workspace/data", "10.100.0.9", Path("/tmp/key"))
     await t.prepare()
@@ -493,14 +494,26 @@ def test_rsync_transport_agent_mount_path():
 
 @pytest.mark.asyncio
 async def test_git_transport_resolve_and_retry_ours_force_pushes_local_head(monkeypatch):
-    commands: list[str] = []
+    calls: list[dict[str, object]] = []
 
-    async def fake_run_ssh(key_path, hostname, command, timeout=60):
-        del key_path, hostname, timeout
-        commands.append(command)
-        return 0, "", ""
+    async def fake_run_remote_git(self, hostname, *, request, timeout):
+        del self
+        calls.append(
+            {
+                "hostname": hostname,
+                "operation": request.operation,
+                "timeout": timeout,
+                "workspace_path": request.repo_path,
+                "payload": request.model_dump(
+                    exclude={"operation", "repo_path"},
+                    exclude_defaults=True,
+                    exclude_none=True,
+                ),
+            }
+        )
+        return SimpleNamespace(ok=True, stderr="", stdout="")
 
-    monkeypatch.setattr("plato.agents.runtime.transport.run_ssh", fake_run_ssh)
+    monkeypatch.setattr(GitTransport, "_run_remote_git", fake_run_remote_git)
 
     transport = GitTransport(
         "/workspace/data",
@@ -518,4 +531,60 @@ async def test_git_transport_resolve_and_retry_ours_force_pushes_local_head(monk
     )
 
     assert resolved is True
-    assert commands == ["cd /workspace && git fetch origin && git push --force origin HEAD:main"]
+    assert calls == [
+        {
+            "hostname": "10.100.1.5",
+            "operation": "force_push_main",
+            "timeout": 60,
+            "workspace_path": "/workspace",
+            "payload": {},
+        }
+    ]
+
+
+def test_git_transport_for_agent_applies_checkout_and_publish_branch():
+    transport = GitTransport(
+        "/workspace/data",
+        "10.100.0.9",
+        Path("/tmp/key"),
+        mount_path="/workspace",
+        git_config=GitTransportConfig(),
+    )
+
+    configured = transport.for_agent(
+        checkout=GitCheckout("base-sha", branch_name="plato-task/demo"),
+        sync_back=GitSyncBack.push_branch("pr/demo"),
+    )
+
+    assert configured is not transport
+    assert configured.mount_path == "/workspace"
+    assert configured.checkout_base_ref == "base-sha"
+    assert configured.publish_ref_prefix == "refs/heads/pr/demo"
+    assert configured._checkout_branch_name == "plato-task/demo"  # pyright: ignore[reportPrivateUsage]
+
+
+def test_workspace_for_git_agent_returns_cloned_workspace_with_configured_transport(tmp_path: Path):
+    workspace = Workspace(
+        name="code",
+        path=tmp_path / "code",
+        tracked=False,
+        mount_path="/workspace/code",
+    )
+    workspace.transport = GitTransport(
+        str(workspace.path),
+        "10.100.0.9",
+        Path("/tmp/key"),
+        mount_path=workspace.mount_path,
+        git_config=GitTransportConfig(),
+    )
+
+    branch_workspace = workspace.for_git_agent(
+        checkout=GitCheckout("base-sha", branch_name="plato-task/demo"),
+        sync_back=GitSyncBack.publish_ref("refs/plato/tasks/demo", exact=False),
+    )
+
+    assert branch_workspace is not workspace
+    assert isinstance(branch_workspace.transport, GitTransport)
+    assert branch_workspace.mount_path == "/workspace/code"
+    assert branch_workspace.transport.publish_ref_prefix == "refs/plato/tasks/demo"
+    assert branch_workspace.transport.checkout_base_ref == "base-sha"

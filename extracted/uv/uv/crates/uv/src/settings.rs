@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use rustc_hash::FxHashSet;
 use uv_audit::service::VulnerabilityServiceFormat;
+use uv_audit::types::VulnerabilityID;
 
 use crate::commands::{PythonUpgrade, PythonUpgradeSource};
 use uv_auth::Service;
@@ -14,12 +15,12 @@ use uv_cache::{CacheArgs, Refresh};
 use uv_cli::comma::CommaSeparatedRequirements;
 use uv_cli::{
     AddArgs, AuditArgs, AuthLoginArgs, AuthLogoutArgs, AuthTokenArgs, ColorChoice, ExternalCommand,
-    GlobalArgs, InitArgs, ListFormat, LockArgs, Maybe, PipCheckArgs, PipCompileArgs, PipFreezeArgs,
-    PipInstallArgs, PipListArgs, PipShowArgs, PipSyncArgs, PipTreeArgs, PipUninstallArgs,
-    PythonFindArgs, PythonInstallArgs, PythonListArgs, PythonListFormat, PythonPinArgs,
-    PythonUninstallArgs, PythonUpgradeArgs, RemoveArgs, RunArgs, SyncArgs, SyncFormat, ToolDirArgs,
-    ToolInstallArgs, ToolListArgs, ToolRunArgs, ToolUninstallArgs, TreeArgs, VenvArgs, VersionArgs,
-    VersionBumpSpec, VersionFormat,
+    GlobalArgs, InitArgs, ListFormat, LockArgs, Maybe, MetadataArgs, PipCheckArgs, PipCompileArgs,
+    PipFreezeArgs, PipInstallArgs, PipListArgs, PipShowArgs, PipSyncArgs, PipTreeArgs,
+    PipUninstallArgs, PythonFindArgs, PythonInstallArgs, PythonListArgs, PythonListFormat,
+    PythonPinArgs, PythonUninstallArgs, PythonUpgradeArgs, RemoveArgs, RunArgs, SyncArgs,
+    SyncFormat, ToolDirArgs, ToolInstallArgs, ToolListArgs, ToolRunArgs, ToolUninstallArgs,
+    TreeArgs, VenvArgs, VersionArgs, VersionBumpSpec, VersionFormat,
 };
 use uv_cli::{
     AuthorFrom, BuildArgs, ExportArgs, FormatArgs, PublishArgs, PythonDirArgs,
@@ -1796,6 +1797,60 @@ impl LockSettings {
         }
     }
 }
+/// The resolved settings to use for a `lock` invocation.
+#[derive(Debug, Clone)]
+pub(crate) struct MetadataSettings {
+    pub(crate) lock_check: LockCheck,
+    pub(crate) frozen: Option<FrozenSource>,
+    pub(crate) dry_run: DryRun,
+    pub(crate) python: Option<String>,
+    pub(crate) install_mirrors: PythonInstallMirrors,
+    pub(crate) refresh: Refresh,
+    pub(crate) settings: ResolverSettings,
+}
+
+impl MetadataSettings {
+    /// Resolve the [`LockSettings`] from the CLI and filesystem configuration.
+    pub(crate) fn resolve(
+        args: Box<MetadataArgs>,
+        filesystem: Option<FilesystemOptions>,
+        environment: EnvironmentOptions,
+    ) -> Self {
+        let MetadataArgs {
+            locked,
+            frozen,
+            dry_run,
+            resolver,
+            build,
+            refresh,
+            python,
+        } = *args;
+
+        let filesystem_install_mirrors = filesystem
+            .clone()
+            .map(|fs| fs.install_mirrors.clone())
+            .unwrap_or_default();
+
+        // Resolve flags from CLI and environment variables.
+        let locked = resolve_flag(locked, "locked", environment.locked);
+        let frozen = resolve_flag(frozen, "frozen", environment.frozen);
+
+        // Check for conflicts between locked and frozen.
+        check_conflicts(locked, frozen);
+
+        Self {
+            lock_check: resolve_lock_check(locked),
+            frozen: resolve_frozen(frozen),
+            dry_run: DryRun::from_args(dry_run),
+            python: python.and_then(Maybe::into_option),
+            refresh: Refresh::from(refresh),
+            settings: ResolverSettings::combine(resolver_options(resolver, build), filesystem),
+            install_mirrors: environment
+                .install_mirrors
+                .combine(filesystem_install_mirrors),
+        }
+    }
+}
 
 /// The resolved settings to use for a `add` invocation.
 #[expect(clippy::struct_excessive_bools)]
@@ -2496,6 +2551,8 @@ pub(crate) struct AuditSettings {
     pub(crate) settings: ResolverSettings,
     pub(crate) service_format: VulnerabilityServiceFormat,
     pub(crate) service_url: Option<String>,
+    pub(crate) ignore: Vec<VulnerabilityID>,
+    pub(crate) ignore_until_fixed: Vec<VulnerabilityID>,
 }
 
 impl AuditSettings {
@@ -2519,6 +2576,8 @@ impl AuditSettings {
             frozen,
             build,
             resolver,
+            ignore,
+            ignore_until_fixed,
             service_format,
             service_url,
         } = args;
@@ -2526,6 +2585,11 @@ impl AuditSettings {
         let filesystem_install_mirrors = filesystem
             .clone()
             .map(|fs| fs.install_mirrors.clone())
+            .unwrap_or_default();
+
+        let filesystem_audit = filesystem
+            .as_ref()
+            .and_then(|fs| fs.audit.clone())
             .unwrap_or_default();
 
         let no_dev = no_dev || environment.no_dev.value == Some(true);
@@ -2548,14 +2612,14 @@ impl AuditSettings {
                 true,
             ),
             groups: DependencyGroups::from_args(
-                true,
+                only_group.is_empty() && !only_dev,
                 no_dev,
                 only_dev,
                 vec![],
                 no_group,
                 no_default_groups,
-                only_group,
-                true,
+                only_group.clone(),
+                only_group.is_empty() && !only_dev,
             ),
             lock_check: resolve_lock_check(locked),
             frozen: resolve_frozen(frozen),
@@ -2567,6 +2631,19 @@ impl AuditSettings {
             settings: ResolverSettings::combine(resolver_options(resolver, build), filesystem),
             service_format,
             service_url,
+            ignore: {
+                let config_ignore = filesystem_audit.ignore.unwrap_or_default();
+                let mut merged = ignore;
+                merged.extend(config_ignore);
+                merged.into_iter().map(VulnerabilityID::new).collect()
+            },
+            ignore_until_fixed: {
+                let config_ignore_until_fixed =
+                    filesystem_audit.ignore_until_fixed.unwrap_or_default();
+                let mut merged = ignore_until_fixed;
+                merged.extend(config_ignore_until_fixed);
+                merged.into_iter().map(VulnerabilityID::new).collect()
+            },
         }
     }
 }

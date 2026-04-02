@@ -225,14 +225,11 @@ RoutePedestrianTravelStepTypeType = Literal[
     "Arrive",
     "Continue",
     "Depart",
-    "Exit",
     "Keep",
-    "Ramp",
     "RoundaboutEnter",
     "RoundaboutExit",
     "RoundaboutPass",
     "Turn",
-    "UTurn",
 ]
 RouteResponseNoticeCodeType = Literal[
     "MainLanguageNotFound", "Other", "TravelTimeExceedsDriverWorkHours"

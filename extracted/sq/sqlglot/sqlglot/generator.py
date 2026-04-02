@@ -71,6 +71,27 @@ AFTER_HAVING_MODIFIER_TRANSFORMS: t.Dict[str, t.Any] = {
 }
 
 
+_DISPATCH_CACHE: t.Dict[t.Type["Generator"], t.Dict[t.Type[exp.Expr], t.Callable[..., str]]] = {}
+
+
+def _build_dispatch(
+    cls: t.Type["Generator"],
+) -> t.Dict[t.Type[exp.Expr], t.Callable[..., str]]:
+    dispatch: t.Dict[t.Type[exp.Expr], t.Callable[..., str]] = dict(cls.TRANSFORMS)
+
+    for attr_name in dir(cls):
+        if not attr_name.endswith("_sql") or attr_name.startswith("_"):
+            continue
+
+        expr_key = attr_name[:-4]
+        expr_cls = exp.EXPR_CLASSES.get(expr_key)
+
+        if expr_cls and expr_cls not in dispatch:
+            dispatch[expr_cls] = getattr(cls, attr_name)
+
+    return dispatch
+
+
 class Generator:
     """
     Generator converts a given syntax tree to the corresponding SQL string.
@@ -245,6 +266,7 @@ class Generator:
         exp.ToTableProperty: lambda self, e: f"TO {self.sql(e.this)}",
         exp.TransformModelProperty: lambda self, e: self.func("TRANSFORM", *e.expressions),
         exp.TransientProperty: lambda *_: "TRANSIENT",
+        exp.VirtualProperty: lambda *_: "VIRTUAL",
         exp.TriggerExecute: lambda self, e: f"EXECUTE FUNCTION {self.sql(e, 'this')}",
         exp.Union: lambda self, e: self.set_operations(e),
         exp.UnloggedProperty: lambda *_: "UNLOGGED",
@@ -676,6 +698,7 @@ class Generator:
         exp.MaskingProperty: exp.Properties.Location.POST_CREATE,
         exp.MaterializedProperty: exp.Properties.Location.POST_CREATE,
         exp.MergeBlockRatioProperty: exp.Properties.Location.POST_NAME,
+        exp.ModuleProperty: exp.Properties.Location.POST_SCHEMA,
         exp.NetworkProperty: exp.Properties.Location.POST_CREATE,
         exp.NoPrimaryIndexProperty: exp.Properties.Location.POST_EXPRESSION,
         exp.OnProperty: exp.Properties.Location.POST_SCHEMA,
@@ -722,6 +745,7 @@ class Generator:
         exp.UnloggedProperty: exp.Properties.Location.POST_CREATE,
         exp.UsingTemplateProperty: exp.Properties.Location.POST_SCHEMA,
         exp.ViewAttributeProperty: exp.Properties.Location.POST_SCHEMA,
+        exp.VirtualProperty: exp.Properties.Location.POST_CREATE,
         exp.VolatileProperty: exp.Properties.Location.POST_CREATE,
         exp.WithDataProperty: exp.Properties.Location.POST_EXPRESSION,
         exp.WithJournalTableProperty: exp.Properties.Location.POST_NAME,
@@ -806,6 +830,7 @@ class Generator:
         "_identifier_start",
         "_identifier_end",
         "_quote_json_path_key_using_brackets",
+        "_dispatch",
     )
 
     def __init__(
@@ -860,6 +885,13 @@ class Generator:
         self._identifier_end = self.dialect.IDENTIFIER_END
 
         self._quote_json_path_key_using_brackets = True
+
+        cls = type(self)
+        dispatch = _DISPATCH_CACHE.get(cls)
+        if dispatch is None:
+            dispatch = _build_dispatch(cls)
+            _DISPATCH_CACHE[cls] = dispatch
+        self._dispatch = dispatch
 
     def generate(self, expression: exp.Expr, copy: bool = True) -> str:
         """
@@ -1040,21 +1072,16 @@ class Generator:
                 return self.sql(value)
             return ""
 
-        transform = self.TRANSFORMS.get(expression.__class__)
+        handler = self._dispatch.get(expression.__class__)
 
-        if transform:
-            sql = transform(self, expression)
+        if handler:
+            sql = handler(self, expression)
+        elif isinstance(expression, exp.Func):
+            sql = self.function_fallback_sql(expression)
+        elif isinstance(expression, exp.Property):
+            sql = self.property_sql(expression)
         else:
-            exp_handler_name = expression.key + "_sql"
-
-            if handler := getattr(self, exp_handler_name, None):
-                sql = handler(expression)
-            elif isinstance(expression, exp.Func):
-                sql = self.function_fallback_sql(expression)
-            elif isinstance(expression, exp.Property):
-                sql = self.property_sql(expression)
-            else:
-                raise ValueError(f"Unsupported expression type {expression.__class__.__name__}")
+            raise ValueError(f"Unsupported expression type {expression.__class__.__name__}")
 
         return self.maybe_comment(sql, expression) if self.comments and comment else sql
 
@@ -2009,6 +2036,11 @@ class Generator:
 
         percent = " PERCENT" if expression.args.get("percent") else ""
         return f"MERGEBLOCKRATIO={self.sql(expression, 'this')}{percent}"
+
+    def moduleproperty_sql(self, expression: exp.ModuleProperty) -> str:
+        expressions = self.expressions(expression, flat=True)
+        expressions = f"({expressions})" if expressions else ""
+        return f"USING {self.sql(expression, 'this')}{expressions}"
 
     def datablocksizeproperty_sql(self, expression: exp.DataBlocksizeProperty) -> str:
         default = expression.args.get("default")
@@ -5352,7 +5384,7 @@ class Generator:
     @unsupported_args("format")
     def todouble_sql(self, expression: exp.ToDouble) -> str:
         cast = exp.TryCast if expression.args.get("safe") else exp.Cast
-        return self.sql(cast(this=expression.this, to=exp.DataType.build(exp.DType.DOUBLE)))
+        return self.sql(cast(this=expression.this, to=exp.DType.DOUBLE.into_expr()))
 
     def string_sql(self, expression: exp.String) -> str:
         this = expression.this

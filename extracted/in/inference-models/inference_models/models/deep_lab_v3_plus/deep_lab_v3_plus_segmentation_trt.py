@@ -1,0 +1,380 @@
+import threading
+from threading import Lock
+from typing import List, Optional, Tuple, Union
+
+import torch
+from torchvision.transforms import functional
+
+from inference_models import ColorFormat, SemanticSegmentationModel
+from inference_models.configuration import (
+    DEFAULT_DEVICE,
+    INFERENCE_MODELS_DEEP_LAB_V3_PLUS_DEFAULT_CONFIDENCE,
+)
+from inference_models.errors import (
+    CorruptedModelPackageError,
+    MissingDependencyError,
+    ModelRuntimeError,
+)
+from inference_models.models.auto_loaders.entities import PreProcessingOverrides
+from inference_models.models.base.semantic_segmentation import (
+    SemanticSegmentationResult,
+)
+from inference_models.models.base.types import PreprocessedInputs, PreprocessingMetadata
+from inference_models.models.common.cuda import (
+    use_cuda_context,
+    use_primary_cuda_context,
+)
+from inference_models.models.common.model_packages import get_model_package_contents
+from inference_models.models.common.roboflow.model_packages import (
+    InferenceConfig,
+    PreProcessingMetadata,
+    ResizeMode,
+    TRTConfig,
+    parse_class_names_file,
+    parse_inference_config,
+    parse_trt_config,
+)
+from inference_models.models.common.roboflow.pre_processing import (
+    pre_process_network_input,
+)
+from inference_models.models.common.trt import (
+    TRTCudaGraphCache,
+    establish_trt_cuda_graph_cache,
+    get_trt_engine_inputs_and_outputs,
+    infer_from_trt_engine,
+    load_trt_model,
+)
+
+try:
+    import tensorrt as trt
+except ImportError as import_error:
+    raise MissingDependencyError(
+        message="Running model YOLOv8 with TRT backend on GPU requires pycuda installation, which is brought with "
+        "`trt-*` extras of `inference-models` library. If you see this error running locally, "
+        "please follow our installation guide: https://inference-models.roboflow.com/getting-started/installation/"
+        " If you see this error using Roboflow infrastructure, make sure the service you use does support the "
+        f"model, You can also contact Roboflow to get support."
+        "Additionally - if AutoModel.from_pretrained(...) "
+        f"automatically selects model package which does not match your environment - that's a serious problem and "
+        f"we will really appreciate letting us know - https://github.com/roboflow/inference/issues",
+        help_url="https://inference-models.roboflow.com/errors/runtime-environment/#missingdependencyerror",
+    ) from import_error
+
+try:
+    import pycuda.driver as cuda
+except ImportError as import_error:
+    raise MissingDependencyError(
+        message="Running model DeepLabV3 with TRT backend on GPU requires pycuda installation, which is brought with "
+        "`trt-*` extras of `inference-models` library. If you see this error running locally, "
+        "please follow our installation guide: https://inference-models.roboflow.com/getting-started/installation/"
+        " If you see this error using Roboflow infrastructure, make sure the service you use does support the "
+        f"model, You can also contact Roboflow to get support.",
+        help_url="https://inference-models.roboflow.com/errors/runtime-environment/#missingdependencyerror",
+    ) from import_error
+
+
+class DeepLabV3PlusForSemanticSegmentationTRT(
+    SemanticSegmentationModel[torch.Tensor, PreProcessingMetadata, torch.Tensor]
+):
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        model_name_or_path: str,
+        device: torch.device = DEFAULT_DEVICE,
+        engine_host_code_allowed: bool = False,
+        trt_cuda_graph_cache: Optional[TRTCudaGraphCache] = None,
+        default_trt_cuda_graph_cache_size: int = 8,
+        **kwargs,
+    ) -> "DeepLabV3PlusForSemanticSegmentationTRT":
+        if device.type != "cuda":
+            raise ModelRuntimeError(
+                message=f"TRT engine only runs on CUDA device - {device} device detected.",
+                help_url="https://inference-models.roboflow.com/errors/models-runtime/#modelruntimeerror",
+            )
+        model_package_content = get_model_package_contents(
+            model_package_dir=model_name_or_path,
+            elements=[
+                "class_names.txt",
+                "inference_config.json",
+                "trt_config.json",
+                "engine.plan",
+            ],
+        )
+        class_names = parse_class_names_file(
+            class_names_path=model_package_content["class_names.txt"]
+        )
+        try:
+            background_class_id = [c.lower() for c in class_names].index("background")
+        except ValueError:
+            background_class_id = -1
+        inference_config = parse_inference_config(
+            config_path=model_package_content["inference_config.json"],
+            allowed_resize_modes={
+                ResizeMode.STRETCH_TO,
+                ResizeMode.LETTERBOX,
+                ResizeMode.CENTER_CROP,
+                ResizeMode.LETTERBOX_REFLECT_EDGES,
+            },
+            implicit_resize_mode_substitutions={
+                ResizeMode.FIT_LONGER_EDGE: (
+                    ResizeMode.LETTERBOX,
+                    0,
+                    "DeepLabV3Plus model running with TRT backend was trained with `fit-longer-edge` input "
+                    "resize mode. This transform cannot be applied properly for  models with input dimensions "
+                    "fixed during weights export. To ensure interoperability, `letterbox` resize mode with black "
+                    "edges will be used instead. If model was trained on Roboflow platform, we recommend using "
+                    "preprocessing method different that `fit-longer-edge`.",
+                )
+            },
+        )
+        trt_config = parse_trt_config(
+            config_path=model_package_content["trt_config.json"]
+        )
+        cuda.init()
+        cuda_device = cuda.Device(device.index or 0)
+        with use_primary_cuda_context(cuda_device=cuda_device) as cuda_context:
+            engine = load_trt_model(
+                model_path=model_package_content["engine.plan"],
+                engine_host_code_allowed=engine_host_code_allowed,
+            )
+            execution_context = engine.create_execution_context()
+        inputs, outputs = get_trt_engine_inputs_and_outputs(engine=engine)
+        if len(inputs) != 1:
+            raise CorruptedModelPackageError(
+                message=f"Implementation assume single model input, found: {len(inputs)}.",
+                help_url="https://inference-models.roboflow.com/errors/model-loading/#corruptedmodelpackageerror",
+            )
+        if len(outputs) != 1:
+            raise CorruptedModelPackageError(
+                message=f"Implementation assume single model output, found: {len(outputs)}.",
+                help_url="https://inference-models.roboflow.com/errors/model-loading/#corruptedmodelpackageerror",
+            )
+        trt_cuda_graph_cache = establish_trt_cuda_graph_cache(
+            default_cuda_graph_cache_size=default_trt_cuda_graph_cache_size,
+            cuda_graph_cache=trt_cuda_graph_cache,
+        )
+        return cls(
+            engine=engine,
+            input_name=inputs[0],
+            output_name=outputs[0],
+            class_names=class_names,
+            background_class_id=background_class_id,
+            inference_config=inference_config,
+            trt_config=trt_config,
+            device=device,
+            cuda_context=cuda_context,
+            execution_context=execution_context,
+            trt_cuda_graph_cache=trt_cuda_graph_cache,
+        )
+
+    def __init__(
+        self,
+        engine: trt.ICudaEngine,
+        input_name: str,
+        output_name: str,
+        class_names: List[str],
+        background_class_id: int,
+        inference_config: InferenceConfig,
+        trt_config: TRTConfig,
+        device: torch.device,
+        cuda_context: cuda.Context,
+        execution_context: trt.IExecutionContext,
+        trt_cuda_graph_cache: Optional[TRTCudaGraphCache],
+    ):
+        self._engine = engine
+        self._input_name = input_name
+        self._output_names = [output_name]
+        self._class_names = class_names
+        self._background_class_id = background_class_id
+        self._inference_config = inference_config
+        self._trt_config = trt_config
+        self._device = device
+        self._cuda_context = cuda_context
+        self._execution_context = execution_context
+        self._trt_cuda_graph_cache = trt_cuda_graph_cache
+        self._lock = Lock()
+        self._inference_stream = torch.cuda.Stream(device=self._device)
+        self._thread_local_storage = threading.local()
+
+    @property
+    def class_names(self) -> List[str]:
+        return self._class_names
+
+    def pre_process(
+        self,
+        images: Union[torch.Tensor, List[torch.Tensor]],
+        input_color_format: Optional[ColorFormat] = None,
+        pre_processing_overrides: Optional[PreProcessingOverrides] = None,
+        **kwargs,
+    ) -> Tuple[PreprocessedInputs, PreprocessingMetadata]:
+        with torch.cuda.stream(self._pre_process_stream):
+            pre_processed_images, pre_processing_meta = pre_process_network_input(
+                images=images,
+                image_pre_processing=self._inference_config.image_pre_processing,
+                network_input=self._inference_config.network_input,
+                target_device=self._device,
+                input_color_format=input_color_format,
+                pre_processing_overrides=pre_processing_overrides,
+            )
+        self._pre_process_stream.synchronize()
+        return pre_processed_images, pre_processing_meta
+
+    def forward(
+        self,
+        pre_processed_images: PreprocessedInputs,
+        disable_cuda_graphs: bool = False,
+        **kwargs,
+    ) -> torch.Tensor:
+        cache = self._trt_cuda_graph_cache if not disable_cuda_graphs else None
+        with self._lock:
+            with use_cuda_context(context=self._cuda_context):
+                return infer_from_trt_engine(
+                    pre_processed_images=pre_processed_images,
+                    trt_config=self._trt_config,
+                    engine=self._engine,
+                    context=self._execution_context,
+                    device=self._device,
+                    input_name=self._input_name,
+                    outputs=self._output_names,
+                    stream=self._inference_stream,
+                    trt_cuda_graph_cache=cache,
+                )[0]
+
+    def post_process(
+        self,
+        model_results: torch.Tensor,
+        pre_processing_meta: PreprocessedInputs,
+        confidence: float = INFERENCE_MODELS_DEEP_LAB_V3_PLUS_DEFAULT_CONFIDENCE,
+        **kwargs,
+    ) -> List[SemanticSegmentationResult]:
+        with torch.cuda.stream(self._post_process_stream):
+            model_results.record_stream(self._post_process_stream)
+            results = []
+            for image_results, image_metadata in zip(
+                model_results, pre_processing_meta
+            ):
+                inference_size = image_metadata.inference_size
+                mask_h_scale = model_results.shape[2] / inference_size.height
+                mask_w_scale = model_results.shape[3] / inference_size.width
+                mask_pad_top, mask_pad_bottom, mask_pad_left, mask_pad_right = (
+                    round(mask_h_scale * image_metadata.pad_top),
+                    round(mask_h_scale * image_metadata.pad_bottom),
+                    round(mask_w_scale * image_metadata.pad_left),
+                    round(mask_w_scale * image_metadata.pad_right),
+                )
+                _, mh, mw = image_results.shape
+                if (
+                    mask_pad_top < 0
+                    or mask_pad_bottom < 0
+                    or mask_pad_left < 0
+                    or mask_pad_right < 0
+                ):
+                    image_results = torch.nn.functional.pad(
+                        image_results,
+                        (
+                            abs(min(mask_pad_left, 0)),
+                            abs(min(mask_pad_right, 0)),
+                            abs(min(mask_pad_top, 0)),
+                            abs(min(mask_pad_bottom, 0)),
+                        ),
+                        "constant",
+                        self._background_class_id,
+                    )
+                    padded_mask_offset_top = max(mask_pad_top, 0)
+                    padded_mask_offset_bottom = max(mask_pad_bottom, 0)
+                    padded_mask_offset_left = max(mask_pad_left, 0)
+                    padded_mask_offset_right = max(mask_pad_right, 0)
+                    image_results = image_results[
+                        :,
+                        padded_mask_offset_top : image_results.shape[1]
+                        - padded_mask_offset_bottom,
+                        padded_mask_offset_left : image_results.shape[2]
+                        - padded_mask_offset_right,
+                    ]
+                else:
+                    image_results = image_results[
+                        :,
+                        mask_pad_top : mh - mask_pad_bottom,
+                        mask_pad_left : mw - mask_pad_right,
+                    ]
+                if (
+                    image_results.shape[1]
+                    != image_metadata.size_after_pre_processing.height
+                    or image_results.shape[2]
+                    != image_metadata.size_after_pre_processing.width
+                ):
+                    image_results = functional.resize(
+                        image_results,
+                        [
+                            image_metadata.size_after_pre_processing.height,
+                            image_metadata.size_after_pre_processing.width,
+                        ],
+                        interpolation=functional.InterpolationMode.BILINEAR,
+                    )
+                image_results = torch.nn.functional.softmax(image_results, dim=0)
+                image_confidence, image_class_ids = torch.max(image_results, dim=0)
+                below_threshold = image_confidence < confidence
+                image_confidence[below_threshold] = 0.0
+                image_class_ids[below_threshold] = self._background_class_id
+                if (
+                    image_metadata.static_crop_offset.offset_x > 0
+                    or image_metadata.static_crop_offset.offset_y > 0
+                ):
+                    original_size_confidence_canvas = torch.zeros(
+                        (
+                            image_metadata.original_size.height,
+                            image_metadata.original_size.width,
+                        ),
+                        device=self._device,
+                        dtype=image_confidence.dtype,
+                    )
+                    original_size_confidence_canvas[
+                        image_metadata.static_crop_offset.offset_y : image_metadata.static_crop_offset.offset_y
+                        + image_confidence.shape[0],
+                        image_metadata.static_crop_offset.offset_x : image_metadata.static_crop_offset.offset_x
+                        + image_confidence.shape[1],
+                    ] = image_confidence
+                    original_size_confidence_class_id_canvas = (
+                        torch.ones(
+                            (
+                                image_metadata.original_size.height,
+                                image_metadata.original_size.width,
+                            ),
+                            device=self._device,
+                            dtype=image_class_ids.dtype,
+                        )
+                        * self._background_class_id
+                    )
+                    original_size_confidence_class_id_canvas[
+                        image_metadata.static_crop_offset.offset_y : image_metadata.static_crop_offset.offset_y
+                        + image_class_ids.shape[0],
+                        image_metadata.static_crop_offset.offset_x : image_metadata.static_crop_offset.offset_x
+                        + image_class_ids.shape[1],
+                    ] = image_class_ids
+                    image_class_ids = original_size_confidence_class_id_canvas
+                    image_confidence = original_size_confidence_canvas
+                results.append(
+                    SemanticSegmentationResult(
+                        segmentation_map=image_class_ids,
+                        confidence=image_confidence,
+                    )
+                )
+        self._post_process_stream.synchronize()
+        return results
+
+    @property
+    def _pre_process_stream(self) -> torch.cuda.Stream:
+        if not hasattr(self._thread_local_storage, "pre_process_stream"):
+            self._thread_local_storage.pre_process_stream = torch.cuda.Stream(
+                device=self._device
+            )
+        return self._thread_local_storage.pre_process_stream
+
+    @property
+    def _post_process_stream(self) -> torch.cuda.Stream:
+        if not hasattr(self._thread_local_storage, "post_process_stream"):
+            self._thread_local_storage.post_process_stream = torch.cuda.Stream(
+                device=self._device
+            )
+        return self._thread_local_storage.post_process_stream

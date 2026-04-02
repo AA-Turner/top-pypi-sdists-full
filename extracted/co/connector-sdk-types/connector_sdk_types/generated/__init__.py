@@ -4,8 +4,14 @@
 
 
 from .models.access_graph_entitlement import AccessGraphEntitlement
+from .models.access_graph_entitlement_assignment import AccessGraphEntitlementAssignment
+from .models.access_graph_entitlement_identifier import AccessGraphEntitlementIdentifier
 from .models.access_graph_entitlement_rule import AccessGraphEntitlementRule
 from .models.access_graph_entitlement_type import AccessGraphEntitlementType
+from .models.access_graph_implied_access import AccessGraphImpliedAccess
+from .models.access_graph_implied_access_rule import AccessGraphImpliedAccessRule
+from .models.access_graph_resource import AccessGraphResource
+from .models.access_graph_resource_relationship import AccessGraphResourceRelationship
 from .models.account_status import AccountStatus
 from .models.account_type import AccountType
 from .models.activate_account import ActivateAccount
@@ -55,6 +61,11 @@ from .models.authorization_url import AuthorizationUrl
 from .models.basic_authentication import BasicAuthentication
 from .models.basic_credential import BasicCredential
 from .models.capability_schema import CapabilitySchema
+from .models.connector_error_category import ConnectorErrorCategory
+from .models.connector_error_code import ConnectorErrorCode
+from .models.connector_error_code_union import ConnectorErrorCodeUnion
+from .models.connector_error_fault import ConnectorErrorFault
+from .models.connector_error_metadata import ConnectorErrorMetadata
 from .models.creatable_account import CreatableAccount
 from .models.create_account import CreateAccount
 from .models.create_account200_response import CreateAccount200Response
@@ -87,9 +98,7 @@ from .models.downgrade_license_request import DowngradeLicenseRequest
 from .models.downgrade_license_response import DowngradeLicenseResponse
 from .models.downgraded_license import DowngradedLicense
 from .models.effect import Effect
-from .models.entitlement_assignment import EntitlementAssignment
 from .models.entitlement_graph import EntitlementGraph
-from .models.entitlement_identifier import EntitlementIdentifier
 from .models.entitlement_requirement import EntitlementRequirement
 from .models.entitlement_type import EntitlementType
 from .models.error import Error
@@ -162,8 +171,6 @@ from .models.handle_client_credentials import HandleClientCredentials
 from .models.handle_client_credentials_request import HandleClientCredentialsRequest
 from .models.handle_client_credentials_request200_response import HandleClientCredentialsRequest200Response
 from .models.handle_client_credentials_response import HandleClientCredentialsResponse
-from .models.implied_access import ImpliedAccess
-from .models.implied_access_rule import ImpliedAccessRule
 from .models.info import Info
 from .models.info200_response import Info200Response
 from .models.info_response import InfoResponse
@@ -253,9 +260,7 @@ from .models.release_resources200_response import ReleaseResources200Response
 from .models.release_resources_request import ReleaseResourcesRequest
 from .models.release_resources_response import ReleaseResourcesResponse
 from .models.release_resources_status import ReleaseResourcesStatus
-from .models.resource import Resource
 from .models.resource_graph import ResourceGraph
-from .models.resource_relationship import ResourceRelationship
 from .models.resource_type import ResourceType
 from .models.service_account_credential import ServiceAccountCredential
 from .models.service_account_type import ServiceAccountType
@@ -306,8 +311,14 @@ from .models.vendor import Vendor
 
 __all__ = [
     "AccessGraphEntitlement",
+    "AccessGraphEntitlementAssignment",
+    "AccessGraphEntitlementIdentifier",
     "AccessGraphEntitlementRule",
     "AccessGraphEntitlementType",
+    "AccessGraphImpliedAccess",
+    "AccessGraphImpliedAccessRule",
+    "AccessGraphResource",
+    "AccessGraphResourceRelationship",
     "AccountStatus",
     "AccountType",
     "ActivateAccount",
@@ -357,6 +368,11 @@ __all__ = [
     "BasicAuthentication",
     "BasicCredential",
     "CapabilitySchema",
+    "ConnectorErrorCategory",
+    "ConnectorErrorCode",
+    "ConnectorErrorCodeUnion",
+    "ConnectorErrorFault",
+    "ConnectorErrorMetadata",
     "CreatableAccount",
     "CreateAccount",
     "CreateAccount200Response",
@@ -389,9 +405,7 @@ __all__ = [
     "DowngradeLicenseResponse",
     "DowngradedLicense",
     "Effect",
-    "EntitlementAssignment",
     "EntitlementGraph",
-    "EntitlementIdentifier",
     "EntitlementRequirement",
     "EntitlementType",
     "Error",
@@ -464,8 +478,6 @@ __all__ = [
     "HandleClientCredentialsRequest",
     "HandleClientCredentialsRequest200Response",
     "HandleClientCredentialsResponse",
-    "ImpliedAccess",
-    "ImpliedAccessRule",
     "Info",
     "Info200Response",
     "InfoResponse",
@@ -555,9 +567,7 @@ __all__ = [
     "ReleaseResourcesRequest",
     "ReleaseResourcesResponse",
     "ReleaseResourcesStatus",
-    "Resource",
     "ResourceGraph",
-    "ResourceRelationship",
     "ResourceType",
     "ServiceAccountCredential",
     "ServiceAccountType",

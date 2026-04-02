@@ -3234,6 +3234,10 @@ class GetModelInvocationJobResponseTypeDef(TypedDict):
     timeoutDurationInHours: int
     jobExpirationTime: datetime
     modelInvocationType: ModelInvocationTypeType
+    totalRecordCount: int
+    processedRecordCount: int
+    successRecordCount: int
+    errorRecordCount: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3254,6 +3258,10 @@ class ModelInvocationJobSummaryTypeDef(TypedDict):
     timeoutDurationInHours: NotRequired[int]
     jobExpirationTime: NotRequired[datetime]
     modelInvocationType: NotRequired[ModelInvocationTypeType]
+    totalRecordCount: NotRequired[int]
+    processedRecordCount: NotRequired[int]
+    successRecordCount: NotRequired[int]
+    errorRecordCount: NotRequired[int]
 
 
 class CustomMetricDefinitionOutputTypeDef(TypedDict):

@@ -1,3 +1,0 @@
-- name: Ensure SELinux is in permissive mode
-  become: yes
-  command: "setenforce 0"

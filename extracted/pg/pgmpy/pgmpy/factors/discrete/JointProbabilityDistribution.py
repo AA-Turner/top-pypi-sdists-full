@@ -6,6 +6,7 @@ import numpy as np
 
 from pgmpy.factors.discrete import DiscreteFactor
 from pgmpy.independencies import Independencies
+from pgmpy.utils import compat_fns
 
 
 class JointProbabilityDistribution(DiscreteFactor):
@@ -57,30 +58,39 @@ class JointProbabilityDistribution(DiscreteFactor):
         --------
         >>> import numpy as np
         >>> from pgmpy.factors.discrete import JointProbabilityDistribution
-        >>> prob = JointProbabilityDistribution(['x1', 'x2', 'x3'], [2, 2, 2], np.ones(8)/8)
+        >>> prob = JointProbabilityDistribution(
+        ...     variables=["x1", "x2", "x3"],
+        ...     cardinality=[2, 2, 2],
+        ...     values=np.ones(8) / 8,
+        ... )
         >>> print(prob)
-        x1    x2    x3      P(x1,x2,x3)
-        ----  ----  ----  -------------
-        x1_0  x2_0  x3_0         0.1250
-        x1_0  x2_0  x3_1         0.1250
-        x1_0  x2_1  x3_0         0.1250
-        x1_0  x2_1  x3_1         0.1250
-        x1_1  x2_0  x3_0         0.1250
-        x1_1  x2_0  x3_1         0.1250
-        x1_1  x2_1  x3_0         0.1250
-        x1_1  x2_1  x3_1         0.1250
+        +-------+-------+-------+---------------+
+        | x1    | x2    | x3    |   P(x1,x2,x3) |
+        +=======+=======+=======+===============+
+        | x1(0) | x2(0) | x3(0) |        0.1250 |
+        +-------+-------+-------+---------------+
+        | x1(0) | x2(0) | x3(1) |        0.1250 |
+        +-------+-------+-------+---------------+
+        | x1(0) | x2(1) | x3(0) |        0.1250 |
+        +-------+-------+-------+---------------+
+        | x1(0) | x2(1) | x3(1) |        0.1250 |
+        +-------+-------+-------+---------------+
+        | x1(1) | x2(0) | x3(0) |        0.1250 |
+        +-------+-------+-------+---------------+
+        | x1(1) | x2(0) | x3(1) |        0.1250 |
+        +-------+-------+-------+---------------+
+        | x1(1) | x2(1) | x3(0) |        0.1250 |
+        +-------+-------+-------+---------------+
+        | x1(1) | x2(1) | x3(1) |        0.1250 |
+        +-------+-------+-------+---------------+
         """
-        if np.isclose(np.sum(values), 1):
-            super(JointProbabilityDistribution, self).__init__(
-                variables, cardinality, values
-            )
+        if np.isclose(np.sum(compat_fns.to_numpy(values)), 1):
+            super().__init__(variables, cardinality, values)
         else:
             raise ValueError("The probability values doesn't sum to 1.")
 
     def __repr__(self):
-        var_card = ", ".join(
-            [f"{var}:{card}" for var, card in zip(self.variables, self.cardinality)]
-        )
+        var_card = ", ".join([f"{var}:{card}" for var, card in zip(self.variables, self.cardinality)])
         return f"<Joint Distribution representing P({var_card}) at {hex(id(self))}>"
 
     def __str__(self):
@@ -103,33 +113,36 @@ class JointProbabilityDistribution(DiscreteFactor):
         >>> import numpy as np
         >>> from pgmpy.factors.discrete import JointProbabilityDistribution
         >>> values = np.random.rand(12)
-        >>> prob = JointProbabilityDistribution(['x1', 'x2', 'x3'], [2, 3, 2], values/np.sum(values))
-        >>> prob.marginal_distribution(['x1', 'x2'])
-        >>> print(prob)
-        x1    x2      P(x1,x2)
-        ----  ----  ----------
-        x1_0  x2_0      0.1502
-        x1_0  x2_1      0.1626
-        x1_0  x2_2      0.1197
-        x1_1  x2_0      0.2339
-        x1_1  x2_1      0.1996
-        x1_1  x2_2      0.1340
+        >>> prob = JointProbabilityDistribution(
+        ...     ["x1", "x2", "x3"], [2, 3, 2], values / np.sum(values)
+        ... )
+        >>> prob.marginal_distribution(variables=["x1", "x2"])
+        >>> print(prob)  # doctest: +SKIP
+        +-------+-------+------------+
+        | x1    | x2    |   P(x1,x2) |
+        +=======+=======+============+
+        | x1(0) | x2(0) |     0.1408 |
+        +-------+-------+------------+
+        | x1(0) | x2(1) |     0.3372 |
+        +-------+-------+------------+
+        | x1(0) | x2(2) |     0.1530 |
+        +-------+-------+------------+
+        | x1(1) | x2(0) |     0.2122 |
+        +-------+-------+------------+
+        | x1(1) | x2(1) |     0.0950 |
+        +-------+-------+------------+
+        | x1(1) | x2(2) |     0.0619 |
+        +-------+-------+------------+
         """
         return self.marginalize(
             list(
                 set(list(self.variables))
-                - set(
-                    variables
-                    if isinstance(variables, (list, set, dict, tuple))
-                    else [variables]
-                )
+                - set(variables if isinstance(variables, (list, set, dict, tuple)) else [variables])
             ),
             inplace=inplace,
         )
 
-    def check_independence(
-        self, event1, event2, event3=None, condition_random_variable=False
-    ):
+    def check_independence(self, event1, event2, event3=None, condition_random_variable=False):
         """
         Check if the Joint Probability Distribution satisfies the given independence condition.
 
@@ -154,14 +167,32 @@ class JointProbabilityDistribution(DiscreteFactor):
         Examples
         --------
         >>> from pgmpy.factors.discrete import JointProbabilityDistribution as JPD
-        >>> prob = JPD(['I','D','G'],[2,2,3],
-                       [0.126,0.168,0.126,0.009,0.045,0.126,0.252,0.0224,0.0056,0.06,0.036,0.024])
-        >>> prob.check_independence(['I'], ['D'])
+        >>> prob = JPD(
+        ...     variables=["I", "D", "G"],
+        ...     cardinality=[2, 2, 3],
+        ...     values=[
+        ...         0.126,
+        ...         0.168,
+        ...         0.126,
+        ...         0.009,
+        ...         0.045,
+        ...         0.126,
+        ...         0.252,
+        ...         0.0224,
+        ...         0.0056,
+        ...         0.06,
+        ...         0.036,
+        ...         0.024,
+        ...     ],
+        ... )
+        >>> prob.check_independence(event1=["I"], event2=["D"])
         True
-        >>> prob.check_independence(['I'], ['D'], [('G', 1)])  # Conditioning over G_1
+        >>> prob.check_independence(["I"], ["D"], [("G", 1)])  # Conditioning over G_1
         False
         >>> # Conditioning over random variable G
-        >>> prob.check_independence(['I'], ['D'], ('G',), condition_random_variable=True)
+        >>> prob.check_independence(
+        ...     ["I"], ["D"], ("G",), condition_random_variable=True
+        ... )
         False
         """
         JPD = self.copy()
@@ -184,15 +215,9 @@ class JointProbabilityDistribution(DiscreteFactor):
                 # This can be expanded to P(X,Y,Z)*P(Z) == P(X,Z)*P(Y,Z)
                 phi_z = JPD.marginal_distribution(event3, inplace=False).to_factor()
                 for variable_pair in itertools.product(event1, event2):
-                    phi_xyz = JPD.marginal_distribution(
-                        event3 + list(variable_pair), inplace=False
-                    ).to_factor()
-                    phi_xz = JPD.marginal_distribution(
-                        event3 + [variable_pair[0]], inplace=False
-                    ).to_factor()
-                    phi_yz = JPD.marginal_distribution(
-                        event3 + [variable_pair[1]], inplace=False
-                    ).to_factor()
+                    phi_xyz = JPD.marginal_distribution(event3 + list(variable_pair), inplace=False).to_factor()
+                    phi_xz = JPD.marginal_distribution(event3 + [variable_pair[0]], inplace=False).to_factor()
+                    phi_yz = JPD.marginal_distribution(event3 + [variable_pair[1]], inplace=False).to_factor()
                     if phi_xyz * phi_z != phi_xz * phi_yz:
                         return False
                 return True
@@ -200,13 +225,9 @@ class JointProbabilityDistribution(DiscreteFactor):
                 JPD.conditional_distribution(event3)
 
         for variable_pair in itertools.product(event1, event2):
-            if JPD.marginal_distribution(
-                variable_pair, inplace=False
-            ) != JPD.marginal_distribution(
+            if JPD.marginal_distribution(variable_pair, inplace=False) != JPD.marginal_distribution(
                 variable_pair[0], inplace=False
-            ) * JPD.marginal_distribution(
-                variable_pair[1], inplace=False
-            ):
+            ) * JPD.marginal_distribution(variable_pair[1], inplace=False):
                 return False
         return True
 
@@ -225,7 +246,11 @@ class JointProbabilityDistribution(DiscreteFactor):
         --------
         >>> import numpy as np
         >>> from pgmpy.factors.discrete import JointProbabilityDistribution
-        >>> prob = JointProbabilityDistribution(['x1', 'x2', 'x3'], [2, 3, 2], np.ones(12)/12)
+        >>> prob = JointProbabilityDistribution(
+        ...     variables=["x1", "x2", "x3"],
+        ...     cardinality=[2, 3, 2],
+        ...     values=np.ones(12) / 12,
+        ... )
         >>> prob.get_independencies()
         (x1 \u27c2 x2)
         (x1 \u27c2 x3)
@@ -236,13 +261,9 @@ class JointProbabilityDistribution(DiscreteFactor):
             JPD.conditional_distribution(condition)
         independencies = Independencies()
         for variable_pair in itertools.combinations(list(JPD.variables), 2):
-            if JPD.marginal_distribution(
-                variable_pair, inplace=False
-            ) == JPD.marginal_distribution(
+            if JPD.marginal_distribution(variable_pair, inplace=False) == JPD.marginal_distribution(
                 variable_pair[0], inplace=False
-            ) * JPD.marginal_distribution(
-                variable_pair[1], inplace=False
-            ):
+            ) * JPD.marginal_distribution(variable_pair[1], inplace=False):
                 independencies.add_assertions(variable_pair)
         return independencies
 
@@ -262,15 +283,24 @@ class JointProbabilityDistribution(DiscreteFactor):
         --------
         >>> import numpy as np
         >>> from pgmpy.factors.discrete import JointProbabilityDistribution
-        >>> prob = JointProbabilityDistribution(['x1', 'x2', 'x3'], [2, 2, 2], np.ones(8)/8)
-        >>> prob.conditional_distribution([('x1', 1)])
+        >>> prob = JointProbabilityDistribution(
+        ...     variables=["x1", "x2", "x3"],
+        ...     cardinality=[2, 2, 2],
+        ...     values=np.ones(8) / 8,
+        ... )
+        >>> prob.conditional_distribution(values=[("x1", 1)])
         >>> print(prob)
-        x2    x3      P(x2,x3)
-        ----  ----  ----------
-        x2_0  x3_0      0.2500
-        x2_0  x3_1      0.2500
-        x2_1  x3_0      0.2500
-        x2_1  x3_1      0.2500
+        +-------+-------+------------+
+        | x2    | x3    |   P(x2,x3) |
+        +=======+=======+============+
+        | x2(0) | x3(0) |     0.2500 |
+        +-------+-------+------------+
+        | x2(0) | x3(1) |     0.2500 |
+        +-------+-------+------------+
+        | x2(1) | x3(0) |     0.2500 |
+        +-------+-------+------------+
+        | x2(1) | x3(1) |     0.2500 |
+        +-------+-------+------------+
         """
         JPD = self if inplace else self.copy()
         JPD.reduce(values)
@@ -286,13 +316,17 @@ class JointProbabilityDistribution(DiscreteFactor):
         ---------
         >>> import numpy as np
         >>> from pgmpy.factors.discrete import JointProbabilityDistribution
-        >>> prob = JointProbabilityDistribution(['x1', 'x2', 'x3'], [2, 3, 2], np.ones(12)/12)
+        >>> prob = JointProbabilityDistribution(
+        ...     variables=["x1", "x2", "x3"],
+        ...     cardinality=[2, 3, 2],
+        ...     values=np.ones(12) / 12,
+        ... )
         >>> prob_copy = prob.copy()
-        >>> prob_copy.values == prob.values
-        True
+        >>> (prob_copy.values == prob.values).all()
+        np.True_
         >>> prob_copy.variables == prob.variables
         True
-        >>> prob_copy.variables[1] = 'y'
+        >>> prob_copy.variables[1] = "y"
         >>> prob_copy.variables == prob.variables
         False
         """
@@ -312,19 +346,22 @@ class JointProbabilityDistribution(DiscreteFactor):
         --------
         >>> import numpy as np
         >>> from pgmpy.factors.discrete import JointProbabilityDistribution
-        >>> prob = JointProbabilityDistribution(['x1', 'x2', 'x3'], [2, 3, 2], np.ones(12)/12)
-        >>> bayesian_model = prob.minimal_imap(order=['x2', 'x1', 'x3'])
-        >>> bayesian_model
-        <pgmpy.models.models.models at 0x7fd7440a9320>
+        >>> prob = JointProbabilityDistribution(
+        ...     variables=["x1", "x2", "x3"],
+        ...     cardinality=[2, 3, 2],
+        ...     values=np.ones(12) / 12,
+        ... )
+        >>> bayesian_model = prob.minimal_imap(order=["x2", "x1", "x3"])
+        >>> bayesian_model # doctest: +ELLIPSIS
+        <pgmpy.models.DiscreteBayesianNetwork.DiscreteBayesianNetwork object at 0x...>
         >>> bayesian_model.edges()
-        [('x1', 'x3'), ('x2', 'x3')]
+        OutEdgeView([('x2', 'x3'), ('x1', 'x3')])
         """
         from pgmpy.models import DiscreteBayesianNetwork
 
         def get_subsets(u):
             for r in range(len(u) + 1):
-                for i in itertools.combinations(u, r):
-                    yield i
+                yield from itertools.combinations(u, r)
 
         G = DiscreteBayesianNetwork()
         for variable_index in range(len(order)):
@@ -333,9 +370,7 @@ class JointProbabilityDistribution(DiscreteFactor):
                 if len(subset) < len(u) and self.check_independence(
                     [order[variable_index]], set(u) - set(subset), subset, True
                 ):
-                    G.add_edges_from(
-                        [(variable, order[variable_index]) for variable in subset]
-                    )
+                    G.add_edges_from([(variable, order[variable_index]) for variable in subset])
         return G
 
     def is_imap(self, model):
@@ -357,19 +392,44 @@ class JointProbabilityDistribution(DiscreteFactor):
         >>> from pgmpy.models import DiscreteBayesianNetwork
         >>> from pgmpy.factors.discrete import TabularCPD
         >>> from pgmpy.factors.discrete import JointProbabilityDistribution
-        >>> bm = DiscreteBayesianNetwork([('diff', 'grade'), ('intel', 'grade')])
-        >>> diff_cpd = TabularCPD('diff', 2, [[0.2], [0.8]])
-        >>> intel_cpd = TabularCPD('intel', 3, [[0.5], [0.3], [0.2]])
-        >>> grade_cpd = TabularCPD('grade', 3,
-        ...                        [[0.1,0.1,0.1,0.1,0.1,0.1],
-        ...                         [0.1,0.1,0.1,0.1,0.1,0.1],
-        ...                         [0.8,0.8,0.8,0.8,0.8,0.8]],
-        ...                        evidence=['diff', 'intel'],
-        ...                        evidence_card=[2, 3])
+        >>> bm = DiscreteBayesianNetwork([("diff", "grade"), ("intel", "grade")])
+        >>> diff_cpd = TabularCPD("diff", 2, [[0.2], [0.8]])
+        >>> intel_cpd = TabularCPD("intel", 3, [[0.5], [0.3], [0.2]])
+        >>> grade_cpd = TabularCPD(
+        ...     "grade",
+        ...     3,
+        ...     [
+        ...         [0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+        ...         [0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+        ...         [0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
+        ...     ],
+        ...     evidence=["diff", "intel"],
+        ...     evidence_card=[2, 3],
+        ... )
         >>> bm.add_cpds(diff_cpd, intel_cpd, grade_cpd)
-        >>> val = [0.01, 0.01, 0.08, 0.006, 0.006, 0.048, 0.004, 0.004, 0.032,
-        ...        0.04, 0.04, 0.32, 0.024, 0.024, 0.192, 0.016, 0.016, 0.128]
-        >>> JPD = JointProbabilityDistribution(['diff', 'intel', 'grade'], [2, 3, 3], val)
+        >>> val = [
+        ...     0.01,
+        ...     0.01,
+        ...     0.08,
+        ...     0.006,
+        ...     0.006,
+        ...     0.048,
+        ...     0.004,
+        ...     0.004,
+        ...     0.032,
+        ...     0.04,
+        ...     0.04,
+        ...     0.32,
+        ...     0.024,
+        ...     0.024,
+        ...     0.192,
+        ...     0.016,
+        ...     0.016,
+        ...     0.128,
+        ... ]
+        >>> JPD = JointProbabilityDistribution(
+        ...     ["diff", "intel", "grade"], [2, 3, 3], val
+        ... )
         >>> JPD.is_imap(bm)
         True
         """
@@ -393,10 +453,12 @@ class JointProbabilityDistribution(DiscreteFactor):
         --------
         >>> import numpy as np
         >>> from pgmpy.factors.discrete import JointProbabilityDistribution
-        >>> prob = JointProbabilityDistribution(['x1', 'x2', 'x3'], [2, 3, 2], np.ones(12)/12)
+        >>> prob = JointProbabilityDistribution(
+        ...     ["x1", "x2", "x3"], [2, 3, 2], np.ones(12) / 12
+        ... )
         >>> phi = prob.to_factor()
         >>> type(phi)
-        pgmpy.factors.DiscreteFactor.DiscreteFactor
+        <class 'pgmpy.factors.discrete.DiscreteFactor.DiscreteFactor'>
         """
         return DiscreteFactor(self.variables, self.cardinality, self.values)
 

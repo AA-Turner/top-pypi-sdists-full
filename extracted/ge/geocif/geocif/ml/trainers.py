@@ -439,28 +439,34 @@ def auto_train(
     return hyperparams, model
 
 
-def estimate_ci(model_type, model_name, model):
+def estimate_ci(model_type, model_name, model, alpha=0.05, ci_method="crepes"):
     """
-    Estimate confidence intervals for the model using MapieRegressor or MapieClassifier.
+    Wrap a fitted model for conformal prediction.
 
     Args:
-        model_type: str, Type of the model ('REGRESSION' or 'CLASSIFICATION')
-        model_name: str, Name of the model ('catboost', 'xgboost', 'merf', 'oblique', 'ydf', 'linear', 'gam', etc.)
-        model: The trained model
+        model_type: 'REGRESSION' or 'CLASSIFICATION'
+        model_name: Model name (e.g. 'catboost', 'xgboost')
+        model: The fitted model
+        alpha: Significance level for confidence intervals
+        ci_method: 'crepes' (default) or 'mapie'
 
     Returns:
-        model: The model wrapped with Mapie for confidence interval estimation
+        Wrapped model for confidence interval estimation
     """
-    if model_name == "ngboost":
+    if model_name in ["ngboost", "tabpfn", "tabicl"]:
         return model
     elif model_type == "CLASSIFICATION" and model_name == "catboost":
         return model
     elif model_type == "REGRESSION":
-        from mapie.regression import MapieRegressor
-        model = MapieRegressor(model, n_jobs=-1)
+        if ci_method == "crepes":
+            from crepes import WrapRegressor
+            model = WrapRegressor(model)
+        else:
+            from mapie.regression import SplitConformalRegressor
+            model = SplitConformalRegressor(estimator=model, confidence_level=1 - alpha, prefit=True)
     elif model_type == "CLASSIFICATION":
-        from mapie.classification import MapieClassifier
-        model = MapieClassifier(model, n_jobs=-1, method="naive")
+        from mapie.classification import SplitConformalClassifier
+        model = SplitConformalClassifier(estimator=model, confidence_level=1 - alpha, prefit=True)
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 

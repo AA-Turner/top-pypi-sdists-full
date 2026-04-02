@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-Flask-Cors
-Version: 6.0.0.20250809
+Version: 6.0.0.20260402
 Summary: Typing stubs for Flask-Cors
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -10,7 +10,7 @@ Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Flask>=2.0.0
@@ -18,8 +18,8 @@ Dynamic: license-file
 
 ## Typing stubs for Flask-Cors
 
-This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
-the [`Flask-Cors`](https://github.com/corydolphin/flask-cors) package. It can be used by type checkers
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`Flask-Cors`](https://github.com/corydolphin/flask-cors) package. It can be used by type checkers
 to check code that uses `Flask-Cors`. This version of
 `types-Flask-Cors` aims to provide accurate annotations for
 `Flask-Cors==6.0.*`.
@@ -32,8 +32,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.16.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.403
+* [mypy](https://github.com/python/mypy/) 1.20.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).

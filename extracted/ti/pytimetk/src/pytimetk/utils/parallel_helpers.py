@@ -1,0 +1,357 @@
+import pandas as pd
+import pandas_flavor as pf
+from multiprocessing import cpu_count
+from typing import Iterable, Callable, List
+import warnings
+
+from pytimetk.utils.dataframe_ops import (
+    _extract_pandas_group_columns,
+    pandas_groupby_default_includes_groups,
+)
+from pytimetk.utils.ray_helpers import run_ray_tasks
+
+
+@pf.register_groupby_method
+def progress_apply(
+    data: pd.core.groupby.generic.DataFrameGroupBy,
+    func: Callable,
+    show_progress: bool = True,
+    desc: str = "Processing...",
+    **kwargs,
+):
+    """
+    Adds a progress bar to pandas apply().
+
+    Parameters
+    ----------
+    data : pd.core.groupby.generic.DataFrameGroupBy
+        The `data` parameter is a pandas DataFrameGroupBy object. It represents
+        a grouped DataFrame, where the data is grouped based on one or more
+        columns.
+    func : Callable
+        The `func` parameter is a callable function that will be applied to each
+        group in the `data` DataFrameGroupBy object. This function will be
+        applied to each group separately.
+    show_progress : bool
+        A boolean value indicating whether to show the progress bar or not. If
+        set to True, a progress bar will be displayed while the function is
+        being applied. If set to False, no progress bar will be displayed.
+    desc : str
+        The `desc` parameter is used to provide a description for the progress
+        bar. It is displayed as a prefix to the progress bar.
+    **kwargs
+        The `**kwargs` parameter is a dictionary of keyword arguments that are
+        passed to the `func` function.
+
+    Returns
+    -------
+    pd.DataFrame
+        The result of applying the given function to the grouped data.
+
+    Examples:
+    --------
+    ``` {python}
+    import pytimetk as tk
+    import pandas as pd
+
+    df = pd.DataFrame({
+        'A': ['foo', 'bar', 'foo', 'bar', 'foo', 'bar'],
+        'B': [1, 2, 3, 4, 5, 6]
+    })
+
+    grouped = df.groupby('A')
+
+    result = grouped.progress_apply(lambda df: df['B'].sum())
+    result
+
+    ```
+
+    """
+    return parallel_apply(
+        data=data,
+        func=func,
+        show_progress=show_progress,
+        threads=1,
+        desc=desc,
+        **kwargs,
+    )
+
+
+@pf.register_groupby_method
+def parallel_apply(
+    data: pd.core.groupby.generic.DataFrameGroupBy,
+    func: Callable,
+    show_progress: bool = True,
+    threads: int = None,
+    desc="Processing...",
+    **kwargs,
+):
+    """
+    The `parallel_apply` function parallelizes the application of a function on
+    grouped dataframes using
+    concurrent.futures.
+
+    Parameters
+    ----------
+    data : pd.core.groupby.generic.DataFrameGroupBy
+        The `data` parameter is a Pandas DataFrameGroupBy object, which is the
+        result of grouping a DataFrame by one or more columns. It represents the
+        grouped data that you want to apply the function to.
+    func : Callable
+        The `func` parameter is the function that you want to apply to each
+        group in the grouped dataframe. This function should take a single
+        argument, which is a dataframe representing a group, and return a result.
+        The result can be a scalar value, a pandas Series, or a pandas DataFrame.
+    show_progress : bool, optional
+        A boolean parameter that determines whether to display progress using
+        tqdm. If set to True, progress will be displayed. If set to False,
+        progress will not be displayed.
+    threads : int
+        The `threads` parameter specifies the number of threads to use for
+        parallel processing. If `threads` is set to `None`, it will use all
+        available processors. If `threads` is set to `-1`, it will use all
+        available processors as well.
+    **kwargs
+        The `**kwargs` parameter is a dictionary of keyword arguments that are
+        passed to the `func` function.
+
+    Returns
+    -------
+    pd.DataFrame
+        The `parallel_apply` function returns a combined result after applying
+        the specified function on all groups in the grouped dataframe. The
+        result can be a pandas DataFrame or a pandas Series, depending on the
+        function applied.
+
+
+    Examples:
+    --------
+    ``` {python}
+    # Example 1 - Single argument returns Series
+
+    import pytimetk as tk
+    import pandas as pd
+
+    df = pd.DataFrame({
+        'A': ['foo', 'bar', 'foo', 'bar', 'foo', 'bar'],
+        'B': [1, 2, 3, 4, 5, 6]
+    })
+
+    grouped = df.groupby('A')
+
+    result = grouped.apply(lambda df: df['B'].sum())
+    result
+
+    result = tk.parallel_apply(grouped, lambda df: df['B'].sum(), show_progress=True, threads=2)
+    result
+    ```
+
+    ``` {python}
+    # Example 2 - Multiple arguments returns MultiIndex DataFrame
+
+    import pytimetk as tk
+    import pandas as pd
+
+    df = pd.DataFrame({
+        'A': ['foo', 'foo', 'bar', 'bar', 'foo', 'bar', 'foo', 'foo'],
+        'B': ['one', 'one', 'one', 'two', 'two', 'two', 'one', 'two'],
+        'C': [1, 3, 5, 7, 9, 2, 4, 6]
+    })
+
+    def calculate(group):
+        return pd.DataFrame({
+            'sum': [group['C'].sum()],
+            'mean': [group['C'].mean()]
+        })
+
+    grouped = df.groupby(['A', 'B'])
+
+    result = grouped.apply(calculate)
+    result
+
+    result = tk.parallel_apply(grouped, calculate, show_progress=True)
+    result
+
+    ```
+
+    ``` {python}
+    # Example 3 - Multiple arguments returns MultiIndex DataFrame
+
+    import pytimetk as tk
+    import pandas as pd
+
+    df = pd.DataFrame({
+        'A': ['foo', 'foo', 'bar', 'bar', 'foo', 'bar', 'foo', 'foo'],
+        'B': ['one', 'one', 'one', 'two', 'two', 'two', 'one', 'two'],
+        'C': [1, 3, 5, 7, 9, 2, 4, 6]
+    })
+
+    def calculate(group):
+        return group.head(2)
+
+    grouped = df.groupby(['A', 'B'])
+
+    result = grouped.apply(calculate)
+    result
+
+    result = tk.parallel_apply(grouped, calculate, show_progress=True)
+    result
+
+    ```
+
+    ``` {python}
+    # Example 4 - Single Grouping Column Returns DataFrame
+
+    import pytimetk as tk
+    import pandas as pd
+
+    df = pd.DataFrame({
+        'A': ['foo', 'foo', 'bar', 'bar', 'foo', 'bar', 'foo', 'foo'],
+        'B': [1, 3, 5, 7, 9, 2, 4, 6]
+    })
+
+    def calculate(group):
+        return pd.DataFrame({
+            'sum': [group['B'].sum()],
+            'mean': [group['B'].mean()]
+        })
+
+    grouped = df.groupby(['A'])
+
+    result = grouped.apply(calculate)
+    result
+
+    result = tk.parallel_apply(grouped, calculate, show_progress=True)
+    result
+
+    ```
+    """
+
+    if not isinstance(data, pd.core.groupby.generic.DataFrameGroupBy):
+        raise TypeError("`data` is not a Pandas DataFrameGroupBy object.")
+
+    group_names = list(_extract_pandas_group_columns(data))
+    include_groups = pandas_groupby_default_includes_groups(data)
+
+    groups = [
+        (name, _prepare_group_for_apply(group, group_names, include_groups))
+        for name, group in data
+    ]
+    if not groups:
+        return pd.DataFrame()
+
+    threads_resolved = get_threads(threads)
+
+    def _apply_local(group_df):
+        return func(group_df, **kwargs)
+
+    if threads_resolved == 1:
+        iterator = conditional_tqdm(
+            (group for _, group in groups),
+            total=len(groups),
+            display=show_progress,
+            desc=desc,
+        )
+        results = [_apply_local(group) for group in iterator]
+    else:
+        args_list = [
+            (func, kwargs, group) for _, group in groups
+        ]
+        try:
+            results = run_ray_tasks(
+                _parallel_apply_worker,
+                args_list,
+                num_cpus=threads_resolved,
+                desc=desc,
+                show_progress=show_progress,
+            )
+        except ImportError:
+            warnings.warn(
+                "Ray is not installed; falling back to sequential apply. "
+                "Install `ray` or set `threads=1` to silence this warning.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            iterator = conditional_tqdm(
+            (group for _, group in groups),
+            total=len(groups),
+            display=show_progress,
+            desc=desc,
+            )
+            results = [_apply_local(group) for group in iterator]
+
+    ordered_names = [name for name, _ in groups]
+    first_result = results[0]
+
+    if isinstance(first_result, (pd.DataFrame, pd.Series)):
+        return pd.concat(results, keys=ordered_names, names=group_names)
+
+    return pd.Series(
+        results,
+        index=_build_group_index(ordered_names, group_names),
+        name=None,
+    )
+
+
+# Utility functions
+# -----------------
+
+
+def get_threads(threads: int = None):
+    if threads is None:
+        threads = cpu_count()
+    if threads == -1:
+        threads = cpu_count()
+    return threads
+
+
+def conditional_tqdm(iterable: Iterable, display: bool = True, **kwargs):
+    tqdm = get_tqdm()
+    if display:
+        return tqdm(iterable, **kwargs)
+    else:
+        return iterable
+
+
+def get_tqdm():
+    try:
+        # Check if we are in a Jupyter environment
+        ipy_instance = get_ipython().__class__.__name__
+        if (
+            "ZMQ" in ipy_instance or "Shell" in ipy_instance
+        ):  # Jupyter Notebook or Jupyter Lab
+            from tqdm.notebook import tqdm
+        else:
+            from tqdm import tqdm
+    except (NameError, ImportError):  # Not in an IPython environment
+        from tqdm import tqdm
+    return tqdm
+
+
+def _parallel_apply_worker(func: Callable, kwargs: dict, group_df: pd.DataFrame):
+    return func(group_df, **kwargs)
+
+
+def _prepare_group_for_apply(
+    group: pd.DataFrame,
+    group_names: List[str],
+    include_groups: bool,
+) -> pd.DataFrame:
+    if include_groups:
+        return group
+    return group.drop(columns=group_names, errors="ignore")
+
+
+def _build_group_index(group_names: List, index_names: List[str]) -> pd.Index:
+    if len(index_names) == 1:
+        values = [
+            name[0] if isinstance(name, tuple) and len(name) == 1 else name
+            for name in group_names
+        ]
+        return pd.Index(values, name=index_names[0])
+
+    tuples = [
+        name if isinstance(name, tuple) else (name,)
+        for name in group_names
+    ]
+    return pd.MultiIndex.from_tuples(tuples, names=index_names)

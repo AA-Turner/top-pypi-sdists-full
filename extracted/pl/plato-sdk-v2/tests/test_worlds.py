@@ -265,15 +265,20 @@ class TestRunConfig:
 
 @pytest.mark.asyncio
 async def test_inline_child_agent_images_resolve_from_package(monkeypatch: pytest.MonkeyPatch) -> None:
+    from plato.chronos.models import RegistryAgentSchemaResponse
     from plato.worlds import Agent, AgentConfig, RunConfig
     from plato.worlds.base import _resolve_inline_agent_images
 
-    async def fake_get_agent_schema(package_name: str, version: str | None = None) -> dict[str, str]:
-        assert package_name == "claude-code"
+    async def fake_asyncio(client, *, agent_name: str, version: str | None = None, allow_prerelease=False):
+        assert agent_name == "claude-code"
         assert version is None
-        return {"image": "example.registry/plato-agents/claude-code:3.1.4"}
+        return RegistryAgentSchemaResponse(
+            name="claude-code",
+            version="3.1.4",
+            image="example.registry/plato-agents/claude-code:3.1.4",
+        )
 
-    monkeypatch.setattr("plato.worlds.base.get_agent_schema", fake_get_agent_schema)
+    monkeypatch.setattr("plato.worlds.base.get_agent_schema_api.asyncio", fake_asyncio)
 
     class InlineChildConfig(RunConfig):
         reviewer_agent: Annotated[AgentConfig, Agent(description="Reviewer")]

@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: rf-segment-anything
+Version: 1.0
+Summary: Segment anything with a few lines of code
+Provides-Extra: all
+Provides-Extra: dev
+License-File: LICENSE
+
+Segment anything with a few lines of code

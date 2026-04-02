@@ -13,36 +13,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import logging
-import json  # type: ignore
-
-from google.auth.transport.requests import AuthorizedSession  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.api_core import exceptions as core_exceptions
-from google.api_core import retry as retries
-from google.api_core import rest_helpers
-from google.api_core import rest_streaming
-from google.api_core import gapic_v1
-import google.protobuf
-
-from google.protobuf import json_format
-
-from requests import __version__ as requests_version
 import dataclasses
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+import json  # type: ignore
+import logging
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, rest_helpers, rest_streaming
+from google.api_core import retry as retries
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.requests import AuthorizedSession  # type: ignore
+from google.protobuf import json_format
+from requests import __version__ as requests_version
 
-from google.cloud.spanner_v1.types import commit_response
-from google.cloud.spanner_v1.types import result_set
-from google.cloud.spanner_v1.types import spanner
-from google.cloud.spanner_v1.types import transaction
 from google.cloud.spanner_v1.metrics.metrics_interceptor import MetricsInterceptor
-from google.protobuf import empty_pb2  # type: ignore
+from google.cloud.spanner_v1.types import (
+    commit_response,
+    result_set,
+    spanner,
+    transaction,
+)
 
-
-from .rest_base import _BaseSpannerRestTransport
 from .base import DEFAULT_CLIENT_INFO as BASE_DEFAULT_CLIENT_INFO
+from .rest_base import _BaseSpannerRestTransport
 
 try:
     OptionalRetry = Union[retries.Retry, gapic_v1.method._MethodDefault, None]
@@ -954,6 +950,12 @@ class SpannerRestTransport(_BaseSpannerRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[SpannerRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -1816,7 +1818,7 @@ class SpannerRestTransport(_BaseSpannerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3193,7 +3195,7 @@ class SpannerRestTransport(_BaseSpannerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {

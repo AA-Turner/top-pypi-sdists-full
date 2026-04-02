@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-antlr4-python3-runtime"
-version = "4.13.0.20251118"
+version = "4.13.0.20260402"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for antlr4-python3-runtime"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.407
+* [mypy](https://github.com/python/mypy/) 1.20.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`bbbf7530a987e59c8458127351cacad2e57f04bf`](https://github.com/python/typeshed/commit/bbbf7530a987e59c8458127351cacad2e57f04bf).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = []
 [tool.setuptools]
 packages = ['antlr4-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'antlr4-stubs' = ['BufferedTokenStream.pyi', 'CommonTokenFactory.pyi', 'CommonTokenStream.pyi', 'FileStream.pyi', 'InputStream.pyi', 'IntervalSet.pyi', 'LL1Analyzer.pyi', 'Lexer.pyi', 'ListTokenSource.pyi', 'Parser.pyi', 'ParserInterpreter.pyi', 'ParserRuleContext.pyi', 'PredictionContext.pyi', 'Recognizer.pyi', 'RuleContext.pyi', 'StdinStream.pyi', 'Token.pyi', 'TokenStreamRewriter.pyi', 'Utils.pyi', '__init__.pyi', '_pygrun.pyi', 'atn/ATN.pyi', 'atn/ATNConfig.pyi', 'atn/ATNConfigSet.pyi', 'atn/ATNDeserializationOptions.pyi', 'atn/ATNDeserializer.pyi', 'atn/ATNSimulator.pyi', 'atn/ATNState.pyi', 'atn/ATNType.pyi', 'atn/LexerATNSimulator.pyi', 'atn/LexerAction.pyi', 'atn/LexerActionExecutor.pyi', 'atn/ParserATNSimulator.pyi', 'atn/PredictionMode.pyi', 'atn/SemanticContext.pyi', 'atn/Transition.pyi', 'atn/__init__.pyi', 'dfa/DFA.pyi', 'dfa/DFASerializer.pyi', 'dfa/DFAState.pyi', 'dfa/__init__.pyi', 'error/DiagnosticErrorListener.pyi', 'error/ErrorListener.pyi', 'error/ErrorStrategy.pyi', 'error/Errors.pyi', 'error/__init__.pyi', 'tree/Chunk.pyi', 'tree/ParseTreeMatch.pyi', 'tree/ParseTreePattern.pyi', 'tree/ParseTreePatternMatcher.pyi', 'tree/RuleTagToken.pyi', 'tree/TokenTagToken.pyi', 'tree/Tree.pyi', 'tree/Trees.pyi', 'tree/__init__.pyi', 'xpath/XPath.pyi', 'xpath/XPathLexer.pyi', 'xpath/__init__.pyi', 'METADATA.toml', 'py.typed']

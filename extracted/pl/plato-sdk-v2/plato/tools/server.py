@@ -43,11 +43,19 @@ import logging
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.server.context import Context
 from mcp.types import ImageContent, TextContent
 
 from plato.tools.definition import ToolDefinition
+from plato.tools.request_context import (
+    ToolRequestContext,
+    get_registered_client_context,
+    set_request_context,
+)
 
 logger = logging.getLogger(__name__)
+
+_CLIENT_ID_QUERY_PARAM = "plato_client_id"
 
 
 def _extract_image_content(result: dict) -> list[TextContent | ImageContent]:
@@ -159,10 +167,11 @@ class ToolServer:
             # extract it into a native ImageContent block to avoid bloating
             # the text context window.
             src = """
-async def _wrapper(input: _Model) -> Any:
-    result = _handler(input)
-    if _isawaitable(result):
-        result = await result
+async def _wrapper(input: _Model, ctx: _Context) -> Any:
+    with _set_request_context(_resolve_request_context(ctx)):
+        result = _handler(input)
+        if _isawaitable(result):
+            result = await result
     if isinstance(result, dict) and ("screenshot_b64" in result or "image_b64" in result):
         return _extract_image(result)
     return result
@@ -170,12 +179,28 @@ async def _wrapper(input: _Model) -> Any:
 
             ns: dict[str, Any] = {
                 "Any": Any,
+                "_Context": Context,
                 "_Model": model_cls,
                 "_handler": handler,
                 "_isawaitable": inspect.isawaitable,
                 "_logger": logger,
                 "_tool_name": tool.name,
                 "_extract_image": _extract_image_content,
+                "_resolve_request_context": self._resolve_request_context,
+                "_set_request_context": set_request_context,
             }
             exec(src, ns, ns)
             self._mcp.tool(name=tool.name, description=tool.description)(ns["_wrapper"])
+
+    def _resolve_request_context(self, ctx: Context) -> ToolRequestContext | None:
+        """Resolve the current request's Plato caller metadata."""
+        request_context = ctx.request_context
+        if request_context is None or request_context.request is None:
+            return None
+
+        request = request_context.request
+        client_id = request.query_params.get(_CLIENT_ID_QUERY_PARAM)
+        if not client_id:
+            return None
+
+        return get_registered_client_context(client_id) or ToolRequestContext(client_id=client_id)

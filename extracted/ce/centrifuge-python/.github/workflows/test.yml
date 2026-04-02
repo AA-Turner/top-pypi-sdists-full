@@ -1,0 +1,54 @@
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    # Prevent duplicate builds on internal PRs.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+        protobuf-version:
+          - "4.23.4"
+          - "5.29.3"
+          - "6.31.0"
+        websockets-version:
+          - "14.2"
+          - "15.0"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }} on ${{ matrix.os }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Start Centrifugo
+        run: docker compose up -d --wait
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install "protobuf==${{ matrix.protobuf-version }}"
+          pip install "websockets==${{ matrix.websockets-version }}"
+          make dev
+
+      - name: Run tests
+        run: |
+          make test
+
+      - name: Run linter
+        run: |
+          make lint-ci

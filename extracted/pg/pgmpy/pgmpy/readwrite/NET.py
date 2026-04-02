@@ -1,8 +1,11 @@
 import collections
+import warnings
 from math import prod
 from string import Template
 
 import numpy as np
+
+from pgmpy import logger
 
 try:
     from pyparsing import (
@@ -21,8 +24,7 @@ try:
     )
 except ImportError as e:
     raise ImportError(
-        e.msg
-        + ". pyparsing is required for using read/write methods. Please install using: pip install pyparsing."
+        f"{e}. pyparsing is required for using read/write methods. Please install using: pip install pyparsing."
     ) from None
 
 from pgmpy.factors.discrete.CPD import TabularCPD
@@ -30,7 +32,7 @@ from pgmpy.models import DiscreteBayesianNetwork
 from pgmpy.utils import compat_fns
 
 
-class NETWriter(object):
+class NETWriter:
     """
     Base class for writing network file in net format
 
@@ -41,12 +43,12 @@ class NETWriter(object):
     Examples
     ----------
     >>> from pgmpy.readwrite import NETWriter
-    >>> from pgmpy.utils import get_example_model
-    >>> asia = get_example_model('asia')
+    >>> from pgmpy.example_models import load_model
+    >>> asia = load_model("bnlearn/asia")
     >>> writer = NETWriter(asia)
     >>> writer
     <pgmpy.readwrite.NET.NETWriter at 0x7feac652c2b0>
-    >>> writer.write_net('asia.net')
+    >>> writer.write("asia.net")
 
     Reference
     ---------
@@ -77,9 +79,7 @@ class NETWriter(object):
 
         network_template = Template("net {\n}\n")
         node_template = Template("node $name{\n    states = ($states);\n$properties}\n")
-        potential_template = Template(
-            "potential ($variable_$separator_$parents){\n data = $values;\n}\n"
-        )
+        potential_template = Template("potential ($variable_$separator_$parents){\n data = $values;\n}\n")
         property_template = Template("    $prop;\n")
 
         return (network_template, node_template, potential_template, property_template)
@@ -108,9 +108,7 @@ class NETWriter(object):
                 for prop_val in self.property_tag[var]:
                     properties += property_template.substitute(prop=prop_val)
 
-            network += node_template.substitute(
-                name=var, states=states, properties=properties
-            )
+            network += node_template.substitute(name=var, states=states, properties=properties)
 
         for var in sorted(variables):
             if not self.variable_parents[var]:
@@ -141,14 +139,10 @@ class NETWriter(object):
         string: CPT format of .net files
         """
         cpt = self.tables[var_name]
-        cpt_array = np.moveaxis(compat_fns.to_numpy(cpt, decimals=4), 0, -1)
-        cpt_string = str(cpt_array)
-        net_cpt_string = (
-            cpt_string.replace("[", "(")
-            .replace("]", ")")
-            .replace(". ", ".0 ")
-            .replace(".)", ".0)")
-        )
+        cpt_array = np.moveaxis(compat_fns.to_numpy(cpt, decimals=8), 0, -1)
+        # avoid truncated output when serializing to str
+        cpt_string = np.array2string(cpt_array, threshold=np.inf, max_line_width=np.inf)
+        net_cpt_string = cpt_string.replace("[", "(").replace("]", ")").replace(". ", ".0 ").replace(".)", ".0)")
         # Genie does not read potentials such as 1. therefore last line adds .0 to those
         return net_cpt_string
 
@@ -162,9 +156,9 @@ class NETWriter(object):
 
         Example
         -------
-        >>> from pgmpy.utils import get_example_model
+        >>> from pgmpy.example_models import load_model
         >>> from pgmpy.readwrite import NETWriter
-        >>> asia = get_example_model('asia')
+        >>> asia = load_model("bnlearn/asia")
         >>> writer = NETWriter(asia)
         >>> writer.get_variables()
         ['asia', 'tub', 'smoke', 'lung', 'bronc', 'either', 'xray', 'dysp']
@@ -182,9 +176,9 @@ class NETWriter(object):
 
         Example
         -------
-        >>> from pgmpy.utils import get_example_model
+        >>> from pgmpy.example_models import load_model
         >>> from pgmpy.readwrite import NETWriter
-        >>> asia = get_example_model('asia')
+        >>> asia = load_model("bnlearn/asia")
         >>> writer = NETWriter(asia)
         >>> writer.get_cpds()
         {'asia': array([0.01, 0.99]),
@@ -224,9 +218,9 @@ class NETWriter(object):
 
         Example
         -------
-        >>> from pgmpy.utils import get_example_model
+        >>> from pgmpy.example_models import load_model
         >>> from pgmpy.readwrite import NETWriter
-        >>> asia = get_example_model('asia')
+        >>> asia = load_model("bnlearn/asia")
         >>> writer = NETWriter(asia)
         >>> writer.get_properties()
         """
@@ -251,9 +245,9 @@ class NETWriter(object):
 
         Example
         -------
-        >>> from pgmpy.utils import get_example_model
+        >>> from pgmpy.example_models import load_model
         >>> from pgmpy.readwrite import NETWriter
-        >>> asia = get_example_model('asia')
+        >>> asia = load_model("bnlearn/asia")
         >>> writer = NETWriter(asia)
         >>> writer.get_states()
         {'asia': ['yes', 'no'],
@@ -272,7 +266,13 @@ class NETWriter(object):
             variable = cpd.variable
             variable_states[variable] = []
             for state in cpd.state_names[variable]:
-                variable_states[variable].append(str(state))
+                state_str = str(state)
+                if "," in state_str:
+                    logger.warning(
+                        f"State name '{state_str}' for variable '{variable}' contains commas. "
+                        "This may cause issues when loading the file. Consider removing any special characters."
+                    )
+                variable_states[variable].append(state_str)
         return variable_states
 
     def get_parents(self):
@@ -285,9 +285,9 @@ class NETWriter(object):
 
         Example
         -------
-        >>> from pgmpy.utils import get_example_model
+        >>> from pgmpy.example_models import load_model
         >>> from pgmpy.readwrite import NETWriter
-        >>> asia = get_example_model('asia')
+        >>> asia = load_model("bnlearn/asia")
         >>> writer = NETWriter(asia)
         >>> writer.get_parents()
         {'asia': [],
@@ -305,7 +305,7 @@ class NETWriter(object):
             variable_parents[cpd.variable] = cpd.variables[1:]
         return variable_parents
 
-    def write_net(self, filename):
+    def write(self, filename):
         """
         Writes the NET data into a file
 
@@ -315,15 +315,21 @@ class NETWriter(object):
 
         Example
         -------
-        >>> from pgmpy.utils import get_example_model
+        >>> from pgmpy.example_models import load_model
         >>> from pgmpy.readwrite import NETWriter
-        >>> asia = get_example_model('asia')
+        >>> asia = load_model("bnlearn/asia")
         >>> writer = NETWriter(asia)
-        >>> writer.write_net(filename='asia.net')
+        >>> writer.write(filename="asia.net")
         """
         writer = self.__str__()
         with open(filename, "w") as fout:
             fout.write(writer)
+
+    def write_net(self, filename):
+        warnings.warn(
+            "`NETWriter.write_net` is deprecated. Please use `NETWriter.write` instead.", FutureWarning, stacklevel=2
+        )
+        self.write(filename)
 
 
 class NETReader:
@@ -355,11 +361,9 @@ class NETReader:
     >>> model = reader.get_model()
     """
 
-    def __init__(
-        self, path=None, string=None, include_properties=False, defaultName="bn_model"
-    ):
+    def __init__(self, path=None, string=None, include_properties=False, defaultName="bn_model"):
         if path:
-            with open(path, "r") as network:
+            with open(path) as network:
                 self.network = network.read()
 
         elif string:
@@ -371,9 +375,7 @@ class NETReader:
         self.include_properties = include_properties
 
         if "/*" in self.network or "//" in self.network:
-            self.network = cppStyleComment.suppress().transformString(
-                self.network
-            )  # removing comments from the file
+            self.network = cppStyleComment.suppress().transform_string(self.network)  # removing comments from the file
 
         (
             self.name_expr,
@@ -404,7 +406,7 @@ class NETReader:
         word_expr = Word(alphanums + "_" + "-")("nodename")
         name_expr = Suppress("node ") + word_expr + Optional(Suppress("{"))
 
-        word_expr2 = Word(initChars=printables, excludeChars=["(", ")", ",", " "])
+        word_expr2 = Word(init_chars=printables, exclude_chars=["(", ")", ",", " "])
         state_expr = ZeroOrMore(word_expr2 + Optional(Suppress(",")))
         # Defining a variable state expression
         variable_state_expr = (
@@ -436,15 +438,9 @@ class NETReader:
 
         word_expr = Word(alphanums + "-" + "_") + Suppress(Optional("|"))
 
-        potential_expr = (
-            Suppress("potential") + Suppress("(") + OneOrMore(word_expr) + Suppress(")")
-        )
+        potential_expr = Suppress("potential") + Suppress("(") + OneOrMore(word_expr) + Suppress(")")
 
-        num_expr = (
-            Suppress(ZeroOrMore("("))
-            + Word(nums + "-" + "+" + "e" + "E" + ".")
-            + Suppress(ZeroOrMore(")"))
-        )
+        num_expr = Suppress(ZeroOrMore("(")) + Word(nums + "-" + "+" + "e" + "E" + ".") + Suppress(ZeroOrMore(")"))
 
         cpd_expr = Suppress("data") + Suppress("=") + OneOrMore(num_expr)
 
@@ -475,7 +471,7 @@ class NETReader:
             + Suppress('"')
             + Suppress(";")
         )
-        network_name = network_attribute.searchString(self.network[start:end])
+        network_name = network_attribute.search_string(self.network[start:end])
         if not network_name:
             return False
         return network_name[0][0]
@@ -495,7 +491,7 @@ class NETReader:
         """
         variable_names = []
 
-        for match in self.name_expr.scanString(self.network):
+        for match in self.name_expr.scan_string(self.network):
             result = match[0]
             name = result.nodename
             variable_names.append(name)
@@ -524,10 +520,10 @@ class NETReader:
         """
 
         variable_states = {}
-        for index, match in enumerate(self.name_expr.scanString(self.network)):
+        for index, match in enumerate(self.name_expr.scan_string(self.network)):
             result = match[0]
             name = result.nodename
-            allstates = list(self.state_expr.scanString(self.network))
+            allstates = list(self.state_expr.scan_string(self.network))
             states_unedited = list(
                 allstates[index][0].statenames
             )  # includes double quotation like ['"state1"', '"state2"']
@@ -557,7 +553,7 @@ class NETReader:
         """
 
         variable_properties = {}
-        for match in self.property_expr.scanString(self.network):
+        for match in self.property_expr.scan_string(self.network):
             var_name = match[0].varname
             prop_list = match[0].properties
             num_props = len(prop_list)
@@ -593,7 +589,7 @@ class NETReader:
 
         variable_parents = {}
 
-        for match in self.potential_expr.scanString(self.network):
+        for match in self.potential_expr.scan_string(self.network):
             vars_in_potential = match[0]
             variable_parents[vars_in_potential[0]] = vars_in_potential[1:]
         return variable_parents
@@ -632,7 +628,7 @@ class NETReader:
         variables = list(parents.keys())
         states = self.variable_states
 
-        cpds = self.cpd_expr.scanString(self.network)
+        cpds = self.cpd_expr.scan_string(self.network)
 
         for index, match in enumerate(cpds):
             var = variables[index]
@@ -669,11 +665,7 @@ class NETReader:
         ['either', 'dysp']]
 
         """
-        edges = [
-            [value, key]
-            for key in self.variable_parents.keys()
-            for value in self.variable_parents[key]
-        ]
+        edges = [[value, key] for key in self.variable_parents.keys() for value in self.variable_parents[key]]
         return edges
 
     def get_model(self, state_name_type=str):
@@ -709,8 +701,7 @@ class NETReader:
                 parent_states_num = [len(self.variable_states[par]) for par in parents]
 
                 state_names = {
-                    par_var: list(map(state_name_type, self.variable_states[par_var]))
-                    for par_var in parents
+                    par_var: list(map(state_name_type, self.variable_states[par_var])) for par_var in parents
                 }
                 state_names[var] = list(map(state_name_type, states))
 
@@ -734,6 +725,4 @@ class NETReader:
             return model
 
         except AttributeError:
-            raise AttributeError(
-                "First get states of variables, edges, parents and network name"
-            )
+            raise AttributeError("First get states of variables, edges, parents and network name")

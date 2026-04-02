@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-protobuf"
-version = "6.32.1.20260221"
+version = "7.34.1.20260402"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for protobuf"
@@ -15,9 +15,9 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`protobuf`](https://github.com/protocolbuffers/protobuf) package. It can be used by type checkers
 to check code that uses `protobuf`. This version of
 `types-protobuf` aims to provide accurate annotations for
-`protobuf~=6.32.1`.
+`protobuf~=7.34.1`.
 
-Partially generated using [mypy-protobuf==3.6.0](https://github.com/nipunn1313/mypy-protobuf/tree/v3.6.0) and libprotoc 31.1 on [protobuf v32.1](https://github.com/protocolbuffers/protobuf/releases/tag/v32.1) (python `protobuf==6.32.1`).
+Partially generated using [mypy-protobuf==3.6.0](https://github.com/nipunn1313/mypy-protobuf/tree/v3.6.0) and libprotoc 34.1 on [protobuf v34.1](https://github.com/protocolbuffers/protobuf/releases/tag/v34.1) (python `protobuf==7.34.1`).
 
 This stub package is marked as [partial](https://typing.python.org/en/latest/spec/distributing.html#partial-stub-packages).
 If you find that annotations are missing, feel free to contribute and help complete them.
@@ -31,11 +31,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.19.1
+* [mypy](https://github.com/python/mypy/) 1.20.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`9e6b58fad088ca14346e6f7ffd80b9d84b83aed1`](https://github.com/python/typeshed/commit/9e6b58fad088ca14346e6f7ffd80b9d84b83aed1).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -54,3 +54,6 @@ dependencies = []
 [tool.setuptools]
 packages = ['google-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'google-stubs' = ['_upb/_message.pyi', 'protobuf/__init__.pyi', 'protobuf/any.pyi', 'protobuf/any_pb2.pyi', 'protobuf/api_pb2.pyi', 'protobuf/compiler/__init__.pyi', 'protobuf/compiler/plugin_pb2.pyi', 'protobuf/descriptor.pyi', 'protobuf/descriptor_database.pyi', 'protobuf/descriptor_pb2.pyi', 'protobuf/descriptor_pool.pyi', 'protobuf/duration.pyi', 'protobuf/duration_pb2.pyi', 'protobuf/empty_pb2.pyi', 'protobuf/field_mask_pb2.pyi', 'protobuf/internal/__init__.pyi', 'protobuf/internal/api_implementation.pyi', 'protobuf/internal/builder.pyi', 'protobuf/internal/containers.pyi', 'protobuf/internal/decoder.pyi', 'protobuf/internal/encoder.pyi', 'protobuf/internal/enum_type_wrapper.pyi', 'protobuf/internal/extension_dict.pyi', 'protobuf/internal/field_mask.pyi', 'protobuf/internal/message_listener.pyi', 'protobuf/internal/python_edition_defaults.pyi', 'protobuf/internal/python_message.pyi', 'protobuf/internal/testing_refleaks.pyi', 'protobuf/internal/type_checkers.pyi', 'protobuf/internal/well_known_types.pyi', 'protobuf/internal/wire_format.pyi', 'protobuf/json_format.pyi', 'protobuf/message.pyi', 'protobuf/message_factory.pyi', 'protobuf/proto.pyi', 'protobuf/proto_builder.pyi', 'protobuf/proto_json.pyi', 'protobuf/proto_text.pyi', 'protobuf/reflection.pyi', 'protobuf/runtime_version.pyi', 'protobuf/service_reflection.pyi', 'protobuf/source_context_pb2.pyi', 'protobuf/struct_pb2.pyi', 'protobuf/symbol_database.pyi', 'protobuf/text_encoding.pyi', 'protobuf/text_format.pyi', 'protobuf/timestamp.pyi', 'protobuf/timestamp_pb2.pyi', 'protobuf/type_pb2.pyi', 'protobuf/unknown_fields.pyi', 'protobuf/util/__init__.pyi', 'protobuf/wrappers_pb2.pyi', 'METADATA.toml', 'protobuf/py.typed']

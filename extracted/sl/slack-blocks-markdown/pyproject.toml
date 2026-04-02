@@ -1,0 +1,109 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "slack-blocks-markdown"
+version = "0.2.1"
+description = "Convert Markdown to Slack Block Kit blocks using mistletoe"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "atacan", email = "info@actondon.com"}
+]
+maintainers = [
+    {name = "atacan", email = "info@actondon.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Chat",
+    "Topic :: Text Processing :: Markup",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = ["slack", "markdown", "blocks", "mistletoe", "converter", "block-kit"]
+requires-python = ">=3.11"
+dependencies = [
+    "mistletoe>=1.4.0",
+    "slack-sdk>=3.36.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+    "pre-commit>=3.0.0",
+]
+test = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/atacan/slack-blocks-markdown"
+Repository = "https://github.com/atacan/slack-blocks-markdown"
+Issues = "https://github.com/atacan/slack-blocks-markdown/issues"
+Documentation = "https://github.com/atacan/slack-blocks-markdown/blob/main/README.md"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=slack_blocks_markdown --cov-report=html --cov-report=term-missing"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90", "I", "N", "UP", "B", "A", "COM", "C4", "EM", "EXE", "ISC", "ICN", "PIE", "PYI", "PT", "Q", "RSE", "RET", "SIM", "TID", "ARG", "PTH", "ERA", "PGH", "RUF"]
+ignore = [
+    "S101",  # Allow assert in tests
+    "EM101",  # Allow string literals in exceptions
+    "EM102",  # Allow f-string literals in exceptions
+    "COM812",  # Trailing comma conflicts with formatter
+    "ISC001",  # Implicit string concatenation conflicts with formatter
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/*" = [
+    "PTH123",  # Allow open() instead of Path.open() in tests
+]
+"examples/*" = [
+    "EXE001",  # Shebang present but file not executable
+    "PTH123",  # Allow open() instead of Path.open() in examples
+]
+"**/renderer.py" = [
+    "ARG002",  # Allow unused method arguments (needed for overrides)
+]
+"slack_blocks_renderer.py" = [
+    "ARG002",  # Allow unused method arguments (needed for overrides)
+]
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 120  # More lenient for strings and comments
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

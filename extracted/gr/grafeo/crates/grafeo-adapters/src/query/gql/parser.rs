@@ -3,33 +3,8 @@
 #[allow(clippy::wildcard_imports)]
 use super::ast::*;
 use super::lexer::{Lexer, Token, TokenKind};
+use crate::query::keywords::unescape_string;
 use grafeo_common::utils::error::{Error, QueryError, QueryErrorKind, Result, SourceSpan};
-
-/// Unescapes backslash-escaped characters in a string literal.
-fn unescape_string(s: &str) -> String {
-    let mut result = String::with_capacity(s.len());
-    let mut chars = s.chars();
-    while let Some(ch) = chars.next() {
-        if ch == '\\' {
-            match chars.next() {
-                Some('n') => result.push('\n'),
-                Some('r') => result.push('\r'),
-                Some('t') => result.push('\t'),
-                Some('\\') => result.push('\\'),
-                Some('\'') => result.push('\''),
-                Some('"') => result.push('"'),
-                Some(other) => {
-                    result.push('\\');
-                    result.push(other);
-                }
-                None => result.push('\\'),
-            }
-        } else {
-            result.push(ch);
-        }
-    }
-    result
-}
 
 /// GQL Parser.
 pub struct Parser<'a> {
@@ -1368,8 +1343,8 @@ impl<'a> Parser<'a> {
                 self.advance(); // consume k
                 return Ok(Some(PathSearchPrefix::AnyK(k)));
             }
-            if next == TokenKind::LParen {
-                // ANY (pattern...) - just ANY prefix
+            // ANY followed by ( or an identifier (path variable: ANY p = ...)
+            if next == TokenKind::LParen || next == TokenKind::Identifier {
                 self.advance(); // consume ANY
                 return Ok(Some(PathSearchPrefix::Any));
             }
@@ -2424,9 +2399,8 @@ impl<'a> Parser<'a> {
                 .map_err(|_| self.error("Invalid path length"))?;
             self.advance();
 
-            if self.current.kind == TokenKind::Dot {
-                self.advance();
-                self.expect(TokenKind::Dot)?; // expect second dot for ..
+            if self.current.kind == TokenKind::DotDot {
+                self.advance(); // consume ..
 
                 if self.current.kind == TokenKind::Integer {
                     let max_text = self.current.text.clone();
@@ -2441,9 +2415,8 @@ impl<'a> Parser<'a> {
             } else {
                 Ok((Some(min), Some(min))) // *n means exactly n hops
             }
-        } else if self.current.kind == TokenKind::Dot {
-            self.advance();
-            self.expect(TokenKind::Dot)?; // expect second dot for ..
+        } else if self.current.kind == TokenKind::DotDot {
+            self.advance(); // consume ..
 
             if self.current.kind == TokenKind::Integer {
                 let max_text = self.current.text.clone();

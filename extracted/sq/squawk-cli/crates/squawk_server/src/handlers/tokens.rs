@@ -2,7 +2,7 @@ use anyhow::Result;
 use log::info;
 use lsp_types::request::Request;
 
-use crate::system::System;
+use crate::global_state::Snapshot;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub(crate) struct TokensParams {
@@ -18,13 +18,13 @@ impl Request for TokensRequest {
     const METHOD: &'static str = "squawk/tokens";
 }
 
-pub(crate) fn handle_tokens(system: &dyn System, params: TokensParams) -> Result<String> {
+pub(crate) fn handle_tokens(snapshot: &Snapshot, params: TokensParams) -> Result<String> {
     let uri = params.text_document.uri;
 
     info!("Generating tokens for: {uri}");
 
-    let db = system.db();
-    let file = system.file(&uri).unwrap();
+    let db = snapshot.db();
+    let file = snapshot.file(&uri).unwrap();
     let content = file.content(db);
 
     // TODO: move this to a tracked function

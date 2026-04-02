@@ -1,24 +1,34 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) 2016  Fabio Falcinelli, Maximilian Hils
+# SPDX-License-Identifier: LGPL-3.0-or-later OR GPL-2.0-or-later
+# Copyright (C) 2026  Fabio Falcinelli, Maximilian Hils
 #
 # This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# it under the terms of either:
+#
+# 1) The GNU Lesser General Public License as published by the Free
+#    Software Foundation, either version 3 of the License, or (at your
+#    option) any later version.
+#
+# 2) The GNU General Public License as published by the Free Software
+#    Foundation, either version 2 of the License, or (at your option)
+#    any later version.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Lesser General Public License for more details.
+# GNU Lesser General Public License and the GNU General Public License
+# for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# and the GNU General Public License along with this program.  If not,
+# see <http://www.gnu.org/licenses/>.
+
 import itertools
 import socket
 import threading
 
-import pydivert
 import pytest
+
+import pydivert
 
 try:
     from queue import Queue
@@ -32,10 +42,15 @@ def windivert_handle():
         yield w
 
 
-@pytest.fixture(params=list(itertools.product(
-    ("ipv4", "ipv6"),
-    ("tcp", "udp"),
-)), ids=lambda x: ",".join(x))
+@pytest.fixture(
+    params=list(
+        itertools.product(
+            ("ipv4", "ipv6"),
+            ("tcp", "udp"),
+        )
+    ),
+    ids=lambda x: ",".join(x),
+)
 def scenario(request):
     ip_version, proto = request.param
 
@@ -58,6 +73,7 @@ def scenario(request):
     reply = Queue()
 
     if proto == "tcp":
+
         def server_echo():
             server.listen(1)
             conn, addr = server.accept()
@@ -69,6 +85,7 @@ def scenario(request):
             client.sendall(data)
             reply.put(client.recv(4096))
     else:
+
         def server_echo():
             data, addr = server.recvfrom(4096)
             server.sendto(data.upper(), addr)
@@ -82,11 +99,7 @@ def scenario(request):
     server_thread = threading.Thread(target=server_echo)
     server_thread.start()
 
-    filt = "{proto}.SrcPort == {c_port} or {proto}.SrcPort == {s_port}".format(
-        proto=proto,
-        c_port=client.getsockname()[1],
-        s_port=server.getsockname()[1]
-    )
+    filt = f"{proto}.SrcPort == {client.getsockname()[1]} or {proto}.SrcPort == {server.getsockname()[1]}"
 
     def send_thread(*args, **kwargs):
         threading.Thread(target=send, args=args, kwargs=kwargs).start()

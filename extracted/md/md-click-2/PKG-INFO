@@ -1,0 +1,111 @@
+Metadata-Version: 2.2
+Name: md-click-2
+Version: 0.0.1
+Summary: A fork. A command line tool for automatically generating .md files from click's CLI command.
+Author: Rivery
+License: BSD 3-Clause License
+        
+        Copyright (c) 2021, Rivery
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        1. Redistributions of source code must retain the above copyright notice, this
+           list of conditions and the following disclaimer.
+        
+        2. Redistributions in binary form must reproduce the above copyright notice,
+           this list of conditions and the following disclaimer in the documentation
+           and/or other materials provided with the distribution.
+        
+        3. Neither the name of the copyright holder nor the names of its
+           contributors may be used to endorse or promote products derived from
+           this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Topic :: Documentation
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Topic :: Software Development :: Documentation
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: Markup :: Markdown
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: click>=7.0
+Requires-Dist: build<2.0.0,>=1.2.2.post1
+
+# MD Click
+MD-Click is a command line tool for creating `.md` files for any python's click CLI projects.
+
+# The Problem
+After creating new CLI project using click, we couldn't found out any tool that generates automatic
+`.md` files documentation per each command. This is the reason we've create this quick and easy tool.
+
+# The Solution
+MD-Click creates `.md` files per each command exists under the `click` project CLI.
+The tool runs recursively and generates a markdown file per each command, and sub commands.
+
+# Installation
+
+Just install it using pip:
+```bash
+> pip install md-click
+```
+
+# Usage
+
+Create md files per each command, in format of `parent-command`, under the `--docsPath` directory.
+
+for example, we have the next click python module:
+
+```python
+# app/cli.py
+import click
+
+@click.group('namer')
+@click.option('--debug', help='Should I run on Debug?', is_flag=True)
+def main(**kwargs):
+  """ A namer CLI """
+  debug = kwargs.get('debug')
+  if debug:
+    click.secho('is Debug? True', color='green')
+
+@main.command('full')
+@click.option('--name', help='The user name', required=True, type=str)
+@click.option('--lastName', help='The last Name', required=False, type=str)
+def full_name(**kwargs):
+    """ A CLI that gets name and last name and returns the full name"""
+    firstname = kwargs.get('name')
+    lastname = kwargs.get('lastname')
+    
+    click.secho(f'The full name is: {firstname} {lastname}', color='yellow')
+```
+
+and we want to create a nice md files per each command, we'll run the next cli command:
+
+```shell
+> mdclick dumps --baseModule=app.cli --baseCommand=main --docPath=./docs/commands
+```
+
+The output:
+
+```shell
+./docs/commands/namer.md
+./docs/commands/namer-full.md
+```
+
+As you can assume, all of the markdown files under `docs/commands` in this repository, generated automatically by `mdclick` command.
+Use them as a reference.
+

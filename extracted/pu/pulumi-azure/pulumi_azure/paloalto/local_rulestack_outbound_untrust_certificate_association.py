@@ -22,6 +22,7 @@ class LocalRulestackOutboundUntrustCertificateAssociationArgs:
                  certificate_id: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a LocalRulestackOutboundUntrustCertificateAssociation resource.
+
         :param pulumi.Input[_builtins.str] certificate_id: The ID of the Certificate to use as the Outbound Untrust Certificate. Changing this forces a new Palo Alto Networks Rulestack Outbound Untrust Certificate Association to be created.
         """
         pulumi.set(__self__, "certificate_id", certificate_id)
@@ -45,6 +46,7 @@ class _LocalRulestackOutboundUntrustCertificateAssociationState:
                  certificate_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering LocalRulestackOutboundUntrustCertificateAssociation resources.
+
         :param pulumi.Input[_builtins.str] certificate_id: The ID of the Certificate to use as the Outbound Untrust Certificate. Changing this forces a new Palo Alto Networks Rulestack Outbound Untrust Certificate Association to be created.
         """
         if certificate_id is not None:
@@ -99,7 +101,8 @@ class LocalRulestackOutboundUntrustCertificateAssociation(pulumi.CustomResource)
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `PaloAltoNetworks.Cloudngfw` - 2022-08-29
+        * `PaloAltoNetworks.Cloudngfw` - 2025-10-08
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -139,7 +142,8 @@ class LocalRulestackOutboundUntrustCertificateAssociation(pulumi.CustomResource)
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `PaloAltoNetworks.Cloudngfw` - 2022-08-29
+        * `PaloAltoNetworks.Cloudngfw` - 2025-10-08
+
 
         :param str resource_name: The name of the resource.
         :param LocalRulestackOutboundUntrustCertificateAssociationArgs args: The arguments to use to populate this resource's properties.

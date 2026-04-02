@@ -1,0 +1,55 @@
+[project]
+name = "sleipnirgroup-jormungandr"
+description = "Reverse mode autodiff library and NLP solver DSL"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["matplotlib", "numpy", "scipy"]
+dynamic = ["version"]
+license = "BSD-3-Clause"
+license-files = ["LICENSE.txt"]
+
+  [project.urls]
+  Documentation = "https://sleipnirgroup.github.io/Sleipnir/"
+
+[build-system]
+requires = [
+  "nanobind",
+  "py-build-cmake~=0.5.0",
+  "pybind11-mkdoc",
+]
+build-backend = "py_build_cmake.build"
+
+[tool.py-build-cmake.cmake]
+build_type = "Release"
+source_path = "."
+build_args = ["--target", "_sleipnir"]
+install_components = ["python_modules"]
+install_args = []
+
+  [tool.py-build-cmake.cmake.options]
+  BUILD_TESTING = "OFF"
+  BUILD_PYTHON = "ON"
+
+[tool.py-build-cmake.module]
+name = "sleipnir"
+directory = "python/src"
+
+[tool.py-build-cmake.sdist]
+include = [
+  "CMakeLists.txt",
+  "SleipnirConfig.cmake.in",
+  "cmake/*.cmake",
+  "include",
+  "python",
+  "src"
+]
+exclude = []
+
+[tool.py-build-cmake.wheel]
+platform_tag = "guess"
+python_abi = "abi3"
+abi3_minimum_cpython_version = 312
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["python/test", "examples/CurrentManager/test"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-setuptools
-Version: 82.0.0.20260210
+Version: 82.0.0.20260402
 Summary: Typing stubs for setuptools
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -33,8 +33,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.19.1
+* [mypy](https://github.com/python/mypy/) 1.20.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`665cb9b0110b3311b09df9fd774da1cd3768364a`](https://github.com/python/typeshed/commit/665cb9b0110b3311b09df9fd774da1cd3768364a).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).

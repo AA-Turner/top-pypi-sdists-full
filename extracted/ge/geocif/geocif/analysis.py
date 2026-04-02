@@ -11,6 +11,7 @@ from typing import List
 import arrow as ar
 import geopandas as gpd
 import matplotlib.pyplot as plt
+plt.style.use("default")
 import numpy as np
 import palettable as pal
 import pandas as pd
@@ -186,6 +187,8 @@ class Geoanalysis:
 
     def analyze(self):
         self.logger.info(f"Analyze {self.country} {self.crop}")
+
+        self._plot_yield_with_ci(self.df_analysis)
 
         df = self._clean_data()
         if df.empty:
@@ -674,6 +677,67 @@ class Geoanalysis:
         fig.savefig(self.dir_country_plots / fname, dpi=250)
         plt.close(fig)
 
+    def _plot_yield_with_ci(self, df):
+        """Forest plot of predicted yield with CI and median yield reference."""
+        self.logger.info(f"_plot_yield_with_ci: df shape={df.shape}, columns={list(df.columns)}")
+        if "lower CI" not in df.columns or "upper CI" not in df.columns:
+            self.logger.warning("_plot_yield_with_ci: 'lower CI' or 'upper CI' column missing, skipping")
+            return
+        n_ci = df[["lower CI", "upper CI"]].notna().all(axis=1).sum()
+        self.logger.info(f"_plot_yield_with_ci: {n_ci} rows with non-null CI out of {len(df)}")
+        df_ci = df.dropna(subset=["lower CI", "upper CI"])
+        if df_ci.empty:
+            self.logger.warning("_plot_yield_with_ci: no rows with CI data, skipping")
+            return
+
+        # Use latest stage per region
+        df_ci = (
+            df_ci.sort_values("Stage Name")
+            .groupby("Region")
+            .last()
+            .reset_index()
+            .sort_values(self.predicted)
+        )
+
+        median_col = "Median Yield (tn per ha) (2018-2022)"
+        if f"{median_col}_y" in df_ci.columns:
+            median_col = f"{median_col}_y"
+        has_median = median_col in df_ci.columns and df_ci[median_col].notna().any()
+
+        fig, ax = plt.subplots(figsize=(8, max(4, len(df_ci) * 0.4)))
+        y = range(len(df_ci))
+
+        # CI error bars
+        xerr_low = df_ci[self.predicted].values - df_ci["lower CI"].values
+        xerr_high = df_ci["upper CI"].values - df_ci[self.predicted].values
+        ax.errorbar(
+            df_ci[self.predicted].values, y,
+            xerr=[xerr_low, xerr_high],
+            fmt="o", color="steelblue", capsize=3, label="Predicted \u00b1 CI",
+        )
+
+        # Median yield markers
+        if has_median:
+            ax.scatter(
+                df_ci[median_col].values, y,
+                marker="D", color="darkorange", zorder=5,
+                s=30, label="Median (2018-2022)",
+            )
+
+        ax.set_yticks(list(y))
+        ax.set_yticklabels(df_ci["Region"].values, fontsize=8)
+        ax.set_xlabel("Yield (tn per ha)")
+        ax.set_title(
+            f"Predicted Yield with CI \u2014 {self.country} {self.crop}",
+            fontsize=11, fontweight="bold",
+        )
+        ax.legend(fontsize=8, loc="lower right")
+        plt.tight_layout()
+
+        fname = f"yield_ci_{self.country}_{self.crop}.png"
+        fig.savefig(self.dir_country_plots / fname, dpi=250)
+        plt.close(fig)
+
     def _plot_national_yield(self, df_national_yield):
         from sklearn.metrics import (
             mean_squared_error,
@@ -871,13 +935,14 @@ class Geoanalysis:
                 * 100.0
             )
 
-        # Compute the yield from the last year
-        # Add a column called Ratio Last Year that is the ratio between the predicted yield and the last year yield
-        # self.df_analysis["Ratio Last Year"] = (
-        #     self.df_analysis[self.predicted]
-        #     * 100.0
-        #     / self.df_analysis[f"Last Year Yield (tn per ha)"]
-        # )
+        # Ratio of predicted yield to last observed yield (%)
+        last_obs_col = "Last Observed Yield (tn per ha)"
+        if last_obs_col in self.df_analysis.columns:
+            self.df_analysis["Ratio Last Observed"] = (
+                self.df_analysis[self.predicted]
+                / self.df_analysis[last_obs_col]
+                * 100.0
+            )
 
         return self.df_analysis
 
@@ -1091,6 +1156,31 @@ class Geoanalysis:
                                 extend=_extend,
                             )
 
+                        # Ratio of predicted to last observed yield
+                        if "Ratio Last Observed" in df_country.columns and df_country["Ratio Last Observed"].notna().any():
+                            fname = f"ratio_last_observed_{country_key}_{self.crop}_{model}_{country_time_label}_{year}.png"
+                            _rmin = df_country["Ratio Last Observed"].min()
+                            _rmax = df_country["Ratio Last Observed"].max()
+                            _extend = "both" if _rmin < 60 and _rmax > 140 else "min" if _rmin < 60 else "max" if _rmax > 140 else "neither"
+                            plot.plot_map(
+                                self.dg,
+                                df_country,
+                                merge_col="Country Region",
+                                name_country=[country],
+                                name_col="Ratio Last Observed",
+                                dir_out=dir_country,
+                                fname=fname,
+                                label=f"% of Last Observed Yield\n{self.crop.title()}, {year}",
+                                vmin=60,
+                                vmax=140,
+                                cmap=pal.colorbrewer.diverging.BrBG_11,
+                                series="diverging",
+                                annotate_regions=self.annotate_regions,
+                                annotate_region_column=annotate_region_column,
+                                loc_legend="lower left",
+                                extend=_extend,
+                            )
+
                     # Consolidated multi-country maps
                     # Only include countries that have data for this year
                     countries_with_data = [
@@ -1149,26 +1239,30 @@ class Geoanalysis:
                                 extend=_extend,
                             )
 
-                    """ Ratio of Predicted to last Year Yield """
-                    # fname = f"{self.country}_{self.crop}_{time_period}_{year}_ratio_last_year_yield.png"
-                    # plot.plot_map(
-                    #     self.dg,  # dataframe containing adm1 name and polygon
-                    #     df_time_period,  # dataframe containing information that will be mapped
-                    #     merge_col="Country Region",  # Column on which to merge
-                    #     name_country=countries,  # Plot global map
-                    #     name_col="Ratio Last Year",  # Which column to plot
-                    #     dir_out=self.plot_dir / str(year),  # Output directory
-                    #     fname=fname,  # Output file name
-                    #     label=f"Ratio Last Year to {self.predicted}\n{self.crop.title()}, {time_period} {year}",
-                    #     vmin=df_time_period["Ratio Last Year"].min(),
-                    #     vmax=df_time_period["Ratio Last Year"].max(),
-                    #     cmap=pal.scientific.sequential.Bamako_20_r,
-                    #     series="sequential",
-                    #     show_bg=False,
-                    #     annotate_regions=True,
-                    #     annotate_region_column=annotate_region_column,
-                    #     loc_legend="lower left",
-                    # )
+                    # Consolidated ratio of predicted to last observed yield
+                    if len(countries_with_data) > 1 and "Ratio Last Observed" in df_time_period.columns and df_time_period["Ratio Last Observed"].notna().any():
+                        fname = f"{consolidated_prefix}_{self.crop}_{model}_ratio_last_observed_{time_period_label}_{year}.png"
+                        _rmin = df_time_period["Ratio Last Observed"].min()
+                        _rmax = df_time_period["Ratio Last Observed"].max()
+                        _extend = "both" if _rmin < 60 and _rmax > 140 else "min" if _rmin < 60 else "max" if _rmax > 140 else "neither"
+                        plot.plot_map(
+                            self.dg,
+                            df_time_period,
+                            merge_col="Country Region",
+                            name_country=countries_with_data,
+                            name_col="Ratio Last Observed",
+                            dir_out=dir_consolidated,
+                            fname=fname,
+                            label=f"% of Last Observed Yield\n{self.crop.title()}, {year}",
+                            vmin=60,
+                            vmax=140,
+                            cmap=pal.colorbrewer.diverging.BrBG_11,
+                            series="diverging",
+                            annotate_regions=self.annotate_regions,
+                            annotate_region_column=annotate_region_column,
+                            loc_legend="lower left",
+                            extend=_extend,
+                        )
 
                     # Area
                     # breakpoint()

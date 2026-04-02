@@ -52,8 +52,8 @@ class TestProcessor(TypedTestCase):
         )
         self.create_converter(options).process(self.sample_dir / "code.md")
 
-        self.assertTrue((self.out_dir / "code.csf").exists())
-        self.assertFalse((self.sample_dir / "code.csf").exists())
+        self.assertTrue((self.out_dir / "code.csf").is_file())
+        self.assertFalse((self.sample_dir / "code.csf").is_file())
 
     def test_process_directory(self) -> None:
         options = ProcessorOptions(
@@ -68,11 +68,11 @@ class TestProcessor(TypedTestCase):
 
         self.create_converter(options).process(self.sample_dir)
 
-        self.assertTrue((self.out_dir / "index.csf").exists())
-        self.assertTrue((self.out_dir / "sibling.csf").exists())
-        self.assertTrue((self.out_dir / "code.csf").exists())
-        self.assertTrue((self.out_dir / "parent" / "child.csf").exists())
-        self.assertFalse((self.sample_dir / "index.csf").exists())
+        self.assertTrue((self.out_dir / "index.csf").is_file())
+        self.assertTrue((self.out_dir / "sibling.csf").is_file())
+        self.assertTrue((self.out_dir / "code.csf").is_file())
+        self.assertTrue((self.out_dir / "parent" / "child.csf").is_file())
+        self.assertFalse((self.sample_dir / "index.csf").is_file())
 
     def test_generated_by(self) -> None:
         options = ProcessorOptions(
@@ -90,9 +90,7 @@ class TestProcessor(TypedTestCase):
 
         csf_path = self.out_dir / "index.csf"
         self.assertTrue(csf_path.exists())
-
-        with open(csf_path, "r", encoding="utf-8") as f:
-            content = f.read()
+        content = csf_path.read_text(encoding="utf-8")
 
         generated_by_html = (
             '<ac:structured-macro ac:name="info" ac:schema-version="1">'

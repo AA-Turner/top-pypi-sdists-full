@@ -1,0 +1,396 @@
+# Copyright 2018 The Nuclio Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+---
+name: Start code
+function name: None
+cells:
+  - |
+    a = 1
+  - b = 2
+  - |
+    # nuclio: start-code
+  - c = 3
+  - d = 4
+expected: |
+  c = 3
+
+  d = 4
+---
+name: End code
+function name: None
+cells:
+  - a = 1
+  - b = 2
+  - |
+    # nuclio: end-code
+    c = 3
+  - d = 4
+expected: |
+  a = 1
+
+  b = 2
+---
+name: End code with name
+function name: my-function
+cells:
+  - a = 1
+  - b = 2
+  - |
+    # nuclio: end-code my-function
+    c = 3
+  - d = 4
+expected: |
+  a = 1
+
+  b = 2
+---
+name: Multiple functions top function
+function name: my-function
+cells:
+  - a = 1
+  - |
+    # nuclio: start-code my-function
+  - b = 2
+  - |
+    # nuclio: end-code my-function
+  - d = 4
+  - |
+    # nuclio: start-code another-function
+  - e = 2
+  - |
+    # nuclio: end-code another-function
+expected: |
+  b = 2
+---
+name: Multiple functions bottom function
+function name: another-function
+cells:
+  - a = 1
+  - |
+    # nuclio: start-code my-function
+  - b = 2
+  - |
+    # nuclio: end-code my-function
+  - d = 4
+  - |
+    # nuclio: start-code another-function
+  - e = 2
+  - |
+    # nuclio: end-code another-function
+expected: |
+  e = 2
+---
+name: Nameless function with named complete
+function name: None
+cells:
+  - a = 1
+  - |
+    # nuclio: start-code
+  - b = 2
+  - |
+    # nuclio: end-code
+  - c = 3
+  - |
+    # nuclio: start-code another-function
+  - d = 4
+  - |
+    # nuclio: end-code another-function
+  - e = 2
+expected: |
+  b = 2
+---
+name: Named with nameless complete
+function name: another-function
+cells:
+  - a = 1
+  - |
+    # nuclio: start-code
+  - b = 2
+  - |
+    # nuclio: end-code
+  - c = 3
+  - |
+    # nuclio: start-code another-function
+  - d = 4
+  - |
+    # nuclio: end-code another-function
+  - e = 2
+expected: |
+  d = 4
+---
+name: Nameless function with multi sections
+function name: None
+cells:
+  - a = 1
+  - |
+    # nuclio: start-code
+  - b = 2
+  - |
+    # nuclio: end-code
+  - c = 3
+  - |
+    # nuclio: start-code
+  - d = 4
+  - |
+    # nuclio: end-code
+  - e = 2
+expected: |
+  b = 2
+
+  d = 4
+---
+name: Named function with multi sections
+function name: my-function
+cells:
+  - a = 1
+  - |
+    # nuclio: start-code my-function
+  - b = 2
+  - |
+    # nuclio: end-code my-function
+  - c = 3
+  - |
+    # nuclio: start-code my-function
+  - d = 4
+  - |
+    # nuclio: end-code my-function
+  - e = 2
+expected: |
+  b = 2
+
+  d = 4
+---
+name: Named function end with nameless Start
+function name: my-function
+cells:
+  - a = 1
+  - b = 2
+  - |
+    # nuclio: end-code my-function
+  - |
+    # nuclio: start-code
+  - c = 3
+  - d = 4
+  - e = 2
+expected: |
+  a = 1
+
+  b = 2
+---
+name: Nameless function start with named End
+function name: none
+cells:
+  - a = 1
+  - b = 2
+  - |
+    # nuclio: end-code my-function
+  - |
+    # nuclio: start-code
+  - c = 3
+  - d = 4
+  - e = 2
+expected: |
+  c = 3
+
+  d = 4
+
+  e = 2
+
+---
+name: Overlap nameless with named function
+function name: none
+cells:
+  - |
+    # nuclio: start-code
+  - a = 1
+  - b = 2
+  - |
+    # nuclio: end-code my-function
+  - d = 4
+  - e = 2
+expected: |
+  a = 1
+
+  b = 2
+
+  d = 4
+
+  e = 2
+---
+name: Overlap named with nameless function
+function name: my-function
+cells:
+  - |
+    # nuclio: start-code
+  - a = 1
+  - b = 2
+  - |
+    # nuclio: end-code my-function
+  - d = 4
+  - e = 2
+expected: |
+  a = 1
+
+  b = 2
+---
+name: Start code overlap with named function
+function name: my-function
+cells:
+  - a = 1
+  - |
+    # nuclio: start-code my-function
+  - b = 2
+  - |
+    # nuclio: end-code another-function
+  - d = 4
+  - e = 2
+  - |
+    # nuclio: end-code my-function
+expected: |
+  b = 2
+
+  d = 4
+
+  e = 2
+---
+name: End code overlap named function
+function name: another-function
+cells:
+  - a = 1
+  - |
+    # nuclio: start-code my-function
+  - b = 2
+  - |
+    # nuclio: end-code another-function
+  - d = 4
+  - e = 2
+  - |
+    # nuclio: end-code my-function
+expected: |
+  a = 1
+
+  b = 2
+---
+name: End code overlap named with nameless function
+function name: my-function
+cells:
+  - a = 1
+  - |
+    # nuclio: start-code my-function
+  - b = 2
+  - |
+    # nuclio: end-code
+  - d = 4
+  - e = 2
+  - |
+    # nuclio: end-code my-function
+expected: |
+  b = 2
+
+  d = 4
+
+  e = 2
+---
+name: End code overlap nameless with named fucntion
+function name: None
+cells:
+  - a = 1
+  - |
+    # nuclio: start-code my-function
+  - b = 2
+  - |
+    # nuclio: end-code
+  - d = 4
+  - e = 2
+  - |
+    # nuclio: end-code my-function
+expected: |
+  a = 1
+
+  b = 2
+---
+name: Line magic with code
+function name: None
+cells:
+  - a = 1
+  - b = 2
+  - |
+    %nuclio cmd ls ${HOME}
+    c = 3
+  - |
+    # nuclio: end-code
+  - d = 4
+expected: |
+  a = 1
+
+  b = 2
+
+  c = 3
+---
+name: End code in the middle of a cell
+function name: None
+cells:
+  - |
+    a = 1
+    # nuclio: end-code
+    b = 2
+expected: |
+  a = 1
+---
+name: Start code in the middle of a cell
+function name: None
+cells:
+  - |
+    a = 1
+    # nuclio: start-code
+    b = 2
+expected: |
+  b = 2
+---
+name: Start code and end code in the middle of a cell
+function name: None
+cells:
+  - |
+    a = 1
+    # nuclio: start-code
+    b = 2
+    # nuclio: end-code
+    c = 3
+expected: |
+  b = 2
+---
+name: Commented cell magic after start code in cell
+function name: None
+cells:
+  - b = 2
+  - |
+    # nuclio: start-code
+    # %%nuclio cmd ls ${HOME}
+  - d = 4
+expected: |
+  d = 4
+---
+name: User comment in code
+function name: None
+cells:
+  - b = 2
+  - |
+    # nuclio: start-code
+    # comment
+  - d = 4
+expected: |
+  # comment
+
+  d = 4

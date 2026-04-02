@@ -89,6 +89,15 @@ DYNAMICS_LINE_STYLE = {
     "lineJoin": "round",
 }
 
+MOW_PROGRESS_STYLE = {
+    "color": "#00FF7F",  # spring green — overlaid on the planned path to show completed portion
+    "weight": 3,
+    "opacity": 0.9,
+    "dashArray": "",
+    "lineCap": "round",
+    "lineJoin": "round",
+}
+
 # path_type=0: main mow stripes (弓 arch pattern)
 MOW_STRIPE_STYLE = {
     "color": "green",
@@ -230,6 +239,103 @@ class GeojsonGenerator:
                 "geometry": {"type": "LineString", "coordinates": lonlat_coords},
             }
         )
+        return geo_json
+
+    @staticmethod
+    def generate_mow_progress_geojson(
+        hash_list: HashList,
+        now_index: int,
+        rtk_location: Point,
+        ub_path_hash: int = 0,
+        path_pos: tuple[float, float] | None = None,
+    ) -> GeoJSONCollection:
+        """Generate a GeoJSON FeatureCollection showing the remaining mow path portion.
+
+        Filters ``hash_list.current_mow_path`` packets to those whose ``path_hash``
+        matches ``ub_path_hash``, then slices from ``now_index`` onwards to produce
+        the remaining (not-yet-mowed) portion of the planned path.
+
+        When ``path_pos`` is provided (ENU metres decoded from ``report_data.work.path_pos_x/y``),
+        it is prepended as the precise starting coordinate — matching APK behaviour where the
+        current device position begins the remaining-path line.  Without it the function falls back
+        to starting from ``all_points[now_index - 1]``.
+
+        Args:
+            hash_list:    HashList containing ``current_mow_path`` data.
+            now_index:    Current path position index from ``report_data.work.now_index``
+                          or ``mowing_state.now_index``.  Points 0..now_index are completed.
+            rtk_location: Shapely ``Point(latitude, longitude)`` for the RTK base station.
+            ub_path_hash: The path hash from ``report_data.work.ub_path_hash`` used to
+                          filter the correct path packets.  Pass 0 to include all packets.
+            path_pos:     Optional ``(x_metres, y_metres)`` ENU position of the device
+                          (``report_data.work.path_pos_x / 10000``, same for y``).
+                          When non-zero this replaces the ``now_index - 1`` fallback start point.
+
+        Returns:
+            GeoJSON FeatureCollection with zero or one LineString features.
+
+        """
+        geo_json: GeoJSONCollection = {
+            "type": "FeatureCollection",
+            "name": "Mow Progress",
+            "features": [],
+        }
+
+        if now_index <= 0 or not hash_list.current_mow_path:
+            return geo_json
+
+        # Collect matching packets grouped by path_type so each type becomes a separate
+        # feature (matching the structure of generate_mow_path_geojson).
+        # Frames are iterated in sorted order — same traversal used by _process_mow_map_objects —
+        # so that generate_mow_progress_geojson at now_index=1 produces identical coordinates
+        # to the planned mow path geojson.
+        points_by_type: dict[int, list[CommDataCouple]] = {}
+        total_by_type: dict[int, int] = {}
+        for transaction_id in sorted(hash_list.current_mow_path.keys()):
+            frames = hash_list.current_mow_path[transaction_id]
+            for frame_idx in sorted(frames.keys()):
+                mow_path = frames[frame_idx]
+                for packet in mow_path.path_packets:
+                    if ub_path_hash == 0 or packet.path_hash == ub_path_hash:
+                        points_by_type.setdefault(packet.path_type, []).extend(packet.data_couple)
+
+        for path_type in points_by_type:
+            total_by_type[path_type] = len(points_by_type[path_type])
+
+        # Build remaining path per type: APK does path[nowIndex:] then prepends the exact
+        # device position (path_pos_x/y) as the first point so the line begins at the
+        # mower's current location rather than the next planned waypoint.
+        for path_type, all_points in sorted(points_by_type.items()):
+            if path_pos is not None and (path_pos[0] != 0.0 or path_pos[1] != 0.0):
+                remaining: list[CommDataCouple] = [CommDataCouple(x=path_pos[0], y=path_pos[1])] + all_points[
+                    now_index:
+                ]
+            else:
+                # Fallback: start one point before nowIndex to include the current section.
+                start = max(0, now_index - 1)
+                remaining = all_points[start:]
+
+            if len(remaining) < 2:
+                continue
+
+            lonlat_coords: CoordinateList = GeojsonGenerator._convert_to_lonlat_coords(remaining, rtk_location)
+            length, _ = GeojsonGenerator.map_object_stats(remaining)
+
+            geo_json["features"].append(
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "type_name": "mow_progress",
+                        "path_type": path_type,
+                        "point_count": len(remaining),
+                        "now_index": now_index,
+                        "total_points": total_by_type[path_type],
+                        "length": length,
+                        **MOW_PROGRESS_STYLE,
+                    },
+                    "geometry": {"type": "LineString", "coordinates": lonlat_coords},
+                }
+            )
         return geo_json
 
     @staticmethod

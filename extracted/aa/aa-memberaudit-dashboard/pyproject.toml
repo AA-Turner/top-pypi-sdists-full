@@ -1,0 +1,57 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+    "hatchling",
+]
+
+[project]
+name = "aa-memberaudit-dashboard"
+description = "Dashboard Addon for Member Audit"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Geuthur", email = "devgeuthur@gmail.com" },
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+dynamic = [
+    "version",
+]
+dependencies = [
+    "aa-memberaudit",
+    "allianceauth>=4.8,<5",
+    "allianceauth-app-utils>=1.26",
+]
+optional-dependencies.tests-allianceauth-latest = [
+    "coverage",
+    "factory-boy",
+]
+urls.Changelog = "https://github.com/Geuthur/aa-memberaudit-dashboard/blob/master/CHANGELOG.md"
+urls.Documentation = "https://github.com/Geuthur/aa-memberaudit-dashboard/blob/master/README.md"
+urls.Donations = "https://ko-fi.com/Geuthur"
+urls.Homepage = "https://github.com/Geuthur/aa-memberaudit-dashboard"
+urls.Source = "https://github.com/Geuthur/aa-memberaudit-dashboard"
+urls.Tracker = "https://github.com/Geuthur/aa-memberaudit-dashboard/issues"
+
+[tool.hatch.build]
+include = [
+    "/madashboard",
+]
+
+[tool.hatch.version]
+path = "madashboard/__init__.py"

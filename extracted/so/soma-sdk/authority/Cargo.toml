@@ -1,0 +1,77 @@
+[package]
+name = "authority"
+edition = "2024"
+version.workspace = true
+
+[dependencies]
+sync.workspace = true
+consensus.workspace = true
+types.workspace = true
+blobs.workspace = true
+bytes.workspace = true
+utils.workspace = true
+protocol-config.workspace = true
+# test-cluster.workspace = true
+enum_dispatch.workspace = true
+tracing.workspace = true
+parking_lot.workspace = true
+tokio.workspace = true
+serde.workspace = true
+fastcrypto.workspace = true
+futures.workspace = true
+async-trait.workspace = true
+bcs.workspace = true
+eyre.workspace = true
+tonic.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tap.workspace = true
+itertools.workspace = true
+nonempty.workspace = true
+arc-swap.workspace = true
+tower.workspace = true
+msim.workspace = true
+tonic-health.workspace = true
+store.workspace = true
+tempfile.workspace = true
+object_store.workspace = true
+url.workspace = true
+pin-project-lite.workspace = true
+rand.workspace = true
+soma-http.workspace = true
+serde_json.workspace = true
+tokio-rustls.workspace = true
+tower-http.workspace = true
+http.workspace = true
+soma-tls.workspace = true
+tonic-prost.workspace = true
+mockall = "0.11.4"
+strum = { version = "0.27.2", features = ["derive"] }
+strum_macros = "0.27.2"
+dashmap = "6.1.0"
+lru = "0.10"
+num_cpus = "1.17.0"
+moka = { version = "0.12", default-features = false, features = [
+    "sync",
+    "atomic64",
+] }
+bincode.workspace = true
+once_cell = { version = "1.21.3" }
+axum.workspace = true
+hex = "0.4"
+rpc.workspace = true
+sdk.workspace = true
+runtime.workspace = true
+scoring = { workspace = true, default-features = false }
+burn.workspace = true
+sysinfo = "0.35.2"
+diffy = { version = "0.3", default-features = false }
+im = "15"
+either = "1.15.0"
+
+[build-dependencies]
+tonic-build.workspace = true
+tonic-prost-build.workspace = true
+
+[lints]
+workspace = true

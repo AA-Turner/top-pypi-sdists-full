@@ -4,7 +4,7 @@
 
 use crate::options::preprocessing::PreprocessingOptions;
 use crate::options::validation::{
-    CodeBlockStyle, HeadingStyle, HighlightStyle, ListIndentType, NewlineStyle, OutputFormat, WhitespaceMode,
+    CodeBlockStyle, HeadingStyle, HighlightStyle, LinkStyle, ListIndentType, NewlineStyle, OutputFormat, WhitespaceMode,
 };
 
 /// Main conversion options for HTML to Markdown conversion.
@@ -94,6 +94,8 @@ pub struct ConversionOptions {
     pub preserve_tags: Vec<String>,
     /// Skip conversion of `<img>` elements (omit images from output).
     pub skip_images: bool,
+    /// Link rendering style (inline or reference).
+    pub link_style: LinkStyle,
     /// Target output format (Markdown, plain text, etc.).
     pub output_format: OutputFormat,
     /// Include structured document tree in result.
@@ -142,6 +144,7 @@ impl Default for ConversionOptions {
             strip_tags: Vec::new(),
             preserve_tags: Vec::new(),
             skip_images: false,
+            link_style: LinkStyle::default(),
             output_format: OutputFormat::default(),
             include_document_structure: false,
             extract_images: false,
@@ -207,6 +210,7 @@ impl ConversionOptionsBuilder {
     builder_setter!(newline_style, NewlineStyle);
     builder_setter!(highlight_style, HighlightStyle);
     builder_setter_into!(code_language, String);
+    builder_setter!(link_style, LinkStyle);
     builder_setter!(autolinks, bool);
     builder_setter!(default_title, bool);
     builder_setter!(br_in_tables, bool);
@@ -356,6 +360,8 @@ pub struct ConversionOptionsUpdate {
     pub preserve_tags: Option<Vec<String>>,
     /// Optional override for [`ConversionOptions::skip_images`].
     pub skip_images: Option<bool>,
+    /// Optional override for [`ConversionOptions::link_style`].
+    pub link_style: Option<LinkStyle>,
     /// Optional override for [`ConversionOptions::output_format`].
     pub output_format: Option<OutputFormat>,
     /// Optional override for [`ConversionOptions::include_document_structure`].
@@ -410,6 +416,7 @@ impl ConversionOptions {
         apply!(strip_tags);
         apply!(preserve_tags);
         apply!(skip_images);
+        apply!(link_style);
         apply!(output_format);
         apply!(include_document_structure);
         apply!(extract_images);

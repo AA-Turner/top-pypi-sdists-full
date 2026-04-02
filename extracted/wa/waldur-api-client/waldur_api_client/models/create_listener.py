@@ -1,0 +1,139 @@
+from collections.abc import Mapping
+from typing import Any, TypeVar, Union, cast
+from uuid import UUID
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+
+from ..models.load_balancer_protocol_enum import LoadBalancerProtocolEnum
+from ..types import UNSET, Unset
+
+T = TypeVar("T", bound="CreateListener")
+
+
+@_attrs_define
+class CreateListener:
+    """
+    Attributes:
+        url (str):
+        uuid (UUID):
+        load_balancer (str): Load balancer this listener belongs to
+        name (str):
+        protocol (LoadBalancerProtocolEnum):
+        protocol_port (int): Port on which the listener listens
+        project (str):
+        service_settings (str):
+        default_pool (Union[None, Unset, str]):
+    """
+
+    url: str
+    uuid: UUID
+    load_balancer: str
+    name: str
+    protocol: LoadBalancerProtocolEnum
+    protocol_port: int
+    project: str
+    service_settings: str
+    default_pool: Union[None, Unset, str] = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        url = self.url
+
+        uuid = str(self.uuid)
+
+        load_balancer = self.load_balancer
+
+        name = self.name
+
+        protocol = self.protocol.value
+
+        protocol_port = self.protocol_port
+
+        project = self.project
+
+        service_settings = self.service_settings
+
+        default_pool: Union[None, Unset, str]
+        if isinstance(self.default_pool, Unset):
+            default_pool = UNSET
+        else:
+            default_pool = self.default_pool
+
+        field_dict: dict[str, Any] = {}
+        field_dict.update(self.additional_properties)
+        field_dict.update(
+            {
+                "url": url,
+                "uuid": uuid,
+                "load_balancer": load_balancer,
+                "name": name,
+                "protocol": protocol,
+                "protocol_port": protocol_port,
+                "project": project,
+                "service_settings": service_settings,
+            }
+        )
+        if default_pool is not UNSET:
+            field_dict["default_pool"] = default_pool
+
+        return field_dict
+
+    @classmethod
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        d = dict(src_dict)
+        url = d.pop("url")
+
+        uuid = UUID(d.pop("uuid"))
+
+        load_balancer = d.pop("load_balancer")
+
+        name = d.pop("name")
+
+        protocol = LoadBalancerProtocolEnum(d.pop("protocol"))
+
+        protocol_port = d.pop("protocol_port")
+
+        project = d.pop("project")
+
+        service_settings = d.pop("service_settings")
+
+        def _parse_default_pool(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        default_pool = _parse_default_pool(d.pop("default_pool", UNSET))
+
+        create_listener = cls(
+            url=url,
+            uuid=uuid,
+            load_balancer=load_balancer,
+            name=name,
+            protocol=protocol,
+            protocol_port=protocol_port,
+            project=project,
+            service_settings=service_settings,
+            default_pool=default_pool,
+        )
+
+        create_listener.additional_properties = d
+        return create_listener
+
+    @property
+    def additional_keys(self) -> list[str]:
+        return list(self.additional_properties.keys())
+
+    def __getitem__(self, key: str) -> Any:
+        return self.additional_properties[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.additional_properties[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.additional_properties[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.additional_properties

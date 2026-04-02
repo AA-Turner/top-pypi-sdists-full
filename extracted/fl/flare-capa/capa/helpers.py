@@ -96,11 +96,7 @@ def is_runtime_ida():
 
 
 def is_runtime_ghidra():
-    try:
-        currentProgram  # type: ignore [name-defined] # noqa: F821
-    except NameError:
-        return False
-    return True
+    return importlib.util.find_spec("ghidra") is not None
 
 
 def assert_never(value) -> NoReturn:
@@ -331,6 +327,9 @@ def log_unsupported_os_error():
     logger.error(" ")
     logger.error(" capa currently only analyzes executables for some operating systems")
     logger.error(" (including Windows, Linux, and Android).")
+    logger.error(" ")
+    logger.error(" If you know the target OS, you can specify it explicitly, for example:")
+    logger.error("   capa --os linux <sample>")
     logger.error("-" * 80)
 
 

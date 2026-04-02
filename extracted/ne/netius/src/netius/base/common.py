@@ -58,7 +58,7 @@ NAME = "netius"
 identification of both the clients and the services this
 value may be prefixed or suffixed """
 
-VERSION = "1.32.0"
+VERSION = "1.34.2"
 """ The version value that identifies the version of the
 current infra-structure, all of the services and clients
 may share this value """
@@ -4361,12 +4361,38 @@ class AbstractBase(observer.Observable):
         context.verify_mode = verify_mode
         if hasattr(context, "check_hostname"):
             context.check_hostname = check_hostname
+        if (
+            not verify_mode == ssl.CERT_NONE
+            and hasattr(context, "verify_flags")
+            and hasattr(ssl, "VERIFY_X509_PARTIAL_CHAIN")
+        ):
+            context.verify_flags |= ssl.VERIFY_X509_PARTIAL_CHAIN
         if ca_file:
             context.load_verify_locations(cafile=ca_file)
         if ca_root and hasattr(context, "load_default_certs"):
             context.load_default_certs(purpose=ssl.Purpose.SERVER_AUTH)
         if ca_root and SSL_CA_PATH:
             context.load_verify_locations(cafile=SSL_CA_PATH)
+        self.debug(
+            "SSL certs configured: verify_mode=%s, verify_flags=%s, check_hostname=%s, ca_file=%s, ca_root=%s, SSL_CA_PATH=%s, ca_certs=%d"
+            % (
+                verify_mode,
+                getattr(context, "verify_flags", "N/A"),
+                check_hostname,
+                ca_file,
+                ca_root,
+                SSL_CA_PATH,
+                len(context.get_ca_certs()) if hasattr(context, "get_ca_certs") else -1,
+            )
+        )
+        self.debug(
+            "SSL features: VERIFY_X509_PARTIAL_CHAIN=%s, VERIFY_X509_STRICT=%s, VERIFY_X509_TRUSTED_FIRST=%s"
+            % (
+                hasattr(ssl, "VERIFY_X509_PARTIAL_CHAIN"),
+                hasattr(ssl, "VERIFY_X509_STRICT"),
+                hasattr(ssl, "VERIFY_X509_TRUSTED_FIRST"),
+            )
+        )
 
     def _ssl_upgrade(
         self,
@@ -4435,6 +4461,21 @@ class AbstractBase(observer.Observable):
                 do_handshake_on_connect=False,
             )
 
+        self.debug(
+            "SSL wrap: server=%s, ssl_verify=%s, cert_reqs=%s, "
+            "ca_file=%s, ca_root=%s, check_hostname=%s, server_hostname=%s, "
+            "has_context=%s"
+            % (
+                server,
+                ssl_verify,
+                cert_reqs,
+                ca_file,
+                ca_root,
+                check_hostname,
+                server_hostname,
+                bool(self._ssl_context),
+            )
+        )
         self._ssl_certs(
             self._ssl_context,
             key_file=key_file,

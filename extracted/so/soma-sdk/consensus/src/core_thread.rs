@@ -1,0 +1,385 @@
+// Copyright (c) Mysten Labs, Inc.
+// Copyright (c) Soma Contributors
+// SPDX-License-Identifier: Apache-2.0
+
+use std::collections::BTreeSet;
+use std::fmt::Debug;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
+
+use async_trait::async_trait;
+use parking_lot::RwLock;
+use thiserror::Error;
+use tokio::sync::mpsc::{Receiver, Sender, WeakSender, channel};
+use tokio::sync::{oneshot, watch};
+use tracing::warn;
+use types::consensus::block::{BlockAPI as _, BlockRef, Round, VerifiedBlock};
+use types::consensus::commit::CertifiedCommits;
+use types::consensus::context::Context;
+use types::error::{ConsensusError, ConsensusResult};
+
+use crate::core::Core;
+use crate::core_thread::CoreError::Shutdown;
+use crate::dag_state::DagState;
+
+const CORE_THREAD_COMMANDS_CHANNEL_SIZE: usize = 2000;
+
+enum CoreThreadCommand {
+    /// Add blocks to be processed and accepted
+    AddBlocks(Vec<VerifiedBlock>, oneshot::Sender<BTreeSet<BlockRef>>),
+    /// Checks if block refs exist locally and sync missing ones.
+    CheckBlockRefs(Vec<BlockRef>, oneshot::Sender<BTreeSet<BlockRef>>),
+    /// Adds certified commits and their certification blocks for processing and acceptance.
+    /// Returns missing ancestors of certification voting blocks. Blocks included in certified commits
+    /// cannot have missing ancestors.
+    AddCertifiedCommits(CertifiedCommits, oneshot::Sender<BTreeSet<BlockRef>>),
+    /// Called when the min round has passed or the leader timeout occurred and a block should be produced.
+    /// When the command is called with `force = true`, then the block will be created for `round` skipping
+    /// any checks (ex leader existence of previous round). More information can be found on the `Core` component.
+    NewBlock(Round, oneshot::Sender<()>, bool),
+    /// Request missing blocks that need to be synced.
+    GetMissing(oneshot::Sender<BTreeSet<BlockRef>>),
+}
+
+#[derive(Error, Debug)]
+pub enum CoreError {
+    #[error("Core thread shutdown: {0}")]
+    Shutdown(String),
+}
+
+/// The interface to dispatch commands to CoreThread and Core.
+/// Also this allows the easier mocking during unit tests.
+#[async_trait]
+pub trait CoreThreadDispatcher: Sync + Send + 'static {
+    async fn add_blocks(&self, blocks: Vec<VerifiedBlock>)
+    -> Result<BTreeSet<BlockRef>, CoreError>;
+
+    async fn check_block_refs(
+        &self,
+        block_refs: Vec<BlockRef>,
+    ) -> Result<BTreeSet<BlockRef>, CoreError>;
+
+    async fn add_certified_commits(
+        &self,
+        commits: CertifiedCommits,
+    ) -> Result<BTreeSet<BlockRef>, CoreError>;
+
+    async fn new_block(&self, round: Round, force: bool) -> Result<(), CoreError>;
+
+    async fn get_missing_blocks(&self) -> Result<BTreeSet<BlockRef>, CoreError>;
+
+    /// Sets the estimated delay to propagate a block to a quorum of peers, in
+    /// number of rounds.
+    fn set_propagation_delay(&self, delay: Round) -> Result<(), CoreError>;
+
+    fn set_last_known_proposed_round(&self, round: Round) -> Result<(), CoreError>;
+
+    /// Returns the highest round received for each authority by Core.
+    fn highest_received_rounds(&self) -> Vec<Round>;
+}
+
+pub(crate) struct CoreThreadHandle {
+    sender: Sender<CoreThreadCommand>,
+    join_handle: tokio::task::JoinHandle<()>,
+}
+
+impl CoreThreadHandle {
+    pub async fn stop(self) {
+        // drop the sender, that will force all the other weak senders to not able to upgrade.
+        drop(self.sender);
+        self.join_handle.await.ok();
+    }
+}
+
+struct CoreThread {
+    core: Core,
+    receiver: Receiver<CoreThreadCommand>,
+    rx_propagation_delay: watch::Receiver<Round>,
+    rx_last_known_proposed_round: watch::Receiver<Round>,
+    context: Arc<Context>,
+}
+
+impl CoreThread {
+    pub async fn run(mut self) -> ConsensusResult<()> {
+        tracing::debug!("Started core thread");
+
+        loop {
+            tokio::select! {
+                command = self.receiver.recv() => {
+                    let Some(command) = command else {
+                        break;
+                    };
+
+                    match command {
+                        CoreThreadCommand::AddBlocks(blocks, sender) => {
+
+                            let missing_block_refs = self.core.add_blocks(blocks)?;
+                            sender.send(missing_block_refs).ok();
+                        }
+                        CoreThreadCommand::CheckBlockRefs(block_refs, sender) => {
+
+                            let missing_block_refs = self.core.check_block_refs(block_refs)?;
+                            sender.send(missing_block_refs).ok();
+                        }
+                        CoreThreadCommand::AddCertifiedCommits(commits, sender) => {
+
+                            let missing_block_refs = self.core.add_certified_commits(commits)?;
+                            sender.send(missing_block_refs).ok();
+                        }
+                        CoreThreadCommand::NewBlock(round, sender, force) => {
+
+                            self.core.new_block(round, force)?;
+                            sender.send(()).ok();
+                        }
+                        CoreThreadCommand::GetMissing(sender) => {
+
+                            sender.send(self.core.get_missing_blocks()).ok();
+                        }
+                    }
+                }
+                _ = self.rx_last_known_proposed_round.changed() => {
+
+                    let round = *self.rx_last_known_proposed_round.borrow();
+                    self.core.set_last_known_proposed_round(round);
+                    self.core.new_block(round + 1, true)?;
+                }
+                _ = self.rx_propagation_delay.changed() => {
+
+                    let should_propose_before = self.core.should_propose();
+                    let propagation_delay = *self.rx_propagation_delay.borrow();
+                    self.core.set_propagation_delay(
+                        propagation_delay
+                    );
+                    if !should_propose_before && self.core.should_propose() {
+                        // If core cannot propose before but can propose now, try to produce a new block to ensure liveness,
+                        // because block proposal could have been skipped.
+                        self.core.new_block(Round::MAX, true)?;
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct ChannelCoreThreadDispatcher {
+    context: Arc<Context>,
+    sender: WeakSender<CoreThreadCommand>,
+    tx_propagation_delay: Arc<watch::Sender<Round>>,
+    tx_last_known_proposed_round: Arc<watch::Sender<Round>>,
+    highest_received_rounds: Arc<Vec<AtomicU32>>,
+}
+
+impl ChannelCoreThreadDispatcher {
+    pub(crate) fn start(
+        context: Arc<Context>,
+        dag_state: &RwLock<DagState>,
+        core: Core,
+    ) -> (Self, CoreThreadHandle) {
+        // Initialize highest received rounds.
+        let highest_received_rounds = {
+            let dag_state = dag_state.read();
+
+            context
+                .committee
+                .authorities()
+                .map(|(index, _)| {
+                    AtomicU32::new(dag_state.get_last_block_for_authority(index).round())
+                })
+                .collect()
+        };
+
+        let (sender, receiver) = channel(CORE_THREAD_COMMANDS_CHANNEL_SIZE);
+        let (tx_propagation_delay, mut rx_propagation_delay) = watch::channel(0);
+        let (tx_last_known_proposed_round, mut rx_last_known_proposed_round) = watch::channel(0);
+        rx_propagation_delay.mark_unchanged();
+        rx_last_known_proposed_round.mark_unchanged();
+        let core_thread = CoreThread {
+            core,
+            receiver,
+            rx_propagation_delay,
+            rx_last_known_proposed_round,
+            context: context.clone(),
+        };
+
+        let join_handle = tokio::spawn(async move {
+            if let Err(err) = core_thread.run().await {
+                if !matches!(err, ConsensusError::Shutdown) {
+                    panic!("Fatal error occurred: {err}");
+                }
+            }
+        });
+
+        // Explicitly using downgraded sender in order to allow sharing the CoreThreadDispatcher but
+        // able to shutdown the CoreThread by dropping the original sender.
+        let dispatcher = ChannelCoreThreadDispatcher {
+            context,
+            sender: sender.downgrade(),
+            tx_propagation_delay: Arc::new(tx_propagation_delay),
+            tx_last_known_proposed_round: Arc::new(tx_last_known_proposed_round),
+            highest_received_rounds: Arc::new(highest_received_rounds),
+        };
+        let handle = CoreThreadHandle { join_handle, sender };
+        (dispatcher, handle)
+    }
+
+    async fn send(&self, command: CoreThreadCommand) {
+        if let Some(sender) = self.sender.upgrade() {
+            if let Err(err) = sender.send(command).await {
+                warn!("Couldn't send command to core thread, probably is shutting down: {}", err);
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl CoreThreadDispatcher for ChannelCoreThreadDispatcher {
+    async fn add_blocks(
+        &self,
+        blocks: Vec<VerifiedBlock>,
+    ) -> Result<BTreeSet<BlockRef>, CoreError> {
+        for block in &blocks {
+            self.highest_received_rounds[block.author()].fetch_max(block.round(), Ordering::AcqRel);
+        }
+        let (sender, receiver) = oneshot::channel();
+        self.send(CoreThreadCommand::AddBlocks(blocks.clone(), sender)).await;
+        let missing_block_refs = receiver.await.map_err(|e| Shutdown(e.to_string()))?;
+
+        Ok(missing_block_refs)
+    }
+
+    async fn check_block_refs(
+        &self,
+        block_refs: Vec<BlockRef>,
+    ) -> Result<BTreeSet<BlockRef>, CoreError> {
+        let (sender, receiver) = oneshot::channel();
+        self.send(CoreThreadCommand::CheckBlockRefs(block_refs.clone(), sender)).await;
+        let missing_block_refs = receiver.await.map_err(|e| Shutdown(e.to_string()))?;
+
+        Ok(missing_block_refs)
+    }
+
+    async fn add_certified_commits(
+        &self,
+        commits: CertifiedCommits,
+    ) -> Result<BTreeSet<BlockRef>, CoreError> {
+        for commit in commits.commits() {
+            for block in commit.blocks() {
+                self.highest_received_rounds[block.author()]
+                    .fetch_max(block.round(), Ordering::AcqRel);
+            }
+        }
+        let (sender, receiver) = oneshot::channel();
+        self.send(CoreThreadCommand::AddCertifiedCommits(commits, sender)).await;
+        let missing_block_refs = receiver.await.map_err(|e| Shutdown(e.to_string()))?;
+        Ok(missing_block_refs)
+    }
+
+    async fn new_block(&self, round: Round, force: bool) -> Result<(), CoreError> {
+        let (sender, receiver) = oneshot::channel();
+        self.send(CoreThreadCommand::NewBlock(round, sender, force)).await;
+        receiver.await.map_err(|e| Shutdown(e.to_string()))
+    }
+
+    async fn get_missing_blocks(&self) -> Result<BTreeSet<BlockRef>, CoreError> {
+        let (sender, receiver) = oneshot::channel();
+        self.send(CoreThreadCommand::GetMissing(sender)).await;
+        receiver.await.map_err(|e| Shutdown(e.to_string()))
+    }
+
+    fn set_propagation_delay(&self, propagation_delay: Round) -> Result<(), CoreError> {
+        self.tx_propagation_delay.send(propagation_delay).map_err(|e| Shutdown(e.to_string()))
+    }
+
+    fn set_last_known_proposed_round(&self, round: Round) -> Result<(), CoreError> {
+        self.tx_last_known_proposed_round.send(round).map_err(|e| Shutdown(e.to_string()))
+    }
+
+    fn highest_received_rounds(&self) -> Vec<Round> {
+        self.highest_received_rounds.iter().map(|round| round.load(Ordering::Relaxed)).collect()
+    }
+}
+
+// TODO: complete the Mock for thread dispatcher to be used from several tests
+#[cfg(test)]
+#[derive(Default)]
+pub(crate) struct MockCoreThreadDispatcher {
+    add_blocks: parking_lot::Mutex<Vec<VerifiedBlock>>,
+    missing_blocks: parking_lot::Mutex<BTreeSet<BlockRef>>,
+    last_known_proposed_round: parking_lot::Mutex<Vec<Round>>,
+}
+
+#[cfg(test)]
+impl MockCoreThreadDispatcher {
+    #[cfg(test)]
+    pub(crate) async fn get_add_blocks(&self) -> Vec<VerifiedBlock> {
+        let mut add_blocks = self.add_blocks.lock();
+        add_blocks.drain(0..).collect()
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn stub_missing_blocks(&self, block_refs: BTreeSet<BlockRef>) {
+        let mut missing_blocks = self.missing_blocks.lock();
+        missing_blocks.extend(block_refs);
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn get_last_own_proposed_round(&self) -> Vec<Round> {
+        let last_known_proposed_round = self.last_known_proposed_round.lock();
+        last_known_proposed_round.clone()
+    }
+}
+
+#[cfg(test)]
+#[async_trait]
+impl CoreThreadDispatcher for MockCoreThreadDispatcher {
+    async fn add_blocks(
+        &self,
+        blocks: Vec<VerifiedBlock>,
+    ) -> Result<BTreeSet<BlockRef>, CoreError> {
+        let mut add_blocks = self.add_blocks.lock();
+        add_blocks.extend(blocks);
+        Ok(BTreeSet::new())
+    }
+
+    async fn check_block_refs(
+        &self,
+        _block_refs: Vec<BlockRef>,
+    ) -> Result<BTreeSet<BlockRef>, CoreError> {
+        Ok(BTreeSet::new())
+    }
+
+    async fn add_certified_commits(
+        &self,
+        _commits: CertifiedCommits,
+    ) -> Result<BTreeSet<BlockRef>, CoreError> {
+        todo!()
+    }
+
+    async fn new_block(&self, _round: Round, _force: bool) -> Result<(), CoreError> {
+        Ok(())
+    }
+
+    async fn get_missing_blocks(&self) -> Result<BTreeSet<BlockRef>, CoreError> {
+        let mut missing_blocks = self.missing_blocks.lock();
+        let result = missing_blocks.clone();
+        missing_blocks.clear();
+        Ok(result)
+    }
+
+    fn set_propagation_delay(&self, _propagation_delay: Round) -> Result<(), CoreError> {
+        todo!();
+    }
+
+    fn set_last_known_proposed_round(&self, round: Round) -> Result<(), CoreError> {
+        let mut last_known_proposed_round = self.last_known_proposed_round.lock();
+        last_known_proposed_round.push(round);
+        Ok(())
+    }
+
+    fn highest_received_rounds(&self) -> Vec<Round> {
+        todo!()
+    }
+}

@@ -1,0 +1,26 @@
+fail_fast: true
+repos:
+  - repo: local
+    hooks:
+      - id: dump-victron-mqtt
+        name: Dump Victron MQTT data
+        entry: python -m victron_mqtt.utils.dump_victron_mqtt victron_mqtt.json
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+      - id: static-tests
+        name: Run static tests
+        entry: hatch test tests/static_test.py
+        language: system
+        pass_filenames: false
+        files: ^victron_mqtt/
+        stages: [pre-commit]
+      - id: static-hub-tests
+        name: Run static hub tests
+        entry: hatch test tests/static_hub_test.py
+        language: system
+        pass_filenames: false
+        files: ^victron_mqtt/
+        exclude: ^victron_mqtt/(_victron_topics\.py|_victron_enums\.py)$
+        stages: [pre-commit]

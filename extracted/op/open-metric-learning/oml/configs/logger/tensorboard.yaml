@@ -1,3 +1,0 @@
-name: tensorboard
-args:
-  save_dir: "."

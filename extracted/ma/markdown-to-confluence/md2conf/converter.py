@@ -680,8 +680,8 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
         Transforms links to document binaries such as PDF, DOCX or XLSX.
         """
 
-        if not absolute_path.exists():
-            self._anchor_warn_or_raise(anchor, f"relative URL points to non-existing file: {absolute_path}")
+        if not absolute_path.is_file():
+            self._anchor_warn_or_raise(anchor, f"expected: path to file; got: {absolute_path}")
             return None
 
         file_name = attachment_name(path_relative_to(absolute_path, self.base_dir))
@@ -817,12 +817,12 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
             # resolve relative path into absolute path w.r.t. base dir
             absolute_path = (self.base_dir / path).resolve()
 
-        if not absolute_path.exists():
-            self._warn_or_raise(image, f"path to image does not exist: {path}")
+        if not absolute_path.is_file():
+            self._warn_or_raise(image, f"expected: path to image file; got: {path}")
             return None
 
         if not is_directory_within(absolute_path, self.root_dir):
-            self._warn_or_raise(image, f"path to image {path} points to outside root path {self.root_dir}")
+            self._warn_or_raise(image, f"expected: path to image file prefixed by root path {self.root_dir}; got: {path}")
             return None
 
         return absolute_path
@@ -1570,22 +1570,26 @@ class ConfluenceStorageFormatConverter(NodeVisitor):
 
             # <p>...</p>
             case "p":
-                child_elem_count = child_count(child)
+                if child_count(child) == 1 and not child.text and not child[0].tail:
+                    # contains only a single child element (and no text)
+                    match child[0].tag:
+                        # <p><img src="..." /></p>
+                        case "img":
+                            return self._transform_image(FormattingContext.BLOCK, child[0])
 
-                # <p><img src="..." /></p>
-                if child_elem_count == 1 and not child.text and child[0].tag == "img" and not child[0].tail:
-                    return self._transform_image(FormattingContext.BLOCK, child[0])
+                        # <p><a href="..."> ... </a></p>
+                        case "a":
+                            link = self._transform_card(child)
+                            if link is not None:
+                                return link
+                            else:
+                                return ElementAction.RECURSE
 
-                # <p><a href="..."> ... </a></p>
-                elif child_elem_count == 1 and child[0].tag == "a" and not child[0].tail:
-                    link = self._transform_card(child)
-                    if link is not None:
-                        return link
-                    else:
-                        return ElementAction.RECURSE
+                        case _:
+                            pass
 
                 # <p>[[<em>TOC</em>]]</p> (represented in Markdown as `[[_TOC_]]`)
-                elif is_placeholder_for(child, "TOC"):
+                if is_placeholder_for(child, "TOC"):
                     return self._transform_toc(child)
 
                 # <p>[[<em>LISTING</em>]]</p> (represented in Markdown as `[[_LISTING_]]`)

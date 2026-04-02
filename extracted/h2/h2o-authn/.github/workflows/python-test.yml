@@ -1,0 +1,50 @@
+name: Python Test
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        id: setup-python
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-test-${{ steps.setup-python.outputs.python-version }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-pip-test-${{ steps.setup-python.outputs.python-version }}-
+            ${{ runner.os }}-pip-test-
+            ${{ runner.os }}-pip
+
+      - name: Install Hatch
+        run: |
+          pipx install hatch
+          hatch --version
+
+      - name: Run Tests in Python ${{ matrix.python-version }}
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
+        run: |
+          hatch run +py=${PYTHON_VERSION} test:pytest -v
+
+  all-tests-passed:
+    # Used as aggregate check for all tests being run in matrix.
+    name: All Tests Passed
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "All tests passed!" >> $GITHUB_STEP_SUMMARY

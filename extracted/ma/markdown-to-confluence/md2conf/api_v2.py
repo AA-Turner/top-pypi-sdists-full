@@ -7,15 +7,13 @@ Copyright 2022-2026, Levente Hunyadi
 """
 
 import logging
-import random
-import time
 import typing
 from dataclasses import dataclass
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
-import requests
+from requests import HTTPError, RequestException, Session
 
-from .api_base import ConfluenceSession
+from .api_base import ConfluenceSessionShared
 from .api_types import (
     ConfluenceAttachment,
     ConfluenceContentProperty,
@@ -57,7 +55,7 @@ class ConfluenceUpdatePageRequest:
     version: ConfluenceContentVersion
 
 
-class ConfluenceSessionV2(ConfluenceSession):
+class ConfluenceSessionV2(ConfluenceSessionShared):
     """
     Represents an active connection to a Confluence server.
     """
@@ -65,7 +63,7 @@ class ConfluenceSessionV2(ConfluenceSession):
     _space_id_to_key: dict[str, str]
     _space_key_to_id: dict[str, str]
 
-    def __init__(self, session: requests.Session, *, api_url: str | None, domain: str | None, base_path: str | None, space_key: str | None) -> None:
+    def __init__(self, session: Session, *, api_url: str | None, domain: str | None, base_path: str | None, space_key: str | None) -> None:
         super().__init__(session)
         self._space_id_to_key = {}
         self._space_key_to_id = {}
@@ -104,10 +102,15 @@ class ConfluenceSessionV2(ConfluenceSession):
                 response.raise_for_status()
 
                 LOGGER.info("Configured scoped Confluence REST API URL: %s", self._api_url)
-            except requests.exceptions.HTTPError:
+            except HTTPError:
                 # fall back to classic REST API URL
-                self._api_url = f"https://{self.site.domain}{self.site.base_path}"
+                self._api_url = self._get_base()
                 LOGGER.info("Configured classic Confluence REST API URL: %s", self._api_url)
+
+    def _get_base(self) -> str:
+        "Classic REST API URL (when scoped tokens are not used)."
+
+        return f"https://{self.site.domain}{self.site.base_path}"
 
     @override
     def _fetch(self, path: str, query: dict[str, str] | None = None) -> list[JsonType]:
@@ -117,6 +120,7 @@ class ConfluenceSessionV2(ConfluenceSession):
 
         # cursor-based pagination with JSON `_links.next`
         url = self._build_url(ConfluenceVersion.VERSION_2, path, query)
+        classic_base = self._get_base()
         while True:
             response = self._session.get(url, headers={"Accept": "application/json"}, verify=True)
             response.raise_for_status()
@@ -126,10 +130,20 @@ class ConfluenceSessionV2(ConfluenceSession):
             items.extend(results)
 
             links = typing.cast(dict[str, JsonType], payload.get("_links", {}))
+            if not links:
+                break
+
+            base = typing.cast(str, links.get("base", ""))
+            if not base:
+                raise ConfluenceError(f"pagination error: {url}")
+
             link = typing.cast(str, links.get("next", ""))
-            if link:
-                url = f"https://{self.site.domain}{link}"
-            else:
+            if link:  # next page available
+                url = urljoin(base, link)
+                if not url.startswith(self._api_url) and url.startswith(classic_base):
+                    # occasionally, `base` in `_links` starts with the classic REST API URL prefix even if we use scoped tokens
+                    url = self._api_url + url.removeprefix(classic_base)
+            else:  # no more pages
                 break
 
         return items
@@ -200,7 +214,13 @@ class ConfluenceSessionV2(ConfluenceSession):
     def delete_attachment(self, attachment_id: str) -> None:
         path = f"/attachments/{attachment_id}"
         LOGGER.info("Moving attachment to trash: %s", attachment_id)
-        self._delete(ConfluenceVersion.VERSION_2, path)
+        try:
+            self._delete(ConfluenceVersion.VERSION_2, path)
+        except RequestException as e:
+            if e.response is not None and e.response.status_code == 404:
+                LOGGER.warning("Attachment already deleted: %s", attachment_id)
+            else:
+                raise
 
     @override
     def get_page_properties_by_title(self, title: str, *, space_id: str | None = None, space_key: str | None = None) -> ConfluencePageProperties:
@@ -222,26 +242,9 @@ class ConfluenceSessionV2(ConfluenceSession):
         return page
 
     @override
-    def get_page(self, page_id: str, *, retries: int = 3, retry_delay: float = 1.0) -> ConfluencePage:
+    def get_page(self, page_id: str) -> ConfluencePage:
         path = f"/pages/{page_id}"
-        last_error: requests.HTTPError | None = None
-
-        for attempt in range(retries + 1):
-            try:
-                return self._get(ConfluenceVersion.VERSION_2, path, ConfluencePage, query={"body-format": "storage"})
-            except requests.HTTPError as e:
-                if e.response is not None and e.response.status_code == 404 and attempt < retries:
-                    delay = retry_delay * (2**attempt) + random.uniform(0, 1)
-                    LOGGER.debug("Page %s not found, retrying in %.1f seconds (attempt %d/%d)", page_id, delay, attempt + 1, retries)
-                    time.sleep(delay)
-                    last_error = e
-                else:
-                    raise
-
-        # this should not be reached, but satisfies type checker
-        if last_error is not None:
-            raise last_error
-        raise ConfluenceError(f"failed to get page: {page_id}")
+        return self._get(ConfluenceVersion.VERSION_2, path, ConfluencePage, query={"body-format": "storage"})
 
     @override
     def get_page_properties(self, page_id: str) -> ConfluencePageProperties:

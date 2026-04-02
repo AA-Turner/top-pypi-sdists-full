@@ -11,11 +11,9 @@ import shlex
 from abc import ABC, abstractmethod
 from typing import ClassVar, Generic, TypeVar, get_args, get_origin
 
-from pydantic import TypeAdapter
-
 from plato.agents.config import AgentConfig
 from plato.agents.schema import get_agent_schema
-from plato.runtime import RuntimeConfig, VMRuntimeConfig
+from plato.runtime import VMRuntimeConfig
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +66,7 @@ class BaseAgent(ABC, Generic[ConfigT]):
             name = "openhands"
             description = "OpenHands AI software engineer"
 
-            async def run(self, instruction: str) -> None:
+            async def run(self, instruction: str, tools_path: str | None = None) -> None:
                 # self.config is typed as OpenHandsConfig
                 model = self.config.model_name
                 ...
@@ -81,7 +79,7 @@ class BaseAgent(ABC, Generic[ConfigT]):
 
     # Instance attributes
     config: ConfigT
-    runtime: RuntimeConfig | None = None
+    runtime: VMRuntimeConfig | None = None
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(f"plato.agents.{self.name}")
@@ -93,8 +91,7 @@ class BaseAgent(ABC, Generic[ConfigT]):
         if runtime_b64:
             try:
                 data = json.loads(base64.b64decode(runtime_b64).decode())
-                adapter = TypeAdapter(RuntimeConfig)
-                self.runtime = adapter.validate_python(data)
+                self.runtime = VMRuntimeConfig.model_validate(data)
             except Exception as e:
                 logger.warning(f"Failed to parse AGENT_RUNTIME_B64: {e}")
 
@@ -151,6 +148,7 @@ class BaseAgent(ABC, Generic[ConfigT]):
 
         Args:
             instruction: The task instruction/prompt for the agent.
+            tools_path: Optional path to tool definitions/config prepared by the runtime.
 
         Raises:
             RuntimeError: If agent execution fails.

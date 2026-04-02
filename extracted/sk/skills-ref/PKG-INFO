@@ -1,0 +1,102 @@
+Metadata-Version: 2.4
+Name: skills-ref
+Version: 0.1.1
+Summary: Reference library for Agent Skills
+Project-URL: Homepage, https://agentskills.io
+Project-URL: Documentation, https://agentskills.io
+Project-URL: Repository, https://github.com/anthropics/agentskills
+Project-URL: Issues, https://github.com/anthropics/agentskills/issues
+Author-email: Keith Lazuka <klazuka@anthropic.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: agents,ai,automation,llm,skills
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.11
+Requires-Dist: click>=8.0
+Requires-Dist: strictyaml>=1.7.3
+Description-Content-Type: text/markdown
+
+# Agent Skills
+
+[Agent Skills](https://agentskills.io) are a simple, open format for giving agents new capabilities and expertise.
+
+Skills are folders of instructions, scripts, and resources that agents can discover and use to perform better at specific tasks. Write once, use everywhere.
+
+## Installation
+
+```bash
+pip install skills-ref
+```
+
+Or using [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv add skills-ref
+```
+
+## Quick Start
+
+### CLI Usage
+
+```bash
+# Validate a skill
+agentskills validate path/to/skill
+
+# Read skill properties (outputs JSON)
+agentskills read-properties path/to/skill
+
+# Generate <available_skills> XML for agent prompts
+agentskills to-prompt path/to/skill-a path/to/skill-b
+```
+
+### Python API
+
+```python
+from pathlib import Path
+from skills_ref import validate, read_properties, to_prompt
+
+# Validate a skill directory
+errors = validate(Path("my-skill"))
+if errors:
+    print("Validation errors:", errors)
+else:
+    print("Valid skill!")
+
+# Read skill properties
+props = read_properties(Path("my-skill"))
+print(f"Skill: {props.name}")
+print(f"Description: {props.description}")
+
+# Generate prompt XML for agent integration
+prompt = to_prompt([Path("skill-a"), Path("skill-b")])
+print(prompt)
+```
+
+## Features
+
+- **Validation**: Check skills for proper format and required fields
+- **Parsing**: Extract skill metadata from SKILL.md frontmatter
+- **Prompt Generation**: Create XML blocks for agent system prompts
+- **i18n Support**: Full Unicode support for international skill names
+- **CLI Tools**: Command-line utilities for skill management
+
+## Documentation
+
+- [Full Documentation](https://agentskills.io) - Guides and tutorials
+- [Specification](https://agentskills.io/specification) - Format details
+- [Example Skills](https://github.com/anthropics/skills) - See what's possible
+
+## About
+
+Agent Skills is an open format maintained by [Anthropic](https://anthropic.com) and open to contributions from the community.
+
+## License
+
+Apache 2.0

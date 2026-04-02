@@ -1,0 +1,48 @@
+[package]
+name = "polars_ds"
+version = "0.11.0"
+edition = "2021"
+
+[lib]
+name = "_polars_ds"
+crate-type = ["cdylib"]
+
+[dependencies]
+# For dependencies found in polars, keep it the same as polars to minimize duplicates
+# PyO3
+pyo3 = {version = "0.26", features = ["abi3-py39", "extension-module"]}
+pyo3-polars = {version = "0.25", features = ["derive", "lazy"]} 
+# Polars
+polars = {version = "0.52", features = ["lazy",
+"diff", "array_count", "abs", "cross_join", "rank", "log",
+"cum_agg", "round_series", "chunked_ids", "dtype-i128", "performant", "new_streaming"], default-features = false}
+# Heavy math
+realfft = "*"
+faer = { git = "https://codeberg.org/sarah-quinones/faer", rev = "8377404e78", default-features = false, features = ["nightly", "rayon", "sparse-linalg"]}
+# faer = {version = "0.24", default-features = false, features = ["nightly", "rayon", "sparse-linalg"]}
+faer-traits = { git = "https://codeberg.org/sarah-quinones/faer", rev = "8377404e78"}
+argmin-math = {git = "https://github.com/abstractqqq/argmin.git", branch = "main", default-features = false, features = ["faer_v0_24"]}
+argmin = {git = "https://github.com/abstractqqq/argmin.git", branch = "main"}
+# Numerical
+rand = "0.9" # same as polars
+rand_distr = "0.5" # same as polars
+num = "*"
+ordered-float = "4.2.0"
+approx = "*"
+# Data Structures, Iteration Helpers
+itertools = "*"
+ahash = "*"
+hashbrown = { version = "0.16.0", features = ["rayon", "serde"] } # same as polars
+# Serialization
+serde = {version = "*", features=["derive"]}
+# String related
+rapidfuzz = "0.5.0"
+inflections = "1.1.1"
+# Deprecated
+unicode-normalization = "0.1.24" # same as polars
+
+[profile.release]
+debug = false
+codegen-units = 1
+strip = "symbols" 
+lto = "fat"

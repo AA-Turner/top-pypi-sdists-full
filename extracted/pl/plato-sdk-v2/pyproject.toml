@@ -17,6 +17,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
+    "gitpython>=3.1.46",
     "httpx>=0.25.0",
     "pydantic>=2.12.0,<2.13",
     "python-dotenv>=1.2.1",
@@ -52,6 +53,7 @@ dependencies = [
 
 [project.scripts]
 plato = "plato.cli:main"
+plato-git-ops-server = "plato.git_ops.server:main"
 plato-world-runner = "plato.worlds.runner:main"
 plato-agent-runner = "plato.agents.runner:main"
 

@@ -20,7 +20,7 @@ use crate::settings::{FrozenSource, LockCheck, ResolverSettings};
 use anyhow::Result;
 use tracing::trace;
 use uv_audit::service::{VulnerabilityServiceFormat, osv};
-use uv_audit::types::{Dependency, Finding};
+use uv_audit::types::{Dependency, Finding, VulnerabilityID};
 use uv_cache::Cache;
 use uv_client::BaseClientBuilder;
 use uv_configuration::{Concurrency, DependencyGroups, ExtrasSpecification, TargetTriple};
@@ -53,6 +53,8 @@ pub(crate) async fn audit(
     preview: Preview,
     service: VulnerabilityServiceFormat,
     service_url: Option<String>,
+    ignore: Vec<VulnerabilityID>,
+    ignore_until_fixed: Vec<VulnerabilityID>,
 ) -> Result<ExitStatus> {
     // Check if the audit feature is in preview
     if !preview.is_enabled(PreviewFeature::Audit) {
@@ -82,8 +84,8 @@ pub(crate) async fn audit(
 
     // Determine the extras to include.
     let default_extras = match &target {
-        LockTarget::Workspace(_) => DefaultExtras::default(),
-        LockTarget::Script(_) => DefaultExtras::default(),
+        LockTarget::Workspace(_) => DefaultExtras::All,
+        LockTarget::Script(_) => DefaultExtras::All,
     };
     let extras = extras.with_defaults(default_extras);
 
@@ -206,7 +208,7 @@ pub(crate) async fn audit(
                     .parse()
                     .expect("invalid OSV service URL");
                 let client = base_client.for_host(&osv_url).raw_client().clone();
-                let service = osv::Osv::new(client, None, concurrency);
+                let service = osv::Osv::new(client, Some(osv_url), concurrency);
                 trace!("Auditing {n} dependencies against OSV", n = auditable.len());
                 service.query_batch(&dependencies).await?
             }
@@ -214,6 +216,27 @@ pub(crate) async fn audit(
     };
 
     reporter.on_audit_complete();
+
+    // Filter out ignored vulnerabilities.
+    let all_findings: Vec<_> = all_findings
+        .into_iter()
+        .filter(|finding| match finding {
+            Finding::Vulnerability(vulnerability) => {
+                if ignore.iter().any(|id| vulnerability.matches(id)) {
+                    return false;
+                }
+                if vulnerability.fix_versions.is_empty()
+                    && ignore_until_fixed
+                        .iter()
+                        .any(|id| vulnerability.matches(id))
+                {
+                    return false;
+                }
+                true
+            }
+            Finding::ProjectStatus(_) => true,
+        })
+        .collect();
 
     let display = AuditResults {
         printer,
@@ -260,7 +283,16 @@ impl AuditResults {
         writeln!(
             self.printer.stderr(),
             "Found {vuln_banner} and {status_banner} in {packages}",
-            packages = format!("{npackages} packages", npackages = self.n_packages).bold()
+            packages = format!(
+                "{npackages} {label}",
+                npackages = self.n_packages,
+                label = if self.n_packages == 1 {
+                    "package"
+                } else {
+                    "packages"
+                }
+            )
+            .bold()
         )?;
 
         let has_findings = !vulns.is_empty() || !statuses.is_empty();
@@ -318,8 +350,6 @@ impl AuditResults {
                         )?;
                     }
                 }
-
-                writeln!(self.printer.stdout_important())?;
             }
         }
 

@@ -1,0 +1,133 @@
+Metadata-Version: 2.1
+Name: atlassian-jwt
+Version: 3.0.0
+Summary: JSON web token: pyjwt plus Atlassian query-string-hash claim
+Home-page: https://bitbucket.org/atlassian/atlassian-jwt-py
+Author: Atlassian
+Author-email: bedwards@atlassian.com
+License: UNKNOWN
+Keywords: jwt,json,web,token,pyjwt,atlassian,connect,addon,query,string,hash,qsh
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+License-File: LICENSE.txt
+
+atlassian-jwt (Python)
+======================
+
+`codebeat
+badge <https://codebeat.co/projects/bitbucket-org-atlassian-atlassian-jwt-py/ratings>`__
+
+`JSON Web Token <https://jwt.io/>`__ (JWT) authentication and encoding
+library for Python 2 and 3. Extends
+`pyjwt <https://github.com/jpadilla/pyjwt>`__ to include Atlassian
+Connect’s custom `query string
+hash <https://developer.atlassian.com/blog/2015/01/understanding-jwt/>`__
+(qsh) claim.
+
+This package is on `pypi <https://pypi.python.org/pypi/atlassian-jwt>`__
+so you can use pip to install it
+
+::
+
+   pip install atlassian-jwt
+
+Tenant information
+------------------
+
+This package makes references to Atlassian Connect’s `tenant information
+data
+structure <https://developer.atlassian.com/static/connect/docs/latest/modules/lifecycle.html>`__.
+Specfically the ``clientKey`` and ``sharedSecret`` fields are used when
+encoding a JWT token. Here is an example of the complete tenant
+information data structure as is passed to a Connect Addon with the
+``installed`` lifecycle callback.
+
+::
+
+   {
+     "key": "installed-addon-key",
+     "clientKey": "unique-client-identifier",
+     "publicKey": "MIGf....ZRWzwIDAQAB",
+     "sharedSecret": "a-secret-key-not-to-be-lost",
+     "serverVersion": "server-version",
+     "pluginsVersion": "version-of-connect",
+     "baseUrl": "http://example.atlassian.net",
+     "productType": "jira",
+     "description": "Atlassian JIRA at https://example.atlassian.net",
+     "serviceEntitlementNumber": "SEN-number",
+     "eventType": "installed"
+   }
+
+Where
+
+-  *clientKey* is an identifying key for the Atlassian product instance
+   that the add-on was installed into.
+-  *sharedSecret* is the string that should be used to sign outgoing JWT
+   tokens and validate incoming JWT tokens.
+
+Authentication
+--------------
+
+This package provides an abstract base class that can be subclassed to
+provide authentication to an Atlassian Connect Addon. Here is an example
+of that use
+
+::
+
+   import atlassian_jwt
+
+   class MyAddon(atlassian_jwt.Authenticator):
+       def __init__(self, tenant_info_store):
+           super(MyAddon, self).__init__()
+           self.tenant_info_store = tenant_info_store
+
+       def get_shared_secret(self, client_key):
+           tenant_info = self.tenant_info_store.get(client_key)
+           return tenant_info['sharedSecret']
+
+   my_auth = MyAddon(tenant_info_store)
+   try:
+       client_key, claims = my_auth.authenticate(http_method, url, headers)
+       # authentication succeeded
+   except atlassian_jwt.DecodeError:
+       # authentication failed
+       pass
+
+Encoding
+--------
+
+Atlassian Connect Addon can make API calls back to the host application.
+These API calls include a JWT token for authentication. This package
+provides an ``encode_token`` function to do this work. Here is an
+example of its use
+
+::
+
+   import atlassian_jwt
+
+   token = atlassian_jwt.encode_token(http_method, url, **tenant_info)
+   headers = {'Authorization': 'JWT {}'.format(token)}
+
+Understanding JWT for Atlassian Connect
+---------------------------------------
+
+-  `Understanding JWT for Atlassian
+   Connect <https://developer.atlassian.com/blog/2015/01/understanding-jwt/>`__
+-  `Understanding
+   JWT <https://developer.atlassian.com/static/connect/docs/latest/concepts/understanding-jwt.html>`__
+-  `Creating a query string
+   hash <https://developer.atlassian.com/static/connect/docs/latest/concepts/understanding-jwt.html#qsh>`__
+
+Running the tests
+-----------------
+
+::
+
+   pip3.8 install -e . && pip3.8 install -r requirements.txt && python3.8 -m pytest
+
+

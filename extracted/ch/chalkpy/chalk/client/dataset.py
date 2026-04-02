@@ -36,6 +36,7 @@ import requests as requests
 from typing_extensions import assert_never
 
 from chalk.client import ChalkBaseException, Dataset, DatasetRevision
+from chalk.client._chalkdf_import import ChalkDfDataFrame
 from chalk.client.models import (
     ChalkError,
     ColumnMetadata,
@@ -944,6 +945,25 @@ class DatasetRevisionImpl(DatasetRevision):
             return_type="pyarrow",
         )
 
+    def to_dataframe(
+        self,
+        ignore_errors: bool = False,
+        show_progress: bool | ellipsis = ...,
+        timeout: float | timedelta | ellipsis | None = ...,
+        caller_name: str = "to_dataframe",
+    ) -> ChalkDfDataFrame:
+        from chalk.client._chalkdf_import import get_chalkdf_dataframe_cls
+
+        ChalkDfDataFrame = get_chalkdf_dataframe_cls()
+        return ChalkDfDataFrame.from_arrow(
+            self.to_arrow(
+                ignore_errors=ignore_errors,
+                show_progress=show_progress,
+                timeout=timeout,
+                caller_name=caller_name,
+            )
+        )
+
     def to_polars(
         self,
         output_id: bool = False,
@@ -1652,6 +1672,22 @@ class DatasetImpl(Dataset):
         if len(self.revisions) == 0:
             raise IndexError("No revisions exist for dataset")
         return self.revisions[-1].to_arrow(
+            ignore_errors=ignore_errors,
+            show_progress=show_progress,
+            timeout=timeout,
+            caller_name=caller_name,
+        )
+
+    def to_dataframe(
+        self,
+        ignore_errors: bool = False,
+        show_progress: bool | ellipsis = ...,
+        timeout: float | timedelta | ellipsis | None = ...,
+        caller_name: str = "to_dataframe",
+    ) -> ChalkDfDataFrame:
+        if len(self.revisions) == 0:
+            raise IndexError("No revisions exist for dataset")
+        return self.revisions[-1].to_dataframe(
             ignore_errors=ignore_errors,
             show_progress=show_progress,
             timeout=timeout,

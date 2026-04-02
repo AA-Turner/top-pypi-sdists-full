@@ -84,6 +84,7 @@ class WarmPool:
         self._provisioning = 0
         self._closed = False
         self._replenish_task: asyncio.Task[None] | None = None
+        self._replenish_requests = 0
 
     async def acquire(self, ctx: AgentContext | None = None) -> PooledVM:
         """Acquire a healthy pooled VM, provisioning one when capacity allows."""
@@ -320,13 +321,49 @@ class WarmPool:
     def _schedule_replenish(self) -> None:
         if self._closed or self._pre_warm_target <= 0:
             return
+        self._replenish_requests += 1
         if self._replenish_task is not None and not self._replenish_task.done():
             return
         self._replenish_task = asyncio.create_task(self._replenish_to_target())
 
     async def _replenish_to_target(self) -> None:
         try:
-            await self.pre_warm()
+            while True:
+                async with self._condition:
+                    if self._closed:
+                        return
+                    target = min(self._pre_warm_target, self.max_size)
+                    if target <= 0:
+                        return
+                    before_current = len(self._all_vms) + self._provisioning
+                    # Consume all replenish requests seen so far. Any destroys
+                    # that happen during this pass will increment the counter
+                    # again and force another pass before we exit.
+                    self._replenish_requests = 0
+
+                await self.pre_warm()
+
+                async with self._condition:
+                    if self._closed:
+                        return
+                    target = min(self._pre_warm_target, self.max_size)
+                    after_current = len(self._all_vms) + self._provisioning
+                    pending_requests = self._replenish_requests
+
+                if after_current >= target and pending_requests == 0:
+                    return
+
+                # Avoid spinning forever if a replenish pass cannot make
+                # progress and no new destroy events arrived to justify
+                # another pass.
+                if after_current <= before_current and pending_requests == 0:
+                    logger.warning(
+                        "Warm pool replenish stalled below target "
+                        "(current=%d target=%d); stopping retries until the next replenish request",
+                        after_current,
+                        target,
+                    )
+                    return
         except Exception:
             logger.exception("Warm pool replenish failed")
 

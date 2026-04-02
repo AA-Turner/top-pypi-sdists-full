@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stable_baselines3
-Version: 2.7.1
+Version: 2.8.0
 Summary: Pytorch version of Stable Baselines, implementations of reinforcement learning algorithms.
 Home-page: https://github.com/DLR-RM/stable-baselines3
 Author: Antonin Raffin
@@ -14,11 +14,11 @@ Project-URL: RL-Zoo, https://github.com/DLR-RM/rl-baselines3-zoo
 Project-URL: SBX, https://github.com/araffin/sbx
 Keywords: reinforcement-learning-algorithms reinforcement-learning machine-learning gymnasium gym openai stable baselines toolbox python data-science
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
@@ -33,18 +33,19 @@ Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
 Requires-Dist: pytest-env; extra == "tests"
 Requires-Dist: pytest-xdist; extra == "tests"
-Requires-Dist: mypy; extra == "tests"
-Requires-Dist: ruff>=0.3.1; extra == "tests"
-Requires-Dist: black<26,>=25.1.0; extra == "tests"
+Requires-Dist: mypy<2,>=1.9.0; extra == "tests"
+Requires-Dist: ruff>=0.5.6; extra == "tests"
+Requires-Dist: black<27,>=26.1.0; extra == "tests"
 Provides-Extra: docs
-Requires-Dist: sphinx<9,>=5; extra == "docs"
+Requires-Dist: sphinx<10,>=5; extra == "docs"
 Requires-Dist: sphinx-autobuild; extra == "docs"
-Requires-Dist: sphinx-rtd-theme>=1.3.0; extra == "docs"
+Requires-Dist: sphinx-rtd-theme>=3.0.0; extra == "docs"
 Requires-Dist: sphinxcontrib.spelling; extra == "docs"
 Requires-Dist: sphinx_copybutton; extra == "docs"
+Requires-Dist: myst-parser<6,>=4; extra == "docs"
 Provides-Extra: extra
 Requires-Dist: opencv-python; extra == "extra"
-Requires-Dist: pygame; extra == "extra"
+Requires-Dist: pygame-ce; extra == "extra"
 Requires-Dist: tensorboard>=2.9.1; extra == "extra"
 Requires-Dist: psutil; extra == "extra"
 Requires-Dist: tqdm; extra == "extra"

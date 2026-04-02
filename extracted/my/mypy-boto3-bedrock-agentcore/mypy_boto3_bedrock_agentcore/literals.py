@@ -30,6 +30,7 @@ __all__ = (
     "CodeInterpreterSessionStatusType",
     "CommandExecutionStatusType",
     "ContentBlockTypeType",
+    "EventFilterConditionType",
     "ExtractionJobStatusType",
     "LanguageRuntimeType",
     "ListActorsPaginatorName",
@@ -60,6 +61,7 @@ BrowserSessionStatusType = Literal["READY", "TERMINATED"]
 CodeInterpreterSessionStatusType = Literal["READY", "TERMINATED"]
 CommandExecutionStatusType = Literal["COMPLETED", "TIMED_OUT"]
 ContentBlockTypeType = Literal["image", "resource", "resource_link", "text"]
+EventFilterConditionType = Literal["HAS_EVENTS"]
 ExtractionJobStatusType = Literal["FAILED"]
 LanguageRuntimeType = Literal["deno", "nodejs", "python"]
 ListActorsPaginatorName = Literal["list_actors"]
@@ -449,6 +451,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -484,6 +487,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",

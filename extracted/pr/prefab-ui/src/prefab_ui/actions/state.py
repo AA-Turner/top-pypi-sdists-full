@@ -1,0 +1,147 @@
+"""Client-side state management actions."""
+
+from __future__ import annotations
+
+import re
+from typing import Any, Literal
+
+from pydantic import Field, field_validator
+
+from prefab_ui.actions.base import Action
+from prefab_ui.components.base import StatefulMixin
+from prefab_ui.rx import Rx
+
+_KEY_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+_KeyLike = str | Rx | StatefulMixin
+
+
+def _resolve_key(key: _KeyLike) -> str:
+    """Extract a string state key from a str, Rx, or stateful component."""
+    if isinstance(key, StatefulMixin):
+        return key.rx.key
+    if isinstance(key, Rx):
+        return key.key
+    return key
+
+
+def _validate_path(path: str) -> str:
+    """Validate a state key or dot-path.
+
+    Each segment must be either a valid identifier (`[a-zA-Z_][a-zA-Z0-9_]*`)
+    or a pure integer (array index). Periods delimit segments.
+
+    Paths containing `{{ }}` template expressions are passed through
+    without validation — the renderer resolves them at runtime.
+    """
+    if "{{" in path:
+        return path
+    for segment in path.split("."):
+        if segment.isdigit():
+            continue
+        if not _KEY_RE.match(segment):
+            raise ValueError(
+                f"Invalid path segment: {segment!r}. "
+                "Segments must be identifiers ([a-zA-Z_][a-zA-Z0-9_]*) or integers."
+            )
+    return path
+
+
+class SetState(Action):
+    """Set a client-side state variable. No server round-trip.
+
+    The `key` supports dot-paths for nested updates:
+
+    ```python
+    SetState("todos.0.done", True)   # deep-update into a list
+    ```
+    """
+
+    action: Literal["setState"] = "setState"
+    key: str = Field(description="State key or dot-path to set")
+    value: Any = Field(description="Value to set.")
+
+    @field_validator("key")
+    @classmethod
+    def _validate_key(cls, v: str) -> str:
+        return _validate_path(v)
+
+    def __init__(self, key: _KeyLike, value: Any, **kwargs: Any) -> None:
+        kwargs["key"] = _resolve_key(key)
+        kwargs["value"] = value
+        super().__init__(**kwargs)
+
+
+class ToggleState(Action):
+    """Flip a boolean state variable. No server round-trip."""
+
+    action: Literal["toggleState"] = "toggleState"
+    key: str = Field(description="State key or dot-path to toggle")
+
+    @field_validator("key")
+    @classmethod
+    def _validate_key(cls, v: str) -> str:
+        return _validate_path(v)
+
+    def __init__(self, key: _KeyLike, **kwargs: Any) -> None:
+        kwargs["key"] = _resolve_key(key)
+        super().__init__(**kwargs)
+
+
+class AppendState(Action):
+    """Append a value to a state array.
+
+    Appends to the end by default. Pass `index` to insert at a specific
+    position (supports negative indices, e.g. `index=0` to prepend).
+
+    If the key doesn't exist yet, creates a new single-element array.
+    """
+
+    action: Literal["appendState"] = "appendState"
+    key: str = Field(description="State key or dot-path to the array")
+    value: Any = Field(description="Value to append.")
+    index: int | str | None = Field(
+        default=None,
+        description="Insert position (int or template string). None to append at end.",
+    )
+
+    @field_validator("key")
+    @classmethod
+    def _validate_key(cls, v: str) -> str:
+        return _validate_path(v)
+
+    def __init__(
+        self,
+        key: _KeyLike,
+        value: Any,
+        *,
+        index: int | str | Rx | None = None,
+        **kwargs: Any,
+    ) -> None:
+        kwargs["key"] = _resolve_key(key)
+        kwargs["value"] = value
+        kwargs["index"] = str(index) if isinstance(index, Rx) else index
+        super().__init__(**kwargs)
+
+
+class PopState(Action):
+    """Remove an item by index from a state array.
+
+    Supports negative indices (e.g. `-1` for the last element).
+    """
+
+    action: Literal["popState"] = "popState"
+    key: str = Field(description="State key or dot-path to the array")
+    index: int | str = Field(
+        description="Index to remove (int or template string like `{{ $index }}`)."
+    )
+
+    @field_validator("key")
+    @classmethod
+    def _validate_key(cls, v: str) -> str:
+        return _validate_path(v)
+
+    def __init__(self, key: _KeyLike, index: int | str | Rx, **kwargs: Any) -> None:
+        kwargs["key"] = _resolve_key(key)
+        kwargs["index"] = str(index) if isinstance(index, Rx) else index
+        super().__init__(**kwargs)

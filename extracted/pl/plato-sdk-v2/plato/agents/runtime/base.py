@@ -20,8 +20,7 @@ class AgentContext(BaseModel):
     config: dict
     instruction: str
     display_name: str | None = None
-    workspace: str | None = None
-    # Runtime config (vm/docker with resource specs) — passed to agent as env var
+    # Runtime config (VM resource specs) — passed to agent as env var
     runtime: dict | None = None
     # Path on world VM to agent code (for syncing to agent VM in dev mode)
     agent_code_path: Path | None = None

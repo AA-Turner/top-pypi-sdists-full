@@ -13,7 +13,7 @@ from metaflow import (
     pypi_base,
 )
 
-from .assets import Asset, _sanitize_branch_name
+from .assets import Asset, AssetInstance, _sanitize_branch_name
 from .evals_logger import EvalsLogger
 from .project_events import ProjectEvent
 
@@ -352,6 +352,32 @@ class ProjectContext:
         if annotations:
             print(f"   Annotations: {', '.join(f'{k}={v}' for k, v in annotations.items())}")
 
+    def list_data_instances(self, name):
+        """
+        Iterate over recent instances of a data asset, newest first.
+
+        Args:
+            name: Asset name/id
+
+        Returns:
+            Iterator of AssetInstance named tuples. Each has: id, created_at,
+            created_by, annotations, tags, blobs, kind, asset_kind.
+        """
+        return self._read_asset.list_data_asset_instances(name)
+
+    def list_model_instances(self, name):
+        """
+        Iterate over recent instances of a model asset, newest first.
+
+        Args:
+            name: Asset name/id
+
+        Returns:
+            Iterator of AssetInstance named tuples. Each has: id, created_at,
+            created_by, annotations, tags, blobs, kind, asset_kind.
+        """
+        return self._read_asset.list_model_asset_instances(name)
+
     def get_data(self, name, instance="latest"):
         """
         Get a data asset instance.
@@ -360,7 +386,9 @@ class ProjectContext:
 
         Args:
             name: Asset name/id
-            instance: Version to retrieve ("latest", "v123", "latest-1")
+            instance: Instance to retrieve. Use "latest" (default) for the most
+                recent version, a specific instance ID (as returned by
+                list_data_instances), or an alias like "@staging".
 
         Returns:
             The artifact data for the specified version
@@ -390,7 +418,9 @@ class ProjectContext:
 
         Args:
             name: Asset name/id
-            instance: Version to retrieve ("latest", "v123", "latest-1")
+            instance: Instance to retrieve. Use "latest" (default) for the most
+                recent version, a specific instance ID (as returned by
+                list_model_instances), or an alias like "@staging".
 
         Returns:
             The artifact data for the specified version

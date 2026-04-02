@@ -17,10 +17,32 @@ from antropy import (
     spectral_entropy,
     svd_entropy,
 )
-from antropy.utils import _xlogx
+from antropy.utils import _embed, _xlogx
 
 SF_TS = 100
 BANDT_PERM = [4, 7, 9, 10, 6, 11, 3]
+
+
+def _perm_entropy_orig(x, order=3, delay=1, normalize=False):
+    """Original argsort-based implementation with no fast path, used as reference.
+
+    Uses kind='stable' so that ties are broken by position (earlier index ranks
+    lower), matching the behaviour of the positional epsilon jitter in the fast
+    path.  For tie-free data stable and quicksort give identical results.
+    """
+    from math import factorial
+
+    x = np.asarray(x)
+    hashmult = np.power(order, np.arange(order))
+    sorted_idx = _embed(x, order=order, delay=delay).argsort(kind="stable")
+    hashval = (np.multiply(sorted_idx, hashmult)).sum(1)
+    _, counts = np.unique(hashval, return_counts=True)
+    p = counts / counts.sum()
+    pe = -(p * np.log2(p)).sum()
+    if normalize:
+        pe /= np.log2(factorial(order))
+    return pe
+
 
 # Concatenate 2D data
 data = np.vstack((RANDOM_TS, NORMAL_TS, PURE_SINE, ARANGE))
@@ -47,6 +69,122 @@ class TestEntropy(unittest.TestCase):
         # delay=0 must raise ValueError (not AssertionError)
         with self.assertRaises(ValueError):
             perm_entropy(BANDT_PERM, order=2, delay=0)
+        # 3D input must raise ValueError
+        with self.assertRaises(ValueError):
+            perm_entropy(np.ones((2, 3, 4)), order=3)
+        # 2D input with order > 4 must raise ValueError
+        with self.assertRaises(ValueError):
+            perm_entropy(np.ones((2, 100)), order=5)
+        # normalize=True for general path (order > 4)
+        pe = perm_entropy(RANDOM_TS, order=5, normalize=True)
+        assert 0.0 <= pe <= 1.0
+
+    def test_perm_entropy_ties(self):
+        """Fast path must agree with the original argsort implementation on signals with ties.
+
+        A positional epsilon jitter is applied to all inputs so ties are broken
+        by column index, exactly matching argsort's position-based tiebreaking.
+        This applies to integer arrays, float arrays with duplicate values,
+        zero-padded signals, and quantized data stored as float.
+        """
+        # All values equal: entropy = 0 for both approaches
+        x_const = np.array([2, 2, 2, 2, 2])
+        self.assertEqual(perm_entropy(x_const, order=3), 0.0)
+        np.testing.assert_equal(
+            perm_entropy(x_const, order=3), _perm_entropy_orig(x_const, order=3)
+        )
+
+        # Ties at different window positions: without jitter the fast path would
+        # collapse both tied windows to the same pattern; with jitter it matches argsort.
+        # x = [3, 2, 2, 1, 3]:
+        #   window [3,2,2] → argsort [1,2,0]  (b<c<a, tie broken by position)
+        #   window [2,2,1] → argsort [2,0,1]  (c<a<b, tie broken by position)
+        x_ties = np.array([3, 2, 2, 1, 3])
+        np.testing.assert_allclose(
+            perm_entropy(x_ties, order=3),
+            _perm_entropy_orig(x_ties, order=3),
+            atol=1e-12,
+        )
+
+        # Same signal stored as float — jitter must apply regardless of dtype
+        x_ties_float = x_ties.astype(float)
+        np.testing.assert_allclose(
+            perm_entropy(x_ties_float, order=3),
+            _perm_entropy_orig(x_ties_float, order=3),
+            atol=1e-12,
+        )
+
+        # Zero-padded float signal
+        x_zeros = np.array([0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 3.0])
+        np.testing.assert_allclose(
+            perm_entropy(x_zeros, order=3),
+            _perm_entropy_orig(x_zeros, order=3),
+            atol=1e-12,
+        )
+
+        # Quantized signal as integer dtype (256 bins, 1500 samples)
+        rng = np.random.default_rng(0)
+        t = np.linspace(0, 10 * 2 * np.pi, 1500)
+        sig = np.sin(t) + 0.3 * np.sin(2 * t) + 0.1 * rng.standard_normal(1500)
+        x_q = np.round((sig - sig.min()) / (sig.max() - sig.min()) * 255).astype(int)
+        for order in [3, 4]:
+            np.testing.assert_allclose(
+                perm_entropy(x_q, order=order, normalize=True),
+                _perm_entropy_orig(x_q, order=order, normalize=True),
+                atol=1e-12,
+                err_msg=f"Mismatch on quantized int signal for order={order}",
+            )
+
+        # Same quantized signal stored as float
+        x_q_float = x_q.astype(float)
+        for order in [3, 4]:
+            np.testing.assert_allclose(
+                perm_entropy(x_q_float, order=order, normalize=True),
+                _perm_entropy_orig(x_q_float, order=order, normalize=True),
+                atol=1e-12,
+                err_msg=f"Mismatch on quantized float signal for order={order}",
+            )
+
+    def test_perm_entropy_fast_path(self):
+        """Fast paths (order=3/4) must match the original argsort implementation for 1D input."""
+        rng = np.random.default_rng(0)
+        x = rng.random(500)
+
+        for order in [3, 4]:
+            for delay in [1, 2, 3]:
+                for normalize in [False, True]:
+                    ref = _perm_entropy_orig(x, order=order, delay=delay, normalize=normalize)
+                    got = perm_entropy(x, order=order, delay=delay, normalize=normalize)
+                    np.testing.assert_allclose(
+                        got,
+                        ref,
+                        atol=1e-12,
+                        err_msg=f"Fast path mismatch: order={order}, delay={delay}, normalize={normalize}",
+                    )
+
+    def test_perm_entropy_2d(self):
+        """perm_entropy on a 2D array (order=3/4) must match apply_along_axis of the original 1D implementation."""
+        rng = np.random.default_rng(0)
+        x = rng.random((20, 500))
+
+        for order in [3, 4]:
+            for delay in [1, 2, 3]:
+                for normalize in [False, True]:
+                    ref = aal(
+                        _perm_entropy_orig,
+                        axis=1,
+                        arr=x,
+                        order=order,
+                        delay=delay,
+                        normalize=normalize,
+                    )
+                    got = perm_entropy(x, order=order, delay=delay, normalize=normalize)
+                    np.testing.assert_allclose(
+                        got,
+                        ref,
+                        atol=1e-12,
+                        err_msg=f"2D mismatch: order={order}, delay={delay}, normalize={normalize}",
+                    )
 
     def test_spectral_entropy(self):
         spectral_entropy(RANDOM_TS, SF_TS, method="fft")

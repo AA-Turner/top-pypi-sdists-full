@@ -34,7 +34,7 @@ class OutputAdapter:
     from haystack.components.converters import OutputAdapter
 
     adapter = OutputAdapter(template="{{ documents[0].content }}", output_type=str)
-    documents = [Document(content="Test content"]
+    documents = [Document(content="Test content")]
     result = adapter.run(documents=documents)
 
     assert result["output"] == "Test content"
@@ -104,7 +104,7 @@ class OutputAdapter:
         component.set_output_types(self, output=output_type)
         self.output_type = output_type
 
-    def run(self, **kwargs):
+    def run(self, **kwargs: Any) -> dict[str, Any]:
         """
         Renders the Jinja template with the provided inputs.
 

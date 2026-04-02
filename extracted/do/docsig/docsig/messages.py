@@ -6,7 +6,7 @@ Error message definitions (Message, MessageMap, E) and format templates
 for docstring-check output.
 """
 
-from __future__ import annotations
+from __future__ import annotations as _
 
 import typing as _t
 
@@ -22,6 +22,10 @@ FLAKE8 = "{ref} {description} ({symbolic})"
 NEW = """\
 {ref} is a new violation and will error in a future version\
 """
+
+
+class Messages(_t.List["Message"]):
+    """Sequence of Message instances, typically for one failure."""
 
 
 class Message(_t.NamedTuple):
@@ -61,10 +65,6 @@ class Message(_t.NamedTuple):
             description=self.description,
             symbolic=self.symbolic,
         )
-
-
-class Messages(_t.List[Message]):
-    """Sequence of Message instances, typically for one failure."""
 
 
 class MessageMap(_t.Dict[int, Message]):
@@ -251,6 +251,11 @@ E = MessageMap(
             "SIG902",
             "failed to read file",
             "unicode-decode-error",
+        ),
+        903: Message(
+            "SIG903",
+            "maximum recursion depth exceeded",
+            "recursion-error",
         ),
     },
 )

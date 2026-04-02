@@ -3,7 +3,7 @@ Type annotations for medical-imaging service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medical_imaging/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -474,6 +474,7 @@ class UpdateImageSetMetadataRequestTypeDef(TypedDict):
     latestVersionId: str
     updateImageSetMetadataUpdates: MetadataUpdatesTypeDef
     force: NotRequired[bool]
+    includeStudyImageSets: NotRequired[bool]
 
 class CopyImageSetRequestTypeDef(TypedDict):
     datastoreId: str

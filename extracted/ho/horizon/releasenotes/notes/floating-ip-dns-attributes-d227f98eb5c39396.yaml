@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Support has been added to set and display DNS attributes for Floating IPs
-    (DNS Name and DNS Domain). These attributes are only available if Neutron
-    has the `dns-integration` extension enabled.

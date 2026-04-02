@@ -3,6 +3,7 @@ import click_extension
 
 from . import policies
 from ..output.table import output_entry
+import calendar
 
 
 @click.command(name="set-multifactor-policy")
@@ -119,6 +120,20 @@ def cli_command_migrate_policy_rules(ctx, **kwargs):
 @click.pass_context
 def cli_command_fetch_resource_rules(ctx, **kwargs):
     policies.fetch_resource_rules(ctx, **kwargs)
+
+
+@click.command(name="set-timeperiod-policy")
+@click.option("--start-time-of-day", required=True)
+@click.option("--end-time-of-day", required=True)
+@click.option("--name", required=True)
+@click.option("--day", multiple=True, type=click.Choice(list(calendar.day_name)))
+@click.option("--timezone", default="UTC")
+@click.option("--label", multiple=True, type=str)
+@click.option("--description", default=None)
+@click.option("--org-id", default=None)
+@click.pass_context
+def cli_command_set_timeperiod_policy(ctx, **kwargs):
+    output_entry(ctx, policies.set_timeperiod_policy(ctx, **kwargs).to_dict())
 
 
 all_funcs = [func for func in dir() if "cli_command_" in func]

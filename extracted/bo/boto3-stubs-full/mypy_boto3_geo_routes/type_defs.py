@@ -1672,7 +1672,6 @@ class RoutePedestrianLegDetailsTypeDef(TypedDict):
 class CalculateRouteMatrixRequestTypeDef(TypedDict):
     Destinations: Sequence[RouteMatrixDestinationTypeDef]
     Origins: Sequence[RouteMatrixOriginTypeDef]
-    RoutingBoundary: RouteMatrixBoundaryUnionTypeDef
     Allow: NotRequired[RouteMatrixAllowOptionsTypeDef]
     Avoid: NotRequired[RouteMatrixAvoidanceOptionsTypeDef]
     DepartNow: NotRequired[bool]
@@ -1680,6 +1679,7 @@ class CalculateRouteMatrixRequestTypeDef(TypedDict):
     Exclude: NotRequired[RouteMatrixExclusionOptionsTypeDef]
     Key: NotRequired[str]
     OptimizeRoutingFor: NotRequired[RoutingObjectiveType]
+    RoutingBoundary: NotRequired[RouteMatrixBoundaryUnionTypeDef]
     Traffic: NotRequired[RouteMatrixTrafficOptionsTypeDef]
     TravelMode: NotRequired[RouteMatrixTravelModeType]
     TravelModeOptions: NotRequired[RouteMatrixTravelModeOptionsTypeDef]

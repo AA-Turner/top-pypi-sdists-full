@@ -19,9 +19,9 @@ import json
 
 from pydantic import BaseModel, ConfigDict
 from typing import Any, ClassVar, Dict, List
+from connector_sdk_types.generated.models.access_graph_resource import AccessGraphResource
+from connector_sdk_types.generated.models.access_graph_resource_relationship import AccessGraphResourceRelationship
 from connector_sdk_types.generated.models.custom_attribute import CustomAttribute
-from connector_sdk_types.generated.models.resource import Resource
-from connector_sdk_types.generated.models.resource_relationship import ResourceRelationship
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -29,8 +29,8 @@ class ResourceGraph(BaseModel):
     """
     ResourceGraph
     """ # noqa: E501
-    resources: List[Resource]
-    resource_relationships: List[ResourceRelationship]
+    resources: List[AccessGraphResource]
+    resource_relationships: List[AccessGraphResourceRelationship]
     custom_attributes: List[CustomAttribute]
     __properties: ClassVar[List[str]] = ["resources", "resource_relationships", "custom_attributes"]
 
@@ -106,8 +106,8 @@ class ResourceGraph(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "resources": [Resource.from_dict(_item) for _item in obj["resources"]] if obj.get("resources") is not None else None,
-            "resource_relationships": [ResourceRelationship.from_dict(_item) for _item in obj["resource_relationships"]] if obj.get("resource_relationships") is not None else None,
+            "resources": [AccessGraphResource.from_dict(_item) for _item in obj["resources"]] if obj.get("resources") is not None else None,
+            "resource_relationships": [AccessGraphResourceRelationship.from_dict(_item) for _item in obj["resource_relationships"]] if obj.get("resource_relationships") is not None else None,
             "custom_attributes": [CustomAttribute.from_dict(_item) for _item in obj["custom_attributes"]] if obj.get("custom_attributes") is not None else None
         })
         return _obj

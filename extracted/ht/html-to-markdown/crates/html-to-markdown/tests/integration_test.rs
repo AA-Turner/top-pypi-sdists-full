@@ -591,6 +591,30 @@ fn q_element_produces_quotes() {
     assert!(result.contains(r#""hello""#), "q element should add quotes: {result}");
 }
 
+#[test]
+fn test_wikipedia_back_reference_caret_normalized() {
+    // Wikipedia back-references use <a href="#cite_ref-N">^</a>
+    // The caret should be normalized to ↑ to avoid confusion with markdown footnote syntax
+    let html = r##"<p>Some text<sup><a href="#cite_ref-1">^</a></sup> more text</p>"##;
+    let result = convert(html, None).unwrap();
+    assert!(
+        result.contains("[↑](#cite_ref-1)"),
+        "Back-reference caret should be normalized to ↑: {result}"
+    );
+    assert!(
+        !result.contains("[^]"),
+        "Should not produce [^] which looks like footnote syntax: {result}"
+    );
+}
+
+#[test]
+fn test_regular_caret_link_not_affected() {
+    // Regular links with ^ text but no # href should keep the ^
+    let html = r#"<a href="https://example.com">^</a>"#;
+    let result = convert(html, None).unwrap();
+    assert!(result.contains("[^]"), "Non-anchor caret links should keep ^: {result}");
+}
+
 fn convert(
     html: &str,
     opts: Option<html_to_markdown_rs::ConversionOptions>,

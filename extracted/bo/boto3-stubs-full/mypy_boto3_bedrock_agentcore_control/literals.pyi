@@ -39,6 +39,7 @@ __all__ = (
     "ContentTypeType",
     "CredentialProviderTypeType",
     "CredentialProviderVendorTypeType",
+    "EndpointIpAddressTypeType",
     "EvaluatorLevelType",
     "EvaluatorStatusType",
     "EvaluatorTypeType",
@@ -152,6 +153,7 @@ CredentialProviderVendorTypeType = Literal[
     "YandexOauth2",
     "ZoomOauth2",
 ]
+EndpointIpAddressTypeType = Literal["IPV4", "IPV6"]
 EvaluatorLevelType = Literal["SESSION", "TOOL_CALL", "TRACE"]
 EvaluatorStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"

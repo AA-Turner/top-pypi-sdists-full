@@ -1,0 +1,770 @@
+#
+# Copyright (c) 2025, Daily
+#
+# SPDX-License-Identifier: BSD 2-Clause License
+#
+
+import json
+import time
+from functools import wraps
+from typing import Callable, List, Optional, Union
+
+import aiohttp
+from loguru import logger
+
+from pipecatcloud._utils.deploy_utils import DeployConfigParams
+from pipecatcloud.config import config
+from pipecatcloud.exception import AgentStartError
+
+
+def api_method(func):
+    @wraps(func)
+    async def wrapper(self, *args, live=None, **kwargs):
+        try:
+            result = await func(self, *args, **kwargs)
+            return result, self.error
+        except Exception as e:
+            if live:
+                live.stop()
+            raise e
+
+    return wrapper
+
+
+class _API:
+    def __init__(self, token: Optional[str] = None, is_cli: bool = False):
+        self.token = token
+        self.error = None
+        self.bubble_next = False
+        self.is_cli = is_cli
+
+    @staticmethod
+    def construct_api_url(path: str) -> str:
+        if not config.get("api_host", ""):
+            raise ValueError("API host config variable is not set")
+
+        if not config.get(path, ""):
+            raise ValueError(f"Endpoint {path} is not set")
+
+        return f"{config.get('api_host', '')}{config.get(path, '')}"
+
+    def _configure_headers(self, override_token: Optional[str] = None) -> dict:
+        if not self.token and not override_token:
+            return {}
+        return {"Authorization": f"Bearer {override_token or self.token}"}
+
+    def _is_pat(self) -> bool:
+        """Check if the current token is a Personal Access Token."""
+        return bool(self.token and self.token.startswith("pcc_pat_"))
+
+    def _is_token_expired(self) -> bool:
+        """Check if the current OAuth token is near expiry.
+
+        Returns False for PATs (they don't expire via OAuth) and for
+        non-OAuth tokens (no token_expires_at stored).
+        """
+        if self._is_pat():
+            return False
+
+        from pipecatcloud.cli.config import config as cli_config
+
+        expires_at = cli_config.get("token_expires_at")
+        if expires_at is None:
+            return False
+        # Refresh 60 seconds before actual expiry to avoid race conditions
+        return time.time() > (float(expires_at) - 60)
+
+    async def _refresh_oauth_token(self) -> Optional[str]:
+        """Refresh the OAuth access token using the stored refresh token.
+
+        Updates both the on-disk config and the in-memory token on this API
+        instance. Returns the new access token, or None if refresh failed
+        (in which case the request will proceed with the expired token and
+        the server will return 401, prompting re-login).
+        """
+        from pipecatcloud.cli.config import config as cli_config, update_user_config
+
+        # Inline import: auth.py → cli/api.py → api.py creates a circular
+        # dependency at module load time. Importing here (at call time)
+        # breaks the cycle.
+        from pipecatcloud.cli.commands.auth import refresh_access_token
+
+        refresh_token = cli_config.get("refresh_token")
+        if not refresh_token:
+            return None
+
+        tokens = await refresh_access_token(refresh_token)
+        if not tokens:
+            return None
+
+        new_token = tokens["access_token"]
+        new_refresh = tokens.get("refresh_token", refresh_token)
+        expires_at = time.time() + tokens.get("expires_in", 86400)
+
+        update_user_config(
+            token=new_token,
+            refresh_token=new_refresh,
+            token_expires_at=expires_at,
+        )
+        self.token = new_token
+        return new_token
+
+    async def _base_request(
+        self,
+        method: str,
+        url: str,
+        params: Optional[dict] = None,
+        json: Optional[dict] = None,
+        not_found_is_empty: bool = False,
+        override_token: Optional[str] = None,
+    ) -> Optional[dict]:
+        # Auto-refresh expired OAuth tokens before making the request.
+        # Only runs for CLI usage (self.is_cli) and only when an OAuth
+        # refresh_token is stored (token_expires_at is set). Old device-code
+        # tokens are unaffected since _is_token_expired() returns False.
+        if self.is_cli and not override_token and self._is_token_expired():
+            new_token = await self._refresh_oauth_token()
+            if new_token is None:
+                logger.debug("Token refresh failed, proceeding with expired token")
+
+        async with aiohttp.ClientSession() as session:
+            logger.debug(f"Request: {method} {url} {params} {json}")
+
+            response = await session.request(
+                method=method,
+                url=url,
+                headers=self._configure_headers(override_token),
+                params=params,
+                json=json,
+            )
+
+            if not response.ok:
+                logger.debug(f"Response not ok: {response.status} {response.reason}")
+                if self.is_cli and not_found_is_empty and response.status == 404:
+                    return None
+
+                # Extract PCC error code, where applicable
+                try:
+                    # Try to parse the error as JSON
+                    error_data = await response.json()
+                    self.error = error_data
+                except Exception:
+                    # Fallback structure matching API format
+                    self.error = {
+                        "error": response.reason or "Bad Request",
+                        "code": str(response.status),
+                    }
+                response.raise_for_status()
+
+            return await response.json()
+
+    def create_api_method(self, method_func: Callable) -> Callable:
+        """Factory method that wraps API methods with error handling and live context"""
+
+        @wraps(method_func)
+        async def wrapper(*args, live=None, **kwargs):
+            self.error = None
+            try:
+                result = await method_func(*args, **kwargs)
+                self.bubble_next = False
+                return result, self.error
+            except Exception as e:
+                if live and not self.bubble_next:
+                    live.stop()
+
+                if not self.is_cli and self.error and not self.bubble_next:
+                    if isinstance(self.error, dict) and self.error.get("status", "429"):
+                        raise AgentStartError(self.error)
+                    else:
+                        raise e
+
+                if self.error and not self.bubble_next:
+                    logger.debug(e)
+                    self.print_error()
+
+                self.bubble_next = False
+                return None, self.error
+
+        return wrapper
+
+    def print_error(self):
+        from pipecatcloud._utils.console_utils import console
+
+        if not self.error:
+            return
+        if isinstance(self.error, dict) and self.error.get("code", "400") == "401":
+            console.unauthorized()
+        else:
+            console.api_error(self.error)
+
+    def bubble_error(self):
+        self.bubble_next = True
+        return self
+
+    # Auth
+
+    async def _whoami(self) -> dict:
+        url = self.construct_api_url("whoami_path")
+        return await self._base_request("GET", url) or {}
+
+    @property
+    def whoami(self):
+        return self.create_api_method(self._whoami)
+
+    # Organizations
+
+    async def _organizations_current(self, org: Optional[str] = None) -> dict | None:
+        url = self.construct_api_url("organization_path")
+
+        results = await self._base_request("GET", url)
+
+        if not results or not len(results["organizations"]):
+            return None
+
+        # If active_org is specified, try to find it in the list
+        if org:
+            for o in results["organizations"]:
+                if o["name"] == org:
+                    return {"name": o["name"], "verbose_name": o["verboseName"]}
+
+        # Default to first organization if active_org not found or not specified
+        return {"name": results[0]["name"], "verbose_name": results[0]["verboseName"]}
+
+    @property
+    def organizations_current(self):
+        return self.create_api_method(self._organizations_current)
+
+    async def _organizations(self) -> list:
+        url = self.construct_api_url("organization_path")
+        results = await self._base_request("GET", url)
+
+        if not results or not results.get("organizations", None):
+            raise
+
+        return results.get("organizations", None) or []
+
+    @property
+    def organizations(self):
+        return self.create_api_method(self._organizations)
+
+    # Daily API Key
+
+    async def _organizations_daily_key(self, org) -> dict:
+        url = self.construct_api_url("daily_key_path").format(org=org)
+        return await self._base_request("GET", url) or {}
+
+    @property
+    def organizations_daily_key(self):
+        return self.create_api_method(self._organizations_daily_key)
+
+    # API Keys
+
+    async def _api_keys(self, org) -> dict:
+        url = self.construct_api_url("api_keys_path").format(org=org)
+        return await self._base_request("GET", url) or {}
+
+    @property
+    def api_keys(self):
+        """Get API keys for an organization.
+        Args:
+            org: Organization ID
+        """
+        return self.create_api_method(self._api_keys)
+
+    async def _api_key_create(self, api_key_name: str, org: str) -> dict:
+        url = self.construct_api_url("api_keys_path").format(org=org)
+        return (
+            await self._base_request("POST", url, json={"name": api_key_name, "type": "public"})
+            or {}
+        )
+
+    @property
+    def api_key_create(self):
+        """Create API keys for an organization.
+        Args:
+            api_key_name: Human readable name for API key
+            org: Organization ID
+        """
+        return self.create_api_method(self._api_key_create)
+
+    async def _api_key_delete(self, api_key_id: str, org: str) -> dict:
+        url = f"{self.construct_api_url('api_keys_path').format(org=org)}/{api_key_id}"
+        return await self._base_request("DELETE", url) or {}
+
+    @property
+    def api_key_delete(self):
+        """Delete API keys for an organization.
+        Args:
+            api_key_id: Human readable name for API key
+            org: Organization ID
+        """
+        return self.create_api_method(self._api_key_delete)
+
+    # Secret
+
+    async def _secrets_list(
+        self, org: str, secret_set: Optional[str] = None, region: Optional[str] = None
+    ) -> dict | None:
+        if secret_set:
+            url = f"{self.construct_api_url('secrets_path').format(org=org)}/{secret_set}"
+        else:
+            url = f"{self.construct_api_url('secrets_path').format(org=org)}"
+
+        # Build query params if region filter is specified
+        params = {"region": region} if region else None
+
+        result = await self._base_request("GET", url, params=params, not_found_is_empty=True) or {}
+
+        if "sets" in result:
+            return result["sets"]
+
+        if "secrets" in result:
+            return result["secrets"]
+
+        return None
+
+    @property
+    def secrets_list(self):
+        """List secrets
+        Args:
+            org: Organization ID,
+            secret_set: (optional) name of secret set to lookup
+            region: (optional) filter by region
+
+        """
+        return self.create_api_method(self._secrets_list)
+
+    async def _secrets_upsert(
+        self, data: dict, set_name: str, org: str, region: Optional[str] = None
+    ) -> dict:
+        url = f"{self.construct_api_url('secrets_path').format(org=org)}/{set_name}"
+
+        # Add region to data payload only if explicitly provided
+        # If not provided, API will use org's default region
+        if region:
+            data = {**data, "region": region}
+
+        return await self._base_request("PUT", url, json=data) or {}
+
+    @property
+    def secrets_upsert(self):
+        """Create / modify secret set.
+        Args:
+            data: key and value of secret to add (or credentials for image pull secrets)
+            set_name: name of set to create or update
+            org: Organization ID
+            region: region for secret set
+        """
+        return self.create_api_method(self._secrets_upsert)
+
+    async def _secrets_delete(self, set_name: str, secret_name: str, org: str) -> dict | None:
+        url = f"{self.construct_api_url('secrets_path').format(org=org)}/{set_name}/{secret_name}"
+        return await self._base_request("DELETE", url, not_found_is_empty=True)
+
+    @property
+    def secrets_delete(self):
+        """Delete secret from set
+        Args:
+            set_name: name of set to target
+            secret_name: name of secret to delete
+            org: Organization ID
+        """
+        return self.create_api_method(self._secrets_delete)
+
+    async def _secrets_delete_set(self, set_name: str, org: str) -> dict | None:
+        url = f"{self.construct_api_url('secrets_path').format(org=org)}/{set_name}"
+        return await self._base_request("DELETE", url, not_found_is_empty=True)
+
+    @property
+    def secrets_delete_set(self):
+        """Delete secret from set
+        Args:
+            set_name: name of set to target
+            org: Organization ID
+        """
+        return self.create_api_method(self._secrets_delete_set)
+
+    # Deploy
+
+    async def _deploy(
+        self, deploy_config: DeployConfigParams, org: str, update: bool = False
+    ) -> dict | None:
+        url = f"{self.construct_api_url('services_path').format(org=org)}"
+
+        # Create base payload and filter out None values
+        payload = {
+            "serviceName": deploy_config.agent_name,
+            "imagePullSecretSet": deploy_config.image_credentials,
+            "secretSet": deploy_config.secret_set,
+            "region": deploy_config.region,
+            "autoScaling": {
+                "minAgents": deploy_config.scaling.min_agents,
+                "maxAgents": deploy_config.scaling.max_agents,
+            },
+            "enableKrisp": deploy_config.enable_krisp,
+            "agentProfile": deploy_config.agent_profile,
+            "krispViva": {
+                "audioFilter": deploy_config.krisp_viva.audio_filter,
+            },
+        }
+
+        # Use either build_id (cloud build) or image (user-provided)
+        if deploy_config.build_id:
+            payload["buildId"] = deploy_config.build_id
+        else:
+            payload["image"] = deploy_config.image
+
+        # Remove None values recursively
+        def remove_none_values(d):
+            return {
+                k: remove_none_values(v) if isinstance(v, dict) else v
+                for k, v in d.items()
+                if v is not None
+            }
+
+        cleaned_payload = remove_none_values(payload)
+
+        if update:
+            return await self._base_request("PUT", url, json=cleaned_payload)
+        else:
+            return await self._base_request("POST", url, json=cleaned_payload)
+
+    @property
+    def deploy(self):
+        """Lookup agent by name
+        Args:
+            deploy_config: Deploy config object to send as JSON to deployment
+            update: Updated existing deployment
+            org: Organization ID
+        """
+        return self.create_api_method(self._deploy)
+
+    # Agents
+
+    async def _agent(self, agent_name: str, org: str) -> dict | None:
+        url = f"{self.construct_api_url('services_path').format(org=org)}/{agent_name}"
+        result = await self._base_request("GET", url, not_found_is_empty=True)
+
+        if result and "body" in result:
+            return result["body"]
+
+        return None
+
+    @property
+    def agent(self):
+        """Lookup agent by name
+        Args:
+            agent_name: name of agent to lookup
+            org: Organization ID
+        """
+        return self.create_api_method(self._agent)
+
+    async def _agents(self, org: str, region: Optional[str] = None) -> List[dict] | None:
+        url = f"{self.construct_api_url('services_path').format(org=org)}"
+
+        # Build query params if region filter is specified
+        params = {"region": region} if region else None
+
+        result = await self._base_request("GET", url, params=params) or {}
+
+        if "services" in result:
+            return result["services"]
+
+        return None
+
+    @property
+    def agents(self):
+        """List agents/services
+        Args:
+            org: Organization ID
+            region: (optional) filter by region
+        """
+        return self.create_api_method(self._agents)
+
+    async def _start_agent(
+        self,
+        agent_name: str,
+        api_key: str,
+        use_daily: bool,
+        data: Optional[str] = None,
+        daily_properties: Optional[str] = None,
+    ) -> dict | None:
+        url = f"{self.construct_api_url('start_path').format(service=agent_name)}"
+
+        payload: dict = {"createDailyRoom": use_daily}
+
+        # Add data to payload if provided
+        if data is not None:
+            payload["body"] = json.loads(data)
+
+        # Add Daily room properties only if use_daily is True
+        if use_daily and daily_properties:
+            payload["dailyRoomProperties"] = json.loads(daily_properties)
+
+        return await self._base_request(
+            "POST", url, override_token=api_key, json=payload, not_found_is_empty=True
+        )
+
+    @property
+    def start_agent(self):
+        return self.create_api_method(self._start_agent)
+
+    async def _agent_delete(self, agent_name: str, org: str) -> dict | None:
+        url = f"{self.construct_api_url('services_path').format(org=org)}/{agent_name}"
+        return await self._base_request("DELETE", url, not_found_is_empty=True)
+
+    @property
+    def agent_delete(self):
+        return self.create_api_method(self._agent_delete)
+
+    async def _agent_logs(
+        self,
+        agent_name: str,
+        org: str,
+        limit: int = 100,
+        deployment_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+    ) -> dict | None:
+        url = f"{self.construct_api_url('services_logs_path').format(org=org, service=agent_name)}"
+        params: dict[str, Union[int, str]] = {"limit": limit}
+        if deployment_id:
+            params["deploymentId"] = deployment_id
+        if session_id:
+            params["sessionId"] = session_id
+        return await self._base_request("GET", url, params=params)
+
+    @property
+    def agent_logs(self):
+        return self.create_api_method(self._agent_logs)
+
+    async def _agent_sessions(self, agent_name: str, org: str) -> dict | None:
+        url = f"{self.construct_api_url('services_sessions_path').format(org=org, service=agent_name)}"
+        return await self._base_request("GET", url) or {}
+
+    @property
+    def agent_sessions(self):
+        return self.create_api_method(self._agent_sessions)
+
+    async def _agent_session(self, agent_name: str, session_id: str, org: str) -> dict | None:
+        url = f"{self.construct_api_url('services_sessions_path').format(org=org, service=agent_name)}/{session_id}"
+        return await self._base_request("GET", url, not_found_is_empty=True)
+
+    @property
+    def agent_session(self):
+        """Get details for a specific session including resource metrics.
+        Args:
+            agent_name: Name of the agent
+            session_id: ID of the session
+            org: Organization ID
+        """
+        return self.create_api_method(self._agent_session)
+
+    async def _agent_session_terminate(
+        self, agent_name: str, session_id: str, org: str
+    ) -> dict | None:
+        url = f"{self.construct_api_url('services_sessions_path').format(org=org, service=agent_name)}/{session_id}"
+        return await self._base_request("DELETE", url, not_found_is_empty=True)
+
+    @property
+    def agent_session_terminate(self):
+        """Terminate an active session for an agent.
+        Args:
+            agent_name: Name of the agent
+            session_id: ID of the session to terminate
+            org: Organization ID
+        """
+        return self.create_api_method(self._agent_session_terminate)
+
+    # Regions
+
+    async def _regions(self, org: str) -> list[dict] | None:
+        url = self.construct_api_url("regions_path").format(org=org)
+        result = await self._base_request("GET", url, not_found_is_empty=True)
+
+        if result and "regions" in result:
+            # Return full region objects with code and display_name
+            return result["regions"]
+
+        return None
+
+    @property
+    def regions(self):
+        """List available regions
+        Args:
+            org: Organization ID
+        Returns:
+            List of region objects with 'code' and 'display_name' fields
+        """
+        return self.create_api_method(self._regions)
+
+    # Organization Properties
+
+    async def _properties(self, org: str) -> dict | None:
+        url = self.construct_api_url("properties_path").format(org=org)
+        result = await self._base_request("GET", url, not_found_is_empty=True)
+        if result and "properties" in result:
+            return result["properties"]
+        return None
+
+    @property
+    def properties(self):
+        """Get current organization properties
+        Args:
+            org: Organization ID
+        Returns:
+            Dict of property names to current values
+        """
+        return self.create_api_method(self._properties)
+
+    async def _properties_schema(self, org: str) -> dict | None:
+        url = f"{self.construct_api_url('properties_path').format(org=org)}/schema"
+        result = await self._base_request("GET", url, not_found_is_empty=True)
+        if result and "properties" in result:
+            return result["properties"]
+        return None
+
+    @property
+    def properties_schema(self):
+        """Get organization properties schema with metadata
+        Args:
+            org: Organization ID
+        Returns:
+            Dict of property names to schema info (type, description, currentValue, default, availableValues)
+        """
+        return self.create_api_method(self._properties_schema)
+
+    async def _properties_update(self, org: str, properties: dict) -> dict | None:
+        url = self.construct_api_url("properties_path").format(org=org)
+        result = await self._base_request("PATCH", url, json=properties)
+        if result and "properties" in result:
+            return result["properties"]
+        return None
+
+    @property
+    def properties_update(self):
+        """Update organization properties
+        Args:
+            org: Organization ID
+            properties: Dict of property names to new values
+        Returns:
+            Updated properties dict
+        """
+        return self.create_api_method(self._properties_update)
+
+    # Builds
+
+    async def _build_upload_url(self, org: str, region: Optional[str] = None) -> dict:
+        """Get a presigned URL for uploading build context."""
+        url = f"{self.construct_api_url('builds_path').format(org=org)}/upload-url"
+        payload = {}
+        if region:
+            payload["region"] = region
+        return await self._base_request("POST", url, json=payload) or {}
+
+    @property
+    def build_upload_url(self):
+        """Get presigned upload URL for build context.
+        Args:
+            org: Organization ID
+            region: Optional region for the build
+        Returns:
+            Dict with uploadId, uploadUrl, uploadFields, expiresAt
+        """
+        return self.create_api_method(self._build_upload_url)
+
+    async def _build_create(
+        self,
+        org: str,
+        upload_id: str,
+        region: Optional[str] = None,
+        dockerfile_path: str = "Dockerfile",
+    ) -> dict:
+        """Create a new build from uploaded context."""
+        url = self.construct_api_url("builds_path").format(org=org)
+        payload = {
+            "uploadId": upload_id,
+            "dockerfilePath": dockerfile_path,
+        }
+        if region:
+            payload["region"] = region
+        return await self._base_request("POST", url, json=payload) or {}
+
+    @property
+    def build_create(self):
+        """Create a build from uploaded context.
+        Args:
+            org: Organization ID
+            upload_id: ID from upload URL response
+            region: Optional region for the build
+            dockerfile_path: Path to Dockerfile within context
+        Returns:
+            Dict with build, contextHash, cached
+        """
+        return self.create_api_method(self._build_create)
+
+    async def _build_get(self, org: str, build_id: str) -> dict | None:
+        """Get build status by ID."""
+        url = f"{self.construct_api_url('builds_path').format(org=org)}/{build_id}"
+        return await self._base_request("GET", url, not_found_is_empty=True)
+
+    @property
+    def build_get(self):
+        """Get build by ID.
+        Args:
+            org: Organization ID
+            build_id: Build ID to lookup
+        Returns:
+            Dict with build data or None if not found
+        """
+        return self.create_api_method(self._build_get)
+
+    async def _build_list(
+        self,
+        org: str,
+        context_hash: Optional[str] = None,
+        region: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 20,
+    ) -> dict:
+        """List builds with optional filters."""
+        url = self.construct_api_url("builds_path").format(org=org)
+        params = {"limit": limit}
+        if context_hash:
+            params["contextHash"] = context_hash
+        if region:
+            params["region"] = region
+        if status:
+            params["status"] = status
+        return await self._base_request("GET", url, params=params) or {}
+
+    @property
+    def build_list(self):
+        """List builds with filters.
+        Args:
+            org: Organization ID
+            context_hash: Filter by context hash (for cache lookup)
+            region: Filter by region
+            status: Filter by status (pending, building, success, failed, timeout)
+            limit: Max results to return (default 20)
+        Returns:
+            Dict with builds, total, limit, offset
+        """
+        return self.create_api_method(self._build_list)
+
+    async def _build_logs(self, org: str, build_id: str, limit: int = 500) -> dict | None:
+        """Get build logs."""
+        url = f"{self.construct_api_url('builds_path').format(org=org)}/{build_id}/logs"
+        params = {"limit": limit}
+        return await self._base_request("GET", url, params=params, not_found_is_empty=True)
+
+    @property
+    def build_logs(self):
+        """Get logs for a build.
+        Args:
+            org: Organization ID
+            build_id: Build ID
+            limit: Max log lines to return (default 500)
+        Returns:
+            Dict with logs array or None if not found
+        """
+        return self.create_api_method(self._build_logs)

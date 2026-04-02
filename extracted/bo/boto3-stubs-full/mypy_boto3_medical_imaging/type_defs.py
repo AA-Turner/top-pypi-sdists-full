@@ -534,6 +534,7 @@ class UpdateImageSetMetadataRequestTypeDef(TypedDict):
     latestVersionId: str
     updateImageSetMetadataUpdates: MetadataUpdatesTypeDef
     force: NotRequired[bool]
+    includeStudyImageSets: NotRequired[bool]
 
 
 class CopyImageSetRequestTypeDef(TypedDict):

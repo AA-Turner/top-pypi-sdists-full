@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral_common
-Version: 1.10.0
+Version: 1.11.0
 Summary: Mistral-common is a library of common utilities for Mistral AI.
 Author-email: bam4d <bam4d@mistral.ai>
 License-Expression: Apache-2.0
@@ -30,6 +30,9 @@ Requires-Dist: mistral_common[soundfile]; extra == "audio"
 Requires-Dist: mistral_common[soxr]; extra == "audio"
 Provides-Extra: image
 Requires-Dist: mistral_common[opencv]; extra == "image"
+Provides-Extra: guidance
+Requires-Dist: llguidance<1.4.0,>=1.3.0; extra == "guidance"
+Requires-Dist: jinja2>=3.1.0; extra == "guidance"
 Provides-Extra: hf-hub
 Requires-Dist: huggingface-hub>=1.0; extra == "hf-hub"
 Provides-Extra: server
@@ -37,6 +40,8 @@ Requires-Dist: fastapi[standard]>=0.118.3; extra == "server"
 Requires-Dist: pydantic-settings>=2.9.1; extra == "server"
 Requires-Dist: click>=8.1.0; extra == "server"
 Requires-Dist: uvloop>=0.22.1; python_version >= "3.14" and extra == "server"
+Provides-Extra: all
+Requires-Dist: mistral_common[audio,guidance,hf-hub,image,opencv,sentencepiece,server]; extra == "all"
 
 <div align="center">
 

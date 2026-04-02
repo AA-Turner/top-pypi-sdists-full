@@ -1,6 +1,6 @@
 [package]
 name = "uv-keyring"
-version = "0.0.35"
+version = "0.0.36"
 description = "This is an internal component crate of uv"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -9,9 +9,6 @@ repository = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 readme = "README.md"
-
-[lib]
-doctest = false
 
 [lints]
 workspace = true

@@ -3,15 +3,14 @@
 from collections import defaultdict
 
 import numpy as np
-import pandas as pd
 
 from pgmpy.factors import FactorDict
 from pgmpy.factors.discrete import DiscreteFactor
 from pgmpy.inference.ExactInference import BeliefPropagation
-from pgmpy.utils import preprocess_data
+from pgmpy.utils import build_state_names, get_state_counts, preprocess_data
 
 
-class BaseEstimator(object):
+class BaseEstimator:
     """
     Base class for estimators in pgmpy; `ParameterEstimator`,
     `StructureEstimator` and `StructureScore` derive from this class.
@@ -39,30 +38,8 @@ class BaseEstimator(object):
         # data can be None in the case when learning structure from
         # independence conditions. Look into PC.py.
         if self.data is not None:
-            self.variables = list(data.columns.values)
-
-            if not isinstance(state_names, dict):
-                self.state_names = {
-                    var: self._collect_state_names(var) for var in self.variables
-                }
-            else:
-                self.state_names = dict()
-                for var in self.variables:
-                    if var in state_names:
-                        if not set(self._collect_state_names(var)) <= set(
-                            state_names[var]
-                        ):
-                            raise ValueError(
-                                f"Data contains unexpected states for variable: {var}."
-                            )
-                        self.state_names[var] = state_names[var]
-                    else:
-                        self.state_names[var] = self._collect_state_names(var)
-
-    def _collect_state_names(self, variable):
-        "Return a list of states that the variable takes in the data."
-        states = sorted(list(self.data.loc[:, variable].dropna().unique()))
-        return states
+            self.variables = list(self.data.columns.values)
+            self.state_names = build_state_names(self.data, state_names=state_names)
 
     def state_counts(
         self,
@@ -103,82 +80,29 @@ class BaseEstimator(object):
         --------
         >>> import pandas as pd
         >>> from pgmpy.estimators import BaseEstimator
-        >>> data = pd.DataFrame(data={'A': ['a1', 'a1', 'a2'],
-                                      'B': ['b1', 'b2', 'b1'],
-                                      'C': ['c1', 'c1', 'c2']})
+        >>> data = pd.DataFrame(
+        ...     data={
+        ...         "A": ["a1", "a1", "a2"],
+        ...         "B": ["b1", "b2", "b1"],
+        ...         "C": ["c1", "c1", "c2"],
+        ...     }
+        ... )
         >>> estimator = BaseEstimator(data)
-        >>> estimator.state_counts('A')
-            A
-        a1  2
-        a2  1
-        >>> estimator.state_counts('C', parents=['A', 'B'])
-        A  a1      a2
-        B  b1  b2  b1  b2
-        C
-        c1  1   1   0   0
-        c2  0   0   1   0
-        >>> estimator.state_counts('C', parents=['A'])
-        A    a1   a2
-        C
-        c1  2.0  0.0
-        c2  0.0  1.0
+        >>> estimator.state_counts(variable="A").values
+        array([[2],
+               [1]])
+        >>> estimator.state_counts(variable="C", parents=["A", "B"]).values
+        array([[1., 1., 0., 0.],
+               [0., 0., 1., 0.]])
         """
-        parents = list(parents)
-
-        if weighted and ("_weight" not in self.data.columns):
-            raise ValueError("data must contain a `_weight` column if weighted=True")
-
-        if not parents:
-            # count how often each state of 'variable' occurred
-            if weighted:
-                state_count_data = self.data.groupby([variable], observed=True)[
-                    "_weight"
-                ].sum()
-            else:
-                state_count_data = self.data.loc[:, variable].value_counts()
-
-            state_counts = (
-                state_count_data.reindex(self.state_names[variable])
-                .fillna(0)
-                .to_frame()
-            )
-
-        else:
-            parents_states = [self.state_names[parent] for parent in parents]
-            # count how often each state of 'variable' occurred, conditional on parents' states
-            if weighted:
-                state_count_data = (
-                    self.data.groupby([variable] + parents, observed=True)["_weight"]
-                    .sum()
-                    .unstack(parents)
-                )
-
-            else:
-                state_count_data = (
-                    self.data.groupby([variable] + parents, observed=True)
-                    .size()
-                    .unstack(parents)
-                )
-
-            if not isinstance(state_count_data.columns, pd.MultiIndex):
-                state_count_data.columns = pd.MultiIndex.from_arrays(
-                    [state_count_data.columns]
-                )
-
-            if reindex:
-                # reindex rows & columns to sort them and to add missing ones
-                # missing row    = some state of 'variable' did not occur in data
-                # missing column = some state configuration of current 'variable's parents
-                #                  did not occur in data
-                row_index = self.state_names[variable]
-                column_index = pd.MultiIndex.from_product(parents_states, names=parents)
-                state_counts = state_count_data.reindex(
-                    index=row_index, columns=column_index
-                ).fillna(0)
-            else:
-                state_counts = state_count_data.fillna(0)
-
-        return state_counts
+        return get_state_counts(
+            data=self.data,
+            state_names=self.state_names,
+            variable=variable,
+            parents=parents,
+            weighted=weighted,
+            reindex=reindex,
+        )
 
 
 class ParameterEstimator(BaseEstimator):
@@ -187,7 +111,7 @@ class ParameterEstimator(BaseEstimator):
 
     Parameters
     ----------
-    model: pgmpy.models.DiscreteBayesianNetwork or pgmpy.models.MarkovNetwork model
+    model: pgmpy.models.DiscreteBayesianNetwork or pgmpy.models.DiscreteMarkovNetwork model
         for which parameter estimation is to be done.
 
     data: pandas DataFrame object
@@ -207,7 +131,7 @@ class ParameterEstimator(BaseEstimator):
 
         Parameters
         ----------
-        model: pgmpy.models.DiscreteBayesianNetwork or pgmpy.models.MarkovNetwork model
+        model: pgmpy.models.DiscreteBayesianNetwork or pgmpy.models.DiscreteMarkovNetwork model
             for which parameter estimation is to be done.
 
         data: pandas DataFrame object
@@ -228,7 +152,7 @@ class ParameterEstimator(BaseEstimator):
         """
         self.model = model
 
-        super(ParameterEstimator, self).__init__(data, **kwargs)
+        super().__init__(data, **kwargs)
 
     def state_counts(self, variable, weighted=False, **kwargs):
         """
@@ -251,27 +175,25 @@ class ParameterEstimator(BaseEstimator):
         >>> import pandas as pd
         >>> from pgmpy.models import DiscreteBayesianNetwork
         >>> from pgmpy.estimators import ParameterEstimator
-        >>> model = DiscreteBayesianNetwork([('A', 'C'), ('B', 'C')])
-        >>> data = pd.DataFrame(data={'A': ['a1', 'a1', 'a2'],
-                                      'B': ['b1', 'b2', 'b1'],
-                                      'C': ['c1', 'c1', 'c2']})
+        >>> model = DiscreteBayesianNetwork([("A", "C"), ("B", "C")])
+        >>> data = pd.DataFrame(
+        ...     data={
+        ...         "A": ["a1", "a1", "a2"],
+        ...         "B": ["b1", "b2", "b1"],
+        ...         "C": ["c1", "c1", "c2"],
+        ...     }
+        ... )
         >>> estimator = ParameterEstimator(model, data)
-        >>> estimator.state_counts('A')
-            A
-        a1  2
-        a2  1
-        >>> estimator.state_counts('C')
-        A  a1      a2
-        B  b1  b2  b1  b2
-        C
-        c1  1   1   0   0
-        c2  0   0   1   0
+        >>> estimator.state_counts(variable="A").values
+        array([[2],
+               [1]])
+        >>> estimator.state_counts(variable="C").values
+        array([[1., 1., 0., 0.],
+               [0., 0., 1., 0.]])
         """
 
         parents = sorted(self.model.get_parents(variable))
-        return super(ParameterEstimator, self).state_counts(
-            variable, parents=parents, weighted=weighted, **kwargs
-        )
+        return super().state_counts(variable, parents=parents, weighted=weighted, **kwargs)
 
 
 class StructureEstimator(BaseEstimator):
@@ -296,7 +218,7 @@ class StructureEstimator(BaseEstimator):
         if self.independencies is not None:
             self.variables = self.independencies.get_all_variables()
 
-        super(StructureEstimator, self).__init__(data=data, **kwargs)
+        super().__init__(data=data, **kwargs)
 
     def estimate(self):
         pass
@@ -308,7 +230,7 @@ class MarginalEstimator(BaseEstimator):
 
     Parameters
     ----------
-    model: MarkovNetwork | FactorGraph | JunctionTree
+    model: DiscreteMarkovNetwork | FactorGraph | JunctionTree
         A model to optimize, using Belief Propagation and an estimation method.
 
     data: pandas DataFrame object

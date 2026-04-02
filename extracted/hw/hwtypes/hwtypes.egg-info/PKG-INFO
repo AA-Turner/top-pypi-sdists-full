@@ -1,0 +1,30 @@
+Metadata-Version: 2.1
+Name: hwtypes
+Version: 1.4.7
+Summary: Python implementations of fixed size hardware types (Bit, BitVector, UInt, SInt, ...) based on the SMT-LIB2 semantics
+Home-page: https://github.com/leonardt/hwtypes
+Author: Leonard Truong
+Author-email: lenny@cs.stanford.edu
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+
+[![Linux Test](https://github.com/leonardt/hwtypes/actions/workflows/linux-test.yml/badge.svg)](https://github.com/leonardt/hwtypes/actions/workflows/linux-test.yml)
+
+
+# Install
+## Debian
+```
+apt install libgmp-dev libmpfr-dev libmpc-dev
+pip install hwtypes
+```
+## OSX
+```
+brew install gmp mpfr libmpc
+pip install hwtypes
+```
+
+## CentOS
+```
+yum install libmpc-devel mpfr-devel gmp-devel
+pip install hwtypes
+```

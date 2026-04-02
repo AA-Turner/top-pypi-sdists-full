@@ -1,0 +1,66 @@
+Metadata-Version: 2.4
+Name: pygeoapi
+Version: 0.23.2
+Summary: pygeoapi provides an API to geospatial data
+Home-page: https://pygeoapi.io
+Author: Tom Kralidis
+Author-email: tomkralidis@gmail.com
+Maintainer: Tom Kralidis
+Maintainer-email: tomkralidis@gmail.com
+License: MIT
+Keywords: geospatial data api
+Platform: all
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: Babel==2.10.3
+Requires-Dist: click==8.1.6
+Requires-Dist: filelock==3.25.0
+Requires-Dist: Flask==3.1.3
+Requires-Dist: jinja2==3.1.2
+Requires-Dist: jsonschema==4.26.0
+Requires-Dist: pydantic==1.10.14
+Requires-Dist: pygeofilter==0.3.3
+Requires-Dist: pygeoif==1.6.0
+Requires-Dist: pyproj==3.6.1
+Requires-Dist: python-dateutil==2.8.2
+Requires-Dist: pytz==2026.1.post1
+Requires-Dist: PyYAML==6.0.1
+Requires-Dist: rasterio==1.3.9
+Requires-Dist: requests==2.31.0
+Requires-Dist: shapely==2.0.3
+Requires-Dist: SQLAlchemy==2.0.48
+Requires-Dist: tinydb==3.15.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# pygeoapi
+
+[![DOI](https://zenodo.org/badge/121585259.svg)](https://zenodo.org/badge/latestdoi/121585259)
+[![Build](https://github.com/geopython/pygeoapi/actions/workflows/main.yml/badge.svg)](https://github.com/geopython/pygeoapi/actions/workflows/main.yml)
+[![Docker](https://github.com/geopython/pygeoapi/actions/workflows/containers.yml/badge.svg)](https://github.com/geopython/pygeoapi/actions/workflows/containers.yml)
+[![Vulnerabilities](https://github.com/geopython/pygeoapi/actions/workflows/vulnerabilities.yml/badge.svg)](https://github.com/geopython/pygeoapi/actions/workflows/vulnerabilities.yml)
+
+[pygeoapi](https://pygeoapi.io) is a Python server implementation of the [OGC API](https://ogcapi.ogc.org) suite of standards. The project emerged as part of the next generation OGC API efforts in 2018 and provides the capability for organizations to deploy a RESTful OGC API endpoint using OpenAPI, GeoJSON, and HTML. pygeoapi is [open source](https://opensource.org/) and released under an [MIT license](https://github.com/geopython/pygeoapi/blob/master/LICENSE.md).
+
+Please read the docs at [https://docs.pygeoapi.io](https://docs.pygeoapi.io) for more information.

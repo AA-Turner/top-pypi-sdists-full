@@ -12,6 +12,7 @@ use std::rc::Rc;
 #[cfg(feature = "inline-images")]
 use crate::inline_images::InlineImageCollector;
 
+use crate::converter::reference_collector::ReferenceCollectorHandle;
 use crate::types::structure_collector::StructureCollectorHandle;
 
 /// Handle type for inline image collector when feature is enabled.
@@ -105,6 +106,8 @@ pub struct Context {
     ///
     /// Populated when `options.include_document_structure == true`.
     pub(crate) structure_collector: Option<StructureCollectorHandle>,
+    /// Optional reference collector for reference-style links.
+    pub(crate) reference_collector: Option<ReferenceCollectorHandle>,
 }
 
 impl Context {
@@ -122,6 +125,7 @@ impl Context {
         #[cfg(feature = "visitor")] visitor: Option<crate::visitor::VisitorHandle>,
         #[cfg(not(feature = "visitor"))] _visitor: Option<()>,
         structure_collector: Option<StructureCollectorHandle>,
+        reference_collector: Option<ReferenceCollectorHandle>,
     ) -> Self {
         #[cfg(feature = "metadata")]
         let (
@@ -186,6 +190,7 @@ impl Context {
             #[cfg(feature = "visitor")]
             visitor_error: Rc::new(RefCell::new(None)),
             structure_collector,
+            reference_collector,
         }
     }
 }

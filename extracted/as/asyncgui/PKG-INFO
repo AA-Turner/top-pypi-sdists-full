@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asyncgui
-Version: 0.10.0
+Version: 0.10.1
 Summary: A minimalistic async library that focuses on fast responsiveness
 Keywords: async
 Author: Nattōsai Mitō
@@ -42,8 +42,7 @@ Description-Content-Type: text/markdown
 Pin the minor version.
 
 ```text
-poetry add asyncgui@~0.9
-pip install "asyncgui>=0.9,<0.10"
+pip install "asyncgui>=0.10,<0.11"
 ```
 
 ## Tested on

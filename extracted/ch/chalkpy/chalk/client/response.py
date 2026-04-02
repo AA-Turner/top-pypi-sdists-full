@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Collection, Dict, Mapping, Protocol, Sequence, Union
 
+from chalk.client._chalkdf_import import ChalkDfDataFrame
 from chalk.client.models import (
     ChalkError,
     DatasetFilter,
@@ -343,6 +344,35 @@ class DatasetRevision(Protocol):
         -------
         pa.Table
             A `pa.Table` materializing query output data.
+        """
+        ...
+
+    def to_dataframe(
+        self,
+        ignore_errors: bool = False,
+        show_progress: bool | ellipsis = ...,
+        timeout: float | timedelta | None | ellipsis = ...,
+    ) -> ChalkDfDataFrame:
+        """Loads a `chalkdf.DataFrame` from the raw parquet file outputs.
+
+        Requires the `chalkdf` package: ``pip install "chalkpy[chalkdf]"``.
+
+        Parameters
+        ----------
+        ignore_errors
+            Whether to ignore query errors upon fetching data
+        show_progress
+            Whether to show a progress bar. Defaults to `True`.
+        timeout
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
+            Jobs will continue to run in the background if they take longer than this timeout.
+            For no timeout, set to `None`. If no timeout is specified, the client's default
+            timeout is used.
+
+        Returns
+        -------
+        chalkdf.DataFrame
+            A `chalkdf.DataFrame` materializing query output data.
         """
         ...
 
@@ -843,6 +873,33 @@ class Dataset(Protocol):
         -------
         pa.Table
             A `pa.Table` materializing query output data.
+        """
+        ...
+
+    def to_dataframe(
+        self,
+        ignore_errors: bool = False,
+        show_progress: bool | ellipsis = ...,
+        timeout: float | timedelta | None | ellipsis = ...,
+    ) -> ChalkDfDataFrame:
+        """Loads a `chalkdf.DataFrame` from the raw parquet file outputs.
+
+        Other Parameters
+        ----------
+        ignore_errors
+            Whether to ignore query errors upon fetching data
+        show_progress
+            Whether to show a progress bar. Defaults to `True`.
+        timeout
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
+            Jobs will continue to run in the background if they take longer than this timeout.
+            For no timeout, set to `None`. If no timeout is specified, the client's default
+            timeout is used.
+
+        Returns
+        -------
+        chalkdf.DataFrame
+            A `chalkdf.DataFrame` materializing query output data.
         """
         ...
 

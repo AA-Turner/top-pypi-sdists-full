@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import BaseModel, Field
 
-from plato.tools import ToolDefinition
-from plato.tools.mcp import write_mcp_config
+from plato.tools import ToolDefinition, get_request_context
+from plato.tools.mcp import scoped_mcp_url, write_mcp_config
+from plato.tools.request_context import (
+    ToolRequestContext,
+    register_client_context,
+    unregister_client_context,
+)
 from plato.tools.server import ToolServer
 
 # ---------------------------------------------------------------------------
@@ -147,8 +153,75 @@ class TestToolServer:
             wrapper = mock_mcp.tool.return_value.call_args[0][0]
 
             # Call it with a model instance — should invoke the handler
-            result = await wrapper(AddInput(a=3, b=4))
+            result = await wrapper(
+                AddInput(a=3, b=4),
+                SimpleNamespace(request_context=None),
+            )
             assert result == {"sum": 7}
+
+    @pytest.mark.asyncio
+    async def test_query_param_context_available_in_handler(self):
+        """Handlers can resolve the current caller identity from request metadata."""
+
+        class WhoAmIServer(ToolServer):
+            def build_tools(self):
+                return [
+                    ToolDefinition(
+                        name="whoami",
+                        description="Expose request context",
+                        input_model=EchoInput,
+                        handler=self._whoami,
+                    ),
+                ]
+
+            def _whoami(self, args: EchoInput) -> dict:
+                request_context = get_request_context()
+                assert request_context is not None
+                return {
+                    "msg": args.msg,
+                    "client_id": request_context.client_id,
+                    "instruction": request_context.instruction,
+                    "display_name": request_context.display_name,
+                    "attempt": request_context.attempt,
+                }
+
+        with patch("plato.tools.server.FastMCP") as mock_cls:
+            mock_mcp = MagicMock()
+            mock_cls.return_value = mock_mcp
+            WhoAmIServer(name="WhoAmI")
+            register_client_context(
+                ToolRequestContext(
+                    client_id="agent-123",
+                    instruction="build the dashboard",
+                    display_name="builder-route-a",
+                    attempt=2,
+                )
+            )
+
+            wrapper = mock_mcp.tool.return_value.call_args[0][0]
+            fake_request = SimpleNamespace(
+                query_params={
+                    "plato_client_id": "agent-123",
+                },
+                headers={},
+            )
+            fake_ctx = SimpleNamespace(
+                request_context=SimpleNamespace(request=fake_request),
+            )
+
+            try:
+                result = await wrapper(EchoInput(msg="hello"), fake_ctx)
+            finally:
+                unregister_client_context("agent-123")
+
+            assert result == {
+                "msg": "hello",
+                "client_id": "agent-123",
+                "instruction": "build the dashboard",
+                "display_name": "builder-route-a",
+                "attempt": 2,
+            }
+            assert get_request_context() is None
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +280,15 @@ class TestStdioServerHelpers:
 
 
 class TestWriteMcpConfig:
+    def test_scoped_mcp_url_adds_agent_identity(self):
+        result = scoped_mcp_url(
+            "http://runtime:8765/mcp",
+            client_id="agent-123",
+        )
+
+        assert "plato_client_id=agent-123" in result
+        assert result == "http://runtime:8765/mcp?plato_client_id=agent-123"
+
     def test_no_servers_returns_none(self, tmp_path):
         result = write_mcp_config(tmp_path)
         assert result is None
@@ -222,45 +304,16 @@ class TestWriteMcpConfig:
         assert config["mcpServers"]["datagen"]["url"] == "http://localhost:8765/mcp"
         assert len(config["mcpServers"]) == 1
 
-    def test_local_stdio_server_only(self, tmp_path):
-        plato_dir = tmp_path / ".plato"
-        plato_dir.mkdir()
-        (plato_dir / "tools.pkl").write_bytes(b"fake")
-
-        result = write_mcp_config(tmp_path)
-        assert result == tmp_path / ".mcp.json"
-
+    def test_remote_config_does_not_create_local_tool_artifacts(self, tmp_path):
+        result = write_mcp_config(
+            tmp_path,
+            remote_url="http://runtime:8765/mcp",
+            remote_name="world-tools",
+        )
         config = json.loads(result.read_text())
-        assert "plato-tools" in config["mcpServers"]
-        assert config["mcpServers"]["plato-tools"]["command"] == "python"
+
         assert len(config["mcpServers"]) == 1
-        assert (plato_dir / "mcp_server.py").exists()
-
-    def test_both_remote_and_local_servers(self, tmp_path):
-        plato_dir = tmp_path / ".plato"
-        plato_dir.mkdir()
-        (plato_dir / "tools.pkl").write_bytes(b"fake")
-
-        result = write_mcp_config(tmp_path, remote_url="http://runtime:8765/mcp", remote_name="world-tools")
-        config = json.loads(result.read_text())
-
-        assert len(config["mcpServers"]) == 2
         assert "world-tools" in config["mcpServers"]
-        assert "plato-tools" in config["mcpServers"]
         assert config["mcpServers"]["world-tools"]["type"] == "http"
-        assert config["mcpServers"]["plato-tools"]["command"] == "python"
-
-    def test_custom_tools_path(self, tmp_path):
-        custom_tools = tmp_path / "custom" / "my_tools.pkl"
-        custom_tools.parent.mkdir(parents=True)
-        custom_tools.write_bytes(b"fake")
-
-        result = write_mcp_config(tmp_path, tools_path=str(custom_tools))
-        config = json.loads(result.read_text())
-
-        assert "plato-tools" in config["mcpServers"]
-        assert str(custom_tools.parent / "mcp_server.py") in config["mcpServers"]["plato-tools"]["args"]
-
-    def test_tools_pkl_missing_no_local_server(self, tmp_path):
-        result = write_mcp_config(tmp_path)
-        assert result is None
+        assert not (tmp_path / ".plato" / "tools.pkl").exists()
+        assert not (tmp_path / ".plato" / "mcp_server.py").exists()

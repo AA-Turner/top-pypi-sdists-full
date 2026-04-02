@@ -1,0 +1,64 @@
+Metadata-Version: 2.4
+Name: redis-simple-mq
+Version: 1.1.0
+Summary: Simple message queue based on Redis.
+Keywords: queue,redis
+Author-email: Erik Kalkoken <kalkoken87@gmail.com>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+License-File: LICENSE
+Requires-Dist: redis
+Project-URL: Homepage, https://gitlab.com/ErikKalkoken/redis-simple-mq
+
+# redis-simple-mq
+
+A simple message queue for Redis.
+
+[![release](https://img.shields.io/pypi/v/redis-simple-mq?label=release)](https://pypi.org/project/redis-simple-mq/)
+[![python](https://img.shields.io/pypi/pyversions/redis-simple-mq)](https://pypi.org/project/redis-simple-mq/)
+[![pipeline](https://gitlab.com/ErikKalkoken/redis-simple-mq/badges/master/pipeline.svg)](https://gitlab.com/ErikKalkoken/redis-simple-mq/-/pipelines)
+[![codecov](https://codecov.io/gl/ErikKalkoken/redis-simple-mq/branch/master/graph/badge.svg?token=M1IBQV97BE)](https://codecov.io/gl/ErikKalkoken/redis-simple-mq)
+[![Documentation Status](https://readthedocs.org/projects/redis-simple-mq/badge/?version=latest)](https://redis-simple-mq.readthedocs.io/en/latest/?badge=latest)
+[![license](https://img.shields.io/badge/license-MIT-green)](https://gitlab.com/ErikKalkoken/redis-simple-mq/-/blob/master/LICENSE)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![chat](https://img.shields.io/discord/790364535294132234)](https://discord.gg/zmh52wnfvM)
+
+## Description
+
+This is a light-weight message queue based on Redis.
+
+Key features:
+
+- Class based API to the queue with all basic queue functions
+- Queue is implement as FIFO
+- All messages are stored and retrieved as UTF-8 strings
+- Bulk methods for enqueue and dequeue
+- No limit on the number of parallel queues
+- Fully tested
+
+## Basic example
+
+```python
+from redis import Redis
+from simple_mq import SimpleMQ
+
+conn = Redis()
+q = SimpleMQ(conn)
+q.enqueue('Hello, World!')
+message = q.dequeue()
+print(message)
+```
+
+See also the examples folder for examples.
+

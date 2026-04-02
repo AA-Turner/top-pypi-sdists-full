@@ -1,18 +1,18 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-requests-oauthlib"
-version = "2.0.0.20250809"
+version = "2.0.0.20260402"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for requests-oauthlib"
 readme = { text = """\
 ## Typing stubs for requests-oauthlib
 
-This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
-the [`requests-oauthlib`](https://github.com/requests/requests-oauthlib) package. It can be used by type checkers
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`requests-oauthlib`](https://github.com/requests/requests-oauthlib) package. It can be used by type checkers
 to check code that uses `requests-oauthlib`. This version of
 `types-requests-oauthlib` aims to provide accurate annotations for
 `requests-oauthlib==2.0.*`.
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.16.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.403
+* [mypy](https://github.com/python/mypy/) 1.20.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ['types-oauthlib', 'types-requests']
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = ['types-oauthlib', 'types-requests']
 [tool.setuptools]
 packages = ['requests_oauthlib-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'requests_oauthlib-stubs' = ['__init__.pyi', 'compliance_fixes/__init__.pyi', 'compliance_fixes/douban.pyi', 'compliance_fixes/ebay.pyi', 'compliance_fixes/facebook.pyi', 'compliance_fixes/fitbit.pyi', 'compliance_fixes/instagram.pyi', 'compliance_fixes/mailchimp.pyi', 'compliance_fixes/plentymarkets.pyi', 'compliance_fixes/slack.pyi', 'compliance_fixes/weibo.pyi', 'oauth1_auth.pyi', 'oauth1_session.pyi', 'oauth2_auth.pyi', 'oauth2_session.pyi', 'METADATA.toml', 'py.typed']

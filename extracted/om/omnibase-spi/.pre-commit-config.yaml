@@ -1,0 +1,343 @@
+# SPI Pre-commit Configuration
+# Enhanced validation for Service Provider Interface architectural compliance
+#
+# PERFORMANCE OPTIMIZATION NOTES:
+# - Uses ruff for formatting, import sorting, and linting (replaces black + isort)
+# - Order: ruff format -> ruff check -> mypy (formatting before linting before type checking)
+# - Use `pre-commit run --all-files` to test all hooks before pushing
+
+repos:
+  # Stub implementation detection — sourced from omnibase_core (OMN-5599)
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 458f44ef24564956c6430ae7671570aed035c853 # pragma: allowlist secret
+    hooks:
+      - id: check-stub-implementations
+
+  # YAML formatting (standard across ecosystem)
+  - repo: https://github.com/google/yamlfmt
+    rev: v0.21.0
+    hooks:
+      - id: yamlfmt
+        args: [--formatter, retain_line_breaks=true]
+        exclude: ^(tests/fixtures/validation/|\.github/workflows/)
+
+  # Essential file formatting (standard across ecosystem)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+        exclude: ^\.github/workflows/
+      - id: end-of-file-fixer
+        exclude: ^(\.github/workflows/|\.mcp\.json$)
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+
+  # Cross-repo enforcement hooks from onex_change_control
+  - repo: https://github.com/OmniNode-ai/onex_change_control
+    rev: 8d7e85bc00e7f1b1306d1cb40949be1ab6e7e91a
+    hooks:
+      - id: no-hardcoded-topics
+        # Pre-existing violations — pending migration to canonical topic constants.
+        # Justifications for each exclude:
+        #   contract_git_hook_event.py        — default_topic in event contract (1 violation)
+        #   contract_linear_snapshot_event.py  — default_topic in event contract (1 violation)
+        #   contract_github_pr_status_event.py — default_topic in event contract (1 violation)
+        #   event_registry.py                 — topic strings in registry mapping (6 violations)
+        #   default_github_pr_poller.yaml     — topic in YAML contract default (1 violation)
+        exclude: ^(src/omnibase_spi/contracts/events/contract_git_hook_event\.py|src/omnibase_spi/contracts/events/contract_linear_snapshot_event\.py|src/omnibase_spi/contracts/events/contract_github_pr_status_event\.py|src/omnibase_spi/registry/event_registry\.py|src/omnibase_spi/contracts/defaults/default_github_pr_poller\.yaml)$
+      - id: cosmetic-lint
+      - id: no-untracked-todos
+        stages: [pre-commit]
+
+  # ONEX String Version Anti-Pattern Detection
+  # TODO(OMN-3832-followup): Re-enable once validate-string-versions is packaged as a
+  # proper Python CLI entrypoint in omnibase_core (currently only works as a local script).
+
+  # Configuration and Security Hooks
+  - repo: local
+    hooks:
+      - id: no-env-file
+        name: Reject committed .env files (except .env.example)
+        entry: "bash -c 'if git diff --cached --name-only | grep -qE \"(^|/)\\\\.env([._-].+)?$\" | grep -vE \"\\\\.env\\\\.example\"; then echo \"BLOCKED: .env staged — use ~/.omnibase/.env instead. Run: git reset HEAD <file>\"; exit 1; fi'"
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+  # SPI Python Development Hooks
+  # Order: ruff format -> ruff check (with import sorting) -> mypy
+  # Ruff replaces both black and isort for faster, unified tooling
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: ruff format (auto-format)
+        entry: uv run ruff format
+        language: system
+        types: [python]
+        exclude: ^(tests/fixtures/validation/|\.github/workflows/).*$
+        stages: [pre-commit]
+
+      - id: ruff-fix
+        name: ruff check (lint + import sort)
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+        exclude: ^(tests/fixtures/validation/|\.github/workflows/).*$
+        stages: [pre-commit]
+
+      - id: mypy-type-check
+        name: mypy (type checking - strict)
+        entry: uv run mypy
+        language: system
+        types: [python]
+        args: [--strict, --ignore-missing-imports, --show-error-codes, --no-error-summary]
+        files: ^src/omnibase_spi/.*\.py$
+        exclude: ^(tests/|scripts/).*\.py$
+        stages: [pre-commit]
+
+      # Cleanup: Clear tmp/ directory before commits
+      # Prevents accumulation of temporary files from custom commands
+      - id: clean-tmp-directory
+        name: Clean tmp directory
+        entry: bash -c "rm -rf tmp/* 2>/dev/null || true"
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-commit]
+
+  # SPI Framework Validation Hooks
+  - repo: local
+    hooks:
+      # Core SPI architecture validation
+      - id: validate-spi-protocols
+        name: SPI Protocol Architecture Validation
+        entry: uv run python scripts/validation/validate_spi_protocols.py
+        language: system
+        types: [python]
+        files: ^src/.*\.py$
+        exclude: ^(tests/|scripts/|src/omnibase_spi/exceptions\.py).*$
+        pass_filenames: false
+        args: ['src/', '--exclude-pattern', 'exceptions.py']
+        stages: [pre-commit]
+
+      # Enhanced protocol duplicate detection
+      - id: validate-protocol-duplicates
+        name: SPI Protocol Duplicate Detection
+        entry: uv run python scripts/validation/validate_protocol_duplicates.py
+        language: system
+        types: [python]
+        files: ^src/.*protocol.*\.py$
+        exclude: ^(tests/|scripts/).*\.py$
+        pass_filenames: false
+        args: ['src/']
+        stages: [pre-commit]
+
+      # Comprehensive duplicate analysis (backup validation)
+      - id: comprehensive-duplicate-analysis
+        name: SPI Comprehensive Duplicate Analysis
+        entry: uv run python scripts/validation/validate_protocol_duplicates.py
+        language: system
+        types: [python]
+        files: ^src/.*\.py$
+        exclude: ^(tests/|scripts/).*\.py$
+        pass_filenames: false
+        args: ['src/']
+        stages: [manual]
+
+      # Enhanced namespace isolation
+      - id: validate-namespace-isolation
+        name: SPI Namespace Isolation Validation
+        entry: ./scripts/validate-namespace-isolation.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # Enhanced SPI purity check
+      - id: validate-spi-purity
+        name: SPI Architectural Purity Validation
+        entry: ./scripts/validate-spi-purity.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # Enhanced SPI typing pattern validation (adapted from omnibase_core)
+      - id: validate-spi-typing-patterns
+        name: SPI Typing Pattern Validation
+        entry: uv run python scripts/validation/validate_spi_typing_patterns.py
+        language: system
+        types: [python]
+        files: ^src/.*\.py$
+        exclude: ^(tests/|scripts/).*\.py$
+        pass_filenames: false
+        args: ['src/']
+        stages: [pre-commit]
+
+      # Enhanced SPI naming convention validation (adapted from omnibase_core)
+      - id: validate-spi-naming-conventions
+        name: SPI Naming Convention Validation
+        entry: uv run python scripts/validation/validate_spi_naming.py
+        language: system
+        types: [python]
+        files: ^src/.*\.py$
+        exclude: ^(tests/|scripts/).*\.py$
+        pass_filenames: false
+        args: ['src/']
+        stages: [pre-commit]
+
+      # ======================================================================
+      # STANDALONE VALIDATORS (Temporary - stdlib only, no omnibase_core)
+      # Will be replaced by omnibase_core.validation when circular dep resolved
+      # ======================================================================
+
+      # Architecture validation - One protocol per file (ONEX requirement)
+      - id: validate-architecture
+        name: SPI Architecture Validation (One Protocol Per File)
+        entry: python scripts/validation/validate_architecture.py
+        language: system
+        types: [python]
+        files: ^src/omnibase_spi/protocols/.*\.py$
+        exclude: ^(tests/|scripts/).*\.py$
+        pass_filenames: false
+        stages: [manual] # Manual: 92 files have existing violations (technical debt)
+
+      # Naming patterns - Protocol/Error naming and @runtime_checkable
+      - id: validate-naming-patterns
+        name: SPI Naming Pattern Validation
+        entry: python scripts/validation/validate_naming_patterns.py
+        language: system
+        types: [python]
+        files: ^src/omnibase_spi/.*\.py$
+        exclude: ^(tests/|scripts/).*\.py$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # Namespace isolation - No Infra imports, no Pydantic models
+      - id: validate-namespace-isolation-new
+        name: SPI Namespace Isolation (No Infra, No Pydantic)
+        entry: python scripts/validation/validate_namespace_isolation.py
+        language: system
+        types: [python]
+        files: ^src/omnibase_spi/.*\.py$
+        exclude: ^(tests/|scripts/).*\.py$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # Unified runner - Run all validators (for CI or manual runs)
+      - id: validate-all-spi
+        name: SPI Unified Validation Suite
+        entry: python scripts/validation/run_all_validations.py --strict
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [manual] # Manual: Use for CI or explicit validation runs
+
+      # ======================================================================
+      # SECURITY VALIDATION HOOKS (aligned with omnibase_core)
+      # These hooks prevent common security vulnerabilities in the codebase
+      # ======================================================================
+
+      # Security: Secret Detection (prevents hardcoded secrets)
+      # Scans Python files for hardcoded API keys, passwords, tokens, and other secrets.
+      # Uses AST parsing for reliable detection of secret patterns in variable names
+      # and attribute assignments (e.g., self.api_key = "...").
+      # Bypass: Add inline comment "# secret-ok: <reason>" for test fixtures.
+      - id: validate-secrets
+        name: SPI Secret Detection
+        entry: uv run python scripts/validation/validate_secrets.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|scripts/validation/).*\.py$
+        stages: [pre-commit]
+
+      # Security: Hardcoded Environment Variable Prevention
+      # Ensures environment variables (UPPER_CASE names) use os.getenv() or similar.
+      # Prevents accidental hardcoding of DATABASE_URL, API_KEY, PORT, etc.
+      # Bypass: Add inline comment "# env-var-ok: <reason>" for constants.
+      - id: validate-hardcoded-env-vars
+        name: SPI Hardcoded Environment Variable Prevention
+        entry: uv run python scripts/validation/validate_hardcoded_env_vars.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|scripts/validation/).*\.py$
+        stages: [pre-commit]
+
+      # ======================================================================
+      # HEADER VALIDATION HOOKS (aligned with omnibase_core)
+      # These hooks ensure consistent file header format
+      # ======================================================================
+
+      # SPDX Header Enforcement (reverses OMN-1360 — uniform MIT headers required)
+      - id: validate-spdx-headers
+        name: ONEX SPDX Header Requirement
+        entry: uv run onex spdx validate
+        language: system
+        pass_filenames: true
+        files: ^(src|tests|scripts|examples)/.*\.(py|sh|bash|yml|yaml|toml)$
+        exclude: ^(archived/|archive/)
+        stages: [pre-commit]
+
+      # ======================================================================
+      # STRUCTURE VALIDATION HOOKS (aligned with omnibase_core)
+      # These hooks maintain clean directory structure
+      # ======================================================================
+
+      # Empty Directory Prevention
+      # Detects directories that are empty or only contain __init__.py.
+      # Helps identify incomplete refactoring or placeholder modules.
+      # Skips symlinks to prevent directory traversal attacks.
+      - id: validate-no-empty-directories
+        name: SPI Empty Directory Prevention
+        entry: uv run python scripts/validation/validate_no_empty_directories.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+      - id: check-ai-slop
+        name: Check for AI-slop patterns
+        language: system
+        entry: uv run python scripts/validation/check_ai_slop.py --strict
+        types_or: [python, markdown]
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # ======================================================================
+      # PLANNING DOCS GUARD (OMN-3618)
+      # Planning docs belong in omni_home/docs/plans/, not in individual repos
+      # ======================================================================
+
+      - id: no-planning-docs
+        name: Block planning docs (belong in omni_home/docs/plans/)
+        entry: bash -c 'PLAN_FILES=$(git diff --cached --name-only --diff-filter=ACMR -- "docs/plans/"); if [ -n "$PLAN_FILES" ]; then echo "ERROR - Planning docs must live in omni_home/docs/plans/, not in this repo"; echo "$PLAN_FILES"; echo ""; echo "Move your file to omni_home/docs/plans/"; exit 1; fi'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # Markdown link validation (OMN-5086) — uses onex-validate-links from omnibase_core
+      - id: onex-validate-links
+        name: Validate markdown links
+        entry: uv run onex-validate-links --verbose
+        language: system
+        types: [markdown]
+        pass_filenames: false
+        stages: [pre-commit]
+
+# Configuration
+default_install_hook_types: [pre-commit]
+default_stages: [pre-commit]
+fail_fast: false
+
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes for omnibase_spi
+
+    SPI architectural compliance fixes
+  autofix_prs: true
+  autoupdate_schedule: weekly
+  submodules: false

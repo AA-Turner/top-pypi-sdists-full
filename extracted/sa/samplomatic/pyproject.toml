@@ -1,0 +1,137 @@
+[build-system]
+requires = ["setuptools", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["samplomatic"]
+
+[tool.setuptools.packages.find]
+include = ["samplomatic", "samplomatic.*"]
+
+[project]
+name = "samplomatic"
+dynamic = ["version"]
+description = "Serving all of your circuit sampling needs since 2025."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE.txt"]
+authors = [
+    {name = "Qiskit Development Team", email="qiskit@us.ibm.com"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "qiskit>=2.3.0",
+    "numpy>=1.26",
+    "rustworkx>=0.16.0",
+    "pybase64>=1.4.0",
+    "orjson>=3.9.0"
+]
+
+[tool.setuptools_scm]
+version_file = "samplomatic/_version.py"
+version_scheme = "guess-next-dev"
+local_scheme = "dirty-tag"
+
+[project.urls]
+Homepage = "https://github.com/Qiskit/samplomatic"
+BugTracker = "https://github.com/Qiskit/samplomatic/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",                     # For running tests
+    "pytest-benchmark",           # For running performance tests
+    "kaleido",                    # For visualizing performance tests
+    "ruff",                       # Formatter and linter
+    "pre-commit",                 # Pre-commit hooks
+    "towncrier",                  # Changelog management
+    "qiskit-aer",                 # For running tests
+    "sphinx>=2.2",                # For building documentation
+    "qiskit-sphinx-theme~=2.0.0", # Qiskit Sphinx theme
+    "sphinx-automodapi",          # Helps generate stubs in documentation
+    "scipy-doctest>=2.0",         # SciPy's style of doctesting
+    "sphinx-plotly-directive",    # For embedding plotly figures in docs
+    "myst-parser>=2.0",           # For rendering markdown in sphinx
+    "myst-nb",                    # For rendering notebooks as doc pages
+]
+vis = [
+    "nbformat>=4.2.0",
+    "plotly",
+    "matplotlib",
+    "pylatexenc",
+]
+
+[tool.ruff]
+lint.select = [
+    "D100", "D401",     # pydocstyle
+    "D2", "D3",         # pydocstyle
+    "E",      # pycodestyle
+    "F",      # pyflake
+    "I",      # isort
+    "SLF",    # private member access rules
+    "UP",     # pyupgrade
+]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+    "E402",   # module-import-not-at-top-of-file
+    "F401",   # unused-import
+]
+"test/unit/**/*.py" = [
+    "D100",   #
+]
+
+[tool.pytest.ini_options]
+addopts = "--ignore=test/performance --doctest-modules"
+pythonpath = ["."]
+
+[tool.towncrier]
+package = "samplomatic"
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+start_string = "<!-- towncrier release notes start -->\n"
+title_format = "## [{version}](https://github.com/Qiskit/samplomatic/tree/{version}) - {project_date}"
+issue_format = "[#{issue}](https://github.com/Qiskit/samplomatic/issues/{issue})"
+
+[[tool.towncrier.type]]
+directory = "security"
+name = "Security"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "deprecated"
+name = "Deprecated"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "improved"
+name = "Improved"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true

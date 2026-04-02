@@ -9,7 +9,9 @@ from datadog_api_client.v1.model.formula_and_function_metric_query_definition im
     FormulaAndFunctionMetricQueryDefinition,
 )
 from datadog_api_client.v1.model.service_level_objective_request import ServiceLevelObjectiveRequest
-from datadog_api_client.v1.model.slo_count_definition import SLOCountDefinition
+from datadog_api_client.v1.model.slo_count_definition_with_total_events_formula import (
+    SLOCountDefinitionWithTotalEventsFormula,
+)
 from datadog_api_client.v1.model.slo_count_spec import SLOCountSpec
 from datadog_api_client.v1.model.slo_formula import SLOFormula
 from datadog_api_client.v1.model.slo_threshold import SLOThreshold
@@ -21,7 +23,7 @@ body = ServiceLevelObjectiveRequest(
     description="Metric SLO using sli_specification",
     name="Example-Service-Level-Objective",
     sli_specification=SLOCountSpec(
-        count=SLOCountDefinition(
+        count=SLOCountDefinitionWithTotalEventsFormula(
             good_events_formula=SLOFormula(
                 formula="query1 - query2",
             ),

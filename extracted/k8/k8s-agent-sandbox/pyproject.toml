@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "k8s-agent-sandbox"
+dynamic = ["version"]
+description = "A client library to interact with the Agentic Sandbox on Kubernetes."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "kubernetes",
+    "requests",
+    "pydantic",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/kubernetes-sigs/agent-sandbox"
+"Bug Tracker" = "https://github.com/kubernetes-sigs/agent-sandbox/issues"
+
+[tool.setuptools]
+# This line tells setuptools to only include the 'k8s_agent_sandbox'
+# package and to ignore other directories like 'sandbox_router'.
+packages = ["k8s_agent_sandbox"]
+
+[tool.setuptools_scm]
+root = "../../.."
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-xdist",
+]
+tracing = [
+    "opentelemetry-api~=1.39.0",
+    "opentelemetry-sdk~=1.39.0",
+    "opentelemetry-exporter-otlp~=1.39.0",
+    "opentelemetry-instrumentation-requests~=0.60b0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["k8s_agent_sandbox"]

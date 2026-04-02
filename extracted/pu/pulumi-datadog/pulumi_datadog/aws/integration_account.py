@@ -32,6 +32,7 @@ class IntegrationAccountArgs:
                  traces_config: Optional[pulumi.Input['IntegrationAccountTracesConfigArgs']] = None):
         """
         The set of arguments for constructing a IntegrationAccount resource.
+
         :param pulumi.Input[_builtins.str] aws_account_id: Your AWS Account ID without dashes.
         :param pulumi.Input[_builtins.str] aws_partition: AWS Account partition.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] account_tags: Tags to apply to all metrics in the account. Defaults to `[]`.
@@ -182,6 +183,7 @@ class _IntegrationAccountState:
                  traces_config: Optional[pulumi.Input['IntegrationAccountTracesConfigArgs']] = None):
         """
         Input properties used for looking up and filtering IntegrationAccount resources.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] account_tags: Tags to apply to all metrics in the account. Defaults to `[]`.
         :param pulumi.Input['IntegrationAccountAuthConfigArgs'] auth_config: Configure how Datadog authenticates to your AWS account. Either `aws_auth_config_keys` or `aws_auth_config_role` block is required within.
         :param pulumi.Input[_builtins.str] aws_account_id: Your AWS Account ID without dashes.
@@ -421,15 +423,15 @@ class IntegrationAccount(pulumi.CustomResource):
             }])
         ```
 
-        ## Upgrading from `aws.Integration` resources
+        ## Upgrading from `datadog_integration_aws` resources
 
          To migrate your account configuration from `datadog_integration_aws*` resources to `aws.IntegrationAccount`:
          1. Import your integrated accounts into `aws.IntegrationAccount` resources using the import command below.
          2. Once successfully imported, you can run `terraform state rm` to delete all resources of the deprecated types from state:
-            - `aws.Integration`
-            - `aws.IntegrationLambdaArn`
-            - `aws.IntegrationLogCollection`
-            - `aws.IntegrationTagFilter`
+            - `datadog_integration_aws`
+            - `datadog_integration_aws_lambda_arn`
+            - `datadog_integration_aws_log_collection`
+            - `datadog_integration_aws_tag_filter`
 
         ## Import
 
@@ -437,6 +439,7 @@ class IntegrationAccount(pulumi.CustomResource):
         $ pulumi import datadog:aws/integrationAccount:IntegrationAccount example "<datadog-aws-account-config-id>"
         ```
          AWS Account Config ID can be retrieved by using the [List all AWS integrations](https://docs.datadoghq.com/api/latest/aws-integration/#list-all-aws-integrations) endpoint and querying by AWS Account ID.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -541,15 +544,15 @@ class IntegrationAccount(pulumi.CustomResource):
             }])
         ```
 
-        ## Upgrading from `aws.Integration` resources
+        ## Upgrading from `datadog_integration_aws` resources
 
          To migrate your account configuration from `datadog_integration_aws*` resources to `aws.IntegrationAccount`:
          1. Import your integrated accounts into `aws.IntegrationAccount` resources using the import command below.
          2. Once successfully imported, you can run `terraform state rm` to delete all resources of the deprecated types from state:
-            - `aws.Integration`
-            - `aws.IntegrationLambdaArn`
-            - `aws.IntegrationLogCollection`
-            - `aws.IntegrationTagFilter`
+            - `datadog_integration_aws`
+            - `datadog_integration_aws_lambda_arn`
+            - `datadog_integration_aws_log_collection`
+            - `datadog_integration_aws_tag_filter`
 
         ## Import
 
@@ -557,6 +560,7 @@ class IntegrationAccount(pulumi.CustomResource):
         $ pulumi import datadog:aws/integrationAccount:IntegrationAccount example "<datadog-aws-account-config-id>"
         ```
          AWS Account Config ID can be retrieved by using the [List all AWS integrations](https://docs.datadoghq.com/api/latest/aws-integration/#list-all-aws-integrations) endpoint and querying by AWS Account ID.
+
 
         :param str resource_name: The name of the resource.
         :param IntegrationAccountArgs args: The arguments to use to populate this resource's properties.

@@ -1,6 +1,6 @@
 [package]
 name = "uv-distribution"
-version = "0.0.35"
+version = "0.0.36"
 description = "This is an internal component crate of uv"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -35,6 +35,7 @@ uv-pep440 = { workspace = true }
 uv-pep508 = { workspace = true }
 uv-platform-tags = { workspace = true }
 uv-pypi-types = { workspace = true }
+uv-python = { workspace = true }
 uv-redacted = { workspace = true }
 uv-types = { workspace = true }
 uv-warnings = { workspace = true }

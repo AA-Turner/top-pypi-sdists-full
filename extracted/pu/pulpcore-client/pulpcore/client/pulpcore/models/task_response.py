@@ -47,9 +47,10 @@ class TaskResponse(BaseModel):
     task_group: Optional[StrictStr] = Field(default=None, description="The task group that this task is a member of.")
     progress_reports: Optional[List[ProgressReportResponse]] = None
     created_resources: Optional[List[StrictStr]] = Field(default=None, description="Resources created by this task.")
+    created_resource_prns: Optional[List[StrictStr]] = Field(default=None, description="Resources created by this task as PRNs.")
     reserved_resources_record: Optional[List[StrictStr]] = Field(default=None, description="A list of resources required by that task.")
     result: Optional[Any] = None
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "state", "name", "logging_cid", "created_by", "unblocked_at", "started_at", "finished_at", "error", "worker", "parent_task", "child_tasks", "task_group", "progress_reports", "created_resources", "reserved_resources_record", "result"]
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "state", "name", "logging_cid", "created_by", "unblocked_at", "started_at", "finished_at", "error", "worker", "parent_task", "child_tasks", "task_group", "progress_reports", "created_resources", "created_resource_prns", "reserved_resources_record", "result"]
 
     model_config = ConfigDict(
         populate_by_name=True,

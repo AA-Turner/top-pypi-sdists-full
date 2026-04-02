@@ -274,7 +274,7 @@ checks:
     stage: checks
     variables:
         SHOW_VERSION_OF: "$PYTHON black clang-format"
-        RUNTEST_ARGS: "--time --pure"
+        RUNTEST_ARGS: "--time --pure --forbid-skip"
         FILTER: "--test-list ${TMP_WORK_DIR}/check-tests.txt"
         CI_CLEVER_CLOUD_FLAVOR: S
 
@@ -651,7 +651,8 @@ build-c-wheel-windows:
         - echo "$Env:TMP"
         - echo "$Env:TEMP"
         - C:/hgdev/MinGW/msys/1.0/bin/sh.exe
-          --login -c 'cd "$OLDPWD"
+          --login -c 'sleep 5
+            && cd "$OLDPWD"
             && ls -1 tests/test-check-*.* > "${TMP_WORK_DIR}"/check-tests.txt'
         # This test is hanging the worker and not that important, so lets skip
         # it for now
@@ -730,6 +731,7 @@ macos:
 # The weird directory structure match the one we use for Linux to deal with the
 # multiple jobs. (all this might be unnecessary)
 build-c-wheel-macos:
+    extends: .all
     rules:
     - if: ($CI_COMMIT_BRANCH =~ $RE_BRANCH || $CI_COMMIT_TAG)
       needs:

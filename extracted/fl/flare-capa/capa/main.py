@@ -55,6 +55,7 @@ from capa.loader import (
     BACKEND_VMRAY,
     BACKEND_DOTNET,
     BACKEND_FREEZE,
+    BACKEND_GHIDRA,
     BACKEND_PEFILE,
     BACKEND_DRAKVUF,
     BACKEND_BINEXPORT2,
@@ -298,6 +299,7 @@ def install_common_args(parser, wanted=None):
             (BACKEND_BINJA, "Binary Ninja"),
             (BACKEND_DOTNET, ".NET"),
             (BACKEND_BINEXPORT2, "BinExport2"),
+            (BACKEND_GHIDRA, "Ghidra"),
             (BACKEND_FREEZE, "capa freeze"),
             (BACKEND_CAPE, "CAPE"),
             (BACKEND_DRAKVUF, "DRAKVUF"),
@@ -392,6 +394,7 @@ class ShouldExitError(Exception):
     """raised when a main-related routine indicates the program should exit."""
 
     def __init__(self, status_code: int):
+        super().__init__(status_code)
         self.status_code = status_code
 
 
@@ -658,7 +661,9 @@ def get_rules_from_cli(args) -> RuleSet:
     raises:
       ShouldExitError: if the program is invoked incorrectly and should exit.
     """
-    enable_cache: bool = True
+    enable_cache: bool = getattr(args, "enable_cache", True)
+    # this allows calling functions to easily disable rule caching, e.g., used by the rule linter to avoid
+
     try:
         if capa.helpers.is_running_standalone() and args.is_default_rules:
             cache_dir = get_default_root() / "cache"
@@ -940,8 +945,7 @@ def main(argv: Optional[list[str]] = None):
         argv = sys.argv[1:]
 
     desc = "The FLARE team's open-source tool to identify capabilities in executable files."
-    epilog = textwrap.dedent(
-        """
+    epilog = textwrap.dedent("""
         By default, capa uses a default set of embedded rules.
         You can see the rule set here:
           https://github.com/mandiant/capa-rules
@@ -968,8 +972,7 @@ def main(argv: Optional[list[str]] = None):
 
           filter rules by meta fields, e.g. rule name or namespace
             capa -t "create TCP socket" suspicious.exe
-         """
-    )
+         """)
 
     parser = argparse.ArgumentParser(
         description=desc, epilog=epilog, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -1104,13 +1107,25 @@ def ida_main():
 
 
 def ghidra_main():
+    from ghidra.program.flatapi import FlatProgramAPI
+
     import capa.rules
     import capa.ghidra.helpers
     import capa.render.default
+    import capa.features.extractors.ghidra.context
     import capa.features.extractors.ghidra.extractor
 
     logging.basicConfig(level=logging.INFO)
     logging.getLogger().setLevel(logging.INFO)
+
+    # These are provided by the Ghidra scripting environment
+    # but are not available when running standard python
+    # so we have to ignore the linting errors
+    program = currentProgram  # type: ignore [name-defined] # noqa: F821
+    monitor_ = monitor  # type: ignore [name-defined] # noqa: F821
+    flat_api = FlatProgramAPI(program)
+
+    capa.features.extractors.ghidra.context.set_context(program, flat_api, monitor_)
 
     logger.debug("-" * 80)
     logger.debug(" Using default embedded rules.")

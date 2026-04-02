@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: ocpsvg
+Version: 0.6.0
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: cadquery_ocp_proxy<8.0,>=7.9
+Requires-Dist: svgelements<2,>=1.9.1
+Provides-Extra: dev
+Requires-Dist: cadquery_ocp_novtk<8.0,>=7.9; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Dynamic: license-file
+
+# OCPSVG
+
+- works at the [`OCP`](https://github.com/CadQuery/OCP) level
+- uses [`svgelements`](https://github.com/meerk40t/svgelements) to:
+  - convert SVG path strings to and from `TopoDS_Edge`, `TopoDS_Wire`, and `TopoDS_Face` objects
+  - import `TopoDS_Wire` and `TopoDS_Face` objects from an SVG document
+- can be used to add SVG functionality (import and export) to higher level API

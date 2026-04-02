@@ -1,0 +1,24 @@
+Metadata-Version: 2.3
+Name: DigitalPy
+Version: 0.3.16
+Summary: A python implementation of the aphrodite's specification, heavily based on WCMF
+Author: FreeTAKTeam
+Author-email: FreeTakTeam@gmail.com
+Requires-Python: >=3.10,<4.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: flask_cors
+Requires-Dist: flask_jwt_extended
+Requires-Dist: lxml
+Requires-Dist: opentelemetry-sdk
+Requires-Dist: psutil
+Requires-Dist: pyzmq
+Requires-Dist: requests
+Requires-Dist: ruamel.yaml
+Requires-Dist: rule-engine
+Requires-Dist: setuptools
+Requires-Dist: sqlalchemy (>=2.0.30,<3.0.0)
+Requires-Dist: xmltodict

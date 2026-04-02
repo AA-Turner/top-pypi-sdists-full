@@ -1,0 +1,59 @@
+Metadata-Version: 2.4
+Name: tweakwcs
+Version: 0.8.12
+Summary: A package for correcting alignment errors in WCS objects
+Author: Mihai Cara
+Project-URL: Homepage, https://github.com/spacetelescope/tweakwcs
+Project-URL: Bug Tracker, https://github.com/spacetelescope/tweakwcs/issues
+Project-URL: Documentation, http://spacetelescope.github.io/tweakwcs/
+Project-URL: Source Code, https://github.com/spacetelescope/tweakwcs
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Scientific/Engineering :: Astronomy
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Development Status :: 4 - Beta
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE.txt
+Requires-Dist: numpy
+Requires-Dist: astropy>=5.0.4
+Requires-Dist: gwcs>=0.14.0
+Requires-Dist: stsci.stimage
+Requires-Dist: stsci.imagestats
+Requires-Dist: spherical_geometry>=1.2.20
+Requires-Dist: packaging>=21.1
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: scipy; extra == "test"
+Provides-Extra: docs
+Requires-Dist: tomli; python_version < "3.11" and extra == "docs"
+Requires-Dist: numpydoc; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-automodapi; extra == "docs"
+Requires-Dist: sphinx-rtd-theme; extra == "docs"
+Requires-Dist: stsci-rtd-theme; extra == "docs"
+Requires-Dist: graphviz; extra == "docs"
+Dynamic: license-file
+
+.. image:: https://codecov.io/gh/spacetelescope/tweakwcs/branch/main/graph/badge.svg
+  :target: https://codecov.io/gh/spacetelescope/tweakwcs
+  :alt: Test coverage status
+
+.. image:: https://readthedocs.org/projects/tweakwcs/badge/?version=latest
+    :target: https://tweakwcs.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
+.. image:: https://zenodo.org/badge/127811534.svg
+    :target: https://zenodo.org/doi/10.5281/zenodo.4018234
+    :alt: Zenodo DOI 10.5281/zenodo.4018234
+
+.. image:: https://img.shields.io/pypi/v/tweakwcs.svg
+    :target: https://pypi.org/project/tweakwcs
+    :alt: PyPI Status
+
+``tweakwcs`` is a package that provides core algorithms for computing and
+applying corrections to ``WCS`` objects such as to minimize mismatch between
+image and reference catalogs. Currently only aligning images with ``FITS WCS``
+and ``JWST gWCS`` are supported.

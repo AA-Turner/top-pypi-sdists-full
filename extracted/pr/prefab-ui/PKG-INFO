@@ -1,0 +1,145 @@
+Metadata-Version: 2.4
+Name: prefab-ui
+Version: 0.18.1
+Summary: The generative UI framework that even humans can use.
+Project-URL: Homepage, https://prefab.prefect.io
+Project-URL: Documentation, https://prefab.prefect.io
+Project-URL: Repository, https://github.com/PrefectHQ/prefab
+Author: Jeremiah Lowin
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: FastMCP,MCP,components,dsl,frontend,generative-ui,json,prefab,react,ui
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: cyclopts>=4
+Requires-Dist: pydantic>=2.11
+Requires-Dist: rich>=13
+Description-Content-Type: text/markdown
+
+<div align="center">
+
+# Prefab 🎨
+
+**The generative UI framework that even humans can use.**
+
+🚧 *Don't panic. Prefab is under very active development.* 🚧
+
+[![PyPI - Version](https://img.shields.io/pypi/v/prefab-ui)](https://pypi.org/project/prefab-ui)
+[![Tests](https://github.com/PrefectHQ/prefab/actions/workflows/run-tests.yml/badge.svg)](https://github.com/PrefectHQ/prefab/actions/workflows/run-tests.yml)
+[![License](https://img.shields.io/github/license/PrefectHQ/prefab)](https://github.com/PrefectHQ/prefab/blob/main/LICENSE)
+
+[Docs](https://prefab.prefect.io) · [Playground](https://prefab.prefect.io/docs/playground) · [GitHub](https://github.com/PrefectHQ/prefab)
+
+</div>
+
+<a href="https://prefab.prefect.io">
+<img src="https://raw.githubusercontent.com/PrefectHQ/prefab/main/docs/assets/showcase.png" alt="Prefab" width="1000">
+</a>
+
+Prefab is a frontend framework with a Python DSL that compiles to JSON. Build [MCP Apps](https://modelcontextprotocol.io/docs/extensions/apps), data dashboards, and interactive tools with layouts, forms, charts, data tables, and full interactivity. A bundled React renderer turns the JSON into a self-contained application.
+
+Composing frontends in Python is ~~blasphemous~~ surprisingly natural. And because Prefab is a JSON protocol, any source can produce a UI: write one yourself and serve it from any backend, or have an agent generate it dynamically, no templates or predefined views required.
+
+<div align="center">
+<img src="https://raw.githubusercontent.com/PrefectHQ/prefab/main/docs/assets/hello-world-card.png" alt="Hello world card" width="400">
+</div>
+</br>
+
+This card has a live-updating heading, a text input bound to client-side state, and badges — all from a few lines of Python. You can try an interactive version [in the Prefab docs](https://prefab.prefect.io/docs/welcome). In fact, every example in the Prefab docs is rendered with Prefab itself.
+
+```python
+from prefab_ui.components import Card, CardContent, CardFooter, Column, H3, Muted, Input, Badge, Row
+
+with Card():
+    with CardContent():
+        with Column(gap=3):
+            H3("Hello, {{ name }}!")
+            Muted("Type below and watch this update in real time.")
+            Input(name="name", placeholder="Your name...")
+    with CardFooter():
+        with Row(gap=2):
+            Badge("Name: {{ name }}", variant="default")
+            Badge("Prefab", variant="success")
+```
+
+Since everything compiles to JSON, you can author a UI from a Python script, have an agent generate one on the fly, or serve one from any MCP server or REST API.
+
+*Made with 💙 by [Prefect](https://www.prefect.io/)*
+
+## Installation
+
+```bash
+pip install prefab-ui
+```
+
+Requires Python 3.10+.
+
+## How It Works
+
+1. Build a component tree in Python (or raw JSON from any source)
+2. The tree compiles to Prefab's JSON format
+3. A bundled React renderer turns the JSON into a live interface
+
+State flows through `{{ templates }}`. When you write `{{ query }}`, the renderer interpolates the current value from client-side state. Named form controls sync automatically — `Input(name="city")` keeps `{{ city }}` up to date on every keystroke. Actions like `CallTool` and `SetState` drive interactivity without custom JavaScript.
+
+## Components
+
+35+ components covering layout, typography, forms, data display, and interactive elements. Containers nest with Python context managers:
+
+```python
+from prefab_ui.components import Card, CardHeader, CardTitle, CardContent, Column, Text, Badge
+
+with Card():
+    with CardHeader():
+        CardTitle("User Profile")
+    with CardContent():
+        with Column():
+            Text("{{ user.name }}")
+            Badge("{{ user.role }}", variant="secondary")
+```
+
+Pydantic models generate forms automatically — constraints like `min_length` and `ge` become client-side validation:
+
+```python
+from pydantic import BaseModel, Field
+from prefab_ui.components import Form
+from prefab_ui.actions.mcp import CallTool
+
+class SignupForm(BaseModel):
+    email: str = Field(description="Your email address")
+    name: str = Field(min_length=2, max_length=50)
+    age: int = Field(ge=18, le=120)
+
+Form.from_model(SignupForm, on_submit=CallTool("create_user"))
+```
+
+## Actions
+
+Actions define what happens on interaction — state updates, server calls, navigation, notifications:
+
+```python
+from prefab_ui.components import Button
+from prefab_ui.actions import SetState, ShowToast
+from prefab_ui.actions.mcp import CallTool
+
+Button("Save", on_click=[
+    SetState("saving", True),
+    CallTool(
+        "save_data",
+        arguments={"item": "{{ item }}"},
+        on_success=ShowToast(title="Saved"),
+        on_error=ShowToast(title="Failed", variant="destructive"),
+    ),
+    SetState("saving", False),
+])
+```
+
+## Documentation
+
+Full documentation at [prefab.prefect.io](https://prefab.prefect.io), including an interactive [playground](https://prefab.prefect.io/docs/playground) where you can try components live.

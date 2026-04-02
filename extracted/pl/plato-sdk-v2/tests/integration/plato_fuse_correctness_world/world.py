@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import ClassVar
 
-from plato.agents.runtime.transport import NFSTransport, rsync_to
+from plato.transports import NFSTransport, rsync_to
 from plato.utils.subprocess import run_local, run_ssh
 from plato.v2 import Env
 from plato.v2.types import SimConfigCompute

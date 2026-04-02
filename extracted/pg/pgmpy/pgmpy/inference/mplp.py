@@ -6,7 +6,7 @@ import numpy as np
 
 from pgmpy.factors.discrete import DiscreteFactor
 from pgmpy.inference import Inference
-from pgmpy.models import MarkovNetwork
+from pgmpy.models import DiscreteMarkovNetwork
 
 
 class Mplp(Inference):
@@ -18,49 +18,81 @@ class Mplp(Inference):
 
     Parameters
     ----------
-    model: MarkovNetwork for which inference is to be performed.
+    model: DiscreteMarkovNetwork for which inference is to be performed.
 
     Examples
     --------
     >>> import numpy as np
-    >>> from pgmpy.models import MarkovNetwork
+    >>> from pgmpy.models import DiscreteMarkovNetwork
     >>> from pgmpy.inference import Mplp
     >>> from pgmpy.factors.discrete import DiscreteFactor
-    >>> student = MarkovNetwork()
-    >>> student.add_edges_from([('A', 'B'), ('B', 'C'), ('C', 'D'), ('E', 'F')])
-    >>> factor_a = DiscreteFactor(['A'], cardinality=[2], values=np.array([0.54577, 1.8323]))
-    >>> factor_b = DiscreteFactor(['B'], cardinality=[2], values=np.array([0.93894, 1.065]))
-    >>> factor_c = DiscreteFactor(['C'], cardinality=[2], values=np.array([0.89205, 1.121]))
-    >>> factor_d = DiscreteFactor(['D'], cardinality=[2], values=np.array([0.56292, 1.7765]))
-    >>> factor_e = DiscreteFactor(['E'], cardinality=[2], values=np.array([0.47117, 2.1224]))
-    >>> factor_f = DiscreteFactor(['F'], cardinality=[2], values=np.array([1.5093, 0.66257]))
-    >>> factor_a_b = DiscreteFactor(['A', 'B'], cardinality=[2, 2],
-    ...                             values=np.array([1.3207, 0.75717, 0.75717, 1.3207]))
-    >>> factor_b_c = DiscreteFactor(['B', 'C'], cardinality=[2, 2],
-    ...                             values=np.array([0.00024189, 4134.2, 4134.2, 0.00024189]))
-    >>> factor_c_d = DiscreteFactor(['C', 'D'], cardinality=[2, 2],
-    ...                             values=np.array([0.0043227, 231.34, 231.34, 0.0043227]))
-    >>> factor_d_e = DiscreteFactor(['E', 'F'], cardinality=[2, 2],
-    ...                             values=np.array([31.228, 0.032023, 0.032023, 31.228]))
-    >>> student.add_factors(factor_a, factor_b, factor_c, factor_d, factor_e, factor_f, factor_a_b,
-    ...                     factor_b_c, factor_c_d, factor_d_e)
+    >>> student = DiscreteMarkovNetwork()
+    >>> student.add_edges_from([("A", "B"), ("B", "C"), ("C", "D"), ("E", "F")])
+    >>> factor_a = DiscreteFactor(
+    ...     ["A"], cardinality=[2], values=np.array([0.54577, 1.8323])
+    ... )
+    >>> factor_b = DiscreteFactor(
+    ...     ["B"], cardinality=[2], values=np.array([0.93894, 1.065])
+    ... )
+    >>> factor_c = DiscreteFactor(
+    ...     ["C"], cardinality=[2], values=np.array([0.89205, 1.121])
+    ... )
+    >>> factor_d = DiscreteFactor(
+    ...     ["D"], cardinality=[2], values=np.array([0.56292, 1.7765])
+    ... )
+    >>> factor_e = DiscreteFactor(
+    ...     ["E"], cardinality=[2], values=np.array([0.47117, 2.1224])
+    ... )
+    >>> factor_f = DiscreteFactor(
+    ...     ["F"], cardinality=[2], values=np.array([1.5093, 0.66257])
+    ... )
+    >>> factor_a_b = DiscreteFactor(
+    ...     ["A", "B"],
+    ...     cardinality=[2, 2],
+    ...     values=np.array([1.3207, 0.75717, 0.75717, 1.3207]),
+    ... )
+    >>> factor_b_c = DiscreteFactor(
+    ...     ["B", "C"],
+    ...     cardinality=[2, 2],
+    ...     values=np.array([0.00024189, 4134.2, 4134.2, 0.00024189]),
+    ... )
+    >>> factor_c_d = DiscreteFactor(
+    ...     ["C", "D"],
+    ...     cardinality=[2, 2],
+    ...     values=np.array([0.0043227, 231.34, 231.34, 0.0043227]),
+    ... )
+    >>> factor_d_e = DiscreteFactor(
+    ...     ["E", "F"],
+    ...     cardinality=[2, 2],
+    ...     values=np.array([31.228, 0.032023, 0.032023, 31.228]),
+    ... )
+    >>> student.add_factors(
+    ...     factor_a,
+    ...     factor_b,
+    ...     factor_c,
+    ...     factor_d,
+    ...     factor_e,
+    ...     factor_f,
+    ...     factor_a_b,
+    ...     factor_b_c,
+    ...     factor_c_d,
+    ...     factor_d_e,
+    ... )
     >>> mplp = Mplp(student)
     """
 
     def __init__(self, model):
-        if not isinstance(model, MarkovNetwork):
-            raise TypeError("Only MarkovNetwork is supported")
+        if not isinstance(model, DiscreteMarkovNetwork):
+            raise TypeError("Only DiscreteMarkovNetwork is supported")
 
-        super(Mplp, self).__init__(model)
+        super().__init__(model)
         self._initialize_structures()
 
         # S = \{c \cap c^{'} : c, c^{'} \in C, c \cap c^{'} \neq \emptyset\}
         self.intersection_set_variables = set()
         # We generate the Intersections of all the pairwise edges taken one at a time to form S
         for edge_pair in it.combinations(model.edges(), 2):
-            self.intersection_set_variables.add(
-                frozenset(edge_pair[0]) & frozenset(edge_pair[1])
-            )
+            self.intersection_set_variables.add(frozenset(edge_pair[0]) & frozenset(edge_pair[1]))
 
         # The corresponding optimization problem = \min_{\delta}{dual_lp(\delta)} where:
         # dual_lp(\delta) = \sum_{i \in V}{max_{x_i}(Objective[nodes])} + \sum_{f /in F}{max_{x_f}(Objective[factors])
@@ -76,14 +108,10 @@ class Mplp(Inference):
             self.objective[scope] = factor
             # For every factor consisting of more that a single node, we initialize a cluster.
             if len(scope) > 1:
-                self.cluster_set[scope] = self.Cluster(
-                    self.intersection_set_variables, factor
-                )
+                self.cluster_set[scope] = self.Cluster(self.intersection_set_variables, factor)
 
         # dual_lp(\delta) is the dual linear program
-        self.dual_lp = sum(
-            [np.amax(self.objective[obj].values) for obj in self.objective]
-        )
+        self.dual_lp = sum([np.amax(self.objective[obj].values) for obj in self.objective])
 
         # Best integral value of the primal objective is stored here
         self.best_int_objective = 0
@@ -97,8 +125,8 @@ class Mplp(Inference):
         # Default value = 0.0002. This can be changed in the map_query() method.
         self.integrality_gap_threshold = 0.0002
 
-    class Cluster(object):
-        """
+    class Cluster:
+        r"""
         Inner class for representing a cluster.
         A cluster is a subset of variables.
 
@@ -108,10 +136,12 @@ class Mplp(Inference):
             This is the set of variables that form the cluster.
 
         intersection_set_variables: set containing frozensets.
-            collection of intersection of all pairs of cluster variables. For eg: \{\{C_1 \cap C_2\}, \{C_2 \cap C_3\}, \{C_3 \cap C_1\} \} for clusters C_1, C_2 & C_3.
+            collection of intersection of all pairs of cluster variables.
+              For eg: \{\{C_1 \cap C_2\}, \{C_2 \cap C_3\}, \{C_3 \cap C_1\} \}
+                  for clusters C_1, C_2 & C_3.
 
-        cluster_potential: DiscreteFactor
-            Each cluster has an initial probability distribution provided beforehand.
+            cluster_potential: DiscreteFactor
+                Each cluster has an initial probability distribution provided beforehand.
         """
 
         def __init__(self, intersection_set_variables, cluster_potential):
@@ -140,12 +170,8 @@ class Mplp(Inference):
                 present_variables = list(intersection)
 
                 # Present variables cardinality
-                present_variables_card = cluster_potential.get_cardinality(
-                    present_variables
-                )
-                present_variables_card = [
-                    present_variables_card[var] for var in present_variables
-                ]
+                present_variables_card = cluster_potential.get_cardinality(present_variables)
+                present_variables_card = [present_variables_card[var] for var in present_variables]
 
                 # We need to create a new factor whose messages are blank
                 self.message_from_cluster[intersection] = DiscreteFactor(
@@ -202,10 +228,7 @@ class Mplp(Inference):
             updated_results.append(
                 phi
                 + -1
-                * (
-                    self.objective[current_intersect]
-                    + -1 * sending_cluster.message_from_cluster[current_intersect]
-                )
+                * (self.objective[current_intersect] + -1 * sending_cluster.message_from_cluster[current_intersect])
             )
 
         # This loop is primarily for simultaneous updating:
@@ -215,9 +238,7 @@ class Mplp(Inference):
         cluster_potential = copy.deepcopy(sending_cluster.cluster_potential)
         for current_intersect in sending_cluster.intersection_sets_for_cluster_c:
             index += 1
-            sending_cluster.message_from_cluster[current_intersect] = updated_results[
-                index
-            ]
+            sending_cluster.message_from_cluster[current_intersect] = updated_results[index]
             self.objective[current_intersect] = objective[index]
             cluster_potential += (-1) * updated_results[index]
 
@@ -233,17 +254,13 @@ class Mplp(Inference):
         """
         # The current assignment of the single node factors is stored in the form of a dictionary
         decoded_result_assignment = {
-            node: np.argmax(self.objective[node].values)
-            for node in self.objective
-            if len(node) == 1
+            node: np.argmax(self.objective[node].values) for node in self.objective if len(node) == 1
         }
         # Use the original cluster_potentials of each factor to find the primal integral value.
         # 1. For single node factors
         integer_value = sum(
             [
-                self.factors[variable][0].values[
-                    decoded_result_assignment[frozenset([variable])]
-                ]
+                self.factors[variable][0].values[decoded_result_assignment[frozenset([variable])]]
                 for variable in self.variables
             ]
         )
@@ -254,9 +271,7 @@ class Mplp(Inference):
                 tuple([variable, decoded_result_assignment[frozenset([variable])]])
                 for variable in cluster.cluster_variables
             ]
-            integer_value += cluster.cluster_potential.reduce(
-                index, inplace=False
-            ).values
+            integer_value += cluster.cluster_potential.reduce(index, inplace=False).values
 
         # Check if this is the best assignment till now
         if self.best_int_objective < integer_value:
@@ -284,9 +299,7 @@ class Mplp(Inference):
         code presented by Sontag in 2012 here: http://cs.nyu.edu/~dsontag/code/README_v2.html
         """
         # Find the new objective after the message updates
-        new_dual_lp = sum(
-            [np.amax(self.objective[obj].values) for obj in self.objective]
-        )
+        new_dual_lp = sum([np.amax(self.objective[obj].values) for obj in self.objective])
 
         # Update the dual_gap as the difference between the dual objective of the previous and the current iteration.
         self.dual_gap = abs(self.dual_lp - new_dual_lp)
@@ -298,10 +311,7 @@ class Mplp(Inference):
         if dual_threshold and self.dual_gap < dual_threshold:
             return True
         # Check the threshold for the integrality gap
-        elif (
-            integrality_gap_threshold
-            and self.integrality_gap < integrality_gap_threshold
-        ):
+        elif integrality_gap_threshold and self.integrality_gap < integrality_gap_threshold:
             return True
         else:
             self.dual_lp = new_dual_lp
@@ -313,18 +323,30 @@ class Mplp(Inference):
 
         Examples
         --------
-        >>> from pgmpy.models import MarkovNetwork
+        >>> from pgmpy.models import DiscreteMarkovNetwork
         >>> from pgmpy.factors.discrete import DiscreteFactor
         >>> from pgmpy.inference import Mplp
-        >>> mm = MarkovNetwork()
-        >>> mm.add_nodes_from(['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7'])
-        >>> mm.add_edges_from([('x1', 'x3'), ('x1', 'x4'), ('x2', 'x4'),
-        ...                    ('x2', 'x5'), ('x3', 'x6'), ('x4', 'x6'),
-        ...                    ('x4', 'x7'), ('x5', 'x7')])
-        >>> phi = [DiscreteFactor(edge, [2, 2], np.random.rand(4)) for edge in mm.edges()]
+        >>> mm = DiscreteMarkovNetwork()
+        >>> mm.add_nodes_from(["x1", "x2", "x3", "x4", "x5", "x6", "x7"])
+        >>> mm.add_edges_from(
+        ...     [
+        ...         ("x1", "x3"),
+        ...         ("x1", "x4"),
+        ...         ("x2", "x4"),
+        ...         ("x2", "x5"),
+        ...         ("x3", "x6"),
+        ...         ("x4", "x6"),
+        ...         ("x4", "x7"),
+        ...         ("x5", "x7"),
+        ...     ]
+        ... )
+        >>> phi = [
+        ...     DiscreteFactor(edge, [2, 2], np.random.rand(4)) for edge in mm.edges()
+        ... ]
         >>> mm.add_factors(*phi)
         >>> mplp = Mplp(mm)
         >>> mplp.find_triangles()
+        []
         """
         return list(filter(lambda x: len(x) == 3, nx.find_cliques(self.model)))
 
@@ -343,15 +365,9 @@ class Mplp(Inference):
         new_intersection_set = []
         for triangle_vars in triangles_list:
             cardinalities = [self.cardinality[variable] for variable in triangle_vars]
-            current_intersection_set = [
-                frozenset(intersect) for intersect in it.combinations(triangle_vars, 2)
-            ]
-            current_factor = DiscreteFactor(
-                triangle_vars, cardinalities, np.zeros(np.prod(cardinalities))
-            )
-            self.cluster_set[frozenset(triangle_vars)] = self.Cluster(
-                current_intersection_set, current_factor
-            )
+            current_intersection_set = [frozenset(intersect) for intersect in it.combinations(triangle_vars, 2)]
+            current_factor = DiscreteFactor(triangle_vars, cardinalities, np.zeros(np.prod(cardinalities)))
+            self.cluster_set[frozenset(triangle_vars)] = self.Cluster(current_intersection_set, current_factor)
             # add new factors
             self.model.factors.append(current_factor)
             # add new intersection sets
@@ -374,17 +390,10 @@ class Mplp(Inference):
         triplet_scores = {}
         for triplet in triangles_list:
             # Find the intersection sets of the current triplet
-            triplet_intersections = [
-                intersect for intersect in it.combinations(triplet, 2)
-            ]
+            triplet_intersections = [intersect for intersect in it.combinations(triplet, 2)]
 
             # Independent maximization
-            ind_max = sum(
-                [
-                    np.amax(self.objective[frozenset(intersect)].values)
-                    for intersect in triplet_intersections
-                ]
-            )
+            ind_max = sum([np.amax(self.objective[frozenset(intersect)].values) for intersect in triplet_intersections])
 
             # Joint maximization
             joint_max = self.objective[frozenset(triplet_intersections[0])]
@@ -415,10 +424,7 @@ class Mplp(Inference):
             # Find an integral solution by locally maximizing the single node beliefs
             self._local_decode()
             # If mplp converges to a global/local optima, we break.
-            if (
-                self._is_converged(self.dual_threshold, self.integrality_gap_threshold)
-                and niter >= 16
-            ):
+            if self._is_converged(self.dual_threshold, self.integrality_gap_threshold) and niter >= 16:
                 break
 
     def _tighten_triplet(self, max_iterations, later_iter, max_triplets, prolong):
@@ -447,9 +453,7 @@ class Mplp(Inference):
         # Arrange the keys on the basis of increasing order of the values of the dict. triplet_scores
         sorted_scores = sorted(triplet_scores, key=triplet_scores.get)
         for niter in range(max_iterations):
-            if self._is_converged(
-                integrality_gap_threshold=self.integrality_gap_threshold
-            ):
+            if self._is_converged(integrality_gap_threshold=self.integrality_gap_threshold):
                 break
             # add triplets that are yet not added.
             add_triplets = []
@@ -473,18 +477,38 @@ class Mplp(Inference):
 
         Examples
         --------
-        >>> from pgmpy.models import MarkovNetwork
+        >>> from pgmpy.models import DiscreteMarkovNetwork
         >>> from pgmpy.factors.discrete import DiscreteFactor
         >>> from pgmpy.inference import Mplp
-        >>> mm = MarkovNetwork()
-        >>> mm.add_nodes_from(['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7'])
-        >>> mm.add_edges_from([('x1', 'x3'), ('x1', 'x4'), ('x2', 'x4'),
-        ...                    ('x2', 'x5'), ('x3', 'x6'), ('x4', 'x6'),
-        ...                    ('x4', 'x7'), ('x5', 'x7')])
-        >>> phi = [DiscreteFactor(edge, [2, 2], np.random.rand(4)) for edge in mm.edges()]
-        >>> mm.add_factors(*phi)
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(42)
+        >>> mm = DiscreteMarkovNetwork()
+        >>> mm.add_nodes_from(["x1", "x2", "x3", "x4", "x5", "x6", "x7"])
+        >>> mm.add_edges_from(
+        ...     [
+        ...         ("x1", "x3"),
+        ...         ("x1", "x4"),
+        ...         ("x2", "x4"),
+        ...         ("x2", "x5"),
+        ...         ("x3", "x6"),
+        ...         ("x4", "x6"),
+        ...         ("x4", "x7"),
+        ...         ("x5", "x7"),
+        ...     ]
+        ... )
+        >>> phi_single = [
+        ...     DiscreteFactor([node], [2], rng.random(2))
+        ...     for node in mm.nodes()
+        ... ]
+        >>> phi_pair = [
+        ...     DiscreteFactor(edge, [2, 2], rng.random(4))
+        ...     for edge in mm.edges()
+        ... ]
+        >>> mm.add_factors(*(phi_single + phi_pair))
         >>> mplp = Mplp(mm)
-        >>> mplp.map_query()
+        >>> mplp.map_query() # doctest: +SKIP
+        >>> {k: int(v) for k, v in mplp.map_query().items()}
+        {'x1': 0, 'x2': 1, 'x3': 1, 'x4': 0, 'x5': 1, 'x6': 1, 'x7': 1}
         >>> int_gap = mplp.get_integrality_gap()
         """
 
@@ -535,7 +559,8 @@ class Mplp(Inference):
 
         prolong: bool
                  If set False: The moment we exhaust of all the triplets the tightening stops.
-                 If set True: The tightening will be performed max_iterations number of times irrespective of the triplets.
+                 If set True: The tightening will be performed max_iterations
+                   number of times irrespective of the triplets.
 
         References
         ----------
@@ -544,32 +569,66 @@ class Mplp(Inference):
 
         Examples
         --------
-        >>> from pgmpy.models import MarkovNetwork
+        >>> from pgmpy.models import DiscreteMarkovNetwork
         >>> from pgmpy.factors.discrete import DiscreteFactor
         >>> from pgmpy.inference import Mplp
         >>> import numpy as np
-        >>> student = MarkovNetwork()
-        >>> student.add_edges_from([('A', 'B'), ('B', 'C'), ('C', 'D'), ('E', 'F')])
-        >>> factor_a = DiscreteFactor(['A'], cardinality=[2], values=np.array([0.54577, 1.8323]))
-        >>> factor_b = DiscreteFactor(['B'], cardinality=[2], values=np.array([0.93894, 1.065]))
-        >>> factor_c = DiscreteFactor(['C'], cardinality=[2], values=np.array([0.89205, 1.121]))
-        >>> factor_d = DiscreteFactor(['D'], cardinality=[2], values=np.array([0.56292, 1.7765]))
-        >>> factor_e = DiscreteFactor(['E'], cardinality=[2], values=np.array([0.47117, 2.1224]))
-        >>> factor_f = DiscreteFactor(['F'], cardinality=[2], values=np.array([1.5093, 0.66257]))
-        >>> factor_a_b = DiscreteFactor(['A', 'B'], cardinality=[2, 2],
-        ...                             values=np.array([1.3207, 0.75717, 0.75717, 1.3207]))
-        >>> factor_b_c = DiscreteFactor(['B', 'C'], cardinality=[2, 2],
-        ...                             values=np.array([0.00024189, 4134.2, 4134.2, 0.0002418]))
-        >>> factor_c_d = DiscreteFactor(['C', 'D'], cardinality=[2, 2],
-        ...                             values=np.array([0.0043227, 231.34, 231.34, 0.0043227]))
-        >>> factor_d_e = DiscreteFactor(['E', 'F'], cardinality=[2, 2],
-        ...                             values=np.array([31.228, 0.032023, 0.032023, 31.228]))
-        >>> student.add_factors(factor_a, factor_b, factor_c, factor_d, factor_e, factor_f,
-        ...                     factor_a_b, factor_b_c, factor_c_d, factor_d_e)
+        >>> student = DiscreteMarkovNetwork()
+        >>> student.add_edges_from([("A", "B"), ("B", "C"), ("C", "D"), ("E", "F")])
+        >>> factor_a = DiscreteFactor(
+        ...     ["A"], cardinality=[2], values=np.array([0.54577, 1.8323])
+        ... )
+        >>> factor_b = DiscreteFactor(
+        ...     ["B"], cardinality=[2], values=np.array([0.93894, 1.065])
+        ... )
+        >>> factor_c = DiscreteFactor(
+        ...     ["C"], cardinality=[2], values=np.array([0.89205, 1.121])
+        ... )
+        >>> factor_d = DiscreteFactor(
+        ...     ["D"], cardinality=[2], values=np.array([0.56292, 1.7765])
+        ... )
+        >>> factor_e = DiscreteFactor(
+        ...     ["E"], cardinality=[2], values=np.array([0.47117, 2.1224])
+        ... )
+        >>> factor_f = DiscreteFactor(
+        ...     ["F"], cardinality=[2], values=np.array([1.5093, 0.66257])
+        ... )
+        >>> factor_a_b = DiscreteFactor(
+        ...     ["A", "B"],
+        ...     cardinality=[2, 2],
+        ...     values=np.array([1.3207, 0.75717, 0.75717, 1.3207]),
+        ... )
+        >>> factor_b_c = DiscreteFactor(
+        ...     ["B", "C"],
+        ...     cardinality=[2, 2],
+        ...     values=np.array([0.00024189, 4134.2, 4134.2, 0.0002418]),
+        ... )
+        >>> factor_c_d = DiscreteFactor(
+        ...     ["C", "D"],
+        ...     cardinality=[2, 2],
+        ...     values=np.array([0.0043227, 231.34, 231.34, 0.0043227]),
+        ... )
+        >>> factor_d_e = DiscreteFactor(
+        ...     ["E", "F"],
+        ...     cardinality=[2, 2],
+        ...     values=np.array([31.228, 0.032023, 0.032023, 31.228]),
+        ... )
+        >>> student.add_factors(
+        ...     factor_a,
+        ...     factor_b,
+        ...     factor_c,
+        ...     factor_d,
+        ...     factor_e,
+        ...     factor_f,
+        ...     factor_a_b,
+        ...     factor_b_c,
+        ...     factor_c_d,
+        ...     factor_d_e,
+        ... )
         >>> mplp = Mplp(student)
         >>> result = mplp.map_query()
-        >>> result
-        {'B': 0.93894, 'C': 1.121, 'A': 1.8323, 'F': 1.5093, 'D': 1.7765, 'E': 2.12239}
+        >>> {k: int(v) for k, v in result.items()}
+        {'A': 1, 'B': 0, 'C': 1, 'D': 1, 'E': 1, 'F': 0}
         """
         self.dual_threshold = dual_threshold
         self.integrality_gap_threshold = integrality_gap_threshold

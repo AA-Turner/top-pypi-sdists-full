@@ -1,3 +1,0 @@
-name: lbfgs
-args:
-  lr: 0.00001

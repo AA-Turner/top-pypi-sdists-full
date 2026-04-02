@@ -13,21 +13,24 @@ class StateNameMixin:
         -------
         >>> import numpy as np
         >>> from pgmpy.factors.discrete import DiscreteFactor
-        >>> sn = {'speed': ['low', 'medium', 'high'],
-        ...       'switch': ['on', 'off'],
-        ...       'time': ['day', 'night']}
-        >>> phi = DiscreteFactor(variables=['speed', 'switch', 'time'],
-        ...                      cardinality=[3, 2, 2],
-        ...                      values=np.ones(12),
-        ...                      state_names=sn)
+        >>> sn = {
+        ...     "speed": ["low", "medium", "high"],
+        ...     "switch": ["on", "off"],
+        ...     "time": ["day", "night"],
+        ... }
+        >>> phi = DiscreteFactor(
+        ...     variables=["speed", "switch", "time"],
+        ...     cardinality=[3, 2, 2],
+        ...     values=np.ones(12),
+        ...     state_names=sn,
+        ... )
         >>> print(phi.state_names)
+        {'speed': ['low', 'medium', 'high'], 'switch': ['on', 'off'], 'time': ['day', 'night']}
         """
         if state_names:
             for key, value in state_names.items():
                 if not isinstance(value, (list, tuple)):
-                    raise ValueError(
-                        "The state names must be for the form: {variable: list_of_states}"
-                    )
+                    raise ValueError("The state names must be for the form: {variable: list_of_states}")
                 elif not len(set(value)) == len(value):
                     raise ValueError(f"Repeated statenames for variable: {key}")
 
@@ -38,20 +41,12 @@ class StateNameMixin:
                 self.name_to_no = {}
                 self.no_to_name = {}
                 for key, values in self.state_names.items():
-                    self.name_to_no[key] = {
-                        name: no for no, name in enumerate(self.state_names[key])
-                    }
-                    self.no_to_name[key] = {
-                        no: name for no, name in enumerate(self.state_names[key])
-                    }
+                    self.name_to_no[key] = {name: no for no, name in enumerate(self.state_names[key])}
+                    self.no_to_name[key] = {no: name for no, name in enumerate(self.state_names[key])}
         else:
-            self.state_names = {
-                var: list(range(int(cardinality[index])))
-                for index, var in enumerate(variables)
-            }
+            self.state_names = {var: list(range(int(cardinality[index]))) for index, var in enumerate(variables)}
             self.name_to_no = {
-                var: {i: i for i in range(int(cardinality[index]))}
-                for index, var in enumerate(variables)
+                var: {i: i for i in range(int(cardinality[index]))} for index, var in enumerate(variables)
             }
             self.no_to_name = self.name_to_no.copy()
 
@@ -73,7 +68,8 @@ class StateNameMixin:
                 return self.name_to_no[var][state_name]
             except KeyError:
                 raise KeyError(
-                    f"state: {state_name} is an unknown for variable: {var}. It must be one of {list(self.name_to_no[var].keys())}"
+                    f"state: {state_name} is an unknown for variable: {var}."
+                    f" It must be one of {list(self.name_to_no[var].keys())}"
                 )
         else:
             return state_name
@@ -94,14 +90,8 @@ class StateNameMixin:
                 # Check for conflicts between existing state names
                 if self.state_names[var] != phi1.state_names[var]:
                     # One has strings and the other has numeric values - prioritize strings
-                    self_has_strings = any(
-                        isinstance(s, str) and not s.isdigit()
-                        for s in self.state_names[var]
-                    )
-                    phi1_has_strings = any(
-                        isinstance(s, str) and not s.isdigit()
-                        for s in phi1.state_names[var]
-                    )
+                    self_has_strings = any(isinstance(s, str) and not s.isdigit() for s in self.state_names[var])
+                    phi1_has_strings = any(isinstance(s, str) and not s.isdigit() for s in phi1.state_names[var])
 
                     # Keep string-based state names over numeric ones
                     if self_has_strings and not phi1_has_strings:

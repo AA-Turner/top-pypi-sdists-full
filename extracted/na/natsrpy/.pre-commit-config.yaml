@@ -1,0 +1,82 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+  - repo: https://github.com/psf/black
+    rev: 26.3.1
+    hooks:
+      - id: black
+        name: python black
+        pass_filenames: false
+        always_run: true
+        args: ["python"]
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.19.1
+    hooks:
+      - id: mypy
+        name: python mypy
+        always_run: true
+        pass_filenames: false
+        args: ["python"]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.7
+    hooks:
+      - id: ruff
+        name: ruff
+        pass_filenames: false
+        always_run: true
+        args: ["python", "--fix"]
+  - repo: local
+    hooks:
+      - id: fmt
+        types:
+          - rust
+        name: rust fmt
+        language: unsupported
+        entry: cargo
+        pass_filenames: false
+        args:
+          - fmt
+
+      - id: clippy-fix
+        types:
+          - rust
+        name: fixing fixable clippy
+        language: unsupported
+        pass_filenames: false
+        entry: cargo
+        args:
+          - clippy
+          - --fix
+          - --allow-dirty
+
+      - id: clippy-check
+        types:
+          - rust
+        name: rust clippy
+        language: unsupported
+        pass_filenames: false
+        entry: cargo
+        args:
+          - clippy
+
+      - id: check
+        types:
+          - rust
+        name: rust cargo check
+        language: unsupported
+        entry: cargo
+        pass_filenames: false
+        args:
+          - check
+
+      - id: stubtest
+        name: python stubtest
+        language: python
+        additional_dependencies:
+          - mypy
+          - maturin
+        entry: python ./scripts/stubtest.py
+        pass_filenames:  false
+        always_run: true

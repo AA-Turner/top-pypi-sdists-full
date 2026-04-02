@@ -7,22 +7,34 @@ import json
 import logging
 import os
 import shlex
+import signal
 import sys
 import tempfile
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from time import perf_counter
 
 import httpx
 from pydantic import BaseModel
 from rich.console import Console
 
-from plato.chronos.api.sessions import complete_session, create_session, link_plato_session
+from plato.chronos.api.registry import (
+    get_world_schema_api_registry_worlds__package_name__schema_get as get_world_schema_api,
+)
+from plato.chronos.api.sessions import (
+    complete_session,
+    create_session,
+    link_plato_session,
+    update_session_status,
+)
 from plato.chronos.models import (
     CompleteSessionRequest,
     CreateSessionRequest,
     CreateSessionResponse,
     LinkPlatoSessionRequest,
     Status1,
+    UpdateStatusRequest,
 )
 from plato.cli.chronos.dev.paths import get_sdk_root
 from plato.cli.chronos.dev.runner import resolve_agent_images
@@ -30,7 +42,7 @@ from plato.cli.chronos.dev.ssh import SSHKeyPair, build_ssh_command, build_ssh_c
 from plato.cli.chronos.dev.sync import SyncManager
 from plato.cli.chronos.env import resolve_config_env_vars
 from plato.cli.chronos.provision import SyncTarget, provision_vm
-from plato.cli.chronos.registry import get_world_schema, parse_package_string
+from plato.cli.chronos.registry import parse_package_string
 from plato.cli.chronos.settings import get_settings
 from plato.cli.chronos.test.config import TestConfig, TestPhaseConfig
 from plato.otel import get_tracer, init_tracing, shutdown_tracing
@@ -134,11 +146,68 @@ class TestRunner:
         self.session_id: str = ""
         self._phase_results: list[dict] = []
         self._tracing_initialized = False
+        self._phase_process: asyncio.subprocess.Process | None = None
 
     def _print(self, msg: str) -> None:
         """Write to stdout with immediate flush — reliable in agent subprocess contexts."""
         sys.stdout.write(msg + "\n")
         sys.stdout.flush()
+
+    def _should_keep_vm(self) -> bool:
+        """Return whether this run should preserve the VM for reuse."""
+        return self.world_env is not None and (self.keep_vm or self.reuse_vm)
+
+    @staticmethod
+    def _build_phase_remote_command(
+        *,
+        workdir: str,
+        env_map: dict[str, str],
+        phase_name: str,
+        cmd: str,
+    ) -> tuple[str, str]:
+        """Wrap a phase command in its own remote process group and PID file."""
+        pid_file = f"/tmp/plato-chronos-test-phase-{uuid.uuid4().hex}.pid"
+        export_parts = [f"export {key}={shlex.quote(value)};" for key, value in sorted(env_map.items())]
+        phase_script = (
+            f"echo $$ > {shlex.quote(pid_file)}; "
+            f"trap 'rm -f {shlex.quote(pid_file)}' EXIT; "
+            f"exec bash -lc {shlex.quote(cmd)}"
+        )
+        script = (
+            "set -euo pipefail; "
+            f"cd {shlex.quote(workdir)}; "
+            + " ".join(export_parts)
+            + f" echo {shlex.quote(f'>>> Running phase: {phase_name}')}; "
+            + f"exec setsid bash -lc {shlex.quote(phase_script)}"
+        )
+        return f"bash -lc {shlex.quote(script)}", pid_file
+
+    def _terminate_remote_phase(self, pid_file: str) -> None:
+        """Terminate the currently running remote phase process group, if any.
+
+        This method is intentionally synchronous so it can be called safely
+        from a signal handler without needing asyncio.create_task (which
+        only holds a weak reference and may be garbage-collected).
+        """
+        import subprocess
+
+        if not self.world_env or not self.ssh_key:
+            return
+
+        stop_script = (
+            f"if [ -f {shlex.quote(pid_file)} ]; then "
+            f"kill -TERM -- -$(cat {shlex.quote(pid_file)}) 2>/dev/null || true; "
+            "fi"
+        )
+        try:
+            subprocess.run(
+                build_ssh_command(self.world_env.job_id, self.ssh_key.private_key_path)
+                + [f"bash -lc {shlex.quote(stop_script)}"],
+                timeout=5,
+                capture_output=True,
+            )
+        except Exception:
+            logger.warning("Failed to terminate remote phase process", exc_info=True)
 
     async def run(self) -> int:
         """Run setup + selected test phases. Returns process exit code."""
@@ -162,14 +231,22 @@ class TestRunner:
             logger.exception("chronos test failed")
             exit_code = 1
         finally:
-            status = "completed" if exit_code == 0 else "failed"
-            if self.session_id:
+            if exit_code == 0:
+                status = "completed"
+            elif exit_code == 130:
+                status = "cancelled"
+            else:
+                status = "failed"
+            keep_vm = self._should_keep_vm()
+            if self.session_id and status == "cancelled":
+                await self._cancel_chronos_session(error_message or "Interrupted by user")
+            elif self.session_id and not keep_vm:
                 await self._complete_chronos_session(status, exit_code, error_message)
+            elif self.session_id and keep_vm:
+                logger.info("Skipping Chronos session completion because VM is being kept for reuse")
 
             self._write_summary(exit_code=exit_code, status=status, error_message=error_message)
 
-            vm_usable = self.world_env is not None
-            keep_vm = vm_usable and (self.keep_vm or self.reuse_vm)
             await self._cleanup(keep_vm=keep_vm)
 
             self._print(f"TEST_STATUS={status}")
@@ -200,14 +277,28 @@ class TestRunner:
         world_package, world_version = parse_package_string(self.config.world.package)
         world_image = self.config.world.image
         if not world_image:
-            world_schema = await get_world_schema(world_package, world_version, self.config.world.world_name)
-            world_image = world_schema.get("image", "")
+            async with httpx.AsyncClient(
+                base_url=settings.chronos_url.rstrip("/"),
+                timeout=30.0,
+            ) as client:
+                world_schema = await get_world_schema_api.asyncio(
+                    client,
+                    package_name=world_package,
+                    version=world_version,
+                    world_name=self.config.world.world_name,
+                )
+            world_image = world_schema.image or ""
             if not world_image:
                 raise RuntimeError(f"No world image found in schema for {self.config.world.package}")
+            self._print(f"[setup] Resolved world: {world_package}:{world_schema.version} (image={world_image})")
             # Use the registered world name from the schema if not explicitly set
             if not self.config.world.world_name:
                 self.config = self.config.model_copy(
-                    update={"world": self.config.world.model_copy(update={"world_name": world_schema.get("name")})}
+                    update={
+                        "world": self.config.world.model_copy(
+                            update={"world_name": world_schema.resolved_world_name or world_schema.name}
+                        )
+                    }
                 )
 
         chronos = await self._create_chronos_session()
@@ -302,9 +393,21 @@ class TestRunner:
         # Resolve world_name from schema if needed
         if not self.config.world.world_name:
             _, world_version = parse_package_string(self.config.world.package)
-            world_schema = await get_world_schema(world_package, world_version, None)
+            async with httpx.AsyncClient(
+                base_url=settings.chronos_url.rstrip("/"),
+                timeout=30.0,
+            ) as client:
+                world_schema = await get_world_schema_api.asyncio(
+                    client,
+                    package_name=world_package,
+                    version=world_version,
+                )
             self.config = self.config.model_copy(
-                update={"world": self.config.world.model_copy(update={"world_name": world_schema.get("name")})}
+                update={
+                    "world": self.config.world.model_copy(
+                        update={"world_name": world_schema.resolved_world_name or world_schema.name}
+                    )
+                }
             )
 
         # Create a fresh Chronos session for telemetry
@@ -458,8 +561,6 @@ class TestRunner:
         if not self.world_env:
             raise RuntimeError("world_env must be initialized")
 
-        from time import perf_counter
-
         self._print("[setup] Installing packages...")
         logger.info("Installing editable packages on VM...")
 
@@ -590,29 +691,61 @@ class TestRunner:
             if value:
                 env_map[env_name] = value
 
-        export_parts = [f"export {key}={shlex.quote(value)};" for key, value in sorted(env_map.items())]
-        script = (
-            "set -euo pipefail; "
-            f"cd {shlex.quote(self.config.test.workdir)}; "
-            + " ".join(export_parts)
-            + f" echo {shlex.quote(f'>>> Running phase: {phase_name}')}; "
-            + cmd
+        remote_cmd, pid_file = self._build_phase_remote_command(
+            workdir=self.config.test.workdir,
+            env_map=env_map,
+            phase_name=phase_name,
+            cmd=cmd,
         )
-        remote_cmd = f"bash -lc {shlex.quote(script)}"
-
         ssh_cmd = build_ssh_command(self.world_env.job_id, self.ssh_key.private_key_path)
         ssh_cmd.append(remote_cmd)
 
-        proc = await asyncio.create_subprocess_exec(
+        self._phase_process = await asyncio.create_subprocess_exec(
             *ssh_cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
+        proc = self._phase_process
 
-        stdout_data, _ = await proc.communicate()
-        output = stdout_data.decode(errors="replace") if stdout_data else ""
-        log_path.write_text(output, encoding="utf-8")
+        original_handler = signal.getsignal(signal.SIGINT)
+        sigint_count = 0
 
+        def sigint_handler(signum: int, frame: object) -> None:
+            nonlocal sigint_count
+            sigint_count += 1
+            if sigint_count == 1:
+                console.print("\n[yellow]Stopping phase (graceful)...[/yellow] [dim](Ctrl+C again to force)[/dim]")
+                self._terminate_remote_phase(pid_file)
+            else:
+                console.print("\n[red]Force killing local SSH...[/red]")
+                if proc:
+                    proc.kill()
+
+        signal.signal(signal.SIGINT, sigint_handler)
+
+        output_lines: list[str] = []
+        interrupted = False
+        try:
+            stdout = proc.stdout
+            if stdout:
+                while True:
+                    line = await stdout.readline()
+                    if not line:
+                        break
+                    decoded = line.decode(errors="replace")
+                    output_lines.append(decoded)
+                    sys.stdout.write(decoded)
+                    sys.stdout.flush()
+
+            await proc.wait()
+            interrupted = sigint_count > 0
+        finally:
+            signal.signal(signal.SIGINT, original_handler)
+            self._phase_process = None
+            log_path.write_text("".join(output_lines), encoding="utf-8")
+
+        if interrupted:
+            return 130
         return proc.returncode or 0
 
     async def _fetch_remote_file(self, remote_path: str, local_path: Path) -> bool:
@@ -747,6 +880,26 @@ class TestRunner:
                 )
         except Exception:  # noqa: BLE001
             logger.warning("Failed to complete Chronos session", exc_info=True)
+
+    async def _cancel_chronos_session(self, reason: str) -> None:
+        """Mark the Chronos session as cancelled without closing the Plato VM session."""
+        if not self.session_id:
+            return
+
+        body = UpdateStatusRequest(status="cancelled", status_reason=reason[:500])
+        try:
+            async with httpx.AsyncClient(
+                base_url=settings.chronos_url.rstrip("/"),
+                timeout=30.0,
+            ) as client:
+                await update_session_status.asyncio(
+                    client,
+                    public_id=self.session_id,
+                    body=body,
+                    x_api_key=self.api_key,
+                )
+        except Exception:  # noqa: BLE001
+            logger.warning("Failed to cancel Chronos session", exc_info=True)
 
     def _write_summary(self, *, exit_code: int, status: str, error_message: str | None) -> None:
         summary = {

@@ -1,0 +1,54 @@
+﻿# Copyright (c) 2026 Charlie Vanaret
+# Licensed under the MIT license. See LICENSE file in the project directory for details.
+
+cmake_minimum_required(VERSION 3.7)
+if(${CMAKE_VERSION} VERSION_LESS 3.12)
+   cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
+endif()
+
+project(tests_hs015 LANGUAGES C)
+
+# compile options
+if (MSVC)
+   add_compile_options("$<$<COMPILE_LANGUAGE:C>:/utf-8>")
+else()
+   set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wnon-virtual-dtor -pedantic -Wunused-value -Wconversion")
+   set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG") # disable asserts
+endif()
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wmaybe-uninitialized")
+endif()
+
+find_library(UNO REQUIRED)
+add_executable(tests_hs015 tests_hs015.c)
+
+# link the math library and Uno
+target_link_libraries(tests_hs015 PUBLIC m ${UNO})
+
+# LAPACK
+# convert relative paths of LAPACK to absolute paths
+if(LAPACK_LIBRARIES)
+   set(ABSOLUTE_LAPACK_LIBRARIES)
+   foreach(relative_path IN LISTS LAPACK_LIBRARIES)
+      get_filename_component(absolute_path "${relative_path}" ABSOLUTE)
+      list(APPEND ABSOLUTE_LAPACK_LIBRARIES "${absolute_path}")
+   endforeach()
+   target_link_libraries(tests_hs015 PRIVATE ${ABSOLUTE_LAPACK_LIBRARIES})
+else()
+   find_package(LAPACK REQUIRED)
+   target_link_libraries(tests_hs015 PRIVATE LAPACK::LAPACK)
+endif()
+
+# BLAS
+# convert relative paths of BLAS to absolute paths
+if(BLAS_LIBRARIES)
+   set(ABSOLUTE_BLAS_LIBRARIES)
+   foreach(relative_path IN LISTS BLAS_LIBRARIES)
+      get_filename_component(absolute_path "${relative_path}" ABSOLUTE)
+      list(APPEND ABSOLUTE_BLAS_LIBRARIES "${absolute_path}")
+   endforeach()
+   target_link_libraries(tests_hs015 PRIVATE ${ABSOLUTE_BLAS_LIBRARIES})
+else()
+   find_package(BLAS REQUIRED)
+   target_link_libraries(tests_hs015 PRIVATE BLAS::BLAS)
+endif()

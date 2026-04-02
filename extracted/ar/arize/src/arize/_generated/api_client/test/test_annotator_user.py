@@ -36,12 +36,12 @@ class TestAnnotatorUser(unittest.TestCase):
         if include_optional:
             return AnnotatorUser(
                 id = '',
-                email = ''
+                email = 'user@example.com'
             )
         else:
             return AnnotatorUser(
                 id = '',
-                email = '',
+                email = 'user@example.com',
         )
         """
 

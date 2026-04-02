@@ -1,1 +1,0 @@
-"""Scripts for Mindroom utilities."""

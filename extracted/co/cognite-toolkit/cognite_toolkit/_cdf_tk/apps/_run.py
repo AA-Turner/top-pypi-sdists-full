@@ -31,7 +31,8 @@ class RunApp(typer.Typer):
     @staticmethod
     def main(ctx: typer.Context) -> None:
         """Commands to execute processes in CDF."""
-        RunApp._print_deprecation_warning()
+        if ctx.parent is None or ctx.parent.info_name != "dev":
+            RunApp._print_deprecation_warning()
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf run --help[/] for more information.")
 
@@ -69,7 +70,7 @@ class RunApp(typer.Typer):
             str | None,
             typer.Option(
                 "--external-id",
-                "-e",
+                "-x",
                 help="External id of the workflow to run. If not provided, you will be prompted to select one.",
             ),
         ] = None,
@@ -77,7 +78,7 @@ class RunApp(typer.Typer):
             str | None,
             typer.Option(
                 "--version",
-                "-v",
+                "-n",
                 help="Version of the workflow to run. If not provided, the first found version will be used.",
             ),
         ] = None,

@@ -46,12 +46,12 @@ class RecursiveDocumentSplitter:
     doc = Document(content=text)
     doc_chunks = chunker.run([doc])
     print(doc_chunks["documents"])
-    >[
-    >Document(id=..., content: 'Artificial intelligence (AI) - Introduction\\n\\n', meta: {'original_id': '...', 'split_id': 0, 'split_idx_start': 0, '_split_overlap': []})
-    >Document(id=..., content: 'AI, in its broadest sense, is intelligence exhibited by machines, particularly computer systems.\\n', meta: {'original_id': '...', 'split_id': 1, 'split_idx_start': 45, '_split_overlap': []})
-    >Document(id=..., content: 'AI technology is widely used throughout industry, government, and science.', meta: {'original_id': '...', 'split_id': 2, 'split_idx_start': 142, '_split_overlap': []})
-    >Document(id=..., content: ' Some high-profile applications include advanced web search engines; recommendation systems; interac...', meta: {'original_id': '...', 'split_id': 3, 'split_idx_start': 216, '_split_overlap': []})
-    >]
+    # [
+    # Document(id=..., content: 'Artificial intelligence (AI) - Introduction\\n\\n', meta: {'original_id': '...', 'split_id': 0, 'split_idx_start': 0, '_split_overlap': []})
+    # Document(id=..., content: 'AI, in its broadest sense, is intelligence exhibited by machines, particularly computer systems.\\n', meta: {'original_id': '...', 'split_id': 1, 'split_idx_start': 45, '_split_overlap': []})
+    # Document(id=..., content: 'AI technology is widely used throughout industry, government, and science.', meta: {'original_id': '...', 'split_id': 2, 'split_idx_start': 142, '_split_overlap': []})
+    # Document(id=..., content: ' Some high-profile applications include advanced web search engines; recommendation systems; interac...', meta: {'original_id': '...', 'split_id': 3, 'split_idx_start': 216, '_split_overlap': []})
+    # ]
     ```
     """  # noqa: E501
 
@@ -63,7 +63,7 @@ class RecursiveDocumentSplitter:
         split_unit: Literal["word", "char", "token"] = "word",
         separators: list[str] | None = None,
         sentence_splitter_params: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """
         Initializes a RecursiveDocumentSplitter.
 
@@ -117,7 +117,7 @@ class RecursiveDocumentSplitter:
             raise ValueError("All separators must be strings.")
 
     @staticmethod
-    def _get_custom_sentence_tokenizer(sentence_splitter_params: dict[str, Any]):
+    def _get_custom_sentence_tokenizer(sentence_splitter_params: dict[str, Any]) -> Any:
         from haystack.components.preprocessors.sentence_tokenizer import SentenceSplitter
 
         return SentenceSplitter(**sentence_splitter_params)
@@ -224,7 +224,7 @@ class RecursiveDocumentSplitter:
 
         return overlapped_chunks
 
-    def _create_chunk_starting_with_overlap(self, chunk, overlap):
+    def _create_chunk_starting_with_overlap(self, chunk: str, overlap: str) -> str:
         if self.split_units == "word":
             current_chunk = overlap + " " + chunk
         elif self.split_units == "token":

@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Provides dummy vmedia username and password if required by BMC

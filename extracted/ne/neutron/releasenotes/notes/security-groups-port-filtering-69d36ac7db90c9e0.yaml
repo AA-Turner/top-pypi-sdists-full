@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Support port filtering on security group IDs.
-    The feature can be used if 'port-security-group-filtering' extension is available.
-

@@ -13,7 +13,7 @@ pub mod validation;
 pub use conversion::{ConversionOptions, ConversionOptionsUpdate};
 pub use preprocessing::{PreprocessingOptions, PreprocessingOptionsUpdate, PreprocessingPreset};
 pub use validation::{
-    CodeBlockStyle, HeadingStyle, HighlightStyle, ListIndentType, NewlineStyle, OutputFormat, WhitespaceMode,
+    CodeBlockStyle, HeadingStyle, HighlightStyle, LinkStyle, ListIndentType, NewlineStyle, OutputFormat, WhitespaceMode,
 };
 
 // Note: InlineImageConfig is re-exported from the inline_images module,

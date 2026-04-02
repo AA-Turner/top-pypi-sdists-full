@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-lsp-ruff
-Version: 2.3.0
+Version: 2.3.1
 Summary: Ruff linting plugin for pylsp
 Author-email: Julian Hossbach <julian.hossbach@gmx.de>
 License: MIT
@@ -9,7 +9,7 @@ Project-URL: Bug Tracker, https://github.com/python-lsp/python-lsp-ruff/issues
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: ruff>=0.2.0
+Requires-Dist: ruff>=0.8.0
 Requires-Dist: python-lsp-server
 Requires-Dist: cattrs!=23.2.1
 Requires-Dist: lsprotocol>=2023.0.1

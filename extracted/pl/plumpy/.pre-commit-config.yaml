@@ -1,0 +1,42 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: double-quote-string-fixer
+      - id: end-of-file-fixer
+      - id: fix-encoding-pragma
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
+    hooks:
+      - id: ruff-format
+        exclude: &exclude_ruff >
+          (?x)^(
+            tests/.*|
+          )$
+
+      - id: ruff
+        exclude: *exclude_ruff
+        args: [--fix, --exit-non-zero-on-fix, --show-fixes]
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.10.4
+    hooks:
+      - id: uv-lock
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy
+        args: [--config-file=pyproject.toml, --pretty, src/plumpy]
+        language: python
+        types: [python]
+        require_serial: true
+        pass_filenames: false
+        files: >-
+          (?x)^(
+              src/.*py|
+          )$

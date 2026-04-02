@@ -37,6 +37,7 @@ Fortran 2008 module. Contains classes which extend the Fortran
 2003 standard to implement the Fortran 2008 standard.
 
 """
+
 import inspect
 import sys
 
@@ -66,6 +67,7 @@ from fparser.two.Fortran2008.allocate_stmt_r626 import Allocate_Stmt
 from fparser.two.Fortran2008.loop_control_r818 import Loop_Control
 from fparser.two.Fortran2008.if_stmt_r837 import If_Stmt
 from fparser.two.Fortran2008.error_stop_stmt_r856 import Error_Stop_Stmt
+from fparser.two.Fortran2008.format_item_r1003 import Format_Item
 from fparser.two.Fortran2008.stop_code_r857 import Stop_Code
 from fparser.two.Fortran2008.specification_part_c1112 import Specification_Part_C1112
 from fparser.two.Fortran2008.implicit_part_c1112 import Implicit_Part_C1112
@@ -99,7 +101,6 @@ from fparser.two.Fortran2008.block_nonlabel_do_construct_r814_2 import (
 from fparser.two.Fortran2008.label_do_stmt_r816 import Label_Do_Stmt
 from fparser.two.Fortran2008.nonlabel_do_stmt_r817 import Nonlabel_Do_Stmt
 
-
 # pylint: disable=eval-used
 # pylint: disable=exec-used
 
@@ -125,33 +126,27 @@ for clsname in _names:
             _names.append(n)
             n = n[:-5]
             # Generate 'list' class
-            exec(
-                f"""\
+            exec(f"""\
 class {n}_List(SequenceBase):
     subclass_names = [\'{n}\']
     use_names = []
     @staticmethod
     def match(string): return SequenceBase.match(r\',\', {n}, string)
-"""
-            )
+""")
         elif n.endswith("_Name"):
             _names.append(n)
             n = n[:-5]
-            exec(
-                f"""\
+            exec(f"""\
 class {n}_Name(Base):
     subclass_names = [\'Name\']
-"""
-            )
+""")
         elif n.startswith("Scalar_"):
             _names.append(n)
             n = n[7:]
-            exec(
-                f"""\
+            exec(f"""\
 class Scalar_{n}(Base):
     subclass_names = [\'{n}\']
-"""
-            )
+""")
 # Make sure NEW_CLS does not reference a class so is not accidentally
 # picked up in __all__.
 NEW_CLS = None

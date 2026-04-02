@@ -21,18 +21,23 @@ class AccountRaiBlocklistArgs:
     def __init__(__self__, *,
                  cognitive_account_id: pulumi.Input[_builtins.str],
                  description: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None):
+                 name: Optional[pulumi.Input[_builtins.str]] = None,
+                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a AccountRaiBlocklist resource.
+
         :param pulumi.Input[_builtins.str] cognitive_account_id: The ID of the Cognitive Services Account. Changing this forces a new Cognitive Account Rai Blocklist to be created.
         :param pulumi.Input[_builtins.str] description: A short description for the Cognitive Account Rai Blocklist.
         :param pulumi.Input[_builtins.str] name: The name of the Cognitive Account Rai Blocklist. Changing this forces a new Cognitive Account Rai Blocklist to be created.
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A mapping of tags assigned to the resource.
         """
         pulumi.set(__self__, "cognitive_account_id", cognitive_account_id)
         if description is not None:
             pulumi.set(__self__, "description", description)
         if name is not None:
             pulumi.set(__self__, "name", name)
+        if tags is not None:
+            pulumi.set(__self__, "tags", tags)
 
     @_builtins.property
     @pulumi.getter(name="cognitiveAccountId")
@@ -70,18 +75,33 @@ class AccountRaiBlocklistArgs:
     def name(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "name", value)
 
+    @_builtins.property
+    @pulumi.getter
+    def tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        A mapping of tags assigned to the resource.
+        """
+        return pulumi.get(self, "tags")
+
+    @tags.setter
+    def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "tags", value)
+
 
 @pulumi.input_type
 class _AccountRaiBlocklistState:
     def __init__(__self__, *,
                  cognitive_account_id: Optional[pulumi.Input[_builtins.str]] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
-                 name: Optional[pulumi.Input[_builtins.str]] = None):
+                 name: Optional[pulumi.Input[_builtins.str]] = None,
+                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering AccountRaiBlocklist resources.
+
         :param pulumi.Input[_builtins.str] cognitive_account_id: The ID of the Cognitive Services Account. Changing this forces a new Cognitive Account Rai Blocklist to be created.
         :param pulumi.Input[_builtins.str] description: A short description for the Cognitive Account Rai Blocklist.
         :param pulumi.Input[_builtins.str] name: The name of the Cognitive Account Rai Blocklist. Changing this forces a new Cognitive Account Rai Blocklist to be created.
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A mapping of tags assigned to the resource.
         """
         if cognitive_account_id is not None:
             pulumi.set(__self__, "cognitive_account_id", cognitive_account_id)
@@ -89,6 +109,8 @@ class _AccountRaiBlocklistState:
             pulumi.set(__self__, "description", description)
         if name is not None:
             pulumi.set(__self__, "name", name)
+        if tags is not None:
+            pulumi.set(__self__, "tags", tags)
 
     @_builtins.property
     @pulumi.getter(name="cognitiveAccountId")
@@ -126,6 +148,18 @@ class _AccountRaiBlocklistState:
     def name(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "name", value)
 
+    @_builtins.property
+    @pulumi.getter
+    def tags(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        A mapping of tags assigned to the resource.
+        """
+        return pulumi.get(self, "tags")
+
+    @tags.setter
+    def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "tags", value)
+
 
 @pulumi.type_token("azure:cognitive/accountRaiBlocklist:AccountRaiBlocklist")
 class AccountRaiBlocklist(pulumi.CustomResource):
@@ -136,9 +170,10 @@ class AccountRaiBlocklist(pulumi.CustomResource):
                  cognitive_account_id: Optional[pulumi.Input[_builtins.str]] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
+                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
-        Manages a Cognitive Account Rai Blocklist.
+        Manages a Microsoft Foundry "Guardrails + Controls" blocklist. Microsoft Foundry was previously known as "Cognitive Account".
 
         ## Example Usage
 
@@ -176,11 +211,13 @@ class AccountRaiBlocklist(pulumi.CustomResource):
         $ pulumi import azure:cognitive/accountRaiBlocklist:AccountRaiBlocklist example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/resourceGroup1/providers/Microsoft.CognitiveServices/accounts/account1/raiBlocklists/raiblocklist1
         ```
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] cognitive_account_id: The ID of the Cognitive Services Account. Changing this forces a new Cognitive Account Rai Blocklist to be created.
         :param pulumi.Input[_builtins.str] description: A short description for the Cognitive Account Rai Blocklist.
         :param pulumi.Input[_builtins.str] name: The name of the Cognitive Account Rai Blocklist. Changing this forces a new Cognitive Account Rai Blocklist to be created.
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A mapping of tags assigned to the resource.
         """
         ...
     @overload
@@ -189,7 +226,7 @@ class AccountRaiBlocklist(pulumi.CustomResource):
                  args: AccountRaiBlocklistArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        Manages a Cognitive Account Rai Blocklist.
+        Manages a Microsoft Foundry "Guardrails + Controls" blocklist. Microsoft Foundry was previously known as "Cognitive Account".
 
         ## Example Usage
 
@@ -226,6 +263,7 @@ class AccountRaiBlocklist(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:cognitive/accountRaiBlocklist:AccountRaiBlocklist example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/resourceGroup1/providers/Microsoft.CognitiveServices/accounts/account1/raiBlocklists/raiblocklist1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param AccountRaiBlocklistArgs args: The arguments to use to populate this resource's properties.
@@ -245,6 +283,7 @@ class AccountRaiBlocklist(pulumi.CustomResource):
                  cognitive_account_id: Optional[pulumi.Input[_builtins.str]] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
+                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -259,6 +298,7 @@ class AccountRaiBlocklist(pulumi.CustomResource):
             __props__.__dict__["cognitive_account_id"] = cognitive_account_id
             __props__.__dict__["description"] = description
             __props__.__dict__["name"] = name
+            __props__.__dict__["tags"] = tags
         super(AccountRaiBlocklist, __self__).__init__(
             'azure:cognitive/accountRaiBlocklist:AccountRaiBlocklist',
             resource_name,
@@ -271,7 +311,8 @@ class AccountRaiBlocklist(pulumi.CustomResource):
             opts: Optional[pulumi.ResourceOptions] = None,
             cognitive_account_id: Optional[pulumi.Input[_builtins.str]] = None,
             description: Optional[pulumi.Input[_builtins.str]] = None,
-            name: Optional[pulumi.Input[_builtins.str]] = None) -> 'AccountRaiBlocklist':
+            name: Optional[pulumi.Input[_builtins.str]] = None,
+            tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> 'AccountRaiBlocklist':
         """
         Get an existing AccountRaiBlocklist resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -282,6 +323,7 @@ class AccountRaiBlocklist(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] cognitive_account_id: The ID of the Cognitive Services Account. Changing this forces a new Cognitive Account Rai Blocklist to be created.
         :param pulumi.Input[_builtins.str] description: A short description for the Cognitive Account Rai Blocklist.
         :param pulumi.Input[_builtins.str] name: The name of the Cognitive Account Rai Blocklist. Changing this forces a new Cognitive Account Rai Blocklist to be created.
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A mapping of tags assigned to the resource.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -290,6 +332,7 @@ class AccountRaiBlocklist(pulumi.CustomResource):
         __props__.__dict__["cognitive_account_id"] = cognitive_account_id
         __props__.__dict__["description"] = description
         __props__.__dict__["name"] = name
+        __props__.__dict__["tags"] = tags
         return AccountRaiBlocklist(resource_name, opts=opts, __props__=__props__)
 
     @_builtins.property
@@ -315,4 +358,12 @@ class AccountRaiBlocklist(pulumi.CustomResource):
         The name of the Cognitive Account Rai Blocklist. Changing this forces a new Cognitive Account Rai Blocklist to be created.
         """
         return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def tags(self) -> pulumi.Output[Optional[Mapping[str, _builtins.str]]]:
+        """
+        A mapping of tags assigned to the resource.
+        """
+        return pulumi.get(self, "tags")
 

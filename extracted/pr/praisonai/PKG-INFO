@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PraisonAI
-Version: 4.5.109
+Version: 4.5.110
 Summary: PraisonAI is an AI Agents Framework with Self Reflection. PraisonAI application combines PraisonAI Agents, AutoGen, and CrewAI into a low-code solution for building and managing multi-agent LLM systems, focusing on simplicity, customisation, and efficient human-agent collaboration.
 Author: Mervin Praison
 License: MIT
@@ -11,7 +11,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: rich>=13.7
 Requires-Dist: markdown>=3.5
 Requires-Dist: pyparsing>=3.0.0
-Requires-Dist: praisonaiagents>=1.5.109
+Requires-Dist: praisonaiagents>=1.5.110
 Requires-Dist: python-dotenv>=0.19.0
 Requires-Dist: litellm<=1.82.6,>=1.81.0
 Requires-Dist: PyYAML>=6.0
@@ -51,6 +51,8 @@ Requires-Dist: tavily-python==0.5.0; extra == "code"
 Requires-Dist: crawl4ai>=0.7.0; extra == "code"
 Requires-Dist: sqlalchemy>=2.0.36; extra == "code"
 Requires-Dist: playwright>=1.47.0; extra == "code"
+Provides-Extra: sandbox
+Requires-Dist: sandlock>=0.1.0; extra == "sandbox"
 Provides-Extra: realtime
 Requires-Dist: chainlit<=2.9.4,>=2.8.5; extra == "realtime"
 Requires-Dist: aiosqlite>=0.20.0; extra == "realtime"
@@ -109,6 +111,10 @@ Requires-Dist: plotly>=5.24.0; extra == "all"
 Requires-Dist: yfinance>=0.2.44; extra == "all"
 Requires-Dist: ddgs>=9.0.0; extra == "all"
 Requires-Dist: psutil>=5.9.0; extra == "all"
+Requires-Dist: redis>=5.0.0; extra == "all"
+Requires-Dist: pymongo>=4.6.0; extra == "all"
+Requires-Dist: psycopg2-binary>=2.9.0; extra == "all"
+Requires-Dist: boto3>=1.35.0; extra == "all"
 Provides-Extra: bot
 Requires-Dist: python-telegram-bot>=20.0; extra == "bot"
 Requires-Dist: discord.py>=2.0.0; extra == "bot"
@@ -121,6 +127,14 @@ Requires-Dist: psutil>=5.9.0; extra == "bot"
 Provides-Extra: bot-whatsapp-web
 Requires-Dist: neonize>=0.3.14; extra == "bot-whatsapp-web"
 Requires-Dist: qrcode>=7.0; extra == "bot-whatsapp-web"
+Provides-Extra: redis
+Requires-Dist: redis>=5.0.0; extra == "redis"
+Provides-Extra: mongodb
+Requires-Dist: pymongo>=4.6.0; extra == "mongodb"
+Provides-Extra: postgresql
+Requires-Dist: psycopg2-binary>=2.9.0; extra == "postgresql"
+Provides-Extra: dynamodb
+Requires-Dist: boto3>=1.35.0; extra == "dynamodb"
 Provides-Extra: claw
 Requires-Dist: aiui[all]>=0.3.100; extra == "claw"
 Requires-Dist: praisonaiagents[all]>=1.5.40; extra == "claw"
@@ -144,6 +158,10 @@ Requires-Dist: slack_sdk>=3.0.0; extra == "claw"
 Requires-Dist: slack-bolt>=1.18.0; extra == "claw"
 Requires-Dist: brotlicffi>=1.0.0; extra == "claw"
 Requires-Dist: aiohttp>=3.8.0; extra == "claw"
+Requires-Dist: redis>=5.0.0; extra == "claw"
+Requires-Dist: pymongo>=4.6.0; extra == "claw"
+Requires-Dist: psycopg2-binary>=2.9.0; extra == "claw"
+Requires-Dist: boto3>=1.35.0; extra == "claw"
 Provides-Extra: dev
 Requires-Dist: textual-dev>=1.0.0; extra == "dev"
 Requires-Dist: pytest>=7.0.0; extra == "dev"
@@ -175,6 +193,15 @@ Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
 </div>
 
 PraisonAI 🦞 — Automate and solve complex challenges with AI agent teams that plan, research, code, and deliver results to Telegram, Discord, and WhatsApp — running 24/7. A low-code, production-ready multi-agent framework with handoffs, guardrails, memory, RAG, and 100+ LLM providers, built around simplicity, customisation, and effective human-agent collaboration.
+
+<div align="center">
+  <br>
+  <a href="https://x.com/elonmusk/status/1893870468249141688" target="_blank">
+    <img src="https://img.shields.io/badge/Highlighted_by_Elon_Musk-000000?style=for-the-badge&logo=x&logoColor=white" alt="Highlighted by Elon Musk" />
+  </a>
+  <p><em>"Grok 3 customer support" — <a href="https://x.com/elonmusk/status/1893870468249141688">Elon Musk quoting PraisonAI's tutorial</a></em></p>
+  <br>
+</div>
 
 <p align="center">
   <img src=".github/images/dashboard.png" alt="PraisonAI Dashboard" width="800" />

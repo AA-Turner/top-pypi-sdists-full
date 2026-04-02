@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    The configuration options for XenAPI support has been removed, because
-    these options were already ineffective.

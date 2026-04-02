@@ -1,0 +1,122 @@
+Metadata-Version: 2.4
+Name: invenio-records-permissions
+Version: 2.0.1
+Summary: Permission policies for Invenio records.
+Home-page: https://github.com/inveniosoftware/invenio-records-permissions
+Author: CERN
+Author-email: info@inveniosoftware.org
+License: MIT
+Keywords: invenio permissions
+Platform: any
+Classifier: Development Status :: 3 - Alpha
+Requires-Python: >=3.7
+License-File: LICENSE
+License-File: AUTHORS.rst
+Requires-Dist: invenio-access<6.0.0,>=5.0.0
+Provides-Extra: tests
+Requires-Dist: pytest-black>=0.6.0; extra == "tests"
+Requires-Dist: pytest-mock>=1.6.0; extra == "tests"
+Requires-Dist: pytest-invenio<5.0.0,>=4.0.0; extra == "tests"
+Requires-Dist: invenio-accounts<8.0.0,>=7.0.0; extra == "tests"
+Requires-Dist: invenio-app<4.0.0,>=3.0.0; extra == "tests"
+Requires-Dist: Sphinx>=5.0.0; extra == "tests"
+Requires-Dist: invenio-db[mysql,postgresql,versioning]<3.0.0,>=2.2.0; extra == "tests"
+Requires-Dist: invenio-records<5.0.0,>=4.0.0; extra == "tests"
+Provides-Extra: elasticsearch7
+Requires-Dist: invenio-search[elasticsearch7]<4.0.0,>=3.0.0; extra == "elasticsearch7"
+Provides-Extra: opensearch1
+Requires-Dist: invenio-search[opensearch1]<4.0.0,>=3.0.0; extra == "opensearch1"
+Provides-Extra: opensearch2
+Requires-Dist: invenio-search[opensearch2]<4.0.0,>=3.0.0; extra == "opensearch2"
+Dynamic: license-file
+
+..
+    Copyright (C) 2019 CERN.
+
+    Invenio-Records-Permissions is free software; you can redistribute it
+    and/or modify it under the terms of the MIT License; see LICENSE file for
+    more details.
+
+=============================
+ Invenio-Records-Permissions
+=============================
+
+.. image:: https://github.com/inveniosoftware/invenio-records-permissions/workflows/CI/badge.svg
+        :target: https://github.com/inveniosoftware/invenio-records-permissions/actions?query=workflow%3ACI+branch%3Amaster
+
+.. image:: https://img.shields.io/coveralls/inveniosoftware/invenio-records-permissions.svg
+        :target: https://coveralls.io/r/inveniosoftware/invenio-records-permissions
+
+.. image:: https://img.shields.io/github/tag/inveniosoftware/invenio-records-permissions.svg
+        :target: https://github.com/inveniosoftware/invenio-records-permissions/releases
+
+.. image:: https://img.shields.io/pypi/dm/invenio-records-permissions.svg
+        :target: https://pypi.python.org/pypi/invenio-records-permissions
+
+.. image:: https://img.shields.io/github/license/inveniosoftware/invenio-records-permissions.svg
+        :target: https://github.com/inveniosoftware/invenio-records-permissions/blob/master/LICENSE
+
+Permission policies for Invenio records.
+
+Further documentation is available on
+https://invenio-records-permissions.readthedocs.io/
+
+..
+    Copyright (C) 2019-2024 CERN.
+    Copyright (C) 2019-2024 Northwestern University.
+    Copyright (C) 2024-2026 Graz University of Technology.
+    Copyright (C) 2025 KTH Royal Institute of Technology.
+
+    Invenio-Records-Permissions is free software; you can redistribute it
+    and/or modify it under the terms of the MIT License; see LICENSE file for
+    more details.
+
+Changes
+=======
+
+Version v2.0.1 (released 2026-02-17)
+
+- fix(tests): check role.id instead of role.name
+
+Version v2.0.0 (released 2026-01-30)
+
+- chore(black): update formatting to >= 26.0
+- chore(setup): bump dependencies
+
+Version v1.2.1 (released 2025-10-21)
+
+- Remove unused i18n boilerplate
+
+Version v1.2.0 (released 2025-07-17)
+
+- i18n: pulled translations
+
+Version 1.1.0 (release 2025-07-03)
+
+- generators: fix AdmiAction permission check
+- fix(tests): add configuration
+- fix: setuptools require underscores instead of dashes
+- i18n: removed deprecated messages
+
+Version 1.0.0 (release 2024-12-09)
+
+- setup: bump major dependencies
+
+Version 0.22.0 (release 2024-11-30)
+
+- setup: change to reusable workflows
+- setup: pin dependencies
+
+Version v0.21.1 (released 2024-11-28)
+
+- installation: bump invenio-access
+    * This removes the dependency to invenio-admin.
+
+Version v0.21.0 (released 2024-09-30)
+
+- setup: move unnecessary `invenio-records` dependency to tests requirements
+
+Version v0.20.0 (released 2024-07-31)
+
+- record: add create_or_update_many permission
+

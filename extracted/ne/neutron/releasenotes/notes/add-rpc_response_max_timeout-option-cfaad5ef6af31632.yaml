@@ -1,5 +1,0 @@
----
-features:
-  - Add config option ``rpc_response_max_timeout``
-    to configure the maximum time waiting for an
-    RPC response.

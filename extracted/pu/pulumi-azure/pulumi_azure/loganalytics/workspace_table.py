@@ -26,12 +26,15 @@ class WorkspaceTableArgs:
                  total_retention_in_days: Optional[pulumi.Input[_builtins.int]] = None):
         """
         The set of arguments for constructing a WorkspaceTable resource.
+
         :param pulumi.Input[_builtins.str] workspace_id: The object ID of the Log Analytics Workspace that contains the table.
         :param pulumi.Input[_builtins.str] name: Specifies the name of a table in a Log Analytics Workspace.
         :param pulumi.Input[_builtins.str] plan: Specify the system how to handle and charge the logs ingested to the table. Possible values are `Analytics` and `Basic`. Defaults to `Analytics`.
                
                > **Note:** The `name` of tables currently supported by the `Basic` plan can be found [here](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/basic-logs-azure-tables).
-        :param pulumi.Input[_builtins.int] retention_in_days: The table's retention in days. Possible values are either `8` (Basic Tier only) or range between `4` and `730`.
+        :param pulumi.Input[_builtins.int] retention_in_days: The table's retention in days. Possible values are between `4` and `730`.
+               
+               > **Note:** The `retention_in_days` is fixed to `30` when `plan` is `Basic`. More details could be found [here](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/data-retention-configure?tabs=portal%2Cportal-1#analytics-long-term-and-total-retention).
         :param pulumi.Input[_builtins.int] total_retention_in_days: The table's total retention in days. Possible values range between `4` and `730`; or `1095`, `1460`, `1826`, `2191`, `2556`, `2922`, `3288`, `3653`, `4018`, or `4383`.
                
                > **Note:** `retention_in_days` and `total_retention_in_days` will revert back to the value of operationalinsights.AnalyticsWorkspace retention_in_days when a loganalytics.WorkspaceTable is deleted.
@@ -90,7 +93,9 @@ class WorkspaceTableArgs:
     @pulumi.getter(name="retentionInDays")
     def retention_in_days(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The table's retention in days. Possible values are either `8` (Basic Tier only) or range between `4` and `730`.
+        The table's retention in days. Possible values are between `4` and `730`.
+
+        > **Note:** The `retention_in_days` is fixed to `30` when `plan` is `Basic`. More details could be found [here](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/data-retention-configure?tabs=portal%2Cportal-1#analytics-long-term-and-total-retention).
         """
         return pulumi.get(self, "retention_in_days")
 
@@ -125,11 +130,14 @@ class _WorkspaceTableState:
                  workspace_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering WorkspaceTable resources.
+
         :param pulumi.Input[_builtins.str] name: Specifies the name of a table in a Log Analytics Workspace.
         :param pulumi.Input[_builtins.str] plan: Specify the system how to handle and charge the logs ingested to the table. Possible values are `Analytics` and `Basic`. Defaults to `Analytics`.
                
                > **Note:** The `name` of tables currently supported by the `Basic` plan can be found [here](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/basic-logs-azure-tables).
-        :param pulumi.Input[_builtins.int] retention_in_days: The table's retention in days. Possible values are either `8` (Basic Tier only) or range between `4` and `730`.
+        :param pulumi.Input[_builtins.int] retention_in_days: The table's retention in days. Possible values are between `4` and `730`.
+               
+               > **Note:** The `retention_in_days` is fixed to `30` when `plan` is `Basic`. More details could be found [here](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/data-retention-configure?tabs=portal%2Cportal-1#analytics-long-term-and-total-retention).
         :param pulumi.Input[_builtins.int] total_retention_in_days: The table's total retention in days. Possible values range between `4` and `730`; or `1095`, `1460`, `1826`, `2191`, `2556`, `2922`, `3288`, `3653`, `4018`, or `4383`.
                
                > **Note:** `retention_in_days` and `total_retention_in_days` will revert back to the value of operationalinsights.AnalyticsWorkspace retention_in_days when a loganalytics.WorkspaceTable is deleted.
@@ -178,7 +186,9 @@ class _WorkspaceTableState:
     @pulumi.getter(name="retentionInDays")
     def retention_in_days(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The table's retention in days. Possible values are either `8` (Basic Tier only) or range between `4` and `730`.
+        The table's retention in days. Possible values are between `4` and `730`.
+
+        > **Note:** The `retention_in_days` is fixed to `30` when `plan` is `Basic`. More details could be found [here](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/data-retention-configure?tabs=portal%2Cportal-1#analytics-long-term-and-total-retention).
         """
         return pulumi.get(self, "retention_in_days")
 
@@ -261,13 +271,16 @@ class WorkspaceTable(pulumi.CustomResource):
 
         * `Microsoft.OperationalInsights` - 2022-10-01
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] name: Specifies the name of a table in a Log Analytics Workspace.
         :param pulumi.Input[_builtins.str] plan: Specify the system how to handle and charge the logs ingested to the table. Possible values are `Analytics` and `Basic`. Defaults to `Analytics`.
                
                > **Note:** The `name` of tables currently supported by the `Basic` plan can be found [here](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/basic-logs-azure-tables).
-        :param pulumi.Input[_builtins.int] retention_in_days: The table's retention in days. Possible values are either `8` (Basic Tier only) or range between `4` and `730`.
+        :param pulumi.Input[_builtins.int] retention_in_days: The table's retention in days. Possible values are between `4` and `730`.
+               
+               > **Note:** The `retention_in_days` is fixed to `30` when `plan` is `Basic`. More details could be found [here](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/data-retention-configure?tabs=portal%2Cportal-1#analytics-long-term-and-total-retention).
         :param pulumi.Input[_builtins.int] total_retention_in_days: The table's total retention in days. Possible values range between `4` and `730`; or `1095`, `1460`, `1826`, `2191`, `2556`, `2922`, `3288`, `3653`, `4018`, or `4383`.
                
                > **Note:** `retention_in_days` and `total_retention_in_days` will revert back to the value of operationalinsights.AnalyticsWorkspace retention_in_days when a loganalytics.WorkspaceTable is deleted.
@@ -314,6 +327,7 @@ class WorkspaceTable(pulumi.CustomResource):
         This resource uses the following Azure API Providers:
 
         * `Microsoft.OperationalInsights` - 2022-10-01
+
 
         :param str resource_name: The name of the resource.
         :param WorkspaceTableArgs args: The arguments to use to populate this resource's properties.
@@ -377,7 +391,9 @@ class WorkspaceTable(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] plan: Specify the system how to handle and charge the logs ingested to the table. Possible values are `Analytics` and `Basic`. Defaults to `Analytics`.
                
                > **Note:** The `name` of tables currently supported by the `Basic` plan can be found [here](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/basic-logs-azure-tables).
-        :param pulumi.Input[_builtins.int] retention_in_days: The table's retention in days. Possible values are either `8` (Basic Tier only) or range between `4` and `730`.
+        :param pulumi.Input[_builtins.int] retention_in_days: The table's retention in days. Possible values are between `4` and `730`.
+               
+               > **Note:** The `retention_in_days` is fixed to `30` when `plan` is `Basic`. More details could be found [here](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/data-retention-configure?tabs=portal%2Cportal-1#analytics-long-term-and-total-retention).
         :param pulumi.Input[_builtins.int] total_retention_in_days: The table's total retention in days. Possible values range between `4` and `730`; or `1095`, `1460`, `1826`, `2191`, `2556`, `2922`, `3288`, `3653`, `4018`, or `4383`.
                
                > **Note:** `retention_in_days` and `total_retention_in_days` will revert back to the value of operationalinsights.AnalyticsWorkspace retention_in_days when a loganalytics.WorkspaceTable is deleted.
@@ -418,7 +434,9 @@ class WorkspaceTable(pulumi.CustomResource):
     @pulumi.getter(name="retentionInDays")
     def retention_in_days(self) -> pulumi.Output[Optional[_builtins.int]]:
         """
-        The table's retention in days. Possible values are either `8` (Basic Tier only) or range between `4` and `730`.
+        The table's retention in days. Possible values are between `4` and `730`.
+
+        > **Note:** The `retention_in_days` is fixed to `30` when `plan` is `Basic`. More details could be found [here](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/data-retention-configure?tabs=portal%2Cportal-1#analytics-long-term-and-total-retention).
         """
         return pulumi.get(self, "retention_in_days")
 

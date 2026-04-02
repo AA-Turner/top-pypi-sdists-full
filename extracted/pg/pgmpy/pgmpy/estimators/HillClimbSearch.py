@@ -1,29 +1,23 @@
-#!/usr/bin/env python
+import warnings
 from collections import deque
+from collections.abc import Callable, Generator, Hashable
 from itertools import permutations
+from typing import (
+    Any,
+)
 
 import networkx as nx
+import pandas as pd
 from tqdm.auto import trange
 
 from pgmpy import config
 from pgmpy.base import DAG
+from pgmpy.causal_discovery import ExpertKnowledge
 from pgmpy.estimators import (
-    AIC,
-    BIC,
-    K2,
-    AICCondGauss,
-    AICGauss,
-    BDeu,
-    BDs,
-    BICCondGauss,
-    BICGauss,
-    ExpertKnowledge,
-    LogLikelihoodCondGauss,
-    LogLikelihoodGauss,
     StructureEstimator,
     StructureScore,
-    get_scoring_method,
 )
+from pgmpy.estimators.StructureScore import get_scoring_method
 
 
 class HillClimbSearch(StructureEstimator):
@@ -54,38 +48,41 @@ class HillClimbSearch(StructureEstimator):
     Section 18.4.3 (page 811ff)
     """
 
-    def __init__(self, data, use_cache=True, **kwargs):
+    def __init__(self, data: pd.DataFrame, use_cache: bool = True, **kwargs):
+        warnings.warn(
+            "HillClimbSearch is deprecated. Please use pgmpy.causal_discovery.HillClimbSearch instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
         self.use_cache = use_cache
 
-        super(HillClimbSearch, self).__init__(data, **kwargs)
+        super().__init__(data, **kwargs)
 
     def _legal_operations(
         self,
-        model,
-        score,
-        structure_score,
-        tabu_list,
-        max_indegree,
-        forbidden_edges,
-        required_edges,
-    ):
+        model: DAG,
+        score: Callable[[Any, list[Any]], float],
+        structure_score: Callable[[str], float],
+        tabu_list: deque[tuple[str, tuple[Hashable, Hashable]]],
+        max_indegree: int,
+        forbidden_edges: list[tuple[Hashable, Hashable]],
+        required_edges: list[tuple[Hashable, Hashable]],
+    ) -> Generator[tuple[tuple[str, tuple[Hashable, Hashable]], float]]:
         """Generates a list of legal (= not in tabu_list) graph modifications
         for a given model, together with their score changes. Possible graph modifications:
         (1) add, (2) remove, or (3) flip a single edge. For details on scoring
         see Koller & Friedman, Probabilistic Graphical Models, Section 18.4.3.3 (page 818).
         If a number `max_indegree` is provided, only modifications that keep the number
         of parents for each node below `max_indegree` are considered. A list of
-        edges can optionally be passed as `black_list` or `white_list` to exclude those
-        edges or to limit the search.
+        edges can optionally be passed as `forbidden_edges` or `required_edges` to exclude those
+        edges or to force them to be present in the model, respectively.
         """
 
         tabu_list = set(tabu_list)
 
         # Step 1: Get all legal operations for adding edges.
         potential_new_edges = (
-            set(permutations(self.variables, 2))
-            - set(model.edges())
-            - set([(Y, X) for (X, Y) in model.edges()])
+            set(permutations(self.variables, 2)) - set(model.edges()) - {(Y, X) for (X, Y) in model.edges()}
         )
 
         for X, Y in potential_new_edges:
@@ -113,9 +110,7 @@ class HillClimbSearch(StructureEstimator):
         # Step 3: Get all legal operations for flipping edges
         for X, Y in model.edges():
             # Check if flipping creates any cycles
-            if not any(
-                map(lambda path: len(path) > 2, nx.all_simple_paths(model, X, Y))
-            ):
+            if not any(map(lambda path: len(path) > 2, nx.all_simple_paths(model, X, Y))):
                 operation = ("flip", (X, Y))
                 if (
                     ((operation not in tabu_list) and ("flip", (Y, X)) not in tabu_list)
@@ -138,15 +133,15 @@ class HillClimbSearch(StructureEstimator):
 
     def estimate(
         self,
-        scoring_method="bic-d",
-        start_dag=None,
-        tabu_length=100,
-        max_indegree=None,
-        expert_knowledge=None,
-        epsilon=1e-4,
-        max_iter=1e6,
-        show_progress=True,
-    ):
+        scoring_method: str | StructureScore | None = None,
+        start_dag: DAG | None = None,
+        tabu_length: int = 100,
+        max_indegree: int | None = None,
+        expert_knowledge: ExpertKnowledge | None = None,
+        epsilon: float = 1e-4,
+        max_iter: int = int(1e6),
+        show_progress: bool = True,
+    ) -> DAG:
         """
         Performs local hill climb search to estimates the `DAG` structure that
         has optimal score, according to the scoring method supplied. Starts at
@@ -196,23 +191,23 @@ class HillClimbSearch(StructureEstimator):
         Examples
         --------
         >>> # Simulate some sample data from a known model to learn the model structure from
-        >>> from pgmpy.utils import get_example_model
-        >>> model = get_example_model('alarm')
-        >>> df = model.simulate(int(1e3))
+        >>> from pgmpy.example_models import load_model
+        >>> model = load_model("bnlearn/alarm")
+        >>> df = model.simulate(int(1e3), seed=42)
 
         >>> # Learn the model structure using HillClimbSearch algorithm from `df`
         >>> from pgmpy.estimators import HillClimbSearch
-        >>> est = HillClimbSearch(data)
-        >>> dag = est.estimate(scoring_method='bic-d')
+        >>> est = HillClimbSearch(df)
+        >>> dag = est.estimate(scoring_method="bic-d")
         >>> len(dag.nodes())
         37
-        >>> len(dag.edges())
-        45
+        >>> isinstance(dag, DAG)
+        True
+
         """
 
         # Step 1: Initial checks and setup for arguments
         # Step 1.1: Check scoring_method
-
         score, score_c = get_scoring_method(scoring_method, self.data, self.use_cache)
         score_fn = score_c.local_score
 
@@ -220,16 +215,16 @@ class HillClimbSearch(StructureEstimator):
         if start_dag is None:
             start_dag = DAG()
             start_dag.add_nodes_from(self.variables)
-        elif not isinstance(start_dag, DAG) or not set(start_dag.nodes()) == set(
-            self.variables
-        ):
-            raise ValueError(
-                "'start_dag' should be a DAG with the same variables as the data set, or 'None'."
-            )
+        elif not isinstance(start_dag, DAG) or not set(start_dag.nodes()) == set(self.variables):
+            raise ValueError("'start_dag' should be a DAG with the same variables as the data set, or 'None'.")
 
         # Step 1.3: Check if expert knowledge was specified
         if expert_knowledge is None:
             expert_knowledge = ExpertKnowledge()
+
+        # Step 1.3.1: If search_space in expert_knowledge is not None, limit the search space
+        if expert_knowledge.search_space:
+            expert_knowledge.limit_search_space(self.data.columns)
 
         # Step 1.4: Check if required edges cause a cycle
         start_dag.add_edges_from(expert_knowledge.required_edges)

@@ -70,7 +70,7 @@ if [[ "$ASWF_ORG" != ""  ]] ; then
     fi
 
     if [[ "$CXX" == "icpc" || "$CC" == "icc" || "$USE_ICC" != "" ]] ; then
-        # Lock down icc to 2022.1 because newer versions hosted on the Intel
+        sudo dnf -y install https://download.rockylinux.org/pub/rocky/8.10/BaseOS/x86_64/os/Packages/c/ca-certificates-2025.2.80_v9.0.304-80.2.el8_10.noarch.rpm        # Lock down icc to 2022.1 because newer versions hosted on the Intel
         # repo require a glibc too new for the ASWF CentOS7-based containers
         # we run CI on.
         sudo cp src/build-scripts/oneAPI.repo /etc/yum.repos.d
@@ -124,8 +124,9 @@ else
     if [[ "${USE_PYTHON}" != "0" ]] ; then
         time sudo apt-get -q install -y python3-numpy
     fi
+    : ${PIP_SUFFIX:=}
     if [[ "${PIP_INSTALLS}" != "" ]] ; then
-        time pip3 install ${PIP_INSTALLS}
+        time pip3${PIP_SUFFIX} install ${PIP_INSTALLS}
     fi
 
     if [[ "$USE_LIBHEIF" != "0" ]] ; then

@@ -1,0 +1,67 @@
+name: Static Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
+        inputs:
+          logLevel:
+            description: 'Log level'
+            required: true
+            default: 'warning'
+
+permissions:
+  contents: read
+
+jobs:
+  static_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install Hatch
+        run: pip install hatch "virtualenv<20.29"
+      - name: Run static tests
+        id: tests
+        shell: bash
+        run: |
+          EXIT_CODE=0
+          hatch run test:pytest tests/static_test.py tests/static_hub_test.py tests/parsed_topics_test.py --tb=no --no-header 2>&1 | tee /tmp/test_output.txt || EXIT_CODE=${PIPESTATUS[0]}
+          OUTPUT=$(cat /tmp/test_output.txt)
+          SUMMARY=$(echo "$OUTPUT" | sed -n '/short test summary info/,$ p')
+          if [ -z "$SUMMARY" ]; then
+            SUMMARY=$(echo "$OUTPUT" | tail -1)
+          fi
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          {
+            echo "summary<<EOF"
+            echo "$SUMMARY"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Save test results
+        if: always() && github.event_name == 'pull_request'
+        shell: bash
+        env:
+          TEST_EXIT_CODE: ${{ steps.tests.outputs.exit_code }}
+          TEST_SUMMARY: ${{ steps.tests.outputs.summary }}
+        run: |
+          mkdir -p ./test-results
+          echo "${{ github.event.number }}" > ./test-results/pr_number
+          echo "$TEST_EXIT_CODE" > ./test-results/exit_code
+          echo "$TEST_SUMMARY" > ./test-results/summary
+      - name: Upload test results
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+      - name: Fail if tests failed
+        if: steps.tests.outputs.exit_code != '0'
+        run: exit 1

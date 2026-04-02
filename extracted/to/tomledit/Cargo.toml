@@ -1,0 +1,17 @@
+[package]
+name = "tomledit"
+license = "Apache-2.0 OR MIT"
+version = "0.12.1"
+edition = "2024"
+readme = "README.md"
+
+[lib]
+name = "tomledit"
+crate-type = ["cdylib"]
+
+[dependencies]
+toml_edit = "0.25"
+
+[dependencies.pyo3]
+version = "0.28"
+features = ["generate-import-lib"]

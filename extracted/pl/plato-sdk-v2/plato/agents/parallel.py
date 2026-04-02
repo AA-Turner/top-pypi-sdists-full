@@ -4,22 +4,26 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import shlex
 import shutil
 import tempfile
+import time
 import uuid
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
+
+from git import Repo
+from git.exc import GitCommandError
 
 from plato.agents.runtime.base import AgentContext
-from plato.agents.runtime.transport import GitPublishedRef, GitTransport, RsyncTransport
 from plato.agents.runtime.vm import VMConfig
 from plato.agents.runtime.warmpool import WarmPool
+from plato.git_ops.repo import AGENT_ACTOR, trust_git_directory
 from plato.runtime import VMRuntimeConfig
-from plato.utils.subprocess import run_local
+from plato.transports import GitCheckout, GitPublishedRef, GitSyncBack, GitTransport, RsyncTransport
 from plato.worlds.workspace import Workspace
 
 if TYPE_CHECKING:
@@ -230,6 +234,24 @@ class ParallelAgentOrchestrator:
         except Exception as exc:
             return ParallelAgentResult(name=task.name, status="failed", error=str(exc))
 
+        # Report task started to stage tracking
+        from plato.worlds.durable import _get_otel_ids
+        from plato.worlds.stage_tracking import _current_stage_public_id, report_stage
+
+        parent_id = _current_stage_public_id.get(None)
+        trace_id, span_id = _get_otel_ids()
+        task_started_at = datetime.now(timezone.utc)
+        t0 = time.monotonic()
+        await report_stage(
+            stage_name=task.name,
+            stage_type="orchestrator_task",
+            status="started",
+            started_at=task_started_at,
+            parent_stage_public_id=parent_id,
+            trace_id=trace_id,
+            span_id=span_id,
+        )
+
         try:
             async with _optional_semaphore(self._semaphore):
                 task_workspace, task_transport = self._make_task_workspace(task)
@@ -249,6 +271,17 @@ class ParallelAgentOrchestrator:
                     await self._agent_prepare(runner, task.name)
                 agent_id = await runner.run(task.instruction)
         except Exception as exc:
+            elapsed = time.monotonic() - t0
+            await report_stage(
+                stage_name=task.name,
+                stage_type="orchestrator_task",
+                status="failed",
+                started_at=task_started_at,
+                completed_at=datetime.now(timezone.utc),
+                elapsed_seconds=elapsed,
+                error_message=str(exc)[:2000],
+                parent_stage_public_id=parent_id,
+            )
             return ParallelAgentResult(
                 name=task.name,
                 status="failed",
@@ -268,6 +301,17 @@ class ParallelAgentOrchestrator:
                 merged=True,
                 branch_name=branch,
             )
+            elapsed = time.monotonic() - t0
+            await report_stage(
+                stage_name=task.name,
+                stage_type="orchestrator_task",
+                status="completed",
+                started_at=task_started_at,
+                completed_at=datetime.now(timezone.utc),
+                elapsed_seconds=elapsed,
+                parent_stage_public_id=parent_id,
+                metadata={"agent_id": agent_id, "merged": True, "branch_name": branch},
+            )
             self._fire_on_completed(task, result)
             return result
 
@@ -284,6 +328,18 @@ class ParallelAgentOrchestrator:
         try:
             merged = await integration_future
         except Exception as exc:
+            elapsed = time.monotonic() - t0
+            await report_stage(
+                stage_name=task.name,
+                stage_type="orchestrator_task",
+                status="failed",
+                started_at=task_started_at,
+                completed_at=datetime.now(timezone.utc),
+                elapsed_seconds=elapsed,
+                error_message=str(exc)[:2000],
+                parent_stage_public_id=parent_id,
+                metadata={"agent_id": agent_id},
+            )
             return ParallelAgentResult(
                 name=task.name,
                 status="failed",
@@ -297,6 +353,17 @@ class ParallelAgentOrchestrator:
             agent_id=agent_id,
             merged=merged,
             branch_name=branch,
+        )
+        elapsed = time.monotonic() - t0
+        await report_stage(
+            stage_name=task.name,
+            stage_type="orchestrator_task",
+            status="completed",
+            started_at=task_started_at,
+            completed_at=datetime.now(timezone.utc),
+            elapsed_seconds=elapsed,
+            parent_stage_public_id=parent_id,
+            metadata={"agent_id": agent_id, "merged": merged, "branch_name": branch},
         )
         self._fire_on_completed(task, result)
         return result
@@ -317,31 +384,28 @@ class ParallelAgentOrchestrator:
             publish_prefix = f"refs/plato/tasks/{_slug(task.name)}-{uuid.uuid4().hex}"
             exact = False
 
-        task_transport = self._git_transport.with_path(self._git_transport.path)
-        task_transport.mount_path = self._workspace.mount_path
-        task_transport.set_publish_ref_prefix(publish_prefix, exact=exact)
+        checkout = None
         if self._resolved_base_ref is not None:
-            task_transport.set_checkout_base_ref(
+            checkout = GitCheckout(
                 self._resolved_base_ref,
                 branch_name=f"plato-task/{_slug(task.name)}",
             )
-
-        task_workspace = self._workspace.clone()
-        task_workspace.transport = task_transport
+        task_workspace = self._workspace.for_git_agent(
+            checkout=checkout,
+            sync_back=GitSyncBack.publish_ref(publish_prefix, exact=exact),
+            mount_path=self._workspace.mount_path,
+        )
+        assert task_workspace.transport is not None
+        task_transport = cast(GitTransport, task_workspace.transport)
         return task_workspace, task_transport
 
     async def _resolve_base_ref(self) -> str:
-        bare_repo = shlex.quote(self._git_transport.bare_repo_path)
-        exit_code, stdout, stderr = await run_local(
-            f"git --git-dir {bare_repo} rev-parse main",
-            timeout=10,
-        )
-        if exit_code != 0 or not stdout.strip():
+        try:
+            return await asyncio.to_thread(_rev_parse_ref, self._git_transport.bare_repo_path, "main")
+        except Exception as exc:
             raise RuntimeError(
-                f"Failed to resolve orchestrator base ref from {self._git_transport.bare_repo_path}: "
-                f"{stderr.strip() or stdout.strip() or 'missing main ref'}"
-            )
-        return stdout.strip()
+                f"Failed to resolve orchestrator base ref from {self._git_transport.bare_repo_path}: {exc}"
+            ) from exc
 
     async def _integration_worker(self, integration_queue: asyncio.Queue[_QueuedIntegration | None]) -> None:
         merge_cfg = self._git_transport.merge_config.merge_agent
@@ -411,39 +475,17 @@ class ParallelAgentOrchestrator:
         raise RuntimeError(f"Failed to integrate task {task.name} after {max_retries} attempts")
 
     async def _clone_repo(self, temp_dir: Path) -> None:
-        bare_repo = shlex.quote(self._git_transport.bare_repo_path)
-        target = shlex.quote(str(temp_dir))
-        await _run_local_checked(f"git clone {bare_repo} {target}")
-        await _run_local_checked(
-            "git config user.email plato@plato.dev && git config user.name Plato",
-            cwd=temp_dir,
-        )
+        await asyncio.to_thread(_clone_repo_local, self._git_transport.bare_repo_path, temp_dir)
 
     async def _fetch_ref(self, temp_dir: Path, ref: str) -> None:
-        await _run_local_checked(
-            f"git fetch origin {shlex.quote(ref)}",
-            cwd=temp_dir,
-        )
+        await asyncio.to_thread(_fetch_ref_local, temp_dir, ref)
 
     async def _force_push_fetched_commit(self, temp_dir: Path) -> None:
-        await _run_local_checked("git reset --hard FETCH_HEAD", cwd=temp_dir)
+        await asyncio.to_thread(_reset_hard_local, temp_dir, "FETCH_HEAD")
         await self._push_resolved_main(temp_dir, force=True)
 
     async def _merge_fetched_commit(self, temp_dir: Path, task_name: str) -> bool:
-        exit_code, _, stderr = await run_local(
-            f"cd {shlex.quote(str(temp_dir))} && git merge FETCH_HEAD -m {shlex.quote(f'Merge parallel task {task_name}')}",
-            timeout=60,
-        )
-        if exit_code == 0:
-            return False
-
-        unresolved = await _run_local_checked(
-            "git diff --name-only --diff-filter=U",
-            cwd=temp_dir,
-        )
-        if not unresolved.strip():
-            raise RuntimeError(stderr.strip() or f"git merge failed for task {task_name}")
-        return True
+        return await asyncio.to_thread(_merge_fetched_commit_local, temp_dir, task_name)
 
     async def _run_merge_agent(self, task: _SubmittedTask, temp_dir: Path, base_instruction: str) -> None:
         merge_workspace = Workspace(
@@ -471,17 +513,16 @@ class ParallelAgentOrchestrator:
         await runner.run(instruction)
 
     async def _ensure_merge_complete(self, temp_dir: Path) -> None:
-        unresolved = await _run_local_checked("git diff --name-only --diff-filter=U", cwd=temp_dir)
-        if unresolved.strip():
-            raise RuntimeError(f"Merge agent left unresolved conflicts: {unresolved.strip()}")
+        unresolved = await asyncio.to_thread(_unmerged_files_local, temp_dir)
+        if unresolved:
+            raise RuntimeError(f"Merge agent left unresolved conflicts: {' '.join(unresolved)}")
 
-        parents = (await _run_local_checked("git rev-list --parents -n 1 HEAD", cwd=temp_dir)).split()
-        if len(parents) < 3:
+        parent_count = await asyncio.to_thread(_head_parent_count, temp_dir)
+        if parent_count < 2:
             raise RuntimeError("Merge agent did not create a merge commit")
 
     async def _push_resolved_main(self, temp_dir: Path, *, force: bool) -> None:
-        push_flag = "--force " if force else ""
-        await _run_local_checked(f"git push {push_flag}origin HEAD:main", cwd=temp_dir)
+        await asyncio.to_thread(_push_main_local, temp_dir, force)
 
     async def _checkpoint_tracked_workspace(self, task: _SubmittedTask, published_ref: GitPublishedRef) -> None:
         if not self._workspace.tracked:
@@ -494,21 +535,14 @@ class ParallelAgentOrchestrator:
         await self._world.checkpoint(step_name)
 
     async def _delete_ref(self, temp_dir: Path, ref: str) -> None:
-        exit_code, _, _ = await run_local(
-            f"cd {shlex.quote(str(temp_dir))} && git push origin :{shlex.quote(ref)}",
-            timeout=30,
-        )
-        if exit_code != 0:
+        deleted = await asyncio.to_thread(_delete_remote_ref_local, temp_dir, ref)
+        if not deleted:
             logger.warning("Failed to delete ref %s", ref)
 
     async def _delete_ref_direct(self, ref: str) -> None:
         """Delete a ref from the bare repo without needing a temp clone."""
-        bare = shlex.quote(self._git_transport.bare_repo_path)
-        exit_code, _, _ = await run_local(
-            f"git -C {bare} update-ref -d {shlex.quote(ref)}",
-            timeout=10,
-        )
-        if exit_code != 0:
+        deleted = await asyncio.to_thread(_delete_bare_ref_local, self._git_transport.bare_repo_path, ref)
+        if not deleted:
             logger.warning("Failed to delete ref %s directly", ref)
 
 
@@ -540,11 +574,71 @@ def _slug(value: str) -> str:
     return "".join(chars).strip("-") or "task"
 
 
-async def _run_local_checked(command: str, *, cwd: Path | None = None) -> str:
-    prefix = ""
-    if cwd is not None:
-        prefix = f"cd {shlex.quote(str(cwd))} && "
-    exit_code, stdout, stderr = await run_local(prefix + command, timeout=60)
-    if exit_code != 0:
-        raise RuntimeError(stderr.strip() or stdout.strip() or f"Command failed: {command}")
-    return stdout
+def _repo(path: Path | str) -> Repo:
+    trust_git_directory(path)
+    return Repo(path)
+
+
+def _rev_parse_ref(repo_path: str, ref: str) -> str:
+    return _repo(repo_path).commit(ref).hexsha
+
+
+def _clone_repo_local(bare_repo_path: str, temp_dir: Path) -> None:
+    trust_git_directory(bare_repo_path)
+    trust_git_directory(temp_dir)
+    repo = Repo.clone_from(bare_repo_path, temp_dir)
+    with repo.config_writer() as config:
+        config.set_value("user", "email", AGENT_ACTOR.email)
+        config.set_value("user", "name", AGENT_ACTOR.name)
+
+
+def _fetch_ref_local(temp_dir: Path, ref: str) -> None:
+    _repo(temp_dir).remote("origin").fetch(ref)
+
+
+def _reset_hard_local(temp_dir: Path, ref: str) -> None:
+    _repo(temp_dir).git.reset("--hard", ref)
+
+
+def _merge_fetched_commit_local(temp_dir: Path, task_name: str) -> bool:
+    repo = _repo(temp_dir)
+    try:
+        repo.git.merge("FETCH_HEAD", "-m", f"Merge parallel task {task_name}")
+        return False
+    except GitCommandError as exc:
+        unresolved = _unmerged_files_local(temp_dir)
+        if unresolved:
+            return True
+        raise RuntimeError(exc.stderr.strip() or exc.stdout.strip() or str(exc)) from exc
+
+
+def _unmerged_files_local(temp_dir: Path) -> list[str]:
+    return sorted(str(path) for path in _repo(temp_dir).index.unmerged_blobs().keys())
+
+
+def _head_parent_count(temp_dir: Path) -> int:
+    return len(_repo(temp_dir).head.commit.parents)
+
+
+def _push_main_local(temp_dir: Path, force: bool) -> None:
+    args = ["--porcelain"]
+    if force:
+        args.append("--force")
+    args.extend(["origin", "HEAD:main"])
+    _repo(temp_dir).git.push(*args)
+
+
+def _delete_remote_ref_local(temp_dir: Path, ref: str) -> bool:
+    try:
+        _repo(temp_dir).git.push("--porcelain", "origin", f":{ref}")
+        return True
+    except GitCommandError:
+        return False
+
+
+def _delete_bare_ref_local(bare_repo_path: str, ref: str) -> bool:
+    try:
+        _repo(bare_repo_path).git.update_ref("-d", ref)
+        return True
+    except GitCommandError:
+        return False

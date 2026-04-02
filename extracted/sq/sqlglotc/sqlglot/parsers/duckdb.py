@@ -206,7 +206,7 @@ class DuckDBParser(parser.Parser):
         # https://duckdb.org/docs/sql/data_types/numeric
         exp.DType.DECIMAL: build_default_decimal_type(precision=18, scale=3),
         # https://duckdb.org/docs/sql/data_types/text
-        exp.DType.TEXT: lambda dtype: exp.DataType.build(exp.DType.TEXT),
+        exp.DType.TEXT: lambda dtype: exp.DType.TEXT.into_expr(),
     }
 
     STATEMENT_PARSERS = {
@@ -225,6 +225,18 @@ class DuckDBParser(parser.Parser):
 
     SHOW_TRIE = new_trie(key.split(" ") for key in SHOW_PARSERS)
     SET_TRIE = new_trie(key.split(" ") for key in SET_PARSERS)
+
+    def _parse_function_properties(self) -> t.Optional[exp.Properties]:
+        if self._match(TokenType.TABLE):
+            return exp.Properties(
+                expressions=[
+                    exp.ReturnsProperty(
+                        this=exp.Schema(this=exp.var("TABLE")),
+                        is_table=True,
+                    ),
+                ]
+            )
+        return super()._parse_function_properties()
 
     def _parse_lambda(self, alias: bool = False) -> t.Optional[exp.Expr]:
         index = self._index

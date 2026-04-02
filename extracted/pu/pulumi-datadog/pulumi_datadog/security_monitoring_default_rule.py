@@ -31,6 +31,7 @@ class SecurityMonitoringDefaultRuleArgs:
                  queries: Optional[pulumi.Input[Sequence[pulumi.Input['SecurityMonitoringDefaultRuleQueryArgs']]]] = None):
         """
         The set of arguments for constructing a SecurityMonitoringDefaultRule resource.
+
         :param pulumi.Input[Sequence[pulumi.Input['SecurityMonitoringDefaultRuleCaseArgs']]] cases: Cases of the rule, this is used to update notifications.
         :param pulumi.Input[_builtins.str] custom_message: Custom Message (will override default message) for generated signals.
         :param pulumi.Input[_builtins.str] custom_name: The name (will override default name) of the rule.
@@ -168,6 +169,7 @@ class _SecurityMonitoringDefaultRuleState:
                  type: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering SecurityMonitoringDefaultRule resources.
+
         :param pulumi.Input[Sequence[pulumi.Input['SecurityMonitoringDefaultRuleCaseArgs']]] cases: Cases of the rule, this is used to update notifications.
         :param pulumi.Input[_builtins.str] custom_message: Custom Message (will override default message) for generated signals.
         :param pulumi.Input[_builtins.str] custom_name: The name (will override default name) of the rule.
@@ -350,6 +352,7 @@ class SecurityMonitoringDefaultRule(pulumi.CustomResource):
         $ pulumi import datadog:index/securityMonitoringDefaultRule:SecurityMonitoringDefaultRule adefaultrule m0o-hto-lkb
         ```
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Sequence[pulumi.Input[Union['SecurityMonitoringDefaultRuleCaseArgs', 'SecurityMonitoringDefaultRuleCaseArgsDict']]]] cases: Cases of the rule, this is used to update notifications.
@@ -395,6 +398,7 @@ class SecurityMonitoringDefaultRule(pulumi.CustomResource):
         ```sh
         $ pulumi import datadog:index/securityMonitoringDefaultRule:SecurityMonitoringDefaultRule adefaultrule m0o-hto-lkb
         ```
+
 
         :param str resource_name: The name of the resource.
         :param SecurityMonitoringDefaultRuleArgs args: The arguments to use to populate this resource's properties.
@@ -490,7 +494,7 @@ class SecurityMonitoringDefaultRule(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    def cases(self) -> pulumi.Output[Optional[Sequence['outputs.SecurityMonitoringDefaultRuleCase']]]:
+    def cases(self) -> pulumi.Output[Sequence['outputs.SecurityMonitoringDefaultRuleCase']]:
         """
         Cases of the rule, this is used to update notifications.
         """
@@ -546,7 +550,7 @@ class SecurityMonitoringDefaultRule(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    def queries(self) -> pulumi.Output[Optional[Sequence['outputs.SecurityMonitoringDefaultRuleQuery']]]:
+    def queries(self) -> pulumi.Output[Sequence['outputs.SecurityMonitoringDefaultRuleQuery']]:
         """
         Queries for selecting logs which are part of the rule.
         """

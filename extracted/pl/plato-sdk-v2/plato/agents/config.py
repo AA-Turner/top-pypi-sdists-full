@@ -45,7 +45,7 @@ class AgentConfig(BaseSettings):
         config = OpenHandsConfig.from_file("/config.json")
 
     Attributes:
-        runtime: Execution environment - "docker" (container) or "vm" (virtual machine).
+        runtime: Execution environment. Agents run in Firecracker VMs.
     """
 
     model_config = SettingsConfigDict(

@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from datadog_api_client.v1.model.slo_list_widget_definition import SLOListWidgetDefinition
     from datadog_api_client.v1.model.slo_widget_definition import SLOWidgetDefinition
     from datadog_api_client.v1.model.scatter_plot_widget_definition import ScatterPlotWidgetDefinition
+    from datadog_api_client.v1.model.sankey_widget_definition import SankeyWidgetDefinition
     from datadog_api_client.v1.model.service_map_widget_definition import ServiceMapWidgetDefinition
     from datadog_api_client.v1.model.service_summary_widget_definition import ServiceSummaryWidgetDefinition
     from datadog_api_client.v1.model.split_graph_widget_definition import SplitGraphWidgetDefinition
@@ -51,6 +52,7 @@ if TYPE_CHECKING:
     from datadog_api_client.v1.model.toplist_widget_definition import ToplistWidgetDefinition
     from datadog_api_client.v1.model.topology_map_widget_definition import TopologyMapWidgetDefinition
     from datadog_api_client.v1.model.tree_map_widget_definition import TreeMapWidgetDefinition
+    from datadog_api_client.v1.model.wildcard_widget_definition import WildcardWidgetDefinition
 
 
 class Widget(ModelNormal):
@@ -101,6 +103,7 @@ class Widget(ModelNormal):
             SLOListWidgetDefinition,
             SLOWidgetDefinition,
             ScatterPlotWidgetDefinition,
+            SankeyWidgetDefinition,
             ServiceMapWidgetDefinition,
             ServiceSummaryWidgetDefinition,
             SplitGraphWidgetDefinition,
@@ -110,6 +113,7 @@ class Widget(ModelNormal):
             ToplistWidgetDefinition,
             TopologyMapWidgetDefinition,
             TreeMapWidgetDefinition,
+            WildcardWidgetDefinition,
         ],
         id: Union[int, UnsetType] = unset,
         layout: Union[WidgetLayout, UnsetType] = unset,

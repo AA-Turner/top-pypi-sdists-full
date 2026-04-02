@@ -128,6 +128,8 @@ pub fn handle_graphic(
                 &alt,
                 title.as_deref(),
                 should_use_alt_text,
+                options.link_style,
+                ctx.reference_collector.as_ref(),
             )),
             VisitResult::Custom(custom) => Some(custom),
             VisitResult::Skip => None,
@@ -145,6 +147,8 @@ pub fn handle_graphic(
             &alt,
             title.as_deref(),
             should_use_alt_text,
+            options.link_style,
+            ctx.reference_collector.as_ref(),
         ))
     };
 
@@ -154,6 +158,8 @@ pub fn handle_graphic(
         &alt,
         title.as_deref(),
         should_use_alt_text,
+        options.link_style,
+        ctx.reference_collector.as_ref(),
     ));
 
     if !options.skip_images {
@@ -189,21 +195,39 @@ pub fn handle_graphic(
 ///
 /// If `use_alt_only` is true, returns just the alt text.
 /// Otherwise returns the full `![alt](src "title")` syntax.
-fn format_graphic_markdown(src: &str, alt: &str, title: Option<&str>, use_alt_only: bool) -> String {
+fn format_graphic_markdown(
+    src: &str,
+    alt: &str,
+    title: Option<&str>,
+    use_alt_only: bool,
+    link_style: crate::options::validation::LinkStyle,
+    reference_collector: Option<&crate::converter::reference_collector::ReferenceCollectorHandle>,
+) -> String {
     if use_alt_only {
-        alt.to_string()
-    } else {
-        let mut buf = String::with_capacity(src.len() + alt.len() + 10);
-        buf.push_str("![");
-        buf.push_str(alt);
-        buf.push_str("](");
-        buf.push_str(src);
-        if let Some(title_text) = title {
-            buf.push_str(" \"");
-            buf.push_str(title_text);
-            buf.push('"');
-        }
-        buf.push(')');
-        buf
+        return alt.to_string();
     }
+    if link_style == crate::options::validation::LinkStyle::Reference {
+        if let Some(collector) = reference_collector {
+            let ref_num = collector.borrow_mut().get_or_insert(src, title);
+            let mut buf = String::with_capacity(alt.len() + 10);
+            buf.push_str("![");
+            buf.push_str(alt);
+            buf.push_str("][");
+            buf.push_str(&ref_num.to_string());
+            buf.push(']');
+            return buf;
+        }
+    }
+    let mut buf = String::with_capacity(src.len() + alt.len() + 10);
+    buf.push_str("![");
+    buf.push_str(alt);
+    buf.push_str("](");
+    buf.push_str(src);
+    if let Some(title_text) = title {
+        buf.push_str(" \"");
+        buf.push_str(title_text);
+        buf.push('"');
+    }
+    buf.push(')');
+    buf
 }

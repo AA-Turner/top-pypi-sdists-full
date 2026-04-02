@@ -70,7 +70,7 @@ class Config(BaseModel):
             "dev": {"world": "./worlds/my-world"},
             "skill_runner": {
                 "image": "...",
-                "runtime": {"type": "docker"},
+                "runtime": {"type": "vm", "vm": {"cpus": 2, "memory": 4096}},
                 "config": {...}
             }
         }

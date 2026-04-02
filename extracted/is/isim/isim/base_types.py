@@ -1,0 +1,122 @@
+"""Base types for `xcrun simctl`."""
+
+import enum
+import json
+import shlex
+from typing import Any
+import subprocess
+
+
+class ErrorCodes(enum.Enum):
+    """Simple lookup for all known error codes."""
+
+    # Tried to access a file or directory (such as by searching for an app
+    # container) that doesn't exist
+    # no_such_file_or_directory = 2
+
+    # Trying to perform an action on a device type, but supplied an invalid
+    # device type
+    # invalid_device_type = 161
+
+    # Tried to perform an action on the device, but there was an
+    # incompatibility, such as when trying to create a new Apple TV device with
+    # a watchOS runtime.
+    INCOMPATIBLE_DEVICE = 147
+
+    # The device was in a state where it can't be shutdown. e.g. already
+    # shutdown
+    # unable_to_shutdown_device_in_current_state = 164
+
+
+class SimulatorControlType(enum.Enum):
+    """Which type of simulator control type is it."""
+
+    DEVICE_PAIR = "pair"
+    RUNTIME = "runtime"
+    DEVICE_TYPE = "device_type"
+    DEVICE = "device"
+
+    def list_key(self) -> str:
+        """Define the key passed into the list function for the type."""
+        # Disable this false positive
+        # pylint: disable=comparison-with-callable
+        if self == SimulatorControlType.DEVICE_TYPE:
+            return "devicetypes"
+        # pylint: enable=comparison-with-callable
+        return self.value + "s"
+
+
+class SimulatorControlBase:
+    """Types defined by simctl should inherit from this."""
+
+    raw_info: dict[str, Any]
+    simctl_type: SimulatorControlType
+
+    def __init__(self, raw_info: dict[str, Any], simctl_type: SimulatorControlType) -> None:
+        self.raw_info = raw_info
+        self.simctl_type = simctl_type
+
+    def _run_command(self, command: list[str] | str, **kwargs: Any) -> str:
+        """Convenience method for running an xcrun simctl command."""
+        return SimulatorControlBase.run_command(command, **kwargs)
+
+    def __eq__(self, other: object) -> bool:
+        """Override the default Equals behavior"""
+
+        if not isinstance(other, self.__class__):
+            return False
+
+        if not self.simctl_type == other.simctl_type:
+            return False
+
+        return self.raw_info == other.raw_info
+
+    def __ne__(self, other: object) -> bool:
+        """Define a non-equality test"""
+        return not self.__eq__(other)
+
+    @staticmethod
+    def run_command(command: list[str] | str, **kwargs: Any) -> str:
+        """Run an xcrun simctl command.
+        Args:
+            command: Either a list of command arguments (preferred) or a string that will be split.
+        """
+        if isinstance(command, str):
+            # Support legacy string-based commands for backwards compatibility
+            full_command = ["xcrun", "simctl"] + shlex.split(command)
+        else:
+            full_command = ["xcrun", "simctl"] + command
+
+        # Deliberately don't catch the exception - we want it to bubble up
+        return subprocess.run(
+            full_command,
+            text=True,
+            check=True,
+            stdout=subprocess.PIPE,
+            **kwargs,
+        ).stdout
+
+    @staticmethod
+    def list_type(item: SimulatorControlType, **kwargs: Any) -> Any:
+        """Run an `xcrun simctl` command with JSON output."""
+        full_command = ["xcrun", "simctl", "list", item.list_key(), "--json"]
+        # Deliberately don't catch the exception - we want it to bubble up
+        output = subprocess.run(
+            full_command,
+            text=True,
+            check=True,
+            stdout=subprocess.PIPE,
+            **kwargs,
+        ).stdout
+
+        json_output: dict[str, Any] = json.loads(output)
+
+        if not isinstance(json_output, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise TypeError("Unexpected list type: " + str(type(json_output)))
+
+        if not json_output.get(item.list_key()):
+            raise ValueError(
+                "Unexpected format for " + item.list_key() + " list type: " + str(json_output)
+            )
+
+        return json_output[item.list_key()]

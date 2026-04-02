@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    The ``linuxbridge`` ML2 driver is removed. Users are advised to migrate to
-    a different supported driver (OVS or, preferably, OVN) before upgrade.

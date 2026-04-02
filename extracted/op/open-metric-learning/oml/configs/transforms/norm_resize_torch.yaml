@@ -1,3 +1,0 @@
-name: norm_resize_torch
-args:
-  im_size: 224

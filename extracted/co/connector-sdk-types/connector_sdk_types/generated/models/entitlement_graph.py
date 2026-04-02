@@ -20,8 +20,8 @@ import json
 from pydantic import BaseModel, ConfigDict
 from typing import Any, ClassVar, Dict, List
 from connector_sdk_types.generated.models.access_graph_entitlement import AccessGraphEntitlement
+from connector_sdk_types.generated.models.access_graph_implied_access import AccessGraphImpliedAccess
 from connector_sdk_types.generated.models.custom_attribute import CustomAttribute
-from connector_sdk_types.generated.models.implied_access import ImpliedAccess
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -30,7 +30,7 @@ class EntitlementGraph(BaseModel):
     EntitlementGraph
     """ # noqa: E501
     nodes: List[AccessGraphEntitlement]
-    entitlement_implications: List[ImpliedAccess]
+    entitlement_implications: List[AccessGraphImpliedAccess]
     custom_attributes: List[CustomAttribute]
     __properties: ClassVar[List[str]] = ["nodes", "entitlement_implications", "custom_attributes"]
 
@@ -107,7 +107,7 @@ class EntitlementGraph(BaseModel):
 
         _obj = cls.model_validate({
             "nodes": [AccessGraphEntitlement.from_dict(_item) for _item in obj["nodes"]] if obj.get("nodes") is not None else None,
-            "entitlement_implications": [ImpliedAccess.from_dict(_item) for _item in obj["entitlement_implications"]] if obj.get("entitlement_implications") is not None else None,
+            "entitlement_implications": [AccessGraphImpliedAccess.from_dict(_item) for _item in obj["entitlement_implications"]] if obj.get("entitlement_implications") is not None else None,
             "custom_attributes": [CustomAttribute.from_dict(_item) for _item in obj["custom_attributes"]] if obj.get("custom_attributes") is not None else None
         })
         return _obj

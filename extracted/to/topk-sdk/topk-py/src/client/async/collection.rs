@@ -1,0 +1,176 @@
+use crate::client::Document;
+use crate::data::value::Value;
+use crate::error::RustError;
+use crate::expr::delete::DeleteExprUnion;
+use crate::query::{ConsistencyLevel, Query};
+use pyo3::{prelude::*, types::PyAny};
+use pyo3_async_runtimes::tokio::future_into_py;
+use std::{collections::HashMap, sync::Arc};
+
+#[pyclass]
+pub struct AsyncCollectionClient {
+    client: Arc<topk_rs::Client>,
+    collection: Arc<String>,
+}
+
+impl AsyncCollectionClient {
+    pub fn new(client: Arc<topk_rs::Client>, collection: Arc<String>) -> Self {
+        Self { client, collection }
+    }
+}
+
+#[pymethods]
+impl AsyncCollectionClient {
+    #[pyo3(signature = (ids, fields=None, lsn=None, consistency=None))]
+    pub fn get(
+        &self,
+        py: Python<'_>,
+        ids: Vec<String>,
+        fields: Option<Vec<String>>,
+        lsn: Option<String>,
+        consistency: Option<ConsistencyLevel>,
+    ) -> PyResult<Py<PyAny>> {
+        let client = self.client.clone();
+        let collection = self.collection.clone();
+
+        future_into_py(py, async move {
+            let docs = client
+                .collection(collection.as_str())
+                .get(ids, fields, lsn, consistency.map(|c| c.into()))
+                .await
+                .map_err(RustError)?;
+
+            let docs: HashMap<String, Document> = docs
+                .into_iter()
+                .map(|(id, doc)| (id, Document::from(doc)))
+                .collect();
+
+            Ok(docs)
+        })
+        .map(|result| result.into())
+    }
+
+    #[pyo3(signature = (lsn=None, consistency=None))]
+    pub fn count(
+        &self,
+        py: Python<'_>,
+        lsn: Option<String>,
+        consistency: Option<ConsistencyLevel>,
+    ) -> PyResult<Py<PyAny>> {
+        let client = self.client.clone();
+        let collection = self.collection.clone();
+
+        future_into_py(py, async move {
+            let count = client
+                .collection(collection.as_str())
+                .count(lsn, consistency.map(|c| c.into()))
+                .await
+                .map_err(RustError)?;
+
+            Ok(count)
+        })
+        .map(|result| result.into())
+    }
+
+    #[pyo3(signature = (query, lsn=None, consistency=None))]
+    pub fn query(
+        &self,
+        py: Python<'_>,
+        query: Query,
+        lsn: Option<String>,
+        consistency: Option<ConsistencyLevel>,
+    ) -> PyResult<Py<PyAny>> {
+        let client = self.client.clone();
+        let collection = self.collection.clone();
+
+        // Convert query to proto while GIL is held
+        let query = query.into();
+
+        future_into_py(py, async move {
+            let docs = client
+                .collection(collection.as_str())
+                .query(query, lsn, consistency.map(|c| c.into()))
+                .await
+                .map_err(RustError)?;
+
+            let docs: Vec<Document> = docs.into_iter().map(|d| d.into()).collect();
+
+            Ok(docs)
+        })
+        .map(|result| result.into())
+    }
+
+    pub fn upsert(
+        &self,
+        py: Python<'_>,
+        documents: Vec<HashMap<String, Value>>,
+    ) -> PyResult<Py<PyAny>> {
+        let client = self.client.clone();
+        let collection = self.collection.clone();
+
+        future_into_py(py, async move {
+            let documents = documents
+                .into_iter()
+                .map(|d| topk_rs::proto::v1::data::Document {
+                    fields: d.into_iter().map(|(k, v)| (k, v.into())).collect(),
+                })
+                .collect();
+
+            let lsn = client
+                .collection(collection.as_str())
+                .upsert(documents)
+                .await
+                .map_err(RustError)?;
+
+            Ok(lsn)
+        })
+        .map(|result| result.into())
+    }
+
+    pub fn update(
+        &self,
+        py: Python<'_>,
+        documents: Vec<HashMap<String, Value>>,
+        fail_on_missing: Option<bool>,
+    ) -> PyResult<Py<PyAny>> {
+        let client = self.client.clone();
+        let collection = self.collection.clone();
+
+        let documents = documents
+            .into_iter()
+            .map(|d| topk_rs::proto::v1::data::Document {
+                fields: d.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            })
+            .collect();
+
+        future_into_py(py, async move {
+            let lsn = client
+                .collection(collection.as_str())
+                .update(documents, fail_on_missing.unwrap_or(false))
+                .await
+                .map_err(RustError)?;
+
+            Ok(lsn)
+        })
+        .map(|result| result.into())
+    }
+
+    pub fn delete(&self, py: Python<'_>, spec: DeleteExprUnion) -> PyResult<Py<PyAny>> {
+        let client = self.client.clone();
+        let collection = self.collection.clone();
+
+        // Convert spec to proto while GIL is held
+        let spec: topk_rs::proto::v1::data::DeleteDocumentsRequest = spec.into();
+
+        future_into_py(py, async move {
+            let lsn = client
+                .collection(collection.as_str())
+                .delete(spec)
+                .await
+                .map_err(RustError)?;
+
+            Ok(lsn)
+        })
+        .map(|result| result.into())
+    }
+}

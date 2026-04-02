@@ -1,2 +1,0 @@
-from abstract_paths import define_defaults,get_files_and_dirs
-

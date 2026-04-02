@@ -41,6 +41,7 @@ class IoTHubArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a IoTHub resource.
+
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group under which the IotHub resource has to be created. Changing this forces a new resource to be created.
         :param pulumi.Input['IoTHubSkuArgs'] sku: A `sku` block as defined below.
         :param pulumi.Input[Sequence[pulumi.Input['IoTHubEndpointArgs']]] endpoints: An `endpoint` block as defined below.
@@ -323,6 +324,7 @@ class _IoTHubState:
                  type: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering IoTHub resources.
+
         :param pulumi.Input[Sequence[pulumi.Input['IoTHubEndpointArgs']]] endpoints: An `endpoint` block as defined below.
         :param pulumi.Input[_builtins.str] event_hub_events_endpoint: The EventHub compatible endpoint for events data
         :param pulumi.Input[_builtins.str] event_hub_events_namespace: The EventHub namespace for events data
@@ -756,8 +758,7 @@ class IoTHub(pulumi.CustomResource):
             sku="Basic")
         example_event_hub = azure.eventhub.EventHub("example",
             name="example-eventhub",
-            resource_group_name=example.name,
-            namespace_name=example_event_hub_namespace.name,
+            namespace_id=example_event_hub_namespace.id,
             partition_count=2,
             message_retention=1)
         example_authorization_rule = azure.eventhub.AuthorizationRule("example",
@@ -837,6 +838,7 @@ class IoTHub(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:iot/ioTHub:IoTHub hub1 /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mygroup1/providers/Microsoft.Devices/iotHubs/hub1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -900,8 +902,7 @@ class IoTHub(pulumi.CustomResource):
             sku="Basic")
         example_event_hub = azure.eventhub.EventHub("example",
             name="example-eventhub",
-            resource_group_name=example.name,
-            namespace_name=example_event_hub_namespace.name,
+            namespace_id=example_event_hub_namespace.id,
             partition_count=2,
             message_retention=1)
         example_authorization_rule = azure.eventhub.AuthorizationRule("example",
@@ -981,6 +982,7 @@ class IoTHub(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:iot/ioTHub:IoTHub hub1 /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mygroup1/providers/Microsoft.Devices/iotHubs/hub1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param IoTHubArgs args: The arguments to use to populate this resource's properties.

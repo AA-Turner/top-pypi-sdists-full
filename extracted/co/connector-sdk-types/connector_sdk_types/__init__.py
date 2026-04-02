@@ -3,6 +3,7 @@
 # run: `inv openapi all` to regenerate!
 
 # Re-export all generated types for easy import
+from .errors import *  # noqa: F403, F401
 from .generated import *  # noqa: F403, F401
 from .oai import *  # noqa: F403, F401
 from .OAS import *  # noqa: F403, F401

@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add a new field ``description`` to the ``PortForwarding`` resource.

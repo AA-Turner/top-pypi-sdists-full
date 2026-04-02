@@ -39,6 +39,7 @@ class ServiceArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a Service resource.
+
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the Resource Group where the Search Service should exist. Changing this forces a new Search Service to be created.
         :param pulumi.Input[_builtins.str] sku: The SKU which should be used for this Search Service. Possible values include `basic`, `free`, `standard`, `standard2`, `standard3`, `storage_optimized_l1` and `storage_optimized_l2`.
                
@@ -319,6 +320,7 @@ class _ServiceState:
                  authentication_failure_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  customer_managed_key_encryption_compliance_status: Optional[pulumi.Input[_builtins.str]] = None,
                  customer_managed_key_enforcement_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 endpoint: Optional[pulumi.Input[_builtins.str]] = None,
                  hosting_mode: Optional[pulumi.Input[_builtins.str]] = None,
                  identity: Optional[pulumi.Input['ServiceIdentityArgs']] = None,
                  local_authentication_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -337,6 +339,7 @@ class _ServiceState:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering Service resources.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_ips: Specifies a list of inbound IPv4 or CIDRs that are allowed to access the Search Service. If the incoming IP request is from an IP address which is not included in the `allowed_ips` it will be blocked by the Search Services firewall.
                
                > **Note:** The `allowed_ips` are only applied if the `public_network_access_enabled` field has been set to `true`, else all traffic over the public interface will be rejected, even if the `allowed_ips` field has been defined. When the `public_network_access_enabled` field has been set to `false` the private endpoint connections are the only allowed access point to the Search Service.
@@ -345,6 +348,7 @@ class _ServiceState:
                > **Note:** `authentication_failure_mode` can only be configured when using `local_authentication_enabled` is set to `true` - which when set together specifies that both API Keys and AzureAD Authentication should be supported.
         :param pulumi.Input[_builtins.str] customer_managed_key_encryption_compliance_status: Describes whether the search service is compliant or not with respect to having non-customer encrypted resources. If a service has more than one non-customer encrypted resource and `Enforcement` is `enabled` then the service will be marked as `NonCompliant`. If all the resources are customer encrypted, then the service will be marked as `Compliant`.
         :param pulumi.Input[_builtins.bool] customer_managed_key_enforcement_enabled: Specifies whether the Search Service should enforce that non-customer resources are encrypted. Defaults to `false`.
+        :param pulumi.Input[_builtins.str] endpoint: The endpoint used to connect to this Search Service.
         :param pulumi.Input[_builtins.str] hosting_mode: Specifies the Hosting Mode, which allows for High Density partitions (that allow for up to 1000 indexes) should be supported. Possible values are `HighDensity` or `Default`. Defaults to `Default`. Changing this forces a new Search Service to be created.
                
                > **Note:** `hosting_mode` can only be configured when `sku` is set to `standard3`.
@@ -382,6 +386,8 @@ class _ServiceState:
             pulumi.set(__self__, "customer_managed_key_encryption_compliance_status", customer_managed_key_encryption_compliance_status)
         if customer_managed_key_enforcement_enabled is not None:
             pulumi.set(__self__, "customer_managed_key_enforcement_enabled", customer_managed_key_enforcement_enabled)
+        if endpoint is not None:
+            pulumi.set(__self__, "endpoint", endpoint)
         if hosting_mode is not None:
             pulumi.set(__self__, "hosting_mode", hosting_mode)
         if identity is not None:
@@ -466,6 +472,18 @@ class _ServiceState:
     @customer_managed_key_enforcement_enabled.setter
     def customer_managed_key_enforcement_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "customer_managed_key_enforcement_enabled", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def endpoint(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The endpoint used to connect to this Search Service.
+        """
+        return pulumi.get(self, "endpoint")
+
+    @endpoint.setter
+    def endpoint(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "endpoint", value)
 
     @_builtins.property
     @pulumi.getter(name="hostingMode")
@@ -766,6 +784,7 @@ class Service(pulumi.CustomResource):
         $ pulumi import azure:search/service:Service example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.Search/searchServices/service1
         ```
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_ips: Specifies a list of inbound IPv4 or CIDRs that are allowed to access the Search Service. If the incoming IP request is from an IP address which is not included in the `allowed_ips` it will be blocked by the Search Services firewall.
@@ -878,6 +897,7 @@ class Service(pulumi.CustomResource):
         $ pulumi import azure:search/service:Service example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.Search/searchServices/service1
         ```
 
+
         :param str resource_name: The name of the resource.
         :param ServiceArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -939,6 +959,7 @@ class Service(pulumi.CustomResource):
             __props__.__dict__["sku"] = sku
             __props__.__dict__["tags"] = tags
             __props__.__dict__["customer_managed_key_encryption_compliance_status"] = None
+            __props__.__dict__["endpoint"] = None
             __props__.__dict__["primary_key"] = None
             __props__.__dict__["query_keys"] = None
             __props__.__dict__["secondary_key"] = None
@@ -958,6 +979,7 @@ class Service(pulumi.CustomResource):
             authentication_failure_mode: Optional[pulumi.Input[_builtins.str]] = None,
             customer_managed_key_encryption_compliance_status: Optional[pulumi.Input[_builtins.str]] = None,
             customer_managed_key_enforcement_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+            endpoint: Optional[pulumi.Input[_builtins.str]] = None,
             hosting_mode: Optional[pulumi.Input[_builtins.str]] = None,
             identity: Optional[pulumi.Input[Union['ServiceIdentityArgs', 'ServiceIdentityArgsDict']]] = None,
             local_authentication_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -989,6 +1011,7 @@ class Service(pulumi.CustomResource):
                > **Note:** `authentication_failure_mode` can only be configured when using `local_authentication_enabled` is set to `true` - which when set together specifies that both API Keys and AzureAD Authentication should be supported.
         :param pulumi.Input[_builtins.str] customer_managed_key_encryption_compliance_status: Describes whether the search service is compliant or not with respect to having non-customer encrypted resources. If a service has more than one non-customer encrypted resource and `Enforcement` is `enabled` then the service will be marked as `NonCompliant`. If all the resources are customer encrypted, then the service will be marked as `Compliant`.
         :param pulumi.Input[_builtins.bool] customer_managed_key_enforcement_enabled: Specifies whether the Search Service should enforce that non-customer resources are encrypted. Defaults to `false`.
+        :param pulumi.Input[_builtins.str] endpoint: The endpoint used to connect to this Search Service.
         :param pulumi.Input[_builtins.str] hosting_mode: Specifies the Hosting Mode, which allows for High Density partitions (that allow for up to 1000 indexes) should be supported. Possible values are `HighDensity` or `Default`. Defaults to `Default`. Changing this forces a new Search Service to be created.
                
                > **Note:** `hosting_mode` can only be configured when `sku` is set to `standard3`.
@@ -1026,6 +1049,7 @@ class Service(pulumi.CustomResource):
         __props__.__dict__["authentication_failure_mode"] = authentication_failure_mode
         __props__.__dict__["customer_managed_key_encryption_compliance_status"] = customer_managed_key_encryption_compliance_status
         __props__.__dict__["customer_managed_key_enforcement_enabled"] = customer_managed_key_enforcement_enabled
+        __props__.__dict__["endpoint"] = endpoint
         __props__.__dict__["hosting_mode"] = hosting_mode
         __props__.__dict__["identity"] = identity
         __props__.__dict__["local_authentication_enabled"] = local_authentication_enabled
@@ -1079,6 +1103,14 @@ class Service(pulumi.CustomResource):
         Specifies whether the Search Service should enforce that non-customer resources are encrypted. Defaults to `false`.
         """
         return pulumi.get(self, "customer_managed_key_enforcement_enabled")
+
+    @_builtins.property
+    @pulumi.getter
+    def endpoint(self) -> pulumi.Output[_builtins.str]:
+        """
+        The endpoint used to connect to this Search Service.
+        """
+        return pulumi.get(self, "endpoint")
 
     @_builtins.property
     @pulumi.getter(name="hostingMode")

@@ -4,7 +4,7 @@ version = "0.0.1"
 description = "Integration test world for ParallelAgentOrchestrator"
 requires-python = ">=3.10"
 license = "MIT"
-dependencies = ["plato-sdk-v2"]
+dependencies = ["plato-sdk-v2", "gitpython>=3.1.46"]
 
 [build-system]
 requires = ["hatchling"]

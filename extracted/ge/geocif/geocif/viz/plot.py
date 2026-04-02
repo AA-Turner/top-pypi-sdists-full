@@ -171,7 +171,7 @@ def _add_scalebar(ax, df_comb):
             dx,
             box_alpha=0.75,
             frameon=False,
-            location="lower right",
+            location="upper right",
             font_properties={"family": "serif", "size": "xx-small"},
         )
     )
@@ -235,6 +235,12 @@ def _add_colorbar(ax, cmap, norm, breaks, loc_legend, label,
         fmt = "%.2f"
         ticks = [round(tick, 2) for tick in ticks]
 
+    # Limit ticks to avoid overlapping labels
+    max_ticks = 6
+    if len(ticks) > max_ticks:
+        indices = np.linspace(0, len(ticks) - 1, max_ticks, dtype=int)
+        ticks = [ticks[i] for i in indices]
+
     cbaxes = inset_axes(
         ax, width="75%", height="3%", loc=loc_legend, borderpad=0.25
     )
@@ -264,8 +270,8 @@ def _add_colorbar(ax, cmap, norm, breaks, loc_legend, label,
 
     # Hide first tick label and its tick mark
     ticks[0] = ""
-    cb.ax.set_title(label, fontsize=8, fontweight="semibold", fontfamily="sans-serif")
-    cb.ax.set_xticklabels(ticks, fontsize=5, fontfamily="sans-serif")
+    cb.ax.set_title(label, fontsize=6, fontweight="semibold", fontfamily="sans-serif")
+    cb.ax.set_xticklabels(ticks, fontsize=5, fontfamily="sans-serif", rotation=45, ha="left")
     major_ticks = cb.ax.xaxis.get_major_ticks()
     if major_ticks:
         major_ticks[0].tick1line.set_visible(False)

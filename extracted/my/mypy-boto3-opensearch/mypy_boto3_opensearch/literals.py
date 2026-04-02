@@ -348,7 +348,10 @@ ScheduledByType = Literal["CUSTOMER", "SYSTEM"]
 SkipUnavailableStatusType = Literal["DISABLED", "ENABLED"]
 SubjectKeyIdCOptionType = Literal["Email", "UserId", "UserName"]
 TLSSecurityPolicyType = Literal[
-    "Policy-Min-TLS-1-0-2019-07", "Policy-Min-TLS-1-2-2019-07", "Policy-Min-TLS-1-2-PFS-2023-10"
+    "Policy-Min-TLS-1-0-2019-07",
+    "Policy-Min-TLS-1-2-2019-07",
+    "Policy-Min-TLS-1-2-PFS-2023-10",
+    "Policy-Min-TLS-1-2-RFC9151-FIPS-2024-08",
 ]
 TimeUnitType = Literal["HOURS"]
 UpgradeStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED", "SUCCEEDED_WITH_ISSUES"]

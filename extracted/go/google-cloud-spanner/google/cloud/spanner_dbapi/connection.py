@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """DB-API Connection for the Google Cloud Spanner."""
+
 import warnings
 
 from google.api_core.client_options import ClientOptions
@@ -22,24 +23,24 @@ from google.auth.credentials import AnonymousCredentials
 
 from google.cloud import spanner_v1 as spanner
 from google.cloud.spanner_dbapi import partition_helper
-from google.cloud.spanner_dbapi.batch_dml_executor import BatchMode, BatchDmlExecutor
-from google.cloud.spanner_dbapi.parsed_statement import AutocommitDmlMode
-from google.cloud.spanner_dbapi.partition_helper import PartitionId
-from google.cloud.spanner_dbapi.parsed_statement import ParsedStatement, Statement
-from google.cloud.spanner_dbapi.transaction_helper import TransactionRetryHelper
+from google.cloud.spanner_dbapi.batch_dml_executor import BatchDmlExecutor, BatchMode
 from google.cloud.spanner_dbapi.cursor import Cursor
-from google.cloud.spanner_v1 import RequestOptions, TransactionOptions
-from google.cloud.spanner_v1.database_sessions_manager import TransactionType
-from google.cloud.spanner_v1.snapshot import Snapshot
-
 from google.cloud.spanner_dbapi.exceptions import (
     InterfaceError,
     OperationalError,
     ProgrammingError,
 )
-from google.cloud.spanner_dbapi.version import DEFAULT_USER_AGENT
-from google.cloud.spanner_dbapi.version import PY_VERSION
-
+from google.cloud.spanner_dbapi.parsed_statement import (
+    AutocommitDmlMode,
+    ParsedStatement,
+    Statement,
+)
+from google.cloud.spanner_dbapi.partition_helper import PartitionId
+from google.cloud.spanner_dbapi.transaction_helper import TransactionRetryHelper
+from google.cloud.spanner_dbapi.version import DEFAULT_USER_AGENT, PY_VERSION
+from google.cloud.spanner_v1 import RequestOptions, TransactionOptions
+from google.cloud.spanner_v1.database_sessions_manager import TransactionType
+from google.cloud.spanner_v1.snapshot import Snapshot
 
 CLIENT_TRANSACTION_NOT_STARTED_WARNING = (
     "This method is non-operational as a transaction has not been started."
@@ -392,7 +393,14 @@ class Connection:
         this connection yet. Return the started one otherwise.
 
         This method is a no-op if the connection is in autocommit mode and no
-        explicit transaction has been started
+        explicit transaction has been started.
+
+        The transaction is returned without calling ``begin()``. The
+        underlying ``Transaction.execute_sql`` and ``execute_update``
+        methods detect ``_transaction_id is None`` and use *inline begin*
+        — piggybacking a ``BeginTransaction`` on the first RPC via
+        ``TransactionSelector(begin=...)``. This eliminates a separate
+        ``BeginTransaction`` RPC round-trip per transaction.
 
         :rtype: :class:`google.cloud.spanner_v1.transaction.Transaction`
         :returns: A Cloud Spanner transaction object, ready to use.
@@ -410,7 +418,6 @@ class Connection:
                 self.transaction_tag = None
                 self._snapshot = None
                 self._spanner_transaction_started = True
-                self._transaction.begin()
 
             return self._transaction
 
@@ -736,6 +743,10 @@ def connect(
     route_to_leader_enabled=True,
     database_role=None,
     experimental_host=None,
+    use_plain_text=False,
+    ca_certificate=None,
+    client_certificate=None,
+    client_key=None,
     **kwargs,
 ):
     """Creates a connection to a Google Cloud Spanner database.
@@ -789,6 +800,28 @@ def connect(
     :rtype: :class:`google.cloud.spanner_dbapi.connection.Connection`
     :returns: Connection object associated with the given Google Cloud Spanner
               resource.
+
+    :type experimental_host: str
+    :param experimental_host: (Optional) The endpoint for a spanner experimental host deployment.
+        This is intended only for experimental host spanner endpoints.
+
+    :type use_plain_text: bool
+    :param use_plain_text: (Optional) Whether to use plain text for the connection.
+        This is intended only for experimental host spanner endpoints.
+        If not set, the default behavior is to use TLS.
+
+    :type ca_certificate: str
+    :param ca_certificate: (Optional) The path to the CA certificate file used for TLS connection.
+        This is intended only for experimental host spanner endpoints.
+        This is mandatory if the experimental_host requires a TLS connection.
+    :type client_certificate: str
+    :param client_certificate: (Optional) The path to the client certificate file used for mTLS connection.
+        This is intended only for experimental host spanner endpoints.
+        This is mandatory if the experimental_host requires an mTLS connection.
+    :type client_key: str
+    :param client_key: (Optional) The path to the client key file used for mTLS connection.
+        This is intended only for experimental host spanner endpoints.
+        This is mandatory if the experimental_host requires an mTLS connection.
     """
     if client is None:
         client_info = ClientInfo(
@@ -817,6 +850,10 @@ def connect(
                 client_info=client_info,
                 route_to_leader_enabled=route_to_leader_enabled,
                 client_options=client_options,
+                use_plain_text=use_plain_text,
+                ca_certificate=ca_certificate,
+                client_certificate=client_certificate,
+                client_key=client_key,
             )
     else:
         if project is not None and client.project != project:

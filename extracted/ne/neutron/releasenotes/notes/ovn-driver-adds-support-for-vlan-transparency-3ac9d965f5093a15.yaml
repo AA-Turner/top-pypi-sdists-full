@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Added support for the ``vlan-transparent`` in the OVN mechanism driver.

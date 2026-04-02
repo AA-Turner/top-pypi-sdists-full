@@ -3,7 +3,7 @@ Type annotations for elasticache service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elasticache/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -1491,6 +1491,7 @@ class CreateServerlessCacheRequestTypeDef(TypedDict):
     SubnetIds: NotRequired[Sequence[str]]
     SnapshotRetentionLimit: NotRequired[int]
     DailySnapshotTime: NotRequired[str]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class ModifyServerlessCacheRequestTypeDef(TypedDict):
@@ -1524,6 +1525,7 @@ class ServerlessCacheTypeDef(TypedDict):
     SubnetIds: NotRequired[list[str]]
     SnapshotRetentionLimit: NotRequired[int]
     DailySnapshotTime: NotRequired[str]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class DescribeUpdateActionsMessagePaginateTypeDef(TypedDict):

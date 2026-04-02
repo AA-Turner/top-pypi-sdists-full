@@ -1,3 +1,0 @@
-name: constant_thresholding
-args:
-  th: 0.8

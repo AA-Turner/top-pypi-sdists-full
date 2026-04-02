@@ -14,23 +14,22 @@
 
 from google.cloud.spanner_dbapi import Connection
 from google.cloud.spanner_v1 import (
-    ExecuteSqlRequest,
     BeginTransactionRequest,
-    TypeCode,
     CommitRequest,
+    ExecuteSqlRequest,
+    TypeCode,
 )
+from google.cloud.spanner_v1.database_sessions_manager import TransactionType
+from tests._helpers import is_multiplexed_enabled
 from tests.mockserver_tests.mock_server_test_base import (
     MockServerTestBase,
     add_single_result,
 )
-from tests._helpers import is_multiplexed_enabled
-from google.cloud.spanner_v1.database_sessions_manager import TransactionType
 
 
 class TestTags(MockServerTestBase):
-    @classmethod
-    def setup_class(cls):
-        super().setup_class()
+    def setUp(self):
+        super().setUp()
         add_single_result(
             "select name from singers", "name", TypeCode.STRING, [("Some Singer",)]
         )
@@ -115,7 +114,7 @@ class TestTags(MockServerTestBase):
         requests = self.spanner_service.requests
         self.assert_requests_sequence(
             requests,
-            [BeginTransactionRequest, ExecuteSqlRequest, CommitRequest],
+            [ExecuteSqlRequest, CommitRequest],
             TransactionType.READ_WRITE,
         )
 
@@ -131,7 +130,7 @@ class TestTags(MockServerTestBase):
         requests = self.spanner_service.requests
         self.assert_requests_sequence(
             requests,
-            [BeginTransactionRequest, ExecuteSqlRequest, CommitRequest],
+            [ExecuteSqlRequest, CommitRequest],
             TransactionType.READ_WRITE,
         )
 
@@ -148,7 +147,6 @@ class TestTags(MockServerTestBase):
         self.assert_requests_sequence(
             requests,
             [
-                BeginTransactionRequest,
                 ExecuteSqlRequest,
                 ExecuteSqlRequest,
                 CommitRequest,
@@ -156,7 +154,7 @@ class TestTags(MockServerTestBase):
             TransactionType.READ_WRITE,
         )
         mux_enabled = is_multiplexed_enabled(TransactionType.READ_WRITE)
-        tag_idx = 3 if mux_enabled else 2
+        tag_idx = 2 if mux_enabled else 1
         self.assertEqual(
             "my_transaction_tag", requests[tag_idx].request_options.transaction_tag
         )
@@ -180,7 +178,6 @@ class TestTags(MockServerTestBase):
         self.assert_requests_sequence(
             requests,
             [
-                BeginTransactionRequest,
                 ExecuteSqlRequest,
                 ExecuteSqlRequest,
                 CommitRequest,
@@ -188,7 +185,7 @@ class TestTags(MockServerTestBase):
             TransactionType.READ_WRITE,
         )
         mux_enabled = is_multiplexed_enabled(TransactionType.READ_WRITE)
-        tag_idx = 3 if mux_enabled else 2
+        tag_idx = 2 if mux_enabled else 1
         self.assertEqual(
             "my_transaction_tag", requests[tag_idx].request_options.transaction_tag
         )

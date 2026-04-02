@@ -85,6 +85,7 @@ from datadog_api_client.v1.model.dashboard_restore_request import DashboardResto
 from datadog_api_client.v1.model.dashboard_share_type import DashboardShareType
 from datadog_api_client.v1.model.dashboard_summary import DashboardSummary
 from datadog_api_client.v1.model.dashboard_summary_definition import DashboardSummaryDefinition
+from datadog_api_client.v1.model.dashboard_tab import DashboardTab
 from datadog_api_client.v1.model.dashboard_template_variable import DashboardTemplateVariable
 from datadog_api_client.v1.model.dashboard_template_variable_preset import DashboardTemplateVariablePreset
 from datadog_api_client.v1.model.dashboard_template_variable_preset_value import DashboardTemplateVariablePresetValue
@@ -119,6 +120,8 @@ from datadog_api_client.v1.model.event_stream_widget_definition import EventStre
 from datadog_api_client.v1.model.event_stream_widget_definition_type import EventStreamWidgetDefinitionType
 from datadog_api_client.v1.model.event_timeline_widget_definition import EventTimelineWidgetDefinition
 from datadog_api_client.v1.model.event_timeline_widget_definition_type import EventTimelineWidgetDefinitionType
+from datadog_api_client.v1.model.events_aggregation import EventsAggregation
+from datadog_api_client.v1.model.events_aggregation_value import EventsAggregationValue
 from datadog_api_client.v1.model.formula_and_function_apm_dependency_stat_name import (
     FormulaAndFunctionApmDependencyStatName,
 )
@@ -128,6 +131,14 @@ from datadog_api_client.v1.model.formula_and_function_apm_dependency_stats_data_
 from datadog_api_client.v1.model.formula_and_function_apm_dependency_stats_query_definition import (
     FormulaAndFunctionApmDependencyStatsQueryDefinition,
 )
+from datadog_api_client.v1.model.formula_and_function_apm_metric_stat_name import FormulaAndFunctionApmMetricStatName
+from datadog_api_client.v1.model.formula_and_function_apm_metrics_data_source import (
+    FormulaAndFunctionApmMetricsDataSource,
+)
+from datadog_api_client.v1.model.formula_and_function_apm_metrics_query_definition import (
+    FormulaAndFunctionApmMetricsQueryDefinition,
+)
+from datadog_api_client.v1.model.formula_and_function_apm_metrics_span_kind import FormulaAndFunctionApmMetricsSpanKind
 from datadog_api_client.v1.model.formula_and_function_apm_resource_stat_name import (
     FormulaAndFunctionApmResourceStatName,
 )
@@ -375,6 +386,36 @@ from datadog_api_client.v1.model.monitor_asset_category import MonitorAssetCateg
 from datadog_api_client.v1.model.monitor_asset_resource_type import MonitorAssetResourceType
 from datadog_api_client.v1.model.monitor_device_id import MonitorDeviceID
 from datadog_api_client.v1.model.monitor_draft_status import MonitorDraftStatus
+from datadog_api_client.v1.model.monitor_formula_and_function_aggregate_augment_query import (
+    MonitorFormulaAndFunctionAggregateAugmentQuery,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_aggregate_augmented_data_source import (
+    MonitorFormulaAndFunctionAggregateAugmentedDataSource,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_aggregate_augmented_query_definition import (
+    MonitorFormulaAndFunctionAggregateAugmentedQueryDefinition,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_aggregate_base_query import (
+    MonitorFormulaAndFunctionAggregateBaseQuery,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_aggregate_filter_query import (
+    MonitorFormulaAndFunctionAggregateFilterQuery,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_aggregate_filtered_data_source import (
+    MonitorFormulaAndFunctionAggregateFilteredDataSource,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_aggregate_filtered_query_definition import (
+    MonitorFormulaAndFunctionAggregateFilteredQueryDefinition,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_aggregate_query_filter import (
+    MonitorFormulaAndFunctionAggregateQueryFilter,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_aggregate_query_join_condition import (
+    MonitorFormulaAndFunctionAggregateQueryJoinCondition,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_aggregate_query_join_type import (
+    MonitorFormulaAndFunctionAggregateQueryJoinType,
+)
 from datadog_api_client.v1.model.monitor_formula_and_function_cost_aggregator import (
     MonitorFormulaAndFunctionCostAggregator,
 )
@@ -417,8 +458,26 @@ from datadog_api_client.v1.model.monitor_formula_and_function_event_query_group_
 from datadog_api_client.v1.model.monitor_formula_and_function_events_data_source import (
     MonitorFormulaAndFunctionEventsDataSource,
 )
+from datadog_api_client.v1.model.monitor_formula_and_function_metrics_aggregator import (
+    MonitorFormulaAndFunctionMetricsAggregator,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_metrics_data_source import (
+    MonitorFormulaAndFunctionMetricsDataSource,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_metrics_query_definition import (
+    MonitorFormulaAndFunctionMetricsQueryDefinition,
+)
 from datadog_api_client.v1.model.monitor_formula_and_function_query_definition import (
     MonitorFormulaAndFunctionQueryDefinition,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_reference_table_column import (
+    MonitorFormulaAndFunctionReferenceTableColumn,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_reference_table_data_source import (
+    MonitorFormulaAndFunctionReferenceTableDataSource,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_reference_table_query_definition import (
+    MonitorFormulaAndFunctionReferenceTableQueryDefinition,
 )
 from datadog_api_client.v1.model.monitor_group_search_response import MonitorGroupSearchResponse
 from datadog_api_client.v1.model.monitor_group_search_response_counts import MonitorGroupSearchResponseCounts
@@ -538,6 +597,17 @@ from datadog_api_client.v1.model.powerpack_template_variables import PowerpackTe
 from datadog_api_client.v1.model.powerpack_widget_definition import PowerpackWidgetDefinition
 from datadog_api_client.v1.model.powerpack_widget_definition_type import PowerpackWidgetDefinitionType
 from datadog_api_client.v1.model.process_query_definition import ProcessQueryDefinition
+from datadog_api_client.v1.model.product_analytics_audience_account_subquery import (
+    ProductAnalyticsAudienceAccountSubquery,
+)
+from datadog_api_client.v1.model.product_analytics_audience_filters import ProductAnalyticsAudienceFilters
+from datadog_api_client.v1.model.product_analytics_audience_occurrence_filter import (
+    ProductAnalyticsAudienceOccurrenceFilter,
+)
+from datadog_api_client.v1.model.product_analytics_audience_segment_subquery import (
+    ProductAnalyticsAudienceSegmentSubquery,
+)
+from datadog_api_client.v1.model.product_analytics_audience_user_subquery import ProductAnalyticsAudienceUserSubquery
 from datadog_api_client.v1.model.query_sort_order import QuerySortOrder
 from datadog_api_client.v1.model.query_value_widget_definition import QueryValueWidgetDefinition
 from datadog_api_client.v1.model.query_value_widget_definition_type import QueryValueWidgetDefinitionType
@@ -568,6 +638,12 @@ from datadog_api_client.v1.model.slo_correction_update_data import SLOCorrection
 from datadog_api_client.v1.model.slo_correction_update_request import SLOCorrectionUpdateRequest
 from datadog_api_client.v1.model.slo_correction_update_request_attributes import SLOCorrectionUpdateRequestAttributes
 from datadog_api_client.v1.model.slo_count_definition import SLOCountDefinition
+from datadog_api_client.v1.model.slo_count_definition_with_bad_events_formula import (
+    SLOCountDefinitionWithBadEventsFormula,
+)
+from datadog_api_client.v1.model.slo_count_definition_with_total_events_formula import (
+    SLOCountDefinitionWithTotalEventsFormula,
+)
 from datadog_api_client.v1.model.slo_count_spec import SLOCountSpec
 from datadog_api_client.v1.model.slo_creator import SLOCreator
 from datadog_api_client.v1.model.slo_data_source_query_definition import SLODataSourceQueryDefinition
@@ -611,6 +687,21 @@ from datadog_api_client.v1.model.slo_type import SLOType
 from datadog_api_client.v1.model.slo_type_numeric import SLOTypeNumeric
 from datadog_api_client.v1.model.slo_widget_definition import SLOWidgetDefinition
 from datadog_api_client.v1.model.slo_widget_definition_type import SLOWidgetDefinitionType
+from datadog_api_client.v1.model.sankey_join_keys import SankeyJoinKeys
+from datadog_api_client.v1.model.sankey_network_data_source import SankeyNetworkDataSource
+from datadog_api_client.v1.model.sankey_network_query import SankeyNetworkQuery
+from datadog_api_client.v1.model.sankey_network_query_compute import SankeyNetworkQueryCompute
+from datadog_api_client.v1.model.sankey_network_query_mode import SankeyNetworkQueryMode
+from datadog_api_client.v1.model.sankey_network_query_sort import SankeyNetworkQuerySort
+from datadog_api_client.v1.model.sankey_network_request import SankeyNetworkRequest
+from datadog_api_client.v1.model.sankey_network_request_type import SankeyNetworkRequestType
+from datadog_api_client.v1.model.sankey_rum_data_source import SankeyRumDataSource
+from datadog_api_client.v1.model.sankey_rum_query import SankeyRumQuery
+from datadog_api_client.v1.model.sankey_rum_query_mode import SankeyRumQueryMode
+from datadog_api_client.v1.model.sankey_rum_request import SankeyRumRequest
+from datadog_api_client.v1.model.sankey_widget_definition import SankeyWidgetDefinition
+from datadog_api_client.v1.model.sankey_widget_definition_type import SankeyWidgetDefinitionType
+from datadog_api_client.v1.model.sankey_widget_request import SankeyWidgetRequest
 from datadog_api_client.v1.model.scatter_plot_request import ScatterPlotRequest
 from datadog_api_client.v1.model.scatter_plot_widget_definition import ScatterPlotWidgetDefinition
 from datadog_api_client.v1.model.scatter_plot_widget_definition_requests import ScatterPlotWidgetDefinitionRequests
@@ -956,6 +1047,7 @@ from datadog_api_client.v1.model.tag_to_hosts import TagToHosts
 from datadog_api_client.v1.model.target_format_type import TargetFormatType
 from datadog_api_client.v1.model.timeseries_background import TimeseriesBackground
 from datadog_api_client.v1.model.timeseries_background_type import TimeseriesBackgroundType
+from datadog_api_client.v1.model.timeseries_request_style import TimeseriesRequestStyle
 from datadog_api_client.v1.model.timeseries_widget_definition import TimeseriesWidgetDefinition
 from datadog_api_client.v1.model.timeseries_widget_definition_type import TimeseriesWidgetDefinitionType
 from datadog_api_client.v1.model.timeseries_widget_expression_alias import TimeseriesWidgetExpressionAlias
@@ -1155,6 +1247,11 @@ from datadog_api_client.v1.model.widget_time_windows import WidgetTimeWindows
 from datadog_api_client.v1.model.widget_vertical_align import WidgetVerticalAlign
 from datadog_api_client.v1.model.widget_view_mode import WidgetViewMode
 from datadog_api_client.v1.model.widget_viz_type import WidgetVizType
+from datadog_api_client.v1.model.wildcard_widget_definition import WildcardWidgetDefinition
+from datadog_api_client.v1.model.wildcard_widget_definition_type import WildcardWidgetDefinitionType
+from datadog_api_client.v1.model.wildcard_widget_request import WildcardWidgetRequest
+from datadog_api_client.v1.model.wildcard_widget_specification import WildcardWidgetSpecification
+from datadog_api_client.v1.model.wildcard_widget_specification_type import WildcardWidgetSpecificationType
 
 __all__ = [
     "APIErrorResponse",
@@ -1244,6 +1341,7 @@ __all__ = [
     "DashboardShareType",
     "DashboardSummary",
     "DashboardSummaryDefinition",
+    "DashboardTab",
     "DashboardTemplateVariable",
     "DashboardTemplateVariablePreset",
     "DashboardTemplateVariablePresetValue",
@@ -1276,9 +1374,15 @@ __all__ = [
     "EventStreamWidgetDefinitionType",
     "EventTimelineWidgetDefinition",
     "EventTimelineWidgetDefinitionType",
+    "EventsAggregation",
+    "EventsAggregationValue",
     "FormulaAndFunctionApmDependencyStatName",
     "FormulaAndFunctionApmDependencyStatsDataSource",
     "FormulaAndFunctionApmDependencyStatsQueryDefinition",
+    "FormulaAndFunctionApmMetricStatName",
+    "FormulaAndFunctionApmMetricsDataSource",
+    "FormulaAndFunctionApmMetricsQueryDefinition",
+    "FormulaAndFunctionApmMetricsSpanKind",
     "FormulaAndFunctionApmResourceStatName",
     "FormulaAndFunctionApmResourceStatsDataSource",
     "FormulaAndFunctionApmResourceStatsQueryDefinition",
@@ -1494,6 +1598,16 @@ __all__ = [
     "MonitorAssetResourceType",
     "MonitorDeviceID",
     "MonitorDraftStatus",
+    "MonitorFormulaAndFunctionAggregateAugmentQuery",
+    "MonitorFormulaAndFunctionAggregateAugmentedDataSource",
+    "MonitorFormulaAndFunctionAggregateAugmentedQueryDefinition",
+    "MonitorFormulaAndFunctionAggregateBaseQuery",
+    "MonitorFormulaAndFunctionAggregateFilterQuery",
+    "MonitorFormulaAndFunctionAggregateFilteredDataSource",
+    "MonitorFormulaAndFunctionAggregateFilteredQueryDefinition",
+    "MonitorFormulaAndFunctionAggregateQueryFilter",
+    "MonitorFormulaAndFunctionAggregateQueryJoinCondition",
+    "MonitorFormulaAndFunctionAggregateQueryJoinType",
     "MonitorFormulaAndFunctionCostAggregator",
     "MonitorFormulaAndFunctionCostDataSource",
     "MonitorFormulaAndFunctionCostQueryDefinition",
@@ -1508,7 +1622,13 @@ __all__ = [
     "MonitorFormulaAndFunctionEventQueryGroupBy",
     "MonitorFormulaAndFunctionEventQueryGroupBySort",
     "MonitorFormulaAndFunctionEventsDataSource",
+    "MonitorFormulaAndFunctionMetricsAggregator",
+    "MonitorFormulaAndFunctionMetricsDataSource",
+    "MonitorFormulaAndFunctionMetricsQueryDefinition",
     "MonitorFormulaAndFunctionQueryDefinition",
+    "MonitorFormulaAndFunctionReferenceTableColumn",
+    "MonitorFormulaAndFunctionReferenceTableDataSource",
+    "MonitorFormulaAndFunctionReferenceTableQueryDefinition",
     "MonitorGroupSearchResponse",
     "MonitorGroupSearchResponseCounts",
     "MonitorGroupSearchResult",
@@ -1617,6 +1737,11 @@ __all__ = [
     "PowerpackWidgetDefinition",
     "PowerpackWidgetDefinitionType",
     "ProcessQueryDefinition",
+    "ProductAnalyticsAudienceAccountSubquery",
+    "ProductAnalyticsAudienceFilters",
+    "ProductAnalyticsAudienceOccurrenceFilter",
+    "ProductAnalyticsAudienceSegmentSubquery",
+    "ProductAnalyticsAudienceUserSubquery",
     "QuerySortOrder",
     "QueryValueWidgetDefinition",
     "QueryValueWidgetDefinitionType",
@@ -1645,6 +1770,8 @@ __all__ = [
     "SLOCorrectionUpdateRequest",
     "SLOCorrectionUpdateRequestAttributes",
     "SLOCountDefinition",
+    "SLOCountDefinitionWithBadEventsFormula",
+    "SLOCountDefinitionWithTotalEventsFormula",
     "SLOCountSpec",
     "SLOCreator",
     "SLODataSourceQueryDefinition",
@@ -1688,6 +1815,21 @@ __all__ = [
     "SLOTypeNumeric",
     "SLOWidgetDefinition",
     "SLOWidgetDefinitionType",
+    "SankeyJoinKeys",
+    "SankeyNetworkDataSource",
+    "SankeyNetworkQuery",
+    "SankeyNetworkQueryCompute",
+    "SankeyNetworkQueryMode",
+    "SankeyNetworkQuerySort",
+    "SankeyNetworkRequest",
+    "SankeyNetworkRequestType",
+    "SankeyRumDataSource",
+    "SankeyRumQuery",
+    "SankeyRumQueryMode",
+    "SankeyRumRequest",
+    "SankeyWidgetDefinition",
+    "SankeyWidgetDefinitionType",
+    "SankeyWidgetRequest",
     "ScatterPlotRequest",
     "ScatterPlotWidgetDefinition",
     "ScatterPlotWidgetDefinitionRequests",
@@ -1963,6 +2105,7 @@ __all__ = [
     "TargetFormatType",
     "TimeseriesBackground",
     "TimeseriesBackgroundType",
+    "TimeseriesRequestStyle",
     "TimeseriesWidgetDefinition",
     "TimeseriesWidgetDefinitionType",
     "TimeseriesWidgetExpressionAlias",
@@ -2150,4 +2293,9 @@ __all__ = [
     "WidgetVerticalAlign",
     "WidgetViewMode",
     "WidgetVizType",
+    "WildcardWidgetDefinition",
+    "WildcardWidgetDefinitionType",
+    "WildcardWidgetRequest",
+    "WildcardWidgetSpecification",
+    "WildcardWidgetSpecificationType",
 ]

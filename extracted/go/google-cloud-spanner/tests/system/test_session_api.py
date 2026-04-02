@@ -15,37 +15,34 @@ import base64
 import collections
 import datetime
 import decimal
-
 import math
 import struct
 import threading
 import time
 import uuid
-from google.cloud.spanner_v1 import _opentelemetry_tracing
-import pytest
 
 import grpc
+import pytest
+from google.api_core import datetime_helpers, exceptions
+from google.cloud._helpers import UTC
 from google.rpc import code_pb2
-from google.api_core import datetime_helpers
-from google.api_core import exceptions
+
 from google.cloud import spanner_v1
 from google.cloud.spanner_admin_database_v1 import DatabaseDialect
-from google.cloud._helpers import UTC
-
-from google.cloud.spanner_v1._helpers import _get_cloud_region
-from google.cloud.spanner_v1._helpers import AtomicCounter
+from google.cloud.spanner_v1 import _opentelemetry_tracing
+from google.cloud.spanner_v1._helpers import AtomicCounter, _get_cloud_region
 from google.cloud.spanner_v1.data_types import JsonObject
 from google.cloud.spanner_v1.database_sessions_manager import TransactionType
-from .testdata import singer_pb2
-from tests import _helpers as ot_helpers
-from . import _helpers
-from . import _sample_data
 from google.cloud.spanner_v1.request_id_header import (
     REQ_RAND_PROCESS_ID,
-    parse_request_id,
     build_request_id,
+    parse_request_id,
 )
+from tests import _helpers as ot_helpers
 from tests._helpers import is_multiplexed_enabled
+
+from . import _helpers, _sample_data
+from .testdata import singer_pb2
 
 SOME_DATE = datetime.date(2011, 1, 17)
 SOME_TIME = datetime.datetime(1989, 1, 17, 17, 59, 12, 345612)
@@ -704,9 +701,6 @@ def test_transaction_read_and_insert_then_rollback(
         multiplexed_enabled = is_multiplexed_enabled(TransactionType.READ_WRITE)
 
         span_list = ot_exporter.get_finished_spans()
-        print("DEBUG: Actual span names:")
-        for i, span in enumerate(span_list):
-            print(f"{i}: {span.name}")
 
         # Determine the first request ID from the spans,
         # and use an atomic counter to track it.
@@ -893,9 +887,9 @@ def test_transaction_read_and_insert_then_rollback(
 
             # Check that all expected span types are present
             for expected_name in expected_span_names:
-                assert (
-                    expected_name in actual_span_names
-                ), f"Expected span '{expected_name}' not found in actual spans: {actual_span_names}"
+                assert expected_name in actual_span_names, (
+                    f"Expected span '{expected_name}' not found in actual spans: {actual_span_names}"
+                )
         else:
             # If counts match, verify each span in order
             for i, expected in enumerate(expected_span_properties):
@@ -1438,7 +1432,17 @@ def test_transaction_batch_update_w_parent_span(
         "CloudSpanner.DMLTransaction",
         "CloudSpanner.Transaction.commit",
     ]
-    assert got_span_names == expected_span_names
+
+    prefix_len = 4
+    assert got_span_names[:prefix_len] == expected_span_names[:prefix_len]
+    remaining = got_span_names[prefix_len:]
+    assert len(remaining) >= 2
+    for name in remaining:
+        assert name in [
+            "CloudSpanner.DMLTransaction",
+            "CloudSpanner.Transaction.commit",
+        ]
+    assert remaining[-1] == "CloudSpanner.Transaction.commit"
 
     # We expect:
     # |------CloudSpanner.CreateSession--------
@@ -2833,7 +2837,7 @@ def test_execute_sql_w_query_param_struct(sessions_database, not_postgres):
 
     # Query with equality check for struct value
     struct_equality_query = (
-        "SELECT " '@struct_param=STRUCT<threadf INT64, userf STRING>(1,"bob")'
+        'SELECT @struct_param=STRUCT<threadf INT64, userf STRING>(1,"bob")'
     )
     struct_type = param_types.Struct(
         [

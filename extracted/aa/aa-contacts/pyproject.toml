@@ -1,0 +1,54 @@
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "aa-contacts"
+dynamic = ["version"]
+authors = [
+    {name = "Matteo Ghia", email = "matteo.ghia@yahoo.it"},
+]
+classifiers = [
+    "Environment :: Web Environment",
+	"Framework :: Django",
+	"Framework :: Django :: 4",
+	"Framework :: Django :: 4.2",
+	"Operating System :: POSIX :: Linux",
+	"Development Status :: 3 - Alpha",
+	"Intended Audience :: Developers",
+	"License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+	"Natural Language :: English",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3.10",
+	"Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: 3.12",
+	"Programming Language :: Python :: 3.13",
+	"Topic :: Internet :: WWW/HTTP",
+	"Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+description = "Contacts tool for AllianceAuth"
+license = {file = "LICENSE"}
+readme = "README.md"
+keywords = [
+    "allianceauth",
+    "eveonline",
+	"allianceauth_contacts",
+	"contacts",
+	"aa-contacts",
+]
+requires-python = "~=3.10"
+dependencies = [
+    "allianceauth>=4.6,<6",
+	"django-esi>=8.0,<10",
+	"django-ninja~=1.4",
+]
+
+[project.urls]
+Homepage = "https://github.com/Maestro-Zacht/aa-contacts"
+Source = "https://github.com/Maestro-Zacht/aa-contacts"
+Tracker = "https://github.com/Maestro-Zacht/aa-contacts/issues"
+Changelog = "https://github.com/Maestro-Zacht/aa-contacts/releases"
+
+[tool.flit.module]
+name = "aa_contacts"
+

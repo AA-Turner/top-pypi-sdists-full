@@ -1,0 +1,216 @@
+Metadata-Version: 2.4
+Name: inference-models
+Version: 0.24.2
+Summary: The new inference engine for Computer Vision models
+Requires-Python: <3.13,>=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: torch<3.0.0,>=2.0.0
+Requires-Dist: torchvision
+Requires-Dist: opencv-python>=4.8.1.78
+Requires-Dist: requests<3.0.0,>=2.32.0
+Requires-Dist: supervision>=0.26.0
+Requires-Dist: backoff~=2.2.0
+Requires-Dist: transformers<5.3.0,>=5.2.0
+Requires-Dist: timm<2.0.0,>=1.0.0
+Requires-Dist: accelerate<2.0.0,>=1.0.0
+Requires-Dist: einops<1.0.0,>=0.7.0
+Requires-Dist: peft>=0.18.1
+Requires-Dist: num2words~=0.5.14
+Requires-Dist: bitsandbytes<0.48.0,>=0.46.1; sys_platform != "darwin"
+Requires-Dist: pyvips<3.0.0,>=2.2.3
+Requires-Dist: rf-clip==1.1
+Requires-Dist: python-doctr[torch]>=1.0.0
+Requires-Dist: packaging>=24.0.0
+Requires-Dist: rich<15.0.0,>=13.0.0
+Requires-Dist: pydantic<3.0.0,>=2.11.7
+Requires-Dist: filelock<4.0.0,>=3.12.0
+Requires-Dist: rich<15.0.0,>=14.1.0
+Requires-Dist: segmentation-models-pytorch<1.0.0,>=0.5.0
+Requires-Dist: scikit-image<0.26.0,>=0.24.0
+Requires-Dist: easyocr~=1.7.2
+Requires-Dist: sentencepiece<0.3.0,>=0.2.0
+Requires-Dist: rf_groundingdino==0.3.0
+Requires-Dist: tldextract~=5.1.2
+Requires-Dist: pybase64~=1.0.0
+Requires-Dist: rf-segment-anything==1.0
+Requires-Dist: rf-sam-2==1.0.3
+Provides-Extra: torch-cpu
+Requires-Dist: torch<3.0.0,>=2.0.0; extra == "torch-cpu"
+Requires-Dist: torchvision; extra == "torch-cpu"
+Provides-Extra: torch-cu118
+Requires-Dist: torch<3.0.0,>=2.0.0; extra == "torch-cu118"
+Requires-Dist: torchvision; extra == "torch-cu118"
+Requires-Dist: pycuda<2026.0.0,>=2025.0.0; (platform_system != "darwin" and python_version >= "3.10") and extra == "torch-cu118"
+Provides-Extra: torch-cu124
+Requires-Dist: torch<3.0.0,>=2.0.0; extra == "torch-cu124"
+Requires-Dist: torchvision; extra == "torch-cu124"
+Requires-Dist: pycuda<2026.0.0,>=2025.0.0; (platform_system != "darwin" and python_version >= "3.10") and extra == "torch-cu124"
+Provides-Extra: torch-cu126
+Requires-Dist: torch<3.0.0,>=2.0.0; extra == "torch-cu126"
+Requires-Dist: torchvision; extra == "torch-cu126"
+Requires-Dist: pycuda<2026.0.0,>=2025.0.0; (platform_system != "darwin" and python_version >= "3.10") and extra == "torch-cu126"
+Provides-Extra: torch-cu128
+Requires-Dist: torch<3.0.0,>=2.0.0; extra == "torch-cu128"
+Requires-Dist: torchvision; extra == "torch-cu128"
+Requires-Dist: pycuda<2026.0.0,>=2025.0.0; (platform_system != "darwin" and python_version >= "3.10") and extra == "torch-cu128"
+Provides-Extra: torch-cu130
+Requires-Dist: torch<3.0.0,>=2.0.0; extra == "torch-cu130"
+Requires-Dist: torchvision; extra == "torch-cu130"
+Requires-Dist: pycuda<=2026.1.0,>=2025.0.0; (platform_system != "darwin" and python_version >= "3.10") and extra == "torch-cu130"
+Provides-Extra: torch-jp6-cu126
+Requires-Dist: numpy<2.0.0; extra == "torch-jp6-cu126"
+Requires-Dist: torch<3.0.0,>=2.0.0; extra == "torch-jp6-cu126"
+Requires-Dist: torchvision; extra == "torch-jp6-cu126"
+Requires-Dist: pycuda<2026.0.0,>=2025.0.0; extra == "torch-jp6-cu126"
+Provides-Extra: onnx-cpu
+Requires-Dist: onnxruntime<1.23.0,>=1.15.1; extra == "onnx-cpu"
+Provides-Extra: onnx-cu118
+Requires-Dist: onnxruntime-gpu<1.23.0,>=1.15.1; platform_system != "darwin" and extra == "onnx-cu118"
+Requires-Dist: pycuda<2026.0.0,>=2025.0.0; platform_system != "darwin" and extra == "onnx-cu118"
+Provides-Extra: onnx-cu12
+Requires-Dist: onnxruntime-gpu<1.23.0,>=1.17.0; platform_system != "darwin" and extra == "onnx-cu12"
+Requires-Dist: pycuda<2026.0.0,>=2025.0.0; platform_system != "darwin" and extra == "onnx-cu12"
+Provides-Extra: onnx-jp6-cu126
+Requires-Dist: numpy<2.0.0; (platform_system == "Linux" and platform_machine == "aarch64" and python_version >= "3.10") and extra == "onnx-jp6-cu126"
+Requires-Dist: onnxruntime-gpu<1.24.0,>=1.17.0; (platform_system == "Linux" and platform_machine == "aarch64" and python_version >= "3.10") and extra == "onnx-jp6-cu126"
+Requires-Dist: pycuda<2026.0.0,>=2025.0.0; (platform_system == "Linux" and platform_machine == "aarch64" and python_version >= "3.10") and extra == "onnx-jp6-cu126"
+Provides-Extra: mediapipe
+Requires-Dist: rf-mediapipe<0.11.0,>=0.9; extra == "mediapipe"
+Provides-Extra: trt10
+Requires-Dist: tensorrt-cu12<11.0.0,>=10.0.0; (platform_system == "Linux" or platform_system == "Windows") and extra == "trt10"
+Requires-Dist: tensorrt-lean-cu12<11.0.0,>=10.0.0; (platform_system == "Linux" or platform_system == "Windows") and extra == "trt10"
+Requires-Dist: pycuda<2026.0.0,>=2025.0.0; (platform_system != "darwin" and python_version >= "3.10") and extra == "trt10"
+Provides-Extra: test
+Requires-Dist: pytest>=8.0.0; extra == "test"
+Requires-Dist: pytest-timeout==2.4.0; extra == "test"
+Requires-Dist: pytest-xdist>=3.0.0; extra == "test"
+Requires-Dist: pytest-timeout; extra == "test"
+Requires-Dist: requests-mock>=1.12.1; extra == "test"
+Provides-Extra: docs
+Requires-Dist: mkdocs-material[imaging]>=9.5.5; extra == "docs"
+Requires-Dist: mkdocstrings<0.31.0,>=0.25.2; extra == "docs"
+Requires-Dist: mkdocstrings-python<2.0.0,>=1.10.9; extra == "docs"
+Requires-Dist: mike>=2.0.0; extra == "docs"
+Requires-Dist: mkdocs-jupyter>=0.24.3; extra == "docs"
+Requires-Dist: mkdocs-git-committers-plugin-2>=2.4.1; (python_version >= "3.9" and python_version < "4") and extra == "docs"
+Requires-Dist: mkdocs-git-revision-date-localized-plugin>=1.2.4; extra == "docs"
+Requires-Dist: mkdocs-literate-nav~=0.6.2; extra == "docs"
+Requires-Dist: mkdocs-gen-files~=0.6.0; extra == "docs"
+
+# 🚀 What is inference-models?
+
+`inference-models` is the library to make predictions from computer vision models provided by Roboflow — designed to
+be fast, reliable, and user-friendly. It offers:
+
+- **Multi-Backend Support**: Run models with PyTorch, ONNX, TensorRT, or Hugging Face backends
+- **Automatic Model Loading**: Smart model resolution and backend selection
+- **Minimal Dependencies**: Composable extras system for installing only what you need
+- **Behavior-Based Interfaces**: Models with similar behavior share consistent APIs; custom models can define their own
+- **Full Roboflow Platform Support:** Run any model trained on [Roboflow](https://roboflow.com)
+
+Visit our [documentation](https://inference-models.roboflow.com/) for more information.
+
+# 🛣️ Roadmap
+
+With release `0.19.0`, we have reached the first stable release of `inference-models` and fully integrated 
+the package to `inference` - our main inference package, making it selectable backend for running predictions 
+from models.
+
+We are still making changes to add new features and models. API should be fairly stable already, but 
+the problems may still occur. If you encounter any issues, please [report them]((https://github.com/roboflow/inference/issues)).
+
+# 💻 Installation
+
+**CPU installation:**
+```bash
+uv pip install inference-models
+# or with pip
+pip install inference-models
+```
+
+`inference-models` can be installed with CUDA and TensorRT support - see [Installation Guide](https://inference-models.roboflow.com/getting-started/installation/) for more options.
+
+# 🏃‍➡️ Usage
+
+## Pretrained Models
+
+Load and run a pretrained model:
+
+```python
+import cv2
+import supervision as sv
+from inference_models import AutoModel
+
+# Load pretrained model from Roboflow
+model = AutoModel.from_pretrained("rfdetr-base")
+
+# Run inference (works with numpy arrays or torch.Tensor)
+image = cv2.imread("<path-to-your-image>")
+predictions = model(image)
+
+# Use with supervision
+annotator = sv.BoxAnnotator()
+annotated = annotator.annotate(image, predictions[0].to_supervision())
+```
+
+## Your Roboflow Models
+
+Load and run models trained on the [Roboflow platform](https://roboflow.com):
+
+```python
+import cv2
+import supervision as sv
+from inference_models import AutoModel
+
+# Load your custom model from Roboflow
+model = AutoModel.from_pretrained(
+    "<your-project>/<version>",
+    api_key="<your-api-key>"  # model access secured with API key
+)
+
+# Run inference (works with numpy arrays or torch.Tensor)
+image = cv2.imread("<path-to-your-image>")
+predictions = model(image)
+
+# Use with supervision
+annotator = sv.BoxAnnotator()
+annotated = annotator.annotate(image, predictions[0].to_supervision())
+```
+
+
+
+# 🧠 Supported Model Architectures
+
+- **RFDetr**
+- **SAM models family**
+- **Vision-Language Models** (Florence, PaliGemma, Qwen, SmolVLM, Moondream)
+- **OCR** (DocTR, EasyOCR, TrOCR)
+- **YOLO**
+- and many more
+
+For detailed model documentation, see [Supported Models](https://inference-models.roboflow.com/models/).
+
+# 🔧 Run your local models
+
+Load your own model implementations from a local directory - models with architectures **not** in the main `inference-models` package. This is especially valuable for **production deployment** of custom models.
+
+```python
+from inference_models import AutoModel
+
+model = AutoModel.from_pretrained(
+    "/path/to/my_custom_model",
+    allow_local_code_packages=True
+)
+```
+
+See [Load Models from Local Packages](https://inference-models.roboflow.com/how-to/local-packages/) for complete details on creating custom model packages.
+
+# 📄 License
+
+The `inference-models` package is licensed under Apache 2.0. Individual models may have different licenses - see the [Supported Models](https://inference-models.roboflow.com/models/) for details.
+
+---
+
+Ready to get started? Head to the [Quick Overview](https://inference-models.roboflow.com/getting-started/overview/) →
+

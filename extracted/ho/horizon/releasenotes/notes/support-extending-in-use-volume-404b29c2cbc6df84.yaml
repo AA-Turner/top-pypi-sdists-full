@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Support for extending in-use volumes is added. The extend volume action
-    will be shown on in-use volumes.

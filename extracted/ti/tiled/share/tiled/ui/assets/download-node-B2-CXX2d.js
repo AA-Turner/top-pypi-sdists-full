@@ -1,0 +1,1 @@
+import{j as e,J as t}from"./index-DamtKecr.js";const n=o=>e.jsx(t,{severity:"warning",children:'This item contains many arrays and/or tables. Bulk download was only recently added to the Tiled server, and it is not yet supported by this web interface. Go to the "View" tab and navigate to one items inside to download.'});export{n as default};

@@ -1,6 +1,6 @@
 [project]
 name = "django-stubs"
-version = "6.0.1"
+version = "6.0.2"
 description = "Mypy stubs for Django"
 readme = "README.md"
 license = "MIT"
@@ -31,7 +31,7 @@ classifiers = [
 ]
 dependencies = [
   "django",
-  "django-stubs-ext>=6.0.1",
+  "django-stubs-ext>=6.0.2",
   "tomli; python_version < '3.11'",
   # Types:
   "types-pyyaml",
@@ -39,7 +39,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-compatible-mypy = ["mypy>=1.13,<1.20"]
+compatible-mypy = ["mypy>=1.13,<1.21"]
 oracle = ["oracledb"]
 redis = ["redis", "types-redis"]
 
@@ -65,13 +65,18 @@ pyright = [
   "pyright==1.1.408",
 ]
 pyrefly = [
-  "pyrefly==0.57.0",
+  "pyrefly==0.59.0",
+]
+ty = [
+  "ty==0.0.27",
+  "psycopg2-binary"
 ]
 
 dev = [
   {include-group = "tests"},
   {include-group = "pyright"},
   {include-group = "pyrefly"},
+  {include-group = "ty"},
 ]
 
 [project.urls]
@@ -87,7 +92,7 @@ django-stubs-ext = { workspace = true }
 members = ["ext"]
 
 [build-system]
-requires = ["uv_build>=0.10.0,<0.11.0"]
+requires = ["uv_build>=0.11.0,<0.12.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -148,6 +153,7 @@ ignore = [
 "tests/*.py" = ["INP001", "PGH003", "RUF012"]
 "ext/tests/*.py" = ["INP001"]
 "setup.py" = ["INP001"]
+"tests/assert_type/*.py" = ["B", "UP013"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "_typeshed.Self".msg = "Use typing_extensions.Self (PEP 673) instead. If you type a metaclass, add a noqa"
@@ -156,4 +162,5 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["django_stubs_ext", "mypy_django_plugin"]
+required-imports = ["from __future__ import annotations"]
 split-on-trailing-comma = false

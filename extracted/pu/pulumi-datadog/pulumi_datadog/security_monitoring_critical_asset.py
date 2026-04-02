@@ -26,9 +26,10 @@ class SecurityMonitoringCriticalAssetArgs:
                  tags: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a SecurityMonitoringCriticalAsset resource.
+
         :param pulumi.Input[_builtins.str] query: The query used to match a critical asset and the associated signals. Uses the same syntax as the search bar in the Security Signals Explorer.
         :param pulumi.Input[_builtins.str] rule_query: The rule query to filter which detection rules this critical asset applies to. Uses the same syntax as the search bar for detection rules.
-        :param pulumi.Input[_builtins.str] severity: The severity change applied to signals matching this critical asset. Valid values are `critical`, `high`, `medium`, `low`, `info`, `increase`, `decrease`.
+        :param pulumi.Input[_builtins.str] severity: The severity change applied to signals matching this critical asset. Valid values are `critical`, `high`, `medium`, `low`, `info`, `no-op`, `increase`, `decrease`.
         :param pulumi.Input[_builtins.bool] enabled: Whether the critical asset is enabled. Defaults to `true`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] tags: A list of tags associated with the critical asset.
         """
@@ -68,7 +69,7 @@ class SecurityMonitoringCriticalAssetArgs:
     @pulumi.getter
     def severity(self) -> pulumi.Input[_builtins.str]:
         """
-        The severity change applied to signals matching this critical asset. Valid values are `critical`, `high`, `medium`, `low`, `info`, `increase`, `decrease`.
+        The severity change applied to signals matching this critical asset. Valid values are `critical`, `high`, `medium`, `low`, `info`, `no-op`, `increase`, `decrease`.
         """
         return pulumi.get(self, "severity")
 
@@ -111,10 +112,11 @@ class _SecurityMonitoringCriticalAssetState:
                  tags: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering SecurityMonitoringCriticalAsset resources.
+
         :param pulumi.Input[_builtins.bool] enabled: Whether the critical asset is enabled. Defaults to `true`.
         :param pulumi.Input[_builtins.str] query: The query used to match a critical asset and the associated signals. Uses the same syntax as the search bar in the Security Signals Explorer.
         :param pulumi.Input[_builtins.str] rule_query: The rule query to filter which detection rules this critical asset applies to. Uses the same syntax as the search bar for detection rules.
-        :param pulumi.Input[_builtins.str] severity: The severity change applied to signals matching this critical asset. Valid values are `critical`, `high`, `medium`, `low`, `info`, `increase`, `decrease`.
+        :param pulumi.Input[_builtins.str] severity: The severity change applied to signals matching this critical asset. Valid values are `critical`, `high`, `medium`, `low`, `info`, `no-op`, `increase`, `decrease`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] tags: A list of tags associated with the critical asset.
         """
         if enabled is not None:
@@ -168,7 +170,7 @@ class _SecurityMonitoringCriticalAssetState:
     @pulumi.getter
     def severity(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The severity change applied to signals matching this critical asset. Valid values are `critical`, `high`, `medium`, `low`, `info`, `increase`, `decrease`.
+        The severity change applied to signals matching this critical asset. Valid values are `critical`, `high`, `medium`, `low`, `info`, `no-op`, `increase`, `decrease`.
         """
         return pulumi.get(self, "severity")
 
@@ -229,12 +231,13 @@ class SecurityMonitoringCriticalAsset(pulumi.CustomResource):
         $ pulumi import datadog:index/securityMonitoringCriticalAsset:SecurityMonitoringCriticalAsset my_critical_asset "1dab677c-5eb4-4ac8-b1d3-444bf0117e19"
         ```
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.bool] enabled: Whether the critical asset is enabled. Defaults to `true`.
         :param pulumi.Input[_builtins.str] query: The query used to match a critical asset and the associated signals. Uses the same syntax as the search bar in the Security Signals Explorer.
         :param pulumi.Input[_builtins.str] rule_query: The rule query to filter which detection rules this critical asset applies to. Uses the same syntax as the search bar for detection rules.
-        :param pulumi.Input[_builtins.str] severity: The severity change applied to signals matching this critical asset. Valid values are `critical`, `high`, `medium`, `low`, `info`, `increase`, `decrease`.
+        :param pulumi.Input[_builtins.str] severity: The severity change applied to signals matching this critical asset. Valid values are `critical`, `high`, `medium`, `low`, `info`, `no-op`, `increase`, `decrease`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] tags: A list of tags associated with the critical asset.
         """
         ...
@@ -270,6 +273,7 @@ class SecurityMonitoringCriticalAsset(pulumi.CustomResource):
         ```sh
         $ pulumi import datadog:index/securityMonitoringCriticalAsset:SecurityMonitoringCriticalAsset my_critical_asset "1dab677c-5eb4-4ac8-b1d3-444bf0117e19"
         ```
+
 
         :param str resource_name: The name of the resource.
         :param SecurityMonitoringCriticalAssetArgs args: The arguments to use to populate this resource's properties.
@@ -336,7 +340,7 @@ class SecurityMonitoringCriticalAsset(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] enabled: Whether the critical asset is enabled. Defaults to `true`.
         :param pulumi.Input[_builtins.str] query: The query used to match a critical asset and the associated signals. Uses the same syntax as the search bar in the Security Signals Explorer.
         :param pulumi.Input[_builtins.str] rule_query: The rule query to filter which detection rules this critical asset applies to. Uses the same syntax as the search bar for detection rules.
-        :param pulumi.Input[_builtins.str] severity: The severity change applied to signals matching this critical asset. Valid values are `critical`, `high`, `medium`, `low`, `info`, `increase`, `decrease`.
+        :param pulumi.Input[_builtins.str] severity: The severity change applied to signals matching this critical asset. Valid values are `critical`, `high`, `medium`, `low`, `info`, `no-op`, `increase`, `decrease`.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] tags: A list of tags associated with the critical asset.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
@@ -378,7 +382,7 @@ class SecurityMonitoringCriticalAsset(pulumi.CustomResource):
     @pulumi.getter
     def severity(self) -> pulumi.Output[_builtins.str]:
         """
-        The severity change applied to signals matching this critical asset. Valid values are `critical`, `high`, `medium`, `low`, `info`, `increase`, `decrease`.
+        The severity change applied to signals matching this critical asset. Valid values are `critical`, `high`, `medium`, `low`, `info`, `no-op`, `increase`, `decrease`.
         """
         return pulumi.get(self, "severity")
 

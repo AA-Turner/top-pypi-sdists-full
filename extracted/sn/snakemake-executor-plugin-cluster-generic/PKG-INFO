@@ -1,0 +1,23 @@
+Metadata-Version: 2.1
+Name: snakemake-executor-plugin-cluster-generic
+Version: 1.0.9
+Summary: 
+Home-page: https://github.com/snakemake/snakemake-executor-plugin-cluster-generic
+License: MIT
+Keywords: snakemake,plugin,executor,cluster
+Author: Johannes Koester
+Author-email: johannes.koester@uni-due.de
+Requires-Python: >=3.11,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: snakemake-interface-common (>=1.13.0,<2.0.0)
+Requires-Dist: snakemake-interface-executor-plugins (>=9.0.0,<10.0.0)
+Project-URL: Documentation, https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/cluster-generic.html
+Project-URL: Repository, https://github.com/snakemake/snakemake-executor-plugin-cluster-generic
+Description-Content-Type: text/markdown
+
+# snakemake-executor-plugin-cluster-generic
+
+A generic Snakemake executor plugin for submission of jobs to cluster systems that provide a submission command that accepts the path to a job script (like PBS, LSF, SGE, ...).

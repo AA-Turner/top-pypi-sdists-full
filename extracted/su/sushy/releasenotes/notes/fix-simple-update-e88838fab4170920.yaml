@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Fixes bug in ``UpdateService.simple_update`` method making it operational.

@@ -32,6 +32,7 @@ class AutomationArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a Automation resource.
+
         :param pulumi.Input[Sequence[pulumi.Input['AutomationActionArgs']]] actions: One or more `action` blocks as defined below. An `action` tells this automation where the data is to be sent to upon being evaluated by the rules in the `source`.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the Resource Group where the Security Center Automation should exist. Changing this forces a new Security Center Automation to be created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] scopes: A list of scopes on which the automation logic is applied, at least one is required. Supported scopes are a subscription (in this format `/subscriptions/00000000-0000-0000-0000-000000000000`) or a resource group under that subscription (in the format `/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example`). The automation will only apply on defined scopes.
@@ -184,6 +185,7 @@ class _AutomationState:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering Automation resources.
+
         :param pulumi.Input[Sequence[pulumi.Input['AutomationActionArgs']]] actions: One or more `action` blocks as defined below. An `action` tells this automation where the data is to be sent to upon being evaluated by the rules in the `source`.
         :param pulumi.Input[_builtins.str] description: Specifies the description for the Security Center Automation.
         :param pulumi.Input[_builtins.bool] enabled: Boolean to enable or disable this Security Center Automation. Defaults to `true`.
@@ -363,8 +365,7 @@ class Automation(pulumi.CustomResource):
             capacity=2)
         example_event_hub = azure.eventhub.EventHub("example",
             name="acceptanceTestEventHub",
-            namespace_name=example_event_hub_namespace.name,
-            resource_group_name=example.name,
+            namespace_id=example_event_hub_namespace.id,
             partition_count=2,
             message_retention=2)
         example_authorization_rule = azure.eventhub.AuthorizationRule("example",
@@ -412,6 +413,7 @@ class Automation(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:securitycenter/automation:Automation example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mygroup1/providers/Microsoft.Security/automations/automation1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -454,8 +456,7 @@ class Automation(pulumi.CustomResource):
             capacity=2)
         example_event_hub = azure.eventhub.EventHub("example",
             name="acceptanceTestEventHub",
-            namespace_name=example_event_hub_namespace.name,
-            resource_group_name=example.name,
+            namespace_id=example_event_hub_namespace.id,
             partition_count=2,
             message_retention=2)
         example_authorization_rule = azure.eventhub.AuthorizationRule("example",
@@ -503,6 +504,7 @@ class Automation(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:securitycenter/automation:Automation example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mygroup1/providers/Microsoft.Security/automations/automation1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param AutomationArgs args: The arguments to use to populate this resource's properties.

@@ -1,5 +1,0 @@
-name: multi_step
-args:
-  milestones:
-    - 30
-    - 80

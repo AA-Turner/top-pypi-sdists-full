@@ -2,13 +2,94 @@
 
 from __future__ import annotations
 
+import json
 import shutil
+import socket
+from contextlib import asynccontextmanager
 from pathlib import Path
 
+from pydantic import BaseModel, Field
+
 from plato.agents import ParallelAgentOrchestrator
-from plato.agents.runtime.transport import GitTransport
+from plato.tools import ToolDefinition, get_request_context
+from plato.tools.server import ToolServer
+from plato.transports import GitTransport
 from plato.utils.subprocess import run_local
 from plato.worlds import AgentConfig
+
+
+class RecordAgentContextInput(BaseModel):
+    instruction: str = Field(description="Instruction the agent is currently executing.")
+
+
+class AgentContextToolServer(ToolServer):
+    def build_tools(self) -> list[ToolDefinition]:
+        return [
+            ToolDefinition(
+                name="record_agent_context",
+                description="Return the current Plato MCP caller context for this request.",
+                input_model=RecordAgentContextInput,
+                handler=self._record_agent_context,
+            )
+        ]
+
+    def _record_agent_context(self, inp: RecordAgentContextInput) -> dict:
+        request_context = get_request_context()
+        assert request_context is not None, "Expected a Plato request context for MCP tool calls"
+        return {
+            "client_id": request_context.client_id,
+            "display_name": request_context.display_name,
+            "instruction": request_context.instruction,
+            "attempt": request_context.attempt,
+            "session_id": request_context.session_id,
+            "image": request_context.image,
+            "tool_instruction": inp.instruction,
+        }
+
+
+@asynccontextmanager
+async def _tool_server() -> AgentContextToolServer:
+    server = AgentContextToolServer(
+        name="parallel-agents-context-tools",
+        port=_reserve_local_port(),
+    )
+    await server.start()
+    try:
+        yield server
+    finally:
+        await server.close()
+
+
+def _reserve_local_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+def _mcp_probe_agent_config(world, *, mcp_url: str) -> AgentConfig:
+    base = world.config.agent
+    return AgentConfig(
+        package=base.package,
+        image=base.image,
+        runtime=base.runtime,
+        config={
+            **base.config,
+            "mode": "mcp_identity_probe",
+            "workspace_dir": world.workspace("code").mount_path,
+            "mcp_server_url": mcp_url,
+            "mcp_probe_tool_name": "record_agent_context",
+            "mcp_probe_output_dir": "mcp-identities",
+        },
+    )
+
+
+def _load_identity_payloads(world) -> dict[str, dict]:
+    identities_dir = Path(world.workspace("code").path) / "mcp-identities"
+    payloads: dict[str, dict] = {}
+    for path in sorted(identities_dir.glob("*.json")):
+        payload = json.loads(path.read_text())
+        payloads[path.stem] = payload
+    return payloads
 
 
 def _task_agent_config(world, *, shared_mode: str) -> AgentConfig:
@@ -69,6 +150,37 @@ def _warm_pool_agent_config(world) -> AgentConfig:
 
 async def setup_module(world) -> None:
     await _reset_workspace(world, shared_content="base\n")
+
+
+async def test_multiple_agents_identify_their_client_ids(world) -> None:
+    await _reset_workspace(world, shared_content="base\n")
+    async with _tool_server() as server:
+        mcp_url = f"http://runtime.plato.internal:{server.port}/mcp"
+        agent_config = _mcp_probe_agent_config(world, mcp_url=mcp_url)
+
+        expected: dict[str, tuple[str, str]] = {}
+        agent_ids: list[str] = []
+        for idx in range(3):
+            instruction = f"Probe direct agent {idx}"
+            display_name = f"direct-probe-{idx}"
+            agent_id = await world.agent(
+                agent_config,
+                display_name=display_name,
+                workspaces=[world.workspace("code")],
+            ).run(instruction)
+            agent_ids.append(agent_id)
+            expected[agent_id] = (instruction, display_name)
+
+    payloads = _load_identity_payloads(world)
+    assert set(payloads) == set(agent_ids)
+
+    for agent_id, payload in payloads.items():
+        instruction, display_name = expected[agent_id]
+        assert payload["client_id"] == agent_id
+        assert payload["display_name"] == display_name
+        assert payload["instruction"] == instruction
+        assert payload["tool_instruction"] == instruction
+        assert payload["attempt"] == 1
 
 
 async def test_parallel_non_conflicting_agents(world) -> None:
@@ -152,6 +264,46 @@ async def test_parallel_agents_with_warm_pool_reuse_vms(world) -> None:
     assert len(probe_files) == 6, f"Expected 6 probe files, got {len(probe_files)}"
 
 
+async def test_parallel_orchestrator_preserves_mcp_client_ids(world) -> None:
+    await _reset_workspace(world, shared_content="base\n")
+    code_ws = world.workspace("code")
+
+    async with _tool_server() as server:
+        orchestrator = ParallelAgentOrchestrator(
+            world,
+            code_ws,
+            _mcp_probe_agent_config(world, mcp_url=f"http://runtime.plato.internal:{server.port}/mcp"),
+            max_parallel=3,
+        )
+
+        expected: dict[str, tuple[str, str]] = {}
+        for idx in range(3):
+            task_name = f"context-task-{idx}"
+            instruction = f"Probe orchestrator task {idx}"
+            display_name = f"context-display-{idx}"
+            expected[task_name] = (instruction, display_name)
+            await orchestrator.submit(task_name, instruction, display_name=display_name)
+
+        results = await orchestrator.run_all()
+
+    assert all(result.status == "success" for result in results), results
+    assert all(result.merged for result in results), results
+
+    payloads = _load_identity_payloads(world)
+    result_ids = {result.agent_id for result in results if result.agent_id}
+    assert set(payloads) == result_ids
+
+    for result in results:
+        assert result.agent_id is not None
+        payload = payloads[result.agent_id]
+        instruction, display_name = expected[result.name]
+        assert payload["client_id"] == result.agent_id
+        assert payload["display_name"] == display_name
+        assert payload["instruction"] == instruction
+        assert payload["tool_instruction"] == instruction
+        assert payload["attempt"] == 1
+
+
 async def test_pinned_base_checkout_ignores_integrated_main_advance(world) -> None:
     await _reset_workspace(world, shared_content="base\n")
     code_ws = world.workspace("code")
@@ -223,6 +375,9 @@ async def _reset_workspace(world, *, shared_content: str) -> None:
     for path in code_path.glob("git-agent-*"):
         if path.is_dir():
             shutil.rmtree(path)
+    identities_dir = code_path / "mcp-identities"
+    if identities_dir.is_dir():
+        shutil.rmtree(identities_dir)
 
     (code_path / "shared.txt").write_text(shared_content)
     transport = code_ws.transport

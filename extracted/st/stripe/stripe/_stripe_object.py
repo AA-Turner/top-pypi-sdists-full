@@ -1,17 +1,18 @@
 # pyright: strict
-import datetime
 import json
 from copy import deepcopy
 from typing_extensions import TYPE_CHECKING, Type, Literal, Self, deprecated
 from typing import (
     Any,
     Dict,
+    Generic,
     List,
     Optional,
     Mapping,
     Set,
     Tuple,
     ClassVar,
+    TypeVar,
     Union,
     cast,
     overload,
@@ -26,8 +27,11 @@ from stripe._stripe_response import (
     StripeStreamResponse,
     StripeStreamResponseAsync,
 )
-from stripe._encode import _encode_datetime  # pyright: ignore
-from stripe._encode import _coerce_int64_string, _coerce_decimal_string  # pyright: ignore
+from stripe._encode import (
+    _coerce_int64_string,  # pyright: ignore[reportPrivateUsage]
+    _coerce_decimal_string,  # pyright: ignore[reportPrivateUsage]
+    _make_suitable_for_json,  # pyright: ignore[reportPrivateUsage]
+)
 from stripe._request_options import (
     PERSISTENT_OPTIONS_KEYS,
     extract_options_from_dict,
@@ -82,12 +86,6 @@ def _serialize_list(
 
 
 class StripeObject:
-    class _ReprJSONEncoder(json.JSONEncoder):
-        def default(self, o: Any) -> Any:
-            if isinstance(o, datetime.datetime):
-                return _encode_datetime(o)
-            return super(StripeObject._ReprJSONEncoder, self).default(o)
-
     _retrieve_params: Mapping[str, Any]
     _previous: Optional[Mapping[str, Any]]
 
@@ -528,20 +526,23 @@ class StripeObject:
             self._to_dict_recursive(),
             sort_keys=True,
             indent=2,
-            cls=self._ReprJSONEncoder,
+            default=_make_suitable_for_json,
         )
 
-    def to_dict(self, recursive: bool = True) -> Dict[str, Any]:
+    def to_dict(
+        self, recursive: bool = True, for_json: bool = False
+    ) -> Dict[str, Any]:
         """
-        Dump the object's backing data. Recurses by default, but you can opt-out of that behavior by passing `recursive=False`
+        Dump the object's backing data. Recurses by default, but you can opt-out of that behavior by passing `recursive=False`.
+        Pass `for_json=True` to convert non-JSON-serializable values (e.g. Decimal -> str)
         """
         if recursive:
-            return self._to_dict_recursive()
+            return self._to_dict_recursive(for_json=for_json)
 
         # shallow copy, so nested objects will be shared
         return self._data.copy()
 
-    def _to_dict_recursive(self) -> Dict[str, Any]:
+    def _to_dict_recursive(self, for_json: bool = False) -> Dict[str, Any]:
         """
         used by __str__ to serialize the whole object
         """
@@ -552,7 +553,9 @@ class StripeObject:
             if value is None:
                 return None
             elif isinstance(value, StripeObject):
-                return value._to_dict_recursive()
+                return value._to_dict_recursive(for_json=for_json)
+            elif for_json:
+                return _make_suitable_for_json(value)
             else:
                 return value
 
@@ -643,12 +646,14 @@ class StripeObject:
 
     def _coerce_field_value(self, field_name: str, value: Any) -> Any:
         """
-        Apply field encoding coercion based on _field_encodings metadata.
+        Convert JSON types to more applicable Python types, if able.
 
-        For int64_string fields, converts string values from the API response
-        to native Python ints. For decimal_string fields, converts string
-        values to decimal.Decimal.
+        For example, "int64_string"s become `int`s.
         """
+
+        # WARNING: if you edit this function to produce a type that's not json-serializable, you need to update `_make_suitable_for_json` as well.
+        # By default, Python will only correctly dump a few standard types, so we have to handle the rest
+
         encoding = self._field_encodings.get(field_name)
         if encoding is None or value is None:
             return value
@@ -660,3 +665,26 @@ class StripeObject:
             return _coerce_decimal_string(value, encode=False)
 
         return value
+
+
+T = TypeVar("T")
+
+
+class UntypedStripeObject(StripeObject, Generic[T]):
+    """
+    A normal StripeObject, but it exposes `__getattr__`/`__setattr__` instead of hiding them, effectively removing type information.
+
+    Because metadata & similar are supposed to be an untyped `dict`, we don't want to show type errors for arbitrary key access.
+
+    Is generic on its value type
+    """
+
+    def __init__(*args, **kwargs: Any):
+        raise ValueError("this is not for runtime use, just typing")
+
+    # This class is never actually used at runtime, it's just here for typechecking reasons
+    def __setattr__(self, k: str, v: T): ...
+
+    def __getattr__(self, k: str) -> T: ...
+
+    def __delattr__(self, k: str): ...

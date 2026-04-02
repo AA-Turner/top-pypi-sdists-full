@@ -1,11 +1,9 @@
 import itertools
-import math
-import os
 
 import networkx as nx
 import numpy as np
 import pandas as pd
-from joblib import Parallel, delayed
+from opt_einsum import contract
 
 from pgmpy.inference import Inference
 from pgmpy.utils import _check_1d_array_object, _check_length_equal, compat_fns
@@ -25,10 +23,8 @@ class BayesianModelInference(Inference):
         from pgmpy.models import DiscreteBayesianNetwork
 
         if not isinstance(model, DiscreteBayesianNetwork):
-            raise TypeError(
-                f"Model expected type: DiscreteBayesianNetwork, got type: {type(model)}"
-            )
-        super(BayesianModelInference, self).__init__(model)
+            raise TypeError(f"Model expected type: DiscreteBayesianNetwork, got type: {type(model)}")
+        super().__init__(model)
         self._initialize_structures()
 
         self.topological_order = list(nx.topological_sort(model))
@@ -54,13 +50,9 @@ class BayesianModelInference(Inference):
         variable_evid = variable_cpd.variables[:0:-1]
         cached_values = {}
 
-        for state_combination in itertools.product(
-            *[range(self.cardinality[var]) for var in variable_evid]
-        ):
+        for state_combination in itertools.product(*[range(self.cardinality[var]) for var in variable_evid]):
             states = list(zip(variable_evid, state_combination))
-            cached_values[state_combination] = variable_cpd.reduce(
-                states, inplace=False, show_warnings=False
-            ).values
+            cached_values[state_combination] = variable_cpd.reduce(states, inplace=False, show_warnings=False).values
 
         return cached_values
 
@@ -92,7 +84,7 @@ class BayesianModelInference(Inference):
             slice_[index] = sc[i]
 
         reduced_values = variable_cpd.values[tuple(slice_)]
-        marg_values = compat_fns.einsum(reduced_values, range(reduced_values.ndim), [0])
+        marg_values = contract(reduced_values, range(reduced_values.ndim), [0])
         return marg_values / marg_values.sum()
 
     def pre_compute_reduce_maps(self, variable, evidence=None, state_combinations=None):
@@ -121,31 +113,19 @@ class BayesianModelInference(Inference):
         """
         variable_cpd = self.model.get_cpds(variable)
         if evidence is None:
-            evidence = [
-                var
-                for var in variable_cpd.variables[1:]
-                if var not in self.model.latents
-            ]
+            evidence = [var for var in variable_cpd.variables[1:] if var not in self.model.latents]
 
         if state_combinations is None:
             state_combinations = [
-                tuple(sc)
-                for sc in itertools.product(
-                    *[range(self.cardinality[var]) for var in evidence]
-                )
+                tuple(sc) for sc in itertools.product(*[range(self.cardinality[var]) for var in evidence])
             ]
 
         reduce_index = [variable_cpd.variables.index(var) for var in evidence]
 
         weights_list = compat_fns.stack(
-            [
-                BayesianModelInference._reduce_marg(variable_cpd, reduce_index, sc)
-                for sc in state_combinations
-            ]
+            [BayesianModelInference._reduce_marg(variable_cpd, reduce_index, sc) for sc in state_combinations]
         )
-        unique_weights, weights_indices = compat_fns.unique(
-            weights_list, axis=0, return_inverse=True
-        )
+        unique_weights, weights_indices = compat_fns.unique(weights_list, axis=0, return_inverse=True)
 
         # convert weights to index; make mapping of state to index
         state_to_index = dict(zip(state_combinations, weights_indices))
@@ -157,7 +137,7 @@ class BayesianModelInference(Inference):
         return state_to_index, index_to_weight
 
 
-class BaseGradLogPDF(object):
+class BaseGradLogPDF:
     """
     Base class for evaluating gradient log of probability density function/ distribution
 
@@ -182,14 +162,16 @@ class BaseGradLogPDF(object):
     ...     def __init__(self, position, model):
     ...         BaseGradLogPDF.__init__(self, position, model)
     ...         self.grad_log, self.log_pdf = self._get_gradient_log_pdf()
+    ...
     ...     def _get_gradient_log_pdf(self):
     ...         sub_vec = self.position - self.model.mean.flatten()
-    ...         grad = - np.dot(self.model.precision_matrix, sub_vec)
+    ...         grad = -np.dot(self.model.precision_matrix, sub_vec)
     ...         log_pdf = 0.5 * float(np.dot(sub_vec, grad))
     ...         return grad, log_pdf
+    ...
     >>> mean = np.array([1, 1])
     >>> covariance = np.array([[1, 0.2], [0.2, 7]])
-    >>> model = GaussianDistribution(['x', 'y'], mean, covariance)
+    >>> model = GaussianDistribution(["x", "y"], mean, covariance)
     >>> dist_param = np.array([0.1, 0.9])
     >>> grad_logp, logp = GradLogGaussian(dist_param, model).get_gradient_log_pdf()
     >>> logp
@@ -199,9 +181,7 @@ class BaseGradLogPDF(object):
     """
 
     def __init__(self, variable_assignments, model):
-        self.variable_assignments = _check_1d_array_object(
-            variable_assignments, "variable_assignments"
-        )
+        self.variable_assignments = _check_1d_array_object(variable_assignments, "variable_assignments")
         _check_length_equal(
             variable_assignments,
             model.variables,
@@ -237,9 +217,11 @@ class BaseGradLogPDF(object):
         >>> import numpy as np
         >>> mean = np.array([1, 1])
         >>> covariance = np.array([[1, -5], [-5, 2]])
-        >>> model = GaussianDistribution(['x', 'y'], mean, covariance)
+        >>> model = GaussianDistribution(["x", "y"], mean, covariance)
         >>> dist_param = np.array([0.6, 0.8])
-        >>> grad_logp, logp = GradLogPDFGaussian(dist_param, model).get_gradient_log_pdf()
+        >>> grad_logp, logp = GradLogPDFGaussian(
+        ...     dist_param, model
+        ... ).get_gradient_log_pdf()
         >>> logp
         0.025217391304347823
         >>> grad_logp
@@ -268,7 +250,7 @@ class GradLogPDFGaussian(BaseGradLogPDF):
     >>> import numpy as np
     >>> mean = np.array([3, 4])
     >>> covariance = np.array([[5, 4], [4, 5]])
-    >>> model = GaussianDistribution(['x', 'y'], mean, covariance)
+    >>> model = GaussianDistribution(["x", "y"], mean, covariance)
     >>> dist_param = np.array([12, 21])
     >>> grad_logp, logp = GradLogPDFGaussian(dist_param, model).get_gradient_log_pdf()
     >>> logp
@@ -292,7 +274,7 @@ class GradLogPDFGaussian(BaseGradLogPDF):
         return grad, log_pdf
 
 
-class BaseSimulateHamiltonianDynamics(object):
+class BaseSimulateHamiltonianDynamics:
     """
     Base class for proposing new values of position and momentum by simulating Hamiltonian Dynamics.
 
@@ -329,22 +311,44 @@ class BaseSimulateHamiltonianDynamics(object):
     >>> # Class should initialize self.new_position, self.new_momentum and self.new_grad_logp
     >>> # self.new_grad_logp represents gradient log at new proposed value of position
     >>> class ModifiedEuler(BaseSimulateHamiltonianDynamics):
-    ...     def __init__(self, model, position, momentum, stepsize, grad_log_pdf, grad_log_position=None):
-    ...         BaseSimulateHamiltonianDynamics.__init__(self, model, position, momentum,
-    ...                                                  stepsize, grad_log_pdf, grad_log_position)
-    ...         self.new_position, self.new_momentum, self.new_grad_logp = self._get_proposed_values()
+    ...     def __init__(
+    ...         self,
+    ...         model,
+    ...         position,
+    ...         momentum,
+    ...         stepsize,
+    ...         grad_log_pdf,
+    ...         grad_log_position=None,
+    ...     ):
+    ...         BaseSimulateHamiltonianDynamics.__init__(
+    ...             self,
+    ...             model,
+    ...             position,
+    ...             momentum,
+    ...             stepsize,
+    ...             grad_log_pdf,
+    ...             grad_log_position,
+    ...         )
+    ...         self.new_position, self.new_momentum, self.new_grad_logp = (
+    ...             self._get_proposed_values()
+    ...         )
+    ...
     ...     def _get_proposed_values(self):
     ...         momentum_bar = self.momentum + self.stepsize * self.grad_log_position
     ...         position_bar = self.position + self.stepsize * momentum_bar
-    ...         grad_log_position, _ = self.grad_log_pdf(position_bar, self.model).get_gradient_log_pdf()
+    ...         grad_log_position, _ = self.grad_log_pdf(
+    ...             position_bar, self.model
+    ...         ).get_gradient_log_pdf()
     ...         return position_bar, momentum_bar, grad_log_position
+    ...
     >>> pos = np.array([1, 2])
     >>> momentum = np.array([0, 0])
     >>> mean = np.array([0, 0])
     >>> covariance = np.eye(2)
-    >>> model = GaussianDistribution(['x', 'y'], mean, covariance)
-    >>> new_pos, new_momentum, new_grad = ModifiedEuler(model, pos, momentum,
-    ...                                                 0.25, GradLogPDFGaussian).get_proposed_values()
+    >>> model = GaussianDistribution(["x", "y"], mean, covariance)
+    >>> new_pos, new_momentum, new_grad = ModifiedEuler(
+    ...     model, pos, momentum, 0.25, GradLogPDFGaussian
+    ... ).get_proposed_values()
     >>> new_pos
     array([0.9375, 1.875])
     >>> new_momentum
@@ -353,18 +357,13 @@ class BaseSimulateHamiltonianDynamics(object):
     array([-0.9375, -1.875])
     """
 
-    def __init__(
-        self, model, position, momentum, stepsize, grad_log_pdf, grad_log_position=None
-    ):
+    def __init__(self, model, position, momentum, stepsize, grad_log_pdf, grad_log_position=None):
         position = _check_1d_array_object(position, "position")
 
         momentum = _check_1d_array_object(momentum, "momentum")
 
         if not issubclass(grad_log_pdf, BaseGradLogPDF):
-            raise TypeError(
-                "grad_log_pdf must be an instance"
-                + " of pgmpy.inference.continuous.base.BaseGradLogPDF"
-            )
+            raise TypeError("grad_log_pdf must be an instance" + " of pgmpy.inference.continuous.base.BaseGradLogPDF")
 
         _check_length_equal(position, momentum, "position", "momentum")
         _check_length_equal(position, model.variables, "position", "model.variables")
@@ -373,12 +372,8 @@ class BaseSimulateHamiltonianDynamics(object):
             grad_log_position, _ = grad_log_pdf(position, model).get_gradient_log_pdf()
 
         else:
-            grad_log_position = _check_1d_array_object(
-                grad_log_position, "grad_log_position"
-            )
-            _check_length_equal(
-                grad_log_position, position, "grad_log_position", "position"
-            )
+            grad_log_position = _check_1d_array_object(grad_log_position, "grad_log_position")
+            _check_length_equal(grad_log_position, position, "grad_log_position", "position")
 
         self.position = position
         self.momentum = momentum
@@ -408,15 +403,20 @@ class BaseSimulateHamiltonianDynamics(object):
         Example
         -------
         >>> # Using implementation of ModifiedEuler
-        >>> from pgmpy.inference.continuous import ModifiedEuler, GradLogPDFGaussian as GLPG
+        >>> from pgmpy.inference.continuous import (
+        ...     ModifiedEuler,
+        ...     GradLogPDFGaussian as GLPG,
+        ... )
         >>> from pgmpy.factors import GaussianDistribution
         >>> import numpy as np
         >>> pos = np.array([3, 4])
         >>> momentum = np.array([1, 1])
         >>> mean = np.array([-1, 1])
-        >>> covariance = 3*np.eye(2)
-        >>> model = GaussianDistribution(['x', 'y'], mean, covariance)
-        >>> new_pos, new_momentum, new_grad = ModifiedEuler(model, pos, momentum, 0.70, GLPG).get_proposed_values()
+        >>> covariance = 3 * np.eye(2)
+        >>> model = GaussianDistribution(["x", "y"], mean, covariance)
+        >>> new_pos, new_momentum, new_grad = ModifiedEuler(
+        ...     model, pos, momentum, 0.70, GLPG
+        ... ).get_proposed_values()
         >>> new_pos
         array([ 3.04666667,  4.21      ])
         >>> new_momentum
@@ -463,8 +463,10 @@ class LeapFrog(BaseSimulateHamiltonianDynamics):
     >>> momentum = np.array([7, 7])
     >>> mean = np.array([-5, 5])
     >>> covariance = np.array([[1, 2], [2, 1]])
-    >>> model = GaussianDistribution(['x', 'y'], mean, covariance)
-    >>> new_pos, new_momentum, new_grad = LeapFrog(model, pos, momentum, 4.0, GLPG).get_proposed_values()
+    >>> model = GaussianDistribution(["x", "y"], mean, covariance)
+    >>> new_pos, new_momentum, new_grad = LeapFrog(
+    ...     model, pos, momentum, 4.0, GLPG
+    ... ).get_proposed_values()
     >>> new_pos
     array([ 70., -19.])
     >>> new_momentum
@@ -473,9 +475,7 @@ class LeapFrog(BaseSimulateHamiltonianDynamics):
     array([ 41., -58.])
     """
 
-    def __init__(
-        self, model, position, momentum, stepsize, grad_log_pdf, grad_log_position=None
-    ):
+    def __init__(self, model, position, momentum, stepsize, grad_log_pdf, grad_log_position=None):
         BaseSimulateHamiltonianDynamics.__init__(
             self, model, position, momentum, stepsize, grad_log_pdf, grad_log_position
         )
@@ -540,9 +540,10 @@ class ModifiedEuler(BaseSimulateHamiltonianDynamics):
     >>> momentum = np.array([1, 1])
     >>> mean = np.array([0, 0])
     >>> covariance = np.eye(2)
-    >>> model = GaussianDistribution(['x', 'y'], mean, covariance)
-    >>> new_pos, new_momentum, new_grad = ModifiedEuler(model, pos, momentum,
-    ...                                                 0.25, GradLogPDFGaussian).get_proposed_values()
+    >>> model = GaussianDistribution(["x", "y"], mean, covariance)
+    >>> new_pos, new_momentum, new_grad = ModifiedEuler(
+    ...     model, pos, momentum, 0.25, GradLogPDFGaussian
+    ... ).get_proposed_values()
     >>> new_pos
     array([2.125, 1.1875])
     >>> new_momentum
@@ -551,9 +552,7 @@ class ModifiedEuler(BaseSimulateHamiltonianDynamics):
     array([-2.125, -1.1875])
     """
 
-    def __init__(
-        self, model, position, momentum, stepsize, grad_log_pdf, grad_log_position=None
-    ):
+    def __init__(self, model, position, momentum, stepsize, grad_log_pdf, grad_log_position=None):
         BaseSimulateHamiltonianDynamics.__init__(
             self, model, position, momentum, stepsize, grad_log_pdf, grad_log_position
         )

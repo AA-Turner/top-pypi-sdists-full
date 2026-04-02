@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Fixed lack of pagination for the networks page under Project and
-    Admin Dashboard.

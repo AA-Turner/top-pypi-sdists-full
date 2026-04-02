@@ -1,0 +1,52 @@
+[project]
+name = "snakemake-storage-plugin-xrootd"
+dynamic = ["version"]
+requires-python = ">= 3.11"
+description = "A Snakemake storage plugin for XRootD storage"
+authors = [
+    {name = "Chris Burr", email = "christopher.burr@cern.ch"},
+    {name = "Johannes Koester", email = "johannes.koester@uni-due.de"},
+    {name = "Matthew Monk", email = "matthew.david.monk@cern.ch"}
+]
+readme = "README.md"
+dependencies = [
+  "snakemake-interface-common >=1.15.0,<2",
+  "snakemake-interface-storage-plugins >=4.1.0,<5",
+  "xrootd >=5.6,<6",
+]
+
+[project.urls]
+"Source code" = "https://github.com/snakemake/snakemake-storage-plugin-xrootd"
+Documentation = "https://snakemake.github.io/snakemake-plugin-catalog/plugins/storage/xrootd.html"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+test = ["pytest", "coverage"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.pixi.project]
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64", "osx-arm64", "osx-64"]
+
+[tool.pixi.dependencies]
+xrootd = ">=5.7.3,<6"
+
+[tool.pixi.pypi-dependencies]
+snakemake-storage-plugin-xrootd = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+test = { features = ["test"], solve-group = "default" }
+
+[tool.pixi.feature.test.tasks]
+test = "pytest -vv tests/tests.py"
+test-coverage = "coverage run -m pytest -vv tests/tests.py"
+coverage-report = "coverage report"
+
+[tool.pixi.feature.test.pypi-dependencies]
+snakemake = ">=9.1.0,<10"

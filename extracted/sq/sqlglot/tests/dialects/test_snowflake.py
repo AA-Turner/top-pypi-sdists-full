@@ -3939,7 +3939,7 @@ class TestSnowflake(Validator):
                 "mysql": "TRUNCATE(3.14159, 2)",
                 "tsql": "ROUND(3.14159, 2, 1)",
                 "bigquery": "TRUNC(3.14159, 2)",
-                "duckdb": "TRUNC(3.14159)",
+                "duckdb": "TRUNC(3.14159, 2)",
                 "presto": "TRUNCATE(3.14159, 2)",
                 "clickhouse": "trunc(3.14159, 2)",
                 "spark": "CAST(3.14159 AS BIGINT)",
@@ -3968,6 +3968,21 @@ class TestSnowflake(Validator):
             },
             write={
                 "snowflake": "TRUNC(price, 2)",
+            },
+        )
+
+        self.validate_all(
+            "TRUNC(4.603, 2)",
+            write={
+                "snowflake": "TRUNC(4.603, 2)",
+                "duckdb": "TRUNC(4.603, 2)",
+            },
+        )
+        self.validate_all(
+            "TRUNC(CAST(4.603 AS DECIMAL(38, 0)), CAST(2 AS DECIMAL(38, 0)))",
+            write={
+                "snowflake": "TRUNC(CAST(4.603 AS DECIMAL(38, 0)), CAST(2 AS DECIMAL(38, 0)))",
+                "duckdb": "TRUNC(CAST(4.603 AS DECIMAL(38, 0)), CAST(CAST(2 AS DECIMAL(38, 0)) AS INT))",
             },
         )
 
@@ -5401,6 +5416,15 @@ STORAGE_ALLOWED_LOCATIONS=('s3://mybucket1/path1/', 's3://mybucket2/path2/')""",
                 self.assertEqual(
                     expression.sql(dialect="snowflake"), f"SELECT {func}(t.x AS VARCHAR) FROM t"
                 )
+
+    def test_try_parse_json(self):
+        self.validate_all(
+            "SELECT TRY_PARSE_JSON(x)",
+            write={
+                "snowflake": "SELECT TRY_PARSE_JSON(x)",
+                "duckdb": "SELECT CASE WHEN JSON_VALID(x) THEN CAST(x AS JSON) ELSE NULL END",
+            },
+        )
 
     def test_decfloat(self):
         self.validate_all(

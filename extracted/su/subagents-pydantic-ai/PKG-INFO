@@ -1,0 +1,385 @@
+Metadata-Version: 2.4
+Name: subagents-pydantic-ai
+Version: 0.2.1
+Summary: Subagent toolset for pydantic-ai with dual-mode execution and dynamic agent creation
+Project-URL: Homepage, https://github.com/vstorm-co/subagents-pydantic-ai
+Project-URL: Documentation, https://github.com/vstorm-co/subagents-pydantic-ai#readme
+Project-URL: Repository, https://github.com/vstorm-co/subagents-pydantic-ai
+Project-URL: Issues, https://github.com/vstorm-co/subagents-pydantic-ai/issues
+Project-URL: Changelog, https://github.com/vstorm-co/subagents-pydantic-ai/releases
+Author-email: Vstorm <hr@vstorm.co>
+License: MIT License
+        
+        Copyright (c) 2026 Vstorm
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Keywords: agents,ai,multi-agent,pydantic,pydantic-ai,subagents,task-delegation,toolset
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: pydantic-ai-slim>=1.74.0
+Requires-Dist: pydantic>=2.0
+Description-Content-Type: text/markdown
+
+<h1 align="center">Subagents for Pydantic AI</h1>
+
+<p align="center">
+  <em>Multi-Agent Orchestration for Pydantic AI</em>
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/subagents-pydantic-ai/"><img src="https://img.shields.io/pypi/v/subagents-pydantic-ai.svg" alt="PyPI version"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://coveralls.io/github/vstorm-co/subagents-pydantic-ai?branch=main"><img src="https://coveralls.io/repos/github/vstorm-co/subagents-pydantic-ai/badge.svg?branch=main" alt="Coverage Status"></a>
+  <a href="https://github.com/pydantic/pydantic-ai"><img src="https://img.shields.io/badge/Powered%20by-Pydantic%20AI-E92063?logo=pydantic&logoColor=white" alt="Pydantic AI"></a>
+  <a href="https://oss.vstorm.co/"><img src="https://img.shields.io/badge/OSS-vstorm.co-0066FF" alt="Vstorm OSS"></a>
+</p>
+
+<p align="center">
+  <b>Nested Subagents</b> — subagents spawn their own subagents
+  &nbsp;&bull;&nbsp;
+  <b>Runtime Agent Creation</b> — create specialists on-the-fly
+  &nbsp;&bull;&nbsp;
+  <b>Auto-Mode Selection</b> — intelligent sync/async decision
+</p>
+
+---
+
+**Subagents for Pydantic AI** adds multi-agent delegation to any [Pydantic AI](https://ai.pydantic.dev/) agent. Spawn specialized subagents that run **synchronously** (blocking), **asynchronously** (background), or let the system **auto-select** the best mode.
+
+> **Full framework?** Check out [Pydantic Deep Agents](https://github.com/vstorm-co/pydantic-deepagents) - complete agent framework with planning, filesystem, subagents, and skills.
+
+## Use Cases
+
+| What You Want to Build | How Subagents Help |
+|------------------------|-------------------|
+| **Research Assistant** | Delegate research to specialists, synthesize with a writer agent |
+| **Code Review System** | Security agent, style agent, and performance agent work in parallel |
+| **Content Pipeline** | Researcher → Analyst → Writer chain with handoffs |
+| **Data Processing** | Spawn workers dynamically based on data volume |
+| **Customer Support** | Route to specialized agents (billing, technical, sales) |
+| **Document Analysis** | Extract, summarize, and categorize with focused agents |
+
+## Installation
+
+```bash
+pip install subagents-pydantic-ai
+```
+
+Or with uv:
+
+```bash
+uv add subagents-pydantic-ai
+```
+
+## Quick Start
+
+The recommended way to add subagent delegation is via the **Capabilities API**:
+
+```python
+from pydantic_ai import Agent
+from subagents_pydantic_ai import SubAgentCapability, SubAgentConfig
+
+agent = Agent(
+    "openai:gpt-4.1",
+    capabilities=[SubAgentCapability(
+        subagents=[
+            SubAgentConfig(
+                name="researcher",
+                description="Researches topics and gathers information",
+                instructions="You are a research assistant. Investigate thoroughly.",
+            ),
+            SubAgentConfig(
+                name="writer",
+                description="Writes content based on research",
+                instructions="You are a technical writer. Write clear, concise content.",
+            ),
+        ],
+    )],
+)
+
+result = await agent.run("Research Python async patterns and write a blog post about it")
+```
+
+`SubAgentCapability` automatically:
+- Registers all delegation tools (`task`, `check_task`, `answer_subagent`, `list_active_tasks`, etc.)
+- Injects dynamic system prompt listing available subagents
+- Includes a general-purpose subagent by default
+
+### Alternative: Toolset API
+
+For lower-level control:
+
+```python
+from pydantic_ai import Agent
+from subagents_pydantic_ai import create_subagent_toolset, SubAgentConfig
+
+toolset = create_subagent_toolset(
+    subagents=[
+        SubAgentConfig(name="researcher", description="Researches topics", instructions="..."),
+    ],
+)
+agent = Agent("openai:gpt-4.1", toolsets=[toolset])
+```
+
+> **Note:** With the toolset API, you need to wire `get_subagent_system_prompt()` manually. `SubAgentCapability` handles this automatically.
+
+## Execution Modes
+
+Choose how subagents execute their tasks:
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `sync` | Block until complete | Quick tasks, when result is needed immediately |
+| `async` | Run in background | Long research, parallel tasks |
+| `auto` | Smart selection | Let the system decide based on task characteristics |
+
+### Sync Mode (Default)
+
+```python
+# Agent calls: task(description="...", subagent_type="researcher", mode="sync")
+# Parent waits for result before continuing
+```
+
+### Async Mode
+
+```python
+# Agent calls: task(description="...", subagent_type="researcher", mode="async")
+# Returns task_id immediately, agent continues working
+# Later: check_task(task_id) to get result
+```
+
+### Auto Mode
+
+```python
+# Agent calls: task(description="...", subagent_type="researcher", mode="auto")
+# System decides based on:
+# - Task complexity (simple → sync, complex → async)
+# - Independence (can run without user context → async)
+# - Subagent preferences (from config)
+```
+
+## Give Subagents Tools
+
+Provide toolsets so subagents can interact with files, APIs, or other services:
+
+```python
+from pydantic_ai_backends import create_console_toolset
+
+def my_toolsets_factory(deps):
+    """Factory that creates toolsets for subagents."""
+    return [
+        create_console_toolset(),  # File operations
+        create_search_toolset(),   # Web search
+    ]
+
+toolset = create_subagent_toolset(
+    subagents=subagents,
+    toolsets_factory=my_toolsets_factory,
+)
+```
+
+## Dynamic Agent Creation
+
+Create agents on-the-fly and delegate to them seamlessly:
+
+```python
+from subagents_pydantic_ai import (
+    create_subagent_toolset,
+    create_agent_factory_toolset,
+    DynamicAgentRegistry,
+)
+
+registry = DynamicAgentRegistry()
+
+agent = Agent(
+    "openai:gpt-4o",
+    deps_type=Deps,
+    toolsets=[
+        # Pass registry so task() can resolve dynamically created agents
+        create_subagent_toolset(registry=registry),
+        create_agent_factory_toolset(
+            registry=registry,
+            allowed_models=["openai:gpt-4o", "openai:gpt-4o-mini"],
+            max_agents=5,
+        ),
+    ],
+)
+
+# Now the agent can:
+# 1. create_agent(name="analyst", ...) — creates a new agent in registry
+# 2. task(description="...", subagent_type="analyst") — delegates to it
+```
+
+## Subagent Questions
+
+Enable subagents to ask the parent for clarification:
+
+```python
+SubAgentConfig(
+    name="analyst",
+    description="Analyzes data",
+    instructions="Ask for clarification when data is ambiguous.",
+    can_ask_questions=True,
+    max_questions=3,
+)
+```
+
+The parent agent can then respond using `answer_subagent(task_id, answer)`.
+
+## Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `task` | Delegate a task to a subagent (sync, async, or auto) |
+| `check_task` | Check status and get result of a background task |
+| `answer_subagent` | Answer a question from a blocked subagent |
+| `list_active_tasks` | List all running background tasks |
+| `soft_cancel_task` | Request cooperative cancellation |
+| `hard_cancel_task` | Immediately cancel a task |
+
+## Declarative Configuration (YAML/JSON)
+
+Define subagents in YAML or JSON files using `SubAgentSpec`:
+
+```yaml
+# subagents.yaml
+- name: researcher
+  description: Research assistant
+  instructions: You research topics thoroughly.
+  model: openai:gpt-4.1-mini
+- name: coder
+  description: Code writer
+  instructions: You write clean Python code.
+  can_ask_questions: true
+  max_questions: 3
+```
+
+```python
+import yaml
+from subagents_pydantic_ai import SubAgentSpec
+
+# Load from YAML
+with open("subagents.yaml") as f:
+    specs = [SubAgentSpec(**s) for s in yaml.safe_load(f)]
+
+# Convert to SubAgentConfig dicts
+configs = [spec.to_config() for spec in specs]
+
+# Use with capability
+agent = Agent("openai:gpt-4.1", capabilities=[
+    SubAgentCapability(subagents=configs),
+])
+```
+
+Round-trip between specs and configs:
+
+```python
+# Config -> Spec -> Config
+spec = SubAgentSpec.from_config(existing_config)
+config = spec.to_config()
+```
+
+## Per-Subagent Configuration
+
+```python
+SubAgentConfig(
+    name="coder",
+    description="Writes and reviews code",
+    instructions="Follow project coding rules.",
+    context_files=["/CODING_RULES.md"],  # Loaded by consumer library
+    extra={"memory": "project", "cost_budget": 100},  # Custom metadata
+)
+```
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     Parent Agent                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │              Subagent Toolset                   │    │
+│  │  task() │ check_task() │ answer_subagent()      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                         │                               │
+│         ┌───────────────┼───────────────┐               │
+│         ▼               ▼               ▼               │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐         │
+│  │ researcher │  │   writer   │  │   coder    │         │
+│  │  (sync)    │  │  (async)   │  │  (auto)    │         │
+│  └────────────┘  └────────────┘  └────────────┘         │
+│                                                         │
+│              Message Bus (pluggable)                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Related Projects
+
+| Package | Description |
+|---------|-------------|
+| [Pydantic Deep Agents](https://github.com/vstorm-co/pydantic-deepagents) | Full agent framework (uses this library) |
+| [pydantic-ai-backend](https://github.com/vstorm-co/pydantic-ai-backend) | File storage and Docker sandbox backends |
+| [pydantic-ai-todo](https://github.com/vstorm-co/pydantic-ai-todo) | Task planning toolset |
+| [summarization-pydantic-ai](https://github.com/vstorm-co/summarization-pydantic-ai) | Context management processors |
+| [pydantic-ai](https://github.com/pydantic/pydantic-ai) | The foundation - agent framework by Pydantic |
+
+## Contributing
+
+```bash
+git clone https://github.com/vstorm-co/subagents-pydantic-ai.git
+cd subagents-pydantic-ai
+make install
+make test  # 100% coverage required
+make all   # lint + typecheck + test
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines.
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+### Need help implementing this in your company?
+
+<p>We're <a href="https://vstorm.co"><b>Vstorm</b></a> — an Applied Agentic AI Engineering Consultancy<br>with 30+ production AI agent implementations.</p>
+
+<a href="https://vstorm.co/contact-us/">
+  <img src="https://img.shields.io/badge/Talk%20to%20us%20%E2%86%92-0066FF?style=for-the-badge&logoColor=white" alt="Talk to us">
+</a>
+
+<br><br>
+
+Made with ❤️ by <a href="https://vstorm.co"><b>Vstorm</b></a>
+
+</div>

@@ -1,0 +1,139 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["python_alfresco_api"]
+include = [
+    "examples/**/*",
+    "docs/**/*", 
+    "config/**/*",
+    "tests/**/*",
+    "scripts/**/*"
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "python_alfresco_api/",
+    "examples/**/*",
+    "docs/**/*", 
+    "config/**/*",
+    "openapi/**/*",
+    "tests/**/*",
+    "scripts/**/*",
+    "requirements.txt",
+    "requirements-dev.txt",
+    "requirements-codegen.txt",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "MANIFEST.in",
+    "pyproject.toml",
+    ".gitattributes",
+    "publish_to_pypi.py",
+    "run_tests.py",
+    "sample-dot-env.txt",
+    "setup.py",
+]
+
+[project]
+name = "python-alfresco-api"
+version = "1.1.5"
+description = "Python Client for all Alfresco Content Services REST APIs, with Pydantic v2 Models, and Event Support"
+authors = [
+    {name = "Steve Reiner", email = "example@example.com"}
+]
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+keywords = ["alfresco", "content-management", "rest-api", "ecm", "document-management"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Office/Business :: Office Suites",
+]
+
+dependencies = [
+    "httpx>=0.25.0",
+    "pydantic>=2.0.0",
+    "attrs>=23.1.0",
+    "python-dateutil>=2.8.0",
+    "typing-extensions>=4.7.0",
+    "PyYAML>=6.0",
+    "stomp.py>=8.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "mypy>=1.5.0",
+]
+
+test = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.12.0",
+    "httpx>=0.25.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/stevereiner/python-alfresco-api"
+Repository = "https://github.com/stevereiner/python-alfresco-api"
+Documentation = "https://github.com/stevereiner/python-alfresco-api/docs"
+"Bug Tracker" = "https://github.com/stevereiner/python-alfresco-api/issues"
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --ignore=tests/test_event_detection.py --ignore=tests/test_event_gateway_comprehensive.py --ignore=tests/test_current_architecture.py --ignore=tests/test_enhanced_coverage.py --ignore=tests/test_mcp_integration.py --ignore=tests/test_event_community_enterprise.py --ignore=tests/test_integration_live_server.py"
+markers = [
+    "event: marks tests as event system tests (may require ActiveMQ/Event Gateway)",
+    "integration: marks tests as integration tests requiring live Alfresco server",
+    "asyncio: marks tests as async tests",
+]
+
+[tool.coverage.run]
+source = ["python_alfresco_api"]
+omit = [
+    "tests/*", 
+    "setup.py", 
+    "python_alfresco_api/models/*",
+    "scripts/*",
+    "examples/*",
+    "publish_to_pypi.py",
+    "run_tests.py"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+] 

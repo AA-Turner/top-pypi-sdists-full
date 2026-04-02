@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: TheSilent
+Version: 0.1.25
+Summary: TheSilent allows you to hide CLI history!
+Author: Invizabel
+Project-URL: Homepage, https://github.com/Invizabel/The-Silent
+Project-URL: Bug Tracker, https://github.com/Invizabel/The-Silent/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
+
+﻿# TheSilent allows you to hide CLI history!
+# 
+# python3 -m TheSilent

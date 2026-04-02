@@ -1,0 +1,149 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "astro-provider-ray"
+authors = [{ name = "Astronomer", email = "humans@astronomer.io" }]
+license = { text = "Apache License 2.0" }
+description = "An Apache Airflow provider package built by Astronomer to integrate with Ray."
+classifiers = [
+    "Framework :: Apache Airflow",
+    "Framework :: Apache Airflow :: Provider",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dynamic = ["version"]
+requires-python = ">=3.8, <3.13"
+dependencies = [
+    "apache-airflow>=2.7",
+    "ray[default]",
+    "kubernetes",
+    "requests",
+    "pytest",
+    "PyYAML",
+    "pytest-asyncio",
+    "apache-airflow-providers-cncf-kubernetes"
+]
+
+[project.optional-dependencies]
+tests = [
+    "build",
+]
+
+[project.urls]
+Homepage = "https://astronomer.io"
+Source = "https://github.com/astronomer/astro-provider-ray/"
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.entry-points.apache_airflow_provider]
+provider_info = "ray_provider.__init__:get_provider_info"
+
+[tool.hatch.version]
+path = "ray_provider/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["/ray_provider"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["/ray_provider"]
+
+docs = [
+    "sphinx",
+    "pydata-sphinx-theme",
+    "sphinx-autobuild",
+    "sphinx-autoapi",
+    "furo"
+]
+
+######################################
+# TESTING
+######################################
+
+[tool.hatch.envs.tests]
+dependencies = [
+    "astro-provider-ray[tests]",
+    "types-PyYAML",
+    "types-attrs",
+    "types-requests",
+    "types-python-dateutil",
+    "apache-airflow=={matrix:airflow}.0",
+    "apache-airflow-providers-cncf-kubernetes",
+    "pytest>=6.0",
+    "pytest-cov",
+    "pre-commit"
+]
+pre-install-commands = ["sh scripts/test/pre-install-airflow.sh {matrix:airflow} {matrix:python}"]
+
+[[tool.hatch.envs.tests.matrix]]
+python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
+airflow = ["2.7", "2.8", "2.9", "2.10"]
+
+[tool.hatch.envs.tests.scripts]
+freeze = "pip freeze"
+test = 'sh scripts/test/unit_test.sh'
+test-cov = 'sh scripts/test/unit_cov.sh'
+test-integration = 'sh scripts/test/integration_test.sh'
+static-check = "pre-commit run --all-files"
+
+[tool.pytest.ini_options]
+filterwarnings = ["ignore::DeprecationWarning"]
+minversion = "6.0"
+markers = ["integration"]
+
+######################################
+# DOCS
+######################################
+
+[tool.hatch.envs.docs]
+dependencies = [
+    "aenum",
+    "pydantic>=1.10.0",
+    "pydata-sphinx-theme",
+    "sphinx",
+    "sphinx-autoapi",
+    "sphinx-autobuild",
+    "furo",
+]
+
+[tool.hatch.envs.docs.scripts]
+build = "sphinx-build -b html docs docs/_build"
+serve = "sphinx-autobuild docs docs/_build"
+
+######################################
+# THIRD PARTY TOOLS
+######################################
+[tool.black]
+line-length = 120
+target-version = ['py38', 'py39', 'py310', 'py311','py312']
+
+[tool.isort]
+profile = "black"
+known_third_party = ["airflow"]
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
+no_warn_unused_ignores = true
+
+[tool.ruff]
+line-length = 120
+[tool.ruff.lint]
+select = ["C901", "I", "F"]
+ignore = ["F541"]
+[tool.ruff.lint.mccabe]
+max-complexity = 7
+
+[tool.distutils.bdist_wheel]
+universal = true

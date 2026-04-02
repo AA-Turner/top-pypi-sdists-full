@@ -1,0 +1,63 @@
+Metadata-Version: 2.4
+Name: livekit-plugins-soniox
+Version: 1.5.1
+Summary: Agent Framework plugin for services using Soniox's API.
+Project-URL: Documentation, https://docs.livekit.io
+Project-URL: Website, https://livekit.io/
+Project-URL: Source, https://github.com/livekit/agents
+Author-email: Soniox <support@soniox.com>
+License-Expression: Apache-2.0
+Keywords: audio,livekit,realtime,soniox,speech-to-text,webrtc
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Multimedia :: Sound/Audio
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.10.0
+Requires-Dist: livekit-agents>=1.5.1
+Description-Content-Type: text/markdown
+
+# Soniox plugin for LiveKit Agents
+
+Support for Soniox Speech-to-Text [Soniox](https://soniox.com/) API, using WebSocket streaming interface.
+
+See https://docs.livekit.io/agents/integrations/stt/soniox/ for more information.
+
+## Installation
+
+```bash
+pip install livekit-plugins-soniox
+```
+
+## Pre-requisites
+
+The Soniox plugin requires an API key to authenticate. You can get your Soniox API key [here](https://console.soniox.com/).
+
+Set API key in your `.env` file:
+
+```
+SONIOX_API_KEY=<your_soniox_api_key>
+```
+
+## Usage
+
+Use Soniox in an `AgentSession` or as a standalone transcription service:
+
+```python
+from livekit.plugins import soniox
+
+session = AgentSession(
+    stt = soniox.STT(),
+    # ... llm, tts, etc.
+)
+```
+
+Congratulations! You are now ready to use Soniox Speech-to-Text API in your LiveKit agents.
+
+You can test Soniox Speech-to-Text API in the LiveKit's [Voice AI quickstart](https://docs.livekit.io/agents/start/voice-ai/).
+
+## More information and reference
+
+Explore integration details and find comprehensive examples in our [Soniox LiveKit integration guide](https://speechdev.soniox.com/docs/speech-to-text/integrations/livekit).

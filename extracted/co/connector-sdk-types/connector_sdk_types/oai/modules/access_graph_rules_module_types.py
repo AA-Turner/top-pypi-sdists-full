@@ -3,7 +3,9 @@ import pydantic
 from connector_sdk_types.generated.models.access_graph_entitlement_rule import (
     AccessGraphEntitlementRule,
 )
-from connector_sdk_types.generated.models.implied_access_rule import ImpliedAccessRule
+from connector_sdk_types.generated.models.access_graph_implied_access_rule import (
+    AccessGraphImpliedAccessRule,
+)
 
 
 class AccessGraphRulesSettings(pydantic.BaseModel):
@@ -21,7 +23,7 @@ class AccessGraphRulesSettings(pydantic.BaseModel):
             "of a given type, allowing the connector to omit individual entitlement nodes."
         ),
     )
-    implied_access_rules: list[ImpliedAccessRule] = pydantic.Field(
+    implied_access_rules: list[AccessGraphImpliedAccessRule] = pydantic.Field(
         default_factory=list,
         description=(
             "Rules declaring how entitlement access propagates along resource relationships."
@@ -29,4 +31,4 @@ class AccessGraphRulesSettings(pydantic.BaseModel):
     )
 
 
-__all__ = ["AccessGraphRulesSettings", "AccessGraphEntitlementRule", "ImpliedAccessRule"]
+__all__ = ["AccessGraphRulesSettings", "AccessGraphEntitlementRule", "AccessGraphImpliedAccessRule"]

@@ -1,0 +1,148 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.setuptools]
+license-files = []
+
+[project]
+name = "timebasedcv"
+version = "0.3.0"
+description = "Time based cross validation"
+
+license = {file = "LICENSE"}
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [{name = "Francesco Bruzzesi"}]
+
+dependencies = [
+    "python-dateutil",
+    "numpy",
+    "narwhals>=1.0.0",
+    "typing-extensions>=4.4.0; python_version < '3.11'",
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[project.urls]
+documentation = "https://fbruzzesi.github.io/timebasedcv/"
+repository = "https://github.com/fbruzzesi/timebasedcv"
+issue-tracker = "https://github.com/fbruzzesi/timebasedcv/issues"
+
+[project.optional-dependencies]
+scikit-learn = ["scikit-learn>=0.19"]
+
+dev = [
+    "pre-commit==2.21.0",
+    "hatch"
+]
+
+lint = [
+    "ruff>=0.4.0"
+]
+
+docs = [
+    "mkdocs>=1.4.2",
+    "mkdocs-material>=9.2.0",
+    "mkdocstrings[python]>=0.20.0",
+    "mkdocs-autorefs",
+]
+
+test = [
+    "interrogate>=1.5.0",
+    "pytest==7.2.0",
+    "pytest-xdist==3.2.1",
+    "coverage==7.2.1",
+    "pandas>=1.2.0",
+    "polars>=0.20.3",
+    "pyarrow>=11.0.0",
+    "dask>=2023.1.0"
+]
+
+all = ["timebasedcv[scikit-learn]"]
+all-dev = ["timebasedcv[all,dev,docs,lint,test]"]
+
+[tool.hatch.build.targets.sdist]
+only-include = ["timebasedcv"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["timebasedcv"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py38"
+fix = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "COM812",
+    "D100",  # Checks for undocumented public module definitions.
+    "D104",  # Checks for undocumented public package definitions.
+    "D107",  # Checks for public __init__ method definitions that are missing docstrings.
+    "E731",  # Checks for lambda expressions which are assigned to a variable.
+    "ISC001",
+    "N803",  # Checks for argument names that do not follow the snake_case convention.
+    # "EM101",  # Checks for the use of string literals in exception constructors.
+    # "ISC001",  # Checks for implicitly concatenated strings on a single line.
+    "RET505",  # Checks for else statements with a return statement in the preceding if block.
+    "RET506",
+    # "TRY003",  # Checks for long exception messages that are not defined in the exception class itself.
+    "DTZ"
+    ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN", "D", "N802", "N806", "PD901", "PT006", "PT007", "PLR0913", "S101"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint.isort]
+force-single-line = true
+required-imports = ["from __future__ import annotations"]
+
+[tool.interrogate]
+ignore-nested-functions = true
+ignore-module = true
+ignore-init-method = true
+ignore-private = true
+ignore-magic = true
+ignore-property-decorators = true
+ignore-overloaded-functions = true
+fail-under = 95
+exclude = ["timebasedcv/utils/_types.py"]
+verbose = 2 # 0 (minimal output), 1 (-v), 2 (-vv)
+
+[tool.mypy]
+# ignore_missing_imports = true
+disallow_untyped_defs = true
+disallow_any_unimported = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_return_any = true
+show_error_codes = true
+warn_unused_ignores = true
+
+[tool.coverage.run]
+source = ["timebasedcv/"]
+
+omit = [
+    "timebasedcv/utils/_types.py",  # collection of type hints and protocols
+]

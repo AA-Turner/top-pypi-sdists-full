@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "nsj-multi-database-lib"
+version = "2.1.0"
+description = "Modulo que permite o uso de múltiplos bancos de dados na mesma aplicação."
+authors = ["Wallace Pinho <wallacepinho@nasajon.com.br>"]
+
+[tool.poetry.dependencies]
+python = "^3.6"
+Flask = "*"
+nsj_rest_lib = ">=0.1.6, <7.0.0"
+nsj_flask_auth = ">=0.5.7, <1.0.0"
+nsj_gcf_utils = ">=1.1.0, <2.0.0"
+SQLAlchemy = "^1.4.32"
+pg8000 = "^1.24.1"
+cryptography = "40.0.1"
+
+[tool.poetry.dev-dependencies]
+pylint = "^2.14.4"
+autopep8 = "^1.6.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

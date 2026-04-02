@@ -1,3 +1,0 @@
-from contextlib import AbstractContextManager
-
-def cm() -> AbstractContextManager[int]: ...

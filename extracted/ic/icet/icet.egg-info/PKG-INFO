@@ -1,0 +1,109 @@
+Metadata-Version: 2.4
+Name: icet
+Version: 3.2
+Summary: A Pythonic approach to cluster expansions
+Author: The icet developer team
+Maintainer: The icet developer team
+License-Expression: MPL-2.0
+Project-URL: Documentation, https://icet.materialsmodeling.org
+Project-URL: Repository, https://gitlab.com/materials-modeling/icet/
+Keywords: chemistry,physics,scientific
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Intended Audience :: Science/Research
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: ase
+Requires-Dist: numba>=0.55
+Requires-Dist: numpy>=1.18
+Requires-Dist: pandas>=0.23
+Requires-Dist: scipy>=1.0.0
+Requires-Dist: spglib>1.12.0
+Requires-Dist: trainstation>=1.1
+Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: flake8; extra == "test"
+Requires-Dist: nbmake; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: xdoctest; extra == "test"
+Provides-Extra: documentation
+Requires-Dist: pydata-sphinx-theme; extra == "documentation"
+Requires-Dist: nbsphinx; extra == "documentation"
+Requires-Dist: sphinx-autodoc-typehints; extra == "documentation"
+Requires-Dist: sphinx-design; extra == "documentation"
+Requires-Dist: sphinx-sitemap; extra == "documentation"
+Provides-Extra: optional
+Requires-Dist: highspy; extra == "optional"
+Dynamic: license-file
+
+icet
+====
+
+**icet** is a tool for the construction and sampling of alloy cluster expansions.
+A detailed description of the functionality provided as well as an extensive tutorial can be found in the `user guide <https://icet.materialsmodeling.org/>`_.
+
+**icet** is written in Python, which allows easy integration with countless first-principles codes and analysis tools accessible from Python, and allows for a simple and intuitive user interface.
+All computationally demanding parts are, however, written in C++ providing performance while maintaining portability.
+The following snippet illustrates how one can train a cluster expansion:
+
+.. code-block:: python
+
+   cs = ClusterSpace(primitive_cell, cutoffs, species)
+   sc = StructureContainer(cs)
+   for structure in training_structures:
+       sc.add_structure(structure)
+   opt = Optimizer(sc.get_fit_data())
+   opt.train()
+   ce = ClusterExpansion(cs, opt.parameters)
+
+Afterwards the cluster expansion can be used, e.g., for finding ground state structures or sampled via Monte Carlo simulations.
+
+For questions and help please use the `icet discussion forum on matsci.org <https://matsci.org/icet>`_.
+**icet** and its development are hosted on `gitlab <https://gitlab.com/materials-modeling/icet>`_.
+
+
+Installation
+------------
+
+**icet** can be installed using `pip <https://pypi.org/project/icet/>`_::
+
+    pip3 install icet --user
+
+or via `conda <https://anaconda.org/conda-forge/icet>`_::
+
+    conda install -c conda-forge icet
+
+Installation via `pip` requires a C++11 compliant compiler.
+Please consult the `installation section of the user guide <https://icet.materialsmodeling.org/installation.html>`_ for details.
+
+**icet** is based on Python3 and invokes functionality from other Python libraries including
+`ase <https://wiki.fysik.dtu.dk/ase>`_,
+`pandas <https://pandas.pydata.org/>`_,
+`numba <https://numba.pydata.org/>`_,
+`numpy <http://www.numpy.org/>`_,
+`scipy <https://www.scipy.org/>`_,
+`spglib <https://atztogo.github.io/spglib/>`_, and
+`trainstation <https://trainstation.materialsmodeling.org/>`_.
+
+
+Credits
+-------
+
+**icet** has been developed at the `Department of Physics <https://www.chalmers.se/en/departments/physics/Pages/default.aspx>`_ of `Chalmers University of Technology <https://www.chalmers.se/>`_ (Gothenburg, Sweden) and the `Data and Software Management Center <https://europeanspallationsource.se/data-management-software>`_ at the European Spallation Source (Copenhagen, Denmark).
+
+When using **icet** in your research please cite
+
+| M. Ångqvist, W. A. Muñoz, J. M. Rahm, E. Fransson, C. Durniak, P. Rozyczko, T. H. Rod, and P. Erhart
+| *ICET – A Python Library for Constructing and Sampling Alloy Cluster Expansions*
+| Adv. Theory. Sim., 1900015 (2019)
+| `doi: 10.1002/adts.201900015 <https://doi.org/10.1002/adts.201900015>`_
+
+Also consult the `credits <https://icet.materialsmodeling.org/credits>`_ page of the documentation for additional references.

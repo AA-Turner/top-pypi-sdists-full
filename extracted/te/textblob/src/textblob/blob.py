@@ -138,9 +138,9 @@ class Word(str):
         lemmatizer = nltk.stem.WordNetLemmatizer()
         return lemmatizer.lemmatize(self.string, tag)
 
-    PorterStemmer = nltk.stem.porter.PorterStemmer()
-    LancasterStemmer = nltk.stem.lancaster.LancasterStemmer()
-    SnowballStemmer = nltk.stem.snowball.SnowballStemmer("english")
+    PorterStemmer = nltk.stem.PorterStemmer()
+    LancasterStemmer = nltk.stem.LancasterStemmer()
+    SnowballStemmer = nltk.stem.SnowballStemmer("english")
 
     # added 'stemmer' on lines of lemmatizer
     # based on nltk
@@ -308,7 +308,7 @@ def _initialize_models(
     obj.tokenizer = _validated_param(
         tokenizer,
         "tokenizer",
-        base_class=(BaseTokenizer, nltk.tokenize.api.TokenizerI),
+        base_class=(BaseTokenizer, nltk.tokenize.api.TokenizerI),  # pyright: ignore
         default=BaseBlob.tokenizer,
         base_class_name="BaseTokenizer",
     )
@@ -326,6 +326,20 @@ def _initialize_models(
     )
     obj.parser = _validated_param(parser, "parser", BaseParser, BaseBlob.parser)
     obj.classifier = classifier
+
+
+def _word_tokens_from_tokenizer(text, tokenizer):
+    """Tokenize text into words.
+
+    Preserve the historical no-punctuation behavior for the default
+    ``WordTokenizer`` path. For custom tokenizers, defer token filtering to
+    the tokenizer itself.
+    """
+    if isinstance(tokenizer, WordTokenizer):
+        # Keep historical behavior for the default tokenizer: tokenize by
+        # sentence first, then split into word tokens.
+        return word_tokenize(text, include_punc=False)
+    return tokenizer.tokenize(text)
 
 
 class BaseBlob(StringlikeMixin, BlobComparableMixin):
@@ -392,7 +406,7 @@ class BaseBlob(StringlikeMixin, BlobComparableMixin):
 
         :returns: A :class:`WordList <WordList>` of word tokens.
         """
-        return WordList(word_tokenize(self.raw, include_punc=False))
+        return WordList(_word_tokens_from_tokenizer(self.raw, self.tokenizer))
 
     @cached_property
     def tokens(self):
@@ -447,7 +461,7 @@ class BaseBlob(StringlikeMixin, BlobComparableMixin):
         subjectivity scores for the assessed tokens.
 
         :rtype: namedtuple of the form ``Sentiment(polarity, subjectivity,
-        assessments)``
+            assessments)``
         """
         return self.analyzer.analyze(self.raw, keep_assessments=True)
 
@@ -622,7 +636,7 @@ class TextBlob(BaseBlob):
 
         :returns: A :class:`WordList <WordList>` of word tokens.
         """
-        return WordList(word_tokenize(self.raw, include_punc=False))
+        return WordList(_word_tokens_from_tokenizer(self.raw, self.tokenizer))
 
     @property
     def raw_sentences(self):

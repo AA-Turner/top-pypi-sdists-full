@@ -1,0 +1,58 @@
+import re
+from setuptools import setup
+
+with open("README.md", "r", encoding="utf-8") as f:
+    long_description = f.read()
+
+# Single source of truth: __version__ in dashboard.py
+with open("dashboard.py", "r", encoding="utf-8") as f:
+    version = re.search(r'__version__\s*=\s*"(.+?)"', f.read()).group(1)
+
+setup(
+    name="clawmetry",
+    version=version,
+    description="ClawMetry - Real-time observability dashboard for OpenClaw AI agents",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    author="Vivek Chand",
+    author_email="vivek@clawmetry.com",
+    url="https://github.com/vivekchand/clawmetry",
+    py_modules=["dashboard"],
+    packages=["clawmetry"],
+    package_data={"clawmetry": ["resources/*.sh"]},
+    python_requires=">=3.8",
+    install_requires=[
+        "flask>=2.0",
+        "waitress>=2.0",
+        "cryptography>=3.0",
+    ],
+    extras_require={
+        "otel": ["opentelemetry-proto>=1.20.0", "protobuf>=4.21.0"],
+    },
+    entry_points={
+        "console_scripts": [
+            "clawmetry=clawmetry.cli:main",
+            # legacy: "clawmetry=dashboard:main",
+        ],
+    },
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Topic :: Software Development :: Quality Assurance",
+        "Topic :: System :: Monitoring",
+    ],
+    keywords="clawmetry openclaw moltbot dashboard observability ai agent monitoring opentelemetry",
+    license="MIT",
+    project_urls={
+        "Homepage": "https://clawmetry.com",
+        "Bug Reports": "https://github.com/vivekchand/clawmetry/issues",
+        "Source": "https://github.com/vivekchand/clawmetry",
+    },
+)

@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-jwcrypto"
-version = "1.5.0.20251102"
+version = "1.5.0.20260402"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for jwcrypto"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.407
+* [mypy](https://github.com/python/mypy/) 1.20.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`8aaa86f6a4b5f518734973884d14bf4da0f6f399`](https://github.com/python/typeshed/commit/8aaa86f6a4b5f518734973884d14bf4da0f6f399).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ['cryptography']
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = ['cryptography']
 [tool.setuptools]
 packages = ['jwcrypto-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'jwcrypto-stubs' = ['__init__.pyi', 'common.pyi', 'jwa.pyi', 'jwe.pyi', 'jwk.pyi', 'jws.pyi', 'jwt.pyi', 'METADATA.toml', 'py.typed']

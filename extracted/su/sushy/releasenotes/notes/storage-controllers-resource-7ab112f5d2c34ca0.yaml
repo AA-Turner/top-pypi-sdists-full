@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Adds ``controllers`` property of ``Storage`` class that was introduced in
-    Redfish v1.9 to replace ``storage_controllers`` deprecated in Redfish
-    v1.13.

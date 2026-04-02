@@ -1,38 +1,47 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) 2016  Fabio Falcinelli, Maximilian Hils
+# SPDX-License-Identifier: LGPL-3.0-or-later OR GPL-2.0-or-later
+# Copyright (C) 2026  Fabio Falcinelli, Maximilian Hils
 #
 # This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# it under the terms of either:
+#
+# 1) The GNU Lesser General Public License as published by the Free
+#    Software Foundation, either version 3 of the License, or (at your
+#    option) any later version.
+#
+# 2) The GNU General Public License as published by the Free Software
+#    Foundation, either version 2 of the License, or (at your option)
+#    any later version.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Lesser General Public License for more details.
+# GNU Lesser General Public License and the GNU General Public License
+# for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# and the GNU General Public License along with this program.  If not,
+# see <http://www.gnu.org/licenses/>.
+
 import struct
 
 from pydivert.packet.header import Header, PayloadMixin, PortMixin
-from pydivert.util import PY2, PY34, raw_property
+from pydivert.util import raw_property
 
 
 class UDPHeader(Header, PayloadMixin, PortMixin):
+    __repr_fields__ = ("cksum", "dst_port", "header_len", "payload", "payload_len", "raw", "src_port")
     header_len = 8
 
     @property
     def payload(self):
-        return PayloadMixin.payload.fget(self)
+        return PayloadMixin.payload.fget(self)  # type: ignore
 
     @payload.setter
     def payload(self, val):
-        PayloadMixin.payload.fset(self, val)
+        PayloadMixin.payload.fset(self, val)  # type: ignore
         self.payload_len = len(val)
 
-    if not PY2 and not PY34:
-        payload.__doc__ = PayloadMixin.payload.__doc__
+    payload.__doc__ = PayloadMixin.payload.__doc__
 
     @property
     def payload_len(self):
@@ -42,4 +51,4 @@ class UDPHeader(Header, PayloadMixin, PortMixin):
     def payload_len(self, val):
         self.raw[4:6] = struct.pack("!H", val + 8)
 
-    cksum = raw_property('!H', 6, docs='The UDP header checksum field.')
+    cksum = raw_property("!H", 6, docs="The UDP header checksum field.")

@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-hvac"
-version = "2.4.0.20251115"
+version = "2.4.0.20260402"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for hvac"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.407
+* [mypy](https://github.com/python/mypy/) 1.20.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`f8cdc0bd526301e873cd952eb0d457bdf2554e57`](https://github.com/python/typeshed/commit/f8cdc0bd526301e873cd952eb0d457bdf2554e57).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ['types-requests']
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = ['types-requests']
 [tool.setuptools]
 packages = ['hvac-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'hvac-stubs' = ['__init__.pyi', 'adapters.pyi', 'api/__init__.pyi', 'api/auth_methods/__init__.pyi', 'api/auth_methods/approle.pyi', 'api/auth_methods/aws.pyi', 'api/auth_methods/azure.pyi', 'api/auth_methods/cert.pyi', 'api/auth_methods/gcp.pyi', 'api/auth_methods/github.pyi', 'api/auth_methods/jwt.pyi', 'api/auth_methods/kubernetes.pyi', 'api/auth_methods/ldap.pyi', 'api/auth_methods/legacy_mfa.pyi', 'api/auth_methods/oidc.pyi', 'api/auth_methods/okta.pyi', 'api/auth_methods/radius.pyi', 'api/auth_methods/token.pyi', 'api/auth_methods/userpass.pyi', 'api/secrets_engines/__init__.pyi', 'api/secrets_engines/active_directory.pyi', 'api/secrets_engines/aws.pyi', 'api/secrets_engines/azure.pyi', 'api/secrets_engines/consul.pyi', 'api/secrets_engines/database.pyi', 'api/secrets_engines/gcp.pyi', 'api/secrets_engines/identity.pyi', 'api/secrets_engines/kv.pyi', 'api/secrets_engines/kv_v1.pyi', 'api/secrets_engines/kv_v2.pyi', 'api/secrets_engines/ldap.pyi', 'api/secrets_engines/pki.pyi', 'api/secrets_engines/rabbitmq.pyi', 'api/secrets_engines/ssh.pyi', 'api/secrets_engines/transform.pyi', 'api/secrets_engines/transit.pyi', 'api/system_backend/__init__.pyi', 'api/system_backend/audit.pyi', 'api/system_backend/auth.pyi', 'api/system_backend/capabilities.pyi', 'api/system_backend/health.pyi', 'api/system_backend/init.pyi', 'api/system_backend/key.pyi', 'api/system_backend/leader.pyi', 'api/system_backend/lease.pyi', 'api/system_backend/mount.pyi', 'api/system_backend/namespace.pyi', 'api/system_backend/policies.pyi', 'api/system_backend/policy.pyi', 'api/system_backend/quota.pyi', 'api/system_backend/raft.pyi', 'api/system_backend/seal.pyi', 'api/system_backend/system_backend_mixin.pyi', 'api/system_backend/wrapping.pyi', 'api/vault_api_base.pyi', 'api/vault_api_category.pyi', 'aws_utils.pyi', 'constants/__init__.pyi', 'constants/approle.pyi', 'constants/aws.pyi', 'constants/azure.pyi', 'constants/client.pyi', 'constants/gcp.pyi', 'constants/identity.pyi', 'constants/transit.pyi', 'exceptions.pyi', 'utils.pyi', 'v1/__init__.pyi', 'METADATA.toml', 'py.typed']

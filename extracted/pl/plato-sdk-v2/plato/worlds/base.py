@@ -22,13 +22,16 @@ from pydantic import BaseModel as PydanticBaseModel
 from typing_extensions import TypeVar
 
 from plato.agents.runner import AgentRunner, create_runtime
-from plato.agents.runtime.transport import NFSTransport, Transport
+from plato.chronos.api.registry import (
+    get_agent_schema_api_registry_agents__agent_name__schema_get as get_agent_schema_api,
+)
 from plato.cli.chronos.env import resolve_config_env_vars, substitute_env_vars
-from plato.cli.chronos.registry import get_agent_schema, parse_package_string
+from plato.cli.chronos.registry import parse_package_string
 from plato.llm import LLMClient
 from plato.markers import FieldMarker, WorkspaceMarker
 from plato.otel import get_tracer, init_tracing, shutdown_tracing
 from plato.runtime import RuntimeConfig, VMRuntimeConfig
+from plato.transports import GitTransport, NFSTransport, SSHFSTransport, Transport
 from plato.v2.async_.session import Session
 from plato.vm_metrics import instrument_system_metrics, shutdown_metrics
 from plato.worlds.config import (
@@ -147,18 +150,23 @@ def _iter_marked_agent_configs(value: Any, prefix: str = "") -> list[tuple[str, 
     return found
 
 
-async def _resolve_inline_agent_images(config: PydanticBaseModel) -> None:
+async def _resolve_inline_agent_images(config: PydanticBaseModel, chronos_url: str | None = None) -> None:
     """Resolve package-only AgentConfig fields on a validated inline child config."""
+    base_url = chronos_url or os.environ.get("CHRONOS_URL", "https://chronos.plato.so")
+
     for name, agent in _iter_marked_agent_configs(config):
         if not agent.package or agent.image:
             continue
 
         package_name, version = parse_package_string(agent.package)
-        schema = await get_agent_schema(package_name, version)
-        resolved_image = schema.get("image")
-        if not resolved_image:
+        async with httpx.AsyncClient(
+            base_url=base_url.rstrip("/"),
+            timeout=30.0,
+        ) as client:
+            schema = await get_agent_schema_api.asyncio(client, agent_name=package_name, version=version)
+        if not schema.image:
             raise ValueError(f"Could not resolve image for inline child agent '{name}' (package={package_name})")
-        agent.image = resolved_image
+        agent.image = schema.image
 
 
 async def _resolve_inline_child_launch_config(
@@ -551,8 +559,6 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             first_path = str(first.path)
 
             if self._transport_mode == "sshfs":
-                from plato.agents.runtime.transport import SSHFSTransport
-
                 self._transport = SSHFSTransport(first_path, self._mesh_ip, self._ssh_key_path)
             else:
                 self._transport = NFSTransport(first_path, self._mesh_ip, self._ssh_key_path)
@@ -572,8 +578,6 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
 
         # Initialize git transport for git-transported workspaces
         for ws in git_ws:
-            from plato.agents.runtime.transport import GitTransport
-
             ws_marker = annotations[ws.name]
             assert isinstance(ws_marker, WorkspaceMarker)
             t = GitTransport(
@@ -1210,7 +1214,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         resolved_config = await _resolve_inline_child_launch_config(config, os.environ.get("PLATO_API_KEY"))
         config_class = world_cls.get_config_class()
         child_config = config_class.model_validate(resolved_config)
-        await _resolve_inline_agent_images(child_config)
+        await _resolve_inline_agent_images(child_config, chronos_url=self._get_chronos_base_url())
 
         if isinstance(child_instance, BaseReviewWorld):
             # Review worlds have run_inline() with resource delegation
@@ -1272,17 +1276,20 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         self._step_count = 0
         self._slack_notify_token = None
 
-        if self.config.slack_notifications_enabled:
-            from plato.worlds.slack import enable_slack_notifications
-
-            self._slack_notify_token = enable_slack_notifications()
-
         self.logger.info(f"Starting world '{self.name}'")
 
         if self.config.state.enabled:
             Path(self.config.state.path).mkdir(parents=True, exist_ok=True)
 
         self._setup_session()
+
+        if self.config.slack_notifications_enabled:
+            from plato.worlds.stage_tracking import enable_stage_tracking
+
+            self._slack_notify_token = enable_stage_tracking(
+                session_id=self.session.session_id,
+                base_url=self._get_chronos_base_url(),
+            )
 
         plato_version = _get_plato_version()
         world_version = self.get_version()
@@ -1339,9 +1346,9 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                         err_span.record_exception(e)
             finally:
                 if self._slack_notify_token is not None:
-                    from plato.worlds.slack import disable_slack_notifications
+                    from plato.worlds.stage_tracking import disable_stage_tracking
 
-                    disable_slack_notifications(self._slack_notify_token)
+                    disable_stage_tracking(self._slack_notify_token)
                 await self.close()
                 await self._disconnect_plato_session()
 

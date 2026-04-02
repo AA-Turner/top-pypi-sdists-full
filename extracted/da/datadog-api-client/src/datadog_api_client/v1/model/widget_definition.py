@@ -18,6 +18,9 @@ class WidgetDefinition(ModelComposed):
         :param alert_id: ID of the alert to use in the widget.
         :type alert_id: str
 
+        :param description: The description of the widget.
+        :type description: str, optional
+
         :param time: Time setting for the widget.
         :type time: WidgetTime, optional
 
@@ -93,6 +96,9 @@ class WidgetDefinition(ModelComposed):
         :param tags_execution: The execution method for multi-value filters. Can be either and or or.
         :type tags_execution: str, optional
 
+        :param background_color: Background color of the widget. Supported values are `white`, `blue`, `purple`, `pink`, `orange`, `yellow`, `green`, `gray`, `vivid_blue`, `vivid_purple`, `vivid_pink`, `vivid_orange`, `vivid_yellow`, `vivid_green`, and `transparent`.
+        :type background_color: str, optional
+
         :param color: Color of the text.
         :type color: str, optional
 
@@ -104,9 +110,6 @@ class WidgetDefinition(ModelComposed):
 
         :param view: The view of the world that the map should render.
         :type view: GeomapWidgetDefinitionView
-
-        :param background_color: Background color of the group title.
-        :type background_color: str, optional
 
         :param banner_img: URL of image to display as a banner for the group.
         :type banner_img: str, optional
@@ -269,6 +272,12 @@ class WidgetDefinition(ModelComposed):
         :param color_by_groups: List of groups used for colors.
         :type color_by_groups: [str], optional
 
+        :param show_other_links: Whether to show links for "other" category.
+        :type show_other_links: bool, optional
+
+        :param sort_nodes: Whether to sort nodes in the Sankey diagram.
+        :type sort_nodes: bool, optional
+
         :param filters: Your environment and primary tag (or * if enabled for your account).
         :type filters: [str]
 
@@ -337,6 +346,9 @@ class WidgetDefinition(ModelComposed):
 
         :param size_by: (deprecated) The attribute formerly used to determine size in the widget.
         :type size_by: TreeMapSizeBy, optional
+
+        :param specification: Vega or Vega-Lite specification for custom visualization rendering. See https://vega.github.io/vega-lite/ for the full grammar reference.
+        :type specification: WildcardWidgetSpecification
         """
         super().__init__(kwargs)
 
@@ -375,6 +387,7 @@ class WidgetDefinition(ModelComposed):
         from datadog_api_client.v1.model.slo_list_widget_definition import SLOListWidgetDefinition
         from datadog_api_client.v1.model.slo_widget_definition import SLOWidgetDefinition
         from datadog_api_client.v1.model.scatter_plot_widget_definition import ScatterPlotWidgetDefinition
+        from datadog_api_client.v1.model.sankey_widget_definition import SankeyWidgetDefinition
         from datadog_api_client.v1.model.service_map_widget_definition import ServiceMapWidgetDefinition
         from datadog_api_client.v1.model.service_summary_widget_definition import ServiceSummaryWidgetDefinition
         from datadog_api_client.v1.model.split_graph_widget_definition import SplitGraphWidgetDefinition
@@ -384,6 +397,7 @@ class WidgetDefinition(ModelComposed):
         from datadog_api_client.v1.model.toplist_widget_definition import ToplistWidgetDefinition
         from datadog_api_client.v1.model.topology_map_widget_definition import TopologyMapWidgetDefinition
         from datadog_api_client.v1.model.tree_map_widget_definition import TreeMapWidgetDefinition
+        from datadog_api_client.v1.model.wildcard_widget_definition import WildcardWidgetDefinition
 
         return {
             "oneOf": [
@@ -413,6 +427,7 @@ class WidgetDefinition(ModelComposed):
                 SLOListWidgetDefinition,
                 SLOWidgetDefinition,
                 ScatterPlotWidgetDefinition,
+                SankeyWidgetDefinition,
                 ServiceMapWidgetDefinition,
                 ServiceSummaryWidgetDefinition,
                 SplitGraphWidgetDefinition,
@@ -422,5 +437,6 @@ class WidgetDefinition(ModelComposed):
                 ToplistWidgetDefinition,
                 TopologyMapWidgetDefinition,
                 TreeMapWidgetDefinition,
+                WildcardWidgetDefinition,
             ],
         }

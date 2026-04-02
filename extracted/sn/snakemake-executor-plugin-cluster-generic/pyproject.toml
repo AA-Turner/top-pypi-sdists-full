@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "snakemake-executor-plugin-cluster-generic"
+version = "1.0.9"
+description = ""
+authors = ["Johannes Koester <johannes.koester@uni-due.de>"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/snakemake/snakemake-executor-plugin-cluster-generic"
+documentation = "https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/cluster-generic.html"
+keywords = ["snakemake", "plugin", "executor", "cluster"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+snakemake-interface-executor-plugins = "^9.0.0"
+snakemake-interface-common = "^1.13.0"
+
+[tool.poetry.group.dev.dependencies]
+snakemake = {git = "https://github.com/snakemake/snakemake.git", branch = "main"}
+black = "^23.7.0"
+flake8 = ">=6.1,<8.0"
+coverage = "^7.3.0"
+pytest = "^7.4.1"
+
+[tool.coverage.report]
+fail_under = 74
+
+[tool.coverage.run]
+omit = [".*", "*/site-packages/*", "Snakefile"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

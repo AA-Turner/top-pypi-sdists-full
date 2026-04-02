@@ -30,6 +30,7 @@ class GrafanaManagedPrivateEndpointArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a GrafanaManagedPrivateEndpoint resource.
+
         :param pulumi.Input[_builtins.str] grafana_id: The id of the associated managed Grafana. Changing this forces a new Dashboard Grafana Managed Private Endpoint to be created.
         :param pulumi.Input[_builtins.str] private_link_resource_id: The ID of the resource to which this Dashboard Grafana Managed Private Endpoint will connect. Changing this forces a new Dashboard Grafana Managed Private Endpoint to be created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] group_ids: Specifies a list of private link group IDs. The value of this will depend on the private link resource to which you are connecting. Changing this forces a new Dashboard Grafana Managed Private Endpoint to be created.
@@ -180,6 +181,7 @@ class _GrafanaManagedPrivateEndpointState:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering GrafanaManagedPrivateEndpoint resources.
+
         :param pulumi.Input[_builtins.str] grafana_id: The id of the associated managed Grafana. Changing this forces a new Dashboard Grafana Managed Private Endpoint to be created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] group_ids: Specifies a list of private link group IDs. The value of this will depend on the private link resource to which you are connecting. Changing this forces a new Dashboard Grafana Managed Private Endpoint to be created.
         :param pulumi.Input[_builtins.str] location: The Azure Region where the Dashboard Grafana Managed Private Endpoint should exist. Changing this forces a new Dashboard Grafana Managed Private Endpoint to be created.
@@ -357,7 +359,7 @@ class GrafanaManagedPrivateEndpoint(pulumi.CustomResource):
             name="example-dg",
             resource_group_name=example.name,
             location=example.location,
-            grafana_major_version="11",
+            grafana_major_version="12",
             public_network_access_enabled=False,
             azure_monitor_workspace_integrations=[{
                 "resource_id": example_workspace.id,
@@ -385,6 +387,7 @@ class GrafanaManagedPrivateEndpoint(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:dashboard/grafanaManagedPrivateEndpoint:GrafanaManagedPrivateEndpoint example /subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/resGroup1/providers/Microsoft.Dashboard/grafana/workspace1/managedPrivateEndpoints/endpoint1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -427,7 +430,7 @@ class GrafanaManagedPrivateEndpoint(pulumi.CustomResource):
             name="example-dg",
             resource_group_name=example.name,
             location=example.location,
-            grafana_major_version="11",
+            grafana_major_version="12",
             public_network_access_enabled=False,
             azure_monitor_workspace_integrations=[{
                 "resource_id": example_workspace.id,
@@ -455,6 +458,7 @@ class GrafanaManagedPrivateEndpoint(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:dashboard/grafanaManagedPrivateEndpoint:GrafanaManagedPrivateEndpoint example /subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/resGroup1/providers/Microsoft.Dashboard/grafana/workspace1/managedPrivateEndpoints/endpoint1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param GrafanaManagedPrivateEndpointArgs args: The arguments to use to populate this resource's properties.

@@ -1,0 +1,20 @@
+name: Prose
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: '12'
+
+    - name: Check formatting of md files
+      run: |
+        python -m pip install mdformat
+        python -m mdformat --check .

@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=64.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unclecode-litellm"
+version = "1.81.13"
+description = "Pre-compromise fork of litellm - Library to easily interface with LLM API providers"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    {name = "unclecode"},
+]
+
+dependencies = [
+    "fastuuid>=0.13.0",
+    "httpx>=0.23.0",
+    "openai>=2.8.0",
+    "python-dotenv>=0.2.0",
+    "tiktoken>=0.7.0",
+    "importlib-metadata>=6.8.0",
+    "tokenizers",
+    "click",
+    "jinja2>=3.1.2",
+    "aiohttp>=3.10",
+    "pydantic>=2.5.0",
+    "jsonschema>=4.23.0,<5.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/unclecode/litellm"
+Repository = "https://github.com/unclecode/litellm"
+
+[tool.setuptools.packages.find]
+include = ["litellm*"]
+
+[tool.setuptools.package-data]
+litellm = ["**/*"]

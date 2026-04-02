@@ -172,6 +172,33 @@ impl HighlightStyle {
     }
 }
 
+/// Link rendering style in Markdown output.
+///
+/// Controls whether links and images use inline `[text](url)` syntax or
+/// reference-style `[text][1]` syntax with definitions collected at the end.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LinkStyle {
+    /// Inline links: `[text](url)`. Default.
+    #[default]
+    Inline,
+    /// Reference-style links: `[text][1]` with `[1]: url` at end of document.
+    Reference,
+}
+
+impl LinkStyle {
+    /// Parse a link style from a string.
+    ///
+    /// Accepts "reference" or defaults to Inline.
+    /// Input is normalized (lowercased, alphanumeric only).
+    #[must_use]
+    pub fn parse(value: &str) -> Self {
+        match normalize_token(value).as_str() {
+            "reference" => Self::Reference,
+            _ => Self::Inline,
+        }
+    }
+}
+
 /// Output format for conversion.
 ///
 /// Specifies the target markup language format for the conversion output.
@@ -215,7 +242,8 @@ pub(crate) fn normalize_token(value: &str) -> String {
 #[cfg(any(feature = "serde", feature = "metadata"))]
 mod serde_impls {
     use super::{
-        CodeBlockStyle, HeadingStyle, HighlightStyle, ListIndentType, NewlineStyle, OutputFormat, WhitespaceMode,
+        CodeBlockStyle, HeadingStyle, HighlightStyle, LinkStyle, ListIndentType, NewlineStyle, OutputFormat,
+        WhitespaceMode,
     };
     use serde::{Deserialize, Serialize, Serializer};
 
@@ -239,6 +267,7 @@ mod serde_impls {
     impl_deserialize_from_parse!(NewlineStyle, NewlineStyle::parse);
     impl_deserialize_from_parse!(CodeBlockStyle, CodeBlockStyle::parse);
     impl_deserialize_from_parse!(HighlightStyle, HighlightStyle::parse);
+    impl_deserialize_from_parse!(LinkStyle, LinkStyle::parse);
     impl_deserialize_from_parse!(OutputFormat, OutputFormat::parse);
 
     // Serialize implementations that convert enum variants to their string representations
@@ -319,6 +348,19 @@ mod serde_impls {
                 Self::Html => "html",
                 Self::Bold => "bold",
                 Self::None => "none",
+            };
+            serializer.serialize_str(s)
+        }
+    }
+
+    impl Serialize for LinkStyle {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let s = match self {
+                Self::Inline => "inline",
+                Self::Reference => "reference",
             };
             serializer.serialize_str(s)
         }

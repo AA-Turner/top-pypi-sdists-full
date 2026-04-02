@@ -1,0 +1,93 @@
+"""
+CLI commands for churnkit package.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+
+def init_project() -> int:
+    """CLI entry point for project initialization."""
+    import argparse
+
+    from customer_retention.generators.notebook_generator import (
+        Platform,
+        ProjectInitializer,
+    )
+
+    parser = argparse.ArgumentParser(
+        description="Bootstrap a new customer retention project",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+    # Create project in current directory
+    churnkit-init
+
+    # Create in specific directory
+    churnkit-init --output ./my_churn_analysis
+
+    # With customization
+    churnkit-init --output ./my_project --name "Customer Churn Analysis"
+        """,
+    )
+    parser.add_argument(
+        "--output", "-o",
+        type=Path,
+        default=Path.cwd(),
+        help="Output directory (default: current)",
+    )
+    parser.add_argument("--name", "-n", help="Project name")
+    parser.add_argument(
+        "--platform",
+        choices=["local", "databricks", "both"],
+        default="both",
+        help="Target platform (default: both)",
+    )
+
+    args = parser.parse_args()
+
+    print("\n" + "=" * 50)
+    print("Customer Retention Project Bootstrap")
+    print("=" * 50 + "\n")
+
+    output_dir = args.output.resolve()
+    print(f"Output: {output_dir}\n")
+
+    # Determine platforms
+    if args.platform == "both":
+        platforms = [Platform.LOCAL, Platform.DATABRICKS]
+    elif args.platform == "local":
+        platforms = [Platform.LOCAL]
+    else:
+        platforms = [Platform.DATABRICKS]
+
+    # Initialize project using library
+    try:
+        initializer = ProjectInitializer(
+            project_name=args.name or output_dir.name,
+            platforms=platforms,
+        )
+        initializer.initialize(str(output_dir))
+
+        print("\n" + "=" * 50)
+        print("Done!")
+        print("=" * 50)
+        print("\nNext steps:")
+        print(f"  1. cd {output_dir}")
+        print("  2. Add your data to experiments/data/")
+        print("  3. Open exploration_notebooks/01_data_discovery.ipynb")
+        print("  4. Set DATA_PATH to your data file")
+        print("  5. Run all cells - auto-discovery will do the rest!")
+        print()
+
+        return 0
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(init_project())

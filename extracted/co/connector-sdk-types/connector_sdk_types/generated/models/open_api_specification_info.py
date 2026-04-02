@@ -21,8 +21,8 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from connector_sdk_types.generated.models.access_graph_entitlement_rule import AccessGraphEntitlementRule
 from connector_sdk_types.generated.models.access_graph_entitlement_type import AccessGraphEntitlementType
+from connector_sdk_types.generated.models.access_graph_implied_access_rule import AccessGraphImpliedAccessRule
 from connector_sdk_types.generated.models.entitlement_type import EntitlementType
-from connector_sdk_types.generated.models.implied_access_rule import ImpliedAccessRule
 from connector_sdk_types.generated.models.resource_type import ResourceType
 from typing import Optional, Set
 from typing_extensions import Self
@@ -40,7 +40,7 @@ class OpenAPISpecificationInfo(BaseModel):
     x_entitlement_types: List[EntitlementType] = Field(alias="x-entitlement-types")
     x_access_graph_entitlement_types: Optional[List[AccessGraphEntitlementType]] = Field(default=None, alias="x-access-graph-entitlement-types")
     x_access_graph_entitlement_rules: Optional[List[AccessGraphEntitlementRule]] = Field(default=None, alias="x-access-graph-entitlement-rules")
-    x_implied_access_rules: Optional[List[ImpliedAccessRule]] = Field(default=None, alias="x-implied-access-rules")
+    x_implied_access_rules: Optional[List[AccessGraphImpliedAccessRule]] = Field(default=None, alias="x-implied-access-rules")
     x_resource_types: List[ResourceType] = Field(alias="x-resource-types")
     x_categories: Dict[str, Any] = Field(alias="x-categories")
     x_oauth_settings: Optional[Dict[str, Any]] = Field(default=None, alias="x-oauth-settings")
@@ -144,7 +144,7 @@ class OpenAPISpecificationInfo(BaseModel):
             "x-entitlement-types": [EntitlementType.from_dict(_item) for _item in obj["x-entitlement-types"]] if obj.get("x-entitlement-types") is not None else None,
             "x-access-graph-entitlement-types": [AccessGraphEntitlementType.from_dict(_item) for _item in obj["x-access-graph-entitlement-types"]] if obj.get("x-access-graph-entitlement-types") is not None else None,
             "x-access-graph-entitlement-rules": [AccessGraphEntitlementRule.from_dict(_item) for _item in obj["x-access-graph-entitlement-rules"]] if obj.get("x-access-graph-entitlement-rules") is not None else None,
-            "x-implied-access-rules": [ImpliedAccessRule.from_dict(_item) for _item in obj["x-implied-access-rules"]] if obj.get("x-implied-access-rules") is not None else None,
+            "x-implied-access-rules": [AccessGraphImpliedAccessRule.from_dict(_item) for _item in obj["x-implied-access-rules"]] if obj.get("x-implied-access-rules") is not None else None,
             "x-resource-types": [ResourceType.from_dict(_item) for _item in obj["x-resource-types"]] if obj.get("x-resource-types") is not None else None,
             "x-categories": obj.get("x-categories"),
             "x-oauth-settings": obj.get("x-oauth-settings"),

@@ -302,7 +302,7 @@ def _pkg_config(name: str) -> tuple[list[str], list[str]] | None:
                 subprocess.check_output(command_cflags).decode("utf8").strip(),
             )[::2][1:]
             return libs, cflags
-        except Exception:
+        except Exception:  # noqa: PERF203
             pass
     return None
 
@@ -363,7 +363,6 @@ class pil_build_ext(build_ext):
             ("disable-platform-guessing", None, "Disable platform guessing"),
             ("debug", None, "Debug logging"),
         ]
-        + [("add-imaging-libs=", None, "Add libs to _imaging build")]
     )
 
     @staticmethod
@@ -374,7 +373,6 @@ class pil_build_ext(build_ext):
         self.disable_platform_guessing = self.check_configuration(
             "platform-guessing", "disable"
         )
-        self.add_imaging_libs = ""
         build_ext.initialize_options(self)
         for x in self.feature:
             setattr(self, f"disable_{x}", self.check_configuration(x, "disable"))
@@ -901,7 +899,6 @@ class pil_build_ext(build_ext):
         # core library
 
         libs: list[str | bool | None] = []
-        libs.extend(self.add_imaging_libs.split())
         defs: list[tuple[str, str | None]] = []
         if feature.get("tiff"):
             libs.append(feature.get("tiff"))
@@ -1081,10 +1078,10 @@ libraries: list[tuple[str, _BuildInfo]] = [
 ]
 
 files: list[str | os.PathLike[str]] = ["src/_imaging.c"]
-for src_file in _IMAGING:
-    files.append("src/" + src_file + ".c")
-for src_file in _LIB_IMAGING:
-    files.append(os.path.join("src/libImaging", src_file + ".c"))
+files.extend("src/" + src_file + ".c" for src_file in _IMAGING)
+files.extend(
+    os.path.join("src/libImaging", src_file + ".c") for src_file in _LIB_IMAGING
+)
 ext_modules = [
     Extension("PIL._imaging", files),
     Extension("PIL._imagingft", ["src/_imagingft.c"]),
@@ -1092,7 +1089,11 @@ ext_modules = [
     Extension("PIL._webp", ["src/_webp.c"]),
     Extension("PIL._avif", ["src/_avif.c"]),
     Extension("PIL._imagingtk", ["src/_imagingtk.c", "src/Tk/tkImaging.c"]),
-    Extension("PIL._imagingmath", ["src/_imagingmath.c"]),
+    Extension(
+        "PIL._imagingmath",
+        ["src/_imagingmath.c"],
+        libraries=None if sys.platform == "win32" else ["m"],
+    ),
     Extension("PIL._imagingmorph", ["src/_imagingmorph.c"]),
 ]
 

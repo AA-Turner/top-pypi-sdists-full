@@ -1,0 +1,92 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "aa-memberaudit"
+dynamic = ["version", "description"]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+authors = [
+    { name = "Erik Kalkoken", email = "kalkoken87@gmail.com" },
+    { name = "Peter Pfeufer", email = "develop@ppfeufer.de" },
+    { name = "Rebecca Murphy", email = "rebecca@rcmurphy.me" },
+]
+keywords = ["allianceauth", "eveonline", "memberaudit"]
+classifiers = [
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+dependencies = [
+    "allianceauth-app-utils>=1.30.1",
+    "allianceauth>=4,<5",
+    "django-esi>=7,<9",
+    "bleach",
+    "dj-datatables-view",
+    "django-eveuniverse>=1.6",
+    "humanize>=4.7.0",
+    "unidecode",
+    "tqdm>=4.66",
+]
+
+[project.urls]
+Homepage = "https://gitlab.com/ErikKalkoken/aa-memberaudit"
+Documentation = "https://aa-memberaudit.readthedocs.io/en/latest/"
+Source = "https://gitlab.com/ErikKalkoken/aa-memberaudit"
+Changelog = "https://gitlab.com/ErikKalkoken/aa-memberaudit/-/blob/master/CHANGELOG.md"
+Tracker = "https://gitlab.com/ErikKalkoken/aa-memberaudit/-/issues"
+
+[tool.flit.module]
+name = "memberaudit"
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+sections = [
+    "FUTURE",
+    "STDLIB",
+    "THIRDPARTY",
+    "DJANGO",
+    "ALLIANCEAUTH",
+    "FIRSTPARTY",
+    "LOCALFOLDER",
+]
+known_allianceauth = ["allianceauth", "app_utils"]
+known_django = ["django", "django_webtest", "esi", "eveuniverse"]
+
+[tool.pylint.'MASTER']
+ignore-patterns = ["__init__.py", "auth_hooks.py", "apps.py"]
+ignore-paths = ["^.*/tests/.*$", "^.*/migrations/.*$"]
+
+[tool.pylint.'BASIC']
+good-names = ["i", "j", "k", "ex", "id"]
+
+[tool.pylint.'FORMAT']
+max-line-length = 120
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = [
+    "imported-auth-user",
+    "no-member",
+    "fixme",
+    "too-many-instance-attributes",
+    "too-few-public-methods",
+    "too-many-arguments",
+    "too-many-return-statements",
+    "duplicate-code",
+    "import-outside-toplevel",
+    "cyclic-import",
+]

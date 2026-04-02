@@ -14,8 +14,8 @@ from collections import deque
 from copy import deepcopy
 from decimal import Decimal
 from functools import reduce
-from collections.abc import Iterator, Sequence, Collection
-from sqlglot._typing import E
+from collections.abc import Iterator, Sequence, Collection, Mapping, MutableMapping
+from sqlglot._typing import E, T
 from sqlglot.errors import ParseError
 from sqlglot.helper import (
     camel_to_snake_case,
@@ -27,8 +27,10 @@ from sqlglot.helper import (
 
 from sqlglot.tokenizer_core import Token
 from builtins import type as Type
+from sqlglot._typing import GeneratorNoDialectArgs, ParserNoDialectArgs
 
 if t.TYPE_CHECKING:
+    from typing_extensions import Self, Unpack
     from sqlglot.dialects.dialect import DialectType
     from sqlglot.expressions.datatypes import DATA_TYPE, DataType, DType, Interval
     from sqlglot.expressions.query import Select
@@ -271,7 +273,9 @@ class Expr:
     def to_s(self) -> str:
         raise NotImplementedError
 
-    def sql(self, dialect: DialectType = None, **opts: object) -> str:
+    def sql(
+        self, dialect: DialectType = None, copy: bool = True, **opts: Unpack[GeneratorNoDialectArgs]
+    ) -> str:
         raise NotImplementedError
 
     def transform(
@@ -279,7 +283,7 @@ class Expr:
     ) -> t.Any:
         raise NotImplementedError
 
-    def replace(self, expression: t.Any) -> t.Any:
+    def replace(self, expression: T) -> T:
         raise NotImplementedError
 
     def pop(self: E) -> E:
@@ -291,7 +295,7 @@ class Expr:
     def error_messages(self, args: t.Optional[Sequence[object]] = None) -> list[str]:
         raise NotImplementedError
 
-    def dump(self) -> t.Any:
+    def dump(self) -> list[dict[str, t.Any]]:
         """
         Dump this Expr to a JSON-serializable dict.
         """
@@ -300,7 +304,7 @@ class Expr:
         return dump(self)
 
     @classmethod
-    def load(cls, obj: t.Any) -> Expr:
+    def load(cls, obj: t.Optional[list[dict[str, Any]]]) -> Expr:
         """
         Load a dict (as returned by `Expr.dump`) into an Expr instance.
         """
@@ -316,7 +320,7 @@ class Expr:
         dialect: DialectType = None,
         copy: bool = True,
         wrap: bool = True,
-        **opts: object,
+        **opts: Unpack[ParserNoDialectArgs],
     ) -> Condition:
         raise NotImplementedError
 
@@ -326,7 +330,7 @@ class Expr:
         dialect: DialectType = None,
         copy: bool = True,
         wrap: bool = True,
-        **opts: object,
+        **opts: Unpack[ParserNoDialectArgs],
     ) -> Condition:
         raise NotImplementedError
 
@@ -349,14 +353,15 @@ class Expr:
         quoted: t.Optional[bool] = None,
         dialect: DialectType = None,
         copy: bool = True,
-        **opts: object,
+        table: bool | Sequence[str | Identifier] = False,
+        **opts: Unpack[ParserNoDialectArgs],
     ) -> Expr:
         raise NotImplementedError
 
     def _binop(self, klass: Type[E], other: t.Any, reverse: bool = False) -> E:
         raise NotImplementedError
 
-    def __getitem__(self, other: ExpOrStr | t.Tuple[ExpOrStr, ...]) -> Bracket:
+    def __getitem__(self, other: ExpOrStr | tuple[ExpOrStr, ...]) -> Bracket:
         raise NotImplementedError
 
     def __iter__(self) -> Iterator:
@@ -366,19 +371,15 @@ class Expr:
         self,
         *expressions: t.Any,
         query: t.Optional[ExpOrStr] = None,
-        unnest: t.Optional[ExpOrStr] | Collection[ExpOrStr] = None,
+        unnest: t.Optional[ExpOrStr] | list[ExpOrStr] | tuple[ExpOrStr, ...] = None,
+        dialect: DialectType = None,
         copy: bool = True,
-        **opts: object,
+        **opts: Unpack[ParserNoDialectArgs],
     ) -> In:
         raise NotImplementedError
 
     def between(
-        self,
-        low: t.Any,
-        high: t.Any,
-        copy: bool = True,
-        symmetric: t.Optional[bool] = None,
-        **opts: object,
+        self, low: t.Any, high: t.Any, copy: bool = True, symmetric: t.Optional[bool] = None
     ) -> Between:
         raise NotImplementedError
 
@@ -538,7 +539,12 @@ class Expression(Expr):
         assert self._hash
         return self._hash
 
-    def __reduce__(self) -> t.Tuple[t.Callable, t.Tuple[t.List[t.Dict[str, t.Any]]]]:
+    def __reduce__(
+        self,
+    ) -> tuple[
+        t.Callable[[t.Optional[list[dict[str, t.Any]]]], t.Optional[t.Union[Expr, DType]]],
+        tuple[list[dict[str, t.Any]]],
+    ]:
         from sqlglot.serde import dump, load
 
         return (load, (dump(self),))
@@ -824,6 +830,19 @@ class Expression(Expr):
                     v.arg_key = arg_key
                     v.index = i
 
+    def set_kwargs(self, kwargs: Mapping[str, object]) -> Self:
+        """Set multiples keyword arguments at once, using `.set()` method.
+
+        Args:
+            kwargs (Mapping[str, object]): a `Mapping` of arg keys to values to set.
+        Returns:
+            Self: The same `Expression` with the updated arguments.
+        """
+        if kwargs:
+            for k, v in kwargs.items():
+                self.set(k, v)
+        return self
+
     @property
     def depth(self) -> int:
         """
@@ -1014,7 +1033,9 @@ class Expression(Expr):
         """
         return _to_s(self, verbose=True)
 
-    def sql(self, dialect: DialectType = None, **opts: t.Any) -> str:
+    def sql(
+        self, dialect: DialectType = None, copy: bool = True, **opts: Unpack[GeneratorNoDialectArgs]
+    ) -> str:
         """
         Returns SQL string representation of this tree.
 
@@ -1027,7 +1048,7 @@ class Expression(Expr):
         """
         from sqlglot.dialects.dialect import Dialect
 
-        return Dialect.get_or_raise(dialect).generate(self, **opts)
+        return Dialect.get_or_raise(dialect).generate(self, copy=copy, **opts)
 
     def transform(
         self, fun: t.Callable, *args: object, copy: bool = True, **kwargs: object
@@ -1061,7 +1082,7 @@ class Expression(Expr):
         assert root
         return root
 
-    def replace(self, expression: t.Any) -> t.Any:
+    def replace(self, expression: T) -> T:
         """
         Swap out this expression with a new expression.
 
@@ -1076,10 +1097,10 @@ class Expression(Expr):
             'SELECT y FROM tbl'
 
         Args:
-            expression: new node
+            expression (T): new node
 
         Returns:
-            The new expression or expressions.
+            T: The new expression or expressions.
         """
         parent = self.parent
 
@@ -1180,7 +1201,7 @@ class Expression(Expr):
         dialect: DialectType = None,
         copy: bool = True,
         wrap: bool = True,
-        **opts: object,
+        **opts: Unpack[ParserNoDialectArgs],
     ) -> Condition:
         """
         AND this condition with one or multiple expressions.
@@ -1210,7 +1231,7 @@ class Expression(Expr):
         dialect: DialectType = None,
         copy: bool = True,
         wrap: bool = True,
-        **opts: object,
+        **opts: Unpack[ParserNoDialectArgs],
     ) -> Condition:
         """
         OR this condition with one or multiple expressions.
@@ -1298,9 +1319,10 @@ class Expression(Expr):
         quoted: t.Optional[bool] = None,
         dialect: DialectType = None,
         copy: bool = True,
-        **opts: t.Any,
+        table: bool | Sequence[str | Identifier] = False,
+        **opts: Unpack[ParserNoDialectArgs],
     ) -> Expr:
-        return alias_(self, alias, quoted=quoted, dialect=dialect, copy=copy, **opts)
+        return alias_(self, alias, quoted=quoted, dialect=dialect, copy=copy, table=table, **opts)
 
     def _binop(self, klass: Type[E], other: t.Any, reverse: bool = False) -> E:
         this = self.copy()
@@ -1329,14 +1351,19 @@ class Expression(Expr):
         self,
         *expressions: t.Any,
         query: t.Optional[ExpOrStr] = None,
-        unnest: t.Optional[ExpOrStr] | Collection[ExpOrStr] = None,
+        unnest: t.Optional[ExpOrStr] | list[ExpOrStr] | tuple[ExpOrStr, ...] = None,
+        dialect: DialectType = None,
         copy: bool = True,
-        **opts: t.Any,
+        **opts: Unpack[ParserNoDialectArgs],
     ) -> In:
-        subquery = maybe_parse(query, copy=copy, **opts) if query else None
-        if subquery and not subquery.is_subquery:
-            subquery = subquery.subquery(copy=False)
+        from sqlglot.expressions.query import Query
 
+        subquery: t.Optional[Expr] = None
+        if query:
+            subquery = maybe_parse(query, dialect=dialect, copy=copy, **opts)
+            if isinstance(subquery, Query):
+                subquery = subquery.subquery(copy=False)
+        unnest_list: list[ExpOrStr] = ensure_list(unnest)
         return In(
             this=maybe_copy(self, copy),
             expressions=[convert(e, copy=copy) for e in expressions],
@@ -1344,8 +1371,7 @@ class Expression(Expr):
             unnest=(
                 _lazy_unnest(
                     expressions=[
-                        maybe_parse(t.cast(ExpOrStr, e), copy=copy, **opts)
-                        for e in ensure_list(unnest)
+                        maybe_parse(e, dialect=dialect, copy=copy, **opts) for e in unnest_list
                     ]
                 )
                 if unnest
@@ -1354,17 +1380,12 @@ class Expression(Expr):
         )
 
     def between(
-        self,
-        low: t.Any,
-        high: t.Any,
-        copy: bool = True,
-        symmetric: t.Optional[bool] = None,
-        **opts: object,
+        self, low: t.Any, high: t.Any, copy: bool = True, symmetric: t.Optional[bool] = None
     ) -> Between:
         between = Between(
             this=maybe_copy(self, copy),
-            low=convert(low, copy=copy, **opts),
-            high=convert(high, copy=copy, **opts),
+            low=convert(low, copy=copy),
+            high=convert(high, copy=copy),
         )
         if symmetric is not None:
             between.set("symmetric", symmetric)
@@ -1560,12 +1581,12 @@ class Func(Condition):
     """
 
     is_var_len_args: t.ClassVar[bool] = False
-    _sql_names: t.ClassVar[t.List[str]] = []
+    _sql_names: t.ClassVar[list[str]] = []
 
     @classmethod
-    def from_arg_list(cls, args):
+    def from_arg_list(cls, args: Sequence[object]) -> Self:
         if cls.is_var_len_args:
-            all_arg_keys = list(cls.arg_types)
+            all_arg_keys = tuple(cls.arg_types)
             # If this function supports variable length argument treat the last argument as such.
             non_var_len_arg_keys = all_arg_keys[:-1] if cls.is_var_len_args else all_arg_keys
             num_non_var = len(non_var_len_arg_keys)
@@ -1578,7 +1599,7 @@ class Func(Condition):
         return cls(**args_dict)
 
     @classmethod
-    def sql_names(cls):
+    def sql_names(cls) -> list[str]:
         if cls is Func:
             raise NotImplementedError(
                 "SQL name is only supported by concrete function implementations"
@@ -1588,13 +1609,13 @@ class Func(Condition):
         return cls._sql_names
 
     @classmethod
-    def sql_name(cls):
+    def sql_name(cls) -> str:
         sql_names = cls.sql_names()
         assert sql_names, f"Expected non-empty 'sql_names' for Func: {cls.__name__}."
         return sql_names[0]
 
     @classmethod
-    def default_parser_mappings(cls):
+    def default_parser_mappings(cls) -> dict[str, t.Callable[[Sequence[object]], Self]]:
         return {name: cls.from_arg_list for name in cls.sql_names()}
 
 
@@ -1648,7 +1669,7 @@ class Literal(Expression, Condition):
     is_primitive = True
 
     @classmethod
-    def number(cls, number) -> Literal | Neg:
+    def number(cls, number: object) -> Literal | Neg:
         lit = cls(this=str(number), is_string=False)
         try:
             to_py = lit.to_py()
@@ -1660,7 +1681,7 @@ class Literal(Expression, Condition):
         return lit
 
     @classmethod
-    def string(cls, string) -> Literal:
+    def string(cls, string: object) -> Literal:
         return cls(this=str(string), is_string=True)
 
     @property
@@ -1774,7 +1795,7 @@ class Dot(Expression, Binary):
         return self.name
 
     @classmethod
-    def build(self, expressions: Sequence[Expr]) -> Dot:
+    def build(cls, expressions: Sequence[Expr]) -> Dot:
         """Build a Dot object with a sequence of expressions."""
         if len(expressions) < 2:
             raise ValueError("Dot requires >= 2 expressions.")
@@ -2215,7 +2236,10 @@ class RegexpLike(Expression, Binary, Func):
 
 
 def not_(
-    expression: ExpOrStr, dialect: DialectType = None, copy: bool = True, **opts: object
+    expression: ExpOrStr,
+    dialect: DialectType = None,
+    copy: bool = True,
+    **opts: Unpack[ParserNoDialectArgs],
 ) -> Not:
     """
     Wrap a condition with a NOT operator.
@@ -2374,13 +2398,13 @@ TIMESTAMP_PARTS = {
 
 @t.overload
 def maybe_parse(
-    sql_or_expression: ExpOrStr,
+    sql_or_expression: int | str,
     *,
     into: Type[E],
     dialect: DialectType = None,
     prefix: t.Optional[str] = None,
     copy: bool = False,
-    **opts: object,
+    **opts: Unpack[ParserNoDialectArgs],
 ) -> E: ...
 
 
@@ -2392,7 +2416,7 @@ def maybe_parse(
     dialect: DialectType = None,
     prefix: t.Optional[str] = None,
     copy: bool = False,
-    **opts: object,
+    **opts: Unpack[ParserNoDialectArgs],
 ) -> E: ...
 
 
@@ -2403,7 +2427,7 @@ def maybe_parse(
     dialect: DialectType = None,
     prefix: t.Optional[str] = None,
     copy: bool = False,
-    **opts: object,
+    **opts: Unpack[ParserNoDialectArgs],
 ) -> Expr:
     """Gracefully handle a possible string or expression.
 
@@ -2501,17 +2525,17 @@ def _is_wrong_expression(expression, into):
 
 
 def _apply_builder(
-    expression,
-    instance,
-    arg,
-    copy=True,
-    prefix=None,
-    into=None,
-    dialect=None,
+    expression: ExpOrStr,
+    instance: E,
+    arg: str,
+    copy: bool = True,
+    prefix: t.Optional[str] = None,
+    into: t.Optional[Type[Expr]] = None,
+    dialect: DialectType = None,
     into_arg="this",
-    **opts: t.Any,
-):
-    if _is_wrong_expression(expression, into):
+    **opts: Unpack[ParserNoDialectArgs],
+) -> E:
+    if _is_wrong_expression(expression, into) and into is not None:
         expression = into(**{into_arg: expression})
     instance = maybe_copy(instance, copy)
     expression = maybe_parse(
@@ -2526,24 +2550,24 @@ def _apply_builder(
 
 
 def _apply_child_list_builder(
-    *expressions,
-    instance,
-    arg,
-    append=True,
-    copy=True,
-    prefix=None,
-    into=None,
-    dialect=None,
-    properties=None,
-    **opts: t.Any,
-):
+    *expressions: t.Optional[ExpOrStr],
+    instance: E,
+    arg: str,
+    append: bool = True,
+    copy: bool = True,
+    prefix: t.Optional[str] = None,
+    into: t.Optional[Type[Expr]] = None,
+    dialect: DialectType = None,
+    properties: t.Optional[MutableMapping[str, object]] = None,
+    **opts: Unpack[ParserNoDialectArgs],
+) -> E:
     instance = maybe_copy(instance, copy)
     parsed = []
     properties = {} if properties is None else properties
 
     for expression in expressions:
         if expression is not None:
-            if _is_wrong_expression(expression, into):
+            if _is_wrong_expression(expression, into) and into is not None:
                 expression = into(expressions=[expression])
 
             expression = maybe_parse(
@@ -2562,7 +2586,8 @@ def _apply_child_list_builder(
     existing = instance.args.get(arg)
     if append and existing:
         parsed = existing.expressions + parsed
-
+    if into is None:
+        raise ValueError("`into` is required to use `_apply_child_list_builder`")
     child = into(expressions=parsed)
     for k, v in properties.items():
         child.set(k, v)
@@ -2572,16 +2597,16 @@ def _apply_child_list_builder(
 
 
 def _apply_list_builder(
-    *expressions,
-    instance,
-    arg,
-    append=True,
-    copy=True,
-    prefix=None,
-    into=None,
-    dialect=None,
-    **opts: t.Any,
-):
+    *expressions: t.Optional[ExpOrStr],
+    instance: E,
+    arg: str,
+    append: bool = True,
+    copy: bool = True,
+    prefix: t.Optional[str] = None,
+    into: t.Optional[Type[Expr]] = None,
+    dialect: DialectType = None,
+    **opts: Unpack[ParserNoDialectArgs],
+) -> E:
     inst = maybe_copy(instance, copy)
 
     parsed = [
@@ -2605,15 +2630,15 @@ def _apply_list_builder(
 
 
 def _apply_conjunction_builder(
-    *expressions,
-    instance,
-    arg,
-    into=None,
-    append=True,
-    copy=True,
-    dialect=None,
-    **opts: t.Any,
-):
+    *expressions: t.Optional[ExpOrStr],
+    instance: E,
+    arg: str,
+    into: t.Optional[Type[Expr]] = None,
+    append: bool = True,
+    copy: bool = True,
+    dialect: DialectType = None,
+    **opts: Unpack[ParserNoDialectArgs],
+) -> E:
     filtered = [exp for exp in expressions if exp is not None and exp != ""]
     if not filtered:
         return instance
@@ -2632,11 +2657,11 @@ def _apply_conjunction_builder(
 
 def _combine(
     expressions: Sequence[t.Optional[ExpOrStr]],
-    operator: t.Any,
+    operator: Type[Expr],
     dialect: DialectType = None,
     copy: bool = True,
     wrap: bool = True,
-    **opts: object,
+    **opts: Unpack[ParserNoDialectArgs],
 ) -> Expr:
     conditions = [
         condition(expression, dialect=dialect, copy=copy, **opts)
@@ -2671,7 +2696,7 @@ def _apply_set_operation(
     distinct: bool = True,
     dialect: DialectType = None,
     copy: bool = True,
-    **opts: t.Any,
+    **opts: Unpack[ParserNoDialectArgs],
 ) -> t.Any:
     return reduce(
         lambda x, y: set_operation(this=x, expression=y, distinct=distinct, **opts),
@@ -2720,7 +2745,10 @@ def to_identifier(name, quoted=None, copy=True):
 
 
 def condition(
-    expression: ExpOrStr, dialect: DialectType = None, copy: bool = True, **opts: t.Any
+    expression: ExpOrStr,
+    dialect: DialectType = None,
+    copy: bool = True,
+    **opts: Unpack[ParserNoDialectArgs],
 ) -> Expr:
     """
     Initialize a logical condition expression.
@@ -2761,7 +2789,7 @@ def and_(
     dialect: DialectType = None,
     copy: bool = True,
     wrap: bool = True,
-    **opts: object,
+    **opts: Unpack[ParserNoDialectArgs],
 ) -> Condition:
     """
     Combine multiple conditions with an AND logical operator.
@@ -2791,7 +2819,7 @@ def or_(
     dialect: DialectType = None,
     copy: bool = True,
     wrap: bool = True,
-    **opts: object,
+    **opts: Unpack[ParserNoDialectArgs],
 ) -> Condition:
     """
     Combine multiple conditions with an OR logical operator.
@@ -2821,7 +2849,7 @@ def xor(
     dialect: DialectType = None,
     copy: bool = True,
     wrap: bool = True,
-    **opts: object,
+    **opts: Unpack[ParserNoDialectArgs],
 ) -> Condition:
     """
     Combine multiple conditions with an XOR logical operator.
@@ -2872,7 +2900,7 @@ def alias_(
     quoted: t.Optional[bool] = None,
     dialect: DialectType = None,
     copy: bool = True,
-    **opts: t.Any,
+    **opts: Unpack[ParserNoDialectArgs],
 ) -> Expr:
     """Create an Alias expression.
 
@@ -2960,7 +2988,7 @@ def column(
     *,
     fields=None,
     quoted=None,
-    copy=True,
+    copy: bool = True,
 ):
     """
     Build a Column.
@@ -2980,7 +3008,7 @@ def column(
     if not isinstance(col, Star):
         col = to_identifier(col, quoted=quoted, copy=copy)
 
-    this = Column(
+    this: Column | Dot = Column(
         this=col,
         table=to_identifier(table, quoted=quoted, copy=copy),
         db=to_identifier(db, quoted=quoted, copy=copy),

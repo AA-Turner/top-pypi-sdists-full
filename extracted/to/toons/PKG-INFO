@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: toons
-Version: 0.5.3
+Version: 0.5.4
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -18,11 +18,14 @@ Project-URL: Source, https://github.com/alesanfra/toons
 [![Python](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
 [![Documentation Status](https://readthedocs.org/projects/toons/badge/?version=latest)](https://toons.readthedocs.io/en/latest/?badge=latest)
 [![CI](https://github.com/alesanfra/toons/workflows/CI/badge.svg)](https://github.com/alesanfra/toons/actions)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/toons?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads%2Fmonth)](https://pepy.tech/projects/toons)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 **A high-performance TOON (Token Oriented Object Notation) parser and serializer for Python.**
 
 TOONS - Token Oriented Object Notation Serializer - is a fast Rust-based library that provides a Python interface mirroring the `json` module API, making it easy to work with the TOON format—a token-efficient data serialization format designed specifically for Large Language Models.
+
+TOONS is officially listed among the [community implementations of the TOON format](https://toonformat.dev/ecosystem/implementations.html#community-implementations).
 
 
 ## Documentation
@@ -136,8 +139,4 @@ See [Contributing Guide](https://toons.readthedocs.io/en/stable/contributing/) f
 ## License
 
 This project is licensed under the Apache License 2.0. See LICENSE file for details.
-
-## Why isn't TOONS listed among the official TOON community implementations?
-
-Join the conversation on [toon-format/toon#275](https://github.com/toon-format/toon/pull/275).
 

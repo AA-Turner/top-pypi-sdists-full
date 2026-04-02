@@ -1,0 +1,110 @@
+/**
+ * Auto-naming for stateful components.
+ *
+ * When a stateful component (Input, Slider, Checkbox, etc.) appears in the
+ * JSON tree without a `name` prop, the renderer assigns one automatically.
+ * This mirrors Python's eager name generation so protocol/JSON authors
+ * don't need to supply names manually.
+ */
+
+/**
+ * Stateful component types that get auto-generated names when `name` is
+ * missing.  Mirrors the Python `StatefulMixin` subclass list.
+ */
+export const STATEFUL_TYPES = new Set([
+  "Input",
+  "Textarea",
+  "Checkbox",
+  "Switch",
+  "Slider",
+  "Calendar",
+  "DatePicker",
+  "DropZone",
+  "Select",
+  "RadioGroup",
+  "Combobox",
+  "Tabs",
+  "Pages",
+]);
+
+/** Counter for auto-generated component names, reset per RenderTree call. */
+let _autoNameCounter = 0;
+
+/**
+ * Reset the auto-name counter. Called at the start of each RenderTree pass.
+ */
+export function resetAutoNameCounter(): void {
+  _autoNameCounter = 0;
+}
+
+/**
+ * Auto-assign a name to a stateful component if it doesn't already have one.
+ * Mutates `props` in place and returns the (possibly generated) name.
+ * Returns `undefined` for non-stateful types or when a name already exists.
+ */
+export function autoAssignName(
+  type: string,
+  props: Record<string, unknown>,
+): string | undefined {
+  if (STATEFUL_TYPES.has(type) && !("name" in props)) {
+    const name = `${type.toLowerCase()}_${++_autoNameCounter}`;
+    props.name = name;
+    return name;
+  }
+  return undefined;
+}
+
+/**
+ * Walk a component tree and collect initial values from named stateful
+ * components (e.g. Slider value=0.75 with name="volume" → {volume: 0.75}).
+ * Only collects values for keys not already present in `existing`.
+ */
+export function collectComponentState(
+  node: {
+    type: string;
+    name?: unknown;
+    value?: unknown;
+    checked?: unknown;
+    selected?: unknown;
+    children?: unknown[];
+  },
+  existing: Record<string, unknown>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  const walk = (n: typeof node) => {
+    if (
+      STATEFUL_TYPES.has(n.type) &&
+      typeof n.name === "string" &&
+      !(n.name in existing)
+    ) {
+      let val: unknown = n.type === "DropZone" ? [] : n.value;
+
+      // Select/RadioGroup: default lives on children (selected/value)
+      if (val === undefined && n.children) {
+        if (n.type === "Select") {
+          const selected = n.children.find((c) => (c as typeof n).selected) as
+            | typeof n
+            | undefined;
+          if (selected) val = selected.value;
+        } else if (n.type === "RadioGroup") {
+          const checked = n.children.find((c) => (c as typeof n).value) as
+            | typeof n
+            | undefined;
+          if (checked) val = (checked as Record<string, unknown>).option;
+        }
+      }
+
+      if (
+        val !== undefined &&
+        !(typeof val === "string" && val.includes("{{"))
+      ) {
+        result[n.name] = val;
+      }
+    }
+    if (n.children) {
+      for (const child of n.children as (typeof node)[]) walk(child);
+    }
+  };
+  walk(node);
+  return result;
+}

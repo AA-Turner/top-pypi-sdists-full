@@ -1,0 +1,71 @@
+Metadata-Version: 2.4
+Name: inspect_swe
+Version: 0.2.46
+Summary: Software engineering agents for Inspect AI.
+Project-URL: Documentation, https://meridianlabs-ai.github.io/inspect_swe/
+Project-URL: Source Code, https://github.com/meridianlabs-ai/inspect_swe
+Project-URL: Issue Tracker, https://github.com/meridianlabs-ai/inspect_swe/issues
+Author: Meridian Labs
+License: MIT License
+License-File: LICENSE
+Requires-Python: >=3.10
+Requires-Dist: agent-client-protocol>=0.9.0
+Requires-Dist: anyio
+Requires-Dist: httpx
+Requires-Dist: inspect-ai>=0.3.185
+Requires-Dist: nest-asyncio
+Requires-Dist: platformdirs
+Requires-Dist: pydantic>=2.11.4
+Requires-Dist: pyyaml
+Requires-Dist: sniffio
+Requires-Dist: typing-extensions>=4.9.0
+Provides-Extra: dev
+Requires-Dist: anthropic; extra == 'dev'
+Requires-Dist: inspect-evals; extra == 'dev'
+Requires-Dist: inspect-k8s-sandbox; extra == 'dev'
+Requires-Dist: ipython; extra == 'dev'
+Requires-Dist: mini-swe-agent; extra == 'dev'
+Requires-Dist: mypy; extra == 'dev'
+Requires-Dist: openai; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-dotenv; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: types-pyyaml; extra == 'dev'
+Provides-Extra: doc
+Requires-Dist: quarto-cli==1.7.31; extra == 'doc'
+Description-Content-Type: text/markdown
+
+Welcome to Inspect SWE, a suite of software engineering agents for [Inspect AI](https://inspect.aisi.org.uk/).
+
+For details on using Inspect SWE, please visit <https://meridianlabs-ai.github.io/inspect_swe/>.
+
+## Installation
+
+Latest development version:
+
+```bash
+pip install git+https://github.com/meridianlabs-ai/inspect_swe
+```
+
+## Development
+
+To work on development of Inspect SWE, clone the repository and install with the `-e` flag and `[dev]` optional dependencies:
+
+```bash
+git clone https://github.com/meridianlabs-ai/inspect_swe
+cd inspect_swe
+pip install -e ".[dev]"
+```
+
+Run linting, formatting, and tests via
+
+```bash
+make check
+make test
+```
+
+### Sandbox-specific tests
+
+Note that most tests depend on a valid sandbox being available (either `docker` or `k8s`), this is inferred from your shell environment.
+
+You can check which are collected via `pytest --co`

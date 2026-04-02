@@ -1,0 +1,25 @@
+from enum import Enum
+
+
+class CoiTypeEnum(str, Enum):
+    COAUTH_OLD = "COAUTH_OLD"
+    COAUTH_RECENT = "COAUTH_RECENT"
+    COLLAB_ACTIVE = "COLLAB_ACTIVE"
+    COLLAB_GRANT = "COLLAB_GRANT"
+    COMPET = "COMPET"
+    CONF_ATTEND = "CONF_ATTEND"
+    FIN_DIRECT = "FIN_DIRECT"
+    INST_CONSORT = "INST_CONSORT"
+    INST_DEPT = "INST_DEPT"
+    INST_FORMER = "INST_FORMER"
+    INST_SAME = "INST_SAME"
+    REL_EDITORIAL = "REL_EDITORIAL"
+    REL_FAMILY = "REL_FAMILY"
+    REL_MENTOR = "REL_MENTOR"
+    REL_SUPERVISOR = "REL_SUPERVISOR"
+    ROLE_CONF = "ROLE_CONF"
+    ROLE_NAMED = "ROLE_NAMED"
+    SOC_MEMBER = "SOC_MEMBER"
+
+    def __str__(self) -> str:
+        return str(self.value)

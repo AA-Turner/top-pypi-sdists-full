@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Introducing `clean_devices`, a new DHCP driver's API that can be
-    called to clean stale devices.

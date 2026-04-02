@@ -1,0 +1,17 @@
+// Copyright (c) Mysten Labs, Inc.
+// Copyright (c) Soma Contributors
+// SPDX-License-Identifier: Apache-2.0
+
+//
+// Modified for the SOMA project.
+
+pub mod discovery;
+
+// Tonic generated RPC stubs.
+pub mod tonic_gen {
+    include!("proto/p2p.P2p.rs");
+}
+pub mod builder;
+pub mod server;
+pub mod state_sync;
+pub(crate) mod test_utils;

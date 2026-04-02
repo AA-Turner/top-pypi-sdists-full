@@ -14,8 +14,8 @@
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from queue import Queue
-from typing import Any, TYPE_CHECKING
-from threading import Lock, Event
+from threading import Event, Lock
+from typing import TYPE_CHECKING, Any
 
 from google.cloud.spanner_v1._opentelemetry_tracing import trace_call
 from google.cloud.spanner_v1.metrics.metrics_capture import MetricsCapture
@@ -46,10 +46,13 @@ class PartitionExecutor:
         observability_options = getattr(
             self._batch_snapshot, "observability_options", {}
         )
-        with trace_call(
-            "CloudSpanner.PartitionExecutor.run",
-            observability_options=observability_options,
-        ), MetricsCapture():
+        with (
+            trace_call(
+                "CloudSpanner.PartitionExecutor.run",
+                observability_options=observability_options,
+            ),
+            MetricsCapture(),
+        ):
             self.__run()
 
     def __run(self):

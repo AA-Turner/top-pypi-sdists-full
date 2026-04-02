@@ -1,6 +1,7 @@
 use html_to_markdown_rs::{
-    CodeBlockStyle, ConversionOptions as RustConversionOptions, HeadingStyle, HighlightStyle, ListIndentType,
-    NewlineStyle, OutputFormat, PreprocessingOptions as RustPreprocessingOptions, PreprocessingPreset, WhitespaceMode,
+    CodeBlockStyle, ConversionOptions as RustConversionOptions, HeadingStyle, HighlightStyle, LinkStyle,
+    ListIndentType, NewlineStyle, OutputFormat, PreprocessingOptions as RustPreprocessingOptions, PreprocessingPreset,
+    WhitespaceMode,
 };
 use pyo3::prelude::*;
 
@@ -115,6 +116,8 @@ pub struct ConversionOptions {
     #[pyo3(get, set)]
     pub skip_images: bool,
     #[pyo3(get, set)]
+    pub link_style: String,
+    #[pyo3(get, set)]
     pub output_format: String,
     #[pyo3(get, set)]
     pub include_document_structure: bool,
@@ -164,6 +167,7 @@ impl ConversionOptions {
         preserve_tags=Vec::new(),
         encoding="utf-8".to_string(),
         skip_images=false,
+        link_style="inline".to_string(),
         output_format="markdown".to_string(),
         include_document_structure=false,
         extract_images=false,
@@ -203,6 +207,7 @@ impl ConversionOptions {
         preserve_tags: Vec<String>,
         encoding: String,
         skip_images: bool,
+        link_style: String,
         output_format: String,
         include_document_structure: bool,
         extract_images: bool,
@@ -243,6 +248,7 @@ impl ConversionOptions {
             preserve_tags,
             encoding,
             skip_images,
+            link_style,
             output_format,
             include_document_structure,
             extract_images,
@@ -288,6 +294,7 @@ impl ConversionOptions {
             strip_tags: self.strip_tags.clone(),
             preserve_tags: self.preserve_tags.clone(),
             skip_images: self.skip_images,
+            link_style: LinkStyle::parse(self.link_style.as_str()),
             output_format: OutputFormat::parse(self.output_format.as_str()),
             include_document_structure: self.include_document_structure,
             extract_images: self.extract_images,

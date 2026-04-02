@@ -1,6 +1,7 @@
-from typing import Final
+from __future__ import annotations
 
-from mypy.checker import TypeChecker
+from typing import TYPE_CHECKING, Final
+
 from mypy.copytype import copy_type
 from mypy.nodes import (
     GDEF,
@@ -17,9 +18,7 @@ from mypy.nodes import (
     SymbolTableNode,
     TypeInfo,
 )
-from mypy.plugin import AttributeContext, ClassDefContext, DynamicClassDefContext
 from mypy.plugins.common import add_method_to_class
-from mypy.semanal import SemanticAnalyzer
 from mypy.semanal_shared import has_placeholder
 from mypy.subtypes import find_member
 from mypy.types import (
@@ -40,6 +39,11 @@ from mypy.types import Type as MypyType
 from mypy.typevars import fill_typevars
 
 from mypy_django_plugin.lib import fullnames, helpers
+
+if TYPE_CHECKING:
+    from mypy.checker import TypeChecker
+    from mypy.plugin import AttributeContext, ClassDefContext, DynamicClassDefContext
+    from mypy.semanal import SemanticAnalyzer
 
 MANAGER_METHODS_RETURNING_QUERYSET: Final = frozenset(
     (
@@ -377,7 +381,7 @@ def create_manager_info_from_from_queryset_call(
         return None
 
     base_manager_info, queryset_info = call_expr.callee.expr.node, call_expr.args[0].node
-    if queryset_info.fullname is None:
+    if queryset_info.fullname is None:  # type: ignore[comparison-overlap]
         # In some cases, due to the way the semantic analyzer works, only
         # passed_queryset.name is available. But it should be analyzed again,
         # so this isn't a problem.
@@ -505,6 +509,11 @@ def populate_manager_from_queryset(manager_info: TypeInfo, queryset_info: TypeIn
 
 
 def add_as_manager_to_queryset_class(ctx: ClassDefContext) -> None:
+    """
+    Insert a new manager class node for a: '<Manager> = <QuerySet>.as_manager()'.
+
+    Similar to `create_manager_info_from_from_queryset_call`
+    """
     semanal_api = helpers.get_semanal_api(ctx)
 
     def _defer() -> None:
@@ -513,6 +522,11 @@ def add_as_manager_to_queryset_class(ctx: ClassDefContext) -> None:
 
     queryset_info = semanal_api.type
     if queryset_info is None:
+        return _defer()
+
+    # If any of the queryset's type vars have unresolved bounds (placeholders),
+    # defer to avoid generating methods with unresolved types that crash mypy.
+    if any(has_placeholder(tv) for tv in queryset_info.defn.type_vars):
         return _defer()
 
     # either a manual `as_manager` definition or this is a deferral pass
@@ -589,6 +603,68 @@ def add_as_manager_to_queryset_class(ctx: ClassDefContext) -> None:
     )
 
 
+def reparametrize_generic_class(ctx: ClassDefContext, base_class_fullname: str) -> None:
+    """
+    Add implicit generics to classes that are defined without generic.
+
+    Note that this does not happen if mypy is run with disallow_any_generics = True,
+    as not specifying the generic type is then considered an error.
+    """
+    class_info = ctx.api.lookup_fully_qualified_or_none(ctx.cls.fullname)
+    if class_info is None or class_info.node is None:
+        return
+    assert isinstance(class_info.node, TypeInfo)
+
+    if class_info.node.type_vars:
+        # We've already been here or the class is already declared with generic types
+        return
+
+    parent_class = next(
+        (base for base in class_info.node.bases if base.type.has_base(base_class_fullname)),
+        None,
+    )
+    if parent_class is None or len(parent_class.args) < 1:
+        return
+
+    model_param = get_proper_type(parent_class.args[0])
+    if not isinstance(model_param, AnyType) or model_param.type_of_any is not TypeOfAny.from_omitted_generics:
+        return
+
+    type_vars = tuple(parent_class.type.defn.type_vars)
+
+    # If we end up with placeholders we need to defer so the placeholders are
+    # resolved in a future iteration
+    if any(has_placeholder(type_var) for type_var in type_vars):
+        if not ctx.api.final_iteration:
+            ctx.api.defer()
+        else:
+            return
+
+    parent_class.args = type_vars
+    class_info.node.defn.type_vars = list(type_vars)
+    class_info.node.add_type_vars()
+
+
+def reparametrize_any_queryset_hook(ctx: ClassDefContext) -> None:
+    """
+    Add implicit generics to QuerySet subclasses that are defined without generic.
+
+    Eg.
+
+        class MyQuerySet(models.QuerySet): ...
+
+    is interpreted as:
+
+        _Model = TypeVar('_Model', bound=Model, covariant=True)
+        _Row = TypeVar('_Row', covariant=True, default=_Model)
+        class MyQuerySet(models.QuerySet[_Model, _Row]): ...
+
+    Note that this does not happen if mypy is run with disallow_any_generics = True,
+    as not specifying the generic type is then considered an error.
+    """
+    reparametrize_generic_class(ctx, fullnames.QUERYSET_CLASS_FULLNAME)
+
+
 def reparametrize_any_manager_hook(ctx: ClassDefContext) -> None:
     """
     Add implicit generics to manager classes that are defined without generic.
@@ -605,37 +681,4 @@ def reparametrize_any_manager_hook(ctx: ClassDefContext) -> None:
     Note that this does not happen if mypy is run with disallow_any_generics = True,
     as not specifying the generic type is then considered an error.
     """
-
-    manager = ctx.api.lookup_fully_qualified_or_none(ctx.cls.fullname)
-    if manager is None or manager.node is None:
-        return
-    assert isinstance(manager.node, TypeInfo)
-
-    if manager.node.type_vars:
-        # We've already been here
-        return
-
-    parent_manager = next(
-        (base for base in manager.node.bases if base.type.has_base(fullnames.BASE_MANAGER_CLASS_FULLNAME)),
-        None,
-    )
-    if parent_manager is None or len(parent_manager.args) != 1:
-        return
-
-    model_param = get_proper_type(parent_manager.args[0])
-    if not isinstance(model_param, AnyType) or model_param.type_of_any is not TypeOfAny.from_omitted_generics:
-        return
-
-    type_vars = tuple(parent_manager.type.defn.type_vars)
-
-    # If we end up with placeholders we need to defer so the placeholders are
-    # resolved in a future iteration
-    if any(has_placeholder(type_var) for type_var in type_vars):
-        if not ctx.api.final_iteration:
-            ctx.api.defer()
-        else:
-            return
-
-    parent_manager.args = type_vars
-    manager.node.defn.type_vars = list(type_vars)
-    manager.node.add_type_vars()
+    reparametrize_generic_class(ctx, fullnames.BASE_MANAGER_CLASS_FULLNAME)

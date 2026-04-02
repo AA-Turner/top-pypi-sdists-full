@@ -58,7 +58,8 @@ DATETIME_DELTA = t.Union[
 DATETIME_ADD = (exp.DateAdd, exp.TimeAdd, exp.DatetimeAdd, exp.TsOrDsAdd, exp.TimestampAdd)
 
 if t.TYPE_CHECKING:
-    from sqlglot._typing import B, E, F
+    from sqlglot._typing import B, E, F, GeneratorArgs, ParserArgs
+    from typing_extensions import Unpack
 
 logger = logging.getLogger("sqlglot")
 
@@ -136,7 +137,7 @@ class NormalizationStrategy(str, AutoName):
 class _Dialect(type):
     _classes: dict[str, Type[Dialect]] = {}
 
-    def __eq__(cls, other: t.Any) -> bool:
+    def __eq__(cls, other: object) -> bool:
         if cls is other:
             return True
         if isinstance(other, str):
@@ -634,6 +635,9 @@ class Dialect(metaclass=_Dialect):
     STRICT_JSON_PATH_SYNTAX = True
     """Whether failing to parse a JSON path expression using the JSONPath dialect will log a warning."""
 
+    JSON_PATH_SINGLE_DOT_IS_WILDCARD = False
+    """Whether a single DOT in a JSON path (e.g. $.) is treated as a valid wildcard key."""
+
     ON_CONDITION_EMPTY_BEFORE_ERROR = True
     """Whether "X ON EMPTY" should come before "X ON ERROR" (for dialects like T-SQL, MySQL, Oracle)."""
 
@@ -983,7 +987,7 @@ class Dialect(metaclass=_Dialect):
         for unsupported_setting in kwargs.keys() - self.SUPPORTED_SETTINGS:
             suggest_closest_match_and_fail("setting", unsupported_setting, self.SUPPORTED_SETTINGS)
 
-    def __eq__(self, other: t.Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         # Does not currently take dialect state into account
         return type(self) == other
 
@@ -1108,39 +1112,43 @@ class Dialect(metaclass=_Dialect):
 
         return path
 
-    def parse(self, sql: str, **opts: object) -> list[t.Optional[exp.Expr]]:
+    def parse(self, sql: str, **opts: Unpack[ParserArgs]) -> list[t.Optional[exp.Expr]]:
         return self.parser(**opts).parse(self.tokenize(sql), sql)
 
     def parse_into(
-        self, expression_type: exp.IntoType, sql: str, **opts: object
+        self, expression_type: exp.IntoType, sql: str, **opts: Unpack[ParserArgs]
     ) -> list[t.Optional[exp.Expr]]:
         return self.parser(**opts).parse_into(expression_type, self.tokenize(sql), sql)
 
-    def generate(self, expression: exp.Expr, copy: bool = True, **opts: object) -> str:
+    def generate(
+        self, expression: exp.Expr, copy: bool = True, **opts: Unpack[GeneratorArgs]
+    ) -> str:
         return self.generator(**opts).generate(expression, copy=copy)
 
-    def transpile(self, sql: str, **opts: object) -> list[str]:
+    def transpile(self, sql: str, **opts: Unpack[GeneratorArgs]) -> list[str]:
         return [
             self.generate(expression, copy=False, **opts) if expression else ""
             for expression in self.parse(sql)
         ]
 
-    def tokenize(self, sql: str, **opts: object) -> list[Token]:
-        return self.tokenizer(**opts).tokenize(sql)
+    def tokenize(self, sql: str, dialect: DialectType = None) -> list[Token]:
+        return self.tokenizer(dialect=dialect).tokenize(sql)
 
-    def tokenizer(self, **opts: t.Any) -> Tokenizer:
-        return self.tokenizer_class(**{"dialect": self, **opts})
+    def tokenizer(self, dialect: DialectType = None) -> Tokenizer:
+        return self.tokenizer_class(dialect=dialect or self)
 
-    def jsonpath_tokenizer(self, **opts: t.Any) -> JSONPathTokenizer:
-        return self.jsonpath_tokenizer_class(**{"dialect": self, **opts})
+    def jsonpath_tokenizer(self, dialect: DialectType = None) -> JSONPathTokenizer:
+        return self.jsonpath_tokenizer_class(dialect=dialect or self)
 
-    def parser(self, **opts: t.Any) -> Parser:
-        return self.parser_class(**{"dialect": self, **opts})
+    def parser(self, **opts: Unpack[ParserArgs]) -> Parser:
+        args: ParserArgs = {"dialect": self, **opts}
+        return self.parser_class(**args)
 
-    def generator(self, **opts: t.Any) -> Generator:
-        return self.generator_class(**{"dialect": self, **opts})
+    def generator(self, **opts: Unpack[GeneratorArgs]) -> Generator:
+        args: GeneratorArgs = {"dialect": self, **opts}
+        return self.generator_class(**args)
 
-    def generate_values_aliases(self, expression: exp.Values) -> t.List[exp.Identifier]:
+    def generate_values_aliases(self, expression: exp.Values) -> list[exp.Identifier]:
         return [
             exp.to_identifier(f"_col_{i}")
             for i, _ in enumerate(expression.expressions[0].expressions)
@@ -1697,9 +1705,8 @@ def timestrtotime_sql(
     expression: exp.TimeStrToTime,
     include_precision: bool = False,
 ) -> str:
-    datatype = exp.DataType.build(
-        exp.DType.TIMESTAMPTZ if expression.args.get("zone") else exp.DType.TIMESTAMP
-    )
+    builder = exp.DType.TIMESTAMPTZ if expression.args.get("zone") else exp.DType.TIMESTAMP
+    datatype = builder.into_expr()
 
     if isinstance(expression.this, exp.Literal) and include_precision:
         precision = subsecond_precision(expression.this.name)
@@ -1840,6 +1847,7 @@ def build_trunc(
     date_trunc_unabbreviate: bool = True,
     default_date_trunc_unit: t.Optional[str] = None,
     date_trunc_requires_part: bool = True,
+    fractions_supported: bool = False,
 ) -> exp.DateTrunc | exp.Trunc | exp.Anonymous:
     """
     Builder for dialects with overloaded TRUNC (Oracle, Snowflake, etc).
@@ -1869,7 +1877,7 @@ def build_trunc(
         or (second and second.is_type(*exp.DataType.NUMERIC_TYPES))
         or (not date_trunc_requires_part and not second)
     ):
-        return exp.Trunc(this=this, decimals=second)
+        return exp.Trunc(this=this, decimals=second, fractions_supported=fractions_supported)
 
     return exp.Anonymous(this="TRUNC", expressions=args)
 

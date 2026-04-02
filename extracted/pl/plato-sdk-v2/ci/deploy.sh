@@ -1,10 +1,16 @@
 #!/bin/bash
 set -e
 export PATH="$HOME/.local/bin:$PATH"
-cd "$(dirname "$0")/.."
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR/.."
 
 rm -rf dist
 uv build
+
+# Publish to CodeArtifact first (immediate availability for internal consumers)
+bash "$SCRIPT_DIR/deploy-ca.sh"
+
+# Publish to PyPI (public distribution)
 uv publish
 
 # Publish experiment templates to Chronos (only changed templates)

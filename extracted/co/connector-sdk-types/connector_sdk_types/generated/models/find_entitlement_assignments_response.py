@@ -19,7 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List, Optional
-from connector_sdk_types.generated.models.entitlement_assignment import EntitlementAssignment
+from connector_sdk_types.generated.models.access_graph_entitlement_assignment import AccessGraphEntitlementAssignment
 from connector_sdk_types.generated.models.execution_summary import ExecutionSummary
 from connector_sdk_types.generated.models.page import Page
 from typing import Optional, Set
@@ -29,7 +29,7 @@ class FindEntitlementAssignmentsResponse(BaseModel):
     """
     Response containing the found entitlement assignments.
     """ # noqa: E501
-    response: List[EntitlementAssignment]
+    response: List[AccessGraphEntitlementAssignment]
     raw_data: Optional[Any] = None
     page: Optional[Page] = None
     execution_summary: Optional[ExecutionSummary] = Field(default=None, description="Summary of how the operation executed from the connector's perspective.  This model provides metadata about the execution of the operation, including what effect the operation had, whether it's safe to retry, and any non-fatal errors that occurred during execution.  This field is typically included for write operations (create, update, delete) to provide detailed information about what actually happened in the target system.")
@@ -104,7 +104,7 @@ class FindEntitlementAssignmentsResponse(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "response": [EntitlementAssignment.from_dict(_item) for _item in obj["response"]] if obj.get("response") is not None else None,
+            "response": [AccessGraphEntitlementAssignment.from_dict(_item) for _item in obj["response"]] if obj.get("response") is not None else None,
             "raw_data": obj.get("raw_data"),
             "page": Page.from_dict(obj["page"]) if obj.get("page") is not None else None,
             "execution_summary": ExecutionSummary.from_dict(obj["execution_summary"]) if obj.get("execution_summary") is not None else None

@@ -523,3 +523,294 @@ async def test_provision_vm_keeps_env_tracked_when_cleanup_fails(
     session.remove_env.side_effect = None  # reset so shutdown succeeds
     await pool.shutdown()
     assert agent_env not in pool._untracked_envs
+
+
+@pytest.mark.asyncio
+async def test_replenish_recovers_to_target_after_multiple_destroy_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Destroying multiple pooled VMs while one replenish task is already in
+    flight should still restore the pool back to the configured target size.
+
+    This reproduces failure-heavy warm-pool churn where successive task errors
+    destroy VMs faster than the single replenish task can replace them.
+    """
+    session = MagicMock()
+    session.remove_env = AsyncMock()
+    pool = WarmPool(
+        session=session,
+        ssh_key_path=Path("/tmp/test-key"),
+        vm_config=VMConfig(),
+        prototype_ctx=_make_ctx(),
+        max_size=3,
+        pre_warm=3,
+    )
+
+    vm_a = _make_vm("agent-a")
+    vm_b = _make_vm("agent-b")
+    vm_c = _make_vm("agent-c")
+    for vm in (vm_a, vm_b, vm_c):
+        pool._all_vms[vm.alias] = vm
+    pool._in_use[vm_a.alias] = vm_a
+    pool._in_use[vm_b.alias] = vm_b
+    pool._available.append(vm_c)
+
+    provision_started = asyncio.Event()
+    allow_finish = asyncio.Event()
+    replacements = iter([_make_vm("agent-r1"), _make_vm("agent-r2")])
+
+    async def blocking_provision(_ctx: AgentContext) -> PooledVM:
+        provision_started.set()
+        await allow_finish.wait()
+        return next(replacements)
+
+    monkeypatch.setattr(pool, "_provision_vm", blocking_provision)
+
+    await pool.release(vm_a, workspace_paths=["/workspace"], destroy=True)
+    await provision_started.wait()
+
+    # A second destroy while replenish is already running should still result
+    # in the pool getting back to target size once replenishment settles.
+    await pool.release(vm_b, workspace_paths=["/workspace"], destroy=True)
+
+    allow_finish.set()
+    assert pool._replenish_task is not None
+    await pool._replenish_task
+
+    assert len(pool._all_vms) == 3
+
+
+@pytest.mark.asyncio
+async def test_schedule_replenish_coalesces_to_single_task_and_honors_multiple_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Multiple replenish requests should reuse one running task but still
+    trigger follow-up replenish passes before the task exits."""
+    session = MagicMock()
+    session.remove_env = AsyncMock()
+    pool = WarmPool(
+        session=session,
+        ssh_key_path=Path("/tmp/test-key"),
+        vm_config=VMConfig(),
+        prototype_ctx=_make_ctx(),
+        max_size=3,
+        pre_warm=3,
+    )
+
+    pool._all_vms["agent-a"] = _make_vm("agent-a")
+    pool._all_vms["agent-b"] = _make_vm("agent-b")
+
+    first_pass_started = asyncio.Event()
+    allow_first_pass = asyncio.Event()
+    call_count = 0
+
+    async def staged_prewarm() -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            first_pass_started.set()
+            await allow_first_pass.wait()
+            pool._all_vms["agent-c"] = _make_vm("agent-c")
+
+    monkeypatch.setattr(pool, "pre_warm", staged_prewarm)
+
+    pool._schedule_replenish()
+    first_task = pool._replenish_task
+    assert first_task is not None
+
+    await first_pass_started.wait()
+
+    pool._schedule_replenish()
+    pool._schedule_replenish()
+    assert pool._replenish_task is first_task
+
+    allow_first_pass.set()
+    await first_task
+
+    assert call_count == 2
+    assert len(pool._all_vms) == 3
+
+
+@pytest.mark.asyncio
+async def test_replenish_stops_when_no_progress_is_possible(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A replenish pass that cannot add capacity should exit instead of looping."""
+    session = MagicMock()
+    session.remove_env = AsyncMock()
+    pool = WarmPool(
+        session=session,
+        ssh_key_path=Path("/tmp/test-key"),
+        vm_config=VMConfig(),
+        prototype_ctx=_make_ctx(),
+        max_size=3,
+        pre_warm=3,
+    )
+
+    pool._all_vms["agent-a"] = _make_vm("agent-a")
+    call_count = 0
+
+    async def no_progress_prewarm() -> None:
+        nonlocal call_count
+        call_count += 1
+
+    monkeypatch.setattr(pool, "pre_warm", no_progress_prewarm)
+
+    pool._schedule_replenish()
+    assert pool._replenish_task is not None
+    await pool._replenish_task
+
+    assert call_count == 1
+    assert len(pool._all_vms) == 1
+    assert pool._replenish_requests == 0
+
+
+@pytest.mark.asyncio
+async def test_replenish_handles_new_destroy_after_successful_pass(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A new destroy request that arrives after the pool is restored during an
+    in-flight replenish pass should trigger another pass before the task exits."""
+    session = MagicMock()
+    session.remove_env = AsyncMock()
+    pool = WarmPool(
+        session=session,
+        ssh_key_path=Path("/tmp/test-key"),
+        vm_config=VMConfig(),
+        prototype_ctx=_make_ctx(),
+        max_size=3,
+        pre_warm=3,
+    )
+
+    pool._all_vms["agent-a"] = _make_vm("agent-a")
+    pool._all_vms["agent-b"] = _make_vm("agent-b")
+
+    reached_target = asyncio.Event()
+    destroy_done = asyncio.Event()
+    call_count = 0
+
+    async def staged_prewarm() -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            pool._all_vms["agent-c"] = _make_vm("agent-c")
+            reached_target.set()
+            await destroy_done.wait()
+        elif call_count == 2:
+            pool._all_vms["agent-r2"] = _make_vm("agent-r2")
+
+    monkeypatch.setattr(pool, "pre_warm", staged_prewarm)
+
+    pool._schedule_replenish()
+    replenish_task = pool._replenish_task
+    assert replenish_task is not None
+
+    await reached_target.wait()
+
+    async with pool._condition:
+        pool._all_vms.pop("agent-b", None)
+        pool._condition.notify_all()
+    pool._schedule_replenish()
+    assert pool._replenish_task is replenish_task
+
+    destroy_done.set()
+    await replenish_task
+
+    assert call_count == 2
+    assert len(pool._all_vms) == 3
+
+
+@pytest.mark.asyncio
+async def test_replenish_exits_cleanly_on_shutdown_with_pending_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """shutdown() should cancel/await a running replenish task even when
+    additional replenish requests were queued while it was in flight."""
+    session = MagicMock()
+    session.remove_env = AsyncMock()
+    pool = WarmPool(
+        session=session,
+        ssh_key_path=Path("/tmp/test-key"),
+        vm_config=VMConfig(),
+        prototype_ctx=_make_ctx(),
+        max_size=2,
+        pre_warm=2,
+    )
+
+    pooled_vm = _make_vm("agent-a")
+    pool._all_vms[pooled_vm.alias] = pooled_vm
+    pool._available.append(pooled_vm)
+
+    started = asyncio.Event()
+
+    async def slow_prewarm() -> None:
+        started.set()
+        await asyncio.sleep(10)
+
+    monkeypatch.setattr(pool, "pre_warm", slow_prewarm)
+
+    pool._schedule_replenish()
+    pool._schedule_replenish()
+    await started.wait()
+
+    await pool.shutdown()
+
+    assert pool._replenish_task is None
+    assert pool._closed is True
+    assert len(pool._all_vms) == 0
+    assert len(pool._available) == 0
+    session.remove_env.assert_awaited_once_with(pooled_vm.agent_env)
+
+
+@pytest.mark.asyncio
+async def test_replenish_restores_target_over_repeated_churn_cycles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Repeated destroy/replenish churn should keep returning the pool to its
+    configured target size across multiple cycles."""
+    session = MagicMock()
+    session.remove_env = AsyncMock()
+    pool = WarmPool(
+        session=session,
+        ssh_key_path=Path("/tmp/test-key"),
+        vm_config=VMConfig(),
+        prototype_ctx=_make_ctx(),
+        max_size=3,
+        pre_warm=3,
+    )
+
+    for alias in ("agent-a", "agent-b", "agent-c"):
+        pool._all_vms[alias] = _make_vm(alias)
+
+    state: dict[str, asyncio.Event] = {}
+    replacements = iter(
+        [
+            _make_vm("agent-r1"),
+            _make_vm("agent-r2"),
+            _make_vm("agent-r3"),
+            _make_vm("agent-r4"),
+        ]
+    )
+
+    async def blocking_provision(_ctx: AgentContext) -> PooledVM:
+        state["started"].set()
+        await state["allow"].wait()
+        return next(replacements)
+
+    monkeypatch.setattr(pool, "_provision_vm", blocking_provision)
+
+    for aliases in (("agent-a", "agent-b"), ("agent-c", "agent-r1")):
+        state["started"] = asyncio.Event()
+        state["allow"] = asyncio.Event()
+
+        for alias in aliases:
+            vm = pool._all_vms[alias]
+            pool._in_use[alias] = vm
+
+        await pool.release(pool._all_vms[aliases[0]], workspace_paths=["/workspace"], destroy=True)
+        await state["started"].wait()
+        await pool.release(pool._all_vms[aliases[1]], workspace_paths=["/workspace"], destroy=True)
+
+        state["allow"].set()
+        assert pool._replenish_task is not None
+        await pool._replenish_task
+
+        assert len(pool._all_vms) == 3

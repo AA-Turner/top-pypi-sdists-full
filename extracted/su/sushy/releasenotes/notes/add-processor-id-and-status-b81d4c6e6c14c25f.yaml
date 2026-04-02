@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Adds the processor status and id fields to the ``Processor`` class.

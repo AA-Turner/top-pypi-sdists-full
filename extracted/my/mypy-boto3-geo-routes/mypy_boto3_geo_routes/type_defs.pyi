@@ -3,7 +3,7 @@ Type annotations for geo-routes service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_geo_routes/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -1483,7 +1483,6 @@ class RoutePedestrianLegDetailsTypeDef(TypedDict):
 class CalculateRouteMatrixRequestTypeDef(TypedDict):
     Destinations: Sequence[RouteMatrixDestinationTypeDef]
     Origins: Sequence[RouteMatrixOriginTypeDef]
-    RoutingBoundary: RouteMatrixBoundaryUnionTypeDef
     Allow: NotRequired[RouteMatrixAllowOptionsTypeDef]
     Avoid: NotRequired[RouteMatrixAvoidanceOptionsTypeDef]
     DepartNow: NotRequired[bool]
@@ -1491,6 +1490,7 @@ class CalculateRouteMatrixRequestTypeDef(TypedDict):
     Exclude: NotRequired[RouteMatrixExclusionOptionsTypeDef]
     Key: NotRequired[str]
     OptimizeRoutingFor: NotRequired[RoutingObjectiveType]
+    RoutingBoundary: NotRequired[RouteMatrixBoundaryUnionTypeDef]
     Traffic: NotRequired[RouteMatrixTrafficOptionsTypeDef]
     TravelMode: NotRequired[RouteMatrixTravelModeType]
     TravelModeOptions: NotRequired[RouteMatrixTravelModeOptionsTypeDef]

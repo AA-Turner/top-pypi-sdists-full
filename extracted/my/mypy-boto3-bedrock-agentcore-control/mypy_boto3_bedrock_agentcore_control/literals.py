@@ -40,6 +40,7 @@ __all__ = (
     "ContentTypeType",
     "CredentialProviderTypeType",
     "CredentialProviderVendorTypeType",
+    "EndpointIpAddressTypeType",
     "EvaluatorLevelType",
     "EvaluatorStatusType",
     "EvaluatorTypeType",
@@ -154,6 +155,7 @@ CredentialProviderVendorTypeType = Literal[
     "YandexOauth2",
     "ZoomOauth2",
 ]
+EndpointIpAddressTypeType = Literal["IPV4", "IPV6"]
 EvaluatorLevelType = Literal["SESSION", "TOOL_CALL", "TRACE"]
 EvaluatorStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
@@ -366,6 +368,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -601,6 +604,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -636,6 +640,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",

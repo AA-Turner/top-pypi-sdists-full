@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "log-rate-limit"
+version = "1.4.2"
+description = "Limit excessive log output with Python's standard logging framework."
+authors = ["Simon Muller <samullers@gmail.com>"]
+readme = "README.md"
+homepage = "https://github.com/samuller/log-rate-limit/blob/main/README.md"
+repository = "https://github.com/samuller/log-rate-limit"
+keywords = ["logging", "log", "limit", "rate"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: System :: Logging",
+    "Topic :: Software Development :: Libraries",
+]
+include = ["NOTICE"]
+
+[tool.poetry.urls]
+"Changelog" = "https://github.com/samuller/log-rate-limit/blob/main/CHANGELOG.md"
+
+[tool.poetry.dependencies]
+python = "^3.8.1"
+redis = {version = "4.6.0", optional = true}
+
+# Enables optional install with: poetry install --extras=redis
+[tool.poetry.extras]
+redis = ["redis"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "7.4.0"
+pytest-cov = "4.1.0"
+black = "23.7.0"
+flake8 = "6.1.0"
+flake8-docstrings = "1.7.0"
+mypy = "1.4.1"
+types-redis = "4.6.0.8"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+# Change black's default line length from 88 to 120 characters.
+line-length = 120
+
+[tool.coverage.html]
+# See https://pytest-cov.readthedocs.io/en/latest/contexts.html
+show_contexts = true

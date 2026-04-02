@@ -48,6 +48,18 @@ __all__ = (
     "ContainerInstanceFieldType",
     "ContainerInstanceStatusType",
     "CpuManufacturerType",
+    "DaemonActiveWaiterName",
+    "DaemonDeploymentRollbackMonitorsStatusType",
+    "DaemonDeploymentStatusType",
+    "DaemonDeploymentStoppedWaiterName",
+    "DaemonDeploymentSuccessfulWaiterName",
+    "DaemonPropagateTagsType",
+    "DaemonStatusType",
+    "DaemonTaskDefinitionActiveWaiterName",
+    "DaemonTaskDefinitionDeletedWaiterName",
+    "DaemonTaskDefinitionRevisionFilterType",
+    "DaemonTaskDefinitionStatusFilterType",
+    "DaemonTaskDefinitionStatusType",
     "DeploymentControllerTypeType",
     "DeploymentLifecycleHookStageType",
     "DeploymentRolloutStateType",
@@ -191,6 +203,29 @@ ContainerInstanceStatusType = Literal[
     "ACTIVE", "DEREGISTERING", "DRAINING", "REGISTERING", "REGISTRATION_FAILED"
 ]
 CpuManufacturerType = Literal["amazon-web-services", "amd", "intel"]
+DaemonActiveWaiterName = Literal["daemon_active"]
+DaemonDeploymentRollbackMonitorsStatusType = Literal[
+    "DISABLED", "MONITORING", "MONITORING_COMPLETE", "TRIGGERED"
+]
+DaemonDeploymentStatusType = Literal[
+    "IN_PROGRESS",
+    "PENDING",
+    "ROLLBACK_FAILED",
+    "ROLLBACK_IN_PROGRESS",
+    "ROLLBACK_SUCCESSFUL",
+    "STOPPED",
+    "STOP_REQUESTED",
+    "SUCCESSFUL",
+]
+DaemonDeploymentStoppedWaiterName = Literal["daemon_deployment_stopped"]
+DaemonDeploymentSuccessfulWaiterName = Literal["daemon_deployment_successful"]
+DaemonPropagateTagsType = Literal["DAEMON", "NONE"]
+DaemonStatusType = Literal["ACTIVE", "DELETE_IN_PROGRESS"]
+DaemonTaskDefinitionActiveWaiterName = Literal["daemon_task_definition_active"]
+DaemonTaskDefinitionDeletedWaiterName = Literal["daemon_task_definition_deleted"]
+DaemonTaskDefinitionRevisionFilterType = Literal["LAST_REGISTERED"]
+DaemonTaskDefinitionStatusFilterType = Literal["ACTIVE", "ALL", "DELETE_IN_PROGRESS"]
+DaemonTaskDefinitionStatusType = Literal["ACTIVE", "DELETED", "DELETE_IN_PROGRESS"]
 DeploymentControllerTypeType = Literal["CODE_DEPLOY", "ECS", "EXTERNAL"]
 DeploymentLifecycleHookStageType = Literal[
     "POST_PRODUCTION_TRAFFIC_SHIFT",
@@ -219,7 +254,7 @@ FirelensConfigurationTypeType = Literal["fluentbit", "fluentd"]
 HealthStatusType = Literal["HEALTHY", "UNHEALTHY", "UNKNOWN"]
 InstanceGenerationType = Literal["current", "previous"]
 InstanceHealthCheckStateType = Literal["IMPAIRED", "INITIALIZING", "INSUFFICIENT_DATA", "OK"]
-InstanceHealthCheckTypeType = Literal["CONTAINER_RUNTIME"]
+InstanceHealthCheckTypeType = Literal["ACCELERATED_COMPUTE", "CONTAINER_RUNTIME", "DAEMON"]
 IpcModeType = Literal["host", "none", "task"]
 LaunchTypeType = Literal["EC2", "EXTERNAL", "FARGATE", "MANAGED_INSTANCES"]
 ListAccountSettingsPaginatorName = Literal["list_account_settings"]
@@ -789,7 +824,17 @@ PaginatorName = Literal[
     "list_task_definitions",
     "list_tasks",
 ]
-WaiterName = Literal["services_inactive", "services_stable", "tasks_running", "tasks_stopped"]
+WaiterName = Literal[
+    "daemon_active",
+    "daemon_deployment_stopped",
+    "daemon_deployment_successful",
+    "daemon_task_definition_active",
+    "daemon_task_definition_deleted",
+    "services_inactive",
+    "services_stable",
+    "tasks_running",
+    "tasks_stopped",
+]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

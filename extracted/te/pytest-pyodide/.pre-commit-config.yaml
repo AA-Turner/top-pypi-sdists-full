@@ -1,0 +1,56 @@
+default_language_version:
+  python: "3.10"
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: "v4.4.0"
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-yaml
+        exclude: .clang-format
+      - id: debug-statements
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: "v0.9.7"
+    hooks:
+      - id: ruff
+        args: [--fix]
+
+  - repo: https://github.com/psf/black
+    rev: "23.1.0"
+    hooks:
+      - id: black
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: "v1.15.0"
+    hooks:
+      - id: mypy
+        exclude: (setup.py|^tests|conftest.py)
+        args: []
+        additional_dependencies: &mypy-deps
+          - packaging
+          - types-docutils
+          - types-pyyaml
+          - types-setuptools
+          - numpy
+          - pytest
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: "v0.9.0.2"
+    hooks:
+      - id: shellcheck
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: "v2.2.4"
+    hooks:
+      - id: codespell
+        args: ["-L", "te,slowy,aray,ba,nd,classs,crate,feld,lits"]
+        exclude: ^benchmark/benchmarks/pystone_benchmarks/pystone\.py$
+
+ci:
+  autoupdate_schedule: "quarterly"

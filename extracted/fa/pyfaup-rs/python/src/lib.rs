@@ -1,0 +1,772 @@
+use std::{fmt::Display, net::IpAddr};
+
+use pyo3::{
+    basic::CompareOp,
+    exceptions::{PyNotImplementedError, PyValueError},
+    prelude::*,
+    types::PyDict,
+};
+
+struct Error(faup_rs::Error);
+
+impl From<faup_rs::Error> for Error {
+    fn from(value: faup_rs::Error) -> Self {
+        Self(value)
+    }
+}
+
+impl From<Error> for PyErr {
+    fn from(value: Error) -> Self {
+        PyValueError::new_err(value.0.to_string())
+    }
+}
+
+/// Represents a suffix (Top-Level Domain) from a hostname.
+///
+/// To get the string representation of the suffix, use `str(suffix)` or simply print it.
+/// The object implements the `__str__` method for easy string conversion.
+///
+/// # Example
+///
+///     >>> from pyfaup import Url
+///     >>> url = Url("https://example.com")
+///     >>> suffix = url.suffix
+///     >>> print(suffix)  # "com"  # Using print()
+///     >>> str_suffix = str(suffix)  # Using str()
+///     >>> print(suffix.is_known())  # True
+#[pyclass]
+#[derive(Clone)]
+pub struct Suffix {
+    value: String,
+    ty: faup_rs::SuffixType,
+}
+
+impl From<&faup_rs::Suffix<'_>> for Suffix {
+    fn from(value: &faup_rs::Suffix<'_>) -> Self {
+        Self {
+            value: value.as_str().into(),
+            ty: *value.ty(),
+        }
+    }
+}
+
+#[pymethods]
+impl Suffix {
+    /// Returns `True` if the suffix is a known Top-Level Domain.
+    /// A suffix is considered to be known if it is in Firefox PSL
+    /// or if it is in the list of custom suffix hardcoded in `faup-rs`
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Url
+    ///     >>> url = Url("https://example.com")
+    ///     >>> print(url.suffix.is_known())  # True
+    ///     >>> url2 = Url("https://example.local")
+    ///     >>> print(url2.suffix.is_known())  # False
+    pub fn is_known(&self) -> bool {
+        self.ty.is_known()
+    }
+
+    /// Returns the suffix as a string.
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Url
+    ///     >>> url = Url("https://example.co.uk")
+    ///     >>> print(str(url.suffix))  # "co.uk"
+    pub fn __str__(&self) -> &str {
+        &self.value
+    }
+
+    /// Rich comparison method to enable comparison with strings.
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Url
+    ///     >>> url = Url("https://example.com")
+    ///     >>> print(url.suffix == "com")  # True
+    ///     >>> print(url.suffix == "org")  # False
+    fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => {
+                // Compare with string
+                if let Ok(other_str) = other.extract::<String>() {
+                    return Ok(self.value == other_str);
+                }
+                // Compare with another Suffix using PyRef
+                if let Ok(other_suffix) = other.extract::<PyRef<'_, Suffix>>() {
+                    return Ok(self.value == other_suffix.value);
+                }
+                Ok(false)
+            }
+            CompareOp::Ne => {
+                // Compare with string
+                if let Ok(other_str) = other.extract::<String>() {
+                    return Ok(self.value != other_str);
+                }
+                // Compare with another Suffix using PyRef
+                if let Ok(other_suffix) = other.extract::<PyRef<'_, Suffix>>() {
+                    return Ok(self.value != other_suffix.value);
+                }
+                Ok(true)
+            }
+            _ => Err(PyNotImplementedError::new_err(
+                "Comparison not supported for this operator",
+            )),
+        }
+    }
+}
+
+/// Represents a parsed hostname (domain name) with subdomain, domain, and suffix components.
+///
+/// # Attributes
+///
+/// * `hostname` - `str` - The full hostname.
+/// * `subdomain` - `Optional[str]` - The subdomain part, if present.
+/// * `domain` - `Optional[str]` - The domain part, if present.
+/// * `suffix` - `Optional[Suffix]` - The suffix (TLD) part, if present.
+///
+/// # Example
+///
+///     >>> from pyfaup import Hostname
+///     >>> hn = Hostname("sub.example.com")
+///     >>> print(hn.hostname)  # "sub.example.com"
+///     >>> print(hn.subdomain)  # "sub"
+///     >>> print(hn.domain)     # "example"
+///     >>> print(hn.suffix)     # "com"
+#[pyclass]
+#[derive(Clone)]
+pub struct Hostname {
+    hostname: String,
+    #[pyo3(get)]
+    subdomain: Option<String>,
+    #[pyo3(get)]
+    domain: Option<String>,
+    #[pyo3(get)]
+    suffix: Option<Suffix>,
+}
+
+impl From<faup_rs::Hostname<'_>> for Hostname {
+    fn from(value: faup_rs::Hostname<'_>) -> Self {
+        Self {
+            hostname: value.full_name().to_string(),
+            subdomain: value.subdomain().map(|s| s.into()),
+            domain: value.domain().map(|s| s.into()),
+            suffix: value.suffix().map(|suf| suf.into()),
+        }
+    }
+}
+
+#[pymethods]
+impl Hostname {
+    /// Creates a new [`Hostname`] by parsing a hostname string.
+    ///
+    /// # Arguments
+    ///
+    /// * `hn` - `str` - The hostname string to parse.
+    ///
+    /// # Returns
+    ///
+    /// * [`Hostname`] - The parsed hostname.
+    ///
+    /// # Raises
+    ///
+    /// * [`ValueError`] - If the input is not a valid hostname.
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Hostname
+    ///     >>> hn = Hostname("sub.example.com")
+    ///     >>> print(hn.hostname)  # "sub.example.com"
+    ///
+    ///     >>> Hostname("192.168.1.1")
+    ///     Traceback (most recent call last):
+    ///         ...
+    ///     ValueError: invalid hostname
+    #[new]
+    pub fn new(hn: &str) -> PyResult<Self> {
+        let h = faup_rs::Host::parse(hn).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        match h {
+            faup_rs::Host::Hostname(h) => Ok(h.into()),
+            faup_rs::Host::IpV4(_) | faup_rs::Host::IpV6(_, _) => {
+                Err(PyValueError::new_err("invalid hostname"))
+            }
+        }
+    }
+
+    pub fn __str__(&self) -> &str {
+        self.hostname.as_str()
+    }
+}
+
+/// Represents a host, which can be either a [`Hostname`] or an [`IpAddr`].
+#[pyclass]
+#[derive(Clone)]
+pub enum Host {
+    /// A hostname (domain name).
+    Hostname(Hostname),
+    /// An IPv4 address
+    Ipv4(IpAddr),
+    /// An IPv6 address
+    Ipv6(IpAddr),
+}
+
+impl From<faup_rs::Host<'_>> for Host {
+    fn from(value: faup_rs::Host) -> Self {
+        match value {
+            faup_rs::Host::Hostname(h) => Host::Hostname(h.into()),
+            faup_rs::Host::IpV4(ip) => Host::Ipv4(ip),
+            faup_rs::Host::IpV6(ip, _) => Host::Ipv6(ip.into()),
+        }
+    }
+}
+
+impl Display for Host {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Hostname(h) => write!(f, "{}", h.hostname.clone()),
+            Self::Ipv4(ip) => write!(f, "{ip}"),
+            Self::Ipv6(ip) => write!(f, "{ip}"),
+        }
+    }
+}
+
+impl Host {
+    #[inline(always)]
+    fn suffix_ref(&self) -> Option<&Suffix> {
+        match self {
+            Host::Hostname(hostname) => hostname.suffix.as_ref(),
+            Host::Ipv4(_ip_addr) | Host::Ipv6(_ip_addr) => None,
+        }
+    }
+}
+
+#[pymethods]
+impl Host {
+    /// Creates a new [`Host`] by parsing a host string.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - `str` - The host string to parse.
+    ///
+    /// # Returns
+    ///
+    /// * [`Host`] - The parsed host.
+    ///
+    /// # Raises
+    ///
+    /// * [`ValueError`] - If the input is not a valid host.
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Host
+    ///     >>> host = Host("sub.example.com")
+    ///     >>> print(host.is_hostname())  # True
+    ///
+    ///     >>> Host("invalid host")
+    ///     Traceback (most recent call last):
+    ///         ...
+    ///     ValueError: ...
+    #[new]
+    pub fn new(s: &str) -> PyResult<Self> {
+        faup_rs::Host::parse(s)
+            .map(Host::from)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Attempts to convert the host into a [`Hostname`].
+    ///
+    /// # Returns
+    ///
+    /// * [`Hostname`] - The hostname.
+    ///
+    /// # Raises
+    ///
+    /// * [`ValueError`] - If the host is not a hostname.
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Host
+    ///     >>> host = Host("sub.example.com")
+    ///     >>> hn = host.try_into_hostname()
+    ///     >>> print(hn.hostname)  # "sub.example.com"
+    ///
+    ///     >>> Host("192.168.1.1").try_into_hostname()
+    ///     Traceback (most recent call last):
+    ///         ...
+    ///     ValueError: host object is not a hostname
+    pub fn try_into_hostname(&self) -> PyResult<Hostname> {
+        match self {
+            Host::Hostname(h) => Ok(h.clone()),
+            Host::Ipv4(_) | Host::Ipv6(_) => {
+                Err(PyValueError::new_err("host object is not a hostname"))
+            }
+        }
+    }
+
+    /// Attempts to convert the host into an IP address string.
+    ///
+    /// # Returns
+    ///
+    /// * `str` - The IP address as a string.
+    ///
+    /// # Raises
+    ///
+    /// * [`ValueError`] - If the host is not an IP address.
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Host
+    ///     >>> host = Host("192.168.1.1")
+    ///     >>> print(host.try_into_ip())  # "192.168.1.1"
+    ///
+    ///     >>> Host("sub.example.com").try_into_ip()
+    ///     Traceback (most recent call last):
+    ///         ...
+    ///     ValueError: host object is not an ip address
+    pub fn try_into_ip(&self) -> PyResult<String> {
+        match self {
+            Host::Hostname(_) => Err(PyValueError::new_err("host object is not an ip address")),
+            Host::Ipv4(ip) => Ok(ip.to_string()),
+            Host::Ipv6(ip) => Ok(ip.to_string()),
+        }
+    }
+
+    /// Returns `True` if the host is a hostname.
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Host
+    ///     >>> print(Host("sub.example.com").is_hostname())  # True
+    ///     >>> print(Host("192.168.1.1").is_hostname())       # False
+    #[inline(always)]
+    pub fn is_hostname(&self) -> bool {
+        matches!(self, Host::Hostname(_))
+    }
+
+    /// Returns `True` if the host is an IPv4 address.
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Host
+    ///     >>> print(Host("192.168.1.1").is_ipv4())  # True
+    ///     >>> print(Host("::1").is_ipv4())          # False
+    #[inline(always)]
+    pub fn is_ipv4(&self) -> bool {
+        matches!(self, Host::Ipv4(IpAddr::V4(_)))
+    }
+
+    /// Returns `True` if the host is an IPv6 address.
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Host
+    ///     >>> print(Host("::1").is_ipv6())  # True
+    ///     >>> print(Host("192.168.1.1").is_ipv6())  # False
+    #[inline(always)]
+    pub fn is_ipv6(&self) -> bool {
+        matches!(self, Host::Ipv6(IpAddr::V6(_)))
+    }
+
+    /// Returns `True` if the host is an IP address (either IPv4 or IPv6).
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Host
+    ///     >>> print(Host("192.168.1.1").is_ip_addr())  # True
+    ///     >>> print(Host("sub.example.com").is_ip_addr())  # False
+    #[inline(always)]
+    pub fn is_ip_addr(&self) -> bool {
+        self.is_ipv4() | self.is_ipv6()
+    }
+
+    /// Returns the domain part of the hostname if this host is a hostname.
+    ///
+    /// Returns `None` if this host is an IP address or if the hostname has no recognized domain.
+    ///
+    /// # Returns
+    ///
+    /// * `Optional[str]` - The domain part of the hostname, or `None` if not applicable.
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Host
+    ///     >>> host = Host("sub.example.com")
+    ///     >>> print(host.domain())  # "example.com"
+    ///     >>> print(Host("192.168.1.1").domain())  # None
+    pub fn domain(&self) -> Option<&str> {
+        match self {
+            Host::Hostname(hostname) => hostname.domain.as_ref().map(String::as_ref),
+            Host::Ipv4(_ip_addr) | Host::Ipv6(_ip_addr) => None,
+        }
+    }
+
+    /// Returns the subdomain part of the hostname if this host is a hostname.
+    ///
+    /// Returns `None` if this host is an IP address or if the hostname has no subdomain.
+    ///
+    /// # Returns
+    ///
+    /// * `Optional[str]` - The subdomain part of the hostname, or `None` if not applicable.
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Host
+    ///     >>> host = Host("sub.example.com")
+    ///     >>> print(host.subdomain())  # "sub"
+    ///     >>> print(Host("example.com").subdomain())  # None
+    ///     >>> print(Host("192.168.1.1").subdomain())  # None
+    pub fn subdomain(&self) -> Option<&str> {
+        match self {
+            Host::Hostname(hostname) => hostname.subdomain.as_ref().map(String::as_ref),
+            Host::Ipv4(_ip_addr) | Host::Ipv6(_ip_addr) => None,
+        }
+    }
+
+    /// Returns the suffix (public suffix) of the hostname if this host is a hostname.
+    ///
+    /// Returns `None` if this host is an IP address or if the hostname has no recognized suffix.
+    ///
+    /// # Returns
+    ///
+    /// * `Optional[Suffix]` - The suffix of the hostname, or `None` if not applicable.
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Host
+    ///     >>> host = Host("sub.example.com")
+    ///     >>> print(host.suffix())  # Suffix(com, True)
+    ///     >>> print(Host("192.168.1.1").suffix())  # None
+    pub fn suffix(&self) -> Option<Suffix> {
+        self.suffix_ref().cloned()
+    }
+
+    /// Returns the string representation of the host.
+    ///
+    /// # Returns
+    ///
+    /// * `str` - The string representation of the host.
+    ///
+    /// # Example
+    ///
+    ///     >>> from pyfaup import Host
+    ///     >>> print(str(Host("example.com")))  # "example.com"
+    ///     >>> print(str(Host("192.168.1.1")))  # "192.168.1.1"
+    pub fn __str__(&self) -> String {
+        self.to_string()
+    }
+}
+
+/// A parsed URL representation for Python.
+///
+/// This class provides access to all components of a parsed URL, including scheme,
+/// credentials, host, port, path, query, and fragment. It's a direct mapping of
+/// the faup_rs::Url struct to Python.
+///
+/// Attributes:
+///     scheme (str): The URL scheme (e.g., "http", "https").
+///     username (Optional[str]): The username from the URL credentials, if present.
+///     password (Optional[str]): The password from the URL credentials, if present.
+///     host (str): The host part of the URL (hostname or IP address).
+///     subdomain (Optional[str]): The subdomain part of the hostname, if present.
+///     domain (Optional[str]): The domain part of the hostname, if recognized.
+///     suffix (Optional[Suffix]): The suffix (TLD) of the hostname, if recognized.
+///     port (Optional[int]): The port number, if specified.
+///     path (Optional[str]): The path component of the URL, if present.
+///     query (Optional[str]): The query string, if present.
+///     fragment (Optional[str]): The fragment identifier, if present.
+///
+/// Example:
+///     >>> from pyfaup import Url
+///     >>> url = Url("https://user:pass@sub.example.com:8080/path?query=value#fragment")
+///     >>> print(url.scheme)  # "https"
+///     >>> print(url.username)  # "user"
+///     >>> print(url.host)  # "sub.example.com"
+///     >>> print(url.port)  # 8080
+#[pyclass]
+pub struct Url {
+    #[pyo3(get)]
+    pub orig: String,
+    #[pyo3(get)]
+    pub scheme: String,
+    #[pyo3(get)]
+    pub username: Option<String>,
+    #[pyo3(get)]
+    pub password: Option<String>,
+    #[pyo3(get)]
+    pub host: Option<Host>,
+    #[pyo3(get)]
+    pub port: Option<u16>,
+    #[pyo3(get)]
+    pub path: Option<String>,
+    #[pyo3(get)]
+    pub query: Option<String>,
+    #[pyo3(get)]
+    pub fragment: Option<String>,
+}
+
+impl From<faup_rs::Url<'_>> for Url {
+    fn from(value: faup_rs::Url<'_>) -> Self {
+        let (username, password) = match value.userinfo() {
+            Some(u) => (
+                Some(u.username().to_string()),
+                u.password().map(|p| p.to_string()),
+            ),
+            None => (None, None),
+        };
+
+        let orig = value.as_str().into();
+        let scheme = value.scheme().into();
+        let port = value.port();
+        let path = value.path().map(|p| p.into());
+        let query = value.query().map(|q| q.into());
+        let fragment = value.fragment().map(|f| f.into());
+        let host = value.host.map(Host::from);
+
+        Self {
+            orig,
+            scheme,
+            username,
+            password,
+            host,
+            port,
+            path,
+            query,
+            fragment,
+        }
+    }
+}
+
+impl Url {
+    fn credentials(&self) -> Option<String> {
+        let un = self.username.as_ref()?;
+        if let Some(pw) = self.password.as_ref() {
+            Some(format!("{un}:{pw}"))
+        } else {
+            Some(un.clone())
+        }
+    }
+}
+
+#[pymethods]
+impl Url {
+    /// Creates a new Url instance by parsing a URL string.
+    ///
+    /// Args:
+    ///     url (str): The URL string to parse.
+    ///
+    /// Returns:
+    ///     Url: A new Url instance.
+    ///
+    /// Raises:
+    ///     ValueError: If the URL string is invalid.
+    ///
+    /// Example:
+    ///     >>> from pyfaup import Url
+    ///     >>> url = Url("https://example.com")
+    ///     >>> print(url.scheme)  # "https"
+    #[new]
+    fn new(url: &str) -> PyResult<Self> {
+        faup_rs::Url::parse(url)
+            .map(|u| u.into())
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    pub fn __str__(&self) -> &str {
+        self.orig.as_ref()
+    }
+}
+
+/// A compatibility class that mimics the FAUP (Fast URL Parser) Python API.
+///
+/// This class provides a decode() method and a get() method that returns a dictionary
+/// with URL components, similar to the original FAUP Python library.
+///
+/// WARNING: using this API may be slower than than using Url object
+/// because it involves creating more Python objects.
+///
+/// Example:
+///     >>> from pyfaup import FaupCompat as Faup
+///     >>> faup = Faup()
+///     >>> faup.decode("https://user:pass@sub.example.com:8080/path?query=value#fragment")
+///     >>> result = faup.get()
+///     >>> print(result["scheme"])  # "https"
+///     >>> print(result["credentials"])  # "user:pass"
+#[pyclass]
+pub struct FaupCompat {
+    url: Option<Url>,
+}
+
+#[pymethods]
+impl FaupCompat {
+    /// Creates a new FaupCompat instance.
+    ///
+    /// Returns:
+    ///     FaupCompat: A new FaupCompat instance.
+    #[new]
+    fn new() -> Self {
+        Self { url: None }
+    }
+
+    /// Decodes a URL string and stores its components.
+    ///
+    /// Args:
+    ///     url (str): The URL string to parse.
+    ///
+    /// Raises:
+    ///     ValueError: If the URL string is invalid.
+    ///
+    /// Example:
+    ///     >>> from pyfaup import FaupCompat
+    ///     >>> faup = FaupCompat()
+    ///     >>> faup.decode("https://example.com")
+    fn decode(&mut self, url: &str) -> PyResult<()> {
+        self.url = Some(Url::new(url)?);
+        Ok(())
+    }
+
+    /// Returns a dictionary with all URL components.
+    ///
+    /// The dictionary contains the following keys:
+    /// - credentials: The credentials part (username:password or just username)
+    /// - domain: The domain part of the hostname
+    /// - subdomain: The subdomain part of the hostname
+    /// - fragment: The fragment identifier
+    /// - host: The host part (hostname or IP address)
+    /// - resource_path: The path component
+    /// - tld: The top-level domain (suffix)
+    /// - query_string: The query string
+    /// - scheme: The URL scheme
+    /// - port: The port number
+    ///
+    /// Returns:
+    ///     dict: A dictionary with all URL components.
+    ///
+    /// Example:
+    ///     >>> from pyfaup import FaupCompat as Faup
+    ///     >>> faup = Faup()
+    ///     >>> faup.decode("https://user:pass@sub.example.com:8080/path?query=value#fragment")
+    ///     >>> result = faup.get()
+    ///     >>> print(result["credentials"])  # "user:pass"
+    ///     >>> print(result["domain"])  # "example.com"
+    fn get<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let m = PyDict::new(py);
+        let url = self.url.as_ref();
+
+        let credentials = url.and_then(|u| u.credentials());
+
+        m.set_item("credentials", credentials)?;
+        m.set_item(
+            "domain",
+            url.and_then(|u| u.host.as_ref()).and_then(|h| h.domain()),
+        )?;
+        m.set_item(
+            "subdomain",
+            url.and_then(|u| u.host.as_ref())
+                .and_then(|h| h.subdomain()),
+        )?;
+        m.set_item("fragment", url.and_then(|u| u.fragment.clone()))?;
+        m.set_item("host", url.map(|u| u.host.clone()))?;
+        m.set_item("resource_path", url.and_then(|u| u.path.clone()))?;
+        m.set_item(
+            "tld",
+            url.and_then(|u| u.host.as_ref()).and_then(|h| h.suffix()),
+        )?;
+        m.set_item("query_string", url.and_then(|u| u.query.clone()))?;
+        m.set_item("scheme", url.map(|u| u.scheme.clone()))?;
+        m.set_item("port", url.map(|u| u.port))?;
+
+        Ok(m)
+    }
+
+    fn get_credential(&self) -> Option<String> {
+        let url = self.url.as_ref();
+        url.and_then(|u| u.credentials())
+    }
+
+    fn get_domain(&self) -> Option<&str> {
+        self.url
+            .as_ref()
+            .and_then(|u| u.host.as_ref())
+            .and_then(|h| h.domain())
+    }
+
+    fn get_subdomain(&self) -> Option<&str> {
+        self.url
+            .as_ref()
+            .and_then(|u| u.host.as_ref())
+            .and_then(|h| h.subdomain())
+    }
+
+    fn get_fragment(&self) -> Option<&str> {
+        self.url.as_ref()?.fragment.as_deref()
+    }
+
+    fn get_host(&self) -> Option<String> {
+        self.url
+            .as_ref()
+            .and_then(|u| u.host.as_ref())
+            .map(|h| h.to_string())
+    }
+
+    fn get_resource_path(&self) -> Option<&str> {
+        self.url.as_ref()?.path.as_deref()
+    }
+
+    fn get_tld(&self) -> Option<&str> {
+        self.url
+            .as_ref()
+            .and_then(|u| u.host.as_ref())
+            .and_then(|h| h.suffix_ref())
+            .map(|s| s.value.as_str())
+    }
+
+    fn get_query_string(&self) -> Option<&str> {
+        self.url.as_ref()?.query.as_deref()
+    }
+
+    fn get_scheme(&self) -> Option<&str> {
+        self.url.as_ref().map(|u| u.scheme.as_str())
+    }
+
+    fn get_port(&self) -> Option<u16> {
+        self.url.as_ref()?.port
+    }
+
+    fn get_domain_without_tld(&self) -> Option<&str> {
+        if let (Some(domain), Some(tld)) = (self.get_domain(), self.get_tld()) {
+            domain
+                .strip_suffix(tld)
+                .and_then(|dom| dom.strip_suffix('.'))
+        } else {
+            None
+        }
+    }
+}
+
+/// A Python module implemented in Rust for URL parsing.
+///
+/// This module provides two classes:
+/// - Url: A direct representation of a parsed URL
+/// - FaupCompat: A compatibility class that mimics the FAUP Python API
+///
+/// Example:
+///     >>> from pyfaup import Url, FaupCompat as Faup
+///     >>> # Using Url class
+///     >>> url = Url("https://example.com")
+///     >>> print(url.scheme)  # "https"
+///     >>>
+///     >>> # Using FaupCompat class
+///     >>> faup = Faup()
+///     >>> faup.decode("https://example.com")
+///     >>> result = faup.get()
+///     >>> print(result["scheme"])  # "https"
+#[pymodule]
+fn pyfaup(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<Url>()?;
+    m.add_class::<Host>()?;
+    m.add_class::<Hostname>()?;
+    m.add_class::<FaupCompat>()?;
+
+    Ok(())
+}

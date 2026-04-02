@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import logging
 import contextlib
 import collections
 from pathlib import Path
@@ -20,7 +20,7 @@ from functools import lru_cache
 
 import pytest
 
-import capa.main
+import capa.loader
 import capa.features.file
 import capa.features.insn
 import capa.features.common
@@ -53,6 +53,7 @@ from capa.features.extractors.base_extractor import (
 )
 from capa.features.extractors.dnfile.extractor import DnfileFeatureExtractor
 
+logger = logging.getLogger(__name__)
 CD = Path(__file__).resolve().parent
 DOTNET_DIR = CD / "data" / "dotnet"
 DNFILE_TESTFILES = DOTNET_DIR / "dnfile-testfiles"
@@ -200,6 +201,73 @@ def get_binja_extractor(path: Path):
     return extractor
 
 
+# we can't easily cache this because the extractor relies on global state (the opened database)
+# which also has to be closed elsewhere. so, the idalib tests will just take a little bit to run.
+def get_idalib_extractor(path: Path):
+    import capa.features.extractors.ida.idalib as idalib
+
+    if not idalib.has_idalib():
+        raise RuntimeError("cannot find IDA idalib module.")
+
+    if not idalib.load_idalib():
+        raise RuntimeError("failed to load IDA idalib module.")
+
+    import idapro
+    import ida_auto
+
+    import capa.features.extractors.ida.extractor
+
+    logger.debug("idalib: opening database...")
+
+    idapro.enable_console_messages(False)
+
+    # we set the primary and secondary Lumina servers to 0.0.0.0 to disable Lumina,
+    # which sometimes provides bad names, including overwriting names from debug info.
+    #
+    # use -R to load resources, which can help us embedded PE files.
+    #
+    # return values from open_database:
+    #   0 - Success
+    #   2 - User cancelled or 32-64 bit conversion failed
+    #   4 - Database initialization failed
+    #   -1 - Generic errors (database already open, auto-analysis failed, etc.)
+    #   -2 - User cancelled operation
+    ret = idapro.open_database(
+        str(path), run_auto_analysis=True, args="-Olumina:host=0.0.0.0 -Osecondary_lumina:host=0.0.0.0 -R"
+    )
+    if ret != 0:
+        raise RuntimeError("failed to analyze input file")
+
+    logger.debug("idalib: waiting for analysis...")
+    ida_auto.auto_wait()
+    logger.debug("idalib: opened database.")
+
+    extractor = capa.features.extractors.ida.extractor.IdaFeatureExtractor()
+    fixup_idalib(path, extractor)
+    return extractor
+
+
+def fixup_idalib(path: Path, extractor):
+    """
+    IDA fixups to overcome differences between backends
+    """
+    import idaapi
+    import ida_funcs
+
+    def remove_library_id_flag(fva):
+        f = idaapi.get_func(fva)
+        f.flags &= ~ida_funcs.FUNC_LIB
+        ida_funcs.update_func(f)
+
+    if "kernel32-64" in path.name:
+        # remove (correct) library function id, so we can test x64 thunk
+        remove_library_id_flag(0x1800202B0)
+
+    if "al-khaser_x64" in path.name:
+        # remove (correct) library function id, so we can test x64 nested thunk
+        remove_library_id_flag(0x14004B4F0)
+
+
 @lru_cache(maxsize=1)
 def get_cape_extractor(path):
     from capa.helpers import load_json_from_path
@@ -227,13 +295,33 @@ def get_vmray_extractor(path):
     return VMRayExtractor.from_zipfile(path)
 
 
-@lru_cache(maxsize=1)
+GHIDRA_CACHE: dict[Path, tuple] = {}
+
+
 def get_ghidra_extractor(path: Path):
+    # we need to start PyGhidra before importing the extractor
+    # because the extractor imports Ghidra modules that are only available after PyGhidra is started
+    import pyghidra
+
+    if not pyghidra.started():
+        pyghidra.start()
+
+    import capa.features.extractors.ghidra.context
     import capa.features.extractors.ghidra.extractor
 
-    extractor = capa.features.extractors.ghidra.extractor.GhidraFeatureExtractor()
-    setattr(extractor, "path", path.as_posix())
+    if path in GHIDRA_CACHE:
+        extractor, program, flat_api, monitor = GHIDRA_CACHE[path]
+        capa.features.extractors.ghidra.context.set_context(program, flat_api, monitor)
+        return extractor
 
+    # We use a larger cache size to avoid re-opening the same file multiple times
+    # which is very slow with Ghidra.
+    extractor = capa.loader.get_extractor(
+        path, FORMAT_AUTO, OS_AUTO, capa.loader.BACKEND_GHIDRA, [], disable_progress=True
+    )
+
+    ctx = capa.features.extractors.ghidra.context.get_context()
+    GHIDRA_CACHE[path] = (extractor, ctx.program, ctx.flat_api, ctx.monitor)
     return extractor
 
 
@@ -894,20 +982,8 @@ FEATURE_PRESENCE_TESTS = sorted(
         ("mimikatz", "function=0x4556E5", capa.features.insn.API("advapi32.LsaQueryInformationPolicy"), False),
         ("mimikatz", "function=0x4556E5", capa.features.insn.API("LsaQueryInformationPolicy"), True),
         # insn/api: x64
-        (
-            "kernel32-64",
-            "function=0x180001010",
-            capa.features.insn.API("RtlVirtualUnwind"),
-            True,
-        ),
         ("kernel32-64", "function=0x180001010", capa.features.insn.API("RtlVirtualUnwind"), True),
         # insn/api: x64 thunk
-        (
-            "kernel32-64",
-            "function=0x1800202B0",
-            capa.features.insn.API("RtlCaptureContext"),
-            True,
-        ),
         ("kernel32-64", "function=0x1800202B0", capa.features.insn.API("RtlCaptureContext"), True),
         # insn/api: x64 nested thunk
         ("al-khaser x64", "function=0x14004B4F0", capa.features.insn.API("__vcrt_GetModuleHandle"), True),
@@ -995,20 +1071,20 @@ FEATURE_PRESENCE_TESTS = sorted(
         ("pma16-01", "file", OS(OS_WINDOWS), True),
         ("pma16-01", "file", OS(OS_LINUX), False),
         ("mimikatz", "file", OS(OS_WINDOWS), True),
-        ("pma16-01", "function=0x404356", OS(OS_WINDOWS), True),
-        ("pma16-01", "function=0x404356,bb=0x4043B9", OS(OS_WINDOWS), True),
+        ("pma16-01", "function=0x401100", OS(OS_WINDOWS), True),
+        ("pma16-01", "function=0x401100,bb=0x401130", OS(OS_WINDOWS), True),
         ("mimikatz", "function=0x40105D", OS(OS_WINDOWS), True),
         ("pma16-01", "file", Arch(ARCH_I386), True),
         ("pma16-01", "file", Arch(ARCH_AMD64), False),
         ("mimikatz", "file", Arch(ARCH_I386), True),
-        ("pma16-01", "function=0x404356", Arch(ARCH_I386), True),
-        ("pma16-01", "function=0x404356,bb=0x4043B9", Arch(ARCH_I386), True),
+        ("pma16-01", "function=0x401100", Arch(ARCH_I386), True),
+        ("pma16-01", "function=0x401100,bb=0x401130", Arch(ARCH_I386), True),
         ("mimikatz", "function=0x40105D", Arch(ARCH_I386), True),
         ("pma16-01", "file", Format(FORMAT_PE), True),
         ("pma16-01", "file", Format(FORMAT_ELF), False),
         ("mimikatz", "file", Format(FORMAT_PE), True),
         # format is also a global feature
-        ("pma16-01", "function=0x404356", Format(FORMAT_PE), True),
+        ("pma16-01", "function=0x401100", Format(FORMAT_PE), True),
         ("mimikatz", "function=0x456BB9", Format(FORMAT_PE), True),
         # elf support
         ("7351f.elf", "file", OS(OS_LINUX), True),

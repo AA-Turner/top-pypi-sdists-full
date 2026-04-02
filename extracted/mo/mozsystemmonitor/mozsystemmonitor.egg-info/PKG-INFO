@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: mozsystemmonitor
+Version: 1.0.1
+Summary: Monitor system resource usage.
+Home-page: https://wiki.mozilla.org/Auto-tools/Projects/Mozbase
+Author: Mozilla Automation and Tools Team
+Author-email: tools@lists.mozilla.org
+License: MPL 2.0
+Keywords: mozilla
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.5
+
+see https://firefox-source-docs.mozilla.org/mozbase/index.html

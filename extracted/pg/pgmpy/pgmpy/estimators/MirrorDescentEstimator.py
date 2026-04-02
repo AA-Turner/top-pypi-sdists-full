@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import numpy as np
 from scipy.special import logsumexp
 from tqdm.auto import tqdm
@@ -17,7 +18,7 @@ class MirrorDescentEstimator(MarginalEstimator):
 
     Parameters
     ----------
-    model: MarkovNetwork | FactorGraph | JunctionTree
+    model: DiscreteMarkovNetwork | FactorGraph | JunctionTree
         A model to optimize, using Belief Propagation and an estimation method.
 
     data: pandas DataFrame object
@@ -33,12 +34,16 @@ class MirrorDescentEstimator(MarginalEstimator):
     References
     ----------
     [1] McKenna, Ryan, Daniel Sheldon, and Gerome Miklau.
-        "Graphical-model based estimation and inference for differential  privacy." In Proceedings of the 36th International Conference on Machine Learning. 2019, Appendix A.1.
+        "Graphical-model based estimation and inference for differential  privacy."
+          In Proceedings of the 36th International Conference on Machine Learning. 2019, Appendix A.1.
         https://arxiv.org/abs/1901.09136.
-    [2] Beck, A. and Teboulle, M. Mirror descent and nonlinear projected subgradient methods for convex optimization. Operations Research Letters, 31(3):167–175, 2003
+    [2] Beck, A. and Teboulle, M. Mirror descent and nonlinear projected subgradient methods for convex optimization.
+      Operations Research Letters, 31(3):167–175, 2003
         https://www.sciencedirect.com/science/article/abs/pii/S0167637702002316.
     [3] Wainwright, M. J. and Jordan, M. I.
-        Graphical models, exponential families, and variational inference. Foundations and Trends in Machine Learning, 1(1-2):1–305, 2008, Section 3.6 Conjugate Duality: Maximum Likelihood and Maximum Entropy.
+        Graphical models, exponential families, and variational inference.
+          Foundations and Trends in Machine Learning, 1(1-2):1–305, 2008,
+            Section 3.6 Conjugate Duality: Maximum Likelihood and Maximum Entropy.
         https://people.eecs.berkeley.edu/~wainwrig/Papers/WaiJor08_FTML.pdf
     """
 
@@ -84,10 +89,10 @@ class MirrorDescentEstimator(MarginalEstimator):
 
     def estimate(
         self,
-        marginals,
+        marginals: list[tuple[str, ...]],
         metric="L2",
         iterations=100,
-        stepsize=None,
+        stepsize: float | None = None,
         show_progress=True,
     ):
         """
@@ -95,7 +100,7 @@ class MirrorDescentEstimator(MarginalEstimator):
 
         Parameters
         ----------
-        marginals: List[Tuple[str, ...]]
+        marginals: List[tuple[str, ...]]
             The names of the marginals to be estimated. These marginals must be present
             in the data passed to the `__init__()` method.
 
@@ -137,7 +142,9 @@ class MirrorDescentEstimator(MarginalEstimator):
         >>> phi1 = DiscreteFactor(["a", "b"], [2, 2], np.zeros(4))
         >>> model.add_factors(phi1)
         >>> model.add_edges_from([("a", phi1), ("b", phi1)])
-        >>> tree1 = MirrorDescentEstimator(model=model, data=data).estimate(marginals=[("a", "b")])
+        >>> tree1 = MirrorDescentEstimator(model=model, data=data).estimate(
+        ...     marginals=[("a", "b")]
+        ... )
         >>> print(tree1.factors[0])
         +------+------+------------+
         | a    | b    |   phi(a,b) |
@@ -150,7 +157,9 @@ class MirrorDescentEstimator(MarginalEstimator):
         +------+------+------------+
         | a(1) | b(1) |     2.0000 |
         +------+------+------------+
-        >>> tree2 = MirrorDescentEstimator(model=model, data=data).estimate(marginals=[("a",)])
+        >>> tree2 = MirrorDescentEstimator(model=model, data=data).estimate(
+        ...     marginals=[("a",)]
+        ... )
         >>> print(tree2.factors[0])
         +------+------+------------+
         | a    | b    |   phi(a,b) |
@@ -179,15 +188,9 @@ class MirrorDescentEstimator(MarginalEstimator):
         )
 
         # Step 2: Perform calibration to initialize variables.
-        theta = (
-            self.theta
-            if self.theta
-            else self.belief_propagation.junction_tree.clique_beliefs
-        )
+        theta = self.theta if self.theta else self.belief_propagation.junction_tree.clique_beliefs
         mu = self._calibrate(theta=theta, n=n)
-        answer = self._marginal_loss(
-            marginals=mu, clique_to_marginal=clique_to_marginal, metric=metric
-        )
+        answer = self._marginal_loss(marginals=mu, clique_to_marginal=clique_to_marginal, metric=metric)
 
         # Step 3: Optimize the potentials based off the observed marginals.
         pbar = tqdm(range(iterations)) if show_progress else range(iterations)
@@ -201,9 +204,9 @@ class MirrorDescentEstimator(MarginalEstimator):
                 pbar.set_description_str(
                     ",\t".join(
                         [
-                            "Loss: {:e}".format(curr_loss),
-                            "Grad Norm: {:e}".format(np.sqrt(dL.dot(dL))),
-                            "alpha: {:e}".format(alpha),
+                            f"Loss: {curr_loss:e}",
+                            f"Grad Norm: {np.sqrt(dL.dot(dL)):e}",
+                            f"alpha: {alpha:e}",
                         ]
                     )
                 )
@@ -216,9 +219,7 @@ class MirrorDescentEstimator(MarginalEstimator):
                 mu = self._calibrate(theta=theta, n=n)
 
                 # Compute the new loss with respect to the updated beliefs.
-                answer = self._marginal_loss(
-                    marginals=mu, clique_to_marginal=clique_to_marginal, metric=metric
-                )
+                answer = self._marginal_loss(marginals=mu, clique_to_marginal=clique_to_marginal, metric=metric)
                 # If we haven't appreciably improved, try reducing the step size.
                 # Otherwise, we break to the next iteration.
                 _step = 0.5 * alpha * dL.dot(nu - mu)

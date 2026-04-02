@@ -1,3 +1,0 @@
-name: adaptive_thresholding
-args:
-  n_std: 2.5

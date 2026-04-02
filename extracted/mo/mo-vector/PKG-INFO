@@ -1,0 +1,27 @@
+Metadata-Version: 2.3
+Name: mo-vector
+Version: 0.1.13
+Summary: mo-vector support for Python
+License: Apache-2.0
+Author: Cao Kai
+Author-email: caokai@matrixorigin.cn
+Requires-Python: >=3.10
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: numpy (<3.0.0)
+Requires-Dist: pymysql (>=1.1.1,<2.0.0)
+Requires-Dist: sqlalchemy (>=2.0.38,<3.0.0)
+Description-Content-Type: text/markdown
+
+# mo-vector-python
+
+Use MO Vector Search with Python.
+
+Install:
+```bash
+pip install mo-vector sqlalchemy pymysql
+```

@@ -33,6 +33,14 @@ from datadog_api_client.v2.model.aws_assume_role_update import AWSAssumeRoleUpda
 from datadog_api_client.v2.model.aws_auth_config import AWSAuthConfig
 from datadog_api_client.v2.model.aws_auth_config_keys import AWSAuthConfigKeys
 from datadog_api_client.v2.model.aws_auth_config_role import AWSAuthConfigRole
+from datadog_api_client.v2.model.aws_ccm_config import AWSCcmConfig
+from datadog_api_client.v2.model.aws_ccm_config_request import AWSCcmConfigRequest
+from datadog_api_client.v2.model.aws_ccm_config_request_attributes import AWSCcmConfigRequestAttributes
+from datadog_api_client.v2.model.aws_ccm_config_request_data import AWSCcmConfigRequestData
+from datadog_api_client.v2.model.aws_ccm_config_response import AWSCcmConfigResponse
+from datadog_api_client.v2.model.aws_ccm_config_response_attributes import AWSCcmConfigResponseAttributes
+from datadog_api_client.v2.model.aws_ccm_config_response_data import AWSCcmConfigResponseData
+from datadog_api_client.v2.model.aws_ccm_config_type import AWSCcmConfigType
 from datadog_api_client.v2.model.aws_cloud_auth_persona_mapping_attributes_response import (
     AWSCloudAuthPersonaMappingAttributesResponse,
 )
@@ -518,7 +526,18 @@ from datadog_api_client.v2.model.azure_uc_config_post_request_attributes import 
 from datadog_api_client.v2.model.azure_uc_config_post_request_type import AzureUCConfigPostRequestType
 from datadog_api_client.v2.model.azure_uc_configs_response import AzureUCConfigsResponse
 from datadog_api_client.v2.model.batch_delete_rows_request_array import BatchDeleteRowsRequestArray
-from datadog_api_client.v2.model.batch_delete_rows_request_data import BatchDeleteRowsRequestData
+from datadog_api_client.v2.model.batch_rows_query_data_type import BatchRowsQueryDataType
+from datadog_api_client.v2.model.batch_rows_query_request import BatchRowsQueryRequest
+from datadog_api_client.v2.model.batch_rows_query_request_data import BatchRowsQueryRequestData
+from datadog_api_client.v2.model.batch_rows_query_request_data_attributes import BatchRowsQueryRequestDataAttributes
+from datadog_api_client.v2.model.batch_rows_query_response import BatchRowsQueryResponse
+from datadog_api_client.v2.model.batch_rows_query_response_data import BatchRowsQueryResponseData
+from datadog_api_client.v2.model.batch_rows_query_response_data_relationships import (
+    BatchRowsQueryResponseDataRelationships,
+)
+from datadog_api_client.v2.model.batch_rows_query_response_data_relationships_rows import (
+    BatchRowsQueryResponseDataRelationshipsRows,
+)
 from datadog_api_client.v2.model.batch_upsert_rows_request_array import BatchUpsertRowsRequestArray
 from datadog_api_client.v2.model.batch_upsert_rows_request_data import BatchUpsertRowsRequestData
 from datadog_api_client.v2.model.batch_upsert_rows_request_data_attributes import BatchUpsertRowsRequestDataAttributes
@@ -1076,6 +1095,7 @@ from datadog_api_client.v2.model.convert_job_results_to_signals_attributes impor
 from datadog_api_client.v2.model.convert_job_results_to_signals_data import ConvertJobResultsToSignalsData
 from datadog_api_client.v2.model.convert_job_results_to_signals_data_type import ConvertJobResultsToSignalsDataType
 from datadog_api_client.v2.model.convert_job_results_to_signals_request import ConvertJobResultsToSignalsRequest
+from datadog_api_client.v2.model.cost_aggregation_type import CostAggregationType
 from datadog_api_client.v2.model.cost_attribution_aggregates_body import CostAttributionAggregatesBody
 from datadog_api_client.v2.model.cost_attribution_tag_names import CostAttributionTagNames
 from datadog_api_client.v2.model.cost_attribution_type import CostAttributionType
@@ -1174,6 +1194,14 @@ from datadog_api_client.v2.model.create_deployment_rule_params_data_attributes i
     CreateDeploymentRuleParamsDataAttributes,
 )
 from datadog_api_client.v2.model.create_email_notification_channel_config import CreateEmailNotificationChannelConfig
+from datadog_api_client.v2.model.create_environment_attributes import CreateEnvironmentAttributes
+from datadog_api_client.v2.model.create_environment_data import CreateEnvironmentData
+from datadog_api_client.v2.model.create_environment_data_type import CreateEnvironmentDataType
+from datadog_api_client.v2.model.create_environment_request import CreateEnvironmentRequest
+from datadog_api_client.v2.model.create_feature_flag_attributes import CreateFeatureFlagAttributes
+from datadog_api_client.v2.model.create_feature_flag_data import CreateFeatureFlagData
+from datadog_api_client.v2.model.create_feature_flag_data_type import CreateFeatureFlagDataType
+from datadog_api_client.v2.model.create_feature_flag_request import CreateFeatureFlagRequest
 from datadog_api_client.v2.model.create_incident_notification_rule_request import CreateIncidentNotificationRuleRequest
 from datadog_api_client.v2.model.create_incident_notification_template_request import (
     CreateIncidentNotificationTemplateRequest,
@@ -1207,6 +1235,9 @@ from datadog_api_client.v2.model.create_on_call_notification_rule_request_data i
 from datadog_api_client.v2.model.create_open_api_response import CreateOpenAPIResponse
 from datadog_api_client.v2.model.create_open_api_response_attributes import CreateOpenAPIResponseAttributes
 from datadog_api_client.v2.model.create_open_api_response_data import CreateOpenAPIResponseData
+from datadog_api_client.v2.model.create_or_update_widget_request import CreateOrUpdateWidgetRequest
+from datadog_api_client.v2.model.create_or_update_widget_request_attributes import CreateOrUpdateWidgetRequestAttributes
+from datadog_api_client.v2.model.create_or_update_widget_request_data import CreateOrUpdateWidgetRequestData
 from datadog_api_client.v2.model.create_page_request import CreatePageRequest
 from datadog_api_client.v2.model.create_page_request_data import CreatePageRequestData
 from datadog_api_client.v2.model.create_page_request_data_attributes import CreatePageRequestDataAttributes
@@ -1309,6 +1340,7 @@ from datadog_api_client.v2.model.create_upload_response_data import CreateUpload
 from datadog_api_client.v2.model.create_upload_response_data_attributes import CreateUploadResponseDataAttributes
 from datadog_api_client.v2.model.create_upload_response_data_type import CreateUploadResponseDataType
 from datadog_api_client.v2.model.create_user_notification_channel_request import CreateUserNotificationChannelRequest
+from datadog_api_client.v2.model.create_variant import CreateVariant
 from datadog_api_client.v2.model.create_workflow_request import CreateWorkflowRequest
 from datadog_api_client.v2.model.create_workflow_response import CreateWorkflowResponse
 from datadog_api_client.v2.model.creator import Creator
@@ -1537,6 +1569,7 @@ from datadog_api_client.v2.model.dora_failure_response_data import DORAFailureRe
 from datadog_api_client.v2.model.dora_failure_type import DORAFailureType
 from datadog_api_client.v2.model.dora_failures_list_response import DORAFailuresListResponse
 from datadog_api_client.v2.model.dora_git_info import DORAGitInfo
+from datadog_api_client.v2.model.dora_git_info_response import DORAGitInfoResponse
 from datadog_api_client.v2.model.dora_incident_object import DORAIncidentObject
 from datadog_api_client.v2.model.dora_incident_object_attributes import DORAIncidentObjectAttributes
 from datadog_api_client.v2.model.dora_list_deployments_request import DORAListDeploymentsRequest
@@ -1564,6 +1597,7 @@ from datadog_api_client.v2.model.data_attributes_rules_items_mapping import Data
 from datadog_api_client.v2.model.data_deletion_response_item import DataDeletionResponseItem
 from datadog_api_client.v2.model.data_deletion_response_item_attributes import DataDeletionResponseItemAttributes
 from datadog_api_client.v2.model.data_deletion_response_meta import DataDeletionResponseMeta
+from datadog_api_client.v2.model.data_export_config import DataExportConfig
 from datadog_api_client.v2.model.data_relationships_teams import DataRelationshipsTeams
 from datadog_api_client.v2.model.data_relationships_teams_data_items import DataRelationshipsTeamsDataItems
 from datadog_api_client.v2.model.data_relationships_teams_data_items_type import DataRelationshipsTeamsDataItemsType
@@ -1676,6 +1710,41 @@ from datadog_api_client.v2.model.deployment_gate_response_data_attributes_update
     DeploymentGateResponseDataAttributesUpdatedBy,
 )
 from datadog_api_client.v2.model.deployment_gate_rules_response import DeploymentGateRulesResponse
+from datadog_api_client.v2.model.deployment_gates_evaluation_request import DeploymentGatesEvaluationRequest
+from datadog_api_client.v2.model.deployment_gates_evaluation_request_attributes import (
+    DeploymentGatesEvaluationRequestAttributes,
+)
+from datadog_api_client.v2.model.deployment_gates_evaluation_request_data import DeploymentGatesEvaluationRequestData
+from datadog_api_client.v2.model.deployment_gates_evaluation_request_data_type import (
+    DeploymentGatesEvaluationRequestDataType,
+)
+from datadog_api_client.v2.model.deployment_gates_evaluation_response import DeploymentGatesEvaluationResponse
+from datadog_api_client.v2.model.deployment_gates_evaluation_response_attributes import (
+    DeploymentGatesEvaluationResponseAttributes,
+)
+from datadog_api_client.v2.model.deployment_gates_evaluation_response_data import DeploymentGatesEvaluationResponseData
+from datadog_api_client.v2.model.deployment_gates_evaluation_response_data_type import (
+    DeploymentGatesEvaluationResponseDataType,
+)
+from datadog_api_client.v2.model.deployment_gates_evaluation_result_response import (
+    DeploymentGatesEvaluationResultResponse,
+)
+from datadog_api_client.v2.model.deployment_gates_evaluation_result_response_attributes import (
+    DeploymentGatesEvaluationResultResponseAttributes,
+)
+from datadog_api_client.v2.model.deployment_gates_evaluation_result_response_attributes_gate_status import (
+    DeploymentGatesEvaluationResultResponseAttributesGateStatus,
+)
+from datadog_api_client.v2.model.deployment_gates_evaluation_result_response_data import (
+    DeploymentGatesEvaluationResultResponseData,
+)
+from datadog_api_client.v2.model.deployment_gates_evaluation_result_response_data_type import (
+    DeploymentGatesEvaluationResultResponseDataType,
+)
+from datadog_api_client.v2.model.deployment_gates_list_response import DeploymentGatesListResponse
+from datadog_api_client.v2.model.deployment_gates_list_response_meta import DeploymentGatesListResponseMeta
+from datadog_api_client.v2.model.deployment_gates_list_response_meta_page import DeploymentGatesListResponseMetaPage
+from datadog_api_client.v2.model.deployment_gates_rule_response import DeploymentGatesRuleResponse
 from datadog_api_client.v2.model.deployment_metadata import DeploymentMetadata
 from datadog_api_client.v2.model.deployment_relationship import DeploymentRelationship
 from datadog_api_client.v2.model.deployment_relationship_data import DeploymentRelationshipData
@@ -1890,6 +1959,11 @@ from datadog_api_client.v2.model.entity_v3_system import EntityV3System
 from datadog_api_client.v2.model.entity_v3_system_datadog import EntityV3SystemDatadog
 from datadog_api_client.v2.model.entity_v3_system_kind import EntityV3SystemKind
 from datadog_api_client.v2.model.entity_v3_system_spec import EntityV3SystemSpec
+from datadog_api_client.v2.model.environment import Environment
+from datadog_api_client.v2.model.environment_attributes import EnvironmentAttributes
+from datadog_api_client.v2.model.environment_response import EnvironmentResponse
+from datadog_api_client.v2.model.environments_pagination_meta import EnvironmentsPaginationMeta
+from datadog_api_client.v2.model.environments_pagination_meta_page import EnvironmentsPaginationMetaPage
 from datadog_api_client.v2.model.error_handler import ErrorHandler
 from datadog_api_client.v2.model.escalation import Escalation
 from datadog_api_client.v2.model.escalation_policy import EscalationPolicy
@@ -2051,6 +2125,14 @@ from datadog_api_client.v2.model.fastly_service_request import FastlyServiceRequ
 from datadog_api_client.v2.model.fastly_service_response import FastlyServiceResponse
 from datadog_api_client.v2.model.fastly_service_type import FastlyServiceType
 from datadog_api_client.v2.model.fastly_services_response import FastlyServicesResponse
+from datadog_api_client.v2.model.feature_flag import FeatureFlag
+from datadog_api_client.v2.model.feature_flag_attributes import FeatureFlagAttributes
+from datadog_api_client.v2.model.feature_flag_environment import FeatureFlagEnvironment
+from datadog_api_client.v2.model.feature_flag_response import FeatureFlagResponse
+from datadog_api_client.v2.model.feature_flag_status import FeatureFlagStatus
+from datadog_api_client.v2.model.feature_flag_targeting_rule import FeatureFlagTargetingRule
+from datadog_api_client.v2.model.feature_flags_pagination_meta import FeatureFlagsPaginationMeta
+from datadog_api_client.v2.model.feature_flags_pagination_meta_page import FeatureFlagsPaginationMetaPage
 from datadog_api_client.v2.model.filters_per_product import FiltersPerProduct
 from datadog_api_client.v2.model.finding import Finding
 from datadog_api_client.v2.model.finding_attributes import FindingAttributes
@@ -2982,6 +3064,8 @@ from datadog_api_client.v2.model.list_downtimes_response import ListDowntimesRes
 from datadog_api_client.v2.model.list_entity_catalog_response import ListEntityCatalogResponse
 from datadog_api_client.v2.model.list_entity_catalog_response_included_item import ListEntityCatalogResponseIncludedItem
 from datadog_api_client.v2.model.list_entity_catalog_response_links import ListEntityCatalogResponseLinks
+from datadog_api_client.v2.model.list_environments_response import ListEnvironmentsResponse
+from datadog_api_client.v2.model.list_feature_flags_response import ListFeatureFlagsResponse
 from datadog_api_client.v2.model.list_findings_meta import ListFindingsMeta
 from datadog_api_client.v2.model.list_findings_page import ListFindingsPage
 from datadog_api_client.v2.model.list_findings_response import ListFindingsResponse
@@ -3486,6 +3570,51 @@ from datadog_api_client.v2.model.observability_pipeline_amazon_s3_destination_st
 )
 from datadog_api_client.v2.model.observability_pipeline_amazon_s3_destination_type import (
     ObservabilityPipelineAmazonS3DestinationType,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_batch_settings import (
+    ObservabilityPipelineAmazonS3GenericBatchSettings,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_compression import (
+    ObservabilityPipelineAmazonS3GenericCompression,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_compression_gzip import (
+    ObservabilityPipelineAmazonS3GenericCompressionGzip,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_compression_gzip_type import (
+    ObservabilityPipelineAmazonS3GenericCompressionGzipType,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_compression_snappy import (
+    ObservabilityPipelineAmazonS3GenericCompressionSnappy,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_compression_snappy_type import (
+    ObservabilityPipelineAmazonS3GenericCompressionSnappyType,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_compression_zstd import (
+    ObservabilityPipelineAmazonS3GenericCompressionZstd,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_compression_zstd_type import (
+    ObservabilityPipelineAmazonS3GenericCompressionZstdType,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_destination import (
+    ObservabilityPipelineAmazonS3GenericDestination,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_destination_type import (
+    ObservabilityPipelineAmazonS3GenericDestinationType,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_encoding import (
+    ObservabilityPipelineAmazonS3GenericEncoding,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_encoding_json import (
+    ObservabilityPipelineAmazonS3GenericEncodingJson,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_encoding_json_type import (
+    ObservabilityPipelineAmazonS3GenericEncodingJsonType,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_encoding_parquet import (
+    ObservabilityPipelineAmazonS3GenericEncodingParquet,
+)
+from datadog_api_client.v2.model.observability_pipeline_amazon_s3_generic_encoding_parquet_type import (
+    ObservabilityPipelineAmazonS3GenericEncodingParquetType,
 )
 from datadog_api_client.v2.model.observability_pipeline_amazon_s3_source import ObservabilityPipelineAmazonS3Source
 from datadog_api_client.v2.model.observability_pipeline_amazon_s3_source_type import (
@@ -4840,6 +4969,9 @@ from datadog_api_client.v2.model.ruleset_resp_data_attributes_rules_items_refere
     RulesetRespDataAttributesRulesItemsReferenceTableFieldPairsItems,
 )
 from datadog_api_client.v2.model.ruleset_resp_data_type import RulesetRespDataType
+from datadog_api_client.v2.model.rum_cross_product_sampling import RumCrossProductSampling
+from datadog_api_client.v2.model.rum_cross_product_sampling_create import RumCrossProductSamplingCreate
+from datadog_api_client.v2.model.rum_cross_product_sampling_update import RumCrossProductSamplingUpdate
 from datadog_api_client.v2.model.rum_metric_compute import RumMetricCompute
 from datadog_api_client.v2.model.rum_metric_compute_aggregation_type import RumMetricComputeAggregationType
 from datadog_api_client.v2.model.rum_metric_create_attributes import RumMetricCreateAttributes
@@ -5293,6 +5425,33 @@ from datadog_api_client.v2.model.security_monitoring_signal_triage_update_respon
     SecurityMonitoringSignalTriageUpdateResponse,
 )
 from datadog_api_client.v2.model.security_monitoring_signal_type import SecurityMonitoringSignalType
+from datadog_api_client.v2.model.security_monitoring_signals_bulk_assignee_update_attributes import (
+    SecurityMonitoringSignalsBulkAssigneeUpdateAttributes,
+)
+from datadog_api_client.v2.model.security_monitoring_signals_bulk_assignee_update_data import (
+    SecurityMonitoringSignalsBulkAssigneeUpdateData,
+)
+from datadog_api_client.v2.model.security_monitoring_signals_bulk_assignee_update_request import (
+    SecurityMonitoringSignalsBulkAssigneeUpdateRequest,
+)
+from datadog_api_client.v2.model.security_monitoring_signals_bulk_state_update_data import (
+    SecurityMonitoringSignalsBulkStateUpdateData,
+)
+from datadog_api_client.v2.model.security_monitoring_signals_bulk_state_update_request import (
+    SecurityMonitoringSignalsBulkStateUpdateRequest,
+)
+from datadog_api_client.v2.model.security_monitoring_signals_bulk_triage_event import (
+    SecurityMonitoringSignalsBulkTriageEvent,
+)
+from datadog_api_client.v2.model.security_monitoring_signals_bulk_triage_event_attributes import (
+    SecurityMonitoringSignalsBulkTriageEventAttributes,
+)
+from datadog_api_client.v2.model.security_monitoring_signals_bulk_triage_update_response import (
+    SecurityMonitoringSignalsBulkTriageUpdateResponse,
+)
+from datadog_api_client.v2.model.security_monitoring_signals_bulk_triage_update_result import (
+    SecurityMonitoringSignalsBulkTriageUpdateResult,
+)
 from datadog_api_client.v2.model.security_monitoring_signals_list_response import SecurityMonitoringSignalsListResponse
 from datadog_api_client.v2.model.security_monitoring_signals_list_response_links import (
     SecurityMonitoringSignalsListResponseLinks,
@@ -5849,11 +6008,43 @@ from datadog_api_client.v2.model.step_display import StepDisplay
 from datadog_api_client.v2.model.step_display_bounds import StepDisplayBounds
 from datadog_api_client.v2.model.suite_create_edit import SuiteCreateEdit
 from datadog_api_client.v2.model.suite_create_edit_request import SuiteCreateEditRequest
+from datadog_api_client.v2.model.suite_json_patch_request import SuiteJsonPatchRequest
+from datadog_api_client.v2.model.suite_json_patch_request_data import SuiteJsonPatchRequestData
+from datadog_api_client.v2.model.suite_json_patch_request_data_attributes import SuiteJsonPatchRequestDataAttributes
+from datadog_api_client.v2.model.suite_json_patch_type import SuiteJsonPatchType
 from datadog_api_client.v2.model.suite_search_response_type import SuiteSearchResponseType
 from datadog_api_client.v2.model.suppression_version_history import SuppressionVersionHistory
 from datadog_api_client.v2.model.suppression_versions import SuppressionVersions
 from datadog_api_client.v2.model.sync_property import SyncProperty
 from datadog_api_client.v2.model.sync_property_with_mapping import SyncPropertyWithMapping
+from datadog_api_client.v2.model.synthetics_api_multistep_parent_test_attributes import (
+    SyntheticsApiMultistepParentTestAttributes,
+)
+from datadog_api_client.v2.model.synthetics_api_multistep_parent_test_data import SyntheticsApiMultistepParentTestData
+from datadog_api_client.v2.model.synthetics_api_multistep_parent_test_type import SyntheticsApiMultistepParentTestType
+from datadog_api_client.v2.model.synthetics_api_multistep_parent_tests_response import (
+    SyntheticsApiMultistepParentTestsResponse,
+)
+from datadog_api_client.v2.model.synthetics_api_multistep_subtest_attributes import (
+    SyntheticsApiMultistepSubtestAttributes,
+)
+from datadog_api_client.v2.model.synthetics_api_multistep_subtest_data import SyntheticsApiMultistepSubtestData
+from datadog_api_client.v2.model.synthetics_api_multistep_subtest_type import SyntheticsApiMultistepSubtestType
+from datadog_api_client.v2.model.synthetics_api_multistep_subtests_response import (
+    SyntheticsApiMultistepSubtestsResponse,
+)
+from datadog_api_client.v2.model.synthetics_fast_test_assertion_result import SyntheticsFastTestAssertionResult
+from datadog_api_client.v2.model.synthetics_fast_test_result import SyntheticsFastTestResult
+from datadog_api_client.v2.model.synthetics_fast_test_result_attributes import SyntheticsFastTestResultAttributes
+from datadog_api_client.v2.model.synthetics_fast_test_result_data import SyntheticsFastTestResultData
+from datadog_api_client.v2.model.synthetics_fast_test_result_detail import SyntheticsFastTestResultDetail
+from datadog_api_client.v2.model.synthetics_fast_test_result_device import SyntheticsFastTestResultDevice
+from datadog_api_client.v2.model.synthetics_fast_test_result_failure import SyntheticsFastTestResultFailure
+from datadog_api_client.v2.model.synthetics_fast_test_result_location import SyntheticsFastTestResultLocation
+from datadog_api_client.v2.model.synthetics_fast_test_result_type import SyntheticsFastTestResultType
+from datadog_api_client.v2.model.synthetics_fast_test_step_result import SyntheticsFastTestStepResult
+from datadog_api_client.v2.model.synthetics_fast_test_sub_type import SyntheticsFastTestSubType
+from datadog_api_client.v2.model.synthetics_fast_test_traceroute_hop import SyntheticsFastTestTracerouteHop
 from datadog_api_client.v2.model.synthetics_global_variable import SyntheticsGlobalVariable
 from datadog_api_client.v2.model.synthetics_global_variable_attributes import SyntheticsGlobalVariableAttributes
 from datadog_api_client.v2.model.synthetics_global_variable_options import SyntheticsGlobalVariableOptions
@@ -5913,6 +6104,32 @@ from datadog_api_client.v2.model.synthetics_suite_test_alerting_criticality impo
 )
 from datadog_api_client.v2.model.synthetics_suite_type import SyntheticsSuiteType
 from datadog_api_client.v2.model.synthetics_suite_types import SyntheticsSuiteTypes
+from datadog_api_client.v2.model.synthetics_test_file_abort_multipart_upload_request import (
+    SyntheticsTestFileAbortMultipartUploadRequest,
+)
+from datadog_api_client.v2.model.synthetics_test_file_complete_multipart_upload_part import (
+    SyntheticsTestFileCompleteMultipartUploadPart,
+)
+from datadog_api_client.v2.model.synthetics_test_file_complete_multipart_upload_request import (
+    SyntheticsTestFileCompleteMultipartUploadRequest,
+)
+from datadog_api_client.v2.model.synthetics_test_file_download_request import SyntheticsTestFileDownloadRequest
+from datadog_api_client.v2.model.synthetics_test_file_download_response import SyntheticsTestFileDownloadResponse
+from datadog_api_client.v2.model.synthetics_test_file_multipart_presigned_urls_params import (
+    SyntheticsTestFileMultipartPresignedUrlsParams,
+)
+from datadog_api_client.v2.model.synthetics_test_file_multipart_presigned_urls_part import (
+    SyntheticsTestFileMultipartPresignedUrlsPart,
+)
+from datadog_api_client.v2.model.synthetics_test_file_multipart_presigned_urls_request import (
+    SyntheticsTestFileMultipartPresignedUrlsRequest,
+)
+from datadog_api_client.v2.model.synthetics_test_file_multipart_presigned_urls_request_bucket_key_prefix import (
+    SyntheticsTestFileMultipartPresignedUrlsRequestBucketKeyPrefix,
+)
+from datadog_api_client.v2.model.synthetics_test_file_multipart_presigned_urls_response import (
+    SyntheticsTestFileMultipartPresignedUrlsResponse,
+)
 from datadog_api_client.v2.model.synthetics_test_options import SyntheticsTestOptions
 from datadog_api_client.v2.model.synthetics_test_options_monitor_options import SyntheticsTestOptionsMonitorOptions
 from datadog_api_client.v2.model.synthetics_test_options_monitor_options_notification_preset_name import (
@@ -5923,7 +6140,27 @@ from datadog_api_client.v2.model.synthetics_test_options_scheduling import Synth
 from datadog_api_client.v2.model.synthetics_test_options_scheduling_timeframe import (
     SyntheticsTestOptionsSchedulingTimeframe,
 )
+from datadog_api_client.v2.model.synthetics_test_parent_suite_attributes import SyntheticsTestParentSuiteAttributes
+from datadog_api_client.v2.model.synthetics_test_parent_suite_data import SyntheticsTestParentSuiteData
+from datadog_api_client.v2.model.synthetics_test_parent_suite_type import SyntheticsTestParentSuiteType
+from datadog_api_client.v2.model.synthetics_test_parent_suites_response import SyntheticsTestParentSuitesResponse
 from datadog_api_client.v2.model.synthetics_test_pause_status import SyntheticsTestPauseStatus
+from datadog_api_client.v2.model.synthetics_test_version_action_metadata import SyntheticsTestVersionActionMetadata
+from datadog_api_client.v2.model.synthetics_test_version_attributes import SyntheticsTestVersionAttributes
+from datadog_api_client.v2.model.synthetics_test_version_author import SyntheticsTestVersionAuthor
+from datadog_api_client.v2.model.synthetics_test_version_change_attributes import SyntheticsTestVersionChangeAttributes
+from datadog_api_client.v2.model.synthetics_test_version_change_data import SyntheticsTestVersionChangeData
+from datadog_api_client.v2.model.synthetics_test_version_change_metadata_item import (
+    SyntheticsTestVersionChangeMetadataItem,
+)
+from datadog_api_client.v2.model.synthetics_test_version_change_type import SyntheticsTestVersionChangeType
+from datadog_api_client.v2.model.synthetics_test_version_data import SyntheticsTestVersionData
+from datadog_api_client.v2.model.synthetics_test_version_diff_patch_diff import SyntheticsTestVersionDiffPatchDiff
+from datadog_api_client.v2.model.synthetics_test_version_diff_patches import SyntheticsTestVersionDiffPatches
+from datadog_api_client.v2.model.synthetics_test_version_history_meta import SyntheticsTestVersionHistoryMeta
+from datadog_api_client.v2.model.synthetics_test_version_history_response import SyntheticsTestVersionHistoryResponse
+from datadog_api_client.v2.model.synthetics_test_version_response import SyntheticsTestVersionResponse
+from datadog_api_client.v2.model.synthetics_test_version_type import SyntheticsTestVersionType
 from datadog_api_client.v2.model.synthetics_variable_parser import SyntheticsVariableParser
 from datadog_api_client.v2.model.table_result_v2 import TableResultV2
 from datadog_api_client.v2.model.table_result_v2_array import TableResultV2Array
@@ -5956,6 +6193,7 @@ from datadog_api_client.v2.model.table_row_resource_array import TableRowResourc
 from datadog_api_client.v2.model.table_row_resource_data import TableRowResourceData
 from datadog_api_client.v2.model.table_row_resource_data_attributes import TableRowResourceDataAttributes
 from datadog_api_client.v2.model.table_row_resource_data_type import TableRowResourceDataType
+from datadog_api_client.v2.model.table_row_resource_identifier import TableRowResourceIdentifier
 from datadog_api_client.v2.model.tags_event_attribute import TagsEventAttribute
 from datadog_api_client.v2.model.team import Team
 from datadog_api_client.v2.model.team_attributes import TeamAttributes
@@ -6080,6 +6318,11 @@ from datadog_api_client.v2.model.team_sync_bulk_type import TeamSyncBulkType
 from datadog_api_client.v2.model.team_sync_data import TeamSyncData
 from datadog_api_client.v2.model.team_sync_request import TeamSyncRequest
 from datadog_api_client.v2.model.team_sync_response import TeamSyncResponse
+from datadog_api_client.v2.model.team_sync_selection_state_external_id import TeamSyncSelectionStateExternalId
+from datadog_api_client.v2.model.team_sync_selection_state_external_id_type import TeamSyncSelectionStateExternalIdType
+from datadog_api_client.v2.model.team_sync_selection_state_item import TeamSyncSelectionStateItem
+from datadog_api_client.v2.model.team_sync_selection_state_operation import TeamSyncSelectionStateOperation
+from datadog_api_client.v2.model.team_sync_selection_state_scope import TeamSyncSelectionStateScope
 from datadog_api_client.v2.model.team_target import TeamTarget
 from datadog_api_client.v2.model.team_target_type import TeamTargetType
 from datadog_api_client.v2.model.team_type import TeamType
@@ -6113,6 +6356,50 @@ from datadog_api_client.v2.model.tenancy_products_data_attributes_products_items
 )
 from datadog_api_client.v2.model.tenancy_products_data_type import TenancyProductsDataType
 from datadog_api_client.v2.model.tenancy_products_list import TenancyProductsList
+from datadog_api_client.v2.model.test_optimization_delete_service_settings_request import (
+    TestOptimizationDeleteServiceSettingsRequest,
+)
+from datadog_api_client.v2.model.test_optimization_delete_service_settings_request_attributes import (
+    TestOptimizationDeleteServiceSettingsRequestAttributes,
+)
+from datadog_api_client.v2.model.test_optimization_delete_service_settings_request_data import (
+    TestOptimizationDeleteServiceSettingsRequestData,
+)
+from datadog_api_client.v2.model.test_optimization_delete_service_settings_request_data_type import (
+    TestOptimizationDeleteServiceSettingsRequestDataType,
+)
+from datadog_api_client.v2.model.test_optimization_get_service_settings_request import (
+    TestOptimizationGetServiceSettingsRequest,
+)
+from datadog_api_client.v2.model.test_optimization_get_service_settings_request_attributes import (
+    TestOptimizationGetServiceSettingsRequestAttributes,
+)
+from datadog_api_client.v2.model.test_optimization_get_service_settings_request_data import (
+    TestOptimizationGetServiceSettingsRequestData,
+)
+from datadog_api_client.v2.model.test_optimization_get_service_settings_request_data_type import (
+    TestOptimizationGetServiceSettingsRequestDataType,
+)
+from datadog_api_client.v2.model.test_optimization_service_settings_attributes import (
+    TestOptimizationServiceSettingsAttributes,
+)
+from datadog_api_client.v2.model.test_optimization_service_settings_data import TestOptimizationServiceSettingsData
+from datadog_api_client.v2.model.test_optimization_service_settings_response import (
+    TestOptimizationServiceSettingsResponse,
+)
+from datadog_api_client.v2.model.test_optimization_service_settings_type import TestOptimizationServiceSettingsType
+from datadog_api_client.v2.model.test_optimization_update_service_settings_request import (
+    TestOptimizationUpdateServiceSettingsRequest,
+)
+from datadog_api_client.v2.model.test_optimization_update_service_settings_request_attributes import (
+    TestOptimizationUpdateServiceSettingsRequestAttributes,
+)
+from datadog_api_client.v2.model.test_optimization_update_service_settings_request_data import (
+    TestOptimizationUpdateServiceSettingsRequestData,
+)
+from datadog_api_client.v2.model.test_optimization_update_service_settings_request_data_type import (
+    TestOptimizationUpdateServiceSettingsRequestDataType,
+)
 from datadog_api_client.v2.model.threat_hunting_job_data_type import ThreatHuntingJobDataType
 from datadog_api_client.v2.model.threat_hunting_job_list_meta import ThreatHuntingJobListMeta
 from datadog_api_client.v2.model.threat_hunting_job_options import ThreatHuntingJobOptions
@@ -6209,6 +6496,14 @@ from datadog_api_client.v2.model.update_deployment_rule_params_data import Updat
 from datadog_api_client.v2.model.update_deployment_rule_params_data_attributes import (
     UpdateDeploymentRuleParamsDataAttributes,
 )
+from datadog_api_client.v2.model.update_environment_attributes import UpdateEnvironmentAttributes
+from datadog_api_client.v2.model.update_environment_data import UpdateEnvironmentData
+from datadog_api_client.v2.model.update_environment_data_type import UpdateEnvironmentDataType
+from datadog_api_client.v2.model.update_environment_request import UpdateEnvironmentRequest
+from datadog_api_client.v2.model.update_feature_flag_attributes import UpdateFeatureFlagAttributes
+from datadog_api_client.v2.model.update_feature_flag_data import UpdateFeatureFlagData
+from datadog_api_client.v2.model.update_feature_flag_data_type import UpdateFeatureFlagDataType
+from datadog_api_client.v2.model.update_feature_flag_request import UpdateFeatureFlagRequest
 from datadog_api_client.v2.model.update_flaky_tests_request import UpdateFlakyTestsRequest
 from datadog_api_client.v2.model.update_flaky_tests_request_attributes import UpdateFlakyTestsRequestAttributes
 from datadog_api_client.v2.model.update_flaky_tests_request_data import UpdateFlakyTestsRequestData
@@ -6363,6 +6658,8 @@ from datadog_api_client.v2.model.v2_event_response import V2EventResponse
 from datadog_api_client.v2.model.validation_error import ValidationError
 from datadog_api_client.v2.model.validation_error_meta import ValidationErrorMeta
 from datadog_api_client.v2.model.validation_response import ValidationResponse
+from datadog_api_client.v2.model.value_type import ValueType
+from datadog_api_client.v2.model.variant import Variant
 from datadog_api_client.v2.model.version_history_update import VersionHistoryUpdate
 from datadog_api_client.v2.model.version_history_update_type import VersionHistoryUpdateType
 from datadog_api_client.v2.model.viewership_history_session_array import ViewershipHistorySessionArray
@@ -6403,7 +6700,20 @@ from datadog_api_client.v2.model.watcher_data import WatcherData
 from datadog_api_client.v2.model.watcher_data_attributes import WatcherDataAttributes
 from datadog_api_client.v2.model.watcher_data_type import WatcherDataType
 from datadog_api_client.v2.model.weekday import Weekday
+from datadog_api_client.v2.model.widget_attributes import WidgetAttributes
+from datadog_api_client.v2.model.widget_data import WidgetData
+from datadog_api_client.v2.model.widget_definition import WidgetDefinition
+from datadog_api_client.v2.model.widget_experience_type import WidgetExperienceType
+from datadog_api_client.v2.model.widget_included_user import WidgetIncludedUser
+from datadog_api_client.v2.model.widget_included_user_attributes import WidgetIncludedUserAttributes
+from datadog_api_client.v2.model.widget_list_response import WidgetListResponse
 from datadog_api_client.v2.model.widget_live_span import WidgetLiveSpan
+from datadog_api_client.v2.model.widget_relationship_data import WidgetRelationshipData
+from datadog_api_client.v2.model.widget_relationship_item import WidgetRelationshipItem
+from datadog_api_client.v2.model.widget_relationships import WidgetRelationships
+from datadog_api_client.v2.model.widget_response import WidgetResponse
+from datadog_api_client.v2.model.widget_search_meta import WidgetSearchMeta
+from datadog_api_client.v2.model.widget_type import WidgetType
 from datadog_api_client.v2.model.workflow_data import WorkflowData
 from datadog_api_client.v2.model.workflow_data_attributes import WorkflowDataAttributes
 from datadog_api_client.v2.model.workflow_data_relationships import WorkflowDataRelationships
@@ -6471,6 +6781,14 @@ __all__ = [
     "AWSAuthConfig",
     "AWSAuthConfigKeys",
     "AWSAuthConfigRole",
+    "AWSCcmConfig",
+    "AWSCcmConfigRequest",
+    "AWSCcmConfigRequestAttributes",
+    "AWSCcmConfigRequestData",
+    "AWSCcmConfigResponse",
+    "AWSCcmConfigResponseAttributes",
+    "AWSCcmConfigResponseData",
+    "AWSCcmConfigType",
     "AWSCloudAuthPersonaMappingAttributesResponse",
     "AWSCloudAuthPersonaMappingCreateAttributes",
     "AWSCloudAuthPersonaMappingCreateData",
@@ -6824,7 +7142,14 @@ __all__ = [
     "AzureUCConfigPostRequestType",
     "AzureUCConfigsResponse",
     "BatchDeleteRowsRequestArray",
-    "BatchDeleteRowsRequestData",
+    "BatchRowsQueryDataType",
+    "BatchRowsQueryRequest",
+    "BatchRowsQueryRequestData",
+    "BatchRowsQueryRequestDataAttributes",
+    "BatchRowsQueryResponse",
+    "BatchRowsQueryResponseData",
+    "BatchRowsQueryResponseDataRelationships",
+    "BatchRowsQueryResponseDataRelationshipsRows",
     "BatchUpsertRowsRequestArray",
     "BatchUpsertRowsRequestData",
     "BatchUpsertRowsRequestDataAttributes",
@@ -7250,6 +7575,7 @@ __all__ = [
     "ConvertJobResultsToSignalsData",
     "ConvertJobResultsToSignalsDataType",
     "ConvertJobResultsToSignalsRequest",
+    "CostAggregationType",
     "CostAttributionAggregatesBody",
     "CostAttributionTagNames",
     "CostAttributionType",
@@ -7316,6 +7642,14 @@ __all__ = [
     "CreateDeploymentRuleParamsData",
     "CreateDeploymentRuleParamsDataAttributes",
     "CreateEmailNotificationChannelConfig",
+    "CreateEnvironmentAttributes",
+    "CreateEnvironmentData",
+    "CreateEnvironmentDataType",
+    "CreateEnvironmentRequest",
+    "CreateFeatureFlagAttributes",
+    "CreateFeatureFlagData",
+    "CreateFeatureFlagDataType",
+    "CreateFeatureFlagRequest",
     "CreateIncidentNotificationRuleRequest",
     "CreateIncidentNotificationTemplateRequest",
     "CreateJiraIssueRequestArray",
@@ -7337,6 +7671,9 @@ __all__ = [
     "CreateOpenAPIResponse",
     "CreateOpenAPIResponseAttributes",
     "CreateOpenAPIResponseData",
+    "CreateOrUpdateWidgetRequest",
+    "CreateOrUpdateWidgetRequestAttributes",
+    "CreateOrUpdateWidgetRequestData",
     "CreatePageRequest",
     "CreatePageRequestData",
     "CreatePageRequestDataAttributes",
@@ -7395,6 +7732,7 @@ __all__ = [
     "CreateUploadResponseDataAttributes",
     "CreateUploadResponseDataType",
     "CreateUserNotificationChannelRequest",
+    "CreateVariant",
     "CreateWorkflowRequest",
     "CreateWorkflowResponse",
     "Creator",
@@ -7539,6 +7877,7 @@ __all__ = [
     "DORAFailureType",
     "DORAFailuresListResponse",
     "DORAGitInfo",
+    "DORAGitInfoResponse",
     "DORAIncidentObject",
     "DORAIncidentObjectAttributes",
     "DORAListDeploymentsRequest",
@@ -7566,6 +7905,7 @@ __all__ = [
     "DataDeletionResponseItem",
     "DataDeletionResponseItemAttributes",
     "DataDeletionResponseMeta",
+    "DataExportConfig",
     "DataRelationshipsTeams",
     "DataRelationshipsTeamsDataItems",
     "DataRelationshipsTeamsDataItemsType",
@@ -7656,6 +7996,23 @@ __all__ = [
     "DeploymentGateResponseDataAttributesCreatedBy",
     "DeploymentGateResponseDataAttributesUpdatedBy",
     "DeploymentGateRulesResponse",
+    "DeploymentGatesEvaluationRequest",
+    "DeploymentGatesEvaluationRequestAttributes",
+    "DeploymentGatesEvaluationRequestData",
+    "DeploymentGatesEvaluationRequestDataType",
+    "DeploymentGatesEvaluationResponse",
+    "DeploymentGatesEvaluationResponseAttributes",
+    "DeploymentGatesEvaluationResponseData",
+    "DeploymentGatesEvaluationResponseDataType",
+    "DeploymentGatesEvaluationResultResponse",
+    "DeploymentGatesEvaluationResultResponseAttributes",
+    "DeploymentGatesEvaluationResultResponseAttributesGateStatus",
+    "DeploymentGatesEvaluationResultResponseData",
+    "DeploymentGatesEvaluationResultResponseDataType",
+    "DeploymentGatesListResponse",
+    "DeploymentGatesListResponseMeta",
+    "DeploymentGatesListResponseMetaPage",
+    "DeploymentGatesRuleResponse",
     "DeploymentMetadata",
     "DeploymentRelationship",
     "DeploymentRelationshipData",
@@ -7808,6 +8165,11 @@ __all__ = [
     "EntityV3SystemDatadog",
     "EntityV3SystemKind",
     "EntityV3SystemSpec",
+    "Environment",
+    "EnvironmentAttributes",
+    "EnvironmentResponse",
+    "EnvironmentsPaginationMeta",
+    "EnvironmentsPaginationMetaPage",
     "ErrorHandler",
     "Escalation",
     "EscalationPolicy",
@@ -7933,6 +8295,14 @@ __all__ = [
     "FastlyServiceResponse",
     "FastlyServiceType",
     "FastlyServicesResponse",
+    "FeatureFlag",
+    "FeatureFlagAttributes",
+    "FeatureFlagEnvironment",
+    "FeatureFlagResponse",
+    "FeatureFlagStatus",
+    "FeatureFlagTargetingRule",
+    "FeatureFlagsPaginationMeta",
+    "FeatureFlagsPaginationMetaPage",
     "FiltersPerProduct",
     "Finding",
     "FindingAttributes",
@@ -8692,6 +9062,8 @@ __all__ = [
     "ListEntityCatalogResponse",
     "ListEntityCatalogResponseIncludedItem",
     "ListEntityCatalogResponseLinks",
+    "ListEnvironmentsResponse",
+    "ListFeatureFlagsResponse",
     "ListFindingsMeta",
     "ListFindingsPage",
     "ListFindingsResponse",
@@ -9055,6 +9427,21 @@ __all__ = [
     "ObservabilityPipelineAmazonS3Destination",
     "ObservabilityPipelineAmazonS3DestinationStorageClass",
     "ObservabilityPipelineAmazonS3DestinationType",
+    "ObservabilityPipelineAmazonS3GenericBatchSettings",
+    "ObservabilityPipelineAmazonS3GenericCompression",
+    "ObservabilityPipelineAmazonS3GenericCompressionGzip",
+    "ObservabilityPipelineAmazonS3GenericCompressionGzipType",
+    "ObservabilityPipelineAmazonS3GenericCompressionSnappy",
+    "ObservabilityPipelineAmazonS3GenericCompressionSnappyType",
+    "ObservabilityPipelineAmazonS3GenericCompressionZstd",
+    "ObservabilityPipelineAmazonS3GenericCompressionZstdType",
+    "ObservabilityPipelineAmazonS3GenericDestination",
+    "ObservabilityPipelineAmazonS3GenericDestinationType",
+    "ObservabilityPipelineAmazonS3GenericEncoding",
+    "ObservabilityPipelineAmazonS3GenericEncodingJson",
+    "ObservabilityPipelineAmazonS3GenericEncodingJsonType",
+    "ObservabilityPipelineAmazonS3GenericEncodingParquet",
+    "ObservabilityPipelineAmazonS3GenericEncodingParquetType",
     "ObservabilityPipelineAmazonS3Source",
     "ObservabilityPipelineAmazonS3SourceType",
     "ObservabilityPipelineAmazonSecurityLakeDestination",
@@ -9866,6 +10253,9 @@ __all__ = [
     "RulesetRespDataAttributesRulesItemsReferenceTable",
     "RulesetRespDataAttributesRulesItemsReferenceTableFieldPairsItems",
     "RulesetRespDataType",
+    "RumCrossProductSampling",
+    "RumCrossProductSamplingCreate",
+    "RumCrossProductSamplingUpdate",
     "RumMetricCompute",
     "RumMetricComputeAggregationType",
     "RumMetricCreateAttributes",
@@ -10159,6 +10549,15 @@ __all__ = [
     "SecurityMonitoringSignalTriageUpdateData",
     "SecurityMonitoringSignalTriageUpdateResponse",
     "SecurityMonitoringSignalType",
+    "SecurityMonitoringSignalsBulkAssigneeUpdateAttributes",
+    "SecurityMonitoringSignalsBulkAssigneeUpdateData",
+    "SecurityMonitoringSignalsBulkAssigneeUpdateRequest",
+    "SecurityMonitoringSignalsBulkStateUpdateData",
+    "SecurityMonitoringSignalsBulkStateUpdateRequest",
+    "SecurityMonitoringSignalsBulkTriageEvent",
+    "SecurityMonitoringSignalsBulkTriageEventAttributes",
+    "SecurityMonitoringSignalsBulkTriageUpdateResponse",
+    "SecurityMonitoringSignalsBulkTriageUpdateResult",
     "SecurityMonitoringSignalsListResponse",
     "SecurityMonitoringSignalsListResponseLinks",
     "SecurityMonitoringSignalsListResponseMeta",
@@ -10549,11 +10948,35 @@ __all__ = [
     "StepDisplayBounds",
     "SuiteCreateEdit",
     "SuiteCreateEditRequest",
+    "SuiteJsonPatchRequest",
+    "SuiteJsonPatchRequestData",
+    "SuiteJsonPatchRequestDataAttributes",
+    "SuiteJsonPatchType",
     "SuiteSearchResponseType",
     "SuppressionVersionHistory",
     "SuppressionVersions",
     "SyncProperty",
     "SyncPropertyWithMapping",
+    "SyntheticsApiMultistepParentTestAttributes",
+    "SyntheticsApiMultistepParentTestData",
+    "SyntheticsApiMultistepParentTestType",
+    "SyntheticsApiMultistepParentTestsResponse",
+    "SyntheticsApiMultistepSubtestAttributes",
+    "SyntheticsApiMultistepSubtestData",
+    "SyntheticsApiMultistepSubtestType",
+    "SyntheticsApiMultistepSubtestsResponse",
+    "SyntheticsFastTestAssertionResult",
+    "SyntheticsFastTestResult",
+    "SyntheticsFastTestResultAttributes",
+    "SyntheticsFastTestResultData",
+    "SyntheticsFastTestResultDetail",
+    "SyntheticsFastTestResultDevice",
+    "SyntheticsFastTestResultFailure",
+    "SyntheticsFastTestResultLocation",
+    "SyntheticsFastTestResultType",
+    "SyntheticsFastTestStepResult",
+    "SyntheticsFastTestSubType",
+    "SyntheticsFastTestTracerouteHop",
     "SyntheticsGlobalVariable",
     "SyntheticsGlobalVariableAttributes",
     "SyntheticsGlobalVariableOptions",
@@ -10595,13 +11018,41 @@ __all__ = [
     "SyntheticsSuiteTestAlertingCriticality",
     "SyntheticsSuiteType",
     "SyntheticsSuiteTypes",
+    "SyntheticsTestFileAbortMultipartUploadRequest",
+    "SyntheticsTestFileCompleteMultipartUploadPart",
+    "SyntheticsTestFileCompleteMultipartUploadRequest",
+    "SyntheticsTestFileDownloadRequest",
+    "SyntheticsTestFileDownloadResponse",
+    "SyntheticsTestFileMultipartPresignedUrlsParams",
+    "SyntheticsTestFileMultipartPresignedUrlsPart",
+    "SyntheticsTestFileMultipartPresignedUrlsRequest",
+    "SyntheticsTestFileMultipartPresignedUrlsRequestBucketKeyPrefix",
+    "SyntheticsTestFileMultipartPresignedUrlsResponse",
     "SyntheticsTestOptions",
     "SyntheticsTestOptionsMonitorOptions",
     "SyntheticsTestOptionsMonitorOptionsNotificationPresetName",
     "SyntheticsTestOptionsRetry",
     "SyntheticsTestOptionsScheduling",
     "SyntheticsTestOptionsSchedulingTimeframe",
+    "SyntheticsTestParentSuiteAttributes",
+    "SyntheticsTestParentSuiteData",
+    "SyntheticsTestParentSuiteType",
+    "SyntheticsTestParentSuitesResponse",
     "SyntheticsTestPauseStatus",
+    "SyntheticsTestVersionActionMetadata",
+    "SyntheticsTestVersionAttributes",
+    "SyntheticsTestVersionAuthor",
+    "SyntheticsTestVersionChangeAttributes",
+    "SyntheticsTestVersionChangeData",
+    "SyntheticsTestVersionChangeMetadataItem",
+    "SyntheticsTestVersionChangeType",
+    "SyntheticsTestVersionData",
+    "SyntheticsTestVersionDiffPatchDiff",
+    "SyntheticsTestVersionDiffPatches",
+    "SyntheticsTestVersionHistoryMeta",
+    "SyntheticsTestVersionHistoryResponse",
+    "SyntheticsTestVersionResponse",
+    "SyntheticsTestVersionType",
     "SyntheticsVariableParser",
     "TableResultV2",
     "TableResultV2Array",
@@ -10620,6 +11071,7 @@ __all__ = [
     "TableRowResourceData",
     "TableRowResourceDataAttributes",
     "TableRowResourceDataType",
+    "TableRowResourceIdentifier",
     "TagsEventAttribute",
     "Team",
     "TeamAttributes",
@@ -10722,6 +11174,11 @@ __all__ = [
     "TeamSyncData",
     "TeamSyncRequest",
     "TeamSyncResponse",
+    "TeamSyncSelectionStateExternalId",
+    "TeamSyncSelectionStateExternalIdType",
+    "TeamSyncSelectionStateItem",
+    "TeamSyncSelectionStateOperation",
+    "TeamSyncSelectionStateScope",
     "TeamTarget",
     "TeamTargetType",
     "TeamType",
@@ -10749,6 +11206,22 @@ __all__ = [
     "TenancyProductsDataAttributesProductsItems",
     "TenancyProductsDataType",
     "TenancyProductsList",
+    "TestOptimizationDeleteServiceSettingsRequest",
+    "TestOptimizationDeleteServiceSettingsRequestAttributes",
+    "TestOptimizationDeleteServiceSettingsRequestData",
+    "TestOptimizationDeleteServiceSettingsRequestDataType",
+    "TestOptimizationGetServiceSettingsRequest",
+    "TestOptimizationGetServiceSettingsRequestAttributes",
+    "TestOptimizationGetServiceSettingsRequestData",
+    "TestOptimizationGetServiceSettingsRequestDataType",
+    "TestOptimizationServiceSettingsAttributes",
+    "TestOptimizationServiceSettingsData",
+    "TestOptimizationServiceSettingsResponse",
+    "TestOptimizationServiceSettingsType",
+    "TestOptimizationUpdateServiceSettingsRequest",
+    "TestOptimizationUpdateServiceSettingsRequestAttributes",
+    "TestOptimizationUpdateServiceSettingsRequestData",
+    "TestOptimizationUpdateServiceSettingsRequestDataType",
     "ThreatHuntingJobDataType",
     "ThreatHuntingJobListMeta",
     "ThreatHuntingJobOptions",
@@ -10827,6 +11300,14 @@ __all__ = [
     "UpdateDeploymentRuleParams",
     "UpdateDeploymentRuleParamsData",
     "UpdateDeploymentRuleParamsDataAttributes",
+    "UpdateEnvironmentAttributes",
+    "UpdateEnvironmentData",
+    "UpdateEnvironmentDataType",
+    "UpdateEnvironmentRequest",
+    "UpdateFeatureFlagAttributes",
+    "UpdateFeatureFlagData",
+    "UpdateFeatureFlagDataType",
+    "UpdateFeatureFlagRequest",
     "UpdateFlakyTestsRequest",
     "UpdateFlakyTestsRequestAttributes",
     "UpdateFlakyTestsRequestData",
@@ -10947,6 +11428,8 @@ __all__ = [
     "ValidationError",
     "ValidationErrorMeta",
     "ValidationResponse",
+    "ValueType",
+    "Variant",
     "VersionHistoryUpdate",
     "VersionHistoryUpdateType",
     "ViewershipHistorySessionArray",
@@ -10985,7 +11468,20 @@ __all__ = [
     "WatcherDataAttributes",
     "WatcherDataType",
     "Weekday",
+    "WidgetAttributes",
+    "WidgetData",
+    "WidgetDefinition",
+    "WidgetExperienceType",
+    "WidgetIncludedUser",
+    "WidgetIncludedUserAttributes",
+    "WidgetListResponse",
     "WidgetLiveSpan",
+    "WidgetRelationshipData",
+    "WidgetRelationshipItem",
+    "WidgetRelationships",
+    "WidgetResponse",
+    "WidgetSearchMeta",
+    "WidgetType",
     "WorkflowData",
     "WorkflowDataAttributes",
     "WorkflowDataRelationships",

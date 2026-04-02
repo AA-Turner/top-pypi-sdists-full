@@ -9,7 +9,8 @@ import pytest
 
 from plato.agents.runner import AgentRunner
 from plato.agents.runtime.base import AgentContext, PreparedAgent, Runtime
-from plato.agents.runtime.transport import NFSTransport
+from plato.tools.request_context import get_registered_client_context
+from plato.transports import NFSTransport
 from plato.utils.audit import build_audit_key
 from plato.utils.tool_execution import DEFAULT_TOOL_EXECUTION_SPOOL_PATH
 from plato.worlds.workspace import Workspace
@@ -47,7 +48,7 @@ def _make_agent_config():
     cfg.image = "test:latest"
     cfg.config = {"key": "value"}
     cfg.runtime = MagicMock()
-    cfg.runtime.model_dump.return_value = {"type": "docker"}
+    cfg.runtime.model_dump.return_value = {"type": "vm"}
     return cfg
 
 
@@ -179,6 +180,59 @@ class TestRunWithoutContinuation:
 
         assert runtime.prepare_calls[0].display_name == "override-name"
         assert runtime.execute_calls[0].display_name == "override-name"
+
+    @pytest.mark.asyncio
+    async def test_mcp_server_url_scoped_per_run(self):
+        agent_cfg = _make_agent_config()
+        agent_cfg.config["mcp_server_url"] = "http://runtime.plato.internal:8765/mcp"
+        runtime = FakeRuntime()
+        runner = AgentRunner(agent_cfg, runtime, display_name="frontend-builder")
+
+        await runner.run("do something specific")
+
+        exec_ctx = runtime.execute_calls[0]
+        assert exec_ctx.config["mcp_server_url"] == "http://runtime.plato.internal:8765/mcp?plato_client_id=test-agent"
+        assert agent_cfg.config["mcp_server_url"] == "http://runtime.plato.internal:8765/mcp"
+
+    @pytest.mark.asyncio
+    async def test_mcp_server_url_scoped_before_continuation(self):
+        agent_cfg = _make_agent_config()
+        agent_cfg.config["mcp_server_url"] = "http://runtime.plato.internal:8765/mcp"
+        runtime = FakeRuntime()
+        runner = AgentRunner(agent_cfg, runtime)
+
+        async def never_true():
+            return False
+
+        runner.with_continuation(exit_condition=never_true, max_continuations=1)
+
+        await runner.run("do something specific", display_name="override-name")
+
+        assert len(runtime.execute_calls) == 2
+        for ctx in runtime.execute_calls:
+            assert ctx.config["mcp_server_url"] == "http://runtime.plato.internal:8765/mcp?plato_client_id=test-agent"
+        assert runtime.execute_calls[1].config["continue_session"] is True
+
+    @pytest.mark.asyncio
+    async def test_registers_tool_request_context_for_execute_attempt(self):
+        agent_cfg = _make_agent_config()
+        agent_cfg.config["mcp_server_url"] = "http://runtime.plato.internal:8765/mcp"
+        runtime = FakeRuntime()
+
+        async def inspect_execute(prepared: PreparedAgent, ctx: AgentContext) -> None:
+            request_context = get_registered_client_context(prepared.agent_id)
+            assert request_context is not None
+            assert request_context.client_id == "test-agent"
+            assert request_context.display_name == "frontend-builder"
+            assert request_context.instruction == "do something specific"
+            assert request_context.attempt == 1
+
+        runtime.execute = inspect_execute
+        runner = AgentRunner(agent_cfg, runtime, display_name="frontend-builder")
+
+        await runner.run("do something specific")
+
+        assert get_registered_client_context("test-agent") is None
 
     @pytest.mark.asyncio
     async def test_cleanup_on_error(self):

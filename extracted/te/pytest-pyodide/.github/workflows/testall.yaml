@@ -1,0 +1,87 @@
+# This is a helper script to run tests with multiple browsers, runners, versions.
+
+name: main
+
+on:
+  workflow_call:
+    inputs:
+      build-artifact-name:
+        required: true
+        type: string
+      build-artifact-path:
+        required: true
+        type: string
+      pyodide-versions:
+        required: true
+        type: string
+      os:
+        required: false
+        type: string
+        default: ""
+      runners:
+        required: false
+        type: string
+        default: ""
+      browsers:
+        required: false
+        type: string
+        default: ""
+      chrome-versions:
+        required: false
+        type: string
+        default: ""
+      firefox-versions:
+        required: false
+        type: string
+        default: ""
+      node-versions:
+        required: false
+        type: string
+        default: ""
+      playwright-versions:
+        required: false
+        type: string
+        default: ""  # latest
+permissions:
+  contents: read
+jobs:
+  make_test_matrix:
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: 3.12 # keep this in sync with Pyodide's Python version
+      - name: Build test matrix
+        id: build-matrix
+        run: |
+          MATRIX=$(python utils/build_test_matrix.py \
+            "${{ inputs.pyodide-versions }}" \
+            --os="${{ inputs.os }}" \
+            --runner "${{ inputs.runners }}" \
+            --browser "${{ inputs.browsers }}" \
+            --chrome-version "${{ inputs.chrome-versions }}" \
+            --firefox-version "${{ inputs.firefox-versions }}" \
+            --node-version "${{ inputs.node-versions }}" \
+            --playwright-version "${{ inputs.playwright-versions }}" \
+          )
+          echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
+          echo "Test matrix is ${MATRIX}"
+  test:
+    needs: make_test_matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.make_test_matrix.outputs.matrix) }}
+    uses: ./.github/workflows/main.yaml
+    with:
+      build-artifact-name: ${{ inputs.build-artifact-name }}
+      build-artifact-path: ${{ inputs.build-artifact-path }}
+      pyodide-version: ${{ matrix.pyodide_version }}
+      os: ${{ matrix.os }}
+      runner: ${{ matrix.runner }}
+      browser: ${{ matrix.browser }}
+      browser-version: ${{ matrix.browser_version }}
+      playwright-version: ${{ matrix.playwright_version }}

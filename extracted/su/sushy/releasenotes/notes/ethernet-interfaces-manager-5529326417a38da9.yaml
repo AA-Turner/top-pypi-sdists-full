@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Adds `EthernetInterfaces` property support to the
-    Redfish Manager instance.

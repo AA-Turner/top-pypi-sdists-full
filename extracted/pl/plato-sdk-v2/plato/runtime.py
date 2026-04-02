@@ -1,22 +1,12 @@
-"""Runtime configuration for Plato agents and worlds.
-
-Defines execution environments (Docker containers or Firecracker VMs)
-and resource allocation for VMs.
-"""
+"""Runtime configuration for Plato agents and worlds."""
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from plato.chronos.models import VMResources as VMResources  # noqa: F401
-
-
-class DockerRuntimeConfig(BaseModel):
-    """Docker runtime configuration."""
-
-    type: Literal["docker"] = "docker"
 
 
 class VMRuntimeConfig(BaseModel):
@@ -26,8 +16,5 @@ class VMRuntimeConfig(BaseModel):
     vm: VMResources = Field(default_factory=VMResources)
 
 
-# Discriminated union for runtime config
-RuntimeConfig = Annotated[DockerRuntimeConfig | VMRuntimeConfig, Field(discriminator="type")]
-
-# Runtime environment type
-Runtime = Literal["docker", "vm"]
+RuntimeConfig = VMRuntimeConfig
+Runtime = Literal["vm"]

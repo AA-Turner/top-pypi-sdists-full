@@ -1,0 +1,143 @@
+# mise.toml - Task runner configuration for cwsandbox-client
+# Run tasks with: mise run <task>
+
+# =============================================================================
+# Formatting & Linting
+# =============================================================================
+
+[tasks.format]
+description = "Format code with ruff"
+run = "uv run ruff format ."
+
+[tasks."format:check"]
+description = "Check formatting without changes"
+run = "uv run ruff format --check ."
+
+[tasks.lint]
+description = "Lint code with ruff (auto-fix enabled)"
+run = "uv run ruff check --fix ."
+
+[tasks."lint:check"]
+description = "Lint code without auto-fix"
+run = "uv run ruff check ."
+
+# =============================================================================
+# Type Checking
+# =============================================================================
+
+[tasks.typecheck]
+description = "Run mypy type checking"
+run = "uv run mypy src/"
+alias = "tc"
+
+# =============================================================================
+# Testing
+# =============================================================================
+
+[tasks.test]
+description = "Run unit tests"
+run = "uv run pytest"
+alias = "t"
+
+[tasks."test:unit"]
+description = "Run unit tests (explicit)"
+run = "uv run pytest tests/unit/"
+
+[tasks."test:e2e"]
+description = "Run integration/e2e tests (requires auth)"
+run = "uv run pytest tests/integration/ -v"
+alias = "e2e"
+
+[tasks."test:e2e:parallel"]
+description = "Run integration tests in parallel"
+run = "uv run pytest tests/integration/ -n auto -v"
+
+[tasks."test:all"]
+description = "Run all tests (unit + integration)"
+run = "uv run pytest tests/unit/ tests/integration/ -v"
+
+[tasks."test:cov"]
+description = "Run unit tests with coverage"
+run = "uv run pytest --cov=src --cov-report=term-missing"
+
+[tasks."test:packaging"]
+description = "Smoke test: build wheel, install in clean venv, verify imports"
+run = """
+#!/bin/bash
+set -e
+TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TMPDIR"' EXIT
+
+echo "==> Building wheel..."
+uv build --wheel --out-dir "$TMPDIR/dist"
+
+WHEEL=$(ls "$TMPDIR/dist"/*.whl)
+NUM_WHEELS=$(echo "$WHEEL" | wc -l | tr -d ' ')
+if [ "$NUM_WHEELS" -ne 1 ]; then
+    echo "ERROR: expected 1 wheel, found $NUM_WHEELS" >&2
+    exit 1
+fi
+echo "==> Built: $(basename "$WHEEL")"
+
+echo "==> Creating temporary venv..."
+uv venv "$TMPDIR/venv"
+
+echo "==> Installing wheel..."
+uv pip install --python "$TMPDIR/venv/bin/python" "$WHEEL"
+
+echo "==> Verifying imports..."
+"$TMPDIR/venv/bin/python" -c "from cwsandbox import Sandbox; print('cwsandbox.Sandbox: ok')"
+"$TMPDIR/venv/bin/python" -c "from cwsandbox._proto import atc_pb2; print('cwsandbox._proto.atc_pb2: ok')"
+
+echo "==> Packaging smoke test passed."
+"""
+
+# =============================================================================
+# Combined Quality Checks
+# =============================================================================
+
+[tasks.check]
+description = "Run all quality checks (runs in parallel)"
+depends = ["format:check", "lint:check", "typecheck", "test"]
+alias = "c"
+
+# =============================================================================
+# Development Helpers
+# =============================================================================
+
+[tasks.install]
+description = "Install project dependencies"
+run = "uv sync --extra dev"
+
+[tasks.clean]
+description = "Remove build artifacts and caches"
+run = [
+    "rm -rf .mypy_cache .pytest_cache .ruff_cache",
+    "rm -rf dist build *.egg-info",
+    "find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true",
+]
+
+[tasks.precommit]
+description = "Run pre-commit hooks"
+run = "uv run pre-commit run --all-files"
+alias = "pc"
+
+# =============================================================================
+# Proto Stub Updates
+# =============================================================================
+
+[tasks."proto:update"]
+description = "Update vendored proto stubs from buf.build"
+run = "scripts/update-protos.sh"
+
+[tasks."proto:update:local"]
+description = "Update vendored proto stubs from local aviato checkout"
+run = """
+#!/bin/bash
+set -e
+BACKEND_REPO="${CWSANDBOX_BACKEND_PATH:-../aviato}"
+echo "==> Generating Python protos from $BACKEND_REPO..."
+(cd "$BACKEND_REPO" && make buf-gen-python)
+echo "==> Copying stubs into vendored _proto directory..."
+scripts/update-protos.sh --local "$BACKEND_REPO/gen/python"
+"""

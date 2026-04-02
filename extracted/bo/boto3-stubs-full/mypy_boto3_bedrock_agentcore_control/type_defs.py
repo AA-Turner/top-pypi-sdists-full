@@ -37,6 +37,7 @@ from .literals import (
     ContentLevelType,
     CredentialProviderTypeType,
     CredentialProviderVendorTypeType,
+    EndpointIpAddressTypeType,
     EvaluatorLevelType,
     EvaluatorStatusType,
     EvaluatorTypeType,
@@ -286,6 +287,7 @@ __all__ = (
     "GithubOauth2ProviderConfigOutputTypeDef",
     "GoogleOauth2ProviderConfigInputTypeDef",
     "GoogleOauth2ProviderConfigOutputTypeDef",
+    "IamCredentialProviderTypeDef",
     "IncludedOauth2ProviderConfigInputTypeDef",
     "IncludedOauth2ProviderConfigOutputTypeDef",
     "InferenceConfigurationOutputTypeDef",
@@ -362,6 +364,9 @@ __all__ = (
     "LlmAsAJudgeEvaluatorConfigTypeDef",
     "MCPGatewayConfigurationOutputTypeDef",
     "MCPGatewayConfigurationTypeDef",
+    "ManagedLatticeResourceOutputTypeDef",
+    "ManagedLatticeResourceTypeDef",
+    "ManagedResourceDetailsTypeDef",
     "McpLambdaTargetConfigurationOutputTypeDef",
     "McpLambdaTargetConfigurationTypeDef",
     "McpServerTargetConfigurationTypeDef",
@@ -411,6 +416,9 @@ __all__ = (
     "PolicyGenerationDetailsTypeDef",
     "PolicyGenerationTypeDef",
     "PolicyTypeDef",
+    "PrivateEndpointOutputTypeDef",
+    "PrivateEndpointTypeDef",
+    "PrivateEndpointUnionTypeDef",
     "ProtocolConfigurationTypeDef",
     "PutResourcePolicyRequestTypeDef",
     "PutResourcePolicyResponseTypeDef",
@@ -439,6 +447,7 @@ __all__ = (
     "SecretsManagerLocationTypeDef",
     "SelfManagedConfigurationInputTypeDef",
     "SelfManagedConfigurationTypeDef",
+    "SelfManagedLatticeResourceTypeDef",
     "SemanticConsolidationOverrideTypeDef",
     "SemanticExtractionOverrideTypeDef",
     "SemanticMemoryStrategyInputTypeDef",
@@ -770,6 +779,12 @@ class GatewayPolicyEngineConfigurationTypeDef(TypedDict):
     mode: GatewayPolicyEngineModeType
 
 
+class ManagedResourceDetailsTypeDef(TypedDict):
+    domain: NotRequired[str]
+    resourceGatewayArn: NotRequired[str]
+    resourceAssociationArn: NotRequired[str]
+
+
 class MetadataConfigurationOutputTypeDef(TypedDict):
     allowedRequestHeaders: NotRequired[list[str]]
     allowedQueryParameters: NotRequired[list[str]]
@@ -792,6 +807,11 @@ class CreateWorkloadIdentityRequestTypeDef(TypedDict):
     name: str
     allowedResourceOauth2ReturnUrls: NotRequired[Sequence[str]]
     tags: NotRequired[Mapping[str, str]]
+
+
+class IamCredentialProviderTypeDef(TypedDict):
+    service: str
+    region: NotRequired[str]
 
 
 class OAuthCredentialProviderOutputTypeDef(TypedDict):
@@ -1344,6 +1364,24 @@ class WorkloadIdentityTypeTypeDef(TypedDict):
     workloadIdentityArn: str
 
 
+class ManagedLatticeResourceOutputTypeDef(TypedDict):
+    vpcIdentifier: str
+    subnetIds: list[str]
+    endpointIpAddressType: EndpointIpAddressTypeType
+    securityGroupIds: NotRequired[list[str]]
+    tags: NotRequired[dict[str, str]]
+    routingDomain: NotRequired[str]
+
+
+class ManagedLatticeResourceTypeDef(TypedDict):
+    vpcIdentifier: str
+    subnetIds: Sequence[str]
+    endpointIpAddressType: EndpointIpAddressTypeType
+    securityGroupIds: NotRequired[Sequence[str]]
+    tags: NotRequired[Mapping[str, str]]
+    routingDomain: NotRequired[str]
+
+
 class McpServerTargetConfigurationTypeDef(TypedDict):
     endpoint: str
 
@@ -1437,6 +1475,10 @@ class SlackOauth2ProviderConfigInputTypeDef(TypedDict):
 class PolicyGenerationDetailsTypeDef(TypedDict):
     policyGenerationId: str
     policyGenerationAssetId: str
+
+
+class SelfManagedLatticeResourceTypeDef(TypedDict):
+    resourceConfigurationIdentifier: NotRequired[str]
 
 
 class PutResourcePolicyRequestTypeDef(TypedDict):
@@ -2000,6 +2042,7 @@ class UpdateApiKeyCredentialProviderResponseTypeDef(TypedDict):
 class CredentialProviderOutputTypeDef(TypedDict):
     oauthCredentialProvider: NotRequired[OAuthCredentialProviderOutputTypeDef]
     apiKeyCredentialProvider: NotRequired[ApiKeyCredentialProviderTypeDef]
+    iamCredentialProvider: NotRequired[IamCredentialProviderTypeDef]
 
 
 class SummaryOverrideConfigurationInputTypeDef(TypedDict):
@@ -2376,6 +2419,16 @@ class PolicyDefinitionTypeDef(TypedDict):
     policyGeneration: NotRequired[PolicyGenerationDetailsTypeDef]
 
 
+class PrivateEndpointOutputTypeDef(TypedDict):
+    selfManagedLatticeResource: NotRequired[SelfManagedLatticeResourceTypeDef]
+    managedLatticeResource: NotRequired[ManagedLatticeResourceOutputTypeDef]
+
+
+class PrivateEndpointTypeDef(TypedDict):
+    selfManagedLatticeResource: NotRequired[SelfManagedLatticeResourceTypeDef]
+    managedLatticeResource: NotRequired[ManagedLatticeResourceTypeDef]
+
+
 RequestHeaderConfigurationUnionTypeDef = Union[
     RequestHeaderConfigurationTypeDef, RequestHeaderConfigurationOutputTypeDef
 ]
@@ -2571,6 +2624,7 @@ class GatewayInterceptorConfigurationTypeDef(TypedDict):
 class CredentialProviderTypeDef(TypedDict):
     oauthCredentialProvider: NotRequired[OAuthCredentialProviderUnionTypeDef]
     apiKeyCredentialProvider: NotRequired[ApiKeyCredentialProviderTypeDef]
+    iamCredentialProvider: NotRequired[IamCredentialProviderTypeDef]
 
 
 class AtlassianOauth2ProviderConfigOutputTypeDef(TypedDict):
@@ -2714,6 +2768,9 @@ class UpdatePolicyResponseTypeDef(TypedDict):
     status: PolicyStatusType
     statusReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+PrivateEndpointUnionTypeDef = Union[PrivateEndpointTypeDef, PrivateEndpointOutputTypeDef]
 
 
 class ToolSchemaOutputTypeDef(TypedDict):
@@ -3355,6 +3412,8 @@ class CreateGatewayTargetResponseTypeDef(TypedDict):
     credentialProviderConfigurations: list[CredentialProviderConfigurationOutputTypeDef]
     lastSynchronizedAt: datetime
     metadataConfiguration: MetadataConfigurationOutputTypeDef
+    privateEndpoint: PrivateEndpointOutputTypeDef
+    privateEndpointManagedResources: list[ManagedResourceDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3371,6 +3430,8 @@ class GatewayTargetTypeDef(TypedDict):
     description: NotRequired[str]
     lastSynchronizedAt: NotRequired[datetime]
     metadataConfiguration: NotRequired[MetadataConfigurationOutputTypeDef]
+    privateEndpoint: NotRequired[PrivateEndpointOutputTypeDef]
+    privateEndpointManagedResources: NotRequired[list[ManagedResourceDetailsTypeDef]]
 
 
 class GetGatewayTargetResponseTypeDef(TypedDict):
@@ -3386,6 +3447,8 @@ class GetGatewayTargetResponseTypeDef(TypedDict):
     credentialProviderConfigurations: list[CredentialProviderConfigurationOutputTypeDef]
     lastSynchronizedAt: datetime
     metadataConfiguration: MetadataConfigurationOutputTypeDef
+    privateEndpoint: PrivateEndpointOutputTypeDef
+    privateEndpointManagedResources: list[ManagedResourceDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3402,6 +3465,8 @@ class UpdateGatewayTargetResponseTypeDef(TypedDict):
     credentialProviderConfigurations: list[CredentialProviderConfigurationOutputTypeDef]
     lastSynchronizedAt: datetime
     metadataConfiguration: MetadataConfigurationOutputTypeDef
+    privateEndpoint: PrivateEndpointOutputTypeDef
+    privateEndpointManagedResources: list[ManagedResourceDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3458,6 +3523,7 @@ class CreateGatewayTargetRequestTypeDef(TypedDict):
         Sequence[CredentialProviderConfigurationUnionTypeDef]
     ]
     metadataConfiguration: NotRequired[MetadataConfigurationUnionTypeDef]
+    privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
 
 
 class UpdateGatewayTargetRequestTypeDef(TypedDict):
@@ -3470,6 +3536,7 @@ class UpdateGatewayTargetRequestTypeDef(TypedDict):
         Sequence[CredentialProviderConfigurationUnionTypeDef]
     ]
     metadataConfiguration: NotRequired[MetadataConfigurationUnionTypeDef]
+    privateEndpoint: NotRequired[PrivateEndpointUnionTypeDef]
 
 
 class UpdateMemoryInputTypeDef(TypedDict):

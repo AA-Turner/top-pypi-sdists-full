@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: tree-math
+Version: 0.2.1
+Summary: Mathematical operations for JAX pytrees
+Home-page: https://github.com/google/tree-math
+Author: Google LLC
+Author-email: noreply@google.com
+License: Apache 2.0
+Requires-Python: >=3
+License-File: LICENSE
+Requires-Dist: jax
+Provides-Extra: tests
+Requires-Dist: absl-py; extra == "tests"
+Requires-Dist: jaxlib; extra == "tests"
+Requires-Dist: numpy>=1.17; extra == "tests"
+Requires-Dist: pytest; extra == "tests"

@@ -2163,6 +2163,7 @@ class DenialReason(pycarlo.lib.types.Enum):
 
     * `ENTITLEMENTS`None
     * `INVALID_USER`None
+    * `MONTHLY_USAGE_LIMIT_REACHED`None
     * `TROUBLESHOOTING_AGENT_OFF`None
     * `TSA_FEATURE_FLAG_OFF`None
     """
@@ -2171,6 +2172,7 @@ class DenialReason(pycarlo.lib.types.Enum):
     __choices__ = (
         "ENTITLEMENTS",
         "INVALID_USER",
+        "MONTHLY_USAGE_LIMIT_REACHED",
         "TROUBLESHOOTING_AGENT_OFF",
         "TSA_FEATURE_FLAG_OFF",
     )
@@ -6194,16 +6196,14 @@ class TraceSortField(pycarlo.lib.types.Enum):
 
 
 class TraceTimeSeriesMetric(pycarlo.lib.types.Enum):
-    """Metrics available for time series queries.      Note: FAILURE_RATE
-    is not yet supported. It requires ingesting error counts
-    (root_trace_error_count, span_error_count) into TimescaleDB.
-    Currently span     status (Unset/Error/Ok) is not ingested during
-    trace ingestion.
+    """Metrics available for time series queries.
 
     Enumeration Choices:
 
     * `CHANGE_IN_TRACES`None
     * `COMPLETION_TOKENS`None
+    * `ERROR_COUNT`None
+    * `ERROR_PERCENTAGE`None
     * `LATENCY_AVG`None
     * `LATENCY_P50`None
     * `LATENCY_P95`None
@@ -6217,6 +6217,8 @@ class TraceTimeSeriesMetric(pycarlo.lib.types.Enum):
     __choices__ = (
         "CHANGE_IN_TRACES",
         "COMPLETION_TOKENS",
+        "ERROR_COUNT",
+        "ERROR_PERCENTAGE",
         "LATENCY_AVG",
         "LATENCY_P50",
         "LATENCY_P95",
@@ -9224,8 +9226,9 @@ class GetTraceTimeSeriesInput(sgqlc.types.Input):
     )
     """Metric group to return. Each group maps to a set of metrics:
     OVERVIEW (count + latency + tokens), TRACE_COUNT (total traces +
-    change in traces), TRACE_LATENCY (avg/p50/p95/p99), TOKENS
-    (total/prompt/completion tokens).
+    change in traces), TRACE_LATENCY (avg/p50/p95/p99), ERRORS (error
+    count + error percentage), TOKENS (total/prompt/completion
+    tokens).
     """
 
     segment_filter = sgqlc.types.Field("TraceSegmentFilterInput", graphql_name="segmentFilter")
@@ -13588,6 +13591,7 @@ class Account(sgqlc.types.Type):
         "validate_monitor_domains",
         "custom_dashboard_domain_validation",
         "has_warehouses",
+        "has_use_cases",
         "active_collection_regions",
         "internal_notifications",
         "can_generate_data_collector_template",
@@ -14216,6 +14220,11 @@ class Account(sgqlc.types.Type):
     authenticated user has access to at least one of them. They may be
     restricted by domain restrictions.Use the `warehouses` field to
     get the list of the accessible warehouses.
+    """
+
+    has_use_cases = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasUseCases")
+    """Whether the account has at least one use case defined across any
+    warehouse.
     """
 
     active_collection_regions = sgqlc.types.Field(
@@ -18460,6 +18469,15 @@ class CleanupCollectorRecordInAccount(sgqlc.types.Type):
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """If the collector record was deleted"""
+
+
+class ClearMemoryData(sgqlc.types.Type):
+    """Clear all ingested memory data for the caller's account."""
+
+    __schema__ = schema
+    __field_names__ = ("ok",)
+    ok = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="ok")
+    """True if memories were cleared successfully."""
 
 
 class CollectionBlockConnection(sgqlc.types.relay.Connection):
@@ -30240,7 +30258,14 @@ class MemoryPipelineStepStatus(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("status", "started_at", "completed_at", "error", "record_count")
+    __field_names__ = (
+        "status",
+        "started_at",
+        "completed_at",
+        "error",
+        "record_count",
+        "total_count",
+    )
     status = sgqlc.types.Field(String, graphql_name="status")
     """Current status: 'running', 'success', or 'error'. Null if the step
     has not been triggered.
@@ -30259,6 +30284,11 @@ class MemoryPipelineStepStatus(sgqlc.types.Type):
 
     record_count = sgqlc.types.Field(Int, graphql_name="recordCount")
     """Number of records processed by this step. Null if not available."""
+
+    total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
+    """Total number of records to process. Available while running or
+    after completion. Null if not yet known.
+    """
 
 
 class MemoryRecordType(sgqlc.types.Type):
@@ -31666,6 +31696,7 @@ class Mutation(sgqlc.types.Type):
         "generate_report",
         "extract_memory_data",
         "ingest_memory_data",
+        "clear_memory_data",
         "create_datadog_integration",
         "update_datadog_integration",
         "delete_datadog_integration",
@@ -33228,6 +33259,11 @@ class Mutation(sgqlc.types.Type):
     ingest_memory_data = sgqlc.types.Field(IngestMemoryData, graphql_name="ingestMemoryData")
     """(experimental) Ingest exported memory data into ai-agent memory
     stores
+    """
+
+    clear_memory_data = sgqlc.types.Field(ClearMemoryData, graphql_name="clearMemoryData")
+    """(experimental) Clear all ingested memory data for the caller's
+    account
     """
 
     create_datadog_integration = sgqlc.types.Field(
@@ -54378,6 +54414,7 @@ class QueriedTable(sgqlc.types.Type):
 class Query(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
+        "get_storage_optimization_candidates",
         "get_my_dashboard_schedules",
         "get_customer_mcp_servers",
         "discover_customer_mcp_server_auth",
@@ -54944,6 +54981,52 @@ class Query(sgqlc.types.Type):
         "get_account_secret",
         "get_account_secrets",
     )
+    get_storage_optimization_candidates = sgqlc.types.Field(
+        "StorageOptimizationCandidatesResult",
+        graphql_name="getStorageOptimizationCandidates",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "resource_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="resourceId", default=None
+                    ),
+                ),
+                ("min_stale_days", sgqlc.types.Arg(Int, graphql_name="minStaleDays", default=90)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=50)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                (
+                    "table_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="tableTypes",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get tables that are candidates for storage
+    optimization, sorted by safety (safest first) then by size
+    (largest first). Only tables that have not been read for at least
+    minStaleDays are included.
+
+    Arguments:
+
+    * `resource_id` (`UUID!`): UUID of the warehouse to scan for
+      optimization candidates
+    * `min_stale_days` (`Int`): Minimum days since last read to be
+      considered stale (default: 90) (default: `90`)
+    * `first` (`Int`): Maximum number of candidates to return per page
+      (default: 50) (default: `50`)
+    * `after` (`String`): Cursor from a previous page's endCursor to
+      fetch the next page
+    * `table_types` (`[String!]`): Filter by table types. Defaults to
+      ['TABLE', 'EXTERNAL', 'DYNAMIC'] (excludes VIEWs which don't
+      consume storage). Pass an empty list or specific types to
+      override.
+    """
+
     get_my_dashboard_schedules = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DashboardScheduleType))),
         graphql_name="getMyDashboardSchedules",
@@ -77774,6 +77857,169 @@ class StopMonitor(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+
+class StorageOptimizationCandidate(sgqlc.types.Type):
+    """A table that is a candidate for storage optimization."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "mcon",
+        "full_table_id",
+        "resource_uuid",
+        "table_type",
+        "discovered_time",
+        "total_row_count",
+        "total_byte_count",
+        "days_since_latest_read",
+        "days_since_latest_write",
+        "latest_read",
+        "latest_write",
+        "importance_score",
+        "degree_out",
+        "is_critical_src_node",
+        "is_critical_hub_node",
+        "is_critical_analytical_node",
+        "total_reading_users",
+        "total_writing_users",
+        "is_monitored",
+        "has_cyclic_child",
+        "total_reads",
+        "total_read_only_reads",
+        "total_writes",
+        "total_writes_from_file",
+        "prc_active_days",
+        "last_volume_change",
+        "degree_in",
+        "days_diff_latest_reads_write",
+        "avg_writes_per_active_day",
+    )
+    mcon = sgqlc.types.Field(String, graphql_name="mcon")
+    """Monte Carlo object name — unique table identifier"""
+
+    full_table_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fullTableId")
+    """Fully qualified table identifier (project:dataset.table)"""
+
+    resource_uuid = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="resourceUuid")
+    """UUID of the warehouse this table belongs to"""
+
+    table_type = sgqlc.types.Field(String, graphql_name="tableType")
+    """Table type (TABLE, VIEW, EXTERNAL, DYNAMIC)"""
+
+    discovered_time = sgqlc.types.Field(DateTime, graphql_name="discoveredTime")
+    """When the table was first discovered by Monte Carlo"""
+
+    total_row_count = sgqlc.types.Field(Float, graphql_name="totalRowCount")
+    """Most recent row count for this table"""
+
+    total_byte_count = sgqlc.types.Field(Float, graphql_name="totalByteCount")
+    """Most recent byte count for this table"""
+
+    days_since_latest_read = sgqlc.types.Field(Float, graphql_name="daysSinceLatestRead")
+    """Number of days since the table was last read"""
+
+    days_since_latest_write = sgqlc.types.Field(Float, graphql_name="daysSinceLatestWrite")
+    """Number of days since the table was last written to"""
+
+    latest_read = sgqlc.types.Field(DateTime, graphql_name="latestRead")
+    """Timestamp of the most recent read operation"""
+
+    latest_write = sgqlc.types.Field(DateTime, graphql_name="latestWrite")
+    """Timestamp of the most recent write operation"""
+
+    importance_score = sgqlc.types.Field(Float, graphql_name="importanceScore")
+    """Computed importance score (higher = more important)"""
+
+    degree_out = sgqlc.types.Field(Float, graphql_name="degreeOut")
+    """Number of downstream dependencies — tables that read from this
+    table
+    """
+
+    is_critical_src_node = sgqlc.types.Field(Boolean, graphql_name="isCriticalSrcNode")
+    """Whether this table is a critical source node in the lineage graph"""
+
+    is_critical_hub_node = sgqlc.types.Field(Boolean, graphql_name="isCriticalHubNode")
+    """Whether this table is a critical hub node in the lineage graph"""
+
+    is_critical_analytical_node = sgqlc.types.Field(
+        Boolean, graphql_name="isCriticalAnalyticalNode"
+    )
+    """Whether this table is a critical analytical node in the lineage
+    graph
+    """
+
+    total_reading_users = sgqlc.types.Field(Float, graphql_name="totalReadingUsers")
+    """Number of distinct users who have read this table"""
+
+    total_writing_users = sgqlc.types.Field(Float, graphql_name="totalWritingUsers")
+    """Number of distinct users who have written to this table"""
+
+    is_monitored = sgqlc.types.Field(Boolean, graphql_name="isMonitored")
+    """Whether the table is actively monitored by Monte Carlo"""
+
+    has_cyclic_child = sgqlc.types.Field(Boolean, graphql_name="hasCyclicChild")
+    """Whether this table has a downstream periodic dependent in the
+    lineage graph
+    """
+
+    total_reads = sgqlc.types.Field(Float, graphql_name="totalReads")
+    """Total number of read operations on this table"""
+
+    total_read_only_reads = sgqlc.types.Field(Float, graphql_name="totalReadOnlyReads")
+    """Read operations not tied to writes — true consumption signal"""
+
+    total_writes = sgqlc.types.Field(Float, graphql_name="totalWrites")
+    """Total number of write operations on this table"""
+
+    total_writes_from_file = sgqlc.types.Field(Float, graphql_name="totalWritesFromFile")
+    """Number of write operations from file/bulk loads"""
+
+    prc_active_days = sgqlc.types.Field(Float, graphql_name="prcActiveDays")
+    """Proportion of days with activity (0.0 to 1.0)"""
+
+    last_volume_change = sgqlc.types.Field(DateTime, graphql_name="lastVolumeChange")
+    """When the table's size last changed"""
+
+    degree_in = sgqlc.types.Field(Float, graphql_name="degreeIn")
+    """Number of upstream dependencies — tables that write to this table"""
+
+    days_diff_latest_reads_write = sgqlc.types.Field(Float, graphql_name="daysDiffLatestReadsWrite")
+    """Days between last write and last read (positive = writes outlast
+    reads)
+    """
+
+    avg_writes_per_active_day = sgqlc.types.Field(Float, graphql_name="avgWritesPerActiveDay")
+    """Average number of write operations per active day"""
+
+
+class StorageOptimizationCandidatesResult(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("nodes", "total_count", "page_info")
+    nodes = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(StorageOptimizationCandidate))
+        ),
+        graphql_name="nodes",
+    )
+    """Storage optimization candidates for the current page"""
+
+    total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
+    """Total number of candidates matching the filter across all pages"""
+
+    page_info = sgqlc.types.Field(
+        sgqlc.types.non_null("StorageOptimizationPageInfo"), graphql_name="pageInfo"
+    )
+    """Pagination information"""
+
+
+class StorageOptimizationPageInfo(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("has_next_page", "end_cursor")
+    has_next_page = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasNextPage")
+    """Whether more results are available after this page"""
+
+    end_cursor = sgqlc.types.Field(String, graphql_name="endCursor")
+    """Cursor to pass as 'after' to fetch the next page"""
 
 
 class StreamingCluster(sgqlc.types.Type):

@@ -1,0 +1,717 @@
+/* biome-ignore-all lint/suspicious/noTemplateCurlyInString: Testing ${expr} template syntax intentionally */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  __clearExpressionCache,
+  __compileExpressionForTest,
+  __getExpressionCacheKeys,
+  __getExpressionCacheSize,
+  __setExpressionCacheLimit,
+  addDirective,
+  registerHtmxExtension,
+  swapJson,
+} from "../../src/helpers/htmx"
+
+describe("htmx extension", () => {
+  let container: HTMLElement
+
+  beforeEach(() => {
+    container = document.createElement("div")
+    document.body.appendChild(container)
+  })
+
+  afterEach(() => {
+    container.remove()
+    vi.restoreAllMocks()
+  })
+
+  describe("swapJson", () => {
+    describe("text interpolation", () => {
+      it("interpolates ${expr} in text nodes", () => {
+        container.innerHTML = "<p>${title}</p>"
+        swapJson(container, { title: "Hello World" })
+        expect(container.innerHTML).toBe("<p>Hello World</p>")
+      })
+
+      it("handles multiple expressions in text", () => {
+        container.innerHTML = "<p>${firstName} ${lastName}</p>"
+        swapJson(container, { firstName: "John", lastName: "Doe" })
+        expect(container.innerHTML).toBe("<p>John Doe</p>")
+      })
+
+      it("handles expressions with operators", () => {
+        container.innerHTML = "<p>${count + 1}</p>"
+        swapJson(container, { count: 5 })
+        expect(container.innerHTML).toBe("<p>6</p>")
+      })
+
+      it("handles method calls", () => {
+        container.innerHTML = "<p>${items.join(', ')}</p>"
+        swapJson(container, { items: ["a", "b", "c"] })
+        expect(container.innerHTML).toBe("<p>a, b, c</p>")
+      })
+
+      it("handles ternary expressions", () => {
+        container.innerHTML = "<p>${active ? 'Yes' : 'No'}</p>"
+        swapJson(container, { active: true })
+        expect(container.innerHTML).toBe("<p>Yes</p>")
+      })
+    })
+
+    describe("ls-text directive", () => {
+      it("sets text content from expression", () => {
+        container.innerHTML = '<p ls-text="name"></p>'
+        swapJson(container, { name: "Alice" })
+        expect(container.querySelector("p")?.textContent).toBe("Alice")
+      })
+
+      it("handles nested property access", () => {
+        container.innerHTML = '<p ls-text="user.name"></p>'
+        swapJson(container, { user: { name: "Bob" } })
+        expect(container.querySelector("p")?.textContent).toBe("Bob")
+      })
+    })
+
+    describe("ls-html directive", () => {
+      it("sets innerHTML from expression", () => {
+        container.innerHTML = '<div ls-html="content"></div>'
+        swapJson(container, { content: "<strong>Bold</strong>" })
+        expect(container.querySelector("div")?.innerHTML).toBe("<strong>Bold</strong>")
+      })
+
+      it("strips script tags from ls-html output", () => {
+        container.innerHTML = '<div ls-html="content"></div>'
+        swapJson(container, { content: "<p>Hello</p><script>alert(1)</script>" })
+        const div = container.querySelector("div")
+        expect(div?.querySelector("script")).toBeNull()
+        expect(div?.querySelector("p")?.textContent).toBe("Hello")
+      })
+
+      it("strips event handler attributes from ls-html output", () => {
+        container.innerHTML = '<div ls-html="content"></div>'
+        swapJson(container, { content: '<img src="x" onerror="alert(1)">' })
+        const img = container.querySelector("img")
+        expect(img?.getAttribute("onerror")).toBeNull()
+      })
+
+      it("strips javascript: protocol from href", () => {
+        container.innerHTML = '<div ls-html="content"></div>'
+        swapJson(container, { content: '<a href="javascript:alert(1)">Click</a>' })
+        const a = container.querySelector("a")
+        // href should be removed entirely
+        expect(a?.hasAttribute("href")).toBe(false)
+      })
+
+      it("preserves safe HTML elements and attributes", () => {
+        container.innerHTML = '<div ls-html="content"></div>'
+        swapJson(container, {
+          content: '<a href="/page" class="link"><em>Hello</em></a><br><ul><li>Item</li></ul>',
+        })
+        const div = container.querySelector("div")
+        expect(div?.querySelector("a")?.getAttribute("href")).toBe("/page")
+        expect(div?.querySelector("em")?.textContent).toBe("Hello")
+        expect(div?.querySelector("li")?.textContent).toBe("Item")
+      })
+    })
+
+    describe(":attr binding", () => {
+      it("binds simple attribute", () => {
+        container.innerHTML = '<a :href="url">Link</a>'
+        swapJson(container, { url: "/path" })
+        expect(container.querySelector("a")?.getAttribute("href")).toBe("/path")
+      })
+
+      it("binds id with template literal", () => {
+        container.innerHTML = '<div :id="`item-${id}`"></div>'
+        swapJson(container, { id: 42 })
+        expect(container.querySelector("div")?.id).toBe("item-42")
+      })
+
+      it("removes attribute when value is null", () => {
+        container.innerHTML = '<input :disabled="isDisabled">'
+        swapJson(container, { isDisabled: null })
+        expect(container.querySelector("input")?.hasAttribute("disabled")).toBe(false)
+      })
+
+      it("removes attribute when value is false", () => {
+        container.innerHTML = '<input :disabled="isDisabled">'
+        swapJson(container, { isDisabled: false })
+        expect(container.querySelector("input")?.hasAttribute("disabled")).toBe(false)
+      })
+
+      it("sets boolean attribute when value is true", () => {
+        container.innerHTML = '<input :disabled="isDisabled">'
+        swapJson(container, { isDisabled: true })
+        expect(container.querySelector("input")?.hasAttribute("disabled")).toBe(true)
+      })
+
+      it("handles :class with object syntax", () => {
+        container.innerHTML = '<div :class="{ active: isActive, hidden: isHidden }"></div>'
+        swapJson(container, { isActive: true, isHidden: false })
+        const div = container.querySelector("div")
+        expect(div?.classList.contains("active")).toBe(true)
+        expect(div?.classList.contains("hidden")).toBe(false)
+      })
+
+      it("handles :class with string", () => {
+        container.innerHTML = '<div :class="className"></div>'
+        swapJson(container, { className: "foo bar" })
+        expect(container.querySelector("div")?.getAttribute("class")).toBe("foo bar")
+      })
+    })
+
+    describe("@event binding", () => {
+      it("uses the latest context after subsequent swaps", () => {
+        container.innerHTML = '<button @click="onClick(id)"></button>'
+
+        const first = vi.fn()
+        swapJson(container, { id: 1, onClick: first })
+
+        ;(container.querySelector("button") as HTMLButtonElement).click()
+        expect(first).toHaveBeenCalledWith(1)
+
+        const second = vi.fn()
+        swapJson(container, { id: 2, onClick: second })
+
+        ;(container.querySelector("button") as HTMLButtonElement).click()
+        expect(second).toHaveBeenCalledWith(2)
+        expect(first).toHaveBeenCalledTimes(1)
+      })
+    })
+
+    describe("ls-show/ls-hide", () => {
+      it("ls-show shows element when true", () => {
+        container.innerHTML = '<div ls-show="visible">Content</div>'
+        swapJson(container, { visible: true })
+        expect((container.querySelector("div") as HTMLElement).style.display).toBe("")
+      })
+
+      it("ls-show hides element when false", () => {
+        container.innerHTML = '<div ls-show="visible">Content</div>'
+        swapJson(container, { visible: false })
+        expect((container.querySelector("div") as HTMLElement).style.display).toBe("none")
+      })
+
+      it("ls-hide hides element when true", () => {
+        container.innerHTML = '<div ls-hide="hidden">Content</div>'
+        swapJson(container, { hidden: true })
+        expect((container.querySelector("div") as HTMLElement).style.display).toBe("none")
+      })
+
+      it("ls-hide shows element when false", () => {
+        container.innerHTML = '<div ls-hide="hidden">Content</div>'
+        swapJson(container, { hidden: false })
+        expect((container.querySelector("div") as HTMLElement).style.display).toBe("")
+      })
+    })
+
+    describe("ls-for loop", () => {
+      it("renders array items", () => {
+        container.innerHTML = `
+          <ul>
+            <template ls-for="item in $data">
+              <li>\${item}</li>
+            </template>
+          </ul>
+        `
+        swapJson(container, ["a", "b", "c"])
+        const items = container.querySelectorAll("li")
+        expect(items.length).toBe(3)
+        expect(items[0].textContent).toBe("a")
+        expect(items[1].textContent).toBe("b")
+        expect(items[2].textContent).toBe("c")
+      })
+
+      it("renders object array with alias", () => {
+        container.innerHTML = `
+          <ul>
+            <template ls-for="book in $data">
+              <li>\${book.title}</li>
+            </template>
+          </ul>
+        `
+        swapJson(container, [{ title: "Book A" }, { title: "Book B" }])
+        const items = container.querySelectorAll("li")
+        expect(items.length).toBe(2)
+        expect(items[0].textContent).toBe("Book A")
+        expect(items[1].textContent).toBe("Book B")
+      })
+
+      it("provides $index in loop context", () => {
+        container.innerHTML = `
+          <ul>
+            <template ls-for="item in $data">
+              <li>\${$index}: \${item}</li>
+            </template>
+          </ul>
+        `
+        swapJson(container, ["first", "second"])
+        const items = container.querySelectorAll("li")
+        expect(items[0].textContent).toBe("0: first")
+        expect(items[1].textContent).toBe("1: second")
+      })
+
+      it("supports ls-key for keyed rendering", () => {
+        container.innerHTML = `
+          <ul>
+            <template ls-for="item in $data" ls-key="item.id">
+              <li :id="\`item-\${item.id}\`">\${item.name}</li>
+            </template>
+          </ul>
+        `
+        swapJson(container, [
+          { id: 1, name: "One" },
+          { id: 2, name: "Two" },
+        ])
+        expect(container.querySelector("#item-1")?.textContent).toBe("One")
+        expect(container.querySelector("#item-2")?.textContent).toBe("Two")
+      })
+
+      it("handles empty arrays", () => {
+        container.innerHTML = `
+          <ul>
+            <template ls-for="item in $data">
+              <li>\${item}</li>
+            </template>
+          </ul>
+        `
+        swapJson(container, [])
+        expect(container.querySelectorAll("li").length).toBe(0)
+      })
+
+      it("supports ls-each as alias for ls-for", () => {
+        container.innerHTML = `
+          <ul>
+            <template ls-each="items">
+              <li>\${name}</li>
+            </template>
+          </ul>
+        `
+        swapJson(container, { items: [{ name: "A" }, { name: "B" }] })
+        const items = container.querySelectorAll("li")
+        expect(items.length).toBe(2)
+      })
+    })
+
+    describe("ls-if conditional", () => {
+      it("renders content when condition is true", () => {
+        container.innerHTML = `
+          <div>
+            <template ls-if="show">
+              <p>Visible</p>
+            </template>
+          </div>
+        `
+        swapJson(container, { show: true })
+        expect(container.querySelector("p")?.textContent).toBe("Visible")
+      })
+
+      it("does not render when condition is false", () => {
+        container.innerHTML = `
+          <div>
+            <template ls-if="show">
+              <p>Visible</p>
+            </template>
+          </div>
+        `
+        swapJson(container, { show: false })
+        expect(container.querySelector("p")).toBeNull()
+      })
+
+      it("supports ls-else", () => {
+        container.innerHTML = `
+          <div>
+            <template ls-if="loggedIn">
+              <p>Welcome</p>
+            </template>
+            <template ls-else>
+              <p>Please log in</p>
+            </template>
+          </div>
+        `
+        swapJson(container, { loggedIn: false })
+        expect(container.querySelector("p")?.textContent).toBe("Please log in")
+      })
+
+      it("handles complex conditions", () => {
+        container.innerHTML = `
+          <div>
+            <template ls-if="count > 0">
+              <p>\${count} items</p>
+            </template>
+            <template ls-else>
+              <p>No items</p>
+            </template>
+          </div>
+        `
+        swapJson(container, { count: 5 })
+        expect(container.querySelector("p")?.textContent).toBe("5 items")
+      })
+    })
+
+    describe("ls-scope", () => {
+      it("changes context for children", () => {
+        container.innerHTML = `
+          <div ls-scope="user">
+            <p>\${name}</p>
+            <p>\${email}</p>
+          </div>
+        `
+        swapJson(container, { user: { name: "Alice", email: "alice@example.com" } })
+        const paragraphs = container.querySelectorAll("p")
+        expect(paragraphs[0].textContent).toBe("Alice")
+        expect(paragraphs[1].textContent).toBe("alice@example.com")
+      })
+
+      it("hides element when scope is falsy", () => {
+        container.innerHTML = `
+          <div ls-scope="user">
+            <p>\${name}</p>
+          </div>
+        `
+        swapJson(container, { user: null })
+        // Element should still exist but content not rendered
+        expect(container.querySelector("div")).toBeTruthy()
+      })
+    })
+
+    describe("input binding", () => {
+      it("binds input value from context by name", () => {
+        container.innerHTML = '<input type="text" name="username">'
+        swapJson(container, { username: "johndoe" })
+        expect((container.querySelector("input") as HTMLInputElement).value).toBe("johndoe")
+      })
+
+      it("binds checkbox checked state", () => {
+        container.innerHTML = '<input type="checkbox" name="agree">'
+        swapJson(container, { agree: true })
+        expect((container.querySelector("input") as HTMLInputElement).checked).toBe(true)
+      })
+
+      it("binds radio button checked state", () => {
+        container.innerHTML = `
+          <input type="radio" name="color" value="red">
+          <input type="radio" name="color" value="blue">
+        `
+        swapJson(container, { color: "blue" })
+        const inputs = container.querySelectorAll("input")
+        expect((inputs[0] as HTMLInputElement).checked).toBe(false)
+        expect((inputs[1] as HTMLInputElement).checked).toBe(true)
+      })
+    })
+
+    describe("context helpers", () => {
+      // Note: route() helper is no longer built-in. Users should import from generated routes.ts
+      // See: import { route } from '@/generated/routes'
+
+      it("provides $data alias for root data", () => {
+        container.innerHTML = "<p>${JSON.stringify($data)}</p>"
+        swapJson(container, { name: "test" })
+        expect(container.querySelector("p")?.textContent).toBe('{"name":"test"}')
+      })
+
+      it("provides $parent in loops", () => {
+        container.innerHTML = `
+          <div>
+            <template ls-for="item in items">
+              <p>\${item} from \${$parent.source}</p>
+            </template>
+          </div>
+        `
+        swapJson(container, { items: ["a", "b"], source: "list" })
+        const paragraphs = container.querySelectorAll("p")
+        expect(paragraphs[0].textContent).toBe("a from list")
+      })
+    })
+
+    describe("nested loops", () => {
+      it("handles nested ls-for", () => {
+        container.innerHTML = `
+          <div>
+            <template ls-for="group in $data">
+              <section>
+                <h2>\${group.name}</h2>
+                <template ls-for="item in group.items">
+                  <p>\${item}</p>
+                </template>
+              </section>
+            </template>
+          </div>
+        `
+        swapJson(container, [
+          { name: "Group A", items: ["a1", "a2"] },
+          { name: "Group B", items: ["b1"] },
+        ])
+        const sections = container.querySelectorAll("section")
+        expect(sections.length).toBe(2)
+        expect(sections[0].querySelectorAll("p").length).toBe(2)
+        expect(sections[1].querySelectorAll("p").length).toBe(1)
+      })
+    })
+  })
+
+  // ===== Expression Security =====
+
+  describe("expression validation (injection prevention)", () => {
+    beforeEach(() => {
+      __clearExpressionCache()
+    })
+
+    it("allows simple property access", () => {
+      expect(__compileExpressionForTest("user.name")).toBeTypeOf("function")
+    })
+
+    it("allows arithmetic operators", () => {
+      expect(__compileExpressionForTest("count + 1")).toBeTypeOf("function")
+    })
+
+    it("allows ternary expressions", () => {
+      expect(__compileExpressionForTest("active ? 'Yes' : 'No'")).toBeTypeOf("function")
+    })
+
+    it("allows method calls on context values", () => {
+      expect(__compileExpressionForTest("items.join(', ')")).toBeTypeOf("function")
+    })
+
+    it("allows object literals", () => {
+      expect(__compileExpressionForTest("{ active: isActive, hidden: false }")).toBeTypeOf("function")
+    })
+
+    it("allows template literals", () => {
+      expect(__compileExpressionForTest("`item-${id}`")).toBeTypeOf("function")
+    })
+
+    it("allows comparison operators", () => {
+      expect(__compileExpressionForTest("count > 0")).toBeTypeOf("function")
+    })
+
+    it("allows JSON.stringify on context data", () => {
+      expect(__compileExpressionForTest("JSON.stringify($data)")).toBeTypeOf("function")
+    })
+
+    it("allows $parent, $index, $key access", () => {
+      expect(__compileExpressionForTest("$parent.source")).toBeTypeOf("function")
+      expect(__compileExpressionForTest("$index")).toBeTypeOf("function")
+      expect(__compileExpressionForTest("$key")).toBeTypeOf("function")
+    })
+
+    it("allows function calls from context", () => {
+      expect(__compileExpressionForTest("onClick(id)")).toBeTypeOf("function")
+    })
+
+    it("rejects constructor access", () => {
+      expect(__compileExpressionForTest("constructor.constructor('alert(1)')()")).toBeNull()
+    })
+
+    it("rejects __proto__ access", () => {
+      expect(__compileExpressionForTest("__proto__.polluted = true")).toBeNull()
+    })
+
+    it("rejects prototype access", () => {
+      expect(__compileExpressionForTest("Object.prototype.x = 1")).toBeNull()
+    })
+
+    it("rejects window access", () => {
+      expect(__compileExpressionForTest("window.location")).toBeNull()
+    })
+
+    it("rejects document access", () => {
+      expect(__compileExpressionForTest("document.cookie")).toBeNull()
+    })
+
+    it("rejects globalThis access", () => {
+      expect(__compileExpressionForTest("globalThis.fetch('/')")).toBeNull()
+    })
+
+    it("rejects Function constructor", () => {
+      expect(__compileExpressionForTest("Function('return this')()")).toBeNull()
+    })
+
+    it("rejects import() expressions", () => {
+      expect(__compileExpressionForTest("import('evil-module')")).toBeNull()
+    })
+
+    it("rejects self/top/parent global access", () => {
+      expect(__compileExpressionForTest("self.location")).toBeNull()
+      expect(__compileExpressionForTest("top.location")).toBeNull()
+    })
+
+    it("does not false-positive on property names containing blocked words", () => {
+      // "documentation" contains "document" but should be allowed
+      expect(__compileExpressionForTest("documentation")).toBeTypeOf("function")
+      // "selfie" contains "self" but should be allowed
+      expect(__compileExpressionForTest("selfie")).toBeTypeOf("function")
+      // "topLevel" contains "top" but should be allowed
+      expect(__compileExpressionForTest("topLevel")).toBeTypeOf("function")
+      // "constructorName" starts with "constructor" but is a longer word
+      expect(__compileExpressionForTest("constructorName")).toBeTypeOf("function")
+    })
+  })
+
+  describe("expression cache hardening", () => {
+    beforeEach(() => {
+      __setExpressionCacheLimit(1024)
+      __clearExpressionCache()
+    })
+
+    it("reuses compiled expressions and keeps cache bounded", () => {
+      expect(__getExpressionCacheSize()).toBe(0)
+      expect(__compileExpressionForTest("value")).toBeTypeOf("function")
+      expect(__getExpressionCacheSize()).toBe(1)
+
+      expect(__compileExpressionForTest("value")).toBeTypeOf("function")
+      expect(__getExpressionCacheSize()).toBe(1)
+    })
+
+    it("evicts least-recently-used expressions when limit is exceeded", () => {
+      __setExpressionCacheLimit(2)
+      __clearExpressionCache()
+
+      __compileExpressionForTest("first")
+      __compileExpressionForTest("second")
+      expect(__getExpressionCacheKeys()).toEqual(["first", "second"])
+
+      // Insert third — should evict "first" (oldest)
+      __compileExpressionForTest("third")
+      expect(__getExpressionCacheSize()).toBe(2)
+      expect(__getExpressionCacheKeys()).toEqual(["second", "third"])
+
+      // Re-access "second" — promotes it to most recent
+      __compileExpressionForTest("second")
+      expect(__getExpressionCacheKeys()).toEqual(["third", "second"])
+
+      // Insert fourth — should evict "third" (now least recently used), not "second"
+      __compileExpressionForTest("fourth")
+      expect(__getExpressionCacheSize()).toBe(2)
+      expect(__getExpressionCacheKeys()).toEqual(["second", "fourth"])
+    })
+  })
+
+  describe("registerHtmxExtension", () => {
+    it("does not auto-register on module import", async () => {
+      vi.resetModules()
+      const defineExtension = vi.fn()
+      ;(window as unknown as Record<string, unknown>).htmx = { defineExtension, process: vi.fn() }
+
+      await import("../../src/helpers/htmx")
+
+      expect(defineExtension).not.toHaveBeenCalled()
+    })
+
+    it("registers extension and injects CSRF header", () => {
+      const defineExtension = vi.fn()
+      ;(window as unknown as Record<string, unknown>).__LITESTAR_CSRF__ = "csrf-token"
+      ;(window as unknown as Record<string, unknown>).htmx = { defineExtension, process: vi.fn() }
+
+      registerHtmxExtension()
+
+      expect(defineExtension).toHaveBeenCalledTimes(1)
+      const ext = defineExtension.mock.calls[0]?.[1] as { onEvent?: (name: string, evt: CustomEvent) => void }
+
+      const detail = { headers: {} as Record<string, string> }
+      const evt = new CustomEvent("htmx:configRequest", { detail })
+      ext.onEvent?.("htmx:configRequest", evt)
+
+      expect(detail.headers["X-CSRFToken"]).toBe("csrf-token")
+    })
+
+    it("does not throw if event detail is missing/invalid", () => {
+      const defineExtension = vi.fn()
+      ;(window as unknown as Record<string, unknown>).__LITESTAR_CSRF__ = "csrf-token"
+      ;(window as unknown as Record<string, unknown>).htmx = { defineExtension, process: vi.fn() }
+
+      registerHtmxExtension()
+
+      const ext = defineExtension.mock.calls[0]?.[1] as { onEvent?: (name: string, evt: CustomEvent) => void }
+      const evt = new CustomEvent("htmx:configRequest")
+      expect(() => ext.onEvent?.("htmx:configRequest", evt)).not.toThrow()
+    })
+
+    it('handleSwap("json") parses JSON and runs swapJson', () => {
+      const defineExtension = vi.fn()
+      ;(window as unknown as Record<string, unknown>).htmx = { defineExtension, process: vi.fn() }
+
+      registerHtmxExtension()
+
+      const ext = defineExtension.mock.calls[0]?.[1] as {
+        handleSwap?: (swapStyle: string, target: Element, fragment: DocumentFragment | Element) => Element[]
+      }
+
+      container.innerHTML = "<p>${title}</p>"
+      const frag = document.createElement("div")
+      frag.textContent = JSON.stringify({ title: "Hello from HTMX" })
+
+      ext.handleSwap?.("json", container, frag)
+      expect(container.innerHTML).toBe("<p>Hello from HTMX</p>")
+    })
+
+    it("does not render error messages as HTML (XSS prevention)", () => {
+      const defineExtension = vi.fn()
+      ;(window as unknown as Record<string, unknown>).htmx = { defineExtension, process: vi.fn() }
+
+      registerHtmxExtension()
+
+      const ext = defineExtension.mock.calls[0]?.[1] as {
+        handleSwap?: (swapStyle: string, target: Element, fragment: DocumentFragment | Element) => Element[]
+      }
+
+      // Craft a fragment with invalid JSON containing an XSS payload
+      const frag = document.createElement("div")
+      frag.textContent = '<img src=x onerror="alert(1)">'
+
+      ext.handleSwap?.("json", container, frag)
+
+      // Error container must use safe DOM construction, not innerHTML
+      const errorDiv = container.querySelector("div")
+      expect(errorDiv).toBeTruthy()
+      // The error text should be visible and HTML-escaped (no child elements from XSS payload)
+      expect(errorDiv?.children.length).toBe(0)
+      expect(errorDiv?.textContent).toContain("SyntaxError")
+    })
+  })
+
+  describe("addDirective", () => {
+    it("allows adding custom directives", () => {
+      addDirective({
+        match: (a) => a.name === "ls-uppercase",
+        create: (_el, a) => {
+          return (ctx, el) => {
+            el.textContent = String((ctx as Record<string, unknown>)[a.value] ?? "").toUpperCase()
+          }
+        },
+      })
+
+      container.innerHTML = '<p ls-uppercase="name"></p>'
+      swapJson(container, { name: "hello" })
+      expect(container.querySelector("p")?.textContent).toBe("HELLO")
+    })
+  })
+
+  describe("re-rendering", () => {
+    it("updates content on subsequent swaps", () => {
+      container.innerHTML = "<p>${count}</p>"
+
+      swapJson(container, { count: 1 })
+      expect(container.querySelector("p")?.textContent).toBe("1")
+
+      swapJson(container, { count: 2 })
+      expect(container.querySelector("p")?.textContent).toBe("2")
+    })
+
+    it("updates loop items on subsequent swaps", () => {
+      container.innerHTML = `
+        <ul>
+          <template ls-for="item in $data">
+            <li>\${item}</li>
+          </template>
+        </ul>
+      `
+
+      swapJson(container, ["a", "b"])
+      expect(container.querySelectorAll("li").length).toBe(2)
+
+      swapJson(container, ["x", "y", "z"])
+      expect(container.querySelectorAll("li").length).toBe(3)
+      expect(container.querySelectorAll("li")[0].textContent).toBe("x")
+    })
+  })
+})

@@ -11,11 +11,13 @@ class TestDuckDB(Validator):
     dialect = "duckdb"
 
     def test_duckdb(self):
-        # Numeric TRUNC - DuckDB only supports TRUNC(x), no decimals parameter
         self.validate_identity("TRUNC(3.14)").assert_is(exp.Trunc)
         self.validate_all(
-            "TRUNC(3.14159)",
-            read={"postgres": "TRUNC(3.14159, 2)"},
+            "TRUNC(3.14159, 2)",
+            read={
+                "postgres": "TRUNC(3.14159, 2)",
+                "duckdb": "TRUNC(3.14159, 2)",
+            },
         )
 
         self.validate_identity("SELECT ([1,2,3])[:-:-1]", "SELECT ([1, 2, 3])[:-1:-1]")
@@ -100,9 +102,9 @@ class TestDuckDB(Validator):
         )
 
         self.validate_all(
-            """SELECT CASE WHEN JSON_VALID('{"x: 1}') THEN '{"x: 1}' ELSE NULL END""",
+            """SELECT CASE WHEN JSON_VALID('{"x: 1}') THEN CAST('{"x: 1}' AS JSON) ELSE NULL END""",
             read={
-                "duckdb": """SELECT CASE WHEN JSON_VALID('{"x: 1}') THEN '{"x: 1}' ELSE NULL END""",
+                "duckdb": """SELECT CASE WHEN JSON_VALID('{"x: 1}') THEN CAST('{"x: 1}' AS JSON) ELSE NULL END""",
                 "snowflake": """SELECT TRY_PARSE_JSON('{"x: 1}')""",
             },
         )
@@ -170,7 +172,7 @@ class TestDuckDB(Validator):
         )
 
         self.validate_all(
-            "CREATE TEMPORARY FUNCTION f1(a, b) AS (a + b)",
+            "CREATE TEMPORARY FUNCTION f1(a BIGINT, b BIGINT) AS (a + b)",
             read={
                 "bigquery": "CREATE TEMP FUNCTION f1(a INT64, b INT64) AS (a + b)",
             },
@@ -325,6 +327,18 @@ class TestDuckDB(Validator):
             write={
                 "duckdb": """SELECT JSON('{"fruit": {"foo": "banana"}}') -> '$.fruit' -> '$.foo'""",
                 "snowflake": """SELECT GET_PATH(GET_PATH(PARSE_JSON('{"fruit": {"foo": "banana"}}'), 'fruit'), 'foo')""",
+            },
+        )
+        self.validate_all(
+            "CASE WHEN JSON_TYPE(x) = 'NULL' THEN NULL ELSE x END",
+            read={
+                "snowflake": "STRIP_NULL_VALUE(x)",
+            },
+        )
+        self.validate_all(
+            """SELECT CASE WHEN JSON_TYPE(JSON('{"a": null}') -> '$.a') = 'NULL' THEN NULL ELSE JSON('{"a": null}') -> '$.a' END""",
+            read={
+                "snowflake": """SELECT STRIP_NULL_VALUE(GET_PATH(PARSE_JSON('{"a": null}'), 'a'))""",
             },
         )
         self.validate_all(
@@ -1502,6 +1516,14 @@ class TestDuckDB(Validator):
             "SELECT LAST_VALUE(x ORDER BY x RESPECT NULLS) OVER (ORDER BY x) FROM t"
         )
 
+        self.validate_identity("UNICODE(foo)")
+        self.validate_all(
+            "CASE WHEN foo = '' THEN 0 ELSE UNICODE(foo) END",
+            read={
+                "snowflake": "UNICODE(foo)",
+            },
+        )
+
     def test_array_index(self):
         with self.assertLogs(helper_logger) as cm:
             self.validate_all(
@@ -2468,6 +2490,19 @@ class TestDuckDB(Validator):
                 self.validate_identity(
                     f"CREATE {keyword} ifelse(a, b, c) AS CASE WHEN a THEN b ELSE c END"
                 )
+
+            with self.subTest(f"Testing DuckDB's table functions with keyword: {keyword}"):
+                self.validate_identity(
+                    f"CREATE {keyword} my_table_function(a, b) AS TABLE SELECT x, y FROM (VALUES (a, b)) AS tbl(x, y)"
+                ).assert_is(exp.Create)
+
+        self.validate_all(
+            "CREATE OR REPLACE FUNCTION func(a INT, b FLOAT) AS TABLE SELECT a",
+            write={
+                "databricks": "CREATE OR REPLACE FUNCTION func(a INT, b FLOAT) RETURNS TABLE RETURN SELECT a",
+                "duckdb": "CREATE OR REPLACE FUNCTION func(a INT, b REAL) AS TABLE SELECT a",
+            },
+        )
 
     def test_bitwise_agg(self):
         self.validate_all(

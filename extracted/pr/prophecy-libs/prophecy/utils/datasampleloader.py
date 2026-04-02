@@ -1,5 +1,5 @@
 from typing import Optional, Dict, Tuple, List, Iterator
-from pyspark.sql import DataFrame, Row, functions as F, SparkSession
+from pyspark.sql import DataFrame, Row, functions as F, SparkSession, DataType
 from pyspark.sql.types import (
     StructType,
     StringType,
@@ -111,6 +111,23 @@ class DataSampleLoaderLib:
         return cls._dataframes_map.get(key, (None, False, cls.MAX_ROWS))
 
     @classmethod
+    def _is_timestamp_type(cls, col_type: DataType) -> bool:
+        if isinstance(col_type, TimestampType):
+            return True
+
+        return HAS_TIMESTAMP_NTZ and isinstance(col_type, TimestampNTZType)
+
+    @classmethod
+    def _is_interval_type(cls, col_type: DataType) -> bool:
+        try:
+            # For DayTimeIntervalType and YearMonthIntervalType (got added in 3.2)
+            from pyspark.sql.types import DayTimeIntervalType, YearMonthIntervalType
+
+            return isinstance(col_type, (DayTimeIntervalType, YearMonthIntervalType))
+        except:
+            return False
+
+    @classmethod
     def _get_json_encoded_len(cls, schema: StructType) -> int:
         # We want to restrict the overall payload size to 2MB
         # Easiest way of doing that with built-in functionality is to look at JSON representation of a Row
@@ -140,7 +157,7 @@ class DataSampleLoaderLib:
 
         # Copy of function from prophecy initialize.py
         def preprocess_data(obj):
-            import base64
+            import base64 as base64_std
             import math
             from decimal import Decimal
             from datetime import datetime, date, timedelta
@@ -167,7 +184,7 @@ class DataSampleLoaderLib:
             elif isinstance(obj, UUID):
                 return str(obj)
             elif isinstance(obj, (bytes, bytearray)):
-                return base64.b64encode(obj).decode("utf-8")
+                return base64_std.b64encode(obj).decode("utf-8")
             elif isinstance(obj, complex):
                 return {"real": obj.real, "imag": obj.imag}
             elif isinstance(obj, (list, tuple)):
@@ -240,7 +257,8 @@ class DataSampleLoaderLib:
         # Quick check if truncation is needed
         truncatable_types = (StringType, ArrayType, MapType, StructType, BinaryType)
         if not any(
-            isinstance(field.dataType, truncatable_types) for field in df.schema.fields
+            isinstance(field.dataType, truncatable_types) or cls._is_interval_type(field.dataType) or cls._is_timestamp_type(field.dataType)
+            for field in df.schema.fields
         ):
             return df
 
@@ -272,6 +290,11 @@ class DataSampleLoaderLib:
                     .otherwise(substitute_col)
                     .cast("string"),
                 )
+            elif cls._is_interval_type(field.dataType):
+                df = df.withColumn(field.name, F.col(f"`{field.name}`").cast("string"))
+            elif cls._is_timestamp_type(field.dataType):
+                df = df.withColumn(field.name, F.date_format(F.col(f"`{field.name}`"), "yyyy-MM-dd HH:mm:ss"))
+
 
         return df
 
@@ -326,13 +349,7 @@ class DataSampleLoaderLib:
             return None
 
         try:
-            # Check both types separately to handle older Spark versions
-            if isinstance(field_type, TimestampType):
-                if isinstance(value, str):
-                    return datetime.fromisoformat(value.replace("Z", "+00:00"))
-                return value
-            # Only check TimestampNTZType if it's available (Spark 3.4+)
-            elif HAS_TIMESTAMP_NTZ and isinstance(field_type, TimestampNTZType):
+            if cls._is_timestamp_type(field_type):
                 if isinstance(value, str):
                     return datetime.fromisoformat(value.replace("Z", "+00:00"))
                 return value
@@ -341,7 +358,7 @@ class DataSampleLoaderLib:
                     return datetime.fromisoformat(value).date()
                 return value
             # Only check DayTimeIntervalType if it's available
-            elif HAS_DAYTIME_INTERVAL and isinstance(field_type, DayTimeIntervalType):
+            elif HAS_DAYTIME_INTERVAL and cls._is_interval_type(field_type):
                 if isinstance(value, str):
                     return (
                         timedelta(seconds=float(value))
@@ -477,4 +494,4 @@ class DataSampleLoaderLib:
     def display(cls, df: Optional[DataFrame]) -> None:
         """Calls Databricks display function."""
         if df != None:
-            display(df)
+            display(df) # noqa:F821

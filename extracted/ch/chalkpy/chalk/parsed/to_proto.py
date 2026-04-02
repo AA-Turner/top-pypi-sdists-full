@@ -1260,13 +1260,14 @@ class ToProtoConverter:
             static_operation=static_operation,
             static_operation_dataframe=static_operation_dataframe,
             sql_settings=ToProtoConverter.convert_sql_settings(r.sql_settings) if r.sql_settings else None,
+            resource_group=r.resource_group,
+            output_row_order=r.output_row_order,
+            venv=r.venv,
             incremental_settings=(
                 ToProtoConverter.convert_incremental_config(r.incremental_settings)
                 if r.incremental_settings is not None
                 else None
             ),
-            output_row_order=r.output_row_order,
-            venv=r.venv,
             underscore_expr=postprocessing_underscore_expr,
         )
 

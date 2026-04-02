@@ -1,0 +1,104 @@
+Metadata-Version: 2.1
+Name: attributedict
+Version: 0.3.0
+Summary: A dictionary object with attributes support.
+Home-page: https://github.com/grimen/python-attributedict
+Author: Jonas Grimfelt
+Author-email: grimen@gmail.com
+License: MIT
+Download-URL: https://github.com/grimen/python-attributedict
+Project-URL: repository, https://github.com/grimen/python-attributedict
+Project-URL: bugs, https://github.com/grimen/python-attributedict/issues
+Description: 
+        # `attributedict` [![PyPI version](https://badge.fury.io/py/attributedict.svg)](https://badge.fury.io/py/attributedict) [![Build Status](https://travis-ci.com/grimen/python-attributedict.svg?branch=master)](https://travis-ci.com/grimen/python-attributedict) [![Coverage Status](https://codecov.io/gh/grimen/python-attributedict/branch/master/graph/badge.svg)](https://codecov.io/gh/grimen/python-attributedict)
+        
+        *A dictionary object with attributes support.*
+        
+        
+        ## Install
+        
+        Install using **pip**:
+        
+        ```sh
+        $ pip install attributedict
+        ```
+        
+        
+        ## Use
+        
+        Example:
+        
+        ```python
+        from attributedict.collections import AttributeDict
+        
+        data = AttributeDict({'foo': {'bar': [1, 2, 3]}})
+        
+        data.foo # => `{'bar': [1, 2, 3]}}`
+        data.foo.bar # => `[1, 2, 3]`
+        
+        data.foo = {'baz': True}
+        data.foo = # => `{'baz': True}`
+        
+        del data.foo.baz
+        
+        # and/or...
+        
+        data = AttributeDict({'foo': {'bar': [1, 2, 3]}})
+        
+        data['foo'] # => `{'bar': [1, 2, 3]}}`
+        data['foo']['bar'] # => `[1, 2, 3]`
+        
+        data['foo'] = {'baz': True}
+        data['foo'] = # => `{'baz': True}`
+        
+        del data['foo']['baz']
+        
+        # instance of `dict`...
+        
+        isinstance(data, dict) # => True
+        isinstance(data, attributedict.collections.AttributeDict) # => True
+        
+        isinstance(data.__dict__, dict) # => True
+        isinstance(data.__dict__, attributedict.collections.AttributeDict) # => False
+        
+        # no need for custom encoders...
+        
+        data = AttributeDict({'foo': {'bar': [1, 2, 3]}})
+        
+        json.dumps(data) # => `{"foo": {"bar": [1, 2, 3]}}`
+        json.dumps(data.__dict__) # => `{"foo": {"bar": [1, 2, 3]}}`
+        
+        # etc.
+        
+        ```
+        
+        
+        ## Test
+        
+        Clone down source code and run:
+        
+        ```sh
+        $ make install
+        $ make test
+        ```
+        
+        
+        ## License
+        
+        Released under the MIT license.
+        
+Keywords: object,dict,dictionary,collection,attributes,attribute,attr,properties,property,props,openstruct,struct,hashmap
+Platform: UNKNOWN
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Description-Content-Type: text/markdown

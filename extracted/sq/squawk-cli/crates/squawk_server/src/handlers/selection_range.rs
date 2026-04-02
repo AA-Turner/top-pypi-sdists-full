@@ -3,17 +3,17 @@ use lsp_types::SelectionRangeParams;
 use rowan::TextRange;
 use squawk_ide::db::{line_index, parse};
 
+use crate::global_state::Snapshot;
 use crate::lsp_utils;
-use crate::system::System;
 
 pub(crate) fn handle_selection_range(
-    system: &dyn System,
+    snapshot: &Snapshot,
     params: SelectionRangeParams,
 ) -> Result<Option<Vec<lsp_types::SelectionRange>>> {
     let uri = params.text_document.uri;
 
-    let db = system.db();
-    let file = system.file(&uri).unwrap();
+    let db = snapshot.db();
+    let file = snapshot.file(&uri).unwrap();
     let parse = parse(db, file);
     let root = parse.syntax_node();
     let line_index = line_index(db, file);

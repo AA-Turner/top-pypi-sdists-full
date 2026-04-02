@@ -1,5 +1,0 @@
-name: vit_clip
-args:
-  arch: vitb32_224
-  weights: null
-  normalise_features: False

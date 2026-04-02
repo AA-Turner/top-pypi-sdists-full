@@ -9,6 +9,7 @@ import click.testing
 
 from kopf import cli
 from kopf._cogs.configs import configuration
+from kopf._cogs.helpers import aiohttpcaps
 from kopf._core.intents import registries
 
 _ExcType = BaseException
@@ -147,8 +148,9 @@ class KopfRunner(_AbstractKopfRunner):
 
             # Shut down the transports and prevent ResourceWarning: unclosed transport.
             # See: https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
-            # TODO: Try a hack: https://github.com/aio-libs/aiohttp/issues/1925#issuecomment-575754386
-            loop.run_until_complete(asyncio.sleep(1.0))
+            # Fixed in aiohttp 3.12.4; the sleep is only needed for older versions.
+            if not aiohttpcaps.AIOHTTP_HAS_GRACEFUL_SHUTDOWN:
+                loop.run_until_complete(asyncio.sleep(1.0))
 
             loop.close()
 

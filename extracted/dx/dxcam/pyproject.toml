@@ -1,0 +1,90 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dxcam"
+version = "0.3.0"
+description = "A Python high-performance screenshot library for Windows using Desktop Duplication API"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "ra1nty" }]
+keywords = ["screen", "screenshot", "screencapture", "screengrab", "windows"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Multimedia :: Graphics :: Capture",
+    "Topic :: Multimedia :: Graphics :: Capture :: Screen Capture",
+]
+dependencies = [
+    "comtypes",
+    "numpy",
+]
+
+[project.optional-dependencies]
+cv2 = ["opencv-python"]
+cython = ["Cython==3.1.1"]
+winrt = [
+    "winrt-runtime>=3.2.1",
+    "winrt-Windows.Foundation>=3.2.1",
+    "winrt-Windows.Foundation.Collections>=3.2.1",
+    "winrt-Windows.Graphics>=3.2.1",
+    "winrt-Windows.Graphics.Capture>=3.2.1",
+    "winrt-Windows.Graphics.Capture.Interop>=3.2.1",
+    "winrt-Windows.Graphics.DirectX>=3.2.1",
+    "winrt-Windows.Graphics.DirectX.Direct3D11>=3.2.1",
+    "winrt-Windows.Graphics.DirectX.Direct3D11.Interop>=3.2.1",
+]
+
+[project.urls]
+Source = "https://github.com/ra1nty/DXcam"
+Tracker = "https://github.com/ra1nty/DXcam/issues"
+
+[tool.setuptools.packages.find]
+include = ["dxcam*"]
+
+[tool.setuptools.package-data]
+dxcam = ["processor/*.pyx"]
+
+[dependency-groups]
+dev = [
+    "opencv-python>=4.13.0.92",
+    "pdoc>=15.0.4",
+    "pytest>=8.4.0",
+    "pytest-benchmark>=5.2.3",
+    "ruff>=0.15.5",
+    "ty>=0.0.21",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+extend-exclude = ["benchmarks"]
+
+[tool.ty.src]
+include = ["dxcam", "examples"]
+exclude = ["benchmarks"]
+
+[tool.ty.analysis]
+allowed-unresolved-imports = ["cv2"]
+
+[tool.cibuildwheel]
+build = "cp310-win_amd64 cp311-win_amd64 cp312-win_amd64 cp313-win_amd64 cp314-win_amd64"
+build-frontend = "pip; args: --no-build-isolation"
+test-command = "python -c \"import dxcam; import dxcam.processor._numpy_kernels as kernels; assert kernels.get_parallel_pixels_threshold() >= 0\""
+
+[tool.cibuildwheel.windows]
+before-build = "python -m pip install --upgrade pip && python -m pip install \"setuptools>=68\" wheel \"Cython==3.1.1\" \"numpy>=1.26\""
+environment = { DXCAM_BUILD_CYTHON = "1" }

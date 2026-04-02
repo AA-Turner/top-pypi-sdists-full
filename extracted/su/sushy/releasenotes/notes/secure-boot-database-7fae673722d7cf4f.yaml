@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Adds support for fetching and resetting individual UEFI secure boot
-    databases.

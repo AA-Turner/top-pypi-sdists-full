@@ -1,0 +1,26 @@
+[package]
+name = "deltalake-catalog-glue"
+version = "0.14.0"
+authors.workspace = true
+keywords.workspace = true
+readme.workspace = true
+edition.workspace = true
+homepage.workspace = true
+description.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+aws-config = { version = "1.8", default-features = false, features = [
+    "behavior-version-latest",
+    "rt-tokio",
+    "credentials-process",
+] }
+aws-sdk-glue = "1.120"
+deltalake-core = { version = "0.30.0", path = "../core" }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

@@ -10,7 +10,7 @@ from rich import print as rprint
 from rich.console import Console
 
 from comfy_cli import constants, env_checker, logging, tracking, ui, utils
-from comfy_cli.command import custom_nodes, pr_command
+from comfy_cli.command import code_search, custom_nodes, pr_command
 from comfy_cli.command import install as install_inner
 from comfy_cli.command import run as run_inner
 from comfy_cli.command.install import validate_version
@@ -18,6 +18,7 @@ from comfy_cli.command.launch import launch as launch_command
 from comfy_cli.command.models import models as models_command
 from comfy_cli.config_manager import ConfigManager
 from comfy_cli.constants import GPU_OPTION, CUDAVersion, ROCmVersion
+from comfy_cli.cuda_detect import DEFAULT_CUDA_TAG, detect_cuda_driver_version, resolve_cuda_wheel
 from comfy_cli.env_checker import EnvChecker
 from comfy_cli.resolve_python import resolve_workspace_python
 from comfy_cli.standalone import StandalonePython
@@ -142,6 +143,43 @@ def validate_commit_and_version(commit: str | None, ctx: typer.Context) -> str |
     return commit
 
 
+def _resolve_cuda(
+    gpu: GPU_OPTION | None,
+    cuda_version: CUDAVersion | None,
+) -> tuple[CUDAVersion | None, str | None]:
+    """Resolve the CUDA wheel tag for an NVIDIA install.
+
+    Returns (cuda_version_enum_or_None, cuda_tag_string_or_None).
+    When the user passed an explicit --cuda-version, that is used as-is.
+    Otherwise auto-detection is attempted.
+    """
+    if gpu != GPU_OPTION.NVIDIA:
+        return cuda_version, None
+
+    if cuda_version is not None:
+        tag = f"cu{cuda_version.value.replace('.', '')}"
+        rprint(f"[bold]Using explicit CUDA version:[/bold] {cuda_version.value} ({tag})")
+        return cuda_version, tag
+
+    drv = detect_cuda_driver_version()
+    if drv is not None:
+        tag = resolve_cuda_wheel(drv)
+        if tag is not None:
+            rprint(f"[bold green]Detected CUDA driver version:[/bold green] {drv[0]}.{drv[1]} → using {tag}")
+            return None, tag
+        rprint(
+            f"[bold yellow]Warning:[/bold yellow] CUDA driver {drv[0]}.{drv[1]} is too old for any known PyTorch wheel. "
+            f"Falling back to {DEFAULT_CUDA_TAG}. Use `--cuda-version` to override."
+        )
+        return None, DEFAULT_CUDA_TAG
+
+    rprint(
+        f"[bold yellow]Warning:[/bold yellow] Could not detect CUDA driver version. "
+        f"Falling back to {DEFAULT_CUDA_TAG}. Use `--cuda-version` to override."
+    )
+    return None, DEFAULT_CUDA_TAG
+
+
 @app.command(help="Download and install ComfyUI and ComfyUI-Manager")
 @tracking.track_command()
 def install(
@@ -186,7 +224,7 @@ def install(
             callback=g_gpu_exclusivity.validate,
         ),
     ] = None,
-    cuda_version: Annotated[CUDAVersion, typer.Option(show_default=True)] = CUDAVersion.v12_6,
+    cuda_version: Annotated[CUDAVersion | None, typer.Option(show_default=False)] = None,
     rocm_version: Annotated[ROCmVersion, typer.Option(show_default=True)] = ROCmVersion.v6_3,
     amd: Annotated[
         bool | None,
@@ -245,7 +283,7 @@ def install(
 
     comfy_path, _ = workspace_manager.get_workspace_path()
 
-    is_comfy_installed_at_path, repo_dir = check_comfy_repo(comfy_path)
+    is_comfy_installed_at_path, resolved_path = check_comfy_repo(comfy_path)
     if is_comfy_installed_at_path and not restore:
         rprint(f"[bold red]ComfyUI is already installed at the specified path:[/bold red] {comfy_path}\n")
         rprint(
@@ -253,8 +291,8 @@ def install(
         )
         raise typer.Exit(code=1)
 
-    if repo_dir is not None:
-        comfy_path = str(repo_dir.working_dir)
+    if resolved_path is not None:
+        comfy_path = resolved_path
 
     if checker.python_version.major < 3 or checker.python_version.minor < 9:
         rprint("[bold red]Python version 3.9 or higher is required to run ComfyUI.[/bold red]")
@@ -276,6 +314,7 @@ def install(
             version=version,
             gpu=None,
             cuda_version=cuda_version,
+            cuda_tag=None,
             rocm_version=rocm_version,
             plat=platform,
             skip_torch_or_directml=skip_torch_or_directml,
@@ -321,6 +360,8 @@ def install(
         )
         raise typer.Exit(code=1)
 
+    cuda_version, cuda_tag = _resolve_cuda(gpu, cuda_version) if not skip_torch_or_directml else (cuda_version, None)
+
     install_inner.execute(
         url,
         comfy_path,
@@ -330,6 +371,7 @@ def install(
         gpu=gpu,
         version=version,
         cuda_version=cuda_version,
+        cuda_tag=cuda_tag,
         rocm_version=rocm_version,
         plat=platform,
         skip_torch_or_directml=skip_torch_or_directml,
@@ -487,7 +529,7 @@ def set_default(
         )
         raise typer.Exit(code=1)
 
-    is_comfy_repo, comfy_repo = check_comfy_repo(comfy_path)
+    is_comfy_repo, resolved_path = check_comfy_repo(comfy_path)
     if not is_comfy_repo:
         rprint(
             f"\nSpecified path is not a ComfyUI path: {comfy_path}.\n",
@@ -495,7 +537,7 @@ def set_default(
         )
         raise typer.Exit(code=1)
 
-    comfy_path = comfy_repo.working_dir
+    comfy_path = resolved_path
 
     rprint(f"Specified path is set as default ComfyUI path: {comfy_path} ")
     workspace_manager.set_default_workspace(comfy_path)
@@ -642,5 +684,8 @@ app.add_typer(custom_nodes.app, name="node", help="Manage custom nodes.")
 app.add_typer(custom_nodes.manager_app, name="manager", help="Manage ComfyUI-Manager.")
 
 app.add_typer(pr_command.app, name="pr-cache", help="Manage PR cache.")
+
+app.add_typer(code_search.app, name="code-search", help="Search code across ComfyUI repositories.")
+app.add_typer(code_search.app, name="cs", hidden=True)
 
 app.add_typer(tracking.app, name="tracking", help="Manage analytics tracking settings.")

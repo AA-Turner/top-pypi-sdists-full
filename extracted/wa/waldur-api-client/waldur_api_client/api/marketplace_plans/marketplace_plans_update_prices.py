@@ -1,0 +1,117 @@
+from http import HTTPStatus
+from typing import Any, Union
+from uuid import UUID
+
+import httpx
+
+from ... import errors
+from ...client import AuthenticatedClient, Client
+from ...models.prices_update_request import PricesUpdateRequest
+from ...types import Response
+
+
+def _get_kwargs(
+    uuid: UUID,
+    *,
+    body: PricesUpdateRequest,
+) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
+
+    _kwargs: dict[str, Any] = {
+        "method": "post",
+        "url": f"/api/marketplace-plans/{uuid}/update_prices/",
+    }
+
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
+
+    _kwargs["headers"] = headers
+    return _kwargs
+
+
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Any:
+    if response.status_code == 404:
+        raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
+    if response.status_code == 200:
+        return None
+    raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
+
+
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Any]:
+    return Response(
+        status_code=HTTPStatus(response.status_code),
+        content=response.content,
+        headers=response.headers,
+        parsed=_parse_response(client=client, response=response),
+    )
+
+
+def sync_detailed(
+    uuid: UUID,
+    *,
+    client: AuthenticatedClient,
+    body: PricesUpdateRequest,
+) -> Response[Any]:
+    """Update plan component prices
+
+     Updates the prices for one or more components of a specific plan. If the plan is already in use by
+    resources, this action updates the `future_price`, which will be applied from the next billing
+    period. Otherwise, the current `price` is updated directly.
+
+    Args:
+        uuid (UUID):
+        body (PricesUpdateRequest):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[Any]
+    """
+
+    kwargs = _get_kwargs(
+        uuid=uuid,
+        body=body,
+    )
+
+    response = client.get_httpx_client().request(
+        **kwargs,
+    )
+
+    return _build_response(client=client, response=response)
+
+
+async def asyncio_detailed(
+    uuid: UUID,
+    *,
+    client: AuthenticatedClient,
+    body: PricesUpdateRequest,
+) -> Response[Any]:
+    """Update plan component prices
+
+     Updates the prices for one or more components of a specific plan. If the plan is already in use by
+    resources, this action updates the `future_price`, which will be applied from the next billing
+    period. Otherwise, the current `price` is updated directly.
+
+    Args:
+        uuid (UUID):
+        body (PricesUpdateRequest):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[Any]
+    """
+
+    kwargs = _get_kwargs(
+        uuid=uuid,
+        body=body,
+    )
+
+    response = await client.get_async_httpx_client().request(**kwargs)
+
+    return _build_response(client=client, response=response)

@@ -159,8 +159,7 @@ class BaseClassifier:
             format_class = formats.detect(dataset)
             if not format_class:
                 raise FormatError(
-                    "Could not automatically detect format for the given "
-                    "data source."
+                    "Could not automatically detect format for the given data source."
                 )
         else:
             registry = formats.get_registry()
@@ -230,7 +229,7 @@ class NLTKClassifier(BaseClassifier):
             return self.train()
         except AttributeError as error:  # nltk_class has not been defined
             raise ValueError(
-                "NLTKClassifier must have a nltk_class" " variable that is not None."
+                "NLTKClassifier must have a nltk_class variable that is not None."
             ) from error
 
     def train(self, *args, **kwargs):
@@ -251,7 +250,7 @@ class NLTKClassifier(BaseClassifier):
             return self.classifier
         except AttributeError as error:
             raise ValueError(
-                "NLTKClassifier must have a nltk_class" " variable that is not None."
+                "NLTKClassifier must have a nltk_class variable that is not None."
             ) from error
 
     def labels(self):
@@ -298,7 +297,7 @@ class NLTKClassifier(BaseClassifier):
             )
         except AttributeError as error:  # Descendant has not defined nltk_class
             raise ValueError(
-                "NLTKClassifier must have a nltk_class" " variable that is not None."
+                "NLTKClassifier must have a nltk_class variable that is not None."
             ) from error
         return True
 
@@ -511,8 +510,8 @@ class PositiveNaiveBayesClassifier(NLTKClassifier):
 
 
 class MaxEntClassifier(NLTKClassifier):
-    __doc__ = nltk.classify.maxent.MaxentClassifier.__doc__
-    nltk_class = nltk.classify.maxent.MaxentClassifier
+    __doc__ = nltk.classify.MaxentClassifier.__doc__
+    nltk_class = nltk.classify.MaxentClassifier
 
     def prob_classify(self, text):
         """Return the label probability distribution for classifying a string

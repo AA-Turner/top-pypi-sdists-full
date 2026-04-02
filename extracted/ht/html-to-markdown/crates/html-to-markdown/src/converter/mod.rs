@@ -103,6 +103,7 @@ pub mod media;
 mod metadata;
 pub mod plain_text;
 pub mod preprocessing_helpers;
+pub mod reference_collector;
 pub mod semantic;
 pub mod text;
 mod text_node;

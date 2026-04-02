@@ -42,6 +42,8 @@ from .type_defs import (
     CreateCapacityProviderResponseTypeDef,
     CreateClusterRequestTypeDef,
     CreateClusterResponseTypeDef,
+    CreateDaemonRequestTypeDef,
+    CreateDaemonResponseTypeDef,
     CreateExpressGatewayServiceRequestTypeDef,
     CreateExpressGatewayServiceResponseTypeDef,
     CreateServiceRequestTypeDef,
@@ -56,6 +58,10 @@ from .type_defs import (
     DeleteCapacityProviderResponseTypeDef,
     DeleteClusterRequestTypeDef,
     DeleteClusterResponseTypeDef,
+    DeleteDaemonRequestTypeDef,
+    DeleteDaemonResponseTypeDef,
+    DeleteDaemonTaskDefinitionRequestTypeDef,
+    DeleteDaemonTaskDefinitionResponseTypeDef,
     DeleteExpressGatewayServiceRequestTypeDef,
     DeleteExpressGatewayServiceResponseTypeDef,
     DeleteServiceRequestTypeDef,
@@ -74,6 +80,14 @@ from .type_defs import (
     DescribeClustersResponseTypeDef,
     DescribeContainerInstancesRequestTypeDef,
     DescribeContainerInstancesResponseTypeDef,
+    DescribeDaemonDeploymentsRequestTypeDef,
+    DescribeDaemonDeploymentsResponseTypeDef,
+    DescribeDaemonRequestTypeDef,
+    DescribeDaemonResponseTypeDef,
+    DescribeDaemonRevisionsRequestTypeDef,
+    DescribeDaemonRevisionsResponseTypeDef,
+    DescribeDaemonTaskDefinitionRequestTypeDef,
+    DescribeDaemonTaskDefinitionResponseTypeDef,
     DescribeExpressGatewayServiceRequestTypeDef,
     DescribeExpressGatewayServiceResponseTypeDef,
     DescribeServiceDeploymentsRequestTypeDef,
@@ -102,6 +116,12 @@ from .type_defs import (
     ListClustersResponseTypeDef,
     ListContainerInstancesRequestTypeDef,
     ListContainerInstancesResponseTypeDef,
+    ListDaemonDeploymentsRequestTypeDef,
+    ListDaemonDeploymentsResponseTypeDef,
+    ListDaemonsRequestTypeDef,
+    ListDaemonsResponseTypeDef,
+    ListDaemonTaskDefinitionsRequestTypeDef,
+    ListDaemonTaskDefinitionsResponseTypeDef,
     ListServiceDeploymentsRequestTypeDef,
     ListServiceDeploymentsResponseTypeDef,
     ListServicesByNamespaceRequestTypeDef,
@@ -126,6 +146,8 @@ from .type_defs import (
     PutClusterCapacityProvidersResponseTypeDef,
     RegisterContainerInstanceRequestTypeDef,
     RegisterContainerInstanceResponseTypeDef,
+    RegisterDaemonTaskDefinitionRequestTypeDef,
+    RegisterDaemonTaskDefinitionResponseTypeDef,
     RegisterTaskDefinitionRequestTypeDef,
     RegisterTaskDefinitionResponseTypeDef,
     RunTaskRequestTypeDef,
@@ -154,6 +176,8 @@ from .type_defs import (
     UpdateContainerAgentResponseTypeDef,
     UpdateContainerInstancesStateRequestTypeDef,
     UpdateContainerInstancesStateResponseTypeDef,
+    UpdateDaemonRequestTypeDef,
+    UpdateDaemonResponseTypeDef,
     UpdateExpressGatewayServiceRequestTypeDef,
     UpdateExpressGatewayServiceResponseTypeDef,
     UpdateServicePrimaryTaskSetRequestTypeDef,
@@ -166,6 +190,11 @@ from .type_defs import (
     UpdateTaskSetResponseTypeDef,
 )
 from .waiter import (
+    DaemonActiveWaiter,
+    DaemonDeploymentStoppedWaiter,
+    DaemonDeploymentSuccessfulWaiter,
+    DaemonTaskDefinitionActiveWaiter,
+    DaemonTaskDefinitionDeletedWaiter,
     ServicesInactiveWaiter,
     ServicesStableWaiter,
     TasksRunningWaiter,
@@ -191,6 +220,8 @@ class Exceptions(BaseClientExceptions):
     ClusterContainsTasksException: type[BotocoreClientError]
     ClusterNotFoundException: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
+    DaemonNotActiveException: type[BotocoreClientError]
+    DaemonNotFoundException: type[BotocoreClientError]
     InvalidParameterException: type[BotocoreClientError]
     LimitExceededException: type[BotocoreClientError]
     MissingVersionException: type[BotocoreClientError]
@@ -265,6 +296,16 @@ class ECSClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#create_cluster)
         """
 
+    def create_daemon(
+        self, **kwargs: Unpack[CreateDaemonRequestTypeDef]
+    ) -> CreateDaemonResponseTypeDef:
+        """
+        Creates a new daemon in the specified cluster and capacity providers.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/create_daemon.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#create_daemon)
+        """
+
     def create_express_gateway_service(
         self, **kwargs: Unpack[CreateExpressGatewayServiceRequestTypeDef]
     ) -> CreateExpressGatewayServiceResponseTypeDef:
@@ -336,6 +377,26 @@ class ECSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/delete_cluster.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#delete_cluster)
+        """
+
+    def delete_daemon(
+        self, **kwargs: Unpack[DeleteDaemonRequestTypeDef]
+    ) -> DeleteDaemonResponseTypeDef:
+        """
+        Deletes the specified daemon.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/delete_daemon.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#delete_daemon)
+        """
+
+    def delete_daemon_task_definition(
+        self, **kwargs: Unpack[DeleteDaemonTaskDefinitionRequestTypeDef]
+    ) -> DeleteDaemonTaskDefinitionResponseTypeDef:
+        """
+        Deletes the specified daemon task definition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/delete_daemon_task_definition.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#delete_daemon_task_definition)
         """
 
     def delete_express_gateway_service(
@@ -427,6 +488,46 @@ class ECSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/describe_container_instances.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#describe_container_instances)
+        """
+
+    def describe_daemon(
+        self, **kwargs: Unpack[DescribeDaemonRequestTypeDef]
+    ) -> DescribeDaemonResponseTypeDef:
+        """
+        Describes the specified daemon.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/describe_daemon.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#describe_daemon)
+        """
+
+    def describe_daemon_deployments(
+        self, **kwargs: Unpack[DescribeDaemonDeploymentsRequestTypeDef]
+    ) -> DescribeDaemonDeploymentsResponseTypeDef:
+        """
+        Describes one or more of your daemon deployments.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/describe_daemon_deployments.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#describe_daemon_deployments)
+        """
+
+    def describe_daemon_revisions(
+        self, **kwargs: Unpack[DescribeDaemonRevisionsRequestTypeDef]
+    ) -> DescribeDaemonRevisionsResponseTypeDef:
+        """
+        Describes one or more of your daemon revisions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/describe_daemon_revisions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#describe_daemon_revisions)
+        """
+
+    def describe_daemon_task_definition(
+        self, **kwargs: Unpack[DescribeDaemonTaskDefinitionRequestTypeDef]
+    ) -> DescribeDaemonTaskDefinitionResponseTypeDef:
+        """
+        Describes a daemon task definition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/describe_daemon_task_definition.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#describe_daemon_task_definition)
         """
 
     def describe_express_gateway_service(
@@ -572,6 +673,36 @@ class ECSClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#list_container_instances)
         """
 
+    def list_daemon_deployments(
+        self, **kwargs: Unpack[ListDaemonDeploymentsRequestTypeDef]
+    ) -> ListDaemonDeploymentsResponseTypeDef:
+        """
+        Returns a list of daemon deployments for a specified daemon.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/list_daemon_deployments.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#list_daemon_deployments)
+        """
+
+    def list_daemon_task_definitions(
+        self, **kwargs: Unpack[ListDaemonTaskDefinitionsRequestTypeDef]
+    ) -> ListDaemonTaskDefinitionsResponseTypeDef:
+        """
+        Returns a list of daemon task definitions that are registered to your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/list_daemon_task_definitions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#list_daemon_task_definitions)
+        """
+
+    def list_daemons(
+        self, **kwargs: Unpack[ListDaemonsRequestTypeDef]
+    ) -> ListDaemonsResponseTypeDef:
+        """
+        Returns a list of daemons.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/list_daemons.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#list_daemons)
+        """
+
     def list_service_deployments(
         self, **kwargs: Unpack[ListServiceDeploymentsRequestTypeDef]
     ) -> ListServiceDeploymentsResponseTypeDef:
@@ -693,6 +824,17 @@ class ECSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/register_container_instance.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#register_container_instance)
+        """
+
+    def register_daemon_task_definition(
+        self, **kwargs: Unpack[RegisterDaemonTaskDefinitionRequestTypeDef]
+    ) -> RegisterDaemonTaskDefinitionResponseTypeDef:
+        """
+        Registers a new daemon task definition from the supplied <code>family</code>
+        and <code>containerDefinitions</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/register_daemon_task_definition.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#register_daemon_task_definition)
         """
 
     def register_task_definition(
@@ -839,6 +981,16 @@ class ECSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/update_container_instances_state.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#update_container_instances_state)
+        """
+
+    def update_daemon(
+        self, **kwargs: Unpack[UpdateDaemonRequestTypeDef]
+    ) -> UpdateDaemonResponseTypeDef:
+        """
+        Updates the specified daemon.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/update_daemon.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#update_daemon)
         """
 
     def update_express_gateway_service(
@@ -988,6 +1140,61 @@ class ECSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/get_paginator.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["daemon_active"]
+    ) -> DaemonActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["daemon_deployment_stopped"]
+    ) -> DaemonDeploymentStoppedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["daemon_deployment_successful"]
+    ) -> DaemonDeploymentSuccessfulWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["daemon_task_definition_active"]
+    ) -> DaemonTaskDefinitionActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["daemon_task_definition_deleted"]
+    ) -> DaemonTaskDefinitionDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#get_waiter)
         """
 
     @overload  # type: ignore[override]

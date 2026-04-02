@@ -1,0 +1,47 @@
+Metadata-Version: 1.1
+Name: hypothesis-fspaths
+Version: 0.1
+Summary: Hypothesis extension for generating filesystem paths
+Home-page: https://github.com/lazka/hypothesis-fspaths
+Author: Christoph Reiter
+Author-email: reiter.christoph@gmail.com
+License: MIT
+Description: ******************
+        hypothesis-fspaths
+        ******************
+        
+        `Hypothesis <https://hypothesis.readthedocs.io/en/latest/>`_ extension for
+        generating filesystem paths. Anything the built-in Python function ``open()``
+        accepts can be generated.
+        
+        Example
+        =======
+        
+        .. code:: python
+        
+            from hypothesis import given
+            from hypothesis_fspaths import fspaths
+        
+            @given(fspaths())
+            def test_open_file(path):
+                try:
+                    open(path).close()
+                except IOError:
+                    pass
+        
+        
+        .. image:: https://travis-ci.org/lazka/hypothesis-fspaths.svg?branch=master
+            :target: https://travis-ci.org/lazka/hypothesis-fspaths
+        
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy

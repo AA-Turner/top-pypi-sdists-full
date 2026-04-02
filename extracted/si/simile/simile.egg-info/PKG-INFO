@@ -1,0 +1,59 @@
+Metadata-Version: 2.4
+Name: simile
+Version: 0.5.4
+Summary: Package for interfacing with Simile AI agents for simulation
+Author-email: Simile AI <cqz@simile.ai>
+License: MIT
+Project-URL: Homepage, https://github.com/simile-team/simile-sdk
+Keywords: api,sdk,simile,ai-agent,simulation
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: httpx>=0.20.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: genagent>=0.2.3
+Dynamic: license-file
+
+# Simile API Python Client
+
+A Python client for interacting with the Simile API server.
+
+## Installation
+
+```bash
+pip install simile
+```
+
+## Dependencies
+
+- `httpx>=0.20.0`
+- `pydantic>=2.0.0`
+
+## Usage
+
+```python
+from simile import Simile
+
+client = Simile(api_key="your_api_key")
+```
+
+## Publishing
+
+1. Bump the version in `pyproject.toml`
+2. Commit and push your changes
+3. Go to the **Actions** tab in GitHub
+4. Select **Build and Publish to PyPI** workflow
+5. Click **Run workflow** and select the branch to run from
+6. The workflow will automatically build and publish to PyPI
+
+The workflow uses the `PYPI_API_TOKEN` secret configured in the repository settings.

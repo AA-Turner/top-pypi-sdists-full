@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown-to-confluence
-Version: 0.5.7
+Version: 0.5.8
 Summary: Publish Markdown files to Confluence wiki
 Author-email: Levente Hunyadi <hunyadi@gmail.com>
 Maintainer-email: Levente Hunyadi <hunyadi@gmail.com>
@@ -29,7 +29,7 @@ Requires-Dist: markdown>=3.10
 Requires-Dist: orjson>=3.11
 Requires-Dist: pymdown-extensions>=10.21
 Requires-Dist: PyYAML>=6.0
-Requires-Dist: requests>=2.32
+Requires-Dist: requests>=2.33
 Requires-Dist: truststore>=0.10
 Requires-Dist: typing-extensions>=4.15; python_version < "3.11"
 Provides-Extra: dev
@@ -37,8 +37,8 @@ Requires-Dist: markdown_doc>=0.1.8; extra == "dev"
 Requires-Dist: types-lxml>=2026.2.16; extra == "dev"
 Requires-Dist: types-markdown>=3.10; extra == "dev"
 Requires-Dist: types-PyYAML>=6.0; extra == "dev"
-Requires-Dist: types-requests>=2.32; extra == "dev"
-Requires-Dist: mypy[faster-cache]>=1.19; extra == "dev"
+Requires-Dist: types-requests>=2.33; extra == "dev"
+Requires-Dist: mypy[faster-cache]>=1.20; extra == "dev"
 Requires-Dist: ruff>=0.15; extra == "dev"
 Provides-Extra: formulas
 Requires-Dist: matplotlib>=3.10; extra == "formulas"

@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-icalendar"
-version = "6.3.2.20260223"
+version = "6.3.2.20260402"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for icalendar"
@@ -30,11 +30,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.19.1
+* [mypy](https://github.com/python/mypy/) 1.20.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`24827c4590595507c5542ecea5c0850b070df4fc`](https://github.com/python/typeshed/commit/24827c4590595507c5542ecea5c0850b070df4fc).
+[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -53,3 +53,6 @@ dependencies = ['types-python-dateutil', 'types-pytz']
 [tool.setuptools]
 packages = ['icalendar-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'icalendar-stubs' = ['__init__.pyi', 'alarms.pyi', 'attr.pyi', 'cal.pyi', 'caselessdict.pyi', 'enums.pyi', 'error.pyi', 'param.pyi', 'parser.pyi', 'parser_tools.pyi', 'prop.pyi', 'timezone/__init__.pyi', 'timezone/equivalent_timezone_ids.pyi', 'timezone/equivalent_timezone_ids_result.pyi', 'timezone/provider.pyi', 'timezone/pytz.pyi', 'timezone/tzid.pyi', 'timezone/tzp.pyi', 'timezone/windows_to_olson.pyi', 'timezone/zoneinfo.pyi', 'tools.pyi', 'version.pyi', 'METADATA.toml', 'py.typed']

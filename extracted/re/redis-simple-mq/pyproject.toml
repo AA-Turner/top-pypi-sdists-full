@@ -1,0 +1,47 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "redis-simple-mq"
+dynamic = ["version", "description"]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+authors = [{ name = "Erik Kalkoken", email = "kalkoken87@gmail.com" }]
+keywords = ["queue", "redis"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = ["redis"]
+
+[project.urls]
+Homepage = "https://gitlab.com/ErikKalkoken/redis-simple-mq"
+
+[tool.flit.module]
+name = "simple_mq"
+
+[tool.isort]
+profile = "black"
+
+[tool.pylint.'MASTER']
+ignore-patterns = ["__init__.py"]
+ignore-paths = ["^.*/tests/.*$"]
+
+[tool.pylint.'BASIC']
+good-names = ["i", "j", "k", "ex"]
+
+[tool.pylint.'FORMAT']
+max-line-length = 120
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = ["fixme"]

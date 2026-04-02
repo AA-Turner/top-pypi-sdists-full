@@ -23,6 +23,7 @@ class WorkspaceCustomerManagedKeyArgs:
                  workspace_id: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a WorkspaceCustomerManagedKey resource.
+
         :param pulumi.Input[_builtins.str] workspace_id: The unique identifier of the databricks workspace in Databricks control plane.
         """
         pulumi.set(__self__, "key_vault_key_id", key_vault_key_id)
@@ -57,6 +58,7 @@ class _WorkspaceCustomerManagedKeyState:
                  workspace_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering WorkspaceCustomerManagedKey resources.
+
         :param pulumi.Input[_builtins.str] workspace_id: The unique identifier of the databricks workspace in Databricks control plane.
         """
         if key_vault_key_id is not None:
@@ -135,7 +137,7 @@ class WorkspaceCustomerManagedKey(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.Databricks` - 2024-05-01, 2022-10-01-preview
+        * `Microsoft.Databricks` - 2026-01-01
 
         * `Microsoft.Network` - 2025-01-01, 2023-09-01
 
@@ -146,6 +148,7 @@ class WorkspaceCustomerManagedKey(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:databricks/workspaceCustomerManagedKey:WorkspaceCustomerManagedKey workspace1 /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.Databricks/workspaces/workspace1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -197,7 +200,7 @@ class WorkspaceCustomerManagedKey(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.Databricks` - 2024-05-01, 2022-10-01-preview
+        * `Microsoft.Databricks` - 2026-01-01
 
         * `Microsoft.Network` - 2025-01-01, 2023-09-01
 
@@ -208,6 +211,7 @@ class WorkspaceCustomerManagedKey(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:databricks/workspaceCustomerManagedKey:WorkspaceCustomerManagedKey workspace1 /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.Databricks/workspaces/workspace1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param WorkspaceCustomerManagedKeyArgs args: The arguments to use to populate this resource's properties.

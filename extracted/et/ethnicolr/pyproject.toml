@@ -1,0 +1,250 @@
+[build-system]
+requires = ["uv_build>=0.9.15,<0.10.0"]
+build-backend = "uv_build"
+
+[project]
+name = "ethnicolr"
+version = "0.21.1"
+description = "Modern ML library for race/ethnicity prediction from names with intuitive CLI"
+readme = "README.md"
+# TensorFlow 2.18+ supports Python 3.11-3.12 (no Python 3.13 wheels available yet)
+requires-python = ">=3.11,<3.13"
+license = "MIT"
+
+authors = [
+  { name = "Gaurav Sood", email = "contact@gsood.com" },
+  { name = "Suriyan Laohaprapanon", email = "suriyant@gmail.com" },
+]
+
+keywords = [
+  "race",
+  "ethnicity",
+  "names",
+  "demographics",
+  "machine-learning",
+  "nlp",
+]
+
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Utilities",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+]
+
+dependencies = [
+  "pandas>=2.2.0",
+  "numpy>=1.26.0,<2.0.0",
+  "click>=8.0.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/appeler/ethnicolr"
+"Bug Reports" = "https://github.com/appeler/ethnicolr/issues"
+"Documentation" = "https://appeler.github.io/ethnicolr/"
+"Source Code" = "https://github.com/appeler/ethnicolr"
+
+[project.scripts]
+# Modern CLI (primary interface)
+ethnicolr = "ethnicolr.cli:cli"
+
+# Legacy CLI (backward compatibility)
+census_ln = "ethnicolr.census_ln:main"
+pred_census_ln = "ethnicolr.pred_census_ln:main"
+pred_wiki_name = "ethnicolr.pred_wiki_name:main"
+pred_wiki_ln = "ethnicolr.pred_wiki_ln:main"
+pred_fl_reg_name = "ethnicolr.pred_fl_reg_name:main"
+pred_fl_reg_ln = "ethnicolr.pred_fl_reg_ln:main"
+pred_fl_reg_ln_five_cat = "ethnicolr.pred_fl_reg_ln_five_cat:main"
+pred_fl_reg_name_five_cat = "ethnicolr.pred_fl_reg_name_five_cat:main"
+pred_nc_reg_name = "ethnicolr.pred_nc_reg_name:main"
+ethnicolr_download_models = "ethnicolr.utils.download:main"
+
+[project.optional-dependencies]
+# Minimal convenience extra (doesn't add anything beyond base deps,
+# but keeps compatibility with existing usage like `ethnicolr[base]`.
+# Runtime inference stack
+inference = [
+  "tensorflow>=2.15.0,<3.0.0; sys_platform != 'win32'",  # Full TensorFlow for Mac/Linux
+  "tensorflow-intel>=2.15.0,<3.0.0; sys_platform == 'win32'",  # Intel's official Windows CPU build with proper tensorflow module
+  "protobuf>=4.21.0,<7.0.0",
+  "typing-extensions>=4.4,<5.0",
+]
+
+# Test stack (no TF here; you combine with `[inference]`)
+test = [
+  "pytest>=7.0",
+  "pytest-cov>=4.0",
+  "pytest-xdist>=3.0",
+]
+
+dev = [
+  "pytest>=7.0",
+  "pytest-cov>=4.0",
+  "pytest-xdist>=3.0",
+  "ruff>=0.7.0",
+  "mypy>=1.0",
+  "pre-commit>=3.0",
+]
+
+docs = [
+  "sphinx>=7.0",
+  "furo>=2024.1.29",
+  "sphinx-autodoc-typehints>=1.25",
+  "sphinx-copybutton>=0.5",
+  "myst-parser>=2.0",
+  "nbsphinx>=0.9.0",
+  "pandoc>=2.0",
+  "ipykernel>=6.0",
+  "ipython>=8.0.0",
+  "matplotlib>=3.5.0",
+]
+
+# --- uv dependency groups (for `uv sync --group ...`) ---
+[dependency-groups]
+# Note: inference removed from here - already defined in [project.optional-dependencies]
+# This prevents UV dependency resolution conflicts
+
+test = [
+  "pytest>=7.0",
+  "pytest-cov>=4.0",
+  "pytest-xdist>=3.0",
+]
+
+dev = [
+  "pytest>=7.0",
+  "pytest-cov>=4.0",
+  "pytest-xdist>=3.0",
+  "ruff>=0.7.0",
+  "mypy>=1.0",
+  "pre-commit>=3.0",
+  "pydoclint>=0.8.3",
+  "pyright>=1.1.407",
+]
+
+docs = [
+  "sphinx>=7.0",
+  "furo>=2024.1.29",
+  "sphinx-autodoc-typehints>=1.25",
+  "sphinx-copybutton>=0.5",
+  "myst-parser>=2.0",
+  "nbsphinx>=0.9.0",
+  "pandoc>=2.0",
+  "ipykernel>=6.0",
+  "ipython>=8.0.0",
+  "matplotlib>=3.5.0",
+]
+
+# UV configuration
+[tool.uv]
+# Universal lockfile generation - resolve deps for all platforms
+# environments = []  # Commented out to allow cross-platform dependency resolution
+# Ensure Windows AMD64 gets compatible wheels (fixes tensorflow-io-gcs-filesystem)
+required-environments = ["sys_platform == 'win32' and platform_machine == 'AMD64'"]
+
+[tool.uv.build-backend]
+module-root = ""
+
+# Ruff configuration
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+exclude = [
+  ".git",
+  "__pycache__",
+  "build",
+  "dist",
+  ".venv",
+  "docs",
+  ".eggs",
+  "*.ipynb",
+  "ethnicolr/models/*.ipynb",
+]
+
+[tool.ruff.lint]
+select = [
+  "E",  # pycodestyle errors
+  "W",  # pycodestyle warnings
+  "F",  # pyflakes
+  "I",  # isort
+  "B",  # flake8-bugbear
+  "C4", # flake8-comprehensions
+  "UP", # pyupgrade
+]
+ignore = [
+  "E501",  # line too long
+  "B008",  # function calls in argument defaults
+  "C901",  # too complex
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/*" = ["S101"]
+"*.ipynb" = ["E402", "E722", "UP031", "B905", "F821", "F811", "W293", "F841", "E501", "F401", "E302", "E305", "W391"]
+"docs/examples/*.ipynb" = ["E402", "E722", "UP031", "B905", "F821", "F811", "W293", "F841", "E501", "F401", "E302", "E305", "W391"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ethnicolr"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = [
+  "-ra",
+  "--strict-markers",
+  "--cov=ethnicolr",
+  "--cov-report=term-missing",
+  "--cov-report=html",
+  "--cov-report=xml",
+]
+markers = [
+  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+
+[tool.coverage.run]
+source = ["ethnicolr"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "if self.debug",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
+
+[tool.deptry]
+# Exclude development/research code that uses transitive dependencies
+extend_exclude = [
+  "scripts/",
+  "examples/",
+]
+
+# Ignore notebooks
+ignore_notebooks = true
+
+# These are legitimate dependencies used as CLI tools, not imports
+known_first_party = ["ethnicolr"]
+
+# Tell deptry these are dev dependency groups (won't be flagged as unused)
+pep621_dev_dependency_groups = ["test", "dev", "docs"]
+
+# Map package names to module names
+package_module_name_map = { tensorflow-intel = "tensorflow" }
+
+# Only ignore truly exceptional cases that can't be categorized above
+per_rule_ignores = { DEP002 = [
+  "tensorflow-intel",   # Platform-specific runtime dependency (Windows only)
+  "protobuf",          # TensorFlow runtime dependency
+  "typing-extensions"   # Runtime compatibility shim
+] }

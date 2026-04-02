@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from plato.agents.runtime.dev import build_agent_install_command
+from plato.agents.runtime.install import build_agent_install_command, build_editable_sdk_install_command
 from plato.utils.pypi_index import plato_token_simple_index, redact_pypi_token_credential
 
 
@@ -52,3 +52,12 @@ class TestAgentInstallCommandIndexOrder:
         monkeypatch.setenv("PLATO_API_KEY", "pk_test")
         cmd = build_agent_install_command("claude-code", "3.0.22")
         assert "--extra-index-url" not in cmd
+
+
+def test_build_editable_sdk_install_command_includes_sdk_and_agent(monkeypatch):
+    monkeypatch.setenv("PLATO_API_KEY", "pk_test")
+    cmd = build_editable_sdk_install_command("claude-code", "3.1.4")
+    assert "uv tool install -e /sdk --python 3.12" in cmd
+    assert "--with 'claude-code==3.1.4'" in cmd
+    assert "--default-index" in cmd
+    assert "--index" in cmd

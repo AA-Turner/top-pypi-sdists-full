@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2018, Mathias Laurin
+
+"""A ring buffer.
+
+See Also:
+    https://github.com/dhess/c-ringbuf/
+
+"""
+
+
+cdef struct ring_buffer_ctx:
+    unsigned char *buf
+    unsigned char *head
+    unsigned char *tail
+    size_t _size
+
+
+cdef c_init(ring_buffer_ctx *, size_t)
+cdef void c_free(ring_buffer_ctx *) noexcept nogil
+cdef void c_clear(ring_buffer_ctx *) noexcept nogil
+cdef size_t c_capacity(ring_buffer_ctx *) noexcept nogil
+cdef size_t c_len(ring_buffer_ctx *) noexcept nogil
+cdef c_peek(ring_buffer_ctx *, size_t)
+cdef size_t c_peekinto(ring_buffer_ctx *, unsigned char *, size_t) noexcept nogil
+cdef c_read(ring_buffer_ctx *, size_t)
+cdef size_t c_readinto(ring_buffer_ctx *, unsigned char *, size_t) noexcept nogil
+cdef size_t c_consume(ring_buffer_ctx *, size_t) noexcept nogil
+cdef size_t c_write(ring_buffer_ctx *, const unsigned char *, size_t) noexcept nogil
+
+
+cdef class RingBuffer:
+    cdef ring_buffer_ctx _ctx

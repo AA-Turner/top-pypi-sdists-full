@@ -13,8 +13,8 @@ from unittest.mock import AsyncMock
 import pytest
 
 from plato.agents.parallel import ParallelAgentOrchestrator, ParallelAgentResult
-from plato.agents.runtime.transport import GitPublishedRef, GitTransport
 from plato.runtime import VMRuntimeConfig
+from plato.transports import GitPublishedRef, GitTransport
 from plato.worlds.base import BaseWorld
 from plato.worlds.config import AgentConfig, GitTransportConfig
 from plato.worlds.workspace import Workspace

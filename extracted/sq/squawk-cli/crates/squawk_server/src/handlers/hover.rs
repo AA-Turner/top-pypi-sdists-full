@@ -3,15 +3,15 @@ use lsp_types::{Hover, HoverContents, HoverParams, LanguageString, MarkedString}
 use squawk_ide::db::line_index;
 use squawk_ide::hover::hover;
 
+use crate::global_state::Snapshot;
 use crate::lsp_utils;
-use crate::system::System;
 
-pub(crate) fn handle_hover(system: &dyn System, params: HoverParams) -> Result<Option<Hover>> {
+pub(crate) fn handle_hover(snapshot: &Snapshot, params: HoverParams) -> Result<Option<Hover>> {
     let uri = params.text_document_position_params.text_document.uri;
     let position = params.text_document_position_params.position;
 
-    let db = system.db();
-    let file = system.file(&uri).unwrap();
+    let db = snapshot.db();
+    let file = snapshot.file(&uri).unwrap();
     let line_index = line_index(db, file);
     let offset = lsp_utils::offset(&line_index, position).unwrap();
 

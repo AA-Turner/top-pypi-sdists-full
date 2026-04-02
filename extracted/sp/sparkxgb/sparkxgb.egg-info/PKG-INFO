@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: sparkxgb
+Version: 0.4
+Summary: sparkxgb module
+Home-page: 
+Author: unk
+Author-email: unk@gmail.com
+Requires-Dist: pyspark>=4.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: requires-dist
+Dynamic: summary

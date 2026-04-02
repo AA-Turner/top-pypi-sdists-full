@@ -1,0 +1,176 @@
+"""Tests for MCP transport actions (CallTool, SendMessage, UpdateContext, RequestDisplayMode)."""
+
+import types
+
+import pytest
+
+from prefab_ui.actions.mcp import (
+    CallTool,
+    RequestDisplayMode,
+    SendMessage,
+    UpdateContext,
+)
+from prefab_ui.app import PrefabApp, ResolvedTool, _tool_resolver
+from prefab_ui.components import Button
+
+
+class TestCallToolSerialization:
+    def test_positional(self):
+        a = CallTool("refresh")
+        d = a.model_dump()
+        assert d["action"] == "toolCall"
+        assert d["tool"] == "refresh"
+        assert d["arguments"] == {}
+
+    def test_with_args(self):
+        a = CallTool("search", arguments={"q": "{{ query }}"})
+        d = a.model_dump()
+        assert d["arguments"]["q"] == "{{ query }}"
+
+    def test_on_success_with_result(self):
+        from prefab_ui.actions.state import SetState
+        from prefab_ui.rx import RESULT
+
+        action = CallTool(
+            "search",
+            on_success=SetState("results", RESULT),
+        )
+        d = action.model_dump(by_alias=True, exclude_none=True)
+        assert d["onSuccess"]["action"] == "setState"
+        assert d["onSuccess"]["value"] == "{{ $result }}"
+
+
+class TestCallToolCallableRef:
+    """CallTool accepts callable function references for the tool argument."""
+
+    def _dummy_tool(self) -> dict[str, str]:
+        return {"status": "ok"}
+
+    def test_callable_serializes_to_name(self):
+        def save_contact(name: str) -> dict[str, str]:
+            return {"name": name}
+
+        a = CallTool(save_contact)
+        d = a.model_dump()
+        assert d["tool"] == "save_contact"
+
+    def test_callable_with_resolver(self):
+        def save_contact(name: str) -> dict[str, str]:
+            return {"name": name}
+
+        token = _tool_resolver.set(
+            lambda fn: ResolvedTool(name=f"{fn.__name__}-abc123")
+        )
+        try:
+            a = CallTool(save_contact)
+            d = a.model_dump()
+            assert d["tool"] == "save_contact-abc123"
+        finally:
+            _tool_resolver.reset(token)
+
+    def test_string_tool_unchanged(self):
+        a = CallTool("refresh")
+        d = a.model_dump()
+        assert d["tool"] == "refresh"
+
+    def test_callable_on_component(self):
+        def save_contact(name: str) -> dict[str, str]:
+            return {"name": name}
+
+        btn = Button(label="Save", on_click=CallTool(save_contact))
+        j = btn.to_json()
+        assert j["onClick"]["tool"] == "save_contact"
+
+    def test_callable_with_prefab_app(self):
+        def save_contact(name: str) -> dict[str, str]:
+            return {"name": name}
+
+        app = PrefabApp(
+            view=Button(
+                label="Save",
+                on_click=CallTool(save_contact),
+            ),
+        )
+
+        def resolver(fn: types.FunctionType) -> ResolvedTool:
+            return ResolvedTool(name=f"{fn.__name__}-resolved")
+
+        data = app.to_json(tool_resolver=resolver)
+        # view is wrapped in a Div with pf-app-root; the button is inside
+        button = data["view"]["children"][0]
+        assert button["onClick"]["tool"] == "save_contact-resolved"
+
+    def test_resolver_scoped_to_call(self):
+        """Resolver ContextVar resets after to_json() returns."""
+
+        def my_tool() -> None:
+            pass
+
+        def resolver(fn: object) -> ResolvedTool:
+            return ResolvedTool(name="resolved")
+
+        app = PrefabApp(
+            view=Button(label="Go", on_click=CallTool(my_tool)),
+        )
+        app.to_json(tool_resolver=resolver)
+
+        # After the call, the ContextVar should be reset
+        a = CallTool(my_tool)
+        d = a.model_dump()
+        assert d["tool"] == "my_tool"
+
+    def test_callable_with_arguments(self):
+        def search(query: str) -> list[str]:
+            return []
+
+        a = CallTool(search, arguments={"q": "{{ query }}"})
+        d = a.model_dump()
+        assert d["tool"] == "search"
+        assert d["arguments"]["q"] == "{{ query }}"
+
+    def test_callable_with_on_success(self):
+        from prefab_ui.actions.state import SetState
+        from prefab_ui.rx import RESULT
+
+        def search(query: str) -> list[str]:
+            return []
+
+        a = CallTool(search, on_success=SetState("results", RESULT))
+        d = a.model_dump(by_alias=True, exclude_none=True)
+        assert d["tool"] == "search"
+        assert d["onSuccess"]["action"] == "setState"
+        assert d["onSuccess"]["value"] == "{{ $result }}"
+
+
+class TestSendMessageSerialization:
+    def test_positional(self):
+        a = SendMessage("Summarize this")
+        d = a.model_dump()
+        assert d["action"] == "sendMessage"
+        assert d["content"] == "Summarize this"
+
+
+class TestUpdateContextSerialization:
+    def test_content(self):
+        a = UpdateContext(content="context text")
+        d = a.model_dump(by_alias=True, exclude_none=True)
+        assert d["action"] == "updateContext"
+        assert d["content"] == "context text"
+
+    def test_structured_content(self):
+        a = UpdateContext(structured_content={"key": "value"})
+        d = a.model_dump(by_alias=True, exclude_none=True)
+        assert d["structuredContent"] == {"key": "value"}
+
+
+class TestRequestDisplayModeSerialization:
+    def test_positional(self):
+        a = RequestDisplayMode("fullscreen")
+        d = a.model_dump()
+        assert d["action"] == "requestDisplayMode"
+        assert d["mode"] == "fullscreen"
+
+    @pytest.mark.parametrize("mode", ["inline", "fullscreen", "pip"])
+    def test_all_modes(self, mode: str):
+        a = RequestDisplayMode(mode)
+        assert a.model_dump()["mode"] == mode

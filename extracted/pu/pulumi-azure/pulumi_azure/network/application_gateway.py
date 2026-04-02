@@ -38,6 +38,7 @@ class ApplicationGatewayArgs:
                  firewall_policy_id: Optional[pulumi.Input[_builtins.str]] = None,
                  force_firewall_policy_association: Optional[pulumi.Input[_builtins.bool]] = None,
                  global_: Optional[pulumi.Input['ApplicationGatewayGlobalArgs']] = None,
+                 http2_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  identity: Optional[pulumi.Input['ApplicationGatewayIdentityArgs']] = None,
                  location: Optional[pulumi.Input[_builtins.str]] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -56,6 +57,7 @@ class ApplicationGatewayArgs:
                  zones: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a ApplicationGateway resource.
+
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayBackendAddressPoolArgs']]] backend_address_pools: One or more `backend_address_pool` blocks as defined below.
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayBackendHttpSettingArgs']]] backend_http_settings: One or more `backend_http_settings` blocks as defined below.
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayFrontendIpConfigurationArgs']]] frontend_ip_configurations: One or more `frontend_ip_configuration` blocks as defined below.
@@ -68,11 +70,11 @@ class ApplicationGatewayArgs:
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayAuthenticationCertificateArgs']]] authentication_certificates: One or more `authentication_certificate` blocks as defined below.
         :param pulumi.Input['ApplicationGatewayAutoscaleConfigurationArgs'] autoscale_configuration: An `autoscale_configuration` block as defined below.
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayCustomErrorConfigurationArgs']]] custom_error_configurations: One or more `custom_error_configuration` blocks as defined below.
-        :param pulumi.Input[_builtins.bool] enable_http2: Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
         :param pulumi.Input[_builtins.bool] fips_enabled: Is FIPS enabled on the Application Gateway?
         :param pulumi.Input[_builtins.str] firewall_policy_id: The ID of the Web Application Firewall Policy.
         :param pulumi.Input[_builtins.bool] force_firewall_policy_association: Is the Firewall Policy associated with the Application Gateway?
         :param pulumi.Input['ApplicationGatewayGlobalArgs'] global_: A `global` block as defined below.
+        :param pulumi.Input[_builtins.bool] http2_enabled: Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
         :param pulumi.Input['ApplicationGatewayIdentityArgs'] identity: An `identity` block as defined below.
         :param pulumi.Input[_builtins.str] location: The Azure region where the Application Gateway should exist. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] name: The name of the Application Gateway. Changing this forces a new resource to be created.
@@ -108,6 +110,9 @@ class ApplicationGatewayArgs:
         if custom_error_configurations is not None:
             pulumi.set(__self__, "custom_error_configurations", custom_error_configurations)
         if enable_http2 is not None:
+            warnings.warn("""the `enable_http2` property has been deprecated in favour of the `http2_enabled` property and will be removed in v5.0 of the AzureRM Provider""", DeprecationWarning)
+            pulumi.log.warn("""enable_http2 is deprecated: the `enable_http2` property has been deprecated in favour of the `http2_enabled` property and will be removed in v5.0 of the AzureRM Provider""")
+        if enable_http2 is not None:
             pulumi.set(__self__, "enable_http2", enable_http2)
         if fips_enabled is not None:
             pulumi.set(__self__, "fips_enabled", fips_enabled)
@@ -117,6 +122,8 @@ class ApplicationGatewayArgs:
             pulumi.set(__self__, "force_firewall_policy_association", force_firewall_policy_association)
         if global_ is not None:
             pulumi.set(__self__, "global_", global_)
+        if http2_enabled is not None:
+            pulumi.set(__self__, "http2_enabled", http2_enabled)
         if identity is not None:
             pulumi.set(__self__, "identity", identity)
         if location is not None:
@@ -296,10 +303,8 @@ class ApplicationGatewayArgs:
 
     @_builtins.property
     @pulumi.getter(name="enableHttp2")
+    @_utilities.deprecated("""the `enable_http2` property has been deprecated in favour of the `http2_enabled` property and will be removed in v5.0 of the AzureRM Provider""")
     def enable_http2(self) -> Optional[pulumi.Input[_builtins.bool]]:
-        """
-        Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
-        """
         return pulumi.get(self, "enable_http2")
 
     @enable_http2.setter
@@ -353,6 +358,18 @@ class ApplicationGatewayArgs:
     @global_.setter
     def global_(self, value: Optional[pulumi.Input['ApplicationGatewayGlobalArgs']]):
         pulumi.set(self, "global_", value)
+
+    @_builtins.property
+    @pulumi.getter(name="http2Enabled")
+    def http2_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
+        """
+        return pulumi.get(self, "http2_enabled")
+
+    @http2_enabled.setter
+    def http2_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "http2_enabled", value)
 
     @_builtins.property
     @pulumi.getter
@@ -565,6 +582,7 @@ class _ApplicationGatewayState:
                  frontend_ports: Optional[pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayFrontendPortArgs']]]] = None,
                  gateway_ip_configurations: Optional[pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayGatewayIpConfigurationArgs']]]] = None,
                  global_: Optional[pulumi.Input['ApplicationGatewayGlobalArgs']] = None,
+                 http2_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  http_listeners: Optional[pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayHttpListenerArgs']]]] = None,
                  identity: Optional[pulumi.Input['ApplicationGatewayIdentityArgs']] = None,
                  location: Optional[pulumi.Input[_builtins.str]] = None,
@@ -588,12 +606,12 @@ class _ApplicationGatewayState:
                  zones: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering ApplicationGateway resources.
+
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayAuthenticationCertificateArgs']]] authentication_certificates: One or more `authentication_certificate` blocks as defined below.
         :param pulumi.Input['ApplicationGatewayAutoscaleConfigurationArgs'] autoscale_configuration: An `autoscale_configuration` block as defined below.
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayBackendAddressPoolArgs']]] backend_address_pools: One or more `backend_address_pool` blocks as defined below.
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayBackendHttpSettingArgs']]] backend_http_settings: One or more `backend_http_settings` blocks as defined below.
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayCustomErrorConfigurationArgs']]] custom_error_configurations: One or more `custom_error_configuration` blocks as defined below.
-        :param pulumi.Input[_builtins.bool] enable_http2: Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
         :param pulumi.Input[_builtins.bool] fips_enabled: Is FIPS enabled on the Application Gateway?
         :param pulumi.Input[_builtins.str] firewall_policy_id: The ID of the Web Application Firewall Policy.
         :param pulumi.Input[_builtins.bool] force_firewall_policy_association: Is the Firewall Policy associated with the Application Gateway?
@@ -601,6 +619,7 @@ class _ApplicationGatewayState:
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayFrontendPortArgs']]] frontend_ports: One or more `frontend_port` blocks as defined below.
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayGatewayIpConfigurationArgs']]] gateway_ip_configurations: One or more `gateway_ip_configuration` blocks as defined below.
         :param pulumi.Input['ApplicationGatewayGlobalArgs'] global_: A `global` block as defined below.
+        :param pulumi.Input[_builtins.bool] http2_enabled: Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
         :param pulumi.Input[Sequence[pulumi.Input['ApplicationGatewayHttpListenerArgs']]] http_listeners: One or more `http_listener` blocks as defined below.
         :param pulumi.Input['ApplicationGatewayIdentityArgs'] identity: An `identity` block as defined below.
         :param pulumi.Input[_builtins.str] location: The Azure region where the Application Gateway should exist. Changing this forces a new resource to be created.
@@ -636,6 +655,9 @@ class _ApplicationGatewayState:
         if custom_error_configurations is not None:
             pulumi.set(__self__, "custom_error_configurations", custom_error_configurations)
         if enable_http2 is not None:
+            warnings.warn("""the `enable_http2` property has been deprecated in favour of the `http2_enabled` property and will be removed in v5.0 of the AzureRM Provider""", DeprecationWarning)
+            pulumi.log.warn("""enable_http2 is deprecated: the `enable_http2` property has been deprecated in favour of the `http2_enabled` property and will be removed in v5.0 of the AzureRM Provider""")
+        if enable_http2 is not None:
             pulumi.set(__self__, "enable_http2", enable_http2)
         if fips_enabled is not None:
             pulumi.set(__self__, "fips_enabled", fips_enabled)
@@ -651,6 +673,8 @@ class _ApplicationGatewayState:
             pulumi.set(__self__, "gateway_ip_configurations", gateway_ip_configurations)
         if global_ is not None:
             pulumi.set(__self__, "global_", global_)
+        if http2_enabled is not None:
+            pulumi.set(__self__, "http2_enabled", http2_enabled)
         if http_listeners is not None:
             pulumi.set(__self__, "http_listeners", http_listeners)
         if identity is not None:
@@ -756,10 +780,8 @@ class _ApplicationGatewayState:
 
     @_builtins.property
     @pulumi.getter(name="enableHttp2")
+    @_utilities.deprecated("""the `enable_http2` property has been deprecated in favour of the `http2_enabled` property and will be removed in v5.0 of the AzureRM Provider""")
     def enable_http2(self) -> Optional[pulumi.Input[_builtins.bool]]:
-        """
-        Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
-        """
         return pulumi.get(self, "enable_http2")
 
     @enable_http2.setter
@@ -849,6 +871,18 @@ class _ApplicationGatewayState:
     @global_.setter
     def global_(self, value: Optional[pulumi.Input['ApplicationGatewayGlobalArgs']]):
         pulumi.set(self, "global_", value)
+
+    @_builtins.property
+    @pulumi.getter(name="http2Enabled")
+    def http2_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
+        """
+        return pulumi.get(self, "http2_enabled")
+
+    @http2_enabled.setter
+    def http2_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "http2_enabled", value)
 
     @_builtins.property
     @pulumi.getter(name="httpListeners")
@@ -1124,6 +1158,7 @@ class ApplicationGateway(pulumi.CustomResource):
                  frontend_ports: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayFrontendPortArgs', 'ApplicationGatewayFrontendPortArgsDict']]]]] = None,
                  gateway_ip_configurations: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayGatewayIpConfigurationArgs', 'ApplicationGatewayGatewayIpConfigurationArgsDict']]]]] = None,
                  global_: Optional[pulumi.Input[Union['ApplicationGatewayGlobalArgs', 'ApplicationGatewayGlobalArgsDict']]] = None,
+                 http2_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  http_listeners: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayHttpListenerArgs', 'ApplicationGatewayHttpListenerArgsDict']]]]] = None,
                  identity: Optional[pulumi.Input[Union['ApplicationGatewayIdentityArgs', 'ApplicationGatewayIdentityArgsDict']]] = None,
                  location: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1247,6 +1282,7 @@ class ApplicationGateway(pulumi.CustomResource):
         $ pulumi import azure:network/applicationGateway:ApplicationGateway example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mygroup1/providers/Microsoft.Network/applicationGateways/myGateway1
         ```
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayAuthenticationCertificateArgs', 'ApplicationGatewayAuthenticationCertificateArgsDict']]]] authentication_certificates: One or more `authentication_certificate` blocks as defined below.
@@ -1254,7 +1290,6 @@ class ApplicationGateway(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayBackendAddressPoolArgs', 'ApplicationGatewayBackendAddressPoolArgsDict']]]] backend_address_pools: One or more `backend_address_pool` blocks as defined below.
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayBackendHttpSettingArgs', 'ApplicationGatewayBackendHttpSettingArgsDict']]]] backend_http_settings: One or more `backend_http_settings` blocks as defined below.
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayCustomErrorConfigurationArgs', 'ApplicationGatewayCustomErrorConfigurationArgsDict']]]] custom_error_configurations: One or more `custom_error_configuration` blocks as defined below.
-        :param pulumi.Input[_builtins.bool] enable_http2: Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
         :param pulumi.Input[_builtins.bool] fips_enabled: Is FIPS enabled on the Application Gateway?
         :param pulumi.Input[_builtins.str] firewall_policy_id: The ID of the Web Application Firewall Policy.
         :param pulumi.Input[_builtins.bool] force_firewall_policy_association: Is the Firewall Policy associated with the Application Gateway?
@@ -1262,6 +1297,7 @@ class ApplicationGateway(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayFrontendPortArgs', 'ApplicationGatewayFrontendPortArgsDict']]]] frontend_ports: One or more `frontend_port` blocks as defined below.
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayGatewayIpConfigurationArgs', 'ApplicationGatewayGatewayIpConfigurationArgsDict']]]] gateway_ip_configurations: One or more `gateway_ip_configuration` blocks as defined below.
         :param pulumi.Input[Union['ApplicationGatewayGlobalArgs', 'ApplicationGatewayGlobalArgsDict']] global_: A `global` block as defined below.
+        :param pulumi.Input[_builtins.bool] http2_enabled: Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayHttpListenerArgs', 'ApplicationGatewayHttpListenerArgsDict']]]] http_listeners: One or more `http_listener` blocks as defined below.
         :param pulumi.Input[Union['ApplicationGatewayIdentityArgs', 'ApplicationGatewayIdentityArgsDict']] identity: An `identity` block as defined below.
         :param pulumi.Input[_builtins.str] location: The Azure region where the Application Gateway should exist. Changing this forces a new resource to be created.
@@ -1393,6 +1429,7 @@ class ApplicationGateway(pulumi.CustomResource):
         $ pulumi import azure:network/applicationGateway:ApplicationGateway example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mygroup1/providers/Microsoft.Network/applicationGateways/myGateway1
         ```
 
+
         :param str resource_name: The name of the resource.
         :param ApplicationGatewayArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -1421,6 +1458,7 @@ class ApplicationGateway(pulumi.CustomResource):
                  frontend_ports: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayFrontendPortArgs', 'ApplicationGatewayFrontendPortArgsDict']]]]] = None,
                  gateway_ip_configurations: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayGatewayIpConfigurationArgs', 'ApplicationGatewayGatewayIpConfigurationArgsDict']]]]] = None,
                  global_: Optional[pulumi.Input[Union['ApplicationGatewayGlobalArgs', 'ApplicationGatewayGlobalArgsDict']]] = None,
+                 http2_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  http_listeners: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayHttpListenerArgs', 'ApplicationGatewayHttpListenerArgsDict']]]]] = None,
                  identity: Optional[pulumi.Input[Union['ApplicationGatewayIdentityArgs', 'ApplicationGatewayIdentityArgsDict']]] = None,
                  location: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1473,6 +1511,7 @@ class ApplicationGateway(pulumi.CustomResource):
                 raise TypeError("Missing required property 'gateway_ip_configurations'")
             __props__.__dict__["gateway_ip_configurations"] = gateway_ip_configurations
             __props__.__dict__["global_"] = global_
+            __props__.__dict__["http2_enabled"] = http2_enabled
             if http_listeners is None and not opts.urn:
                 raise TypeError("Missing required property 'http_listeners'")
             __props__.__dict__["http_listeners"] = http_listeners
@@ -1525,6 +1564,7 @@ class ApplicationGateway(pulumi.CustomResource):
             frontend_ports: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayFrontendPortArgs', 'ApplicationGatewayFrontendPortArgsDict']]]]] = None,
             gateway_ip_configurations: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayGatewayIpConfigurationArgs', 'ApplicationGatewayGatewayIpConfigurationArgsDict']]]]] = None,
             global_: Optional[pulumi.Input[Union['ApplicationGatewayGlobalArgs', 'ApplicationGatewayGlobalArgsDict']]] = None,
+            http2_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
             http_listeners: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayHttpListenerArgs', 'ApplicationGatewayHttpListenerArgsDict']]]]] = None,
             identity: Optional[pulumi.Input[Union['ApplicationGatewayIdentityArgs', 'ApplicationGatewayIdentityArgsDict']]] = None,
             location: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1558,7 +1598,6 @@ class ApplicationGateway(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayBackendAddressPoolArgs', 'ApplicationGatewayBackendAddressPoolArgsDict']]]] backend_address_pools: One or more `backend_address_pool` blocks as defined below.
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayBackendHttpSettingArgs', 'ApplicationGatewayBackendHttpSettingArgsDict']]]] backend_http_settings: One or more `backend_http_settings` blocks as defined below.
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayCustomErrorConfigurationArgs', 'ApplicationGatewayCustomErrorConfigurationArgsDict']]]] custom_error_configurations: One or more `custom_error_configuration` blocks as defined below.
-        :param pulumi.Input[_builtins.bool] enable_http2: Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
         :param pulumi.Input[_builtins.bool] fips_enabled: Is FIPS enabled on the Application Gateway?
         :param pulumi.Input[_builtins.str] firewall_policy_id: The ID of the Web Application Firewall Policy.
         :param pulumi.Input[_builtins.bool] force_firewall_policy_association: Is the Firewall Policy associated with the Application Gateway?
@@ -1566,6 +1605,7 @@ class ApplicationGateway(pulumi.CustomResource):
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayFrontendPortArgs', 'ApplicationGatewayFrontendPortArgsDict']]]] frontend_ports: One or more `frontend_port` blocks as defined below.
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayGatewayIpConfigurationArgs', 'ApplicationGatewayGatewayIpConfigurationArgsDict']]]] gateway_ip_configurations: One or more `gateway_ip_configuration` blocks as defined below.
         :param pulumi.Input[Union['ApplicationGatewayGlobalArgs', 'ApplicationGatewayGlobalArgsDict']] global_: A `global` block as defined below.
+        :param pulumi.Input[_builtins.bool] http2_enabled: Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
         :param pulumi.Input[Sequence[pulumi.Input[Union['ApplicationGatewayHttpListenerArgs', 'ApplicationGatewayHttpListenerArgsDict']]]] http_listeners: One or more `http_listener` blocks as defined below.
         :param pulumi.Input[Union['ApplicationGatewayIdentityArgs', 'ApplicationGatewayIdentityArgsDict']] identity: An `identity` block as defined below.
         :param pulumi.Input[_builtins.str] location: The Azure region where the Application Gateway should exist. Changing this forces a new resource to be created.
@@ -1607,6 +1647,7 @@ class ApplicationGateway(pulumi.CustomResource):
         __props__.__dict__["frontend_ports"] = frontend_ports
         __props__.__dict__["gateway_ip_configurations"] = gateway_ip_configurations
         __props__.__dict__["global_"] = global_
+        __props__.__dict__["http2_enabled"] = http2_enabled
         __props__.__dict__["http_listeners"] = http_listeners
         __props__.__dict__["identity"] = identity
         __props__.__dict__["location"] = location
@@ -1672,10 +1713,8 @@ class ApplicationGateway(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="enableHttp2")
-    def enable_http2(self) -> pulumi.Output[Optional[_builtins.bool]]:
-        """
-        Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
-        """
+    @_utilities.deprecated("""the `enable_http2` property has been deprecated in favour of the `http2_enabled` property and will be removed in v5.0 of the AzureRM Provider""")
+    def enable_http2(self) -> pulumi.Output[_builtins.bool]:
         return pulumi.get(self, "enable_http2")
 
     @_builtins.property
@@ -1733,6 +1772,14 @@ class ApplicationGateway(pulumi.CustomResource):
         A `global` block as defined below.
         """
         return pulumi.get(self, "global_")
+
+    @_builtins.property
+    @pulumi.getter(name="http2Enabled")
+    def http2_enabled(self) -> pulumi.Output[_builtins.bool]:
+        """
+        Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
+        """
+        return pulumi.get(self, "http2_enabled")
 
     @_builtins.property
     @pulumi.getter(name="httpListeners")

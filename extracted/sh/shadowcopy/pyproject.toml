@@ -1,0 +1,40 @@
+[project]
+name = "shadowcopy"
+description = "A project for shadowcopy"
+dynamic = ["version"]
+authors = [{name = "csm10495", email = "csm10495@gmail.com"}]
+license = {text = "MIT License"}
+classifiers = [
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.7"
+dependencies = ["wmi"]
+
+[project.urls]
+homepage = "https://github.com/csm10495/shadowcopy"
+repository = "https://github.com/csm10495/shadowcopy"
+documentation  = "https://csm10495.github.io/shadowcopy"
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[tool.setuptools]
+packages = ["shadowcopy"]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "shadowcopy.__version__"}
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "."
+]
+
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"

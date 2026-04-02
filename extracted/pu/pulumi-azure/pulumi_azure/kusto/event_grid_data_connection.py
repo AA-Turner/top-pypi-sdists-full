@@ -39,6 +39,7 @@ class EventGridDataConnectionArgs:
                  table_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a EventGridDataConnection resource.
+
         :param pulumi.Input[_builtins.str] cluster_name: Specifies the name of the Kusto Cluster this data connection will be added to. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] database_name: Specifies the name of the Kusto Database this data connection will be added to. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] eventhub_consumer_group_name: Specifies the Event Hub consumer group this data connection will use for ingestion. Changing this forces a new resource to be created.
@@ -329,6 +330,7 @@ class _EventGridDataConnectionState:
                  table_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering EventGridDataConnection resources.
+
         :param pulumi.Input[_builtins.str] blob_storage_event_type: Specifies the blob storage event type that needs to be processed. Possible Values are `Microsoft.Storage.BlobCreated` and `Microsoft.Storage.BlobRenamed`. Defaults to `Microsoft.Storage.BlobCreated`.
         :param pulumi.Input[_builtins.str] cluster_name: Specifies the name of the Kusto Cluster this data connection will be added to. Changing this forces a new resource to be created.
         :param pulumi.Input[_builtins.str] data_format: Specifies the data format of the EventHub messages. Allowed values: `APACHEAVRO`, `AVRO`, `CSV`, `JSON`, `MULTIJSON`, `ORC`, `PARQUET`, `PSV`, `RAW`, `SCSV`, `SINGLEJSON`, `SOHSV`, `TSV`, `TSVE`, `TXT` and `W3CLOGFILE`.
@@ -667,8 +669,7 @@ class EventGridDataConnection(pulumi.CustomResource):
             sku="Standard")
         example_event_hub = azure.eventhub.EventHub("example",
             name="eventhub-example",
-            namespace_name=example_event_hub_namespace.name,
-            resource_group_name=example.name,
+            namespace_id=example_event_hub_namespace.id,
             partition_count=1,
             message_retention=1)
         example_consumer_group = azure.eventhub.ConsumerGroup("example",
@@ -718,6 +719,7 @@ class EventGridDataConnection(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:kusto/eventGridDataConnection:EventGridDataConnection example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.Kusto/clusters/cluster1/databases/database1/dataConnections/dataConnection1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -784,8 +786,7 @@ class EventGridDataConnection(pulumi.CustomResource):
             sku="Standard")
         example_event_hub = azure.eventhub.EventHub("example",
             name="eventhub-example",
-            namespace_name=example_event_hub_namespace.name,
-            resource_group_name=example.name,
+            namespace_id=example_event_hub_namespace.id,
             partition_count=1,
             message_retention=1)
         example_consumer_group = azure.eventhub.ConsumerGroup("example",
@@ -835,6 +836,7 @@ class EventGridDataConnection(pulumi.CustomResource):
         ```sh
         $ pulumi import azure:kusto/eventGridDataConnection:EventGridDataConnection example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.Kusto/clusters/cluster1/databases/database1/dataConnections/dataConnection1
         ```
+
 
         :param str resource_name: The name of the resource.
         :param EventGridDataConnectionArgs args: The arguments to use to populate this resource's properties.

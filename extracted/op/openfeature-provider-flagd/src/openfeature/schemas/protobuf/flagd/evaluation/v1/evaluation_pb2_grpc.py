@@ -5,7 +5,7 @@ import warnings
 
 from openfeature.schemas.protobuf.flagd.evaluation.v1 import evaluation_pb2 as openfeature_dot_schemas_dot_protobuf_dot_flagd_dot_evaluation_dot_v1_dot_evaluation__pb2
 
-GRPC_GENERATED_VERSION = '1.78.0'
+GRPC_GENERATED_VERSION = '1.80.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 

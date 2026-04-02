@@ -1,0 +1,26 @@
+name: task_test_skill
+author: fetchai
+version: 0.1.0
+type: skill
+description: Skill with simple task to run.
+license: Apache-2.0
+aea_version: '>=2.0.0, <3.0.0'
+fingerprint:
+  README.md: bafybeie2x4d7ucozkyvwb6idwtgizuyufbmbghv3x3io2gaff5t7ue5egu
+  __init__.py: bafybeidmfbrmrnnruyb3lalt2ukyqby23pileuidkq44yteenqpgw3uhfq
+  behaviours.py: bafybeif7erac27bb2daf6htnfewjjizgbz4lckkp2buwxuncokadurlqma
+  tasks.py: bafybeihdct6yihfi7vpsdncgfci5btqyzff3p7zgsfmqs2ytmumajkvk2i
+fingerprint_ignore_patterns: []
+connections: []
+contracts: []
+protocols: []
+skills: []
+behaviours:
+  task:
+    args:
+      tick_interval: 3.0
+    class_name: TaskBehaviour
+handlers: {}
+models: {}
+dependencies: {}
+is_abstract: false
