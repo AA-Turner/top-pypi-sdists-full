@@ -1,4 +1,4 @@
-# Copyright (c) 2006-2021  Andrey Golovizin
+# Copyright (c) 2006-2026  Andrey Golovizin
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -25,8 +25,8 @@ from difflib import unified_diff
 
 
 def diff(src, dst):
-    return '\n'.join(unified_diff(src.splitlines(), dst.splitlines()))
+    return "\n".join(unified_diff(src.splitlines(), dst.splitlines()))
 
 
-def get_data(filename, package='tests.data'):
-    return pkgutil.get_data(package, filename).decode('UTF-8')
+def get_data(filename, package="tests.data"):
+    return pkgutil.get_data(package, filename).decode("UTF-8")

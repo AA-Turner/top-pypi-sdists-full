@@ -28,6 +28,7 @@ from .literals import (
     BlueprintOptimizationJobStatusType,
     BlueprintStageFilterType,
     BlueprintStageType,
+    DataAutomationLibraryStatusType,
     DataAutomationProjectStageFilterType,
     DataAutomationProjectStageType,
     DataAutomationProjectStatusType,
@@ -38,6 +39,8 @@ from .literals import (
     ImageExtractionCategoryTypeType,
     ImageStandardGenerativeFieldTypeType,
     LanguageType,
+    LibraryIngestionJobOperationTypeType,
+    LibraryIngestionJobStatusType,
     PIIEntityTypeType,
     PIIRedactionMaskModeType,
     ResourceOwnerType,
@@ -50,9 +53,9 @@ from .literals import (
 )
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
     "AudioExtractionCategoryOutputTypeDef",
@@ -81,17 +84,32 @@ __all__ = (
     "CreateBlueprintResponseTypeDef",
     "CreateBlueprintVersionRequestTypeDef",
     "CreateBlueprintVersionResponseTypeDef",
+    "CreateDataAutomationLibraryRequestTypeDef",
+    "CreateDataAutomationLibraryResponseTypeDef",
     "CreateDataAutomationProjectRequestTypeDef",
     "CreateDataAutomationProjectResponseTypeDef",
     "CustomOutputConfigurationOutputTypeDef",
     "CustomOutputConfigurationTypeDef",
     "CustomOutputConfigurationUnionTypeDef",
+    "DataAutomationLibraryConfigurationOutputTypeDef",
+    "DataAutomationLibraryConfigurationTypeDef",
+    "DataAutomationLibraryConfigurationUnionTypeDef",
+    "DataAutomationLibraryEntitySummaryTypeDef",
+    "DataAutomationLibraryFilterTypeDef",
+    "DataAutomationLibraryIngestionJobSummaryTypeDef",
+    "DataAutomationLibraryIngestionJobTypeDef",
+    "DataAutomationLibraryItemTypeDef",
+    "DataAutomationLibrarySummaryTypeDef",
+    "DataAutomationLibraryTypeDef",
     "DataAutomationProjectFilterTypeDef",
     "DataAutomationProjectSummaryTypeDef",
     "DataAutomationProjectTypeDef",
     "DeleteBlueprintRequestTypeDef",
+    "DeleteDataAutomationLibraryRequestTypeDef",
+    "DeleteDataAutomationLibraryResponseTypeDef",
     "DeleteDataAutomationProjectRequestTypeDef",
     "DeleteDataAutomationProjectResponseTypeDef",
+    "DeleteEntitiesInfoTypeDef",
     "DocumentBoundingBoxTypeDef",
     "DocumentExtractionGranularityOutputTypeDef",
     "DocumentExtractionGranularityTypeDef",
@@ -108,10 +126,19 @@ __all__ = (
     "DocumentStandardOutputConfigurationOutputTypeDef",
     "DocumentStandardOutputConfigurationTypeDef",
     "EncryptionConfigurationTypeDef",
+    "EntityDetailsTypeDef",
+    "EntityTypeInfoTypeDef",
+    "EventBridgeConfigurationTypeDef",
     "GetBlueprintOptimizationStatusRequestTypeDef",
     "GetBlueprintOptimizationStatusResponseTypeDef",
     "GetBlueprintRequestTypeDef",
     "GetBlueprintResponseTypeDef",
+    "GetDataAutomationLibraryEntityRequestTypeDef",
+    "GetDataAutomationLibraryEntityResponseTypeDef",
+    "GetDataAutomationLibraryIngestionJobRequestTypeDef",
+    "GetDataAutomationLibraryIngestionJobResponseTypeDef",
+    "GetDataAutomationLibraryRequestTypeDef",
+    "GetDataAutomationLibraryResponseTypeDef",
     "GetDataAutomationProjectRequestTypeDef",
     "GetDataAutomationProjectResponseTypeDef",
     "ImageBoundingBoxTypeDef",
@@ -125,11 +152,24 @@ __all__ = (
     "ImageStandardGenerativeFieldTypeDef",
     "ImageStandardOutputConfigurationOutputTypeDef",
     "ImageStandardOutputConfigurationTypeDef",
+    "InlinePayloadTypeDef",
+    "InputConfigurationTypeDef",
     "InvokeBlueprintOptimizationAsyncRequestTypeDef",
     "InvokeBlueprintOptimizationAsyncResponseTypeDef",
+    "InvokeDataAutomationLibraryIngestionJobRequestTypeDef",
+    "InvokeDataAutomationLibraryIngestionJobResponseTypeDef",
     "ListBlueprintsRequestPaginateTypeDef",
     "ListBlueprintsRequestTypeDef",
     "ListBlueprintsResponseTypeDef",
+    "ListDataAutomationLibrariesRequestPaginateTypeDef",
+    "ListDataAutomationLibrariesRequestTypeDef",
+    "ListDataAutomationLibrariesResponseTypeDef",
+    "ListDataAutomationLibraryEntitiesRequestPaginateTypeDef",
+    "ListDataAutomationLibraryEntitiesRequestTypeDef",
+    "ListDataAutomationLibraryEntitiesResponseTypeDef",
+    "ListDataAutomationLibraryIngestionJobsRequestPaginateTypeDef",
+    "ListDataAutomationLibraryIngestionJobsRequestTypeDef",
+    "ListDataAutomationLibraryIngestionJobsResponseTypeDef",
     "ListDataAutomationProjectsRequestPaginateTypeDef",
     "ListDataAutomationProjectsRequestTypeDef",
     "ListDataAutomationProjectsResponseTypeDef",
@@ -137,12 +177,15 @@ __all__ = (
     "ListTagsForResourceResponseTypeDef",
     "ModalityProcessingConfigurationTypeDef",
     "ModalityRoutingConfigurationTypeDef",
+    "NotificationConfigurationTypeDef",
+    "OutputConfigurationTypeDef",
     "OverrideConfigurationOutputTypeDef",
     "OverrideConfigurationTypeDef",
     "OverrideConfigurationUnionTypeDef",
     "PIIEntitiesConfigurationOutputTypeDef",
     "PIIEntitiesConfigurationTypeDef",
     "PaginatorConfigTypeDef",
+    "PhraseTypeDef",
     "ResponseMetadataTypeDef",
     "S3ObjectTypeDef",
     "SensitiveDataConfigurationOutputTypeDef",
@@ -158,8 +201,11 @@ __all__ = (
     "UntagResourceRequestTypeDef",
     "UpdateBlueprintRequestTypeDef",
     "UpdateBlueprintResponseTypeDef",
+    "UpdateDataAutomationLibraryRequestTypeDef",
+    "UpdateDataAutomationLibraryResponseTypeDef",
     "UpdateDataAutomationProjectRequestTypeDef",
     "UpdateDataAutomationProjectResponseTypeDef",
+    "UpsertEntityInfoTypeDef",
     "VideoBoundingBoxTypeDef",
     "VideoExtractionCategoryOutputTypeDef",
     "VideoExtractionCategoryTypeDef",
@@ -171,6 +217,9 @@ __all__ = (
     "VideoStandardGenerativeFieldTypeDef",
     "VideoStandardOutputConfigurationOutputTypeDef",
     "VideoStandardOutputConfigurationTypeDef",
+    "VocabularyEntityInfoTypeDef",
+    "VocabularyEntitySummaryTypeDef",
+    "VocabularyEntityTypeDef",
 )
 
 class AudioLanguageConfigurationOutputTypeDef(TypedDict):
@@ -255,6 +304,39 @@ class CreateBlueprintVersionRequestTypeDef(TypedDict):
     blueprintArn: str
     clientToken: NotRequired[str]
 
+class DataAutomationLibraryItemTypeDef(TypedDict):
+    libraryArn: str
+
+class VocabularyEntitySummaryTypeDef(TypedDict):
+    entityId: NotRequired[str]
+    description: NotRequired[str]
+    language: NotRequired[LanguageType]
+    numOfPhrases: NotRequired[int]
+    lastModifiedTime: NotRequired[datetime]
+
+class DataAutomationLibraryFilterTypeDef(TypedDict):
+    libraryArn: str
+
+class DataAutomationLibraryIngestionJobSummaryTypeDef(TypedDict):
+    jobArn: str
+    jobStatus: LibraryIngestionJobStatusType
+    entityType: Literal["VOCABULARY"]
+    operationType: LibraryIngestionJobOperationTypeType
+    creationTime: datetime
+    completionTime: NotRequired[datetime]
+
+class OutputConfigurationTypeDef(TypedDict):
+    s3Uri: str
+
+class DataAutomationLibrarySummaryTypeDef(TypedDict):
+    libraryArn: str
+    creationTime: datetime
+    libraryName: NotRequired[str]
+
+class EntityTypeInfoTypeDef(TypedDict):
+    entityType: Literal["VOCABULARY"]
+    entityMetadata: NotRequired[str]
+
 class DataAutomationProjectFilterTypeDef(TypedDict):
     projectArn: str
     projectStage: NotRequired[DataAutomationProjectStageType]
@@ -270,8 +352,14 @@ class DeleteBlueprintRequestTypeDef(TypedDict):
     blueprintArn: str
     blueprintVersion: NotRequired[str]
 
+class DeleteDataAutomationLibraryRequestTypeDef(TypedDict):
+    libraryArn: str
+
 class DeleteDataAutomationProjectRequestTypeDef(TypedDict):
     projectArn: str
+
+class DeleteEntitiesInfoTypeDef(TypedDict):
+    entityIds: Sequence[str]
 
 class DocumentBoundingBoxTypeDef(TypedDict):
     state: StateType
@@ -311,6 +399,9 @@ class SplitterConfigurationTypeDef(TypedDict):
 class DocumentStandardGenerativeFieldTypeDef(TypedDict):
     state: StateType
 
+class EventBridgeConfigurationTypeDef(TypedDict):
+    eventBridgeEnabled: bool
+
 class GetBlueprintOptimizationStatusRequestTypeDef(TypedDict):
     invocationArn: str
 
@@ -318,6 +409,18 @@ class GetBlueprintRequestTypeDef(TypedDict):
     blueprintArn: str
     blueprintVersion: NotRequired[str]
     blueprintStage: NotRequired[BlueprintStageType]
+
+class GetDataAutomationLibraryEntityRequestTypeDef(TypedDict):
+    libraryArn: str
+    entityType: Literal["VOCABULARY"]
+    entityId: str
+
+class GetDataAutomationLibraryIngestionJobRequestTypeDef(TypedDict):
+    libraryArn: str
+    jobArn: str
+
+class GetDataAutomationLibraryRequestTypeDef(TypedDict):
+    libraryArn: str
 
 class GetDataAutomationProjectRequestTypeDef(TypedDict):
     projectArn: str
@@ -360,6 +463,17 @@ class PaginatorConfigTypeDef(TypedDict):
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
 
+class ListDataAutomationLibraryEntitiesRequestTypeDef(TypedDict):
+    libraryArn: str
+    entityType: Literal["VOCABULARY"]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListDataAutomationLibraryIngestionJobsRequestTypeDef(TypedDict):
+    libraryArn: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceARN: str
 
@@ -377,12 +491,21 @@ class PIIEntitiesConfigurationTypeDef(TypedDict):
     piiEntityTypes: NotRequired[Sequence[PIIEntityTypeType]]
     redactionMaskMode: NotRequired[PIIRedactionMaskModeType]
 
+class PhraseTypeDef(TypedDict):
+    text: str
+    displayAsText: NotRequired[str]
+
 class SpeakerLabelingConfigurationTypeDef(TypedDict):
     state: StateType
 
 class UntagResourceRequestTypeDef(TypedDict):
     resourceARN: str
     tagKeys: Sequence[str]
+
+class UpdateDataAutomationLibraryRequestTypeDef(TypedDict):
+    libraryArn: str
+    libraryDescription: NotRequired[str]
+    clientToken: NotRequired[str]
 
 class VideoBoundingBoxTypeDef(TypedDict):
     state: StateType
@@ -416,13 +539,6 @@ VideoStandardGenerativeFieldTypeDef = TypedDict(
     },
 )
 
-class ListDataAutomationProjectsRequestTypeDef(TypedDict):
-    maxResults: NotRequired[int]
-    nextToken: NotRequired[str]
-    projectStageFilter: NotRequired[DataAutomationProjectStageFilterType]
-    blueprintFilter: NotRequired[BlueprintFilterTypeDef]
-    resourceOwner: NotRequired[ResourceOwnerType]
-
 class CustomOutputConfigurationOutputTypeDef(TypedDict):
     blueprints: NotRequired[list[BlueprintItemTypeDef]]
 
@@ -455,14 +571,31 @@ CreateBlueprintRequestTypeDef = TypedDict(
     },
 )
 
+class CreateDataAutomationLibraryRequestTypeDef(TypedDict):
+    libraryName: str
+    libraryDescription: NotRequired[str]
+    clientToken: NotRequired[str]
+    encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    tags: NotRequired[Sequence[TagTypeDef]]
+
 class TagResourceRequestTypeDef(TypedDict):
     resourceARN: str
     tags: Sequence[TagTypeDef]
+
+class CreateDataAutomationLibraryResponseTypeDef(TypedDict):
+    libraryArn: str
+    status: DataAutomationLibraryStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateDataAutomationProjectResponseTypeDef(TypedDict):
     projectArn: str
     projectStage: DataAutomationProjectStageType
     status: DataAutomationProjectStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteDataAutomationLibraryResponseTypeDef(TypedDict):
+    libraryArn: str
+    status: DataAutomationLibraryStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteDataAutomationProjectResponseTypeDef(TypedDict):
@@ -474,6 +607,10 @@ class InvokeBlueprintOptimizationAsyncResponseTypeDef(TypedDict):
     invocationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class InvokeDataAutomationLibraryIngestionJobResponseTypeDef(TypedDict):
+    jobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListBlueprintsResponseTypeDef(TypedDict):
     blueprints: list[BlueprintSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -483,16 +620,74 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateDataAutomationLibraryResponseTypeDef(TypedDict):
+    libraryArn: str
+    status: DataAutomationLibraryStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateDataAutomationProjectResponseTypeDef(TypedDict):
     projectArn: str
     projectStage: DataAutomationProjectStageType
     status: DataAutomationProjectStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DataAutomationLibraryConfigurationOutputTypeDef(TypedDict):
+    libraries: NotRequired[list[DataAutomationLibraryItemTypeDef]]
+
+class DataAutomationLibraryConfigurationTypeDef(TypedDict):
+    libraries: NotRequired[Sequence[DataAutomationLibraryItemTypeDef]]
+
+class DataAutomationLibraryEntitySummaryTypeDef(TypedDict):
+    vocabulary: NotRequired[VocabularyEntitySummaryTypeDef]
+
+class ListDataAutomationProjectsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    projectStageFilter: NotRequired[DataAutomationProjectStageFilterType]
+    blueprintFilter: NotRequired[BlueprintFilterTypeDef]
+    resourceOwner: NotRequired[ResourceOwnerType]
+    libraryFilter: NotRequired[DataAutomationLibraryFilterTypeDef]
+
+class ListDataAutomationLibraryIngestionJobsResponseTypeDef(TypedDict):
+    jobs: list[DataAutomationLibraryIngestionJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class DataAutomationLibraryIngestionJobTypeDef(TypedDict):
+    jobArn: str
+    creationTime: datetime
+    entityType: Literal["VOCABULARY"]
+    operationType: LibraryIngestionJobOperationTypeType
+    jobStatus: LibraryIngestionJobStatusType
+    outputConfiguration: OutputConfigurationTypeDef
+    completionTime: NotRequired[datetime]
+    errorMessage: NotRequired[str]
+    errorType: NotRequired[str]
+
+class ListDataAutomationLibrariesResponseTypeDef(TypedDict):
+    libraries: list[DataAutomationLibrarySummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class DataAutomationLibraryTypeDef(TypedDict):
+    libraryArn: str
+    creationTime: datetime
+    libraryName: str
+    status: DataAutomationLibraryStatusType
+    libraryDescription: NotRequired[str]
+    entityTypes: NotRequired[list[EntityTypeInfoTypeDef]]
+    kmsKeyId: NotRequired[str]
+    kmsEncryptionContext: NotRequired[dict[str, str]]
+
 class ListBlueprintsRequestTypeDef(TypedDict):
     blueprintArn: NotRequired[str]
     resourceOwner: NotRequired[ResourceOwnerType]
     blueprintStageFilter: NotRequired[BlueprintStageFilterType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    projectFilter: NotRequired[DataAutomationProjectFilterTypeDef]
+
+class ListDataAutomationLibrariesRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
     projectFilter: NotRequired[DataAutomationProjectFilterTypeDef]
@@ -518,6 +713,9 @@ class DocumentOutputFormatTypeDef(TypedDict):
     textFormat: DocumentOutputTextFormatTypeDef
     additionalFileFormat: DocumentOutputAdditionalFileFormatTypeDef
 
+class NotificationConfigurationTypeDef(TypedDict):
+    eventBridgeConfiguration: EventBridgeConfigurationTypeDef
+
 class ImageStandardExtractionOutputTypeDef(TypedDict):
     category: ImageExtractionCategoryOutputTypeDef
     boundingBox: ImageBoundingBoxTypeDef
@@ -533,10 +731,24 @@ class ListBlueprintsRequestPaginateTypeDef(TypedDict):
     projectFilter: NotRequired[DataAutomationProjectFilterTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListDataAutomationLibrariesRequestPaginateTypeDef(TypedDict):
+    projectFilter: NotRequired[DataAutomationProjectFilterTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListDataAutomationLibraryEntitiesRequestPaginateTypeDef(TypedDict):
+    libraryArn: str
+    entityType: Literal["VOCABULARY"]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListDataAutomationLibraryIngestionJobsRequestPaginateTypeDef(TypedDict):
+    libraryArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListDataAutomationProjectsRequestPaginateTypeDef(TypedDict):
     projectStageFilter: NotRequired[DataAutomationProjectStageFilterType]
     blueprintFilter: NotRequired[BlueprintFilterTypeDef]
     resourceOwner: NotRequired[ResourceOwnerType]
+    libraryFilter: NotRequired[DataAutomationLibraryFilterTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class SensitiveDataConfigurationOutputTypeDef(TypedDict):
@@ -548,6 +760,19 @@ class SensitiveDataConfigurationTypeDef(TypedDict):
     detectionMode: SensitiveDataDetectionModeType
     detectionScope: NotRequired[Sequence[SensitiveDataDetectionScopeTypeType]]
     piiEntitiesConfiguration: NotRequired[PIIEntitiesConfigurationTypeDef]
+
+class VocabularyEntityInfoTypeDef(TypedDict):
+    language: LanguageType
+    phrases: Sequence[PhraseTypeDef]
+    entityId: NotRequired[str]
+    description: NotRequired[str]
+
+class VocabularyEntityTypeDef(TypedDict):
+    entityId: NotRequired[str]
+    description: NotRequired[str]
+    language: NotRequired[LanguageType]
+    phrases: NotRequired[list[PhraseTypeDef]]
+    lastModifiedTime: NotRequired[datetime]
 
 class TranscriptConfigurationTypeDef(TypedDict):
     speakerLabeling: NotRequired[SpeakerLabelingConfigurationTypeDef]
@@ -597,6 +822,23 @@ class InvokeBlueprintOptimizationAsyncRequestTypeDef(TypedDict):
     dataAutomationProfileArn: str
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
     tags: NotRequired[Sequence[TagTypeDef]]
+
+DataAutomationLibraryConfigurationUnionTypeDef = Union[
+    DataAutomationLibraryConfigurationTypeDef, DataAutomationLibraryConfigurationOutputTypeDef
+]
+
+class ListDataAutomationLibraryEntitiesResponseTypeDef(TypedDict):
+    entities: list[DataAutomationLibraryEntitySummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class GetDataAutomationLibraryIngestionJobResponseTypeDef(TypedDict):
+    job: DataAutomationLibraryIngestionJobTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetDataAutomationLibraryResponseTypeDef(TypedDict):
+    library: DataAutomationLibraryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DocumentStandardOutputConfigurationOutputTypeDef(TypedDict):
     extraction: NotRequired[DocumentStandardExtractionOutputTypeDef]
@@ -652,6 +894,12 @@ class VideoOverrideConfigurationTypeDef(TypedDict):
     modalityProcessing: NotRequired[ModalityProcessingConfigurationTypeDef]
     sensitiveDataConfiguration: NotRequired[SensitiveDataConfigurationTypeDef]
 
+class UpsertEntityInfoTypeDef(TypedDict):
+    vocabulary: NotRequired[VocabularyEntityInfoTypeDef]
+
+class EntityDetailsTypeDef(TypedDict):
+    vocabulary: NotRequired[VocabularyEntityTypeDef]
+
 class AudioExtractionCategoryTypeConfigurationTypeDef(TypedDict):
     transcript: NotRequired[TranscriptConfigurationTypeDef]
 
@@ -693,6 +941,14 @@ class OverrideConfigurationTypeDef(TypedDict):
     audio: NotRequired[AudioOverrideConfigurationTypeDef]
     modalityRouting: NotRequired[ModalityRoutingConfigurationTypeDef]
 
+class InlinePayloadTypeDef(TypedDict):
+    upsertEntitiesInfo: NotRequired[Sequence[UpsertEntityInfoTypeDef]]
+    deleteEntitiesInfo: NotRequired[DeleteEntitiesInfoTypeDef]
+
+class GetDataAutomationLibraryEntityResponseTypeDef(TypedDict):
+    entity: EntityDetailsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 AudioExtractionCategoryOutputTypeDef = TypedDict(
     "AudioExtractionCategoryOutputTypeDef",
     {
@@ -713,11 +969,25 @@ OverrideConfigurationUnionTypeDef = Union[
     OverrideConfigurationTypeDef, OverrideConfigurationOutputTypeDef
 ]
 
+class InputConfigurationTypeDef(TypedDict):
+    s3Object: NotRequired[S3ObjectTypeDef]
+    inlinePayload: NotRequired[InlinePayloadTypeDef]
+
 class AudioStandardExtractionOutputTypeDef(TypedDict):
     category: AudioExtractionCategoryOutputTypeDef
 
 class AudioStandardExtractionTypeDef(TypedDict):
     category: AudioExtractionCategoryTypeDef
+
+class InvokeDataAutomationLibraryIngestionJobRequestTypeDef(TypedDict):
+    libraryArn: str
+    inputConfiguration: InputConfigurationTypeDef
+    entityType: Literal["VOCABULARY"]
+    operationType: LibraryIngestionJobOperationTypeType
+    outputConfiguration: OutputConfigurationTypeDef
+    clientToken: NotRequired[str]
+    notificationConfiguration: NotRequired[NotificationConfigurationTypeDef]
+    tags: NotRequired[Sequence[TagTypeDef]]
 
 class AudioStandardOutputConfigurationOutputTypeDef(TypedDict):
     extraction: NotRequired[AudioStandardExtractionOutputTypeDef]
@@ -751,6 +1021,7 @@ class DataAutomationProjectTypeDef(TypedDict):
     standardOutputConfiguration: NotRequired[StandardOutputConfigurationOutputTypeDef]
     customOutputConfiguration: NotRequired[CustomOutputConfigurationOutputTypeDef]
     overrideConfiguration: NotRequired[OverrideConfigurationOutputTypeDef]
+    dataAutomationLibraryConfiguration: NotRequired[DataAutomationLibraryConfigurationOutputTypeDef]
     kmsKeyId: NotRequired[str]
     kmsEncryptionContext: NotRequired[dict[str, str]]
 
@@ -770,6 +1041,7 @@ class CreateDataAutomationProjectRequestTypeDef(TypedDict):
     projectType: NotRequired[DataAutomationProjectTypeType]
     customOutputConfiguration: NotRequired[CustomOutputConfigurationUnionTypeDef]
     overrideConfiguration: NotRequired[OverrideConfigurationUnionTypeDef]
+    dataAutomationLibraryConfiguration: NotRequired[DataAutomationLibraryConfigurationUnionTypeDef]
     clientToken: NotRequired[str]
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
     tags: NotRequired[Sequence[TagTypeDef]]
@@ -781,4 +1053,5 @@ class UpdateDataAutomationProjectRequestTypeDef(TypedDict):
     projectDescription: NotRequired[str]
     customOutputConfiguration: NotRequired[CustomOutputConfigurationUnionTypeDef]
     overrideConfiguration: NotRequired[OverrideConfigurationUnionTypeDef]
+    dataAutomationLibraryConfiguration: NotRequired[DataAutomationLibraryConfigurationUnionTypeDef]
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]

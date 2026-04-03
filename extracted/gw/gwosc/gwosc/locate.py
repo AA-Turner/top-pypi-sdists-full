@@ -51,6 +51,8 @@ def get_urls(
     sample_rate=4096,
     format="hdf5",
     host=DEFAULT_URL,
+    session=None,
+    pagesize=None,
 ):
     """Fetch the URLs from GWOSC regarding a given GPS interval
 
@@ -80,6 +82,13 @@ def get_urls(
     host : `str`, optional
         the URL of the remote GWOSC server
 
+    session : `requests.Session`, optional
+        HTTP session to use for making requests, defaults to
+        using a new session for each API call
+
+    pagesize : `int`, optional
+        the number of results per page
+
     Returns
     -------
     urls : `list` of `str`
@@ -97,6 +106,8 @@ def get_urls(
             segment=(start, end),
             version=version,
             host=host,
+            session=session,
+            pagesize=pagesize,
         )
 
         for dst in dsets:
@@ -110,6 +121,8 @@ def get_urls(
                     host=host,
                     sample_rate=sample_rate,
                     format=format,
+                    session=session,
+                    pagesize=pagesize,
                 )
             else:
                 urls = get_event_urls(
@@ -121,6 +134,8 @@ def get_urls(
                     sample_rate=sample_rate,
                     version=version,
                     host=host,
+                    session=session,
+                    pagesize=pagesize,
                 )
 
             # if full span covered, return now
@@ -140,6 +155,8 @@ def get_run_urls(
     format="hdf5",
     sample_rate=4096,
     host=DEFAULT_URL,
+    session=None,
+    pagesize=None,
     **match,
 ):
     """Fetch the URLs from GWOSC regarding a given event
@@ -167,6 +184,13 @@ def get_run_urls(
     host : `str`, optional
         the URL of the remote GWOSC server
 
+    session : `requests.Session`, optional
+        HTTP session to use for making requests, defaults to
+        using a new session for each API call
+
+    pagesize : `int`, optional
+        the number of results per page
+
     Returns
     -------
     urls : `list` of `str`
@@ -182,6 +206,8 @@ def get_run_urls(
             detector=detector,
             sample_rate=sample_rate,
             host=host,
+            session=session,
+            pagesize=pagesize,
         )
     ]
 
@@ -196,6 +222,8 @@ def get_event_urls(
     format="hdf5",
     sample_rate=4096,
     host=DEFAULT_URL,
+    session=None,
+    pagesize=None,
     **match,
 ):
     """Fetch the URLs from GWOSC regarding a given event
@@ -229,6 +257,13 @@ def get_event_urls(
     catalog : `str`, `None`, optional
         the name of the catalog for the selected datasets
 
+    session : `requests.Session`, optional
+        HTTP session to use for making requests, defaults to
+        using a new session for each API call
+
+    pagesize : `int`, optional
+        the number of results per page
+
     Returns
     -------
     urls : `list` of `str`
@@ -246,13 +281,15 @@ def get_event_urls(
             duration=match.get("duration"),
             format=format,
             host=host,
+            session=session,
+            pagesize=pagesize,
         )
     )
 
     # If there are no strain files for this event, return run strain files
     if len(strain_files) == 0:
         event_obj = apiv2.fetch_event_version(
-            event, catalog=catalog, version=version, host=host
+            event, catalog=catalog, version=version, host=host, session=session
         )
         gps = event_obj["gps"]
         return get_run_urls(
@@ -263,6 +300,8 @@ def get_event_urls(
             format=format,
             sample_rate=sample_rate,
             host=host,
+            session=session,
+            pagesize=pagesize,
         )
 
     # format start and end as a segment

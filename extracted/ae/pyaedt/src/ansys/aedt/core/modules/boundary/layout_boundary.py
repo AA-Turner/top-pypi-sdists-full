@@ -22,7 +22,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from __future__ import annotations
 
 from ansys.aedt.core.base import PyAedtBase
 from ansys.aedt.core.generic.data_handlers import _dict2arg
@@ -131,18 +130,18 @@ class NativeComponentObject(BoundaryCommon, BinaryTreeNode, PyAedtBase):
         return child_object
 
     @property
-    def props(self) -> BoundaryProps:
+    def props(self):
         return self.__props
 
     @property
-    def name(self) -> str:
+    def name(self):
         """Boundary Name."""
         if self._child_object:
             self._name = str(self.properties["Name"])
         return self._name
 
     @name.setter
-    def name(self, value: str) -> None:
+    def name(self, value) -> None:
         if self._child_object:
             try:
                 legacy_name = self._name
@@ -159,7 +158,7 @@ class NativeComponentObject(BoundaryCommon, BinaryTreeNode, PyAedtBase):
                 )
 
     @property
-    def definition_name(self) -> str:
+    def definition_name(self):
         """Definition name of the native component.
 
         Returns
@@ -174,7 +173,7 @@ class NativeComponentObject(BoundaryCommon, BinaryTreeNode, PyAedtBase):
         return definition_name
 
     @property
-    def targetcs(self) -> str:
+    def targetcs(self):
         """Native Component Coordinate System.
 
         Returns
@@ -188,7 +187,7 @@ class NativeComponentObject(BoundaryCommon, BinaryTreeNode, PyAedtBase):
             return "Global"
 
     @targetcs.setter
-    def targetcs(self, cs: str) -> None:
+    def targetcs(self, cs) -> None:
         self.props["TargetCS"] = cs
 
     def _update_props(self, d, u):
@@ -210,7 +209,7 @@ class NativeComponentObject(BoundaryCommon, BinaryTreeNode, PyAedtBase):
         return arg
 
     @pyaedt_function_handler()
-    def create(self) -> bool:
+    def create(self):
         """Create a Native Component in AEDT.
 
         Returns
@@ -326,12 +325,12 @@ class BoundaryObject3dLayout(BoundaryCommon, BinaryTreeNode, PyAedtBase):
         return child_object
 
     @property
-    def name(self) -> str:
+    def name(self):
         """Boundary Name."""
         return self._name
 
     @name.setter
-    def name(self, value: str) -> None:
+    def name(self, value) -> None:
         if "Port" in self.props:
             self.auto_update = False
             self.props["Port"] = value
@@ -340,7 +339,7 @@ class BoundaryObject3dLayout(BoundaryCommon, BinaryTreeNode, PyAedtBase):
         self._name = value
 
     @property
-    def props(self) -> BoundaryProps:
+    def props(self):
         """Excitation data.
 
         Returns
@@ -433,7 +432,7 @@ class NativeComponentPCB(NativeComponentObject):
 
     @pyaedt_function_handler()
     @disable_auto_update
-    def set_resolution(self, resolution: int) -> bool:
+    def set_resolution(self, resolution) -> bool:
         """Set metal fraction mapping resolution.
 
         Parameters
@@ -461,7 +460,7 @@ class NativeComponentPCB(NativeComponentObject):
 
     @pyaedt_function_handler()
     @disable_auto_update
-    def set_custom_resolution(self, row: int, col: int) -> bool:
+    def set_custom_resolution(self, row, col) -> bool:
         """Set custom metal fraction mapping resolution.
 
         Parameters
@@ -490,7 +489,7 @@ class NativeComponentPCB(NativeComponentObject):
     @disable_auto_update
     def set_high_side_radiation(
         self,
-        enabled: bool,
+        enabled,
         surface_material: str | None = "Steel-oxidised-surface",
         radiate_to_ref_temperature: bool = False,
         view_factor: int = 1,
@@ -532,7 +531,7 @@ class NativeComponentPCB(NativeComponentObject):
 
     @power.setter
     @disable_auto_update
-    def power(self, value: str) -> None:
+    def power(self, value) -> None:
         """Assign power dissipation to the PCB.
 
         Parameters
@@ -549,7 +548,7 @@ class NativeComponentPCB(NativeComponentObject):
 
     @force_source_solve.setter
     @disable_auto_update
-    def force_source_solve(self, val: bool) -> None:
+    def force_source_solve(self, val):
         """Set Whether to force source solution.
 
         Parameters
@@ -569,13 +568,13 @@ class NativeComponentPCB(NativeComponentObject):
         return self.props["NativeComponentDefinitionProvider"]["DefnLink"].update({"ForceSourceToSolve": val})
 
     @property
-    def preserve_partner_solution(self) -> bool:
+    def preserve_partner_solution(self):
         """Preserve parner solution option."""
         return self.props["NativeComponentDefinitionProvider"].get("DefnLink", {}).get("PreservePartnerSoln", False)
 
     @preserve_partner_solution.setter
     @disable_auto_update
-    def preserve_partner_solution(self, val: bool) -> None:
+    def preserve_partner_solution(self, val):
         """Set Whether to preserve partner solution.
 
         Parameters
@@ -595,7 +594,7 @@ class NativeComponentPCB(NativeComponentObject):
         return self.props["NativeComponentDefinitionProvider"]["DefnLink"].update({"PreservePartnerSoln": val})
 
     @property
-    def included_parts(self) -> None | "PCBSettingsDeviceParts" | "PCBSettingsPackageParts":
+    def included_parts(self):
         """Parts options."""
         p = self.props["NativeComponentDefinitionProvider"].get("PartsChoice", 0)
         if p == 0:
@@ -607,7 +606,7 @@ class NativeComponentPCB(NativeComponentObject):
 
     @included_parts.setter
     @disable_auto_update
-    def included_parts(self, value: str | int | None) -> None:
+    def included_parts(self, value) -> None:
         """Set PCB parts incusion option.
 
         Parameters
@@ -636,7 +635,7 @@ class NativeComponentPCB(NativeComponentObject):
     @disable_auto_update
     def set_low_side_radiation(
         self,
-        enabled: bool,
+        enabled,
         surface_material: str | None = "Steel-oxidised-surface",
         radiate_to_ref_temperature: bool = False,
         view_factor: int = 1,
@@ -678,7 +677,7 @@ class NativeComponentPCB(NativeComponentObject):
 
     @power.setter
     @disable_auto_update
-    def power(self, value: str) -> None:
+    def power(self, value) -> None:
         """Assign power dissipation to the PCB.
 
         Parameters
@@ -690,7 +689,7 @@ class NativeComponentPCB(NativeComponentObject):
 
     @force_source_solve.setter
     @disable_auto_update
-    def force_source_solve(self, val: bool) -> None:
+    def force_source_solve(self, val):
         """Set Whether to force source solution.
 
         Parameters
@@ -711,7 +710,7 @@ class NativeComponentPCB(NativeComponentObject):
 
     @preserve_partner_solution.setter
     @disable_auto_update
-    def preserve_partner_solution(self, val: bool) -> None:
+    def preserve_partner_solution(self, val):
         """Set Whether to preserve partner solution.
 
         Parameters
@@ -732,7 +731,7 @@ class NativeComponentPCB(NativeComponentObject):
 
     @included_parts.setter
     @disable_auto_update
-    def included_parts(self, value: str | int | None) -> None:
+    def included_parts(self, value) -> None:
         """Set PCB parts incusion option.
 
         Parameters
@@ -758,7 +757,7 @@ class NativeComponentPCB(NativeComponentObject):
             )
 
     @pyaedt_function_handler()
-    def identify_extent_poly(self) -> str | bool:
+    def identify_extent_poly(self):
         """Get polygon that defines board extent.
 
         Returns
@@ -796,18 +795,18 @@ class NativeComponentPCB(NativeComponentObject):
         return outlines[0].name
 
     @property
-    def board_cutout_material(self) -> str:
+    def board_cutout_material(self):
         """Material applied to cutout regions."""
         return self.props["NativeComponentDefinitionProvider"].get("BoardCutoutMaterial", "air ")
 
     @property
-    def via_holes_material(self) -> str:
+    def via_holes_material(self):
         """Material applied to via hole regions."""
         return self.props["NativeComponentDefinitionProvider"].get("ViaHoleMaterial", "copper")
 
     @board_cutout_material.setter
     @disable_auto_update
-    def board_cutout_material(self, value: str) -> None:
+    def board_cutout_material(self, value) -> None:
         """Set material to apply to cutout regions.
 
         Parameters
@@ -819,7 +818,7 @@ class NativeComponentPCB(NativeComponentObject):
 
     @via_holes_material.setter
     @disable_auto_update
-    def via_holes_material(self, value: str) -> None:
+    def via_holes_material(self, value) -> None:
         """Set material to apply to via hole regions.
 
         Parameters
@@ -831,7 +830,7 @@ class NativeComponentPCB(NativeComponentObject):
 
     @pyaedt_function_handler()
     @disable_auto_update
-    def set_board_extents(self, extent_type: str = None, extent_polygon: str = None) -> bool:
+    def set_board_extents(self, extent_type=None, extent_polygon=None) -> bool:
         """Set board extent.
 
         Parameters
@@ -901,7 +900,7 @@ class PCBSettingsPackageParts(PyAedtBase):
 
     @pyaedt_function_handler()
     @disable_auto_update
-    def set_solderballs_modeling(self, modeling: str = None) -> bool:
+    def set_solderballs_modeling(self, modeling=None) -> bool:
         """Set how to model solderballs.
 
         Parameters
@@ -928,7 +927,7 @@ class PCBSettingsPackageParts(PyAedtBase):
     @disable_auto_update
     def set_connectors_modeling(
         self,
-        modeling: str = None,
+        modeling=None,
         solderbumps_modeling: str = "Boxes",
         bondwire_material: str | None = "Au-Typical",
         bondwire_diameter: str = "0.05mm",
@@ -1035,13 +1034,13 @@ class PCBSettingsDeviceParts(PyAedtBase):
 
     @property
     @pyaedt_function_handler()
-    def simplify_parts(self) -> bool:
+    def simplify_parts(self):
         """Get whether parts are simplified as cuboid."""
         return self.pcb.props["NativeComponentDefinitionProvider"]["ModelDeviceAsRect"]
 
     @simplify_parts.setter
     @pyaedt_function_handler()
-    def simplify_parts(self, value: bool) -> None:
+    def simplify_parts(self, value) -> None:
         """Set whether parts are simplified as cuboid.
 
         Parameters
@@ -1053,13 +1052,13 @@ class PCBSettingsDeviceParts(PyAedtBase):
 
     @property
     @pyaedt_function_handler()
-    def surface_material(self) -> str:
+    def surface_material(self):
         """Surface material to apply to parts."""
         return self.pcb.props["NativeComponentDefinitionProvider"]["DeviceSurfaceMaterial"]
 
     @surface_material.setter
     @pyaedt_function_handler()
-    def surface_material(self, value: str) -> None:
+    def surface_material(self, value) -> None:
         """Set surface material to apply to parts.
 
         Parameters
@@ -1071,7 +1070,7 @@ class PCBSettingsDeviceParts(PyAedtBase):
 
     @property
     @pyaedt_function_handler()
-    def footprint_filter(self) -> str | None:
+    def footprint_filter(self):
         """Minimum component footprint for filtering."""
         if self.pcb.props["NativeComponentDefinitionProvider"]["PartsChoice"] != 1:
             self._app.logger.add_message(
@@ -1089,7 +1088,7 @@ class PCBSettingsDeviceParts(PyAedtBase):
     @footprint_filter.setter
     @pyaedt_function_handler()
     @disable_auto_update
-    def footprint_filter(self, minimum_footprint: str | None) -> None:
+    def footprint_filter(self, minimum_footprint) -> None:
         """Set minimum component footprint for filtering.
 
         Parameters
@@ -1118,7 +1117,7 @@ class PCBSettingsDeviceParts(PyAedtBase):
 
     @property
     @pyaedt_function_handler()
-    def power_filter(self) -> str | None:
+    def power_filter(self):
         """Minimum component power for filtering."""
         if self.pcb.props["NativeComponentDefinitionProvider"]["PartsChoice"] != 1:
             self._app.logger.add_message(
@@ -1134,12 +1133,12 @@ class PCBSettingsDeviceParts(PyAedtBase):
     @power_filter.setter
     @pyaedt_function_handler()
     @disable_auto_update
-    def power_filter(self, minimum_power: str | None) -> None:
+    def power_filter(self, minimum_power) -> None:
         """Set minimum component power for filtering.
 
         Parameters
         ----------
-        minimum_power : str | None
+        minimum_power : str
             Value with unit of the minimum component power for filtering.
         """
         if self.pcb.props["NativeComponentDefinitionProvider"]["PartsChoice"] != 1:
@@ -1161,7 +1160,7 @@ class PCBSettingsDeviceParts(PyAedtBase):
 
     @property
     @pyaedt_function_handler()
-    def type_filters(self) -> list | None:
+    def type_filters(self):
         """Types of component that are filtered."""
         if self.pcb.props["NativeComponentDefinitionProvider"]["PartsChoice"] != 1:
             self._app.logger.add_message(
@@ -1177,7 +1176,7 @@ class PCBSettingsDeviceParts(PyAedtBase):
     @type_filters.setter
     @pyaedt_function_handler()
     @disable_auto_update
-    def type_filters(self, object_type: str | list) -> None:
+    def type_filters(self, object_type) -> None:
         """Set types of component to filter.
 
         Parameters
@@ -1212,7 +1211,7 @@ class PCBSettingsDeviceParts(PyAedtBase):
 
     @property
     @pyaedt_function_handler()
-    def height_filter(self) -> str | None:
+    def height_filter(self):
         """Minimum component height for filtering."""
         if self.pcb.props["NativeComponentDefinitionProvider"]["PartsChoice"] != 1:
             self._app.logger.add_message(
@@ -1228,12 +1227,12 @@ class PCBSettingsDeviceParts(PyAedtBase):
     @height_filter.setter
     @pyaedt_function_handler()
     @disable_auto_update
-    def height_filter(self, minimum_height: str | None) -> None:
+    def height_filter(self, minimum_height) -> None:
         """Set minimum component height for filtering and whether to filter 2D objects.
 
         Parameters
         ----------
-        minimum_height : str | None
+        minimum_height : str
             Value with unit of the minimum component power for filtering.
         """
         if self.pcb.props["NativeComponentDefinitionProvider"]["PartsChoice"] != 1:
@@ -1255,7 +1254,7 @@ class PCBSettingsDeviceParts(PyAedtBase):
 
     @property
     @pyaedt_function_handler()
-    def objects_2d_filter(self) -> bool | None:
+    def objects_2d_filter(self):
         """Whether 2d objects are filtered."""
         if self.pcb.props["NativeComponentDefinitionProvider"]["PartsChoice"] != 1:
             self._app.logger.add_message(
@@ -1271,7 +1270,7 @@ class PCBSettingsDeviceParts(PyAedtBase):
     @objects_2d_filter.setter
     @pyaedt_function_handler()
     @disable_auto_update
-    def objects_2d_filter(self, enable: bool) -> None:
+    def objects_2d_filter(self, enable) -> None:
         """Set whether 2d objects are filtered.
 
         Parameters
@@ -1297,7 +1296,7 @@ class PCBSettingsDeviceParts(PyAedtBase):
 
     @property
     @pyaedt_function_handler()
-    def filters(self) -> dict | None:
+    def filters(self):
         """All active filters."""
         if self.pcb.props["NativeComponentDefinitionProvider"].get("PartsChoice", None) != 1:
             self._app.logger.add_message(
@@ -1331,7 +1330,7 @@ class PCBSettingsDeviceParts(PyAedtBase):
 
     @property
     @pyaedt_function_handler()
-    def overridden_components(self) -> dict:
+    def overridden_components(self):
         """All overridden components."""
         override_component = (
             self.pcb.props["NativeComponentDefinitionProvider"]
@@ -1394,15 +1393,8 @@ class PCBSettingsDeviceParts(PyAedtBase):
     @pyaedt_function_handler()
     @disable_auto_update
     def override_definition(
-        self,
-        package: str,
-        part: str,
-        filter_component: bool = False,
-        power: str = None,
-        r_jb: str = None,
-        r_jc: str = None,
-        height: str = None,
-    ) -> bool:
+        self, package, part, filter_component: bool = False, power=None, r_jb=None, r_jc=None, height=None
+    ):
         """Set component override.
 
         Parameters
@@ -1451,14 +1443,8 @@ class PCBSettingsDeviceParts(PyAedtBase):
     @pyaedt_function_handler()
     @disable_auto_update
     def override_instance(
-        self,
-        reference_designator: str,
-        filter_component: bool = False,
-        power: str = None,
-        r_jb: str = None,
-        r_jc: str = None,
-        height: str = None,
-    ) -> bool:
+        self, reference_designator, filter_component: bool = False, power=None, r_jb=None, r_jc=None, height=None
+    ):
         """Set instance override.
 
         Parameters

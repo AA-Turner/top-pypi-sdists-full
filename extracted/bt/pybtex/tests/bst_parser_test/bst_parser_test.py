@@ -1,4 +1,4 @@
-# Copyright (c) 2006-2021  Andrey Golovizin
+# Copyright (c) 2006-2026  Andrey Golovizin
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -20,21 +20,25 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-from __future__ import unicode_literals
-
-import pytest
 from itertools import zip_longest
 
+import pytest
+
 from pybtex.bibtex import bst
+
 from ..utils import get_data
 
 
-@pytest.mark.parametrize(["dataset_name"], [("plain",), ("apacite",), ("jurabib",)])
+@pytest.mark.parametrize("dataset_name", ["plain", "apacite", "jurabib"])
 def test_bst_parser(dataset_name):
-    module = __import__('tests.bst_parser_test.{0}'.format(dataset_name), globals(), locals(), 'bst')
+    module = __import__(
+        f"tests.bst_parser_test.{dataset_name}", globals(), locals(), "bst"
+    )
     correct_result = module.bst
-    bst_data = get_data(dataset_name + '.bst')
+    bst_data = get_data(dataset_name + ".bst")
     actual_result = bst.parse_string(bst_data)
 
     for correct_element, actual_element in zip_longest(actual_result, correct_result):
-        assert correct_element == actual_element, '\n{0}\n{1}'.format(correct_element, actual_element)
+        assert correct_element == actual_element, (
+            f"\n{correct_element}\n{actual_element}"
+        )

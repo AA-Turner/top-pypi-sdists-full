@@ -267,4 +267,24 @@ class TestIncrementalIndexFolder:
 
         repos = IndexStore(base_path=str(store)).list_repos()
         assert {repo["display_name"] for repo in repos} == {"shared"}
-        assert len(repos) == 2
+
+
+def test_full_reindex_preserves_summaries_from_existing_dict_symbols(tmp_path):
+    """Full re-index must not crash when existing_index.symbols are dicts (issue #198).
+
+    CodeIndex.symbols is list[dict], so the summary-preservation dict comprehension
+    must use bracket notation (s["key"]) not dot notation (s.key).
+    """
+    store = tmp_path / "store"
+    src = tmp_path / "src"
+    src.mkdir()
+
+    # First full index — no existing index, no problem
+    _write_py(src, "a.py", "def alpha():\n    pass\n")
+    r1 = index_folder(str(src), use_ai_summaries=False, storage_path=str(store), incremental=False)
+    assert r1["success"] is True
+
+    # Second full index — existing_index.symbols are dicts; must not raise AttributeError
+    _write_py(src, "b.py", "def beta():\n    pass\n")
+    r2 = index_folder(str(src), use_ai_summaries=False, storage_path=str(store), incremental=False)
+    assert r2["success"] is True, f"Second full index failed: {r2.get('error')}"

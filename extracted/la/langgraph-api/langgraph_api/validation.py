@@ -28,6 +28,7 @@ RESERVED_CONFIGURABLE_KEYS = (
     "__after_seconds__",
     "__otel_traceparent__",
     "__otel_tracestate__",
+    "__dd_trace_headers__",
     "__pregel_node_finished",
 )
 RESERVED_METADATA_KEYS = (

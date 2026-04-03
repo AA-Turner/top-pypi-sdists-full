@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: confluent-kafka
-Version: 2.13.2
+Version: 2.14.0
 Summary: Confluent's Python client for Apache Kafka
 Author-email: "Confluent Inc." <support@confluent.io>
 Project-URL: Homepage, https://github.com/confluentinc/confluent-kafka-python
@@ -13,6 +13,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: typing-extensions; python_version < "3.11"
 Provides-Extra: schemaregistry
 Requires-Dist: attrs>=21.2.0; extra == "schemaregistry"
 Requires-Dist: cachetools>=5.5.0; extra == "schemaregistry"

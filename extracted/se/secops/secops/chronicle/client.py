@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 """Chronicle API client."""
+
 import ipaddress
 import re
 from collections.abc import Iterator
@@ -1500,18 +1501,25 @@ class ChronicleClient:
         log_type: str,
         page_size: int | None = None,
         page_token: str | None = None,
-    ) -> dict[str, Any]:
+        as_list: bool = False,
+    ) -> dict[str, Any] | list[Any]:
         """List parser extensions.
 
         Args:
             log_type: The log type to list parser extensions for
             page_size: Maximum number of parser extensions to return
             page_token: Token for pagination
+            as_list: If True, return only the list of parser extensions.
+                If False, return dict with metadata and pagination tokens.
 
         Returns:
-            Dict containing list of parser extensions and next page token if any
+            If as_list is True: List of parser extensions.
+            If as_list is False: Dict with parserExtensions list and
+                pagination metadata.
         """
-        return _list_parser_extensions(self, log_type, page_size, page_token)
+        return _list_parser_extensions(
+            self, log_type, page_size, page_token, as_list
+        )
 
     def activate_parser_extension(
         self, log_type: str, extension_id: str
@@ -1618,21 +1626,26 @@ class ChronicleClient:
         page_size: int = 100,
         page_token: str = None,
         api_version: APIVersion | None = None,
-    ) -> list[dict[str, Any]]:
+        as_list: bool = True,
+    ) -> dict[str, Any] | list[dict[str, Any]]:
         """List feeds.
 
         Args:
             page_size: The maximum number of feeds to return
             page_token: A page token, received from a previous ListFeeds call
             api_version: (Optional) Preferred API version to use.
+            as_list: If True, return only the list of feeds.
+                If False, return dict with metadata and pagination tokens.
+                Defaults to True for backward compatibility.
 
         Returns:
-            List of feed dictionaries
+            If as_list is True: List of feed dictionaries.
+            If as_list is False: Dict with feeds list and pagination metadata.
 
         Raises:
             APIError: If the API request fails
         """
-        return _list_feeds(self, page_size, page_token, api_version)
+        return _list_feeds(self, page_size, page_token, api_version, as_list)
 
     def get_feed(
         self, feed_id: str, api_version: APIVersion | None = None
@@ -1776,22 +1789,27 @@ class ChronicleClient:
         page_size: int | None = None,
         page_token: str | None = None,
         filter_expr: str | None = None,
-    ) -> dict[str, Any]:
+        as_list: bool = False,
+    ) -> dict[str, Any] | list[Any]:
         """Lists log processing pipelines.
 
         Args:
             page_size: Maximum number of pipelines to return.
             page_token: Page token for pagination.
             filter_expr: Filter expression to restrict results.
+            as_list: If True, return only the list of pipelines.
+                If False, return dict with metadata and pagination tokens.
 
         Returns:
-            Dictionary containing pipelines and pagination info.
+            If as_list is True: List of log processing pipelines.
+            If as_list is False: Dict with logProcessingPipelines list and
+                pagination metadata.
 
         Raises:
             APIError: If the API request fails.
         """
         return _list_log_processing_pipelines(
-            self, page_size, page_token, filter_expr
+            self, page_size, page_token, filter_expr, as_list
         )
 
     def get_log_processing_pipeline(self, pipeline_id: str) -> dict[str, Any]:
@@ -2024,7 +2042,8 @@ class ChronicleClient:
         page_token: str | None = None,
         filter_expr: str | None = None,
         order_by: str | None = None,
-    ) -> dict[str, Any]:
+        as_list: bool = False,
+    ) -> dict[str, Any] | list[Any]:
         """Lists investigations.
 
         Args:
@@ -2036,16 +2055,19 @@ class ChronicleClient:
             order_by: Ordering of investigations. Default is create time
                 descending. Supported fields: "startTime", "endTime",
                 "displayName".
+            as_list: If True, return only the list of investigations.
+                If False, return dict with metadata and pagination tokens.
 
         Returns:
-            Dictionary containing investigations, next page token, and
-            total size.
+            If as_list is True: List of investigations.
+            If as_list is False: Dict with investigations list,
+                nextPageToken, and totalSize.
 
         Raises:
             APIError: If the API request fails.
         """
         return _list_investigations(
-            self, page_size, page_token, filter_expr, order_by
+            self, page_size, page_token, filter_expr, order_by, as_list
         )
 
     def trigger_investigation(self, alert_id: str) -> dict[str, Any]:
@@ -2068,7 +2090,8 @@ class ChronicleClient:
         page_size: int | None = None,
         page_token: str | None = None,
         api_version: APIVersion | None = APIVersion.V1,
-    ) -> dict[str, Any]:
+        as_list: bool = False,
+    ) -> dict[str, Any] | list[Any]:
         """Gets a list of rules.
 
         Args:
@@ -2082,9 +2105,12 @@ class ChronicleClient:
             page_size: Maximum number of rules to return per page.
             page_token: Token for the next page of results, if available.
             api_version: (Optional) Preferred API version to use.
+            as_list: If True, return only the list of rules.
+                If False, return dict with metadata and pagination tokens.
 
         Returns:
-            Dictionary containing information about rules
+            If as_list is True: List of rules.
+            If as_list is False: Dict with rules list and pagination metadata.
 
         Raises:
             APIError: If the API request fails
@@ -2095,6 +2121,7 @@ class ChronicleClient:
             page_size=page_size,
             page_token=page_token,
             api_version=api_version,
+            as_list=as_list,
         )
 
     def update_rule(
@@ -2400,7 +2427,8 @@ class ChronicleClient:
         alert_state: str | None = None,
         page_size: int | None = None,
         page_token: str | None = None,
-    ) -> dict[str, Any]:
+        as_list: bool = False,
+    ) -> dict[str, Any] | list[Any]:
         """List detections for a rule.
 
         Args:
@@ -2421,9 +2449,13 @@ class ChronicleClient:
                 - "ALERTING"
             page_size: If provided, maximum number of detections to return
             page_token: If provided, continuation token for pagination
+            as_list: If True, return only the list of detections.
+                If False, return dict with metadata and pagination tokens.
 
         Returns:
-            Dictionary containing detection information
+            If as_list is True: List of detections.
+            If as_list is False: Dict with detections list and
+                pagination metadata.
 
         Raises:
             APIError: If the API request fails
@@ -2438,6 +2470,7 @@ class ChronicleClient:
             alert_state,
             page_size,
             page_token,
+            as_list,
         )
 
     def list_errors(self, rule_id: str) -> dict[str, Any]:
@@ -2685,6 +2718,7 @@ class ChronicleClient:
         page_size: int | None = None,
         page_token: str | None = None,
         filter: str = None,  # pylint: disable=redefined-builtin
+        as_list: bool = True,
     ) -> list[Any] | dict[str, Any]:
         """List parsers.
 
@@ -2696,6 +2730,8 @@ class ChronicleClient:
             page_token: A page token, received from a previous ListParsers
                 call.
             filter: Optional filter expression
+            as_list: If True (default), returns a list of parsers.
+                If False, returns the raw API response with pagination info.
 
         Returns:
             If page_size is None: List of all parsers
@@ -2712,6 +2748,7 @@ class ChronicleClient:
             page_size=page_size,
             page_token=page_token,
             filter=filter,
+            as_list=as_list,
         )
 
     def run_parser(
@@ -3789,16 +3826,21 @@ class ChronicleClient:
         filters: str | None = None,
         page_size: int | None = None,
         page_token: str | None = None,
-    ) -> dict[str, Any]:
+        as_list: bool = False,
+    ) -> dict[str, Any] | list[Any]:
         """List data export jobs.
 
         Args:
             filters: Filter string
             page_size: Page size
             page_token: Page token
+            as_list: If True, return only the list of data exports.
+                If False, return dict with metadata and pagination tokens.
 
         Returns:
-            Dictionary containing data export list
+            If as_list is True: List of data exports.
+            If as_list is False: Dict with dataExports list and
+                pagination metadata.
 
         Raises:
             APIError: If the API request fails
@@ -3813,6 +3855,7 @@ class ChronicleClient:
             filters=filters,
             page_size=page_size,
             page_token=page_token,
+            as_list=as_list,
         )
 
     # Data Table methods
@@ -4819,7 +4862,8 @@ class ChronicleClient:
         page_token: str | None = None,
         filter_query: str | None = None,
         api_version: APIVersion | None = APIVersion.V1,
-    ) -> dict[str, Any]:
+        as_list: bool = False,
+    ) -> dict[str, Any] | list[Any]:
         """List rule deployments for the instance.
 
         Args:
@@ -4827,9 +4871,13 @@ class ChronicleClient:
             page_token: Token for the next page of results, if available
             filter_query: Optional filter query to restrict results
             api_version: (Optional) Preferred API version to use.
+            as_list: If True, return only the list of rule deployments.
+                If False, return dict with metadata and pagination tokens.
 
         Returns:
-            Dictionary containing rule deployments and pagination info
+            If as_list is True: List of rule deployments.
+            If as_list is False: Dict with ruleDeployments list and
+                pagination metadata.
 
         Raises:
             APIError: If the API request fails
@@ -4840,6 +4888,7 @@ class ChronicleClient:
             page_token=page_token,
             filter_query=filter_query,
             api_version=api_version,
+            as_list=as_list,
         )
 
     def set_rule_alerting(

@@ -33,6 +33,7 @@ def test_bool_matches():
     [
         (b"\xfe\xff", "utf_16"),
         ("\uFEFF".encode("gb18030"), "gb18030"),
+        ("\uFEFF".encode("utf-7"), "utf_7"),
         (b"\xef\xbb\xbf", "utf_8"),
         ("".encode("utf_32"), "utf_32"),
     ],
@@ -90,6 +91,10 @@ def test_md_triggered_but_with_bom_or_sig(payload, expected_encoding):
             "我没有埋怨，磋砣的只是一些时间。".encode("utf_8_sig"),
             "utf_8",
         ),
+        (
+            ("\uFEFF" + "🐕").encode("utf-7"),
+            "utf_7",
+        ),
     ],
 )
 def test_content_with_bom_or_sig(payload, expected_encoding):
@@ -100,6 +105,27 @@ def test_content_with_bom_or_sig(payload, expected_encoding):
         best_guess.encoding == expected_encoding
     ), "Detection but with SIG/BOM is wrongly detected!"
     assert best_guess.byte_order_mark is True, "The BOM/SIG property should return True"
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        ".testing",
+        "-testing",
+        "+testing",
+    ],
+)
+def test_utf7_sig_content_is_stripped(content):
+    """UTF-7 BOM is encoded in modified Base64 whose byte boundary can overlap
+    with the next character.  Verify that the SIG is cleanly removed regardless
+    of the character that follows."""
+    payload = ("\ufeff" + content).encode("utf-7")
+    best_guess = from_bytes(payload).best()
+
+    assert best_guess is not None
+    assert best_guess.encoding == "utf_7"
+    assert best_guess.byte_order_mark is True
+    assert str(best_guess) == content
 
 
 @pytest.mark.parametrize(

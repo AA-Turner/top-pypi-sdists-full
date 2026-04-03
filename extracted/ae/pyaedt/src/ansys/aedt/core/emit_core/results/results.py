@@ -99,7 +99,7 @@ class Results:
             return revision
 
     @pyaedt_function_handler()
-    def delete_revision(self, revision_name: str):
+    def delete_revision(self, revision_name) -> None:
         """Delete the specified revision from the results.
 
         Parameters
@@ -139,7 +139,7 @@ class Results:
                     warnings.warn(f"{revision_name} does not exist")
 
     @staticmethod
-    def interaction_domain() -> "emit_core.emit_api_python().InteractionDomain":
+    def interaction_domain():
         """
         Get an ``InteractionDomain`` object.
 
@@ -175,7 +175,7 @@ class Results:
             rev.revision_loaded = False
 
     @pyaedt_function_handler()
-    def revision_names(self) -> list[str]:
+    def revision_names(self):
         """
         Return a list of all the revision names.
 
@@ -191,7 +191,7 @@ class Results:
         return [rev.name for rev in self.revisions]
 
     @pyaedt_function_handler
-    def get_revision(self, revision_name: str = None) -> Revision:
+    def get_revision(self, revision_name=None):
         """
         Load the specified revision.
 
@@ -244,7 +244,7 @@ class Results:
         return self.current_revision
 
     @pyaedt_function_handler()
-    def analyze(self) -> Revision:
+    def analyze(self):
         """Analyze the current revision or create a new revision if the design has changed.
 
         Returns

@@ -91,6 +91,7 @@ __all__ = (
     "ApiSchemaConfigurationTypeDef",
     "AtlassianOauth2ProviderConfigInputTypeDef",
     "AtlassianOauth2ProviderConfigOutputTypeDef",
+    "AuthorizationDataTypeDef",
     "AuthorizerConfigurationOutputTypeDef",
     "AuthorizerConfigurationTypeDef",
     "AuthorizerConfigurationUnionTypeDef",
@@ -371,6 +372,7 @@ __all__ = (
     "McpServerTargetConfigurationTypeDef",
     "McpTargetConfigurationOutputTypeDef",
     "McpTargetConfigurationTypeDef",
+    "McpToolSchemaConfigurationTypeDef",
     "MemoryStrategyInputTypeDef",
     "MemoryStrategyTypeDef",
     "MemorySummaryTypeDef",
@@ -394,6 +396,7 @@ __all__ = (
     "NetworkConfigurationTypeDef",
     "NetworkConfigurationUnionTypeDef",
     "NumericalScaleDefinitionTypeDef",
+    "OAuth2AuthorizationDataTypeDef",
     "OAuthCredentialProviderOutputTypeDef",
     "OAuthCredentialProviderTypeDef",
     "OAuthCredentialProviderUnionTypeDef",
@@ -588,6 +591,10 @@ class S3ConfigurationTypeDef(TypedDict):
 class AtlassianOauth2ProviderConfigInputTypeDef(TypedDict):
     clientId: str
     clientSecret: str
+
+class OAuth2AuthorizationDataTypeDef(TypedDict):
+    authorizationUrl: str
+    userId: NotRequired[str]
 
 class ClaimMatchValueTypeOutputTypeDef(TypedDict):
     matchValueString: NotRequired[str]
@@ -1233,9 +1240,6 @@ class ManagedLatticeResourceTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     routingDomain: NotRequired[str]
 
-class McpServerTargetConfigurationTypeDef(TypedDict):
-    endpoint: str
-
 class SemanticMemoryStrategyInputTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
@@ -1402,6 +1406,13 @@ class ApiGatewayToolConfigurationTypeDef(TypedDict):
 class ApiSchemaConfigurationTypeDef(TypedDict):
     s3: NotRequired[S3ConfigurationTypeDef]
     inlinePayload: NotRequired[str]
+
+class McpToolSchemaConfigurationTypeDef(TypedDict):
+    s3: NotRequired[S3ConfigurationTypeDef]
+    inlinePayload: NotRequired[str]
+
+class AuthorizationDataTypeDef(TypedDict):
+    oauth2: NotRequired[OAuth2AuthorizationDataTypeDef]
 
 class AuthorizingClaimMatchValueTypeOutputTypeDef(TypedDict):
     claimMatchValue: ClaimMatchValueTypeOutputTypeDef
@@ -2157,6 +2168,10 @@ class ApiGatewayTargetConfigurationTypeDef(TypedDict):
     restApiId: str
     stage: str
     apiGatewayToolConfiguration: ApiGatewayToolConfigurationTypeDef
+
+class McpServerTargetConfigurationTypeDef(TypedDict):
+    endpoint: str
+    mcpToolSchema: NotRequired[McpToolSchemaConfigurationTypeDef]
 
 class CustomClaimValidationTypeOutputTypeDef(TypedDict):
     inboundTokenClaimName: str
@@ -2985,6 +3000,7 @@ class CreateGatewayTargetResponseTypeDef(TypedDict):
     metadataConfiguration: MetadataConfigurationOutputTypeDef
     privateEndpoint: PrivateEndpointOutputTypeDef
     privateEndpointManagedResources: list[ManagedResourceDetailsTypeDef]
+    authorizationData: AuthorizationDataTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GatewayTargetTypeDef(TypedDict):
@@ -3002,6 +3018,7 @@ class GatewayTargetTypeDef(TypedDict):
     metadataConfiguration: NotRequired[MetadataConfigurationOutputTypeDef]
     privateEndpoint: NotRequired[PrivateEndpointOutputTypeDef]
     privateEndpointManagedResources: NotRequired[list[ManagedResourceDetailsTypeDef]]
+    authorizationData: NotRequired[AuthorizationDataTypeDef]
 
 class GetGatewayTargetResponseTypeDef(TypedDict):
     gatewayArn: str
@@ -3018,6 +3035,7 @@ class GetGatewayTargetResponseTypeDef(TypedDict):
     metadataConfiguration: MetadataConfigurationOutputTypeDef
     privateEndpoint: PrivateEndpointOutputTypeDef
     privateEndpointManagedResources: list[ManagedResourceDetailsTypeDef]
+    authorizationData: AuthorizationDataTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateGatewayTargetResponseTypeDef(TypedDict):
@@ -3035,6 +3053,7 @@ class UpdateGatewayTargetResponseTypeDef(TypedDict):
     metadataConfiguration: MetadataConfigurationOutputTypeDef
     privateEndpoint: PrivateEndpointOutputTypeDef
     privateEndpointManagedResources: list[ManagedResourceDetailsTypeDef]
+    authorizationData: AuthorizationDataTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 TargetConfigurationUnionTypeDef = Union[

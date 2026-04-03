@@ -3,7 +3,7 @@ use crate::{points_enclose_text, ColumnSide, SelectionPoint, TerminalEmulator};
 ///
 /// This module provides shared functionality for parsing and handling
 /// Guacamole input instructions (key, mouse, clipboard) for SSH, Telnet, etc.
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// Mouse selection state tracking with side-aware selection points
 #[derive(Debug, Clone)]
@@ -293,7 +293,7 @@ fn find_word_boundaries(terminal: &TerminalEmulator, row: u16, col: u16) -> (u16
     let mut word_start = col;
     while word_start > 0 {
         if let Some(cell) = screen.cell(row, word_start - 1) {
-            let contents = cell.contents();
+            let contents: String = cell.contents();
             if !contents.is_empty() {
                 let c = contents.chars().next().unwrap();
                 if is_word_char(c) {
@@ -310,7 +310,7 @@ fn find_word_boundaries(terminal: &TerminalEmulator, row: u16, col: u16) -> (u16
     let mut word_end = col;
     while word_end < cols - 1 {
         if let Some(cell) = screen.cell(row, word_end + 1) {
-            let contents = cell.contents();
+            let contents: String = cell.contents();
             if !contents.is_empty() {
                 let c = contents.chars().next().unwrap();
                 if is_word_char(c) {
@@ -452,7 +452,10 @@ pub fn extract_selection_text(
         // Single line selection
         for col in start_col..=end_col {
             if let Some(cell) = screen.cell(start_row, col) {
-                text.push_str(&cell.contents());
+                {
+                    let c: String = cell.contents();
+                    text.push_str(&c);
+                }
             }
         }
     } else {
@@ -461,7 +464,10 @@ pub fn extract_selection_text(
         let mut line = String::new();
         for col in start_col..cols {
             if let Some(cell) = screen.cell(start_row, col) {
-                line.push_str(&cell.contents());
+                {
+                    let c: String = cell.contents();
+                    line.push_str(&c);
+                }
             }
         }
         // Trim trailing whitespace from line (like guacd does)
@@ -473,7 +479,10 @@ pub fn extract_selection_text(
             let mut line = String::new();
             for col in 0..cols {
                 if let Some(cell) = screen.cell(row, col) {
-                    line.push_str(&cell.contents());
+                    {
+                        let c: String = cell.contents();
+                        line.push_str(&c);
+                    }
                 }
             }
             // Trim trailing whitespace from line (like guacd does)
@@ -484,7 +493,10 @@ pub fn extract_selection_text(
         // Last line: from start to end_col
         for col in 0..=end_col {
             if let Some(cell) = screen.cell(end_row, col) {
-                text.push_str(&cell.contents());
+                {
+                    let c: String = cell.contents();
+                    text.push_str(&c);
+                }
             }
         }
     }
@@ -719,7 +731,11 @@ pub fn format_selection_overlay_instructions(
     let mut instructions = Vec::new();
     let layer = 1_i32; // Selection overlay layer
 
-    // Set layer size to match terminal dimensions
+    // Dispose any previous overlay layer, then recreate it fresh.
+    // This clears accumulated pixels from the previous drag position
+    // and guarantees a clean slate for the new selection shape.
+    instructions.push(guacr_protocol::format_dispose(layer));
+
     let layer_width = cols as u32 * char_width;
     let layer_height = rows as u32 * char_height;
     instructions.push(guacr_protocol::format_size(
@@ -727,6 +743,10 @@ pub fn format_selection_overlay_instructions(
         layer_width,
         layer_height,
     ));
+
+    // Parent layer 1 to layer 0 at (0,0) so it composites on top of the display.
+    // Without this move instruction the layer is a buffer (off-screen) and invisible.
+    instructions.push(guacr_protocol::format_move(layer, 0, 0, 0, 0));
 
     if start_row == end_row {
         // Single row selection - one rectangle
@@ -766,11 +786,19 @@ pub fn format_selection_overlay_instructions(
         instructions.push(guacr_protocol::format_rect(layer, x3, y3, width3, height3));
     }
 
-    // Fill with blue semi-transparent color (matching guacd visibility)
-    // Blue: R=0, G=128 (0x80), B=255 (0xFF), A=200 (0xC8 = 78% opacity)
-    // Increased from 160 (62.7%) to 200 (78%) for much better visibility
-    // This matches guacd's selection overlay which is quite visible
-    instructions.push(guacr_protocol::format_cfill(14, layer, 0, 128, 255, 200));
+    // Blue selection highlight: R=0, G=120, B=215, A=120 (47% opacity).
+    // Visible enough to see the selection, transparent enough to read the text under it.
+    instructions.push(guacr_protocol::format_cfill(14, layer, 0, 120, 215, 120));
+
+    // Sync immediately so the client renders the overlay on this frame.
+    // Without sync the client buffers the draw ops until the next JPEG render;
+    // by that time the selection may already be disposed, making it invisible.
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+    let ts_str = ts.to_string();
+    instructions.push(guacr_protocol::format_instruction("sync", &[&ts_str]));
 
     instructions
 }
@@ -1241,125 +1269,5 @@ pub fn handle_mouse_selection_ratatui(
         result
     } else {
         SelectionResult::None
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_key_instruction() {
-        let event = parse_key_instruction("3.key,2.99,1.1;").unwrap();
-        assert_eq!(event.keysym, 99); // 'c'
-        assert!(event.pressed);
-
-        let event = parse_key_instruction("3.key,2.99,1.0;").unwrap();
-        assert_eq!(event.keysym, 99);
-        assert!(!event.pressed);
-
-        // Test Right Ctrl -> Left Ctrl fix
-        let event = parse_key_instruction("3.key,5.65508,1.1;").unwrap();
-        assert_eq!(event.keysym, 65507); // Fixed to Left Ctrl
-    }
-
-    #[test]
-    fn test_parse_mouse_instruction() {
-        let event = parse_mouse_instruction("5.mouse,3.915,3.328,1.0;").unwrap();
-        assert_eq!(event.x_px, 915);
-        assert_eq!(event.y_px, 328);
-        assert_eq!(event.button_mask, 0);
-
-        let event = parse_mouse_instruction("5.mouse,3.100,2.50,1.1;").unwrap();
-        assert_eq!(event.x_px, 100);
-        assert_eq!(event.y_px, 50);
-        assert_eq!(event.button_mask, 1); // Left button
-    }
-
-    #[test]
-    fn test_parse_clipboard_blob() {
-        // "Rust handler level" in base64
-        let text = parse_clipboard_blob("4.blob,1.0,24.UnVzdCBoYW5kbGVyIGxldmVs;").unwrap();
-        assert_eq!(text, "Rust handler level");
-
-        // Empty clipboard should return None
-        let result = parse_clipboard_blob("4.blob,1.0,0.;");
-        assert!(result.is_none());
-    }
-
-    // == extract_selection_text_ratatui tests ================================
-
-    fn make_buffer_with_text(
-        cols: u16,
-        rows: u16,
-        row: u16,
-        text: &str,
-    ) -> ratatui::buffer::Buffer {
-        let mut buf = ratatui::buffer::Buffer::empty(ratatui::layout::Rect::new(0, 0, cols, rows));
-        for (i, ch) in text.chars().enumerate() {
-            let idx = row as usize * cols as usize + i;
-            if idx < buf.content.len() {
-                let mut ch_buf = [0u8; 4];
-                buf.content[idx].set_symbol(ch.encode_utf8(&mut ch_buf));
-            }
-        }
-        buf
-    }
-
-    #[test]
-    fn test_extract_single_line() {
-        let buf = make_buffer_with_text(80, 24, 0, "Hello");
-        let text = extract_selection_text_ratatui(&buf, (0, 0), (0, 4), 80);
-        assert_eq!(text, "Hello");
-    }
-
-    #[test]
-    fn test_extract_single_line_partial() {
-        let buf = make_buffer_with_text(80, 24, 0, "Hello World");
-        // Select only "Hello"
-        let text = extract_selection_text_ratatui(&buf, (0, 0), (0, 4), 80);
-        assert_eq!(text, "Hello");
-    }
-
-    #[test]
-    fn test_extract_normalises_reversed_coords() {
-        // Passing end before start should produce the same result as the correct order.
-        let buf = make_buffer_with_text(80, 24, 0, "Hello");
-        let forward = extract_selection_text_ratatui(&buf, (0, 0), (0, 4), 80);
-        let reversed = extract_selection_text_ratatui(&buf, (0, 4), (0, 0), 80);
-        assert_eq!(forward, reversed);
-    }
-
-    #[test]
-    fn test_extract_multiline_trims_trailing_whitespace() {
-        // Row 0: "AB    " (with trailing spaces), Row 1: "CD"
-        let mut buf = ratatui::buffer::Buffer::empty(ratatui::layout::Rect::new(0, 0, 10, 5));
-        buf.content[0].set_symbol("A");
-        buf.content[1].set_symbol("B");
-        // cols 2..9 are spaces (default)
-        buf.content[10].set_symbol("C");
-        buf.content[11].set_symbol("D");
-
-        // Select from row 0 col 0 to row 1 col 1
-        let text = extract_selection_text_ratatui(&buf, (0, 0), (1, 1), 10);
-        // First line trailing spaces should be trimmed, then newline, then "CD"
-        assert_eq!(text, "AB\nCD");
-    }
-
-    #[test]
-    fn test_extract_empty_selection_within_row() {
-        let buf = make_buffer_with_text(80, 24, 0, "Hello");
-        // start == end: single character
-        let text = extract_selection_text_ratatui(&buf, (0, 2), (0, 2), 80);
-        assert_eq!(text, "l");
-    }
-
-    #[test]
-    fn test_extract_out_of_bounds_is_safe() {
-        let buf = ratatui::buffer::Buffer::empty(ratatui::layout::Rect::new(0, 0, 10, 5));
-        // Row/col beyond buffer — should not panic, returns empty or spaces
-        let text = extract_selection_text_ratatui(&buf, (4, 0), (4, 9), 10);
-        // All spaces trimmed gives empty (for multirow it would trim, single row doesn't trim)
-        assert_eq!(text.trim(), "");
     }
 }

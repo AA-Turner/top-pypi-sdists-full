@@ -66,6 +66,7 @@ from ..javascript import (
     BuildWorkflowOptions as _BuildWorkflowOptions_b756f97f,
     BundlerOptions as _BundlerOptions_d60b85ed,
     CodeArtifactOptions as _CodeArtifactOptions_e4782b3e,
+    DevEngines as _DevEngines_29ba9d09,
     EslintOptions as _EslintOptions_824f60bb,
     JestOptions as _JestOptions_a085f64e,
     LicenseCheckerOptions as _LicenseCheckerOptions_80bcd362,
@@ -1551,6 +1552,7 @@ class JsiiProject(
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
+        add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
         author_name: typing.Optional[builtins.str] = None,
@@ -1563,9 +1565,11 @@ class JsiiProject(
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["_CodeArtifactOptions_e4782b3e", typing.Dict[builtins.str, typing.Any]]] = None,
+        delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+        dev_engines: typing.Optional[typing.Union["_DevEngines_29ba9d09", typing.Dict[builtins.str, typing.Any]]] = None,
         entrypoint: typing.Optional[builtins.str] = None,
         homepage: typing.Optional[builtins.str] = None,
         keywords: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1725,6 +1729,7 @@ class JsiiProject(
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
         :param vscode: (experimental) Enable VSCode integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
+        :param add_package_manager_to_dev_engines: (experimental) Automatically add the resolved ``packageManager`` to ``devEngines.packageManager`` in ``package.json``, setting ``onFail`` to ``ignore``. Default: true
         :param allow_library_dependencies: (experimental) Allow the project to include ``peerDependencies`` and ``bundledDependencies``. This is normally only allowed for libraries. For apps, there's no meaning for specifying these. Default: true
         :param author_email: (experimental) Author's e-mail.
         :param author_name: (experimental) Author's name.
@@ -1737,9 +1742,11 @@ class JsiiProject(
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
         :param description: (experimental) The description is just a string that helps people understand the purpose of the package. It can be used when searching for packages in a package manager as well. See https://classic.yarnpkg.com/en/docs/package-json/#toc-description
         :param dev_deps: (experimental) Build dependencies for this module. These dependencies will only be available in your build environment but will not be fetched when this module is consumed. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
+        :param dev_engines: (experimental) Configure the ``devEngines`` field in ``package.json``. The ``devEngines.packageManager`` field is automatically populated based on the resolved ``packageManager`` value. Any fields provided here are merged with the auto-populated ``packageManager`` entry.
         :param entrypoint: (experimental) Module entrypoint (``main`` in ``package.json``). Set to an empty string to not include ``main`` in your package.json Default: "lib/index.js"
         :param homepage: (experimental) Package's Homepage / Website.
         :param keywords: (experimental) Keywords to include in ``package.json``.
@@ -1753,7 +1760,7 @@ class JsiiProject(
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
-        :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: NodePackageManager.YARN_CLASSIC
+        :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
@@ -1901,6 +1908,7 @@ class JsiiProject(
             stale=stale,
             stale_options=stale_options,
             vscode=vscode,
+            add_package_manager_to_dev_engines=add_package_manager_to_dev_engines,
             allow_library_dependencies=allow_library_dependencies,
             author_email=author_email,
             author_name=author_name,
@@ -1913,9 +1921,11 @@ class JsiiProject(
             bundled_deps=bundled_deps,
             bun_version=bun_version,
             code_artifact_options=code_artifact_options,
+            delete_orphaned_lock_files=delete_orphaned_lock_files,
             deps=deps,
             description=description,
             dev_deps=dev_deps,
+            dev_engines=dev_engines,
             entrypoint=entrypoint,
             homepage=homepage,
             keywords=keywords,
@@ -2018,6 +2028,7 @@ class JsiiProject(
         "stale": "stale",
         "stale_options": "staleOptions",
         "vscode": "vscode",
+        "add_package_manager_to_dev_engines": "addPackageManagerToDevEngines",
         "allow_library_dependencies": "allowLibraryDependencies",
         "author_email": "authorEmail",
         "author_name": "authorName",
@@ -2030,9 +2041,11 @@ class JsiiProject(
         "bundled_deps": "bundledDeps",
         "bun_version": "bunVersion",
         "code_artifact_options": "codeArtifactOptions",
+        "delete_orphaned_lock_files": "deleteOrphanedLockFiles",
         "deps": "deps",
         "description": "description",
         "dev_deps": "devDeps",
+        "dev_engines": "devEngines",
         "entrypoint": "entrypoint",
         "homepage": "homepage",
         "keywords": "keywords",
@@ -2196,6 +2209,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
+        add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
         author_name: typing.Optional[builtins.str] = None,
@@ -2208,9 +2222,11 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["_CodeArtifactOptions_e4782b3e", typing.Dict[builtins.str, typing.Any]]] = None,
+        delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+        dev_engines: typing.Optional[typing.Union["_DevEngines_29ba9d09", typing.Dict[builtins.str, typing.Any]]] = None,
         entrypoint: typing.Optional[builtins.str] = None,
         homepage: typing.Optional[builtins.str] = None,
         keywords: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2370,6 +2386,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
         :param vscode: (experimental) Enable VSCode integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
+        :param add_package_manager_to_dev_engines: (experimental) Automatically add the resolved ``packageManager`` to ``devEngines.packageManager`` in ``package.json``, setting ``onFail`` to ``ignore``. Default: true
         :param allow_library_dependencies: (experimental) Allow the project to include ``peerDependencies`` and ``bundledDependencies``. This is normally only allowed for libraries. For apps, there's no meaning for specifying these. Default: true
         :param author_email: (experimental) Author's e-mail.
         :param author_name: (experimental) Author's name.
@@ -2382,9 +2399,11 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
         :param description: (experimental) The description is just a string that helps people understand the purpose of the package. It can be used when searching for packages in a package manager as well. See https://classic.yarnpkg.com/en/docs/package-json/#toc-description
         :param dev_deps: (experimental) Build dependencies for this module. These dependencies will only be available in your build environment but will not be fetched when this module is consumed. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
+        :param dev_engines: (experimental) Configure the ``devEngines`` field in ``package.json``. The ``devEngines.packageManager`` field is automatically populated based on the resolved ``packageManager`` value. Any fields provided here are merged with the auto-populated ``packageManager`` entry.
         :param entrypoint: (experimental) Module entrypoint (``main`` in ``package.json``). Set to an empty string to not include ``main`` in your package.json Default: "lib/index.js"
         :param homepage: (experimental) Package's Homepage / Website.
         :param keywords: (experimental) Keywords to include in ``package.json``.
@@ -2398,7 +2417,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
-        :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: NodePackageManager.YARN_CLASSIC
+        :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
@@ -2539,6 +2558,8 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             stale_options = _StaleOptions_929db764(**stale_options)
         if isinstance(code_artifact_options, dict):
             code_artifact_options = _CodeArtifactOptions_e4782b3e(**code_artifact_options)
+        if isinstance(dev_engines, dict):
+            dev_engines = _DevEngines_29ba9d09(**dev_engines)
         if isinstance(peer_dependency_options, dict):
             peer_dependency_options = _PeerDependencyOptions_99d7d493(**peer_dependency_options)
         if isinstance(yarn_berry_options, dict):
@@ -2625,6 +2646,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             check_type(argname="argument stale", value=stale, expected_type=type_hints["stale"])
             check_type(argname="argument stale_options", value=stale_options, expected_type=type_hints["stale_options"])
             check_type(argname="argument vscode", value=vscode, expected_type=type_hints["vscode"])
+            check_type(argname="argument add_package_manager_to_dev_engines", value=add_package_manager_to_dev_engines, expected_type=type_hints["add_package_manager_to_dev_engines"])
             check_type(argname="argument allow_library_dependencies", value=allow_library_dependencies, expected_type=type_hints["allow_library_dependencies"])
             check_type(argname="argument author_email", value=author_email, expected_type=type_hints["author_email"])
             check_type(argname="argument author_name", value=author_name, expected_type=type_hints["author_name"])
@@ -2637,9 +2659,11 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             check_type(argname="argument bundled_deps", value=bundled_deps, expected_type=type_hints["bundled_deps"])
             check_type(argname="argument bun_version", value=bun_version, expected_type=type_hints["bun_version"])
             check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
+            check_type(argname="argument delete_orphaned_lock_files", value=delete_orphaned_lock_files, expected_type=type_hints["delete_orphaned_lock_files"])
             check_type(argname="argument deps", value=deps, expected_type=type_hints["deps"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument dev_deps", value=dev_deps, expected_type=type_hints["dev_deps"])
+            check_type(argname="argument dev_engines", value=dev_engines, expected_type=type_hints["dev_engines"])
             check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
             check_type(argname="argument homepage", value=homepage, expected_type=type_hints["homepage"])
             check_type(argname="argument keywords", value=keywords, expected_type=type_hints["keywords"])
@@ -2832,6 +2856,8 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["stale_options"] = stale_options
         if vscode is not None:
             self._values["vscode"] = vscode
+        if add_package_manager_to_dev_engines is not None:
+            self._values["add_package_manager_to_dev_engines"] = add_package_manager_to_dev_engines
         if allow_library_dependencies is not None:
             self._values["allow_library_dependencies"] = allow_library_dependencies
         if author_email is not None:
@@ -2856,12 +2882,16 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["bun_version"] = bun_version
         if code_artifact_options is not None:
             self._values["code_artifact_options"] = code_artifact_options
+        if delete_orphaned_lock_files is not None:
+            self._values["delete_orphaned_lock_files"] = delete_orphaned_lock_files
         if deps is not None:
             self._values["deps"] = deps
         if description is not None:
             self._values["description"] = description
         if dev_deps is not None:
             self._values["dev_deps"] = dev_deps
+        if dev_engines is not None:
+            self._values["dev_engines"] = dev_engines
         if entrypoint is not None:
             self._values["entrypoint"] = entrypoint
         if homepage is not None:
@@ -3473,6 +3503,17 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def add_package_manager_to_dev_engines(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Automatically add the resolved ``packageManager`` to ``devEngines.packageManager`` in ``package.json``, setting ``onFail`` to ``ignore``.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("add_package_manager_to_dev_engines")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def allow_library_dependencies(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Allow the project to include ``peerDependencies`` and ``bundledDependencies``.
 
@@ -3609,6 +3650,22 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         return typing.cast(typing.Optional["_CodeArtifactOptions_e4782b3e"], result)
 
     @builtins.property
+    def delete_orphaned_lock_files(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Automatically delete lockfiles from package managers that are not the active one.
+
+        Only triggered when the lockfile for the configured package
+        manager already exists.
+
+        This is useful when migrating between package managers to avoid conflicts.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("delete_orphaned_lock_files")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def deps(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) Runtime dependencies of this module.
 
@@ -3670,6 +3727,20 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         '''
         result = self._values.get("dev_deps")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def dev_engines(self) -> typing.Optional["_DevEngines_29ba9d09"]:
+        '''(experimental) Configure the ``devEngines`` field in ``package.json``.
+
+        The ``devEngines.packageManager`` field is automatically populated based on
+        the resolved ``packageManager`` value. Any fields provided here are merged
+        with the auto-populated ``packageManager`` entry.
+
+        :see: https://docs.npmjs.com/cli/v10/configuring-npm/package-json#devengines
+        :stability: experimental
+        '''
+        result = self._values.get("dev_engines")
+        return typing.cast(typing.Optional["_DevEngines_29ba9d09"], result)
 
     @builtins.property
     def entrypoint(self) -> typing.Optional[builtins.str]:
@@ -3850,9 +3921,10 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
     def package_manager(self) -> typing.Optional["_NodePackageManager_3eb53bf6"]:
         '''(experimental) The Node Package Manager used to execute scripts.
 
-        :default: NodePackageManager.YARN_CLASSIC
+        :default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
 
         :stability: experimental
+        :pjnew: $PACKAGE_MANAGER
         '''
         result = self._values.get("package_manager")
         return typing.cast(typing.Optional["_NodePackageManager_3eb53bf6"], result)
@@ -5628,6 +5700,7 @@ class ConstructLibrary(
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
+        add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
         author_name: typing.Optional[builtins.str] = None,
@@ -5640,9 +5713,11 @@ class ConstructLibrary(
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["_CodeArtifactOptions_e4782b3e", typing.Dict[builtins.str, typing.Any]]] = None,
+        delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+        dev_engines: typing.Optional[typing.Union["_DevEngines_29ba9d09", typing.Dict[builtins.str, typing.Any]]] = None,
         entrypoint: typing.Optional[builtins.str] = None,
         homepage: typing.Optional[builtins.str] = None,
         keywords: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -5803,6 +5878,7 @@ class ConstructLibrary(
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
         :param vscode: (experimental) Enable VSCode integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
+        :param add_package_manager_to_dev_engines: (experimental) Automatically add the resolved ``packageManager`` to ``devEngines.packageManager`` in ``package.json``, setting ``onFail`` to ``ignore``. Default: true
         :param allow_library_dependencies: (experimental) Allow the project to include ``peerDependencies`` and ``bundledDependencies``. This is normally only allowed for libraries. For apps, there's no meaning for specifying these. Default: true
         :param author_email: (experimental) Author's e-mail.
         :param author_name: (experimental) Author's name.
@@ -5815,9 +5891,11 @@ class ConstructLibrary(
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
         :param description: (experimental) The description is just a string that helps people understand the purpose of the package. It can be used when searching for packages in a package manager as well. See https://classic.yarnpkg.com/en/docs/package-json/#toc-description
         :param dev_deps: (experimental) Build dependencies for this module. These dependencies will only be available in your build environment but will not be fetched when this module is consumed. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
+        :param dev_engines: (experimental) Configure the ``devEngines`` field in ``package.json``. The ``devEngines.packageManager`` field is automatically populated based on the resolved ``packageManager`` value. Any fields provided here are merged with the auto-populated ``packageManager`` entry.
         :param entrypoint: (experimental) Module entrypoint (``main`` in ``package.json``). Set to an empty string to not include ``main`` in your package.json Default: "lib/index.js"
         :param homepage: (experimental) Package's Homepage / Website.
         :param keywords: (experimental) Keywords to include in ``package.json``.
@@ -5831,7 +5909,7 @@ class ConstructLibrary(
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
-        :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: NodePackageManager.YARN_CLASSIC
+        :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
@@ -5980,6 +6058,7 @@ class ConstructLibrary(
             stale=stale,
             stale_options=stale_options,
             vscode=vscode,
+            add_package_manager_to_dev_engines=add_package_manager_to_dev_engines,
             allow_library_dependencies=allow_library_dependencies,
             author_email=author_email,
             author_name=author_name,
@@ -5992,9 +6071,11 @@ class ConstructLibrary(
             bundled_deps=bundled_deps,
             bun_version=bun_version,
             code_artifact_options=code_artifact_options,
+            delete_orphaned_lock_files=delete_orphaned_lock_files,
             deps=deps,
             description=description,
             dev_deps=dev_deps,
+            dev_engines=dev_engines,
             entrypoint=entrypoint,
             homepage=homepage,
             keywords=keywords,
@@ -6104,6 +6185,7 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "stale": "stale",
         "stale_options": "staleOptions",
         "vscode": "vscode",
+        "add_package_manager_to_dev_engines": "addPackageManagerToDevEngines",
         "allow_library_dependencies": "allowLibraryDependencies",
         "author_email": "authorEmail",
         "author_name": "authorName",
@@ -6116,9 +6198,11 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "bundled_deps": "bundledDeps",
         "bun_version": "bunVersion",
         "code_artifact_options": "codeArtifactOptions",
+        "delete_orphaned_lock_files": "deleteOrphanedLockFiles",
         "deps": "deps",
         "description": "description",
         "dev_deps": "devDeps",
+        "dev_engines": "devEngines",
         "entrypoint": "entrypoint",
         "homepage": "homepage",
         "keywords": "keywords",
@@ -6283,6 +6367,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         stale: typing.Optional[builtins.bool] = None,
         stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
+        add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
         author_name: typing.Optional[builtins.str] = None,
@@ -6295,9 +6380,11 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
         code_artifact_options: typing.Optional[typing.Union["_CodeArtifactOptions_e4782b3e", typing.Dict[builtins.str, typing.Any]]] = None,
+        delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+        dev_engines: typing.Optional[typing.Union["_DevEngines_29ba9d09", typing.Dict[builtins.str, typing.Any]]] = None,
         entrypoint: typing.Optional[builtins.str] = None,
         homepage: typing.Optional[builtins.str] = None,
         keywords: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -6458,6 +6545,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param stale: (experimental) Auto-close of stale issues and pull request. See ``staleOptions`` for options. Default: false
         :param stale_options: (experimental) Auto-close stale issues and pull requests. To disable set ``stale`` to ``false``. Default: - see defaults in ``StaleOptions``
         :param vscode: (experimental) Enable VSCode integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
+        :param add_package_manager_to_dev_engines: (experimental) Automatically add the resolved ``packageManager`` to ``devEngines.packageManager`` in ``package.json``, setting ``onFail`` to ``ignore``. Default: true
         :param allow_library_dependencies: (experimental) Allow the project to include ``peerDependencies`` and ``bundledDependencies``. This is normally only allowed for libraries. For apps, there's no meaning for specifying these. Default: true
         :param author_email: (experimental) Author's e-mail.
         :param author_name: (experimental) Author's name.
@@ -6470,9 +6558,11 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
+        :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
         :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
         :param description: (experimental) The description is just a string that helps people understand the purpose of the package. It can be used when searching for packages in a package manager as well. See https://classic.yarnpkg.com/en/docs/package-json/#toc-description
         :param dev_deps: (experimental) Build dependencies for this module. These dependencies will only be available in your build environment but will not be fetched when this module is consumed. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
+        :param dev_engines: (experimental) Configure the ``devEngines`` field in ``package.json``. The ``devEngines.packageManager`` field is automatically populated based on the resolved ``packageManager`` value. Any fields provided here are merged with the auto-populated ``packageManager`` entry.
         :param entrypoint: (experimental) Module entrypoint (``main`` in ``package.json``). Set to an empty string to not include ``main`` in your package.json Default: "lib/index.js"
         :param homepage: (experimental) Package's Homepage / Website.
         :param keywords: (experimental) Keywords to include in ``package.json``.
@@ -6486,7 +6576,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
-        :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: NodePackageManager.YARN_CLASSIC
+        :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
@@ -6628,6 +6718,8 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             stale_options = _StaleOptions_929db764(**stale_options)
         if isinstance(code_artifact_options, dict):
             code_artifact_options = _CodeArtifactOptions_e4782b3e(**code_artifact_options)
+        if isinstance(dev_engines, dict):
+            dev_engines = _DevEngines_29ba9d09(**dev_engines)
         if isinstance(peer_dependency_options, dict):
             peer_dependency_options = _PeerDependencyOptions_99d7d493(**peer_dependency_options)
         if isinstance(yarn_berry_options, dict):
@@ -6716,6 +6808,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument stale", value=stale, expected_type=type_hints["stale"])
             check_type(argname="argument stale_options", value=stale_options, expected_type=type_hints["stale_options"])
             check_type(argname="argument vscode", value=vscode, expected_type=type_hints["vscode"])
+            check_type(argname="argument add_package_manager_to_dev_engines", value=add_package_manager_to_dev_engines, expected_type=type_hints["add_package_manager_to_dev_engines"])
             check_type(argname="argument allow_library_dependencies", value=allow_library_dependencies, expected_type=type_hints["allow_library_dependencies"])
             check_type(argname="argument author_email", value=author_email, expected_type=type_hints["author_email"])
             check_type(argname="argument author_name", value=author_name, expected_type=type_hints["author_name"])
@@ -6728,9 +6821,11 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument bundled_deps", value=bundled_deps, expected_type=type_hints["bundled_deps"])
             check_type(argname="argument bun_version", value=bun_version, expected_type=type_hints["bun_version"])
             check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
+            check_type(argname="argument delete_orphaned_lock_files", value=delete_orphaned_lock_files, expected_type=type_hints["delete_orphaned_lock_files"])
             check_type(argname="argument deps", value=deps, expected_type=type_hints["deps"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument dev_deps", value=dev_deps, expected_type=type_hints["dev_deps"])
+            check_type(argname="argument dev_engines", value=dev_engines, expected_type=type_hints["dev_engines"])
             check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
             check_type(argname="argument homepage", value=homepage, expected_type=type_hints["homepage"])
             check_type(argname="argument keywords", value=keywords, expected_type=type_hints["keywords"])
@@ -6924,6 +7019,8 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["stale_options"] = stale_options
         if vscode is not None:
             self._values["vscode"] = vscode
+        if add_package_manager_to_dev_engines is not None:
+            self._values["add_package_manager_to_dev_engines"] = add_package_manager_to_dev_engines
         if allow_library_dependencies is not None:
             self._values["allow_library_dependencies"] = allow_library_dependencies
         if author_email is not None:
@@ -6948,12 +7045,16 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["bun_version"] = bun_version
         if code_artifact_options is not None:
             self._values["code_artifact_options"] = code_artifact_options
+        if delete_orphaned_lock_files is not None:
+            self._values["delete_orphaned_lock_files"] = delete_orphaned_lock_files
         if deps is not None:
             self._values["deps"] = deps
         if description is not None:
             self._values["description"] = description
         if dev_deps is not None:
             self._values["dev_deps"] = dev_deps
+        if dev_engines is not None:
+            self._values["dev_engines"] = dev_engines
         if entrypoint is not None:
             self._values["entrypoint"] = entrypoint
         if homepage is not None:
@@ -7567,6 +7668,17 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def add_package_manager_to_dev_engines(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Automatically add the resolved ``packageManager`` to ``devEngines.packageManager`` in ``package.json``, setting ``onFail`` to ``ignore``.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("add_package_manager_to_dev_engines")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def allow_library_dependencies(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Allow the project to include ``peerDependencies`` and ``bundledDependencies``.
 
@@ -7703,6 +7815,22 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         return typing.cast(typing.Optional["_CodeArtifactOptions_e4782b3e"], result)
 
     @builtins.property
+    def delete_orphaned_lock_files(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Automatically delete lockfiles from package managers that are not the active one.
+
+        Only triggered when the lockfile for the configured package
+        manager already exists.
+
+        This is useful when migrating between package managers to avoid conflicts.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("delete_orphaned_lock_files")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def deps(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) Runtime dependencies of this module.
 
@@ -7764,6 +7892,20 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         '''
         result = self._values.get("dev_deps")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def dev_engines(self) -> typing.Optional["_DevEngines_29ba9d09"]:
+        '''(experimental) Configure the ``devEngines`` field in ``package.json``.
+
+        The ``devEngines.packageManager`` field is automatically populated based on
+        the resolved ``packageManager`` value. Any fields provided here are merged
+        with the auto-populated ``packageManager`` entry.
+
+        :see: https://docs.npmjs.com/cli/v10/configuring-npm/package-json#devengines
+        :stability: experimental
+        '''
+        result = self._values.get("dev_engines")
+        return typing.cast(typing.Optional["_DevEngines_29ba9d09"], result)
 
     @builtins.property
     def entrypoint(self) -> typing.Optional[builtins.str]:
@@ -7944,9 +8086,10 @@ class ConstructLibraryOptions(JsiiProjectOptions):
     def package_manager(self) -> typing.Optional["_NodePackageManager_3eb53bf6"]:
         '''(experimental) The Node Package Manager used to execute scripts.
 
-        :default: NodePackageManager.YARN_CLASSIC
+        :default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
 
         :stability: experimental
+        :pjnew: $PACKAGE_MANAGER
         '''
         result = self._values.get("package_manager")
         return typing.cast(typing.Optional["_NodePackageManager_3eb53bf6"], result)
@@ -9554,6 +9697,7 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     stale: typing.Optional[builtins.bool] = None,
     stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
     vscode: typing.Optional[builtins.bool] = None,
+    add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
     allow_library_dependencies: typing.Optional[builtins.bool] = None,
     author_email: typing.Optional[builtins.str] = None,
     author_name: typing.Optional[builtins.str] = None,
@@ -9566,9 +9710,11 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
     bun_version: typing.Optional[builtins.str] = None,
     code_artifact_options: typing.Optional[typing.Union[_CodeArtifactOptions_e4782b3e, typing.Dict[builtins.str, typing.Any]]] = None,
+    delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
     deps: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
     dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+    dev_engines: typing.Optional[typing.Union[_DevEngines_29ba9d09, typing.Dict[builtins.str, typing.Any]]] = None,
     entrypoint: typing.Optional[builtins.str] = None,
     homepage: typing.Optional[builtins.str] = None,
     keywords: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -9750,6 +9896,7 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     stale: typing.Optional[builtins.bool] = None,
     stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
     vscode: typing.Optional[builtins.bool] = None,
+    add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
     allow_library_dependencies: typing.Optional[builtins.bool] = None,
     author_email: typing.Optional[builtins.str] = None,
     author_name: typing.Optional[builtins.str] = None,
@@ -9762,9 +9909,11 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
     bun_version: typing.Optional[builtins.str] = None,
     code_artifact_options: typing.Optional[typing.Union[_CodeArtifactOptions_e4782b3e, typing.Dict[builtins.str, typing.Any]]] = None,
+    delete_orphaned_lock_files: typing.Optional[builtins.bool] = None,
     deps: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
     dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+    dev_engines: typing.Optional[typing.Union[_DevEngines_29ba9d09, typing.Dict[builtins.str, typing.Any]]] = None,
     entrypoint: typing.Optional[builtins.str] = None,
     homepage: typing.Optional[builtins.str] = None,
     keywords: typing.Optional[typing.Sequence[builtins.str]] = None,

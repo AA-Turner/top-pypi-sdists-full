@@ -55,11 +55,11 @@ class XQueueInterfaceSubmission:
         if not self.block:
             raise GetSubmissionParamsError()
 
-        course_id = str(self.block.scope_ids.usage_id.context_key)
+        course_id = str(self.block.context_key)
         item_type = self.block.scope_ids.block_type
         points_possible = self.block.max_score()
 
-        item_id = str(self.block.scope_ids.usage_id)
+        item_id = str(self.block.usage_key)
 
         try:
             grader_payload = self._parse_json(payload["grader_payload"], "grader_payload")

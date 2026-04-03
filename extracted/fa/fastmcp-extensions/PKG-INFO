@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp-extensions
-Version: 0.2.0
+Version: 0.3.0
 Summary: Unofficial extension library for FastMCP 2.0 with patterns, practices, and utilities
 Project-URL: Homepage, https://github.com/airbytehq/fastmcp-extensions
 Project-URL: Repository, https://github.com/airbytehq/fastmcp-extensions
@@ -218,7 +218,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
-Requires-Dist: fastmcp<3.0,>=2.2.7
+Requires-Dist: fastmcp<4.0,>=3.0
 Provides-Extra: dev
 Requires-Dist: deptry>=0.12.0; extra == 'dev'
 Requires-Dist: mypy>=1.8.0; extra == 'dev'

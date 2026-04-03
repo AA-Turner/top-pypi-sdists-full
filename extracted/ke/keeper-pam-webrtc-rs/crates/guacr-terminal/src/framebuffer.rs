@@ -490,110 +490,57 @@ impl FrameBuffer {
     pub fn size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    /// Copy a rectangular region from one location to another within the framebuffer.
+    ///
+    /// Handles overlapping regions correctly by using a temporary buffer.
+    /// Out-of-bounds coordinates are clamped; the call is a no-op when clamping
+    /// reduces the effective width or height to zero.
+    pub fn copy_region(
+        &mut self,
+        src_x: u32,
+        src_y: u32,
+        dst_x: u32,
+        dst_y: u32,
+        width: u32,
+        height: u32,
+    ) {
+        // Clamp effective width/height so we never read or write out of bounds.
+        let effective_width = width
+            .min(self.width.saturating_sub(src_x))
+            .min(self.width.saturating_sub(dst_x));
+        let effective_height = height
+            .min(self.height.saturating_sub(src_y))
+            .min(self.height.saturating_sub(dst_y));
 
-    #[test]
-    fn test_framebuffer_new() {
-        let fb = FrameBuffer::new(1920, 1080);
-        assert_eq!(fb.size(), (1920, 1080));
-        assert_eq!(fb.dirty_rects().len(), 0);
-    }
+        if effective_width == 0 || effective_height == 0 {
+            return;
+        }
 
-    #[test]
-    fn test_update_region() {
-        let mut fb = FrameBuffer::new(100, 100);
-        let pixels = vec![255u8; 10 * 10 * 4]; // 10x10 white pixels
+        // Collect the source pixels into a temporary buffer so that overlapping
+        // src/dst regions are handled correctly without visible tearing.
+        let row_bytes = (effective_width * 4) as usize;
+        let mut tmp = vec![0u8; row_bytes * effective_height as usize];
 
-        fb.update_region(10, 10, 10, 10, &pixels);
+        for row in 0..effective_height {
+            let src_offset = ((src_y + row) * self.width + src_x) as usize * 4;
+            let tmp_offset = row as usize * row_bytes;
+            tmp[tmp_offset..tmp_offset + row_bytes]
+                .copy_from_slice(&self.data[src_offset..src_offset + row_bytes]);
+        }
 
-        assert_eq!(fb.dirty_rects().len(), 1);
-        assert_eq!(fb.dirty_rects()[0].x, 10);
-        assert_eq!(fb.dirty_rects()[0].y, 10);
-        assert_eq!(fb.dirty_rects()[0].width, 10);
-        assert_eq!(fb.dirty_rects()[0].height, 10);
-    }
+        for row in 0..effective_height {
+            let dst_offset = ((dst_y + row) * self.width + dst_x) as usize * 4;
+            let tmp_offset = row as usize * row_bytes;
+            self.data[dst_offset..dst_offset + row_bytes]
+                .copy_from_slice(&tmp[tmp_offset..tmp_offset + row_bytes]);
+        }
 
-    #[test]
-    fn test_rect_intersects() {
-        let rect1 = FrameRect {
-            x: 10,
-            y: 10,
-            width: 20,
-            height: 20,
-        };
-        let rect2 = FrameRect {
-            x: 20,
-            y: 20,
-            width: 20,
-            height: 20,
-        };
-        let rect3 = FrameRect {
-            x: 50,
-            y: 50,
-            width: 10,
-            height: 10,
-        };
-
-        assert!(rect1.intersects(&rect2));
-        assert!(!rect1.intersects(&rect3));
-    }
-
-    #[test]
-    fn test_rect_union() {
-        let rect1 = FrameRect {
-            x: 10,
-            y: 10,
-            width: 20,
-            height: 20,
-        };
-        let rect2 = FrameRect {
-            x: 20,
-            y: 20,
-            width: 20,
-            height: 20,
-        };
-
-        let union = rect1.union(&rect2);
-
-        assert_eq!(union.x, 10);
-        assert_eq!(union.y, 10);
-        assert_eq!(union.width, 30);
-        assert_eq!(union.height, 30);
-    }
-
-    #[test]
-    fn test_optimize_dirty_rects() {
-        let mut fb = FrameBuffer::new(100, 100);
-        let pixels = vec![255u8; 10 * 10 * 4];
-
-        fb.update_region(10, 10, 10, 10, &pixels);
-        fb.update_region(15, 15, 10, 10, &pixels); // Overlapping
-
-        assert_eq!(fb.dirty_rects().len(), 2);
-
-        fb.optimize_dirty_rects();
-
-        assert_eq!(fb.dirty_rects().len(), 1); // Should be merged
-    }
-
-    #[test]
-    fn test_encode_region() {
-        let mut fb = FrameBuffer::new(100, 100);
-        let pixels = vec![255u8; 20 * 20 * 4];
-
-        fb.update_region(10, 10, 20, 20, &pixels);
-
-        let rect = fb.dirty_rects()[0];
-        let png = fb.encode_region(rect);
-
-        assert!(png.is_ok());
-        let png_data = png.unwrap();
-        assert!(!png_data.is_empty());
-        // Check PNG signature
-        assert_eq!(&png_data[0..8], b"\x89PNG\r\n\x1a\n");
+        self.dirty_rects.push(FrameRect {
+            x: dst_x,
+            y: dst_y,
+            width: effective_width,
+            height: effective_height,
+        });
     }
 }

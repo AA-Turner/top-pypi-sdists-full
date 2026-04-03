@@ -1226,6 +1226,14 @@ class WorkflowStage(models.Model):
             "approver approves the submission."
         ),
     )
+    hide_comment_field = models.BooleanField(
+        default=False,
+        help_text=(
+            "Hide the public decision comment field from approvers at this stage. "
+            "Useful for stages where no notifications are sent to the submitter "
+            "or where the comment would not be meaningful."
+        ),
+    )
 
     change_history = GenericRelation(
         "django_forms_workflows.ChangeHistory",
@@ -1301,6 +1309,8 @@ class NotificationRule(models.Model):
         ("workflow_approved", "Workflow Approved (final decision)"),
         ("workflow_denied", "Workflow Denied (final decision)"),
         ("form_withdrawn", "Form Withdrawn"),
+        ("approval_reminder", "Approval Reminder"),
+        ("escalation", "Escalation"),
     ]
 
     workflow = models.ForeignKey(
@@ -1318,7 +1328,17 @@ class NotificationRule(models.Model):
             "Optional. When set, scopes this rule to a specific stage. "
             "Recipient sources like 'Notify stage assignees' and "
             "'Notify stage groups' will reference only this stage. "
-            "When blank, they reference all stages in the workflow."
+            "When blank, they reference all stages in the workflow. "
+            "Ignored when 'Use triggering stage' is checked."
+        ),
+    )
+    use_triggering_stage = models.BooleanField(
+        default=False,
+        help_text=(
+            "When checked, automatically scopes this rule to whichever "
+            "stage triggered the event at runtime. This avoids needing "
+            "to create a separate rule per stage. Overrides the Stage "
+            "dropdown above."
         ),
     )
     event = models.CharField(
@@ -1342,6 +1362,16 @@ class NotificationRule(models.Model):
         help_text=(
             "Custom email subject line. Supports {form_name} and "
             "{submission_id} placeholders. Leave blank for the default."
+        ),
+    )
+    body_template = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Custom email body (HTML). Rendered as a Django template with "
+            "the full notification context (submission, form_data, approver, "
+            "task, approval_url, submission_url, site_name, etc.). "
+            "Leave blank to use the built-in template for this event type."
         ),
     )
 
@@ -1401,6 +1431,12 @@ class NotificationRule(models.Model):
     def clean(self):
         from django.core.exceptions import ValidationError
 
+        if self.use_triggering_stage and self.stage_id:
+            raise ValidationError(
+                "'Use triggering stage' and a specific 'Stage' are mutually "
+                "exclusive. Either pick a stage or check 'Use triggering stage'."
+            )
+
         has_recipients = (
             self.notify_submitter
             or self.email_field
@@ -1429,7 +1465,12 @@ class NotificationRule(models.Model):
         if self.notify_stage_groups:
             parts.append("stage-groups")
         target = ", ".join(parts) if parts else "groups"
-        stage_label = f" [{self.stage.name}]" if self.stage_id else ""
+        if self.use_triggering_stage:
+            stage_label = " [triggering stage]"
+        elif self.stage_id:
+            stage_label = f" [{self.stage.name}]"
+        else:
+            stage_label = ""
         return f"{self.get_event_display()}{stage_label} → {target}"
 
 

@@ -11,6 +11,7 @@ from werkzeug.serving import make_server
 from abstra_internals.cloud_api import connect_tunnel
 from abstra_internals.controllers.codebase_events import CodebaseEventController
 from abstra_internals.controllers.execution.consumer import ConsumerController
+from abstra_internals.controllers.linter_events import LinterEventController
 from abstra_internals.controllers.main import MainController
 from abstra_internals.environment import (
     EDITOR_MODE,
@@ -150,6 +151,13 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
         ]
     )
     watcher.start()
+
+    # Run all linters once on startup in a background thread
+    def _initial_lint():
+        checks = repositories.linter.update_checks()
+        LinterEventController.broadcast(checks)
+
+    threading.Thread(target=_initial_lint, daemon=True, name="InitialLintCheck").start()
 
     if WORKER_LOG_TO_QUEUE and use_rabbitmq_workers:
         assert RABBITMQ_CONNECTION_URI is not None

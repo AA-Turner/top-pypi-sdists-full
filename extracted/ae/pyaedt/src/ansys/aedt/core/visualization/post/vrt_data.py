@@ -91,7 +91,7 @@ class VRTFieldPlot(PyAedtBase):
         self.irregular_surface_tolerance = 50
 
     @property
-    def intrinsicVar(self) -> str:
+    def intrinsicVar(self):
         """Intrinsic variable.
 
         Returns
@@ -262,7 +262,7 @@ class VRTFieldPlot(PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def export(self, path: str = None) -> str:
+    def export(self, path=None):
         """Export the Visual Ray Tracing to ``hdm`` file.
 
         Parameters

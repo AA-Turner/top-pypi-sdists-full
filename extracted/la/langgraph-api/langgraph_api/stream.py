@@ -33,7 +33,7 @@ from langgraph_api import _checkpointer as api_checkpointer
 from langgraph_api import store as api_store
 from langgraph_api.asyncio import ValueEvent, wait_if_not_done
 from langgraph_api.command import map_cmd
-from langgraph_api.config import LSD_PUBLISH_QUEUE_SIZE
+from langgraph_api.config import FF_ASYNC_PUBLISH_QUEUE, LSD_PUBLISH_QUEUE_SIZE
 from langgraph_api.feature_flags import (
     IS_POSTGRES_OR_GRPC_BACKEND,
     UPDATES_NEEDED_FOR_INTERRUPTS,
@@ -41,6 +41,7 @@ from langgraph_api.feature_flags import (
     USE_RUNTIME_CONTEXT_API,
 )
 from langgraph_api.graph import get_graph
+from langgraph_api.grpc.ops.runs import StreamPublishException
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.metadata import HOST, PLAN, USER_API_URL, incr_nodes
 from langgraph_api.metrics_datadog import (
@@ -504,6 +505,100 @@ async def consume(
     if "messages-tuple" in stream_modes:
         stream_modes.add("messages")
     stream_modes.add("metadata")
+
+    if FF_ASYNC_PUBLISH_QUEUE:
+        await _consume_async_queue(
+            stream,
+            run_id,
+            resumable,
+            stream_modes,
+            thread_id=thread_id,
+            reporter=reporter,
+        )
+    else:
+        await _consume_inline(
+            stream,
+            run_id,
+            resumable,
+            stream_modes,
+            thread_id=thread_id,
+            reporter=reporter,
+        )
+
+
+async def _consume_inline(
+    stream: AnyStream,
+    run_id: str | uuid.UUID,
+    resumable: bool,
+    stream_modes: set[StreamMode],
+    *,
+    thread_id: str | uuid.UUID,
+    reporter: Any,
+) -> None:
+    """Publish each stream event inline (synchronous with stream consumption).
+
+    This preserves natural backpressure: each event must be published before the
+    next one is consumed.
+    """
+    async with aclosing(stream):
+        try:
+            async for mode, payload in stream:
+                event_type = get_stream_event_type(mode)
+                payload_bytes = await run_in_executor(None, json_dumpb, payload)
+                is_resumable = resumable and mode.split("|")[0] in stream_modes
+                with reporter.track_latency_ms(
+                    LATENCY_STREAM_PUBLISH,
+                    attributes={"stream_event_type": event_type},
+                ):
+                    await Runs.Stream.publish(
+                        run_id,
+                        mode,
+                        payload_bytes,
+                        thread_id=thread_id,
+                        resumable=is_resumable,
+                    )
+                reporter.record_histogram(
+                    HISTOGRAM_STREAM_DATA_SIZE,
+                    float(len(payload_bytes)),
+                    attributes={"stream_event_type": event_type},
+                )
+        except Exception as e:
+            if isinstance(e, ExceptionGroup):
+                e = e.exceptions[0]
+            with suppress(Exception):
+                await Runs.Stream.publish(
+                    run_id,
+                    "error",
+                    await run_in_executor(None, json_dumpb, e),
+                    thread_id=thread_id,
+                )
+            if isinstance(e, StreamPublishException):
+                await logger.aerror(
+                    "Suppressing stream consume exception",
+                    run_id=str(run_id),
+                    thread_id=str(thread_id),
+                    error_type=type(e).__name__,
+                    error=str(e),
+                )
+                reporter.inc_counter(COUNTER_STREAMING_DATA_LOSS)
+                return
+            raise e
+
+
+async def _consume_async_queue(
+    stream: AnyStream,
+    run_id: str | uuid.UUID,
+    resumable: bool,
+    stream_modes: set[StreamMode],
+    *,
+    thread_id: str | uuid.UUID,
+    reporter: Any,
+) -> None:
+    """Publish stream events via a background asyncio queue.
+
+    Decouples stream consumption from publishing so that slow publishes don't
+    block graph execution. Enable with FF_ASYNC_PUBLISH_QUEUE=true.
+    """
     publish_queue: asyncio.Queue[tuple[str, bytes, str, bool] | object] = asyncio.Queue(
         maxsize=LSD_PUBLISH_QUEUE_SIZE
     )
@@ -550,7 +645,6 @@ async def consume(
                 publish_queue.task_done()
 
     async def _enqueue(item: tuple[str, bytes, str, bool] | object) -> None:
-        """Enqueue an item for publishing. Blocks if the queue is full."""
         reporter.record_gauge(
             GAUGE_PUBLISH_QUEUE_AVAILABILITY,
             float(publish_queue.maxsize - publish_queue.qsize()),

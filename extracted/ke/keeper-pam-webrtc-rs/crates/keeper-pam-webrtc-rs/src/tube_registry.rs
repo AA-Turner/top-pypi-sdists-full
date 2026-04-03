@@ -1003,6 +1003,40 @@ impl RegistryActor {
             }
         }
 
+        // Additional TURN/STUN server from environment variables.
+        // Set KEEPER_GATEWAY_TURN_URL (e.g. "turn:myrelay.example.com:3478"),
+        // KEEPER_GATEWAY_TURN_USERNAME, and KEEPER_GATEWAY_TURN_PASSWORD to add
+        // a second relay alongside Keeper's own TURN server.
+        // Useful for dev/test environments with an uncapped local coturn instance.
+        if let Ok(extra_turn_url) = std::env::var("KEEPER_GATEWAY_TURN_URL") {
+            if !extra_turn_url.is_empty() {
+                let username = std::env::var("KEEPER_GATEWAY_TURN_USERNAME").unwrap_or_default();
+                let password = std::env::var("KEEPER_GATEWAY_TURN_PASSWORD").unwrap_or_default();
+                info!(
+                    "Adding extra TURN server from KEEPER_GATEWAY_TURN_URL (tube_id: {}, url: {})",
+                    tube_id, extra_turn_url
+                );
+                ice_servers.push(RTCIceServer {
+                    urls: vec![extra_turn_url],
+                    username,
+                    credential: password,
+                });
+            }
+        }
+        if let Ok(extra_stun_url) = std::env::var("KEEPER_GATEWAY_STUN_URL") {
+            if !extra_stun_url.is_empty() {
+                info!(
+                    "Adding extra STUN server from KEEPER_GATEWAY_STUN_URL (tube_id: {}, url: {})",
+                    tube_id, extra_stun_url
+                );
+                ice_servers.push(RTCIceServer {
+                    urls: vec![extra_stun_url],
+                    username: String::new(),
+                    credential: String::new(),
+                });
+            }
+        }
+
         Ok(ice_servers)
     }
 

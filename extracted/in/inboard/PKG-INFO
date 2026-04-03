@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inboard
-Version: 0.88.0
+Version: 0.90.0
 Summary: Docker images and utilities to power your Python APIs and help you ship faster.
 Project-URL: Docker, https://github.com/br3ndonland/inboard/pkgs/container/inboard
 Project-URL: Documentation, https://inboard.bws.bio
@@ -28,9 +28,9 @@ Requires-Python: <4,>=3.10
 Requires-Dist: gunicorn==23.0.0
 Requires-Dist: uvicorn==0.28.1
 Provides-Extra: fastapi
-Requires-Dist: fastapi==0.132.1; extra == 'fastapi'
+Requires-Dist: fastapi<0.136,>=0.135; extra == 'fastapi'
 Provides-Extra: starlette
-Requires-Dist: starlette<0.53.0,>=0.40.0; extra == 'starlette'
+Requires-Dist: starlette>=0.46.0; extra == 'starlette'
 Provides-Extra: uvicorn-fast
 Requires-Dist: httptools>=0.6.3; extra == 'uvicorn-fast'
 Requires-Dist: uvloop>0.15.1; (sys_platform != 'win32' and (sys_platform != 'cygwin' and platform_python_implementation != 'PyPy')) and extra == 'uvicorn-fast'

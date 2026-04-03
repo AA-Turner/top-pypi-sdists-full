@@ -65,6 +65,7 @@ class PushExcitationExtension(ExtensionHFSSCommon):
         # Initialize the common extension class
         super().__init__(
             EXTENSION_TITLE,
+            theme_color="light",
             withdraw=withdraw,
             add_custom_content=False,
             toggle_row=3,

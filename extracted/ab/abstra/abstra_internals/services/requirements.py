@@ -35,7 +35,7 @@ class _PackagesDistributionsCache:
 
     _cache: Optional[Mapping[str, List[str]]] = None
     _cache_time: Optional[float] = None
-    _TTL_SECONDS: float = 60.0  # Cache for 60 seconds
+    _TTL_SECONDS: float = 1800.0  # Cache for 30 minutes
 
     @classmethod
     def get(cls) -> Mapping[str, List[str]]:
@@ -734,6 +734,8 @@ def uninstall_requirement(req: Requirement):
         yield from __uninstall_from_standalone(req)
     else:
         yield from __uninstall_from_lib(req)
+    _PackagesDistributionsCache.invalidate()
+    _TransitiveDependenciesCache.invalidate()
 
 
 def __uninstall_from_standalone(req: Requirement):
@@ -1073,6 +1075,8 @@ class Requirements:
             yield from self.__install_from_standalone()
         else:
             yield from self.__install_from_lib()
+        _PackagesDistributionsCache.invalidate()
+        _TransitiveDependenciesCache.invalidate()
 
 
 @dataclass
@@ -1142,3 +1146,86 @@ class RequirementsRepository:
             # Package not found, skip
             pass
         cls.save(requirements)
+
+
+@dataclass
+class RequirementsValidationResult:
+    """Result of validating requirements.txt content."""
+
+    valid: bool
+    error: Optional[str]
+    missing_packages: Optional[List[str]]
+
+    def to_dict(self) -> dict:
+        return {
+            "valid": self.valid,
+            "error": self.error,
+            "missing_packages": self.missing_packages,
+        }
+
+
+def validate_requirements_content(content: str) -> RequirementsValidationResult:
+    """
+    Validate that the proposed requirements.txt content includes all packages
+    that are used in the project.
+
+    Uses the same analysis as the linter (analyze_project_imports) to find
+    all imports in the project and checks if they are covered by the proposed
+    new requirements.txt content.
+
+    Args:
+        content: The proposed new content for requirements.txt
+
+    Returns:
+        RequirementsValidationResult with validation status and any missing packages
+    """
+    # Parse the new requirements content
+    try:
+        new_requirements = Requirements.from_text(content)
+    except Exception as e:
+        return RequirementsValidationResult(
+            valid=False,
+            error=f"Invalid requirements.txt syntax: {e}",
+            missing_packages=None,
+        )
+
+    # Get normalized names from the new requirements
+    new_names = {pip_name(lib.name) for lib in new_requirements.libraries}
+
+    # Use the same analysis as the linter to find all necessary packages
+    try:
+        results, _ = analyze_project_imports(skip_pypi_check=True)
+    except Exception:
+        # If analysis fails, allow the operation
+        return RequirementsValidationResult(
+            valid=True,
+            error=None,
+            missing_packages=None,
+        )
+
+    # Find packages that are used in the code but missing from the new requirements
+    # We check packages that are currently installed (status "ok" or "missing_in_requirements")
+    missing_packages = set()
+
+    for result in results:
+        if result.status in ("ok", "missing_in_requirements"):
+            normalized_name = pip_name(result.package_name)
+            if normalized_name not in new_names:
+                missing_packages.add(result.package_name)
+
+    if missing_packages:
+        missing_list = ", ".join(sorted(missing_packages))
+        return RequirementsValidationResult(
+            valid=False,
+            error=(
+                f"The following packages are used in the project but missing from "
+                f"requirements.txt: {missing_list}. Please add them to requirements.txt."
+            ),
+            missing_packages=sorted(missing_packages),
+        )
+
+    return RequirementsValidationResult(
+        valid=True,
+        error=None,
+        missing_packages=None,
+    )

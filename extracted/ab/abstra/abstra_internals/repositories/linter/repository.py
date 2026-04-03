@@ -2,17 +2,25 @@ import threading
 from abc import ABC, abstractmethod
 from typing import List
 
-from abstra_internals.repositories.linter.models import LinterCheck
+from abstra_internals.repositories.linter.models import LinterCheck, LinterRule
 from abstra_internals.repositories.linter.rules import rules
 
 
 class LinterRepository(ABC):
+    checks: List[LinterCheck] = []
+
     @abstractmethod
     def find_issues_in_codebase(self) -> List[LinterCheck]:
         pass
 
     @abstractmethod
     def update_checks(self) -> List[LinterCheck]:
+        pass
+
+    @abstractmethod
+    def update_specific_checks(
+        self, target_rules: List[LinterRule]
+    ) -> List[LinterCheck]:
         pass
 
     @abstractmethod
@@ -33,7 +41,7 @@ def check_rule(rule, checks_list):
     checks_list.append(check)
 
 
-LINTER_TYPE_PRIORITY = {"security": 0, "bug": 1, "warning": 2, "info": 3}
+LINTER_TYPE_PRIORITY = {"security": 0, "error": 1, "bug": 2, "warning": 3, "info": 4}
 
 
 class LocalLinterRepository(LinterRepository):
@@ -73,10 +81,20 @@ class LocalLinterRepository(LinterRepository):
         return self.checks
 
     def update_checks(self):
-        new_checks = []
+        return self._run_rules(rules, merge=False)
+
+    def update_specific_checks(
+        self, target_rules: List[LinterRule]
+    ) -> List[LinterCheck]:
+        return self._run_rules(target_rules, merge=True)
+
+    def _run_rules(
+        self, target_rules: List[LinterRule], merge: bool
+    ) -> List[LinterCheck]:
+        new_checks: List[LinterCheck] = []
         threads = []
 
-        for rule in rules:
+        for rule in target_rules:
             thread = threading.Thread(
                 target=check_rule,
                 args=(rule, new_checks),
@@ -88,8 +106,15 @@ class LocalLinterRepository(LinterRepository):
         for thread in threads:
             thread.join()
 
-        new_checks.sort(key=lambda c: LINTER_TYPE_PRIORITY.get(c.type, 4))
-        self.checks = new_checks
+        if merge:
+            updated_names = {c.name for c in new_checks}
+            merged = [c for c in self.checks if c.name not in updated_names]
+            merged.extend(new_checks)
+            merged.sort(key=lambda c: LINTER_TYPE_PRIORITY.get(c.type, 4))
+            self.checks = merged
+        else:
+            new_checks.sort(key=lambda c: LINTER_TYPE_PRIORITY.get(c.type, 4))
+            self.checks = new_checks
 
         return self.checks
 
@@ -206,6 +231,11 @@ class ProductionLinterRepository(LinterRepository):
         raise NotImplementedError("Linters are not available in production.")
 
     def update_checks(self) -> List[LinterCheck]:
+        raise NotImplementedError("Linters are not available in production.")
+
+    def update_specific_checks(
+        self, target_rules: List[LinterRule]
+    ) -> List[LinterCheck]:
         raise NotImplementedError("Linters are not available in production.")
 
     def fix_issue_in_codebase(self, rule_name: str, fix_name: str) -> bool:

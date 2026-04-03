@@ -135,13 +135,4 @@ pub use guacr_guacd::{
 };
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_create_default_registry() {
-        let registry = create_default_registry();
-        // With default features (ssh, telnet), at least those two should be registered
-        assert!(registry.count() >= 2);
-    }
-}
+mod tests;

@@ -21,16 +21,13 @@ import dataclasses
 import os
 import re
 from configparser import RawConfigParser
-from dataclasses import dataclass
-from enum import Enum
-from functools import cache
+from dataclasses import dataclass, field
+from functools import lru_cache
 from gettext import gettext as _
 from itertools import chain
-from operator import getitem
 
 import click
 import cloup
-from boltons.strutils import complement_int_list, int_ranges_from_int_list
 from cloup._util import identity
 from cloup.styling import Color
 
@@ -63,10 +60,22 @@ class HelpExtraTheme(cloup.HelpTheme):
     bracket: IStyle = identity
     envvar: IStyle = identity
     default: IStyle = identity
+    range_label: IStyle = identity
+    required: IStyle = identity
+    argument: IStyle = identity
     deprecated: IStyle = identity
     search: IStyle = identity
     success: IStyle = identity
     """Click Extra new coloring properties."""
+
+    cross_ref_highlight: bool = True
+    """Highlight options, choices, arguments, metavars and CLI names in
+    free-form text (descriptions, docstrings).
+
+    When ``False``, only structural elements are styled: bracket fields
+    (``[default: ...]``, ``[env var: ...]``, ranges, ``[required]``),
+    deprecated messages, and subcommand names in definition lists.
+    """
 
     subheading: IStyle = identity
     """Non-canonical Click Extra properties.
@@ -136,6 +145,9 @@ class HelpExtraTheme(cloup.HelpTheme):
             bracket=Style(dim=True),
             envvar=Style(fg=Color.yellow, dim=True),
             default=Style(fg=Color.green, dim=True, italic=True),
+            range_label=Style(fg=Color.cyan, dim=True),
+            required=Style(fg=Color.red, dim=True),
+            argument=Style(fg=Color.cyan),
             deprecated=Style(fg=Color.bright_yellow, bold=True),
             search=Style(fg=Color.green, bold=True),
             success=Style(fg=Color.green),
@@ -289,6 +301,27 @@ class ColorOption(ExtraOption):
         )
 
 
+@dataclass
+class HelpKeywords:
+    """Structured collection of keywords extracted from a Click context for
+    help screen highlighting.
+
+    Each field corresponds to a semantic category with its own styling.
+    """
+
+    cli_names: set[str] = field(default_factory=set)
+    subcommands: set[str] = field(default_factory=set)
+    command_aliases: set[str] = field(default_factory=set)
+    arguments: set[str] = field(default_factory=set)
+    long_options: set[str] = field(default_factory=set)
+    short_options: set[str] = field(default_factory=set)
+    choices: set[str] = field(default_factory=set)
+    metavars: set[str] = field(default_factory=set)
+    envvars: set[str] = field(default_factory=set)
+    defaults: set[str] = field(default_factory=set)
+    deprecated_messages: set[str] = field(default_factory=set)
+
+
 class ExtraHelpColorsMixin:  # (Command)??
     """Adds extra-keywords highlighting to Click commands.
 
@@ -297,148 +330,148 @@ class ExtraHelpColorsMixin:  # (Command)??
     implemented at this stage so we have access to the global context.
     """
 
-    def _collect_keywords(
-        self,
-        ctx: click.Context,
-    ) -> tuple[
-        set[str],
-        set[str],
-        set[str],
-        set[str],
-        set[str],
-        set[str],
-        set[str],
-        set[str],
-        set[str],
-        set[str],
-    ]:
+    def _collect_keywords(self, ctx: click.Context) -> HelpKeywords:
         """Parse click context to collect option names, choices and metavar keywords.
 
         This is Click Extra-specific and is not part of the upstream ``click.Command``
         API.
         """
-        cli_names: set[str] = set()
-        subcommands: set[click.Command] = set()
-        subcommand_ids: set[str] = set()
-        command_aliases: set[str] = set()
-        options: set[str] = set()
-        long_options: set[str] = set()
-        short_options: set[str] = set()
-        choices: set[str] = set()
-        metavars: set[str] = set()
-        envvars: set[str] = set()
-        defaults: set[str] = set()
-        deprecated_messages: set[str] = set()
+        kw = HelpKeywords()
+        subcommand_objs: set[click.Command] = set()
 
-        # Includes CLI base name and its commands.
-        cli_names.add(ctx.command_path)
+        # Includes the full command path and each ancestor name, so that
+        # individual components are highlighted even when interleaved with
+        # options (e.g. "repomatic --table-format github sync-uv-lock").
+        if ctx.command_path:
+            kw.cli_names.add(ctx.command_path)
+        ancestor: click.Context | None = ctx
+        while ancestor:
+            if ancestor.info_name:
+                kw.cli_names.add(ancestor.info_name)
+            ancestor = ancestor.parent
         command = ctx.command
 
         # Will fetch command's metavar (i.e. the "[OPTIONS]" after the CLI name in
         # "Usage:") and dig into subcommands to get subcommand_metavar:
         # ("COMMAND1 [ARGS]... [COMMAND2 [ARGS]...]...").
-        metavars.update(command.collect_usage_pieces(ctx))
+        kw.metavars.update(command.collect_usage_pieces(ctx))
 
-        # Get subcommands and their aliases.
+        # Get subcommands and their aliases. Process in listed order for stable
+        # and predictable loading, which is important on lazy-loading.
         if isinstance(command, click.Group):
-            # Process all subcommands, in the order they are listed, to have a stable
-            # and predictable loading order. Which is important on lazy-loading.
             for sub_id in command.list_commands(ctx):
                 subcommand = command.get_command(ctx, sub_id)
                 if not subcommand:
                     raise RuntimeError(f"Subcommand {sub_id!r} not found.")
-                subcommand_ids.add(sub_id)
-                command_aliases.update(getattr(subcommand, "aliases", []))
-                # Keep reference to subcommand object for later processing.
-                subcommands.add(subcommand)
+                kw.subcommands.add(sub_id)
+                kw.command_aliases.update(getattr(subcommand, "aliases", []))
+                # Keep reference to subcommand object for deprecated message
+                # collection below.
+                subcommand_objs.add(subcommand)
 
-        # Add user defined help options.
-        options.update(ctx.help_option_names)
+        # Collect options, choices, metavars, envvars, defaults from current
+        # command parameters. User-defined help options (e.g. -h, --help) are
+        # seeded into the options set.
+        options: set[str] = set(ctx.help_option_names)
+        self._collect_params(command.get_params(ctx), ctx, kw, options)
 
-        # Collect all options, choices, metavars, envvars and default values.
-        for param in command.get_params(ctx):
-            # Ignore hidden options that are not meant to be displayed in help screens.
-            if isinstance(param, click.Option) and param.hidden:
-                continue
+        # Collect option names and choices from parent groups. Subcommand
+        # docstrings often reference parent options in usage examples (e.g.
+        # "myapp --table-format github sub").
+        parent_ctx = ctx.parent
+        while parent_ctx:
+            for param in parent_ctx.command.get_params(parent_ctx):
+                if isinstance(param, click.Option) and not param.hidden:
+                    options.update(param.opts)
+                    options.update(param.secondary_opts)
+                    if isinstance(param.type, click.Choice):
+                        kw.choices.update(
+                            param.type.normalize_choice(c, parent_ctx)
+                            for c in param.type.choices
+                        )
+            parent_ctx = parent_ctx.parent
 
-            options.update(param.opts)
-            options.update(param.secondary_opts)
-
-            # Only Choice and DateTime types produce their own structured
-            # metavar (with delimiters like brackets and pipes). All other
-            # types fall back to a plain uppercased name (e.g. TEXT, INTEGER).
-            if isinstance(param.type, click.Choice):
-                # Click's Choice type use the enum member names, not their values:
-                # https://github.com/pallets/click/issues/2911#issuecomment-2891534372
-                choices.update(
-                    i.name if isinstance(i, Enum) else str(i)
-                    for i in param.type.choices
-                )
-            elif isinstance(param.type, click.DateTime):
-                # Highlight each datetime format string as a choice.
-                choices.update(param.type.formats)
+        # Split options into short and long by length heuristic. Short options
+        # are no longer than 2 characters like "-D", "/d", "/?", "+w", "-w".
+        # XXX We cannot reuse the _short_opts and _long_opts attributes from
+        # Click's parser because their values are not passed when the context
+        # is updated. So we rely on simple heuristics to guess the category.
+        for name in options:
+            if len(name) <= 2:
+                kw.short_options.add(name)
             else:
-                metavars.add(param.make_metavar(ctx=ctx))
+                kw.long_options.add(name)
 
-            # A user-provided metavar (e.g. ``metavar="LEVEL"``) is always
-            # a plain token worth highlighting, even for Choice/DateTime.
-            if param.metavar:
-                metavars.add(param.metavar)
-
-            if param.envvar:
-                if isinstance(param.envvar, str):
-                    envvars.add(param.envvar)
-                else:
-                    envvars.update(param.envvar)
-
-            if isinstance(param, click.Option):
-                default_string = param.get_help_extra(ctx).get("default")
-                if default_string:
-                    defaults.add(default_string)
-
-        # Split between shorts and long options
-        for option_name in options:
-            # Short options are no longer than 2 characters like "-D", "/d", "/?",
-            # "+w", "-w", "f_", "_f", ...
-            # XXX We cannot reuse the _short_opts and _long_opts attributes from
-            # https://github.com/pallets/click/blob/b0538df/src/click/parser.py#L173-L182
-            # because their values are not passed when the context is updated like
-            # ctx._opt_prefixes is at:
-            # https://github.com/pallets/click/blob/b0538df/src/click/core.py#L1408 .
-            # So we rely on simple heuristics to guess the option category.
-            if len(option_name) <= 2:
-                short_options.add(option_name)
-            # Any other is considered a long options. Like: "--debug", "--c", "-otest",
-            # "---debug", "-vvvv, "++foo", "/debug", "from_", "_from", ...
-            else:
-                long_options.add(option_name)
-
-        # Collect all deprecated messages on subcommands and parameters.
-        for obj in chain(subcommands, command.get_params(ctx)):
+        # Collect deprecated messages from subcommands and parameters,
+        # matching the format Click generates internally.
+        for obj in chain(subcommand_objs, command.get_params(ctx)):
             deprecated = getattr(obj, "deprecated", None)
             if deprecated:
-                # Generated deprecated message as Click does:
-                # https://github.com/pallets/click/blob/c9f7d9d/src/click/core.py#L1061-L1065
-                # https://github.com/pallets/click/blob/c9f7d9d/src/click/core.py#L1098-L1102
-                # https://github.com/pallets/click/blob/c9f7d9d/src/click/core.py#L2556-L2560
-                deprecated_messages.add(
+                kw.deprecated_messages.add(
                     f"(DEPRECATED: {deprecated})"
                     if isinstance(deprecated, str)
                     else "(DEPRECATED)"
                 )
 
-        return (
-            cli_names,
-            subcommand_ids,
-            command_aliases,
-            long_options,
-            short_options,
-            choices,
-            metavars,
-            envvars,
-            defaults,
-            deprecated_messages,
-        )
+        return kw
+
+    @staticmethod
+    def _collect_params(
+        params: list[click.Parameter],
+        ctx: click.Context,
+        kw: HelpKeywords,
+        options: set[str],
+    ) -> None:
+        """Extract keywords from a list of parameters into ``kw`` and ``options``."""
+        for param in params:
+            # Ignore hidden options that are not meant to be displayed.
+            if isinstance(param, click.Option) and param.hidden:
+                continue
+
+            # Only collect option names from actual Option parameters, not from
+            # Arguments. An Argument's opts contains the bare parameter name
+            # (e.g. "keys") which would pollute the option keywords and
+            # interfere with highlighting of real options like "--list-keys".
+            if isinstance(param, click.Option):
+                options.update(param.opts)
+                options.update(param.secondary_opts)
+            elif isinstance(param, click.Argument):
+                # Collect argument metavars (e.g. "MY_ARG") as a distinct
+                # category from option metavars.
+                kw.arguments.add(param.make_metavar(ctx=ctx))
+
+            # Only Choice and DateTime types produce their own structured
+            # metavar (with delimiters like brackets and pipes). All other
+            # types fall back to a plain uppercased name (e.g. TEXT, INTEGER).
+            if isinstance(param.type, click.Choice):
+                # Use normalize_choice() to get the exact strings shown in the
+                # metavar. Handles Enum names, case-folding, EnumChoice source.
+                kw.choices.update(
+                    param.type.normalize_choice(c, ctx)
+                    for c in param.type.choices
+                )
+            elif isinstance(param.type, click.DateTime):
+                # Highlight each datetime format string as a choice.
+                kw.choices.update(param.type.formats)
+            elif not isinstance(param, click.Argument):
+                # Argument metavars are collected in the arguments set.
+                kw.metavars.add(param.make_metavar(ctx=ctx))
+
+            # A user-provided metavar (e.g. ``metavar="LEVEL"``) is always
+            # worth highlighting, even for Choice/DateTime types.
+            if param.metavar and not isinstance(param, click.Argument):
+                kw.metavars.add(param.metavar)
+
+            if param.envvar:
+                if isinstance(param.envvar, str):
+                    kw.envvars.add(param.envvar)
+                else:
+                    kw.envvars.update(param.envvar)
+
+            if isinstance(param, click.Option):
+                default_string = param.get_help_extra(ctx).get("default")
+                if default_string:
+                    kw.defaults.add(default_string)
 
     def get_help(self, ctx: click.Context) -> str:
         """Replace default formatter by our own."""
@@ -447,21 +480,11 @@ class ExtraHelpColorsMixin:  # (Command)??
 
     def format_help(self, ctx: click.Context, formatter: HelpExtraFormatter) -> None:
         """Feed our custom formatter instance with the keywords to highlight."""
-        (
-            formatter.cli_names,
-            formatter.subcommands,
-            formatter.command_aliases,
-            formatter.long_options,
-            formatter.short_options,
-            formatter.choices,
-            formatter.metavars,
-            formatter.envvars,
-            formatter.defaults,
-            formatter.deprecated_messages,
-        ) = self._collect_keywords(ctx)
+        formatter.keywords = self._collect_keywords(ctx)
         super().format_help(ctx, formatter)  # type: ignore[misc]
 
 
+@lru_cache(maxsize=512)
 def _escape_for_help_screen(text: str) -> str:
     """Prepares a string to be used in a regular expression for matches in help screen.
 
@@ -502,273 +525,181 @@ class HelpExtraFormatter(cloup.HelpFormatter):
         kwargs["theme"] = theme
         super().__init__(*args, **kwargs)
 
-    # Lists of extra keywords to highlight.
-    cli_names: set[str] = set()  # noqa: RUF012
-    subcommands: set[str] = set()  # noqa: RUF012
-    command_aliases: set[str] = set()  # noqa: RUF012
-    long_options: set[str] = set()  # noqa: RUF012
-    short_options: set[str] = set()  # noqa: RUF012
-    choices: set[str] = set()  # noqa: RUF012
-    metavars: set[str] = set()  # noqa: RUF012
-    envvars: set[str] = set()  # noqa: RUF012
-    defaults: set[str] = set()  # noqa: RUF012
-    deprecated_messages: set[str] = set()  # noqa: RUF012
+    keywords: HelpKeywords = HelpKeywords()
 
-    # TODO: Highlight extra keywords <stdout> or <stderr>
 
-    # TODO: add collection of regexps as pre-compiled constants, so we can
-    # inspect them and get some performances improvements.
+    #: Matches range expressions like ``0<=x<=9``, ``x>=1024``, ``0<=x<100``.
+    _range_re: ClassVar[re.Pattern] = re.compile(
+        r"(?:\S+(?:<|<=))?x(?:<|<=|>|>=)\S+"
+    )
+    _bracket_re: ClassVar[re.Pattern] = re.compile(
+        r"(  )"  # 2 spaces (column or description spacing).
+        r"\["  # Opening bracket.
+        r"("  # Capture the bracket content.
+        r"(?:env\s+var:|default:|required"  # Must start with a recognized label
+        r"|(?:\S+(?:<|<=))?x(?:<|<=|>|>=)\S+)"  # or a range expression.
+        r"[^\]]*"  # Followed by any non-] characters.
+        r")"
+        r"\]",  # Closing bracket.
+        re.DOTALL,
+    )
+    _sep_re: ClassVar[re.Pattern] = re.compile(r";\s+")
+    _envvar_re: ClassVar[re.Pattern] = re.compile(r"(env\s+var:\s+)(.*)", re.DOTALL)
+    _default_re: ClassVar[re.Pattern] = re.compile(r"(default:\s+)(.*)", re.DOTALL)
 
-    style_aliases: ClassVar[dict[str, str]] = {
-        # Layout elements of the square brackets trailing each option.
-        "bracket_1": "bracket",
-        "envvar_label": "bracket",
-        "label_sep_1": "bracket",
-        "default_label": "bracket",
-        "label_sep_2": "bracket",
-        "range": "bracket",
-        "label_sep_3": "bracket",
-        "required_label": "bracket",
-        "bracket_2": "bracket",
-        # Long and short options are options.
-        "long_option": "option",
-        "short_option": "option",
-    }
-    """Map regex's group IDs to styles.
+    def _style_bracket_fields(self, match: re.Match) -> str:
+        """Style a trailing ``[env var: ...; default: ...; ...]`` block.
 
-    Most of the time, the style name is the same as the group ID. But some regular
-    expression implementations requires us to work around group IDs limitations, like
-    ``bracket_1`` and ``bracket_2``. In which case we use this mapping to apply back
-    the canonical style to that regex-specific group ID.
-    """
-
-    @cache  # noqa: B019
-    def get_style_id(self, group_id: str) -> str:
-        """Get the style ID to apply to a group.
-
-        Return the style which has the same ID as the group, unless it is defined in
-        the ``style_aliases`` mapping above.
+        Parses the bracket content by splitting on ``;`` separators and
+        matching each field by its label prefix. Applied post-wrapping because
+        Click's text wrapper splits lines after ``get_help_record()`` returns,
+        which would break pre-styled ANSI codes.
         """
-        return self.style_aliases.get(group_id, group_id)
+        prefix = match.group(1)
+        content = match.group(2)
 
-    @cache  # noqa: B019
-    def colorize_group(self, str_to_style: str, group_id: str) -> str:
-        """Colorize a string according to the style of the group ID."""
-        style = getattr(self.theme, self.get_style_id(group_id))
-        return style(str_to_style)  # type: ignore[no-any-return]
+        # Split on semicolons, keeping the separators.
+        parts = re.split(r"(;\s+)", content)
 
-    def colorize(self, match: re.Match) -> str:
-        """Colorize all groups with IDs in the provided matching result.
-
-        All groups without IDs are left as-is.
-
-        All groups are processed in the order they appear in the ``match`` object.
-        Then all groups are concatenated to form the final string that is returned.
-
-        .. caution::
-            Implementation is a bit funky here because there is no way to iterate over
-            both unnamed and named groups, in the order they appear in the regex, while
-            keeping track of the group ID.
-
-            So we have to iterate over the list of matching strings and pick up the
-            corresponding group ID along the way, from the ``match.groupdict()``
-            dictionary. This also means we assume that the ``match.groupdict()`` is
-            returning an ordered dictionary. Which is supposed to be true as of Python
-            3.7.
-        """
-        # Get a snapshot of all named groups.
-        named_matches = list(match.groupdict().items())
-
-        txt = ""
-        # Iterate over all groups, named or not.
-        for group_string in match.groups():
-            # Is the next available named group is matching current group string?
-            if named_matches and group_string == named_matches[0][1]:
-                # We just found a named group. Consume it from the list of named groups
-                # to prevent it from being processed twice.
-                group_id, group_string = named_matches.pop(0)
-                if group_string is not None:
-                    # Colorize the group with a style matching its ID.
-                    txt += self.colorize_group(group_string, group_id)
+        styled: list[str] = []
+        for part in parts:
+            # Separator between fields.
+            if self._sep_re.fullmatch(part):
+                styled.append(self.theme.bracket(part))
+            # Environment variable field.
+            elif m := self._envvar_re.match(part):
+                styled.append(
+                    self.theme.bracket(m.group(1)) + self.theme.envvar(m.group(2))
+                )
+            # Default value field.
+            elif m := self._default_re.match(part):
+                styled.append(
+                    self.theme.bracket(m.group(1)) + self.theme.default(m.group(2))
+                )
+            # Required label.
+            elif part == "required":
+                styled.append(self.theme.required(part))
+            # Range expression.
+            elif self._range_re.fullmatch(part):
+                styled.append(self.theme.range_label(part))
+            # Fallback: style as generic bracket content.
             else:
-                # No named group matching this string. Leave it as-is.
-                txt += group_string
+                styled.append(self.theme.bracket(part))
 
-        # Double-check we processed all named groups.
-        if len(named_matches) != 0:
-            raise ValueError(
-                "The matching result contains named groups that were not processed. "
-                "There is an edge-case in the design of regular expressions."
-            )
-
-        return txt
+        return (  # type: ignore[no-any-return]
+            prefix
+            + self.theme.bracket("[")
+            + "".join(styled)
+            + self.theme.bracket("]")
+        )
 
     def highlight_extra_keywords(self, help_text: str) -> str:
         """Highlight extra keywords in help screens based on the theme.
 
-        It is based on regular expressions. While this is not a bullet-proof method, it
-        is good enough. After all, help screens are not consumed by machine but are
-        designed for humans.
-
-        .. danger::
-            All the regular expressions below are designed to match its original string
-            into a sequence of contiguous groups.
-
-            This means each part of the matching result must be encapsulated in a group.
-            And subgroups are not allowed (unless their are explicitly set as
-            non-matching with ``(?:...)`` prefix).
-
-            Groups with a name must have a corresponding style.
+        Uses the ``highlight()`` function for all keyword categories. Each
+        category is processed as a batch of regex patterns with a single styling
+        function, which handles overlapping matches and prevents double-styling.
         """
+        kw = self.keywords
+
         # Highlight deprecated messages.
-        for deprecated_string in self.deprecated_messages:
-            help_text = re.sub(
-                rf"""
-                (?P<deprecated>{_escape_for_help_screen(deprecated_string)})  # Message
-                """,
-                self.colorize,
+        if kw.deprecated_messages:
+            help_text = highlight(
                 help_text,
-                flags=re.VERBOSE,
+                (
+                    re.compile(_escape_for_help_screen(msg))
+                    for msg in kw.deprecated_messages
+                ),
+                self.theme.deprecated,
             )
 
-        # Highlight subcommands.
-        for subcommand in self.subcommands:
-            help_text = re.sub(
-                rf"""
-                (\ \ )                        # 2 spaces (i.e. section indentation).
-                (?P<subcommand>{re.escape(subcommand)})
-                (\s)                          # Any blank char.
-                """,
-                self.colorize,
+        # Highlight subcommands and their aliases. Both share the subcommand
+        # style and require 2-space indentation as a leading boundary.
+        all_subcommands = kw.subcommands | kw.command_aliases
+        if all_subcommands:
+            help_text = highlight(
                 help_text,
-                flags=re.VERBOSE,
+                (
+                    re.compile(rf"(?<=  ){re.escape(name)}(?=\s)")
+                    for name in sorted(all_subcommands, key=len, reverse=True)
+                ),
+                self.theme.subcommand,
             )
 
-        # Highlight environment variables and defaults in trailing square brackets.
-        help_text = re.sub(
-            r"""
-            (\ \ )                  # 2 spaces (column spacing or description spacing).
-            (?P<bracket_1>\[)       # Square brackets opening.
+        # Style trailing bracket fields [env var: ...; default: ...; ...].
+        # This must happen post-wrapping because Click's text wrapper splits
+        # lines after get_help_record() returns, which would break pre-styled
+        # ANSI codes.
+        help_text = self._bracket_re.sub(self._style_bracket_fields, help_text)
 
-            (?:                     # Non-capturing group.
-                (?P<envvar_label>
-                    env\s+var:      # Starting content within the brackets.
-                    \s+             # Any number of blank chars.
-                )
-                (?P<envvar>.+?)     # Greedy-matching of any string and line returns.
-            )?                      # The envvar group is optional.
-
-            (?P<label_sep_1>
-                ;                   # Separator between labels.
-                \s+                 # Any number of blank chars.
-            )?
-
-            (?:                     # Non-capturing group.
-                (?P<default_label>
-                    default:        # Starting content within the brackets.
-                    \s+             # Any number of blank chars.
-                )
-                (?P<default>.+?)    # Greedy-matching of any string and line returns.
-            )?                      # The default group is optional.
-
-            (?P<label_sep_2>
-                ;                   # Separator between labels.
-                \s+                 # Any number of blank chars.
-            )?
-
-            (?:                     # Non-capturing group.
-                (?P<range>
-                    (?:
-                        \S+
-                        (?:<|<=)    # Lower bound operators.
-                    )?              # Operator preceding x is optional.
-                    x
-                    (?:<|<=|>|>=)  # Any range operator.
-                    \S+
-                )
-            )?                      # The range group is optional.
-
-            (?P<label_sep_3>
-                ;                   # Separator between labels.
-                \s+                 # Any number of blank chars.
-            )?
-
-            (?:                     # Non-capturing group.
-                (?P<required_label>
-                    required        # Required label.
-                )
-            )?                      # The required group is optional.
-
-            (?P<bracket_2>\])       # Square brackets closing.
-            """,
-            self.colorize,
-            help_text,
-            flags=re.VERBOSE | re.DOTALL,
-        )
+        # The remaining passes search free-form text (descriptions, docstrings)
+        # for option names, choices, arguments, metavars and CLI names. This
+        # cross-reference highlighting can be disabled via the theme to avoid
+        # over-interpretation in help text that references external identifiers.
+        if not self.theme.cross_ref_highlight:
+            return help_text
 
         # Highlight CLI names and commands.
-        for cli_name in self.cli_names:
-            help_text = re.sub(
-                rf"""
-                (\s)                                        # Any blank char.
-                (?P<invoked_command>{re.escape(cli_name)})  # The CLI name.
-                (\s)                                        # Any blank char.
-                """,
-                self.colorize,
+        if kw.cli_names:
+            help_text = highlight(
                 help_text,
-                flags=re.VERBOSE,
+                (
+                    re.compile(rf"(?<=\s){re.escape(name)}(?=\s)")
+                    for name in sorted(kw.cli_names, key=len, reverse=True)
+                ),
+                self.theme.invoked_command,
             )
 
-        # Highlight sections.
-        # XXX Duplicates Cloup's job, with the only subtlety of not highlighting the
-        # trailing semicolon.
-        #
-        # help_text = re.sub(
-        #     r"""
-        #     ^                       # Beginning of a line preceded by a newline.
-        #     (?P<heading>\S[\S+ ]+)  # The section title.
-        #     (:)                     # A semicolon.
-        #     """,
-        #     self.colorize,
-        #     help_text,
-        #     flags=re.VERBOSE | re.MULTILINE,
-        # )
-
-        # Highlight long options first, then short options.
-        for option_keywords, style_group_id in (
-            (sorted(self.long_options, reverse=True), "long_option"),
-            (sorted(self.short_options), "short_option"),
-        ):
-            for keyword in option_keywords:
-                help_text = re.sub(
-                    rf"""
-                    (
-                        # Not a: word character, or a repeated option's leading symbol.
-                        [^\w{re.escape(keyword[0])}]
+        # Highlight options (long and short combined). Per-keyword lookbehind
+        # excludes the option's own leading symbol to prevent matching repeated
+        # prefixes (e.g. "---debug" should not match "--debug").
+        all_options = sorted(
+            kw.long_options | kw.short_options, key=len, reverse=True
+        )
+        if all_options:
+            help_text = highlight(
+                help_text,
+                (
+                    re.compile(
+                        rf"(?<=[^\w{re.escape(kw[0])}])"
+                        rf"{_escape_for_help_screen(kw)}"
+                        rf"(?=[^\w\-])"
                     )
-                    (?P<{style_group_id}>{_escape_for_help_screen(keyword)})
-                    (\W)
-                    """,
-                    self.colorize,
-                    help_text,
-                    flags=re.VERBOSE,
-                )
+                    for kw in all_options
+                ),
+                self.theme.option,
+            )
 
         # Highlight other keywords, which are expected to be separated by any
         # character but word characters.
         for keywords, style_func in (
-            # Choices are already featured in metavars, so we process them first to
-            # avoid double-highlighting.
-            (self.choices, self.theme.choice),
-            (self.metavars, self.theme.metavar),
+            # Arguments before metavars: argument names like MY_ARG are a
+            # subset of metavars, so highlighting them first with a distinct
+            # style takes priority.
+            (kw.arguments, self.theme.argument),
+            # Choices are already featured in metavars, so we process them
+            # before metavars to avoid double-highlighting.
+            (kw.choices, self.theme.choice),
+            (kw.metavars, self.theme.metavar),
         ):
             if keywords:
                 # Transform keywords into regex patterns.
                 patterns = (
-                    # Use negative lookbehind / lookahead (?<!\w) / (?!\w)) to ensure
-                    # the keyword is not part of a larger word.
-                    # i.e. "FOO" matches "FOO" but not "FOOBAR" or "AFOO".
-                    re.compile(rf"(?<!\w){_escape_for_help_screen(keyword)}(?!\w)")
+                    # Negative lookbehind rejects matches preceded by:
+                    # - a word character (\w),
+                    # - a dot: "pyproject.toml" (\.),
+                    # - a hyphen: "rounded-outline" (\-),
+                    # - a slash: "https://github.com" (\/),
+                    # - an exclamation mark: "[!WARNING]" (!),
+                    # - an ANSI escape: already-styled text (\x1b).
+                    # Negative lookahead rejects matches followed by:
+                    # - a word character (\w),
+                    # - a hyphen: "github-actions" (\-).
+                    re.compile(
+                        rf"(?<![\w\.\x1b\-/!])"
+                        rf"{_escape_for_help_screen(keyword)}"
+                        rf"(?![\w\-])"
+                    )
                     for keyword in sorted(keywords, reverse=True)
                 )
                 help_text = highlight(
@@ -819,17 +750,19 @@ def highlight(
     else:
         pattern_list = set(patterns)
 
-    # Ranges of character indices flagged for highlighting.
-    ranges = set()
+    # Set of character indices flagged for highlighting.
+    matched_indices: set[int] = set()
 
-    # Normalize patterns into regular expression and find matches.
+    # Normalize patterns into regular expressions and find matches.
     for pattern in pattern_list:
-        # Pattern is already a regex.
+        # Pattern is already a compiled regex.
         if isinstance(pattern, re.Pattern):
             regex = pattern
         # Treat as literal string and escape for regex.
         elif isinstance(pattern, str):
-            regex = re.compile(re.escape(pattern), re.IGNORECASE if ignore_case else 0)
+            regex = re.compile(
+                re.escape(pattern), re.IGNORECASE if ignore_case else 0
+            )
         else:
             raise TypeError(f"Unsupported pattern type: {pattern!r}")
 
@@ -837,45 +770,46 @@ def highlight(
         if ignore_case and not (regex.flags & re.IGNORECASE):
             regex = re.compile(regex.pattern, regex.flags | re.IGNORECASE)
 
-        # Find all matches including overlapping ones.
+        # Find all matches, including overlapping ones. Because re.search()
+        # returns only the first match, we skip ahead one character past the
+        # start of each match to find overlapping occurrences.
         start_pos = 0
         while start_pos < len(content):
             match = regex.search(content, start_pos)
-            # No more matches possible with this pattern from this position.
             if not match:
                 break
 
             start_idx = match.start()
-            end_idx = match.end() - 1
+            end_idx = match.end()
 
-            # Ensure valid range.
-            assert start_idx <= end_idx, "Invalid match range"
-            assert 0 <= start_idx < len(content), "Start index out of bounds"
-            assert 0 <= end_idx < len(content), "End index out of bounds"
-            ranges.add(f"{start_idx}-{end_idx}")
+            # Skip zero-length matches (e.g. from pure lookbehind/lookahead).
+            if start_idx >= end_idx:
+                start_pos = start_idx + 1
+                continue
 
-            # Because re.search() is matching the first occurrence only, we can safely
-            # skip ahead to the next character just after the start of the current
-            # match.
+            matched_indices.update(range(start_idx, end_idx))
             start_pos = start_idx + 1
 
-    # If no matches found, return original content.
-    if not ranges:
+    if not matched_indices:
         return content
 
-    # Reduce ranges, compute complement ranges, transform them to list of integers.
-    range_arg = ",".join(ranges)
-    highlight_ranges = int_ranges_from_int_list(range_arg)
-    untouched_ranges = int_ranges_from_int_list(
-        complement_int_list(range_arg, range_end=len(content))
-    )
+    # Build the styled string in one pass: contiguous runs of matched or
+    # unmatched characters are grouped, and only matched runs are styled.
+    parts: list[str] = []
+    in_match = 0 in matched_indices
+    run_start = 0
 
-    # Apply style to range of characters flagged as matching.
-    styled_str = ""
-    for i, j in sorted(highlight_ranges + untouched_ranges):
-        segment = getitem(content, slice(i, j + 1))
-        if (i, j) in highlight_ranges:
-            segment = styling_func(segment)
-        styled_str += str(segment)
+    for i in range(1, len(content) + 1):
+        current_in_match = i in matched_indices if i < len(content) else not in_match
+        if current_in_match != in_match:
+            segment = content[run_start:i]
+            parts.append(styling_func(segment) if in_match else segment)
+            run_start = i
+            in_match = current_in_match
 
-    return styled_str
+    # Flush the last run.
+    if run_start < len(content):
+        segment = content[run_start:]
+        parts.append(styling_func(segment) if in_match else segment)
+
+    return "".join(parts)

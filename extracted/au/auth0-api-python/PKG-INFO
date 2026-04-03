@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: auth0-api-python
-Version: 1.0.0b6
+Version: 1.0.0b7
 Summary: SDK for verifying access tokens and securing APIs with Auth0, using Authlib.
 License: MIT
 License-File: LICENSE
@@ -15,7 +15,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: ada-url (>=1.27.0,<2.0.0)
+Requires-Dist: ada-url (>=1.27.0,<2.0.0) ; python_version == "3.9"
+Requires-Dist: ada-url (>=1.30.0,<2.0.0) ; python_version >= "3.10"
 Requires-Dist: authlib (>=1.0,<2.0)
 Requires-Dist: httpx (>=0.28.1,<0.29.0)
 Requires-Dist: requests (>=2.31.0,<3.0.0)

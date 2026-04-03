@@ -58,7 +58,7 @@ class CouplingsEmit(object):
         return self._app.odesktop
 
     @property
-    def logger(self) -> object:
+    def logger(self):
         """Logger."""
         return self._app.logger
 
@@ -68,12 +68,12 @@ class CouplingsEmit(object):
         return self._app._odesign
 
     @property
-    def projdir(self) -> str:
+    def projdir(self):
         """Project directory."""
         return self._app.project_path
 
     @property
-    def coupling_names(self) -> list[str]:
+    def coupling_names(self):
         """List of existing link names.
 
         Parameters
@@ -93,7 +93,7 @@ class CouplingsEmit(object):
         """
         return self._odesign.GetLinkNames()
 
-    def add_link(self, new_coupling_name: str):
+    def add_link(self, new_coupling_name) -> None:
         """Add a new link if it's not already there.
 
         Parameters
@@ -114,7 +114,7 @@ class CouplingsEmit(object):
         if new_coupling_name not in self._odesign.GetLinkNames():
             self._odesign.AddLink(new_coupling_name)
 
-    def delete_link(self, coupling_link_name: str):
+    def delete_link(self, coupling_link_name) -> None:
         """Delete a link from the EMIT design.
 
         Parameters
@@ -133,7 +133,7 @@ class CouplingsEmit(object):
         """
         self._odesign.DeleteLink(coupling_link_name)
 
-    def update_link(self, coupling_name: str):
+    def update_link(self, coupling_name) -> None:
         """Update the link if it's a valid link.
 
         Check if anything in the linked design has changed and retrieve updated data if it has.
@@ -157,7 +157,7 @@ class CouplingsEmit(object):
 
     @property
     @min_aedt_version("2022.2")
-    def linkable_design_names(self) -> list[str]:
+    def linkable_design_names(self):
         """List the available link names.
 
         This property is only available in AEDT version 2022.2 or higher.
@@ -180,7 +180,7 @@ class CouplingsEmit(object):
         return self._odesign.GetAvailableLinkNames()
 
     @property
-    def cad_nodes(self) -> dict:
+    def cad_nodes(self):
         """Dictionary of the CAD nodes.
 
         Parameters
@@ -208,7 +208,7 @@ class CouplingsEmit(object):
         return cad_node_list
 
     @property
-    def antenna_nodes(self) -> dict:
+    def antenna_nodes(self):
         """Dictionary of the antenna nodes.
 
         Parameters

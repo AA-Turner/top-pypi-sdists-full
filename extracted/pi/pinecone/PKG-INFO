@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pinecone
-Version: 8.1.0
+Version: 8.1.1
 Summary: Pinecone client and SDK
 Project-URL: Homepage, https://www.pinecone.io
 Project-URL: Documentation, https://pinecone.io/docs
@@ -26,7 +26,7 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: certifi>=2019.11.17
-Requires-Dist: orjson>=3.0.0
+Requires-Dist: orjson>=3.11.6
 Requires-Dist: pinecone-plugin-assistant<4.0.0,>=3.0.1
 Requires-Dist: pinecone-plugin-interface<0.1.0,>=0.0.7
 Requires-Dist: python-dateutil>=2.5.3

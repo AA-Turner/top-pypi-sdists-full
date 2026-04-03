@@ -16,7 +16,7 @@ export abstract class BenchmarkRunner {
   static run(
     _baseUrl: string,
     _requestParams: Record<string, unknown>,
-    _benchmarkGraphOptions?: BenchmarkGraphOptions
+    _benchmarkGraphOptions: BenchmarkGraphOptions
   ): BenchmarkResult<unknown> {
     throw new Error('Not implemented');
   }
@@ -28,7 +28,7 @@ export abstract class BenchmarkRunner {
   static validate(
     _result: BenchmarkResult<unknown>,
     _errorMetrics: ErrorMetrics,
-    _benchmarkGraphOptions?: BenchmarkGraphOptions
+    _benchmarkGraphOptions: BenchmarkGraphOptions
   ): boolean {
     throw new Error('Not implemented');
   }

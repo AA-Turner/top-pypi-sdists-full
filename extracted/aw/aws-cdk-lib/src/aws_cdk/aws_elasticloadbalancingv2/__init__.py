@@ -141,7 +141,9 @@ Balancer that the other two convenience methods don't:
 * **Redirects**: use `ListenerAction.redirect()` to serve an HTTP
   redirect response (ALB only).
 * **Authentication**: use `ListenerAction.authenticateOidc()` to
-  perform OpenID authentication before serving a request (see the
+  perform OpenID authentication before serving a request, or
+  `ListenerAction.authenticateJwt()` to verify JSON Web Tokens (JWT)
+  for secure service-to-service communications (see the
   `aws-cdk-lib/aws-elasticloadbalancingv2-actions` package for direct authentication
   integration with Cognito) (ALB only).
 
@@ -181,6 +183,29 @@ listener.add_action("DefaultAction",
         user_info_endpoint="...",
 
         # Next
+        next=elbv2.ListenerAction.forward([my_target_group])
+    )
+)
+```
+
+Here's an example of using JWT authentication for service-to-service communication:
+
+**Note:** JWT authentication requires an HTTPS listener. If you attempt to use it with an HTTP listener, a validation error will be thrown.
+
+```python
+# lb: elbv2.ApplicationLoadBalancer
+# certificate: elbv2.IListenerCertificate
+# my_target_group: elbv2.ApplicationTargetGroup
+
+
+# JWT authentication requires HTTPS
+listener = lb.add_listener("Listener",
+    protocol=elbv2.ApplicationProtocol.HTTPS,
+    port=443,
+    certificates=[certificate],
+    default_action=elbv2.ListenerAction.authenticate_jwt(
+        issuer="https://issuer.example.com",
+        jwks_endpoint="https://issuer.example.com/.well-known/jwks.json",
         next=elbv2.ListenerAction.forward([my_target_group])
     )
 )
@@ -2328,6 +2353,108 @@ class ApplicationProtocolVersion(enum.Enum):
     '''HTTP1.'''
     HTTP2 = "HTTP2"
     '''HTTP2.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.AuthenticateJwtOptions",
+    jsii_struct_bases=[],
+    name_mapping={"issuer": "issuer", "jwks_endpoint": "jwksEndpoint", "next": "next"},
+)
+class AuthenticateJwtOptions:
+    def __init__(
+        self,
+        *,
+        issuer: builtins.str,
+        jwks_endpoint: builtins.str,
+        next: "ListenerAction",
+    ) -> None:
+        '''Options for ``ListenerAction.authenticateJwt()``.
+
+        :param issuer: The issuer of the JWT token. This must be a full URL, including the HTTPS protocol, the domain, and the path.
+        :param jwks_endpoint: The JWKS (JSON Web Key Set) endpoint URL. The endpoint must be publicly accessible and return the public keys used to verify JWT signatures.
+        :param next: What action to execute next. Multiple actions form a linked chain; the chain must always terminate in a (weighted)forward, fixedResponse or redirect action.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # lb: elbv2.ApplicationLoadBalancer
+            # certificate: elbv2.IListenerCertificate
+            # my_target_group: elbv2.ApplicationTargetGroup
+            
+            
+            # JWT authentication requires HTTPS
+            listener = lb.add_listener("Listener",
+                protocol=elbv2.ApplicationProtocol.HTTPS,
+                port=443,
+                certificates=[certificate],
+                default_action=elbv2.ListenerAction.authenticate_jwt(
+                    issuer="https://issuer.example.com",
+                    jwks_endpoint="https://issuer.example.com/.well-known/jwks.json",
+                    next=elbv2.ListenerAction.forward([my_target_group])
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff6babff0c027090ff5a26f1eb9810f2875dc35fe74cfdaaba8de0a03ea03d82)
+            check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
+            check_type(argname="argument jwks_endpoint", value=jwks_endpoint, expected_type=type_hints["jwks_endpoint"])
+            check_type(argname="argument next", value=next, expected_type=type_hints["next"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "issuer": issuer,
+            "jwks_endpoint": jwks_endpoint,
+            "next": next,
+        }
+
+    @builtins.property
+    def issuer(self) -> builtins.str:
+        '''The issuer of the JWT token.
+
+        This must be a full URL, including the HTTPS protocol, the domain, and the path.
+
+        Example::
+
+            "https://issuer.example.com"
+        '''
+        result = self._values.get("issuer")
+        assert result is not None, "Required property 'issuer' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def jwks_endpoint(self) -> builtins.str:
+        '''The JWKS (JSON Web Key Set) endpoint URL.
+
+        The endpoint must be publicly accessible and return the public keys used to verify JWT signatures.
+
+        Example::
+
+            "https://issuer.example.com/jwks"
+        '''
+        result = self._values.get("jwks_endpoint")
+        assert result is not None, "Required property 'jwks_endpoint' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def next(self) -> "ListenerAction":
+        '''What action to execute next.
+
+        Multiple actions form a linked chain; the chain must always terminate in a
+        (weighted)forward, fixedResponse or redirect action.
+        '''
+        result = self._values.get("next")
+        assert result is not None, "Required property 'next' is missing"
+        return typing.cast("ListenerAction", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AuthenticateJwtOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -18048,6 +18175,36 @@ class ListenerAction(
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
         jsii.create(self.__class__, self, [default_action_json, next])
 
+    @jsii.member(jsii_name="authenticateJwt")
+    @builtins.classmethod
+    def authenticate_jwt(
+        cls,
+        *,
+        issuer: builtins.str,
+        jwks_endpoint: builtins.str,
+        next: "ListenerAction",
+    ) -> "ListenerAction":
+        '''Authenticate using JWT validation.
+
+        You can configure ALB to verify JSON Web Tokens (JWT) provided by clients
+        for secure service-to-service (S2S) or machine-to-machine (M2M) communications.
+
+        ALB validates the token signature and requires mandatory claims: 'iss' (issuer)
+        and 'exp' (expiration). Additionally, if present, ALB validates 'nbf' (not before)
+        and 'iat' (issued at time) claims.
+
+        :param issuer: The issuer of the JWT token. This must be a full URL, including the HTTPS protocol, the domain, and the path.
+        :param jwks_endpoint: The JWKS (JSON Web Key Set) endpoint URL. The endpoint must be publicly accessible and return the public keys used to verify JWT signatures.
+        :param next: What action to execute next. Multiple actions form a linked chain; the chain must always terminate in a (weighted)forward, fixedResponse or redirect action.
+
+        :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-verify-jwt.html
+        '''
+        options = AuthenticateJwtOptions(
+            issuer=issuer, jwks_endpoint=jwks_endpoint, next=next
+        )
+
+        return typing.cast("ListenerAction", jsii.sinvoke(cls, "authenticateJwt", [options]))
+
     @jsii.member(jsii_name="authenticateOidc")
     @builtins.classmethod
     def authenticate_oidc(
@@ -28888,6 +29045,12 @@ class ApplicationListener(
         '''The port of the listener.'''
         return typing.cast(jsii.Number, jsii.get(self, "port"))
 
+    @builtins.property
+    @jsii.member(jsii_name="protocol")
+    def protocol(self) -> "ApplicationProtocol":
+        '''Listener protocol for this listener.'''
+        return typing.cast("ApplicationProtocol", jsii.get(self, "protocol"))
+
 
 __all__ = [
     "AddApplicationActionProps",
@@ -28914,6 +29077,7 @@ __all__ = [
     "ApplicationProtocolVersion",
     "ApplicationTargetGroup",
     "ApplicationTargetGroupProps",
+    "AuthenticateJwtOptions",
     "AuthenticateOidcOptions",
     "BaseApplicationListenerProps",
     "BaseApplicationListenerRuleProps",
@@ -29111,6 +29275,15 @@ def _typecheckingstub__389c66d35009e957816736a5ee22d68808147ebe13583bdc596c17f88
     source_protocol: typing.Optional[ApplicationProtocol] = None,
     target_port: typing.Optional[jsii.Number] = None,
     target_protocol: typing.Optional[ApplicationProtocol] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff6babff0c027090ff5a26f1eb9810f2875dc35fe74cfdaaba8de0a03ea03d82(
+    *,
+    issuer: builtins.str,
+    jwks_endpoint: builtins.str,
+    next: ListenerAction,
 ) -> None:
     """Type checking stubs"""
     pass

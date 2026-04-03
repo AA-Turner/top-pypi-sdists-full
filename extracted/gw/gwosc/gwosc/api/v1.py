@@ -43,7 +43,7 @@ def fetch_json(url, **kwargs):
     url : `str`
         the remote URL to fetch
 
-    **kwargs
+    kwargs : dict
         other keyword arguments are passed directly to :func:`requests.get`
 
     Returns
@@ -252,12 +252,12 @@ def _fetch_allevents_event_json(
 
     # match datasets
     matched = list(filter(_match, allevents.items()))
-    names = set(x[1]["commonName"] for x in matched)
+    names = {x[1]["commonName"] for x in matched}
 
     # one dataset has an exact name match, so discard everything else
     if event in names:
         matched = [x for x in matched if x[1]["commonName"] == event]
-        names = set(x[1]["commonName"] for x in matched)
+        names = {x[1]["commonName"] for x in matched}
 
     # we have a winner!
     if len(names) == 1:

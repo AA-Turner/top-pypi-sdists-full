@@ -7,18 +7,3 @@ use crate::mysql::MySqlHandler;
 ///
 /// MariaDB uses the same wire protocol as MySQL, so we can reuse the MySQL handler.
 pub type MariaDbHandler = MySqlHandler;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_mariadb_is_mysql_compatible() {
-        let handler = MariaDbHandler::with_defaults();
-        // MariaDB uses same handler, but will be registered as "mariadb"
-        assert_eq!(
-            <_ as guacr_handlers::ProtocolHandler>::name(&handler),
-            "mysql"
-        );
-    }
-}

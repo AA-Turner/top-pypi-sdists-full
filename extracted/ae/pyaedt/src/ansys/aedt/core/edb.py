@@ -27,8 +27,8 @@ from typing import TYPE_CHECKING
 from typing import Any
 
 if TYPE_CHECKING:
+    from pyedb import Edb
     from pyedb import Siwave
-from pyedb import Edb as EdbApp
 
 from ansys.aedt.core.generic.settings import settings
 from ansys.aedt.core.internal.aedt_versions import aedt_versions
@@ -47,7 +47,7 @@ def Edb(
     student_version: bool | None = False,
     use_ppe: bool | None = False,
     technology_file: str | None = None,
-) -> "EdbApp":
+) -> "Edb":
     """Provides the EDB application interface.
 
     This module inherits all objects that belong to EDB.
@@ -115,9 +115,7 @@ def Edb(
     >>> app = Edb("/path/to/file/myfile.gds")
 
     """
-    if version is not None:
-        # Clear global state before initialization
-        settings.aedt_version = None
+    from pyedb import Edb
 
     if not settings.aedt_version:  # pragma: no cover
         # If no version is specified, use the passed version or current stable version of AEDT.
@@ -126,19 +124,15 @@ def Edb(
         else:
             settings.aedt_version = aedt_versions.current_version
 
-    if settings.pyedb_use_grpc is None:
-        if settings.aedt_version > "2026.1":  # pragma: no cover
-            settings.logger.info("No EDB gRPC setting provided. Enabling gRPC for EDB.")
-            settings.pyedb_use_grpc = True
-        else:
-            settings.logger.info("No EDB gRPC setting provided. Disabling gRPC for EDB.")
-            settings.pyedb_use_grpc = False
+    if settings.pyedb_use_grpc is None and settings.aedt_version > "2026.1":  # pragma: no cover
+        settings.logger.info("No EDB gRPC setting provided. Enabling gRPC for EDB.")
+        settings.pyedb_use_grpc = True
 
-    use_grpc = True if settings.pyedb_use_grpc and settings.aedt_version >= "2026.1" else False  # pragma: no cover
+    use_grpc = True if settings.pyedb_use_grpc and settings.aedt_version > "2026.1" else False  # pragma: no cover
     grpc_enabled = "Grpc enabled" if use_grpc else "Dotnet enabled"  # pragma: no cover
     settings.logger.info(f"Loading EDB with {grpc_enabled}.")
 
-    return EdbApp(
+    return Edb(
         edbpath=str(edbpath),
         cellname=cellname,
         isreadonly=isreadonly,

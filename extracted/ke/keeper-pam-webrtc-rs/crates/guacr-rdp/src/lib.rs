@@ -18,11 +18,11 @@
 // ```
 
 // Supporting modules (kept minimal - infrastructure only)
-mod channel_handler;
-mod egfx_handler;
+pub(crate) mod channel_handler;
+pub(crate) mod egfx_handler;
 
 // Main handler (all logic in one file - SSH pattern)
-mod handler;
+pub(crate) mod handler;
 
 #[cfg(feature = "sftp")]
 mod sftp_integration;
@@ -61,3 +61,6 @@ pub enum RdpError {
 }
 
 pub type Result<T> = std::result::Result<T, RdpError>;
+
+#[cfg(test)]
+mod tests;

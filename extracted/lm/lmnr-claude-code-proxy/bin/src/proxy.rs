@@ -1,5 +1,8 @@
 use crate::anthropic::request::PostMessagesRequest;
 use crate::anthropic::response::{self, MessageResponse};
+use crate::bedrock::{
+    is_bedrock_endpoint, is_bedrock_path, parse_bedrock_event_stream, update_bedrock_signature,
+};
 use crate::spans::utils::{
     bytes_to_uuid_like_string, decompress_if_gzip, parse_span_id, parse_sse_events, parse_trace_id,
 };
@@ -29,7 +32,6 @@ use tokio::task::JoinSet;
 
 const CREATE_MESSAGE_PATH: &str = "/v1/messages";
 const FOUNDRY_CREATE_MESSAGE_PATH: &str = "/anthropic/v1/messages";
-
 fn get_unix_nano() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -41,10 +43,24 @@ fn get_unix_nano() -> u64 {
 }
 
 fn should_create_span(uri_path: &str) -> bool {
-    // The proper way would be to check for
+    // Standard Anthropic API
+    if uri_path == CREATE_MESSAGE_PATH {
+        return true;
+    }
+
+    // Azure Foundry. The proper way would be to check for
     // azure endpoint and foundry path, but it's unlikely that Anthropic's
     // API will ever have a /anthropic path, so it's a safe assumption.
-    uri_path == CREATE_MESSAGE_PATH || uri_path == FOUNDRY_CREATE_MESSAGE_PATH
+    if uri_path == FOUNDRY_CREATE_MESSAGE_PATH {
+        return true;
+    }
+
+    // Bedrock: /model/{modelId}/invoke or /model/{modelId}/invoke-with-response-stream
+    if is_bedrock_path(uri_path) {
+        return true;
+    }
+
+    false
 }
 
 fn is_azure_endpoint(host: &str) -> bool {
@@ -180,6 +196,7 @@ where
         let span_processor = self.span_processor.clone();
         let nested_context = self.nested_context.clone();
         let has_gzip_content_encoding = self.has_gzip_content_encoding;
+        let uri_path = self.uri_path.clone();
 
         // Extract response body from accumulated chunks synchronously
         // This must be done before spawning to avoid holding MutexGuard across await
@@ -213,12 +230,18 @@ where
 
         // Parse the response - handle both streaming and non-streaming
         let parsed_response: Option<MessageResponse> = parsed_request.as_ref().and_then(|req| {
+            // Bedrock's invoke-with-response-stream uses a binary event stream format,
+            // not SSE text, so it must be parsed before any UTF-8 conversion.
+            if uri_path.ends_with("/invoke-with-response-stream") {
+                let events = parse_bedrock_event_stream(&response_bytes);
+                return MessageResponse::try_from_stream_events(events).ok();
+            }
+
             let response_str =
                 decompress_if_gzip(response_bytes.as_slice(), has_gzip_content_encoding)
                     .map_err(|e| eprintln!("Failed to parse gzipped response: {}", e))
                     .unwrap_or(String::from_utf8_lossy(&response_bytes).to_string());
             if req.stream {
-                // Streaming response: parse SSE events
                 let events = parse_sse_events(&response_str);
                 MessageResponse::try_from_stream_events(events).ok()
             } else {
@@ -468,6 +491,8 @@ async fn try_infer_scheme(
             https_parts.version = hyper::Version::HTTP_2;
             https_parts.headers.remove(hyper::header::HOST);
             https_parts.headers.remove(hyper::header::CONNECTION);
+        } else if is_bedrock_endpoint(&https_url) {
+            https_parts.headers.remove(hyper::header::HOST);
         }
 
         let https_req = Request::from_parts(https_parts, https_body);
@@ -498,6 +523,10 @@ async fn try_infer_scheme(
         http_parts.version = hyper::Version::HTTP_2;
         http_parts.headers.remove(hyper::header::HOST);
         http_parts.headers.remove(hyper::header::CONNECTION);
+    } else if is_bedrock_endpoint(&http_url) {
+        http_parts.version = hyper::Version::HTTP_11;
+        http_parts.headers.remove(hyper::header::CONNECTION);
+        http_parts.headers.remove(hyper::header::HOST);
     }
 
     let http_req = Request::from_parts(http_parts, http_body);
@@ -600,6 +629,19 @@ async fn forward_request(
                 parts_clone.version = hyper::Version::HTTP_2;
                 parts_clone.headers.remove(hyper::header::HOST);
                 parts_clone.headers.remove(hyper::header::CONNECTION);
+            } else if is_bedrock_endpoint(&url_with_scheme) {
+                parts_clone.version = hyper::Version::HTTP_11;
+                parts_clone.headers.remove(hyper::header::CONNECTION);
+                if let Err(e) = update_bedrock_signature(
+                    &mut parts_clone,
+                    &req_body_bytes,
+                    &url_with_scheme,
+                    path_and_query,
+                )
+                .await
+                {
+                    eprintln!("Failed to re-sign Bedrock request: {e}");
+                }
             }
 
             let proxy_req = Request::from_parts(parts_clone, new_body);
@@ -650,6 +692,19 @@ async fn forward_request(
             parts_clone.version = hyper::Version::HTTP_2;
             parts_clone.headers.remove(hyper::header::HOST);
             parts_clone.headers.remove(hyper::header::CONNECTION);
+        } else if is_bedrock_endpoint(&target_url) {
+            parts_clone.version = hyper::Version::HTTP_11;
+            parts_clone.headers.remove(hyper::header::CONNECTION);
+            if let Err(e) = update_bedrock_signature(
+                &mut parts_clone,
+                &req_body_bytes,
+                &target_url,
+                path_and_query,
+            )
+            .await
+            {
+                eprintln!("Failed to re-sign Bedrock request: {e}");
+            }
         }
 
         let proxy_req = Request::from_parts(parts_clone, new_body);

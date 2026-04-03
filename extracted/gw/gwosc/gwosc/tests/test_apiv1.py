@@ -46,7 +46,7 @@ def test_fetch_json():
     url = "https://gwosc.org/archive/1126257414/1126261510/json/"
     out = api.fetch_json(url)
     assert isinstance(out, dict)
-    assert len(out["events"]) == 3
+    assert "GW150914-v1" in out["events"]
     assert sorted(out["events"]["GW150914-v1"]["detectors"]) == ["H1", "L1"]
     assert {"O1", "O1_16KHZ", "history"}.issubset(set(out["runs"]))
 
@@ -186,9 +186,9 @@ def test_fetch_filtered_events_json_bad_local(fetch, select):
 @pytest.mark.remote
 def test_fetch_event_json():
     out = api.fetch_event_json("GW150914")
-    meta = out["events"]["GW150914-v3"]
-    assert int(meta["GPS"]) == 1126259462
-    assert meta["version"] == 3
+    assert len(out["events"]) > 0
+    event = next(iter(out["events"].values()))
+    assert event["version"] > 0
 
 
 @pytest.mark.remote

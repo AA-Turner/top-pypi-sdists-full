@@ -324,6 +324,7 @@ __all__ = [
     "aws_imagebuilder",
     "aws_inspector",
     "aws_inspectorv2",
+    "aws_interconnect",
     "aws_internetmonitor",
     "aws_invoicing",
     "aws_iot",
@@ -458,6 +459,7 @@ __all__ = [
     "aws_systemsmanagersap",
     "aws_timestream",
     "aws_transfer",
+    "aws_uxc",
     "aws_verifiedpermissions",
     "aws_voiceid",
     "aws_vpclattice",
@@ -605,6 +607,7 @@ from . import aws_identitystore
 from . import aws_imagebuilder
 from . import aws_inspector
 from . import aws_inspectorv2
+from . import aws_interconnect
 from . import aws_internetmonitor
 from . import aws_invoicing
 from . import aws_iot
@@ -739,6 +742,7 @@ from . import aws_synthetics
 from . import aws_systemsmanagersap
 from . import aws_timestream
 from . import aws_transfer
+from . import aws_uxc
 from . import aws_verifiedpermissions
 from . import aws_voiceid
 from . import aws_vpclattice

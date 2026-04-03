@@ -3,7 +3,7 @@ Main interface for bedrock-data-automation service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_data_automation/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -13,6 +13,9 @@ Usage::
         Client,
         DataAutomationforBedrockClient,
         ListBlueprintsPaginator,
+        ListDataAutomationLibrariesPaginator,
+        ListDataAutomationLibraryEntitiesPaginator,
+        ListDataAutomationLibraryIngestionJobsPaginator,
         ListDataAutomationProjectsPaginator,
     )
 
@@ -20,12 +23,21 @@ Usage::
     client: DataAutomationforBedrockClient = session.client("bedrock-data-automation")
 
     list_blueprints_paginator: ListBlueprintsPaginator = client.get_paginator("list_blueprints")
+    list_data_automation_libraries_paginator: ListDataAutomationLibrariesPaginator = client.get_paginator("list_data_automation_libraries")
+    list_data_automation_library_entities_paginator: ListDataAutomationLibraryEntitiesPaginator = client.get_paginator("list_data_automation_library_entities")
+    list_data_automation_library_ingestion_jobs_paginator: ListDataAutomationLibraryIngestionJobsPaginator = client.get_paginator("list_data_automation_library_ingestion_jobs")
     list_data_automation_projects_paginator: ListDataAutomationProjectsPaginator = client.get_paginator("list_data_automation_projects")
     ```
 """
 
 from .client import DataAutomationforBedrockClient
-from .paginator import ListBlueprintsPaginator, ListDataAutomationProjectsPaginator
+from .paginator import (
+    ListBlueprintsPaginator,
+    ListDataAutomationLibrariesPaginator,
+    ListDataAutomationLibraryEntitiesPaginator,
+    ListDataAutomationLibraryIngestionJobsPaginator,
+    ListDataAutomationProjectsPaginator,
+)
 
 Client = DataAutomationforBedrockClient
 
@@ -33,5 +45,8 @@ __all__ = (
     "Client",
     "DataAutomationforBedrockClient",
     "ListBlueprintsPaginator",
+    "ListDataAutomationLibrariesPaginator",
+    "ListDataAutomationLibraryEntitiesPaginator",
+    "ListDataAutomationLibraryIngestionJobsPaginator",
     "ListDataAutomationProjectsPaginator",
 )

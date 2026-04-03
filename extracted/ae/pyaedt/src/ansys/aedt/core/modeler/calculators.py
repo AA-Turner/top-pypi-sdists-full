@@ -59,12 +59,8 @@ class TransmissionLine(PyAedtBase):
 
     @pyaedt_function_handler()
     def microstrip_synthesis(
-        self,
-        substrate_height: float,
-        permittivity: float,
-        impedance: str | float = 50.0,
-        electrical_length: str | float = 150.0,
-    ) -> tuple[float, float]:
+        self, substrate_height, permittivity, impedance: float = 50.0, electrical_length: float = 150.0
+    ):
         """Strip line calculator.
 
         Parameters
@@ -73,9 +69,9 @@ class TransmissionLine(PyAedtBase):
             Substrate height.
         permittivity : float
             Substrate permittivity.
-        impedance : str, float, optional
+        impedance : str, optional
             Impedance. The default is ``50.0``.
-        electrical_length : str, float, optional
+        electrical_length : str, optional
             Electrical length in degrees. The default is ``150.0``.
 
         Returns
@@ -119,9 +115,7 @@ class TransmissionLine(PyAedtBase):
         return ustrip_width, ustrip_length
 
     @pyaedt_function_handler()
-    def microstrip_analysis(
-        self, substrate_height: float, permittivity: float, width: float, thickness: float
-    ) -> float:
+    def microstrip_analysis(self, substrate_height, permittivity, width, thickness):
         """Strip line calculator.
 
         Parameters
@@ -148,9 +142,7 @@ class TransmissionLine(PyAedtBase):
         return z0
 
     @pyaedt_function_handler()
-    def differential_microstrip_analysis(
-        self, substrate_height: float, permittivity: float, width: float, separation: float, thickness: float
-    ) -> tuple[float, float]:
+    def differential_microstrip_analysis(self, substrate_height, permittivity, width, separation, thickness):
         """Strip line calculator.
 
         Parameters
@@ -181,7 +173,7 @@ class TransmissionLine(PyAedtBase):
         return z0, z0d
 
     @pyaedt_function_handler()
-    def stripline_synthesis(self, substrate_height: float, permittivity: float, impedance: str | float = 50.0) -> float:
+    def stripline_synthesis(self, substrate_height, permittivity, impedance: float = 50.0):
         """Strip line calculator.
 
         Parameters
@@ -190,7 +182,7 @@ class TransmissionLine(PyAedtBase):
             Substrate height.
         permittivity : float
             Substrate permittivity.
-        impedance : str, float, optional
+        impedance : str, optional
             Impedance. The default is ``50.0``.
 
         Returns
@@ -209,9 +201,7 @@ class TransmissionLine(PyAedtBase):
         return width
 
     @pyaedt_function_handler()
-    def suspended_strip_synthesis(
-        self, substrate_height: float, permittivity: float, w1: float, units: str = "mm"
-    ) -> float:
+    def suspended_strip_synthesis(self, substrate_height, permittivity, w1, units: str = "mm"):
         """Suspended stripline calculator.
 
         Parameters
@@ -221,9 +211,6 @@ class TransmissionLine(PyAedtBase):
         permittivity : float
             Dielectric permittivity
         w1 : float
-            Trace width.
-        units : str, optional
-            Units for the trace width and substrate height. The default is ``mm``.
 
         Returns
         -------
@@ -319,12 +306,12 @@ class StandardWaveguide(PyAedtBase):
         self.frequency_unit = frequency_unit
 
     @property
-    def waveguide_list(self) -> list:
+    def waveguide_list(self):
         """Waveguide lists."""
         return self.wg.keys()
 
     @pyaedt_function_handler()
-    def get_waveguide_dimensions(self, name: str, units: str = "mm") -> list | bool:
+    def get_waveguide_dimensions(self, name: str, units: str = "mm"):
         """Strip line calculator.
 
         Parameters
@@ -348,7 +335,7 @@ class StandardWaveguide(PyAedtBase):
             return False
 
     @pyaedt_function_handler()
-    def find_waveguide(self, freq: float, units: str = "GHz") -> str | None:  # pragma: no cover
+    def find_waveguide(self, freq, units: str = "GHz"):  # pragma: no cover
         """Find the closest standard waveguide for the operational frequency.
 
         Parameters

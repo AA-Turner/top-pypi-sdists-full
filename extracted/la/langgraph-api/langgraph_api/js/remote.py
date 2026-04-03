@@ -831,6 +831,11 @@ class DisableHttpxLoggingContextManager(contextlib.AbstractContextManager):
 async def wait_until_js_ready(
     bg_tasks: set[asyncio.Task] | None = None,
 ):
+    from langgraph_api.config import JS_READY_TIMEOUT_SECS  # noqa: PLC0415
+
+    poll_interval = 0.5
+    max_attempts = int(JS_READY_TIMEOUT_SECS / poll_interval)
+
     with DisableHttpxLoggingContextManager():
         async with (
             httpx.AsyncClient(
@@ -873,10 +878,11 @@ async def wait_until_js_ready(
                     res.raise_for_status()
                     return
                 except httpx.HTTPError as exc:
-                    if attempt > 240:
+                    if attempt > max_attempts:
                         logger.exception(
                             "Timed out waiting for JS process to become ready",
                             attempts=attempt,
+                            timeout_secs=JS_READY_TIMEOUT_SECS,
                             graph_ready=graph_ready,
                         )
                         raise
@@ -885,12 +891,13 @@ async def wait_until_js_ready(
                             logger.warning(
                                 "Still waiting for JS process to become ready",
                                 attempts=attempt,
-                                elapsed_seconds=attempt * 0.5,
+                                elapsed_seconds=attempt * poll_interval,
+                                timeout_secs=JS_READY_TIMEOUT_SECS,
                                 graph_ready=graph_ready,
                                 last_error=repr(exc),
                             )
                         attempt += 1
-                        await asyncio.sleep(0.5)
+                        await asyncio.sleep(poll_interval)
 
 
 async def js_healthcheck():

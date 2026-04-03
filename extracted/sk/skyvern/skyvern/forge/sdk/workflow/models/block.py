@@ -11,7 +11,7 @@ import smtplib
 import textwrap
 import uuid
 from collections import defaultdict, deque
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 from email.message import EmailMessage
 from pathlib import Path
 from types import SimpleNamespace
@@ -691,6 +691,16 @@ class BaseTaskBlock(Block):
             self.terminate_criterion = self.format_block_parameter_template_from_workflow_run_context(
                 self.terminate_criterion, workflow_run_context
             )
+
+        if self.error_code_mapping:
+            self.error_code_mapping = {
+                self.format_block_parameter_template_from_workflow_run_context(error_code, workflow_run_context): (
+                    self.format_block_parameter_template_from_workflow_run_context(
+                        error_description, workflow_run_context
+                    )
+                )
+                for error_code, error_description in self.error_code_mapping.items()
+            }
 
     @staticmethod
     async def get_task_order(workflow_run_id: str, current_retry: int) -> tuple[int, int]:
@@ -2652,6 +2662,24 @@ class TextPromptBlock(Block):
         # get all parameters into a dictionary
         parameter_values = {}
         for parameter in self.parameters:
+            if not workflow_run_context.has_value(parameter.key):
+                LOG.warning(
+                    "TextPromptBlock missing required parameter",
+                    block_label=self.label,
+                    parameter_key=parameter.key,
+                    workflow_run_id=workflow_run_id,
+                )
+                return await self.build_block_result(
+                    success=False,
+                    failure_reason=(
+                        f"Parameter '{parameter.key}' is not available in the workflow context. "
+                        f"An upstream block that produces this value may have failed or been skipped."
+                    ),
+                    output_parameter_value=None,
+                    status=BlockStatus.failed,
+                    workflow_run_block_id=workflow_run_block_id,
+                    organization_id=organization_id,
+                )
             value = workflow_run_context.get_value(parameter.key)
             secret_value = workflow_run_context.get_original_secret_value_or_none(value)
             if secret_value:
@@ -2659,13 +2687,29 @@ class TextPromptBlock(Block):
             else:
                 parameter_values[parameter.key] = value
 
-        response = await self.send_prompt(
-            self.prompt,
-            parameter_values,
-            workflow_run_id,
-            organization_id,
-            workflow_run_block_id=workflow_run_block_id,
-        )
+        try:
+            response = await self.send_prompt(
+                self.prompt,
+                parameter_values,
+                workflow_run_id,
+                organization_id,
+                workflow_run_block_id=workflow_run_block_id,
+            )
+        except Exception as e:
+            LOG.exception(
+                "TextPromptBlock LLM call failed",
+                block_label=self.label,
+                workflow_run_id=workflow_run_id,
+                llm_key=self.override_llm_key or self.llm_key,
+            )
+            return await self.build_block_result(
+                success=False,
+                failure_reason=f"LLM call failed: {e}",
+                output_parameter_value=None,
+                status=BlockStatus.failed,
+                workflow_run_block_id=workflow_run_block_id,
+                organization_id=organization_id,
+            )
         await self.record_output_parameter_value(workflow_run_context, workflow_run_id, response)
         return await self.build_block_result(
             success=True,
@@ -3642,9 +3686,11 @@ class FileParserBlock(Block):
             for key, value in record.items():
                 if pd.isna(value) or value == "NaN" or value == "NaT":
                     record[key] = "nan"
-                elif isinstance(value, (pd.Timestamp, pd.DatetimeTZDtype)):
-                    # Convert pandas timestamps to ISO format strings
-                    record[key] = value.isoformat() if pd.notna(value) else "nan"
+                elif isinstance(value, (pd.Timestamp, datetime, date, time)):
+                    # NaT timestamps are already caught by pd.isna() above, so this is always valid
+                    record[key] = value.isoformat()
+                elif isinstance(value, pd.Timedelta):
+                    record[key] = str(value)
 
         return records
 
@@ -4239,6 +4285,9 @@ class HumanInteractionBlock(BaseTaskBlock):
 
         app_url = f"{settings.SKYVERN_APP_URL}/runs/{workflow_run_id}/overview"
         body = f"{self.body}\n\nKindly visit {app_url}\n\n{self.instructions}\n\n"
+        if browser_session_id:
+            browser_session_url = f"{settings.SKYVERN_APP_URL}/browser-session/{browser_session_id}"
+            body += f"To interact with the browser session directly, visit {browser_session_url}\n\n"
         subject = f"{self.subject} - Workflow Run ID: {workflow_run_id}"
 
         try:
@@ -4628,6 +4677,7 @@ class TaskV2Block(Block):
             "summary": task_v2.summary,
             "extracted_information": result_dict,
             "failure_reason": failure_reason,
+            "failure_category": task_v2.failure_category,
             "downloaded_files": [fi.model_dump() for fi in downloaded_files],
             "downloaded_file_urls": [fi.url for fi in downloaded_files],
             "task_screenshot_artifact_ids": [a.artifact_id for a in task_screenshot_artifacts],
@@ -4637,7 +4687,7 @@ class TaskV2Block(Block):
         return await self.build_block_result(
             success=success or self.continue_on_failure,
             failure_reason=failure_reason,
-            output_parameter_value=result_dict,
+            output_parameter_value=task_v2_output,
             status=block_status,
             workflow_run_block_id=workflow_run_block_id,
             organization_id=organization_id,

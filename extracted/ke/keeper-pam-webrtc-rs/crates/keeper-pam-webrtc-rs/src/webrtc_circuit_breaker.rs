@@ -294,6 +294,11 @@ impl TubeCircuitBreaker {
         }
     }
 
+    /// Record a successful operation (public alias for external callers)
+    pub fn record_success_public(&self) {
+        self.record_success();
+    }
+
     /// Record a successful operation
     fn record_success(&self) {
         self.metrics

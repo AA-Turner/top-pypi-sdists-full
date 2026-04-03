@@ -54,7 +54,9 @@ class ProjectCreateParameters(object):
         'autotranslate_check_new_locales': 'bool',
         'autotranslate_mark_as_unverified': 'bool',
         'autotranslate_use_machine_translation': 'bool',
-        'autotranslate_use_translation_memory': 'bool'
+        'autotranslate_use_translation_memory': 'bool',
+        'autotranslate_overwrite_unverified_translations': 'bool',
+        'placeholder_styles': 'List[str]'
     }
 
     attribute_map = {
@@ -80,10 +82,12 @@ class ProjectCreateParameters(object):
         'autotranslate_check_new_locales': 'autotranslate_check_new_locales',
         'autotranslate_mark_as_unverified': 'autotranslate_mark_as_unverified',
         'autotranslate_use_machine_translation': 'autotranslate_use_machine_translation',
-        'autotranslate_use_translation_memory': 'autotranslate_use_translation_memory'
+        'autotranslate_use_translation_memory': 'autotranslate_use_translation_memory',
+        'autotranslate_overwrite_unverified_translations': 'autotranslate_overwrite_unverified_translations',
+        'placeholder_styles': 'placeholder_styles'
     }
 
-    def __init__(self, name=None, main_format=None, media=None, shares_translation_memory=None, project_image=None, remove_project_image=None, account_id=None, point_of_contact=None, source_project_id=None, workflow=None, machine_translation_enabled=None, enable_branching=None, protect_master_branch=None, enable_all_data_type_translation_keys_for_translators=None, enable_icu_message_format=None, zero_plural_form_enabled=None, autotranslate_enabled=None, autotranslate_check_new_translation_keys=None, autotranslate_check_new_uploads=None, autotranslate_check_new_locales=None, autotranslate_mark_as_unverified=None, autotranslate_use_machine_translation=None, autotranslate_use_translation_memory=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, main_format=None, media=None, shares_translation_memory=None, project_image=None, remove_project_image=None, account_id=None, point_of_contact=None, source_project_id=None, workflow=None, machine_translation_enabled=None, enable_branching=None, protect_master_branch=None, enable_all_data_type_translation_keys_for_translators=None, enable_icu_message_format=None, zero_plural_form_enabled=None, autotranslate_enabled=None, autotranslate_check_new_translation_keys=None, autotranslate_check_new_uploads=None, autotranslate_check_new_locales=None, autotranslate_mark_as_unverified=None, autotranslate_use_machine_translation=None, autotranslate_use_translation_memory=None, autotranslate_overwrite_unverified_translations=None, placeholder_styles=None, local_vars_configuration=None):  # noqa: E501
         """ProjectCreateParameters - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -112,6 +116,8 @@ class ProjectCreateParameters(object):
         self._autotranslate_mark_as_unverified = None
         self._autotranslate_use_machine_translation = None
         self._autotranslate_use_translation_memory = None
+        self._autotranslate_overwrite_unverified_translations = None
+        self._placeholder_styles = None
         self.discriminator = None
 
         self.name = name
@@ -159,6 +165,10 @@ class ProjectCreateParameters(object):
             self.autotranslate_use_machine_translation = autotranslate_use_machine_translation
         if autotranslate_use_translation_memory is not None:
             self.autotranslate_use_translation_memory = autotranslate_use_translation_memory
+        if autotranslate_overwrite_unverified_translations is not None:
+            self.autotranslate_overwrite_unverified_translations = autotranslate_overwrite_unverified_translations
+        if placeholder_styles is not None:
+            self.placeholder_styles = placeholder_styles
 
     @property
     def name(self):
@@ -690,6 +700,52 @@ class ProjectCreateParameters(object):
         """
 
         self._autotranslate_use_translation_memory = autotranslate_use_translation_memory
+
+    @property
+    def autotranslate_overwrite_unverified_translations(self):
+        """Gets the autotranslate_overwrite_unverified_translations of this ProjectCreateParameters.  # noqa: E501
+
+        (Optional) Requires autotranslate_enabled to be true  # noqa: E501
+
+        :return: The autotranslate_overwrite_unverified_translations of this ProjectCreateParameters.  # noqa: E501
+        :rtype: bool
+        """
+        return self._autotranslate_overwrite_unverified_translations
+
+    @autotranslate_overwrite_unverified_translations.setter
+    def autotranslate_overwrite_unverified_translations(self, autotranslate_overwrite_unverified_translations):
+        """Sets the autotranslate_overwrite_unverified_translations of this ProjectCreateParameters.
+
+        (Optional) Requires autotranslate_enabled to be true  # noqa: E501
+
+        :param autotranslate_overwrite_unverified_translations: The autotranslate_overwrite_unverified_translations of this ProjectCreateParameters.  # noqa: E501
+        :type: bool
+        """
+
+        self._autotranslate_overwrite_unverified_translations = autotranslate_overwrite_unverified_translations
+
+    @property
+    def placeholder_styles(self):
+        """Gets the placeholder_styles of this ProjectCreateParameters.  # noqa: E501
+
+        (Optional) List of placeholder styles enabled for the project.  # noqa: E501
+
+        :return: The placeholder_styles of this ProjectCreateParameters.  # noqa: E501
+        :rtype: List[str]
+        """
+        return self._placeholder_styles
+
+    @placeholder_styles.setter
+    def placeholder_styles(self, placeholder_styles):
+        """Sets the placeholder_styles of this ProjectCreateParameters.
+
+        (Optional) List of placeholder styles enabled for the project.  # noqa: E501
+
+        :param placeholder_styles: The placeholder_styles of this ProjectCreateParameters.  # noqa: E501
+        :type: List[str]
+        """
+
+        self._placeholder_styles = placeholder_styles
 
     def to_dict(self):
         """Returns the model properties as a dict"""

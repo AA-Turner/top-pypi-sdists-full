@@ -25,6 +25,7 @@ class UDPClient(object):
         port: int,
         allow_broadcast: bool = False,
         family: socket.AddressFamily = socket.AF_UNSPEC,
+        timeout: float | None = None,
     ) -> None:
         """Initialize client
 
@@ -36,6 +37,7 @@ class UDPClient(object):
             port: Port of server
             allow_broadcast: Allow for broadcast transmissions
             family: address family parameter (passed to socket.getaddrinfo)
+            timeout: Default timeout in seconds for socket operations
         """
 
         for addr in socket.getaddrinfo(
@@ -50,10 +52,26 @@ class UDPClient(object):
             break
 
         self._sock.setblocking(False)
+        if timeout is not None:
+            self._sock.settimeout(timeout)
+        self._timeout = timeout
+
         if allow_broadcast:
             self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self._address = address
         self._port = port
+
+    def __enter__(self) -> "UDPClient":
+        return self
+
+    def __exit__(
+        self, exc_type: type | None, exc_val: Exception | None, exc_tb: object | None
+    ) -> None:
+        self.close()
+
+    def close(self) -> None:
+        """Close the socket"""
+        self._sock.close()
 
     def send(self, content: Union[OscMessage, OscBundle]) -> None:
         """Sends an :class:`OscMessage` or :class:`OscBundle` via UDP
@@ -63,23 +81,30 @@ class UDPClient(object):
         """
         self._sock.sendto(content.dgram, (self._address, self._port))
 
-    def receive(self, timeout: int = 30) -> bytes:
+    def receive(self, timeout: float | None = None) -> bytes:
         """Wait :int:`timeout` seconds for a message an return the raw bytes
 
         Args:
-            timeout: Number of seconds to wait for a message
+            timeout: Number of seconds to wait for a message.
+                     If None, uses the default timeout set in __init__.
         """
-        self._sock.settimeout(timeout)
+        if timeout is not None:
+            self._sock.settimeout(timeout)
+        elif self._timeout is not None:
+            self._sock.settimeout(self._timeout)
+
         try:
             return self._sock.recv(4096)
-        except TimeoutError:
+        except (TimeoutError, socket.timeout, BlockingIOError):
             return b""
 
 
 class SimpleUDPClient(UDPClient):
     """Simple OSC client that automatically builds :class:`OscMessage` from arguments"""
 
-    def send_message(self, address: str, value: ArgValue) -> None:
+    def send_message(
+        self, address: str, value: Union[ArgValue, Iterable[ArgValue]]
+    ) -> None:
         """Build :class:`OscMessage` from arguments and send to server
 
         Args:
@@ -87,7 +112,6 @@ class SimpleUDPClient(UDPClient):
             value: One or more arguments to be added to the message
         """
         builder = OscMessageBuilder(address=address)
-        values: ArgValue
         if value is None:
             pass
         elif not isinstance(value, Iterable) or isinstance(value, (str, bytes)):
@@ -98,11 +122,12 @@ class SimpleUDPClient(UDPClient):
         msg = builder.build()
         self.send(msg)
 
-    def get_messages(self, timeout: int = 30) -> Generator:
+    def get_messages(self, timeout: float | None = None) -> Generator:
         """Wait :int:`timeout` seconds for a message from the server and convert it to a :class:`OscMessage`
 
         Args:
-            timeout: Time in seconds to wait for a message
+            timeout: Time in seconds to wait for a message.
+                     If None, uses the default timeout set in __init__.
         """
         msg = self.receive(timeout)
         while msg:
@@ -115,12 +140,13 @@ class DispatchClient(SimpleUDPClient):
 
     dispatcher = Dispatcher()
 
-    def handle_messages(self, timeout: int = 30) -> None:
+    def handle_messages(self, timeout: float | None = None) -> None:
         """Wait :int:`timeout` seconds for a message from the server and process each message with the registered
         handlers.  Continue until a timeout occurs.
 
         Args:
-            timeout: Time in seconds to wait for a message
+            timeout: Time in seconds to wait for a message.
+                     If None, uses the default timeout set in __init__.
         """
         msg = self.receive(timeout)
         while msg:

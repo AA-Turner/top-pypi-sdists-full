@@ -42,7 +42,7 @@ def _file_centrality(index) -> dict[str, float]:
     counts: dict[str, int] = {}
     for src_file, file_imports in index.imports.items():
         for imp in file_imports:
-            target = resolve_specifier(imp["specifier"], src_file, source_files, index.alias_map)
+            target = resolve_specifier(imp["specifier"], src_file, source_files, index.alias_map, getattr(index, "psr4_map", None))
             if target:
                 counts[target] = counts.get(target, 0) + 1
     return {f: math.log(1 + c) for f, c in counts.items()}
@@ -222,6 +222,7 @@ def get_context_bundle(
     budget_strategy: str = "most_relevant",
     include_budget_report: bool = False,
     storage_path: Optional[str] = None,
+    fqn: Optional[str] = None,
 ) -> dict:
     """Get a context bundle: symbol definitions + imports from their files.
 
@@ -258,6 +259,14 @@ def get_context_bundle(
 
     if budget_strategy not in ("most_relevant", "core_first", "compact"):
         return {"error": f"Invalid budget_strategy '{budget_strategy}'. Must be 'most_relevant', 'core_first', or 'compact'."}
+
+    # FQN resolution: translate PHP FQN → symbol_id
+    if fqn and symbol_id is None and symbol_ids is None:
+        from ._utils import resolve_fqn
+        _resolved, _err = resolve_fqn(repo, fqn, storage_path)
+        if _resolved is None:
+            return {"error": _err or f"Could not resolve FQN '{fqn}'."}
+        symbol_id = _resolved
 
     # Normalise inputs
     if symbol_ids is not None:

@@ -22,8 +22,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from __future__ import annotations
-
 from collections import defaultdict
 
 from ansys.aedt.core.base import PyAedtBase
@@ -55,12 +53,12 @@ class EmitComponents(PyAedtBase):
         return self._parent._messenger
 
     @property
-    def version(self) -> str:
+    def version(self):
         """Version."""
         return self._parent._aedt_version
 
     @property
-    def model_units(self) -> str:
+    def model_units(self):
         """Model units."""
         return self.modeler.model_units
 
@@ -100,7 +98,7 @@ class EmitComponents(PyAedtBase):
         return self._parent.ocomponent_manager
 
     @property
-    def design_type(self) -> str:
+    def design_type(self):
         """Design type."""
         return self._parent.design_type
 
@@ -145,14 +143,14 @@ class EmitComponents(PyAedtBase):
         self._app = modeler._app
 
     @property
-    def include_personal_library(self, value: str = None) -> str:
+    def include_personal_library(self, value=None):
         """Include personal library."""
         if value is not None:
             self.include_personal_lib = value
         return self.include_personal_lib
 
     @include_personal_library.setter
-    def include_personal_library(self, value: str) -> None:
+    def include_personal_library(self, value) -> None:
         self.include_personal_lib = value
 
     @property
@@ -163,7 +161,7 @@ class EmitComponents(PyAedtBase):
         return "EMIT Elements"
 
     @property
-    def components_catalog(self) -> ComponentCatalog:
+    def components_catalog(self):
         """System library component catalog with all information.
 
         Returns
@@ -175,7 +173,7 @@ class EmitComponents(PyAedtBase):
         return self._components_catalog
 
     @pyaedt_function_handler()
-    def create_component(self, component_type: str, name: str = None, library: str = None) -> EmitComponent:
+    def create_component(self, component_type, name: str | None = None, library=None):
         """Create a new component from a library.
 
         Parameters
@@ -212,9 +210,7 @@ class EmitComponents(PyAedtBase):
         return o_update
 
     @pyaedt_function_handler()
-    def create_radio_antenna(
-        self, radio_type: str, radio_name: str = None, antenna_name: str = None, library: str = None
-    ) -> tuple[EmitComponent, EmitComponent]:
+    def create_radio_antenna(self, radio_type, radio_name=None, antenna_name=None, library=None):
         """Create a new radio and antenna and connect them.
 
         Parameters
@@ -269,7 +265,7 @@ class EmitComponents(PyAedtBase):
         return rad_update, ant_update
 
     @pyaedt_function_handler()
-    def get_radios(self) -> dict:
+    def get_radios(self):
         """Get all radios in the design.
 
         Returns
@@ -281,7 +277,7 @@ class EmitComponents(PyAedtBase):
         return {k: v for k, v in self.components.items() if v.get_type() == "RadioNode"}
 
     @pyaedt_function_handler()
-    def get_antennas(self) -> dict:
+    def get_antennas(self):
         """Get all antennas in the design.
 
         Returns
@@ -293,7 +289,7 @@ class EmitComponents(PyAedtBase):
         return {k: v for k, v in self.components.items() if v.get_type() == "AntennaNode"}
 
     @pyaedt_function_handler()
-    def refresh_all_ids(self) -> int:
+    def refresh_all_ids(self):
         """Refresh all IDs and return the number of components."""
         all_comps = self.oeditor.GetAllComponents()
         for comp_name in all_comps:
@@ -304,7 +300,7 @@ class EmitComponents(PyAedtBase):
         return len(self.components)
 
     @pyaedt_function_handler()
-    def get_obj_id(self, object_name: str) -> EmitComponent:
+    def get_obj_id(self, object_name):
         """Get object ID.
 
         Parameters
@@ -360,7 +356,7 @@ class EmitComponent(PyAedtBase):
         return decorator
 
     @classmethod
-    def create(cls, components: EmitComponents, component_name: str) -> EmitComponent:
+    def create(cls, components, component_name):
         """Create an EMIT component.
 
         Parameters
@@ -408,7 +404,7 @@ class EmitComponent(PyAedtBase):
         return self.name
 
     @pyaedt_function_handler()
-    def move_and_connect_to(self, component: EmitComponent | str) -> None:
+    def move_and_connect_to(self, component) -> None:
         """Move and connect this component to another component.
 
         Parameters
@@ -424,7 +420,7 @@ class EmitComponent(PyAedtBase):
             self.oeditor.PlaceComponent(self.name, component)
 
     @pyaedt_function_handler()
-    def port_names(self) -> list[str]:
+    def port_names(self):
         """Get the names of the component's ports.
 
         Returns
@@ -439,7 +435,7 @@ class EmitComponent(PyAedtBase):
         return self.oeditor.GetComponentPorts(self.name)
 
     @pyaedt_function_handler()
-    def port_connection(self, port_name: str) -> tuple[str, str] | tuple[None, None]:
+    def port_connection(self, port_name):
         """Get the name component and port connected to the given port.
 
         Parameters
@@ -472,7 +468,7 @@ class EmitComponent(PyAedtBase):
         return None, None
 
     @pyaedt_function_handler()
-    def update_property_tree(self) -> EmitComponentPropNode:
+    def update_property_tree(self):
         """Update the nodes (property groups) for this component.
 
         Returns
@@ -499,7 +495,7 @@ class EmitComponent(PyAedtBase):
         return self.root_prop_node
 
     @pyaedt_function_handler()
-    def get_node_properties(self, node: str | None = None) -> dict:
+    def get_node_properties(self, node=None):
         """Return the properties of the given node (property group).
 
         Parameters
@@ -547,7 +543,7 @@ class EmitComponent(PyAedtBase):
         self.__dict__[property_name] = property_value
         return True
 
-    def get_prop_nodes(self, property_filter: dict | None = None) -> list[EmitComponentPropNode]:
+    def get_prop_nodes(self, property_filter=None):
         """Get all property nodes that match a set of key,value pairs.
 
         Parameters
@@ -575,7 +571,7 @@ class EmitComponent(PyAedtBase):
         return filtered_nodes
 
     @pyaedt_function_handler()
-    def get_connected_components(self) -> list[EmitComponent]:
+    def get_connected_components(self):
         """Get all EMIT components that are connected (directly or indirectly) to this component.
 
         Parameters
@@ -604,7 +600,7 @@ class EmitComponent(PyAedtBase):
         return list(components)
 
     @pyaedt_function_handler()
-    def get_type(self) -> str:
+    def get_type(self):
         """Get the property ``Type`` of a component.
 
         Parameters
@@ -628,7 +624,7 @@ class EmitAntennaComponent(EmitComponent):
     def __init__(self, components, component_name) -> None:
         super(EmitAntennaComponent, self).__init__(components, component_name)
 
-    def get_pattern_filename(self) -> str:
+    def get_pattern_filename(self):
         """Get the filename of the antenna pattern defining this antenna.
 
         Parameters
@@ -643,7 +639,7 @@ class EmitAntennaComponent(EmitComponent):
         properties = self.get_node_properties()
         return properties["Filename"]
 
-    def get_orientation_rpy(self) -> tuple[float, float, float] | None:
+    def get_orientation_rpy(self):
         """Get the RPY orientation of this antenna.
 
         Parameters
@@ -673,7 +669,7 @@ class EmitAntennaComponent(EmitComponent):
 
         return orientation
 
-    def get_position(self, units: str = "") -> tuple[float, float, float] | None:
+    def get_position(self, units: str = ""):
         """Get the position of this antenna.
 
         Parameters
@@ -714,7 +710,7 @@ class EmitRadioComponent(EmitComponent):
     def __init__(self, components, component_name) -> None:
         super(EmitRadioComponent, self).__init__(components, component_name)
 
-    def is_emitter(self) -> bool:
+    def is_emitter(self):
         """Check if the radio component is an emitter
 
         Parameters
@@ -732,7 +728,7 @@ class EmitRadioComponent(EmitComponent):
             return properties["IsEmitter"] == "true"
         return False
 
-    def bands(self) -> list[EmitComponentPropNode]:
+    def bands(self):
         """Get the bands of this radio.
 
         Parameters
@@ -747,7 +743,7 @@ class EmitRadioComponent(EmitComponent):
         band_nodes = self.get_prop_nodes({"Type": "Band"})
         return band_nodes
 
-    def band_node(self, band_name: str) -> EmitComponentPropNode | None:
+    def band_node(self, band_name):
         """Get the specified band node from this radio.
 
         Parameters
@@ -764,7 +760,7 @@ class EmitRadioComponent(EmitComponent):
                 return node
         return None
 
-    def band_start_frequency(self, band_node: EmitComponentPropNode, units: str = "") -> float:
+    def band_start_frequency(self, band_node, units: str = ""):
         """Get the start frequency of the band node.
 
         Parameters
@@ -782,7 +778,7 @@ class EmitRadioComponent(EmitComponent):
             units = "Hz"
         return consts.unit_converter(float(band_node.props["StartFrequency"]), "Freq", "Hz", units)
 
-    def band_stop_frequency(self, band_node: EmitComponentPropNode, units: str = "") -> float:
+    def band_stop_frequency(self, band_node, units: str = ""):
         """Get the stop frequency of the band node.
 
         Parameters
@@ -800,9 +796,7 @@ class EmitRadioComponent(EmitComponent):
             units = "Hz"
         return consts.unit_converter(float(band_node.props["StopFrequency"]), "Freq", "Hz", units)
 
-    def set_band_start_frequency(
-        self, band_node: EmitComponentPropNode, band_start_freq: float, units: str = ""
-    ) -> None:
+    def set_band_start_frequency(self, band_node, band_start_freq, units: str = ""):
         """Set start frequency of the band.
 
         Parameters
@@ -847,7 +841,7 @@ class EmitRadioComponent(EmitComponent):
             prop_list = {"StartFrequency": freq_string}
             band_node._set_prop_value(prop_list)
 
-    def set_band_stop_frequency(self, band_node: EmitComponentPropNode, band_stop_freq: float, units: str = "") -> None:
+    def set_band_stop_frequency(self, band_node, band_stop_freq, units: str = ""):
         """Set stop frequency of the band.
 
         Parameters
@@ -891,7 +885,7 @@ class EmitRadioComponent(EmitComponent):
         prop_list = {"StopFrequency": freq_string}
         band_node._set_prop_value(prop_list)
 
-    def band_channel_bandwidth(self, band_node: EmitComponentPropNode, units: str = "") -> float:
+    def band_channel_bandwidth(self, band_node, units: str = ""):
         """Get the channel bandwidth of the band node.
 
         Parameters
@@ -909,13 +903,12 @@ class EmitRadioComponent(EmitComponent):
             units = "Hz"
         return consts.unit_converter(float(band_node.props["ChannelBandwidth"]), "Freq", "Hz", units)
 
-    def band_tx_power(self, band_node: EmitComponentPropNode, units: str = "") -> float:
+    def band_tx_power(self, band_node, units: str = ""):
         """Get the transmit power of the band node.
 
         Parameters
         ----------
-        band_node : EmitComponentPropNode
-            Instance of the band node.
+        band_node : Instance of the band node.
         units : str
             Units to use for the tx power. If none specified,
             SI units (W) are used
@@ -931,7 +924,7 @@ class EmitRadioComponent(EmitComponent):
             if child.props["Type"] == "TxSpectralProfNode":
                 return consts.unit_converter(float(child.props["FundamentalAmplitude"]), "Power", "dBm", units)
 
-    def has_tx_channels(self) -> bool:
+    def has_tx_channels(self):
         """Check the radio for enabled transmit channels.
 
         Parameters
@@ -947,7 +940,7 @@ class EmitRadioComponent(EmitComponent):
         nodes = self.get_prop_nodes({"Type": "TxSpectralProfNode", "Enabled": "true"})
         return len(nodes) > 0
 
-    def has_rx_channels(self) -> bool:
+    def has_rx_channels(self):
         """Check the radio for enabled receive channels.
 
         Parameters
@@ -963,7 +956,7 @@ class EmitRadioComponent(EmitComponent):
         nodes = self.get_prop_nodes({"Type": "RxSusceptibilityProfNode", "Enabled": "true"})
         return len(nodes) > 0
 
-    def get_connected_antennas(self) -> list[EmitComponentPropNode]:
+    def get_connected_antennas(self):
         """Return a list of antennas connected to this radio instance.
 
         Parameters
@@ -979,7 +972,7 @@ class EmitRadioComponent(EmitComponent):
         antennas = filter(lambda component: component.get_node_properties()["Type"] == "AntennaNode", components)
         return list(antennas)
 
-    def get_sampling(self) -> EmitComponentPropNode:
+    def get_sampling(self):
         """Returns the sampling for the radio.
 
         Parameters
@@ -1019,7 +1012,7 @@ class EmitComponentPropNode(PyAedtBase):
         """Initial parent of this node instance."""
 
     @property
-    def props(self) -> dict:
+    def props(self):
         """Returns a dictionary of all the properties for this node.
 
         Parameters
@@ -1036,7 +1029,7 @@ class EmitComponentPropNode(PyAedtBase):
         return props
 
     @property
-    def enabled(self) -> bool:
+    def enabled(self):
         """Returns ''True'' if the node is enabled and ''False'' if the node is disabled.
 
         Parameters
@@ -1052,7 +1045,7 @@ class EmitComponentPropNode(PyAedtBase):
         return self.props["Enabled"] == "true"
 
     @pyaedt_function_handler()
-    def set_band_power_level(self, power: float, units: str = "") -> None:
+    def set_band_power_level(self, power, units: str = ""):
         """Set the power of the fundamental for the given band.
 
         Parameters
@@ -1082,7 +1075,7 @@ class EmitComponentPropNode(PyAedtBase):
                 return  # only one Tx Spectral Profile per Band
 
     @pyaedt_function_handler()
-    def get_band_power_level(self, units: str = "") -> float:
+    def get_band_power_level(self, units: str = ""):
         """Get the power of the fundamental for the given band.
 
         Parameters
@@ -1108,9 +1101,7 @@ class EmitComponentPropNode(PyAedtBase):
         return consts.unit_converter(float(power), "Power", "dBm", units)
 
     @pyaedt_function_handler()
-    def set_channel_sampling(
-        self, sampling_type: str = "Uniform", percentage: float = None, max_channels: float = None, seed: float = None
-    ) -> None:
+    def set_channel_sampling(self, sampling_type: str = "Uniform", percentage=None, max_channels=None, seed=None):
         """Set the channel sampling for the radio.
 
         If a percentage is specified, then it will be used instead of max_channels.
@@ -1156,7 +1147,7 @@ class EmitComponentPropNode(PyAedtBase):
         self._set_prop_value(sampling_props)
 
     @pyaedt_function_handler()
-    def _set_prop_value(self, props: dict = None) -> None:
+    def _set_prop_value(self, props=None):
         """Set the property values for this node.
 
         Parameters
@@ -1186,7 +1177,7 @@ class EmitComponentPropNode(PyAedtBase):
         self.odesign.EditComponentNodes(comp_name, properties_to_set, nodes_to_delete)
 
     @enabled.setter
-    def enabled(self, value: bool) -> None:
+    def enabled(self, value) -> None:
         """Set the node enabled or disabled.
 
         Parameters

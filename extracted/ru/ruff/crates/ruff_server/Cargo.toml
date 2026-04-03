@@ -11,8 +11,6 @@ repository = { workspace = true }
 license = { workspace = true }
 readme = "README.md"
 
-[lib]
-
 [dependencies]
 ruff_db = { workspace = true }
 ruff_diagnostics = { workspace = true }
@@ -57,3 +55,6 @@ test-uv = []
 
 [lints]
 workspace = true
+
+[lib]
+doctest = false

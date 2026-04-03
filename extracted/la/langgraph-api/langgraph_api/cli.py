@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import pathlib
+import socket
 import threading
 import time
 import typing
@@ -87,9 +88,45 @@ def patch_environment(**kwargs):
                 os.environ[key] = value
 
 
+DEFAULT_PORT = 2024
+
+
+def _is_port_available(host: str, port: int) -> bool:
+    """Check if a port is available for binding."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind((host, port))
+            return True
+        except OSError:
+            return False
+
+
+def _find_open_port(host: str) -> int:
+    """Find an available port by binding to port 0."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((host, 0))
+        return s.getsockname()[1]
+
+
+def _resolve_port(host: str, port: int | None) -> int:
+    """Resolve the port to use for the server."""
+    if port is not None:
+        if not _is_port_available(host, port):
+            raise OSError(
+                f"Port {port} is already in use. Please specify a different port "
+                f"or omit the port argument to auto-discover an available one."
+            )
+        return port
+    if _is_port_available(host, DEFAULT_PORT):
+        return DEFAULT_PORT
+    found = _find_open_port(host)
+    logger.info(f"Default port {DEFAULT_PORT} is in use, using port {found} instead.")
+    return found
+
+
 def run_server(
     host: str = "127.0.0.1",
-    port: int = 2024,
+    port: int | None = None,
     reload: bool = False,
     graphs: dict | None = None,
     n_jobs_per_worker: int | None = None,
@@ -122,6 +159,8 @@ def run_server(
     """Run the LangGraph API server."""
 
     import uvicorn  # noqa: PLC0415
+
+    port = _resolve_port(host, port)
 
     start_time = time.time()
 
@@ -363,7 +402,10 @@ def main():
         "--host", default="127.0.0.1", help="Host to bind the server to"
     )
     parser.add_argument(
-        "--port", type=int, default=2024, help="Port to bind the server to"
+        "--port",
+        type=int,
+        default=None,
+        help="Port to bind the server to (default: 2024, auto-discovers if in use)",
     )
     parser.add_argument("--no-reload", action="store_true", help="Disable auto-reload")
     parser.add_argument(

@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""Dictionary-based longest-matching Thai word segmentation. Implementation is based
-on the codes from Patorn Utenpattanun.
+"""Dictionary-based longest-matching Thai word segmentation.
+Implementation based on code from Patorn Utenpattanun.
 
 :See Also:
     * `GitHub Repository \
@@ -105,7 +105,7 @@ class LongestMatchTokenizer:
                     return text[0 : len_word_valid + 1]
                 else:
                     return word_valid
-            except BaseException:
+            except IndexError:
                 return word_valid
         else:
             return ""

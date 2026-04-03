@@ -21,7 +21,7 @@ use crate::throughput::ThroughputTracker;
 /// Adjustments are rate-limited to once per second with max change of ±10 per adjustment
 /// to avoid quality thrashing.
 pub struct AdaptiveQuality {
-    current_quality: u8,
+    pub(crate) current_quality: u8,
     min_quality: u8,
     max_quality: u8,
     throughput_tracker: ThroughputTracker,
@@ -163,48 +163,5 @@ impl AdaptiveQuality {
     pub fn configure_adjustment(&mut self, interval_secs: u64, max_change: u8) {
         self.adjustment_interval_secs = interval_secs.max(1);
         self.max_adjustment_per_interval = max_change.clamp(1, 50);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::thread;
-    use std::time::Duration;
-
-    #[test]
-    fn test_initial_quality() {
-        let aq = AdaptiveQuality::new(85);
-        assert_eq!(aq.current_quality(), 85);
-    }
-
-    #[test]
-    fn test_quality_bounds() {
-        let aq = AdaptiveQuality::new(200); // Invalid, should clamp
-        assert_eq!(aq.max_quality(), 100);
-    }
-
-    #[test]
-    fn test_rate_limiting() {
-        let mut aq = AdaptiveQuality::new(85);
-
-        // Track some frames to simulate low bandwidth
-        for _ in 0..5 {
-            aq.track_frame_sent(100);
-            thread::sleep(Duration::from_millis(10));
-        }
-
-        let q1 = aq.calculate_quality();
-        let q2 = aq.calculate_quality(); // Should return same due to rate limit
-
-        assert_eq!(q1, q2);
-    }
-
-    #[test]
-    fn test_reset() {
-        let mut aq = AdaptiveQuality::new(85);
-        aq.current_quality = 20; // Simulate degraded quality
-        aq.reset();
-        assert_eq!(aq.current_quality(), 85);
     }
 }

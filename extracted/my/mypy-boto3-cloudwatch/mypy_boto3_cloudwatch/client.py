@@ -76,6 +76,7 @@ from .type_defs import (
     GetMetricStreamOutputTypeDef,
     GetMetricWidgetImageInputTypeDef,
     GetMetricWidgetImageOutputTypeDef,
+    GetOTelEnrichmentOutputTypeDef,
     ListAlarmMuteRulesInputTypeDef,
     ListAlarmMuteRulesOutputTypeDef,
     ListDashboardsInputTypeDef,
@@ -402,6 +403,16 @@ class CloudWatchClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#get_metric_widget_image)
         """
 
+    def get_o_tel_enrichment(self) -> GetOTelEnrichmentOutputTypeDef:
+        """
+        Returns the current status of vended metric enrichment for the account,
+        including whether CloudWatch vended metrics are enriched with resource ARN and
+        resource tag labels and queryable using PromQL.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_o_tel_enrichment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#get_o_tel_enrichment)
+        """
+
     def list_alarm_mute_rules(
         self, **kwargs: Unpack[ListAlarmMuteRulesInputTypeDef]
     ) -> ListAlarmMuteRulesOutputTypeDef:
@@ -526,7 +537,8 @@ class CloudWatchClient(BaseClient):
     ) -> EmptyResponseMetadataTypeDef:
         """
         Creates or updates an alarm and associates it with the specified metric, metric
-        math expression, anomaly detection model, or Metrics Insights query.
+        math expression, anomaly detection model, Metrics Insights query, or PromQL
+        query.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/put_metric_alarm.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#put_metric_alarm)
@@ -572,6 +584,16 @@ class CloudWatchClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#start_metric_streams)
         """
 
+    def start_o_tel_enrichment(self) -> dict[str, Any]:
+        """
+        Enables enrichment and PromQL access for CloudWatch vended metrics for <a
+        href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/UsingResourceTagsForTelemetry.html">supported
+        AWS resources</a> in the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/start_o_tel_enrichment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#start_o_tel_enrichment)
+        """
+
     def stop_metric_streams(
         self, **kwargs: Unpack[StopMetricStreamsInputTypeDef]
     ) -> dict[str, Any]:
@@ -580,6 +602,16 @@ class CloudWatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/stop_metric_streams.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#stop_metric_streams)
+        """
+
+    def stop_o_tel_enrichment(self) -> dict[str, Any]:
+        """
+        Disables enrichment and PromQL access for CloudWatch vended metrics for <a
+        href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/UsingResourceTagsForTelemetry.html">supported
+        AWS resources</a> in the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/stop_o_tel_enrichment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#stop_o_tel_enrichment)
         """
 
     def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:

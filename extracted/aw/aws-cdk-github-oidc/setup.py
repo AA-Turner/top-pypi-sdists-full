@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk-github-oidc",
-    "version": "2.4.1",
+    "version": "4.1.0",
     "description": "CDK constructs to use OpenID Connect for authenticating your Github Action workflow with AWS IAM",
     "license": "Apache-2.0",
     "url": "https://github.com/aripalo/aws-cdk-github-oidc.git",
@@ -26,27 +26,25 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk_github_oidc._jsii": [
-            "aws-cdk-github-oidc@2.4.1.jsii.tgz"
+            "aws-cdk-github-oidc@4.1.0.jsii.tgz"
         ],
         "aws_cdk_github_oidc": [
             "py.typed"
         ]
     },
-    "python_requires": "~=3.7",
+    "python_requires": "~=3.9",
     "install_requires": [
-        "aws-cdk-lib>=2.89.0, <3.0.0",
-        "constructs>=10.0.0, <11.0.0",
-        "jsii>=1.86.1, <2.0.0",
+        "aws-cdk-lib>=2.220.0, <3.0.0",
+        "constructs>=10.3.0, <11.0.0",
+        "jsii>=1.127.0, <2.0.0",
         "publication>=0.0.3",
-        "typeguard~=2.13.3"
+        "typeguard==2.13.3"
     ],
     "classifiers": [
         "Intended Audience :: Developers",
         "Operating System :: OS Independent",
         "Programming Language :: JavaScript",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",

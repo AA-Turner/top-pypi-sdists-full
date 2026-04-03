@@ -359,11 +359,10 @@ class MainController:
         max_lines: int = 500,
     ):
         """
-        Read the source code of a stage's file with pagination support.
+        Read the source code of a stage's Python file by stage ID, with pagination.
 
-        This method retrieves the content of the file associated with a specific
-        workflow stage by its ID. It supports reading specific line ranges to handle
-        large files efficiently without consuming excessive context window space.
+        Use this when you know the stage ID. Use list_all_stages to find stage IDs.
+        For reading non-stage files, use read_file_with_pagination instead.
 
         Args:
             id (str): Unique identifier of the stage whose file to read.
@@ -530,11 +529,11 @@ class MainController:
         max_lines: int = 500,
     ):
         """
-        Read the contents of a file from the project workspace with pagination support.
+        Read text content of a file with line-range pagination.
 
-        This method reads and returns the text content of a file within the project
-        directory. It supports reading specific line ranges to handle large files efficiently
-        without consuming excessive context window space.
+        Use this to read file contents. For finding files by name, use find_files_by_pattern.
+        For searching inside files, use search_file_with_context (single file) or
+        grep_codebase (all files). For listing directory contents, use list_directory.
 
         Args:
             file (str): Relative path to the file from the project root directory.
@@ -596,8 +595,9 @@ class MainController:
             - For files with more than max_lines, use pagination to read chunks
 
         Copywritings:
-            Read file contents with pagination
-            Reading file contents with pagination support...
+            Read file contents
+            Reading file contents...
+            Reading {file}...
         """
         file_path = Settings.root_path.joinpath(file)
         return self._read_file_lines_with_pagination(
@@ -901,12 +901,13 @@ class MainController:
         max_matches: int = 50,
     ):
         """
-        Search for a pattern in a file and return matches with surrounding context lines.
+        Search for a regex pattern in a single file with surrounding context lines.
 
-        This method searches for a regex pattern in a file and returns matching lines
-        along with configurable context lines before and after each match. This is
-        similar to grep with -C option and is ideal for large files where you need
-        to find specific patterns without loading the entire file into context.
+        This is a single-file search with context. Use grep_codebase to search across
+        ALL files. Use find_files_by_pattern to find files by name. Use
+        read_file_with_pagination to read a known file.
+
+        Supports full Python regex syntax (e.g., r"def \\w+\\(", r"TODO|FIXME").
 
         Args:
             file (str): Relative path to the file from the project root directory.
@@ -984,8 +985,9 @@ class MainController:
             - Use max_matches to control context window usage
 
         Copywritings:
-            Search file with context lines
-            Searching file for pattern with context...
+            Search file with context
+            Searching file for pattern...
+            Searching {file} for '{pattern}'...
         """
         import re
 
@@ -1075,12 +1077,11 @@ class MainController:
 
     def list_directory(self, path: str = "."):
         """
-        List the immediate contents of a directory in the project workspace.
+        List immediate contents of a directory (non-recursive, one level).
 
-        Use this to explore the project structure one level at a time.
-        Start with path="." to see the root, then drill into subdirectories.
-        Unlike read_file_with_pagination, this tells you *what exists* rather
-        than what is inside a file.
+        Use this to explore project structure step by step. Start with path="."
+        for the root. For recursive file search by name, use find_files_by_pattern
+        instead. For reading file contents, use read_file_with_pagination.
 
         Args:
             path (str): Relative path from project root. Defaults to "." (root).
@@ -1113,8 +1114,9 @@ class MainController:
             - Directories are listed before files, both sorted alphabetically.
 
         Copywritings:
-            List the contents of a directory
-            Listing directory contents...
+            List directory contents
+            Listing directory...
+            Listing {path}...
         """
         dir_path = Settings.root_path / path
         if not dir_path.is_dir():
@@ -1126,12 +1128,12 @@ class MainController:
 
     def find_files_by_pattern(self, pattern: str, max_results: int = 200):
         """
-        Find files in the project whose paths match a glob pattern.
+        Find files by name/path using glob patterns (recursive).
 
-        Supports ``**`` for recursive directory matching.  A bare word with
-        no slashes, wildcards, or dots (e.g. ``"utils"``) is automatically
-        expanded to ``"**/utils*"`` so it finds any file whose name starts
-        with that word anywhere in the project.
+        Use this to locate files when you know part of the name. For searching
+        file CONTENTS, use grep_codebase instead. For reading a known file,
+        use read_file_with_pagination. Supports ``**`` for recursive matching.
+        A bare word (e.g. ``"utils"``) auto-expands to ``"**/utils*"``.
 
         Args:
             pattern (str): Glob pattern relative to the project root.
@@ -1165,8 +1167,9 @@ class MainController:
             - Results are capped by max_results to protect context window.
 
         Copywritings:
-            Find files by glob pattern
-            Searching for files matching pattern...
+            Find files by pattern
+            Searching for files...
+            Searching for files matching '{pattern}'...
         """
         return find_files_by_glob(
             Settings.root_path,
@@ -1183,11 +1186,12 @@ class MainController:
         max_results: int = 100,
     ):
         """
-        Search for a string or regex across all project files matching a glob.
+        Search for a string or regex across ALL project files matching a glob.
 
-        This is the cross-file counterpart of search_file_with_context.
-        Use it when you don't know which file contains the code you're
-        looking for.  Results are capped to protect the context window.
+        This is the cross-file search tool. Use search_file_with_context when you
+        already know which file to search (it provides richer context with surrounding
+        lines). Use find_files_by_pattern to find files by name/path pattern.
+        Results are capped to protect the context window.
 
         The query is treated as a Python regex.  If it is not a valid regex
         it falls back to a literal string search, so plain text always works.
@@ -1231,8 +1235,9 @@ class MainController:
               provides richer context (surrounding lines).
 
         Copywritings:
-            Search for text across the codebase
-            Searching codebase for matches...
+            Search across codebase
+            Searching codebase...
+            Searching for '{query}' in {file_pattern}...
         """
         return grep_files(
             Settings.root_path,
@@ -2592,7 +2597,19 @@ class MainController:
         return value
 
     def browser_open_page(self, id: str):
-        """Open a project page in the headless browser by its stage ID. Returns page_id, final url, and title. Use the page_id in subsequent browser tool calls. If the page requires authentication, the browser will show a login screen. In development, any email/token works to log in.
+        """Open a project Page stage in the headless browser by its stage ID.
+
+        Returns page_id, final url, and title. Use the page_id in ALL subsequent
+        browser_* tool calls.
+
+        Typical workflow:
+        1. browser_open_page(id) → get page_id
+        2. browser_get_page_summary(page_id) → see interactive elements
+        3. browser_click/browser_fill → interact with elements by index
+        4. browser_get_page_summary again → see updated state
+        5. browser_get_console_logs → check for errors
+
+        If the page requires auth, use any email/token in dev mode.
 
         Copywritings:
             Open page in browser
@@ -2720,10 +2737,19 @@ class MainController:
         return self._browser_call("list_pages")
 
     def execute_code_snippet(self, code: str, title: str = "Debug Snippet"):
-        """
-        Run a code snippet immediately.
+        """Run a Python code snippet immediately in the project's runtime environment.
 
-        Use this code for testing parts of the code you want to build before writing, debugging or auxiliary tasks.
+        Use for: testing code before writing to files, debugging, running one-off queries,
+        verifying API connections, or any auxiliary task.
+
+        The snippet runs with full access to installed packages and project files.
+        Use print() statements for output — the return value is the captured stdout/stderr.
+
+        After testing, use the MCP file tools to write the working code to a stage file.
+
+        Copywritings:
+            Run code snippet
+            Running code snippet...
         """
         from abstra_internals.repositories.models import RunSnippetMessage
 

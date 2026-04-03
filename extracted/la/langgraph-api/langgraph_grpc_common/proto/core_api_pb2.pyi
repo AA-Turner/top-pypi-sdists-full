@@ -8,6 +8,7 @@ This is essentially an extended version of Agent Protocol (https://github.com/la
 from collections import abc as _abc
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import duration_pb2 as _duration_pb2
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import message as _message
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -1471,6 +1472,7 @@ class PatchThreadRequest(_message.Message):
     METADATA_JSON_FIELD_NUMBER: _builtins.int
     TTL_FIELD_NUMBER: _builtins.int
     ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
+    READ_MASK_FIELD_NUMBER: _builtins.int
     metadata_json: _builtins.bytes
     @_builtins.property
     def thread_id(self) -> Global___UUID: ...
@@ -1480,6 +1482,13 @@ class PatchThreadRequest(_message.Message):
     def ttl(self) -> Global___ThreadTTLConfig: ...
     @_builtins.property
     def encryption_context(self) -> _encryption_pb2.EncryptionContext: ...
+    @_builtins.property
+    def read_mask(self) -> _field_mask_pb2.FieldMask:
+        """If set, only the specified fields are returned in the response.
+        Omitting "values" avoids deserializing large checkpoint state
+        when the caller does not need it (e.g. metadata-only patches).
+        """
+
     def __init__(
         self,
         *,
@@ -1488,21 +1497,26 @@ class PatchThreadRequest(_message.Message):
         metadata_json: _builtins.bytes | None = ...,
         ttl: Global___ThreadTTLConfig | None = ...,
         encryption_context: _encryption_pb2.EncryptionContext | None = ...,
+        read_mask: _field_mask_pb2.FieldMask | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context", "_metadata_json", b"_metadata_json", "_ttl", b"_ttl", "encryption_context", b"encryption_context", "metadata_json", b"metadata_json", "thread_id", b"thread_id", "ttl", b"ttl"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context", "_metadata_json", b"_metadata_json", "_read_mask", b"_read_mask", "_ttl", b"_ttl", "encryption_context", b"encryption_context", "metadata_json", b"metadata_json", "read_mask", b"read_mask", "thread_id", b"thread_id", "ttl", b"ttl"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context", "_metadata_json", b"_metadata_json", "_ttl", b"_ttl", "encryption_context", b"encryption_context", "filters", b"filters", "metadata_json", b"metadata_json", "thread_id", b"thread_id", "ttl", b"ttl"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context", "_metadata_json", b"_metadata_json", "_read_mask", b"_read_mask", "_ttl", b"_ttl", "encryption_context", b"encryption_context", "filters", b"filters", "metadata_json", b"metadata_json", "read_mask", b"read_mask", "thread_id", b"thread_id", "ttl", b"ttl"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__encryption_context: _TypeAlias = _typing.Literal["encryption_context"]  # noqa: Y015
     _WhichOneofArgType__encryption_context: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context"]  # noqa: Y015
     _WhichOneofReturnType__metadata_json: _TypeAlias = _typing.Literal["metadata_json"]  # noqa: Y015
     _WhichOneofArgType__metadata_json: _TypeAlias = _typing.Literal["_metadata_json", b"_metadata_json"]  # noqa: Y015
+    _WhichOneofReturnType__read_mask: _TypeAlias = _typing.Literal["read_mask"]  # noqa: Y015
+    _WhichOneofArgType__read_mask: _TypeAlias = _typing.Literal["_read_mask", b"_read_mask"]  # noqa: Y015
     _WhichOneofReturnType__ttl: _TypeAlias = _typing.Literal["ttl"]  # noqa: Y015
     _WhichOneofArgType__ttl: _TypeAlias = _typing.Literal["_ttl", b"_ttl"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__encryption_context) -> _WhichOneofReturnType__encryption_context | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__metadata_json) -> _WhichOneofReturnType__metadata_json | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__read_mask) -> _WhichOneofReturnType__read_mask | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__ttl) -> _WhichOneofReturnType__ttl | None: ...
 

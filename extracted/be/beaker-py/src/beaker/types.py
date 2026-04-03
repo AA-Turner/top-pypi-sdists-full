@@ -324,15 +324,20 @@ T = TypeVar("T", bound="_BeakerSpecBase")
 class _BeakerSpecBase:
     @classmethod
     def from_json(cls: Type[T], data: dict[str, Any]) -> T:
-        return cls(**cls.unjsonify(data))
+        return cls(**cls._unjsonify_known(data))
 
     def to_json(self) -> dict[str, Any]:
         return self.jsonify(self)
 
     @classmethod
-    def unjsonify(cls, x: Any) -> Any:
+    def _unjsonify_known(cls, data: dict[str, Any]) -> dict[str, Any]:
+        # Ignore unknown fields to avoid breaking changes when adding new spec fields.
+        return {k: v for k, v in cls._unjsonify(data).items() if k in {f.name for f in dataclasses.fields(cls)}}  # type: ignore[arg-type]
+
+    @classmethod
+    def _unjsonify(cls, x: Any) -> Any:
         if isinstance(x, dict):
-            return {to_snake_case(key): cls.unjsonify(value) for key, value in x.items()}
+            return {to_snake_case(key): cls._unjsonify(value) for key, value in x.items()}
         elif isinstance(x, Enum):
             return cls.jsonify(x.value)
         elif isinstance(x, (list, tuple, set)):
@@ -464,6 +469,10 @@ class BeakerTaskContext(_BeakerSpecBase):
     priority: BeakerJobPriority | None = None
     preemptible: bool | None = None
 
+    def __post_init__(self):
+        if self.priority is not None:
+            self.priority = BeakerJobPriority.from_any(self.priority)
+
 
 @dataclass
 class BeakerConstraints(_BeakerSpecBase):
@@ -531,7 +540,7 @@ class BeakerTaskSpec(_BeakerSpecBase):
             kwargs.update(datasets=[BeakerDataMount.from_json(v) for v in d])
         if (d := data.pop("resources", None)) is not None:
             kwargs.update(resources=BeakerTaskResources.from_json(d))
-        return cls(**cls.unjsonify(data), **kwargs)
+        return cls(**cls._unjsonify_known(data), **kwargs)
 
     @classmethod
     def new(
@@ -673,7 +682,7 @@ class BeakerExperimentSpec(_BeakerSpecBase):
             kwargs.update(version=BeakerSpecVersion(version))
         if (d := data.pop("retry", None)) is not None:
             kwargs.update(retry=BeakerRetrySpec.from_json(d))
-        return cls(**cls.unjsonify(data), **kwargs)
+        return cls(**cls._unjsonify_known(data), **kwargs)
 
     @classmethod
     def new(

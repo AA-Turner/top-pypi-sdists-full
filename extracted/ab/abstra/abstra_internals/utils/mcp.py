@@ -1,4 +1,5 @@
 import inspect
+import json
 from functools import wraps
 from typing import (
     Any,
@@ -9,7 +10,121 @@ from typing import (
 
 from flask import Blueprint, jsonify, request
 
-from .json_schema import get_function_json_schema, get_function_metadata, validate_type
+from .json_schema import (
+    coerce_and_validate,
+    get_function_json_schema,
+    get_function_metadata,
+)
+
+
+def validate_and_coerce_arguments(
+    arguments: Dict[str, Any],
+    input_schema: Dict[str, Any],
+    tool_name: str,
+) -> Dict[str, Any]:
+    """Validate and coerce tool arguments with instructive error messages.
+
+    Performs staged validation:
+    1. Coerce types (semantic tolerance for LLM outputs)
+    2. Validate types against schema
+    3. Check required fields
+    4. Return coerced arguments or raise with helpful message
+    """
+    properties = input_schema.get("properties", {})
+    required = input_schema.get("required", [])
+
+    # Stage 1: Check required fields
+    missing = [r for r in required if r not in arguments]
+    if missing:
+        available = list(properties.keys())
+        raise TypeError(
+            f"Missing required parameter(s) for '{tool_name}': {', '.join(missing)}. "
+            f"Expected parameters: {', '.join(available)}"
+        )
+
+    # Stage 2: Coerce and validate each provided argument
+    for prop, prop_schema in properties.items():
+        if prop not in arguments:
+            continue
+
+        coerced, valid = coerce_and_validate(arguments[prop], prop_schema)
+        arguments[prop] = coerced
+
+        if not valid:
+            expected = prop_schema.get("type", "unknown")
+            got = type(coerced).__name__
+            hint = ""
+            if expected == "integer" and isinstance(coerced, str):
+                hint = ' (hint: pass a number like 30, not a string like "30")'
+            elif expected == "boolean" and isinstance(coerced, str):
+                hint = " (hint: pass true/false, not a string)"
+            elif expected == "array" and isinstance(coerced, dict):
+                hint = " (hint: pass a list [...], not an object {...})"
+            raise TypeError(
+                f"Invalid type for '{prop}' in '{tool_name}': "
+                f"expected {expected}, got {got}{hint}"
+            )
+
+    return arguments
+
+
+_SERIALIZATION_METHODS = ("model_dump", "dict", "to_dict")
+
+
+def _to_serializable(result: Any) -> Any:
+    """Convert an object to a JSON-serializable Python type."""
+    for method in _SERIALIZATION_METHODS:
+        fn = getattr(result, method, None)
+        if fn is not None:
+            return fn()
+    if hasattr(result, "__dict__") and not isinstance(
+        result, (str, int, float, bool, type(None))
+    ):
+        return result.__dict__
+    return result
+
+
+def _pagination_hints(data: dict) -> list[str]:
+    """Extract pagination hints from a dict result."""
+    hints: list[str] = []
+    if data.get("truncated"):
+        total = data.get("total_matches") or data.get("total_lines") or "unknown"
+        returned = data.get("matches_returned") or data.get("end_line") or "unknown"
+        hints.append(f"Results truncated: showing {returned} of {total}")
+    if data.get("has_more"):
+        end = data.get("end_line", "?")
+        next_start = end + 1 if isinstance(end, int) else "?"
+        hints.append(f"More content available. Use start_line={next_start} to continue")
+    return hints
+
+
+def serialize_tool_result(result: Any) -> str:
+    """Serialize a tool result to a JSON string with pagination hints."""
+    data = _to_serializable(result)
+
+    if data is None:
+        return "null (resource not found or not accessible)"
+
+    def _json(obj: Any) -> str:
+        try:
+            return json.dumps(obj, indent=2, default=str, ensure_ascii=False)
+        except (TypeError, ValueError):
+            return str(obj)
+
+    if isinstance(data, dict):
+        text = _json(data)
+        hints = _pagination_hints(data)
+        if hints:
+            text += "\n\n[" + " | ".join(hints) + "]"
+        return text
+
+    if isinstance(data, list):
+        text = _json(data)
+        if data:
+            text += f"\n\n[Returned {len(data)} items]"
+        return text
+
+    return str(data)
 
 
 def requires_approval(func: Callable) -> Callable:
@@ -49,17 +164,13 @@ def register_function(
                     # Function with parameters - extract from JSON and pass as keyword arguments
                     input_data = request.get_json() or {}
 
-                    # Validate input types against input_schema
-
-                    # Validate each property
-                    for prop, prop_schema in input_schema.get("properties", {}).items():
-                        if prop in input_data:
-                            if not validate_type(input_data[prop], prop_schema):
-                                return jsonify(
-                                    {
-                                        "error": f"Invalid type for '{prop}': expected {prop_schema.get('type')}, got {type(input_data[prop]).__name__}"
-                                    }
-                                ), 400
+                    # Reuse the same staged validation as the MCP handler
+                    try:
+                        input_data = validate_and_coerce_arguments(
+                            input_data, input_schema, func_name
+                        )
+                    except TypeError as e:
+                        return jsonify({"error": str(e)}), 400
 
                     # Convert parameter names and values based on function signature
                     kwargs = {}
@@ -68,9 +179,7 @@ def register_function(
                         if param_name in input_data:
                             kwargs[param_name] = input_data[param_name]
                         elif param.default != inspect.Parameter.empty:
-                            # Use default value if provided
                             kwargs[param_name] = param.default
-                        # If parameter is required but not provided, let the function handle the error
 
                     result = func(**kwargs)
                 else:
@@ -116,13 +225,8 @@ def create_mcp_tool_handler(
         # Get input schema for this tool
         input_schema = tools_registry.get(tool_name, {}).get("inputSchema", {})
 
-        # Validate each property in arguments
-        for prop, prop_schema in input_schema.get("properties", {}).items():
-            if prop in arguments:
-                if not validate_type(arguments[prop], prop_schema):
-                    raise TypeError(
-                        f"Invalid type for '{prop}': expected {prop_schema.get('type')}, got {type(arguments[prop]).__name__}"
-                    )
+        # Staged validation with coercion and instructive errors
+        arguments = validate_and_coerce_arguments(arguments, input_schema, tool_name)
 
         if parameters:
             # Function with parameters - extract from arguments dict and pass as keyword arguments
@@ -141,17 +245,8 @@ def create_mcp_tool_handler(
             # Function with no parameters
             result = func()
 
-        # Handle result serialization
-        if hasattr(result, "dict"):
-            result_text = str(result.dict())
-        elif hasattr(result, "to_dict"):
-            result_text = str(result.to_dict())
-        elif hasattr(result, "model_dump"):
-            result_text = str(result.model_dump())
-        elif hasattr(result, "__dict__"):
-            result_text = str(result.__dict__)
-        else:
-            result_text = str(result)
+        # Handle result serialization with structured metadata
+        result_text = serialize_tool_result(result)
 
         return {"content": [{"type": "text", "text": result_text}]}
 

@@ -2,9 +2,16 @@
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
+[tool.hatch.version]
+path = "earthaccess/__init__.py"
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "earthaccess/_version.py"
+
 [project]
 name = "earthaccess"
-version = "0.16.0"
+dynamic = ["version"]
 description = "Client library for NASA Earthdata APIs"
 authors = [{ name = "earthaccess contributors" }]
 maintainers = [
@@ -48,10 +55,10 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/nsidc/earthaccess"
+Repository = "https://github.com/earthaccess-dev/earthaccess"
 Documentation = "https://earthaccess.readthedocs.io"
-"Bug Tracker" = "https://github.com/nsidc/earthaccess/issues"
-Changelog = "https://github.com/nsidc/earthaccess/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/earthaccess-dev/earthaccess/issues"
+Changelog = "https://github.com/earthaccess-dev/earthaccess/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 kerchunk = [
@@ -74,13 +81,9 @@ virtualizarr = [
   "numcodecs >= 0.16.2",
   "xarray",
 ]
-dev = [
-  "bump-my-version >=0.10.0",
-  "nox",
-  "pre-commit >=2.4",
-  "ruff >=0.6.3",
-  "uv >=0.4.7",
-]
+
+[dependency-groups]
+dev = ["bump-my-version >=0.10.0", "nox", "pre-commit >=2.4", "ruff >=0.6.3"]
 test = [
   "zarr >=3.1.1",
   "numpy >=1.26.4",
@@ -93,11 +96,12 @@ test = [
   "responses >=0.14",
   "types-requests >=0.1",
   "types-setuptools >=0.1",
+  "types-geopandas",
   "vcrpy >=7.0.0",
-  "earthaccess[kerchunk]",
-  "earthaccess[virtualizarr]",
   "dask[distributed]>=2025.7.0",
   "xarray",
+  "h5netcdf",
+  "geopandas",
 ]
 docs = [
   "jupyterlab >=3",
@@ -107,17 +111,19 @@ docs = [
   # is no longer exported, which causes mkdocs-jupyter to
   # break with a ModuleNotFoundError.
   # for notebook integrations and documentation examples
-  "mkdocs >=1.2,!=1.6.0",
-  "mkdocs-material >=7.1,<10.0",
+  "mkdocs >=1.2,!=1.6.0,<2.0",
+  "mkdocs-material >=9.7.1,<10.0",
   "mkdocs-redirects >=1.2.1",
   "markdown-callouts >=0.2.0",
   "markdown-include >=0.6",
   "mkdocs-jupyter >=0.19.0",
   "mkdocs-mermaid2-plugin >=1.2.1",
+  "mkdocs-pandoc >=0.2.0",
   "mkdocstrings[python] >=0.19.0",
   "pymdown-extensions >=9.2",
   "pygments >=2.11.1",
   "xarray",
+  "h5netcdf",
   "matplotlib >=3.3",
   "h5netcdf >=0.11",
   "pyproj >=3.5.0; python_version < '3.12'",
@@ -135,14 +141,14 @@ docs = [
   "earthaccess[virtualizarr]",
   "cftime>=1.6.4",
   "cartopy>=0.24.1",
+  "mkdocs-awesome-nav>=3.3.0",
 ]
 
-
-[tool.pytest]
+[tool.pytest.ini_options]
 filterwarnings = ["error::UserWarning"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 files = ["earthaccess", "tests"]
 mypy_path = ["earthaccess", "tests", "stubs"]
 disallow_untyped_defs = true
@@ -160,11 +166,11 @@ module = [
   "fsspec.*",
   "h5netcdf.*",
   "dask.*",
-  "kerchunk.*",
   "pqdm.*",
   "s3fs",
-  "tinynetrc.*",  # TODO: generate stubs for tinynetrc and remove this line
-  "vcr.unittest", # TODO: generate stubs for vcr and remove this line
+  "tinynetrc.*",
+  "vcr.unittest",
+  "obspec_utils.*",
 ]
 ignore_missing_imports = true
 
@@ -191,15 +197,12 @@ combine-as-imports = true
 convention = "google"
 
 [tool.bumpversion]
-current_version = "0.16.0"
+current_version = "0.17.0"
 commit = false
-tag = false
-regex = true
-
-[[tool.bumpversion.files]]
-filename = "pyproject.toml"
-search = '^version = "{current_version}"$'
-replace = 'version = "{new_version}"'
+tag = true
+allow_dirty = false
+tag_name = "v{new_version}"
+tag_message = "v{new_version}"
 
 [[tool.bumpversion.files]]
 filename = "CHANGELOG.md"
@@ -220,6 +223,7 @@ replace = 'version: "{new_version}"'
 
 [[tool.bumpversion.files]]
 filename = "CITATION.cff"
+regex = true
 search = 'date-released: "\d{{4}}-\d{{2}}-\d{{2}}"'
 replace = 'date-released: "{now:%Y-%m-%d}"'
 

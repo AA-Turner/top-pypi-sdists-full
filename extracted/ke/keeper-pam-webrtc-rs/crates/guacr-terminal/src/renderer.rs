@@ -176,6 +176,77 @@ impl TerminalRenderer {
         )
     }
 
+    /// Render terminal screen blended with scrollback history.
+    ///
+    /// When `scroll_view` contains `Some(sb_idx)` for a row, that row is drawn from
+    /// `scrollback[sb_idx]`. When it is `None`, the corresponding live-screen row is used.
+    ///
+    /// `scroll_view` must have exactly `rows as usize` entries (as returned by
+    /// `TerminalEmulator::scroll_view_indices()`).
+    pub fn render_screen_with_scrollback(
+        &self,
+        screen: &vt100::Screen,
+        rows: u16,
+        cols: u16,
+        scrollback: &std::collections::VecDeque<crate::ScrollbackLine>,
+        scroll_view: &[Option<usize>],
+        quality: u8,
+    ) -> crate::Result<Vec<u8>> {
+        let width_px = cols as u32 * self.char_width;
+        let height_px = rows as u32 * self.char_height;
+
+        if width_px == 0 || height_px == 0 || rows == 0 || cols == 0 {
+            return Err(crate::TerminalError::RenderError(format!(
+                "Invalid render dimensions: {}x{} px ({}x{} chars)",
+                width_px, height_px, cols, rows
+            )));
+        }
+
+        let mut img = RgbImage::new(width_px, height_px);
+        for pixel in img.pixels_mut() {
+            *pixel = Rgb([0, 0, 0]);
+        }
+
+        // How many leading rows come from scrollback vs live screen
+        let sb_rows = scroll_view.iter().filter(|e| e.is_some()).count();
+
+        for (visible_row, sb_idx_opt) in scroll_view.iter().enumerate() {
+            let y_px = visible_row as u32 * self.char_height;
+
+            match sb_idx_opt {
+                Some(sb_idx) => {
+                    // Render from scrollback buffer
+                    if let Some(line) = scrollback.get(*sb_idx) {
+                        for col in 0..cols {
+                            let x_px = col as u32 * self.char_width;
+                            if let Some(cell) = line.cells.get(col as usize) {
+                                self.render_cell(&mut img, cell, x_px, y_px, false)?;
+                            }
+                        }
+                    }
+                }
+                None => {
+                    // Render from live screen; this visible row maps to live_row
+                    let live_row = (visible_row - sb_rows) as u16;
+                    for col in 0..cols {
+                        let x_px = col as u32 * self.char_width;
+                        if let Some(cell) = screen.cell(live_row, col) {
+                            // Show cursor only in live portion, at its actual position
+                            let has_cursor = screen.cursor_position() == (live_row, col);
+                            self.render_cell(&mut img, cell, x_px, y_px, has_cursor)?;
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut jpeg_data = Vec::new();
+        let mut encoder =
+            image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_data, quality);
+        encoder.encode_image(&img)?;
+        Ok(jpeg_data)
+    }
+
     /// Render only a specific region of the terminal (dirty region optimization)
     ///
     /// This is the guacd optimization - only render changed portions of the screen
@@ -396,9 +467,14 @@ impl TerminalRenderer {
                 const BASELINE_RATIO: f32 = 0.75;
                 let glyph_x =
                     x + ((self.char_width as i32 - metrics.width as i32) / 2).max(0) as u32;
-                let baseline_y = y as f32 + (self.char_height as f32 * BASELINE_RATIO);
+                // Fixed integer baseline; glyph top = baseline - (ymin + height).
+                // metrics.ymin is the signed pixel offset of the bitmap bottom from the
+                // baseline (negative = below). metrics.height is the integer bitmap height.
+                // This is the correct integer form of the fontdue placement formula and
+                // produces consistent per-character alignment regardless of descenders.
+                let baseline_y = (y + (self.char_height as f32 * BASELINE_RATIO) as u32) as i32;
                 let glyph_y =
-                    (baseline_y - metrics.bounds.height - metrics.bounds.ymin).max(y as f32) as u32;
+                    (baseline_y - metrics.ymin - metrics.height as i32).max(y as i32) as u32;
 
                 for (i, &alpha) in bitmap.iter().enumerate() {
                     if alpha > 0 {
@@ -560,20 +636,20 @@ impl TerminalRenderer {
                 let font = self.get_font_for_char(c);
                 let (metrics, bitmap) = font.rasterize(c, self.font_size);
                 if !bitmap.is_empty() {
-                    // Render using font
+                    // Render using font — same baseline logic as the main render path
                     const BASELINE_RATIO: f32 = 0.75;
                     let glyph_x =
                         x + ((self.char_width as i32 - metrics.width as i32) / 2).max(0) as u32;
-                    let glyph_y = y + (self.char_height as f32 * BASELINE_RATIO) as u32;
+                    let baseline_y = (y + (self.char_height as f32 * BASELINE_RATIO) as u32) as i32;
+                    let glyph_top =
+                        (baseline_y - metrics.ymin - metrics.height as i32).max(y as i32) as u32;
 
                     for (i, &alpha) in bitmap.iter().enumerate() {
                         if alpha > 0 {
                             let gx = i % metrics.width;
                             let gy = i / metrics.width;
                             let px = glyph_x + gx as u32;
-                            let py = glyph_y.saturating_sub(
-                                (metrics.height as i32 - metrics.ymin).max(0) as u32,
-                            ) + gy as u32;
+                            let py = glyph_top + gy as u32;
 
                             if px < img.width() && py < img.height() {
                                 let alpha_f = alpha as f32 / 255.0;
@@ -642,7 +718,7 @@ impl TerminalRenderer {
         }
     }
 
-    fn vt100_color_to_rgb(&self, color: vt100::Color, is_foreground: bool) -> Rgb<u8> {
+    pub(crate) fn vt100_color_to_rgb(&self, color: vt100::Color, is_foreground: bool) -> Rgb<u8> {
         match color {
             vt100::Color::Default => {
                 // Use color scheme for default colors
@@ -795,6 +871,56 @@ impl TerminalRenderer {
     ///
     /// Mirrors render_screen_with_size_and_quality() but reads from
     /// a ratatui::buffer::Buffer instead of a vt100::Screen.
+    /// Render a row range of a ratatui buffer to JPEG.
+    ///
+    /// Returns `(jpeg_bytes, y_px_offset)` where `y_px_offset` is the pixel
+    /// distance from the top of the screen to the start of the rendered region.
+    /// Pass this as `y` in `format_img_instruction` for a partial update.
+    pub fn render_ratatui_region(
+        &self,
+        buffer: &ratatui::buffer::Buffer,
+        min_row: u16,
+        max_row: u16,
+        quality: u8,
+    ) -> Result<(Vec<u8>, u32)> {
+        let area = buffer.area;
+        let region_rows = max_row - min_row + 1;
+        let width_px = area.width as u32 * self.char_width;
+        let height_px = region_rows as u32 * self.char_height;
+        let y_px_offset = min_row as u32 * self.char_height;
+
+        if width_px == 0 || height_px == 0 {
+            return Err(crate::TerminalError::RenderError(format!(
+                "Invalid region dimensions: {}x{} px (rows {}..={})",
+                width_px, height_px, min_row, max_row
+            )));
+        }
+
+        let mut img = RgbImage::new(width_px, height_px);
+        for pixel in img.pixels_mut() {
+            *pixel = Rgb([0, 0, 0]);
+        }
+
+        for row in min_row..=max_row {
+            for col in 0..area.width {
+                let idx = row as usize * area.width as usize + col as usize;
+                if idx >= buffer.content.len() {
+                    break;
+                }
+                let cell = &buffer.content[idx];
+                let x_px = col as u32 * self.char_width;
+                let y_px = (row - min_row) as u32 * self.char_height;
+                self.render_ratatui_cell(&mut img, cell, x_px, y_px)?;
+            }
+        }
+
+        let mut jpeg_data = Vec::new();
+        let mut encoder =
+            image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_data, quality);
+        encoder.encode_image(&img)?;
+        Ok((jpeg_data, y_px_offset))
+    }
+
     pub fn render_ratatui_buffer(
         &self,
         buffer: &ratatui::buffer::Buffer,
@@ -907,53 +1033,5 @@ impl TerminalRenderer {
                 Rgb([v, v, v])
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_renderer_new() {
-        let renderer = TerminalRenderer::new();
-        assert!(renderer.is_ok());
-    }
-
-    #[test]
-    fn test_renderer_with_dimensions() {
-        let renderer = TerminalRenderer::new_with_dimensions(24, 45, 31.5);
-        assert!(renderer.is_ok());
-    }
-
-    #[test]
-    fn test_vt100_color_to_rgb() {
-        let renderer = TerminalRenderer::new().unwrap();
-        // Default color scheme is GRAY_BLACK (gray foreground, black background)
-        let fg_color = renderer.vt100_color_to_rgb(vt100::Color::Default, true);
-        assert_eq!(fg_color.0, [229, 229, 229]); // Gray foreground
-
-        let bg_color = renderer.vt100_color_to_rgb(vt100::Color::Default, false);
-        assert_eq!(bg_color.0, [0, 0, 0]); // Black background
-    }
-
-    #[test]
-    fn test_color_scheme_application() {
-        use crate::config::ColorScheme;
-
-        // Test with green-black scheme
-        let renderer = TerminalRenderer::new_with_dimensions_and_scheme(
-            19,
-            38,
-            28.0,
-            ColorScheme::GREEN_BLACK,
-        )
-        .unwrap();
-
-        let fg_color = renderer.vt100_color_to_rgb(vt100::Color::Default, true);
-        assert_eq!(fg_color.0, [0, 255, 0]); // Green foreground
-
-        let bg_color = renderer.vt100_color_to_rgb(vt100::Color::Default, false);
-        assert_eq!(bg_color.0, [0, 0, 0]); // Black background
     }
 }

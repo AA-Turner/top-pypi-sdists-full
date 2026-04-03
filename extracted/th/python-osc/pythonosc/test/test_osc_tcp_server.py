@@ -5,7 +5,7 @@ import unittest.mock as mock
 from pythonosc import dispatcher, osc_tcp_server
 from pythonosc.slip import END
 
-_SIMPLE_PARAM_INT_MSG = b"/SYNC\x00\x00\x00" b",i\x00\x00" b"\x00\x00\x00\x04"
+_SIMPLE_PARAM_INT_MSG = b"/SYNC\x00\x00\x00,i\x00\x00\x00\x00\x00\x04"
 
 LEN_SIMPLE_PARAM_INT_MSG = struct.pack("!I", len(_SIMPLE_PARAM_INT_MSG))
 _SIMPLE_PARAM_INT_MSG_1_1 = END + _SIMPLE_PARAM_INT_MSG + END
@@ -95,12 +95,12 @@ class TestTCP_1_1_Handler(unittest.TestCase):
 
     def test_response_with_args(self):
         def respond(*args, **kwargs):
-            return [
+            return (
                 "/SYNC",
                 1,
                 "2",
                 3.0,
-            ]
+            )
 
         self.dispatcher.map("/SYNC", respond)
         mock_sock = mock.Mock()
@@ -208,12 +208,12 @@ class TestTCP_1_0_Handler(unittest.TestCase):
 
     def test_response_with_args(self):
         def respond(*args, **kwargs):
-            return [
+            return (
                 "/SYNC",
                 1,
                 "2",
                 3.0,
-            ]
+            )
 
         self.dispatcher.map("/SYNC", respond)
         mock_sock = mock.Mock()
@@ -314,12 +314,12 @@ class TestAsync1_1Handler(unittest.IsolatedAsyncioTestCase):
 
     async def test_response_with_args(self):
         def respond(*args, **kwargs):
-            return [
+            return (
                 "/SYNC",
                 1,
                 "2",
                 3.0,
-            ]
+            )
 
         self.dispatcher.map("/SYNC", respond)
         self.mock_reader.read.side_effect = [_SIMPLE_MSG_NO_PARAMS_1_1, b""]
@@ -332,12 +332,12 @@ class TestAsync1_1Handler(unittest.IsolatedAsyncioTestCase):
 
     async def test_async_response_with_args(self):
         async def respond(*args, **kwargs):
-            return [
+            return (
                 "/SYNC",
                 1,
                 "2",
                 3.0,
-            ]
+            )
 
         self.dispatcher.map("/SYNC", respond)
         self.mock_reader.read.side_effect = [_SIMPLE_MSG_NO_PARAMS_1_1, b""]

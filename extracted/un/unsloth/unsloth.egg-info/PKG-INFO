@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth
-Version: 2026.3.18
+Version: 2026.4.1
 Summary: 2-5X faster training, reinforcement learning & finetuning
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -18,7 +18,7 @@ Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYING
-Requires-Dist: unsloth_zoo>=2026.3.7
+Requires-Dist: unsloth_zoo>=2026.4.2
 Requires-Dist: wheel>=0.42.0
 Requires-Dist: packaging
 Requires-Dist: torch<2.11.0,>=2.4.0
@@ -39,14 +39,14 @@ Requires-Dist: peft!=0.11.0,>=0.18.0
 Requires-Dist: huggingface_hub>=0.34.0
 Requires-Dist: hf_transfer
 Requires-Dist: diffusers
-Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.3.0,>=4.51.3
+Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.51.3
 Requires-Dist: trl!=0.19.0,<=0.24.0,>=0.18.2
 Requires-Dist: typer
 Requires-Dist: pydantic
 Requires-Dist: pyyaml
 Requires-Dist: nest-asyncio
 Provides-Extra: huggingface
-Requires-Dist: unsloth_zoo>=2026.3.7; extra == "huggingface"
+Requires-Dist: unsloth_zoo>=2026.4.2; extra == "huggingface"
 Requires-Dist: wheel>=0.42.0; extra == "huggingface"
 Requires-Dist: packaging; extra == "huggingface"
 Requires-Dist: torchvision; extra == "huggingface"
@@ -62,7 +62,7 @@ Requires-Dist: peft!=0.11.0,>=0.18.0; extra == "huggingface"
 Requires-Dist: huggingface_hub>=0.34.0; extra == "huggingface"
 Requires-Dist: hf_transfer; extra == "huggingface"
 Requires-Dist: diffusers; extra == "huggingface"
-Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.3.0,>=4.51.3; extra == "huggingface"
+Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.51.3; extra == "huggingface"
 Requires-Dist: trl!=0.19.0,<=0.24.0,>=0.18.2; extra == "huggingface"
 Requires-Dist: typer; extra == "huggingface"
 Requires-Dist: pydantic; extra == "huggingface"
@@ -343,10 +343,10 @@ Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "colab-ampere-to
 Requires-Dist: unsloth[cu121onlytorch220]; extra == "colab-ampere-torch220"
 Requires-Dist: unsloth[flashattention]; extra == "colab-ampere-torch220"
 Provides-Extra: colab-new
-Requires-Dist: unsloth_zoo>=2026.3.7; extra == "colab-new"
+Requires-Dist: unsloth_zoo>=2026.4.2; extra == "colab-new"
 Requires-Dist: packaging; extra == "colab-new"
 Requires-Dist: tyro; extra == "colab-new"
-Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.3.0,>=4.51.3; extra == "colab-new"
+Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.51.3; extra == "colab-new"
 Requires-Dist: datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1; extra == "colab-new"
 Requires-Dist: sentencepiece>=0.2.0; extra == "colab-new"
 Requires-Dist: tqdm; extra == "colab-new"

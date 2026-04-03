@@ -115,8 +115,12 @@ LANGUAGE_EXTENSIONS = {
     ".jl": "julia",
     # R
     ".r": "r",
-    # CSS
+    # CSS and preprocessors
     ".css": "css",
+    ".scss": "scss",
+    ".sass": "sass",
+    ".less": "less",
+    ".styl": "styl",
     # TOML
     ".toml": "toml",
     # Groovy
@@ -152,6 +156,8 @@ LANGUAGE_EXTENSIONS = {
     # YAML / Ansible (Ansible path heuristics handled in get_language_for_path)
     ".yaml": "yaml",
     ".yml": "yaml",
+    # JSON (compound .openapi.json / .swagger.json checked first via LANGUAGE_EXTENSIONS key order)
+    ".json": "json",
     # OpenAPI / Swagger (compound extensions; basenames handled in get_language_for_path)
     ".openapi.yaml": "openapi",
     ".openapi.yml": "openapi",
@@ -392,6 +398,7 @@ PHP_SPEC = LanguageSpec(
         "interface_declaration": "type",
         "trait_declaration": "type",
         "enum_declaration": "type",
+        "property_declaration": "property",
     },
     name_fields={
         "function_definition": "name",
@@ -400,6 +407,7 @@ PHP_SPEC = LanguageSpec(
         "interface_declaration": "name",
         "trait_declaration": "name",
         "enum_declaration": "name",
+        "property_declaration": "name",
     },
     param_fields={
         "function_definition": "parameters",
@@ -1136,6 +1144,76 @@ CSS_SPEC = LanguageSpec(
 )
 
 
+# SCSS specification
+# tree-sitter-scss is available via tree-sitter-language-pack.
+# Symbol extraction handled by _parse_scss_symbols in extractor.py:
+#   $variables   → constant, @mixin → function, @function → function,
+#   rule_set / %placeholder selectors → class, @media/@supports → type
+SCSS_SPEC = LanguageSpec(
+    ts_language="scss",
+    symbol_node_types={},
+    name_fields={},
+    param_fields={},
+    return_type_fields={},
+    docstring_strategy="preceding_comment",
+    decorator_node_type=None,
+    container_node_types=[],
+    constant_patterns=[],
+    type_patterns=[],
+)
+
+
+# SASS (indented syntax) specification
+# No tree-sitter grammar available in tree-sitter-language-pack.
+# Falls back gracefully to [] — files are still indexed for text search.
+SASS_SPEC = LanguageSpec(
+    ts_language="css",
+    symbol_node_types={},
+    name_fields={},
+    param_fields={},
+    return_type_fields={},
+    docstring_strategy="preceding_comment",
+    decorator_node_type=None,
+    container_node_types=[],
+    constant_patterns=[],
+    type_patterns=[],
+)
+
+
+# Less specification
+# No tree-sitter grammar available in tree-sitter-language-pack.
+# Falls back gracefully to [] — files are still indexed for text search.
+LESS_SPEC = LanguageSpec(
+    ts_language="css",
+    symbol_node_types={},
+    name_fields={},
+    param_fields={},
+    return_type_fields={},
+    docstring_strategy="preceding_comment",
+    decorator_node_type=None,
+    container_node_types=[],
+    constant_patterns=[],
+    type_patterns=[],
+)
+
+
+# Stylus specification
+# No tree-sitter grammar available in tree-sitter-language-pack.
+# Falls back gracefully to [] — files are still indexed for text search.
+STYL_SPEC = LanguageSpec(
+    ts_language="css",
+    symbol_node_types={},
+    name_fields={},
+    param_fields={},
+    return_type_fields={},
+    docstring_strategy="preceding_comment",
+    decorator_node_type=None,
+    container_node_types=[],
+    constant_patterns=[],
+    type_patterns=[],
+)
+
+
 # TOML specification
 # NOTE: TOML tables are the closest analogue to symbols. Custom extraction
 # deferred. Files are indexed for text search.
@@ -1332,6 +1410,24 @@ ANSIBLE_SPEC = LanguageSpec(
 )
 
 
+# JSON specification
+# Top-level object keys extracted as constants by _parse_json_symbols in extractor.py.
+# Compound extensions (.openapi.json, .swagger.json) and well-known basenames
+# (openapi.json, swagger.json) are detected as "openapi" before this spec fires.
+JSON_SPEC = LanguageSpec(
+    ts_language="json",
+    symbol_node_types={},
+    name_fields={},
+    param_fields={},
+    return_type_fields={},
+    docstring_strategy="preceding_comment",
+    decorator_node_type=None,
+    container_node_types=[],
+    constant_patterns=[],
+    type_patterns=[],
+)
+
+
 # OpenAPI / Swagger specification
 # NOTE: Parsed by _parse_openapi_symbols() in extractor.py using yaml/json.
 # File detection uses compound extensions (.openapi.yaml, .swagger.json, …)
@@ -1390,6 +1486,10 @@ LANGUAGE_REGISTRY = {
     "julia": JULIA_SPEC,
     "r": R_SPEC,
     "css": CSS_SPEC,
+    "scss": SCSS_SPEC,
+    "sass": SASS_SPEC,
+    "less": LESS_SPEC,
+    "styl": STYL_SPEC,
     "toml": TOML_SPEC,
     "groovy": GROOVY_SPEC,
     "objc": OBJC_SPEC,
@@ -1401,6 +1501,7 @@ LANGUAGE_REGISTRY = {
     "xml": XML_SPEC,
     "yaml": YAML_SPEC,
     "ansible": ANSIBLE_SPEC,
+    "json": JSON_SPEC,
     "openapi": OPENAPI_SPEC,
 }
 

@@ -11246,6 +11246,7 @@ class CfnOnlineEvaluationConfig(
         
             # the properties below are optional
             description="description",
+            execution_status="executionStatus",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -11264,6 +11265,7 @@ class CfnOnlineEvaluationConfig(
         online_evaluation_config_name: builtins.str,
         rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
+        execution_status: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::BedrockAgentCore::OnlineEvaluationConfig``.
@@ -11276,6 +11278,7 @@ class CfnOnlineEvaluationConfig(
         :param online_evaluation_config_name: The name of the online evaluation configuration. Must be unique within your account.
         :param rule: The evaluation rule that defines sampling configuration, filtering criteria, and session detection settings.
         :param description: The description of the online evaluation configuration.
+        :param execution_status: 
         :param tags: A list of tags to assign to the online evaluation configuration.
         '''
         if __debug__:
@@ -11289,6 +11292,7 @@ class CfnOnlineEvaluationConfig(
             online_evaluation_config_name=online_evaluation_config_name,
             rule=rule,
             description=description,
+            execution_status=execution_status,
             tags=tags,
         )
 
@@ -11358,14 +11362,6 @@ class CfnOnlineEvaluationConfig(
         :cloudformationAttribute: CreatedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrExecutionStatus")
-    def attr_execution_status(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: ExecutionStatus
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrExecutionStatus"))
 
     @builtins.property
     @jsii.member(jsii_name="attrOnlineEvaluationConfigArn")
@@ -11522,6 +11518,18 @@ class CfnOnlineEvaluationConfig(
             type_hints = typing.get_type_hints(_typecheckingstub__9329e42c1ed6716c18f0ba3ed3c4061991e8232ee68b38584dd695b80a862ccb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="executionStatus")
+    def execution_status(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionStatus"))
+
+    @execution_status.setter
+    def execution_status(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__01bb9d62be4810ee3fffa5109b327425dfa34a3abd40181bc6753809c9ae60ad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executionStatus", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -12245,6 +12253,7 @@ class CfnOnlineEvaluationConfig(
         "online_evaluation_config_name": "onlineEvaluationConfigName",
         "rule": "rule",
         "description": "description",
+        "execution_status": "executionStatus",
         "tags": "tags",
     },
 )
@@ -12258,6 +12267,7 @@ class CfnOnlineEvaluationConfigProps:
         online_evaluation_config_name: builtins.str,
         rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
+        execution_status: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnOnlineEvaluationConfig``.
@@ -12268,6 +12278,7 @@ class CfnOnlineEvaluationConfigProps:
         :param online_evaluation_config_name: The name of the online evaluation configuration. Must be unique within your account.
         :param rule: The evaluation rule that defines sampling configuration, filtering criteria, and session detection settings.
         :param description: The description of the online evaluation configuration.
+        :param execution_status: 
         :param tags: A list of tags to assign to the online evaluation configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html
@@ -12314,6 +12325,7 @@ class CfnOnlineEvaluationConfigProps:
             
                 # the properties below are optional
                 description="description",
+                execution_status="executionStatus",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -12328,6 +12340,7 @@ class CfnOnlineEvaluationConfigProps:
             check_type(argname="argument online_evaluation_config_name", value=online_evaluation_config_name, expected_type=type_hints["online_evaluation_config_name"])
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument execution_status", value=execution_status, expected_type=type_hints["execution_status"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "data_source_config": data_source_config,
@@ -12338,6 +12351,8 @@ class CfnOnlineEvaluationConfigProps:
         }
         if description is not None:
             self._values["description"] = description
+        if execution_status is not None:
+            self._values["execution_status"] = execution_status
         if tags is not None:
             self._values["tags"] = tags
 
@@ -12406,6 +12421,14 @@ class CfnOnlineEvaluationConfigProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-description
         '''
         result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def execution_status(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-executionstatus
+        '''
+        result = self._values.get("execution_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -17321,6 +17344,7 @@ def _typecheckingstub__3aa0e93d03096cdb556ed3eb9ee7b341e52b0d24c88655e4061d5de40
     online_evaluation_config_name: builtins.str,
     rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
+    execution_status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17381,6 +17405,12 @@ def _typecheckingstub__6cf46c720a151dc4eed5fc818c0539ab15e6aced33ff2153a91d7d9a5
     pass
 
 def _typecheckingstub__9329e42c1ed6716c18f0ba3ed3c4061991e8232ee68b38584dd695b80a862ccb(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01bb9d62be4810ee3fffa5109b327425dfa34a3abd40181bc6753809c9ae60ad(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -17477,6 +17507,7 @@ def _typecheckingstub__0027d3063b3949a340eab6076bb9ce68daa108d23e44efbf30f9a1211
     online_evaluation_config_name: builtins.str,
     rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
+    execution_status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

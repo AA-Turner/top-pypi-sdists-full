@@ -5,7 +5,11 @@ from typing import Any, Iterable, List, Optional, Tuple, Union
 from pythonosc import osc_message
 from pythonosc.parsing import osc_types
 
-ArgValue = Union[str, bytes, bool, int, float, osc_types.MidiPacket, list]
+# Represents a single OSC argument value.
+# Can be a primitive type, a MIDI packet, or a list/tuple for nested OSC arrays.
+ArgValue = Union[
+    str, bytes, bool, int, float, osc_types.MidiPacket, List[Any], Tuple[Any, ...], None
+]
 
 
 class BuildError(Exception):
@@ -68,9 +72,9 @@ class OscMessageBuilder(object):
         """Returns the (type, value) arguments list of this message."""
         return self._args
 
-    def _valid_type(self, arg_type: str) -> bool:
-        if arg_type in self._SUPPORTED_ARG_TYPES:
-            return True
+    def _valid_type(self, arg_type: Union[str, List[Any]]) -> bool:
+        if isinstance(arg_type, str):
+            return arg_type in self._SUPPORTED_ARG_TYPES
         elif isinstance(arg_type, list):
             for sub_type in arg_type:
                 if not self._valid_type(sub_type):
@@ -78,7 +82,9 @@ class OscMessageBuilder(object):
             return True
         return False
 
-    def add_arg(self, arg_value: ArgValue, arg_type: Optional[str] = None) -> None:
+    def add_arg(
+        self, arg_value: ArgValue, arg_type: Optional[Union[str, List[Any]]] = None
+    ) -> None:
         """Add a typed argument to this message.
 
         Args:
@@ -96,7 +102,7 @@ class OscMessageBuilder(object):
             arg_type = self._get_arg_type(arg_value)
         if isinstance(arg_type, list):
             self._args.append((self.ARG_TYPE_ARRAY_START, None))
-            for v, t in zip(arg_value, arg_type):  # type: ignore[var-annotated, arg-type]
+            for v, t in zip(arg_value, arg_type):  # type: ignore[arg-type]
                 self.add_arg(v, t)
             self._args.append((self.ARG_TYPE_ARRAY_STOP, None))
         else:
@@ -121,7 +127,7 @@ class OscMessageBuilder(object):
         elif arg_value is False:
             arg_type = self.ARG_TYPE_FALSE
         elif isinstance(arg_value, int):
-            if arg_value.bit_length() > 32:
+            if arg_value.bit_length() > 31:
                 arg_type = self.ARG_TYPE_INT64
             else:
                 arg_type = self.ARG_TYPE_INT
@@ -134,7 +140,7 @@ class OscMessageBuilder(object):
         elif arg_value is None:
             arg_type = self.ARG_TYPE_NIL
         else:
-            raise ValueError("Infered arg_value type is not supported")
+            raise ValueError("Inferred arg_value type is not supported")
         return arg_type
 
     def build(self) -> osc_message.OscMessage:
@@ -193,9 +199,11 @@ class OscMessageBuilder(object):
             raise BuildError(f"Could not build the message: {be}")
 
 
-def build_msg(address: str, value: ArgValue = "") -> osc_message.OscMessage:
+def build_msg(
+    address: str, value: Union[ArgValue, Iterable[ArgValue]] = ""
+) -> osc_message.OscMessage:
     builder = OscMessageBuilder(address=address)
-    values: ArgValue
+    values: Iterable[Any]
     if value == "":
         values = []
     elif not isinstance(value, Iterable) or isinstance(value, (str, bytes)):

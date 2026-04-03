@@ -6,13 +6,14 @@
 
 from __future__ import annotations
 
-__version__ = "0.12.2"
+__version__ = "0.13.0"
 
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 # Import cleanup module to install atexit and signal handlers
 from cwsandbox import _cleanup as _cleanup  # noqa: F401
+from cwsandbox._auth import AuthHeaders, set_auth_mode
 from cwsandbox._defaults import SandboxDefaults
 from cwsandbox._function import RemoteFunction
 from cwsandbox._loop_manager import _LoopManager
@@ -44,7 +45,6 @@ from cwsandbox.exceptions import (
     SandboxNotRunningError,
     SandboxTerminatedError,
     SandboxTimeoutError,
-    WandbAuthError,
 )
 
 if TYPE_CHECKING:
@@ -239,6 +239,7 @@ async def _wait_async(
 
 __all__ = [
     "__version__",
+    "AuthHeaders",
     "AsyncFunctionError",
     "CWSandboxAuthenticationError",
     "CWSandboxError",
@@ -249,6 +250,7 @@ __all__ = [
     "Process",
     "ProcessResult",
     "RemoteFunction",
+    "set_auth_mode",
     "Sandbox",
     "SandboxDefaults",
     "SandboxError",
@@ -268,7 +270,6 @@ __all__ = [
     "TerminalResult",
     "TerminalSession",
     "Waitable",
-    "WandbAuthError",
     "results",
     "wait",
 ]

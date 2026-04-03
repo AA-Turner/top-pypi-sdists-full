@@ -93,6 +93,7 @@ from _pydevd_bundle.pydevd_constants import (
     PYDEVD_IPYTHON_COMPATIBLE_DEBUGGING,
     PYDEVD_IPYTHON_CONTEXT,
     PYDEVD_USE_SYS_MONITORING,
+    IS_PY314_OR_GREATER,
 )
 from _pydevd_bundle.pydevd_defaults import PydevdCustomization  # Note: import alias used on pydev_monkey.
 from _pydevd_bundle.pydevd_custom_frames import CustomFramesContainer, custom_frames_container_init
@@ -173,7 +174,7 @@ if SUPPORT_GEVENT:
 if USE_CUSTOM_SYS_CURRENT_FRAMES_MAP:
     from _pydevd_bundle.pydevd_constants import constructed_tid_to_last_frame
 
-__version_info__ = (3, 4, 1)
+__version_info__ = (3, 5, 0)
 __version_info_str__ = []
 for v in __version_info__:
     __version_info_str__.append(str(v))
@@ -723,6 +724,8 @@ class PyDB(object):
         self.stepping_resumes_all_threads = False
 
         self._local_thread_trace_func = threading.local()
+
+        self._client_socket = None
 
         self._server_socket_ready_event = ThreadingEvent()
         self._server_socket_name = None
@@ -1287,6 +1290,16 @@ class PyDB(object):
             if file_type == self.PYDEV_FILE:
                 cache[cache_key] = False
 
+            elif IS_PY314_OR_GREATER and frame.f_code.co_name == "__annotate__":
+                # Special handling for __annotate__ functions (PEP 649 in Python 3.14+).
+                # These are compiler-generated functions that can raise NotImplementedError
+                # when called with unsupported format arguments by inspect.call_annotate_function.
+                # They should be treated as library code to avoid false positives in exception handling.
+                # Note: PEP 649 reserves the __annotate__ name for compiler-generated functions,
+                # so user-defined functions with this name are discouraged and will also be treated
+                # as library code to maintain consistency with the language design.
+                cache[cache_key] = False
+
             elif absolute_filename == "<string>":
                 # Special handling for '<string>'
                 if file_type == self.LIB_FILE:
@@ -1501,6 +1514,7 @@ class PyDB(object):
     def connect(self, host, port):
         if host:
             s = start_client(host, port)
+            self._client_socket = s
         else:
             s = start_server(port)
 
@@ -2547,6 +2561,10 @@ class PyDB(object):
             except:
                 pass
         finally:
+            if self._client_socket:
+                self._client_socket.close()
+                self._client_socket = None
+
             pydev_log.debug("PyDB.dispose_and_kill_all_pydevd_threads: finished")
 
     def prepare_to_run(self):
@@ -2935,6 +2953,7 @@ def settrace(
     client_access_token=None,
     notify_stdin=True,
     protocol=None,
+    ppid=0,
     **kwargs,
 ):
     """Sets the tracing function with the pydev debug function and initializes needed facilities.
@@ -2994,6 +3013,11 @@ def settrace(
         When using in Eclipse the protocol should not be passed, but when used in VSCode
         or some other IDE/editor that accepts the Debug Adapter Protocol then 'dap' should
         be passed.
+
+    :param ppid:
+        Override the parent process id (PPID) for the current debugging session. This PPID is
+        reported to the debug client (IDE) and can be used to act like a child process of an
+        existing debugged process without being a child process.
     """
     if protocol and protocol.lower() == "dap":
         pydevd_defaults.PydevdCustomization.DEFAULT_PROTOCOL = pydevd_constants.HTTP_JSON_PROTOCOL
@@ -3022,6 +3046,7 @@ def settrace(
             client_access_token,
             __setup_holder__=__setup_holder__,
             notify_stdin=notify_stdin,
+            ppid=ppid,
         )
 
 
@@ -3045,6 +3070,7 @@ def _locked_settrace(
     client_access_token,
     __setup_holder__,
     notify_stdin,
+    ppid,
 ):
     if patch_multiprocessing:
         try:
@@ -3076,6 +3102,7 @@ def _locked_settrace(
                 "port": int(port),
                 "multiprocess": patch_multiprocessing,
                 "skip-notify-stdin": not notify_stdin,
+                pydevd_constants.ARGUMENT_PPID: ppid,
             }
             SetupHolder.setup = setup
 

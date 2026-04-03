@@ -31,13 +31,8 @@ from pathlib import Path
 import re
 import shutil
 from struct import unpack
-from typing import TYPE_CHECKING
 
 from numpy import float64
-
-if TYPE_CHECKING:
-    from numpy import array
-    from numpy import ndarray
 from numpy import zeros
 from pydantic import BaseModel
 from pydantic import Field
@@ -200,7 +195,7 @@ class SpiSim(PyAedtBase):
         self._working_directory = ""
 
     @property
-    def working_directory(self) -> str:
+    def working_directory(self):
         """Working directory.
 
         Returns
@@ -214,10 +209,10 @@ class SpiSim(PyAedtBase):
         return self._working_directory
 
     @working_directory.setter
-    def working_directory(self, val: str) -> None:
+    def working_directory(self, val) -> None:
         self._working_directory = val
 
-    def _copy_to_relative_path(self, file_name: str) -> str:
+    def _copy_to_relative_path(self, file_name: str):
         """Convert a path to a relative path."""
         if not pathlib.Path(file_name).is_file():
             return file_name
@@ -328,22 +323,22 @@ class SpiSim(PyAedtBase):
     @pyaedt_function_handler()
     def compute_erl(
         self,
-        config_file: str = None,
-        port_order: str = None,
-        specify_through_ports: list = None,
-        bandwidth: float = None,
-        tdr_duration: float = None,
-        z_terminations: float = None,
-        transition_time: float = None,
-        fixture_delay: float = None,
-        input_amplitude: float = None,
-        ber: float = None,
-        pdf_bin_size: float = None,
-        signal_loss_factor: float = None,
-        permitted_reflection: float = None,
-        reflections_length: float = None,
-        modulation_type: str = None,
-    ) -> bool | float:
+        config_file=None,
+        port_order=None,
+        specify_through_ports=None,
+        bandwidth=None,
+        tdr_duration=None,
+        z_terminations=None,
+        transition_time=None,
+        fixture_delay=None,
+        input_amplitude=None,
+        ber=None,
+        pdf_bin_size=None,
+        signal_loss_factor=None,
+        permitted_reflection=None,
+        reflections_length=None,
+        modulation_type=None,
+    ):
         """Compute effective return loss (ERL) using Ansys SPISIM from S-parameter file.
 
         .. warning::
@@ -474,13 +469,13 @@ class SpiSim(PyAedtBase):
     @pyaedt_function_handler
     def compute_com(
         self,
-        standard: int = 1,
-        config_file: str = None,
+        standard,
+        config_file=None,
         port_order: str = "EvenOdd",
         fext_s4p: str = "",
         next_s4p: str = "",
         out_folder: str = "",
-    ) -> list | float:
+    ):
         """Compute Channel Operating Margin. Only COM ver3.4 is supported.
 
         .. warning::
@@ -538,7 +533,7 @@ class SpiSim(PyAedtBase):
     def __compute_com(
         self,
         com_parameter,
-    ) -> list | float:
+    ):
         """Compute Channel Operating Margin (COM).
 
         .. warning::
@@ -571,8 +566,8 @@ class SpiSim(PyAedtBase):
         out_processing = self.__compute_spisim("COM", cfg_file)
         return self.__get_output_parameter_from_result(out_processing, "COM")
 
-    @pyaedt_function_handler()
-    def export_com_configure_file(self, file_path: str, standard: int = 1) -> bool:
+    @pyaedt_function_handler
+    def export_com_configure_file(self, file_path, standard: int = 1):
         """Generate a configuration file for SpiSim.
 
         Parameters
@@ -719,7 +714,7 @@ class SpiSim(PyAedtBase):
             raise AEDTRuntimeError("SPIsim Failed")
 
 
-def detect_encoding(file_path: str, expected_pattern: str = "", re_flags: int = 0) -> str:
+def detect_encoding(file_path, expected_pattern: str = "", re_flags: int = 0):
     """Check encoding of a file."""
     for encoding in ("utf-8", "utf_16_le", "cp1252", "cp1250", "shift_jis"):
         try:
@@ -778,7 +773,7 @@ class DataSet(PyAedtBase):
         return self.data[item]
 
     @property
-    def wave(self) -> ndarray:
+    def wave(self):
         """Retrieves the trace data.
 
         Returns
@@ -827,12 +822,12 @@ class SpiSimRawRead(PyAedtBase):
     """Class for reading SPISim wave Files. It can read all types of Files."""
 
     @staticmethod
-    def read_float64(f) -> float:  # pragma: no cover
+    def read_float64(f):
         s = f.read(8)
         return unpack("d", s)[0]
 
     @staticmethod
-    def read_float32(f) -> float:  # pragma: no cover
+    def read_float32(f):  # pragma: no cover
         s = f.read(4)
         return unpack("f", s)[0]
 
@@ -919,7 +914,7 @@ class SpiSimRawRead(PyAedtBase):
         self.raw_params["No. Variables"] = self.nVariables
         self.raw_params["Variables"] = [var.name for var in self._traces]
 
-    def get_raw_property(self, property_name: str = None) -> str | dict:
+    def get_raw_property(self, property_name=None):
         """
         Get a property. By default, it returns all properties defined in the RAW file.
 
@@ -937,7 +932,7 @@ class SpiSimRawRead(PyAedtBase):
             raise ValueError("Invalid property. Use %s" % str(self.raw_params.keys()))
 
     @property
-    def trace_names(self) -> list:
+    def trace_names(self):
         """Returns a list of exiting trace names of the RAW file.
 
         Returns
@@ -947,7 +942,7 @@ class SpiSimRawRead(PyAedtBase):
         """
         return [trace.name for trace in self._traces]
 
-    def get_trace(self, trace_ref: str | int) -> Trace:
+    def get_trace(self, trace_ref):
         """Retrieve the trace with the requested name (trace_ref).
 
         Parameters
@@ -966,7 +961,7 @@ class SpiSimRawRead(PyAedtBase):
         else:
             return self._traces[trace_ref]
 
-    def get_wave(self, trace_ref: str | int) -> ndarray:
+    def get_wave(self, trace_ref):
         """Retrieve the wave data with the requested name (trace_ref).
 
         Parameters
@@ -981,7 +976,7 @@ class SpiSimRawRead(PyAedtBase):
         """
         return self.get_trace(trace_ref).wave
 
-    def get_axis(self) -> array:
+    def get_axis(self):
         """Function equivalent to get_trace(0).wave instruction.
 
         Returns

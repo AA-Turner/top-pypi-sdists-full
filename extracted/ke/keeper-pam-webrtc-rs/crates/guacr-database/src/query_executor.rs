@@ -1,7 +1,10 @@
 // Database query executor with ratatui-based result rendering
 // Unified executor for all database handlers
 
-use crate::ratatui_db_ui::DatabaseRatatuiApp;
+const CHAR_WIDTH: u32 = 9;
+const CHAR_HEIGHT: u32 = 18;
+
+use crate::ratatui_db_ui::{AppFocus, DatabaseRatatuiApp};
 use crate::{DatabaseError, Result};
 use bytes::Bytes;
 use guacr_handlers::{send_name, send_ready, CursorManager, HandlerError, StandardCursor};
@@ -29,10 +32,10 @@ pub struct QueryExecutor {
     db_type: String,
 
     // Multi-line continuation
-    in_continuation: bool,
+    pub(crate) in_continuation: bool,
 
     // Current database context (for dynamic prompts)
-    current_database: Option<String>,
+    pub(crate) current_database: Option<String>,
     prompt_template: String,
 
     // Clipboard parsing (mouse selection removed in this refactor)
@@ -40,6 +43,10 @@ pub struct QueryExecutor {
 
     // Zero-allocation protocol encoder (shared scratch buffer)
     protocol_encoder: TextProtocolEncoder,
+
+    // Dirty flag: true when content changed since last render_screen call.
+    // Prevents the 60fps debounce from re-encoding identical frames.
+    dirty: bool,
 }
 
 impl QueryExecutor {
@@ -58,9 +65,6 @@ impl QueryExecutor {
             _ => "    -> ".to_string(),
         };
 
-        const CHAR_WIDTH: u32 = 9;
-        const CHAR_HEIGHT: u32 = 18;
-
         Ok(Self {
             ratatui: RatatuiRenderer::new(cols, rows, CHAR_WIDTH, CHAR_HEIGHT)?,
             app: DatabaseRatatuiApp::new(prompt, &continuation_prompt),
@@ -71,6 +75,7 @@ impl QueryExecutor {
             prompt_template: prompt.to_string(),
             input_handler: TerminalInputHandler::new_with_scrollback(rows, cols, 1000),
             protocol_encoder: TextProtocolEncoder::new(),
+            dirty: true, // render on first tick
         })
     }
 
@@ -129,7 +134,7 @@ impl QueryExecutor {
         }
     }
 
-    /// Handle mouse input for text selection
+    /// Handle mouse input for text selection and results table row clicks
     async fn handle_mouse_input(
         &mut self,
         instruction: &str,
@@ -138,8 +143,47 @@ impl QueryExecutor {
             return Ok((false, vec![], None));
         };
 
-        const CHAR_WIDTH: u32 = 9;
-        const CHAR_HEIGHT: u32 = 18;
+        // Scroll wheel (bits 3=up, 4=down): scroll the results table.
+        const SCROLL_LINES: usize = 3;
+        if mouse_event.button_mask & 0x08 != 0 && !self.app.results.is_empty() {
+            let sel = self.app.table_state.selected().unwrap_or(0);
+            self.app
+                .table_state
+                .select(Some(sel.saturating_sub(SCROLL_LINES)));
+            let (_, instructions) = self.render_screen().await?;
+            return Ok((true, instructions, None));
+        }
+        if mouse_event.button_mask & 0x10 != 0 && !self.app.results.is_empty() {
+            let sel = self.app.table_state.selected().unwrap_or(0);
+            let new_sel = (sel + SCROLL_LINES).min(self.app.results.len().saturating_sub(1));
+            self.app.table_state.select(Some(new_sel));
+            let (_, instructions) = self.render_screen().await?;
+            return Ok((true, instructions, None));
+        }
+
+        // Left-click (button_mask bit 0): check if it lands in the results table data area.
+        // Layout: results panel fills top, input panel is 3 rows at the bottom.
+        // Within the results panel: 1-row block border + 1-row header = 2 rows before data.
+        // So data rows start at pixel y = 2 * CHAR_HEIGHT = 36.
+        // The results panel ends at pixel y = (total_rows - 3) * CHAR_HEIGHT.
+        if mouse_event.button_mask & 0x01 != 0 && !self.app.results.is_empty() {
+            let (total_rows, _) = self.size();
+            let results_panel_height_px = (total_rows as u32).saturating_sub(3) * CHAR_HEIGHT;
+            const DATA_ROW_PIXEL_START: u32 = 2 * CHAR_HEIGHT; // border + header
+
+            if mouse_event.y_px >= DATA_ROW_PIXEL_START
+                && mouse_event.y_px < results_panel_height_px
+            {
+                let clicked_row =
+                    ((mouse_event.y_px - DATA_ROW_PIXEL_START) / CHAR_HEIGHT) as usize;
+                if clicked_row < self.app.results.len() {
+                    self.app.table_state.select(Some(clicked_row));
+                    self.app.focus = AppFocus::Results;
+                    let (_, instructions) = self.render_screen().await?;
+                    return Ok((true, instructions, None));
+                }
+            }
+        }
 
         // buffer borrows from self.ratatui; mouse_selection mutation is in self.input_handler —
         // disjoint fields allow simultaneous borrows.
@@ -181,8 +225,6 @@ impl QueryExecutor {
             let width: u32 = args[0].parse().unwrap_or(1024);
             let height: u32 = args[1].parse().unwrap_or(768);
 
-            const CHAR_WIDTH: u32 = 9;
-            const CHAR_HEIGHT: u32 = 18;
             let cols = (width / CHAR_WIDTH).max(80) as u16;
             let rows = (height / CHAR_HEIGHT).max(24) as u16;
 
@@ -241,18 +283,20 @@ impl QueryExecutor {
         }
 
         let pending_query = self.app.handle_key(keysym, pressed);
-        let (_, render_instructions) = self.render_screen().await?;
 
+        // Mark dirty so the debounce timer renders within ~16ms.
+        // Calling render_screen() here (per keystroke) is the source of typing lag.
+        self.dirty = true;
+
+        // If a selection was just cleared, dispose the overlay immediately so it
+        // disappears without waiting for the debounce tick.
         let instructions = if had_selection {
-            // Prepend dispose(1) so the selection overlay disappears before the new frame
-            let mut all: Vec<Bytes> = format_clear_selection_instructions()
+            format_clear_selection_instructions()
                 .into_iter()
                 .map(Bytes::from)
-                .collect();
-            all.extend(render_instructions);
-            all
+                .collect()
         } else {
-            render_instructions
+            vec![]
         };
 
         Ok((true, instructions, pending_query))
@@ -261,20 +305,23 @@ impl QueryExecutor {
     /// Write query result to the results panel
     pub fn write_result(&mut self, result: &QueryResult) -> Result<()> {
         self.app.set_results(result);
+        self.app.focus = AppFocus::Input;
+        self.dirty = true;
         Ok(())
     }
 
     /// Write error message to the results panel
     pub fn write_error(&mut self, error: &str) -> Result<()> {
         self.app.set_error(error);
+        self.app.focus = AppFocus::Input;
+        self.dirty = true;
         Ok(())
     }
 
     /// Write a status/info message to the results panel
-    ///
-    /// Used by handlers for connection messages, warnings, etc.
     pub fn write_status(&mut self, msg: &str) {
         self.app.set_status(msg.to_string(), None);
+        self.dirty = true;
     }
 
     /// Append a line to the status message (for multi-line banners)
@@ -286,6 +333,7 @@ impl QueryExecutor {
                 self.app.status_msg.push('\n');
                 self.app.status_msg.push_str(line);
             }
+            self.dirty = true;
         }
         Ok(())
     }
@@ -300,9 +348,8 @@ impl QueryExecutor {
         Ok(())
     }
 
-    /// Always returns true — ratatui renders the full screen on every call
     pub fn is_dirty(&self) -> bool {
-        true
+        self.dirty
     }
 
     /// Render terminal screen and return Guacamole instructions
@@ -342,6 +389,7 @@ impl QueryExecutor {
             .format_sync_instruction(timestamp_ms);
         instructions.push(Bytes::from(sync_instr));
 
+        self.dirty = false;
         Ok((true, instructions))
     }
 
@@ -354,6 +402,7 @@ impl QueryExecutor {
     pub fn set_current_database(&mut self, database: Option<String>) {
         self.current_database = database;
         self.update_prompt();
+        self.dirty = true;
     }
 
     /// Update the prompt based on current context
@@ -374,6 +423,7 @@ impl QueryExecutor {
     /// Set continuation mode
     pub fn set_continuation(&mut self, in_continuation: bool) {
         self.in_continuation = in_continuation;
+        self.dirty = true;
     }
 }
 
@@ -421,287 +471,4 @@ where
     let result = execute_fn().await?;
     let duration = start.elapsed();
     Ok(ExecutionResult::new(result, duration))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_query_executor_new() {
-        let executor = QueryExecutor::new("mysql> ", "mysql");
-        assert!(executor.is_ok());
-        assert_eq!(executor.unwrap().db_type(), "mysql");
-    }
-
-    #[test]
-    fn test_execution_result() {
-        let result = QueryResult::new(vec!["id".to_string()]);
-        let exec_result = ExecutionResult::new(result, std::time::Duration::from_millis(100));
-        let query_result = exec_result.into_query_result();
-        assert_eq!(query_result.execution_time_ms, Some(100));
-    }
-
-    #[test]
-    fn test_command_history() {
-        let mut executor = QueryExecutor::new("test> ", "test").unwrap();
-
-        executor.app.add_to_history("SELECT 1");
-        executor.app.add_to_history("SELECT 2");
-        executor.app.add_to_history("SELECT 3");
-
-        assert_eq!(executor.app.history.len(), 3);
-
-        // Navigate up (keysym 0xFF52 = Up arrow)
-        executor.app.handle_key(0xFF52, true);
-        assert_eq!(executor.app.input_buffer, "SELECT 3");
-
-        executor.app.handle_key(0xFF52, true);
-        assert_eq!(executor.app.input_buffer, "SELECT 2");
-
-        executor.app.handle_key(0xFF52, true);
-        assert_eq!(executor.app.input_buffer, "SELECT 1");
-
-        // Can't go further back
-        executor.app.handle_key(0xFF52, true);
-        assert_eq!(executor.app.input_buffer, "SELECT 1");
-
-        // Navigate down (keysym 0xFF54 = Down arrow)
-        executor.app.handle_key(0xFF54, true);
-        assert_eq!(executor.app.input_buffer, "SELECT 2");
-
-        executor.app.handle_key(0xFF54, true);
-        assert_eq!(executor.app.input_buffer, "SELECT 3");
-    }
-
-    #[test]
-    fn test_history_deduplication() {
-        let mut executor = QueryExecutor::new("test> ", "test").unwrap();
-
-        executor.app.add_to_history("SELECT 1");
-        executor.app.add_to_history("SELECT 1"); // Duplicate
-        executor.app.add_to_history("SELECT 2");
-
-        assert_eq!(executor.app.history.len(), 2);
-    }
-
-    #[test]
-    fn test_history_max_size() {
-        let mut executor = QueryExecutor::new("test> ", "test").unwrap();
-        executor.app.history_max_size = 3;
-
-        executor.app.add_to_history("SELECT 1");
-        executor.app.add_to_history("SELECT 2");
-        executor.app.add_to_history("SELECT 3");
-        executor.app.add_to_history("SELECT 4");
-
-        assert_eq!(executor.app.history.len(), 3);
-        assert_eq!(executor.app.history[0], "SELECT 2");
-        assert_eq!(executor.app.history[2], "SELECT 4");
-    }
-
-    #[test]
-    fn test_cursor_movement() {
-        let mut executor = QueryExecutor::new("test> ", "test").unwrap();
-
-        executor.app.input_buffer = "SELECT * FROM users".to_string();
-        executor.app.cursor_pos = 19;
-
-        // Move left (0xFF51)
-        executor.app.handle_key(0xFF51, true);
-        assert_eq!(executor.app.cursor_pos, 18);
-
-        // Move right (0xFF53)
-        executor.app.handle_key(0xFF53, true);
-        assert_eq!(executor.app.cursor_pos, 19);
-
-        // Can't move right past end
-        executor.app.handle_key(0xFF53, true);
-        assert_eq!(executor.app.cursor_pos, 19);
-
-        // Home (0xFF50)
-        executor.app.handle_key(0xFF50, true);
-        assert_eq!(executor.app.cursor_pos, 0);
-
-        // Can't move left past beginning
-        executor.app.handle_key(0xFF51, true);
-        assert_eq!(executor.app.cursor_pos, 0);
-
-        // End (0xFF57)
-        executor.app.handle_key(0xFF57, true);
-        assert_eq!(executor.app.cursor_pos, 19);
-    }
-
-    #[test]
-    fn test_insert_char() {
-        let mut executor = QueryExecutor::new("test> ", "test").unwrap();
-
-        executor.app.input_buffer = "SELECT FROM users".to_string();
-        executor.app.cursor_pos = 7;
-
-        // Insert '*' (keysym = 0x2A = 42)
-        executor.app.handle_key(0x2A, true);
-        executor.app.handle_key(0x20, true); // space
-
-        assert_eq!(executor.app.input_buffer, "SELECT * FROM users");
-        assert_eq!(executor.app.cursor_pos, 9);
-    }
-
-    #[test]
-    fn test_delete_operations() {
-        let mut executor = QueryExecutor::new("test> ", "test").unwrap();
-
-        executor.app.input_buffer = "SELECT * FROM users".to_string();
-        executor.app.cursor_pos = 9;
-
-        // Backspace (0xFF08)
-        executor.app.handle_key(0xFF08, true);
-        assert_eq!(executor.app.input_buffer, "SELECT *FROM users");
-        assert_eq!(executor.app.cursor_pos, 8);
-
-        // Delete at cursor (0xFFFF)
-        executor.app.handle_key(0xFFFF, true);
-        assert_eq!(executor.app.input_buffer, "SELECT *ROM users");
-        assert_eq!(executor.app.cursor_pos, 8);
-    }
-
-    #[test]
-    fn test_kill_operations() {
-        let mut executor = QueryExecutor::new("test> ", "test").unwrap();
-
-        // Kill to end (Ctrl+K = 0x000B)
-        executor.app.input_buffer = "SELECT * FROM users".to_string();
-        executor.app.cursor_pos = 9;
-        executor.app.handle_key(0x000B, true);
-        assert_eq!(executor.app.input_buffer, "SELECT * ");
-
-        // Kill entire line (Ctrl+U = 0x0015)
-        executor.app.input_buffer = "SELECT * FROM users".to_string();
-        executor.app.cursor_pos = 10;
-        executor.app.handle_key(0x0015, true);
-        assert_eq!(executor.app.input_buffer, "");
-        assert_eq!(executor.app.cursor_pos, 0);
-
-        // Kill word (Ctrl+W = 0x0017)
-        executor.app.input_buffer = "SELECT * FROM users".to_string();
-        executor.app.cursor_pos = 13;
-        executor.app.handle_key(0x0017, true);
-        assert_eq!(executor.app.input_buffer, "SELECT *  users");
-    }
-
-    #[test]
-    fn test_set_current_database() {
-        let mut executor = QueryExecutor::new("mysql> ", "mysql").unwrap();
-
-        executor.set_current_database(Some("testdb".to_string()));
-        assert_eq!(executor.current_database, Some("testdb".to_string()));
-
-        // Prompt should be updated
-        assert!(executor.app.prompt.contains("testdb"));
-    }
-
-    #[test]
-    fn test_continuation_mode() {
-        let mut executor = QueryExecutor::new("mysql> ", "mysql").unwrap();
-
-        assert!(!executor.in_continuation);
-
-        executor.set_continuation(true);
-        assert!(executor.in_continuation);
-
-        executor.set_continuation(false);
-        assert!(!executor.in_continuation);
-    }
-
-    /// Visual smoke test: renders a 150-row result set to JPEG and saves to /tmp.
-    ///
-    /// Run with: cargo test -p guacr-database test_render_smoke -- --nocapture
-    /// Then:     open /tmp/db_render_test.jpg
-    ///
-    /// Verify:
-    ///   - JPEG is not blank/black
-    ///   - Results panel shows table with 150 rows (no 100-row cap)
-    ///   - Title shows "Results - 150 row(s) (42ms)"
-    ///   - Column headers are rendered
-    ///   - Scrollbar is visible on the right
-    ///   - Input panel shows "mysql> _" at the bottom
-    #[tokio::test]
-    async fn test_render_smoke() {
-        let mut executor = QueryExecutor::new_with_size("mysql> ", "mysql", 40, 120).unwrap();
-
-        let mut result = QueryResult::new(vec![
-            "id".to_string(),
-            "name".to_string(),
-            "email".to_string(),
-            "status".to_string(),
-        ]);
-        for i in 0..150 {
-            result.add_row(vec![
-                i.to_string(),
-                format!("User {}", i),
-                format!("user{}@example.com", i),
-                if i % 3 == 0 { "active" } else { "inactive" }.to_string(),
-            ]);
-        }
-        result.execution_time_ms = Some(42);
-        executor.write_result(&result).unwrap();
-
-        let (_, instructions) = executor.render_screen().await.unwrap();
-        assert!(!instructions.is_empty(), "render produced no instructions");
-
-        let jpeg = executor.ratatui.render_to_jpeg(85).unwrap();
-        assert!(
-            jpeg.len() > 1000,
-            "JPEG suspiciously small ({} bytes)",
-            jpeg.len()
-        );
-
-        std::fs::write("/tmp/db_render_test.jpg", &jpeg).unwrap();
-        println!("Saved {} bytes to /tmp/db_render_test.jpg", jpeg.len());
-    }
-
-    /// Visual test: types text into the input line and renders to JPEG.
-    ///
-    /// Run with: cargo test -p guacr-database test_render_input_editing -- --nocapture
-    /// Then:     open /tmp/db_input_test.jpg
-    ///
-    /// Verify:
-    ///   - Query panel shows "mysql> SELECT * FROM users_"
-    ///   - Results panel shows "Connected to MySQL"
-    #[tokio::test]
-    async fn test_render_input_editing() {
-        let mut executor = QueryExecutor::new_with_size("mysql> ", "mysql", 40, 120).unwrap();
-        executor.write_status("Connected to MySQL");
-
-        for c in "SELECT * FROM users".chars() {
-            executor.app.handle_key(c as u32, true);
-        }
-
-        let (_, instructions) = executor.render_screen().await.unwrap();
-        assert!(!instructions.is_empty());
-
-        let jpeg = executor.ratatui.render_to_jpeg(85).unwrap();
-        std::fs::write("/tmp/db_input_test.jpg", &jpeg).unwrap();
-        println!("Saved {} bytes to /tmp/db_input_test.jpg", jpeg.len());
-    }
-
-    /// Tests that resize updates the ratatui terminal dimensions.
-    #[tokio::test]
-    async fn test_render_resize() {
-        let mut executor = QueryExecutor::new_with_size("mysql> ", "mysql", 24, 80).unwrap();
-
-        let (rows, cols) = executor.size();
-        assert_eq!(cols, 80);
-        assert_eq!(rows, 24);
-
-        let new_cols = (1920u32 / 9) as u16; // 213
-        let new_rows = (1080u32 / 18) as u16; // 60
-        executor.ratatui.resize(new_cols, new_rows).unwrap();
-        // ratatui applies the resize on the next draw
-        executor.render_screen().await.unwrap();
-
-        let (rows, cols) = executor.size();
-        assert_eq!(cols, 213);
-        assert_eq!(rows, 60);
-    }
 }

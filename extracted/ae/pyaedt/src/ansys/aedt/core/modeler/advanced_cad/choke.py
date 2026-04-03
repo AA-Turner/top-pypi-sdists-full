@@ -29,17 +29,11 @@ from dataclasses import field
 from pathlib import Path
 import shutil
 import tempfile
-from typing import TYPE_CHECKING
 from typing import Any
 
 from ansys.aedt.core.base import PyAedtBase
 from ansys.aedt.core.generic.file_utils import write_configuration_file
 from ansys.aedt.core.generic.general_methods import pyaedt_function_handler
-
-if TYPE_CHECKING:
-    from ansys.aedt.core.hfss import Hfss
-    from ansys.aedt.core.modeler.cad.object_3d import Object3d
-    from ansys.aedt.core.modules.mesh import MeshOperation
 
 CHOKE_DEFAULT_PARAMETERS = {
     "Number of Windings": {
@@ -288,7 +282,7 @@ class Choke(PyAedtBase):
             raise Exception(f"Failed to export configuration: {str(e)}")
 
     @pyaedt_function_handler()
-    def create_choke(self, app: "Hfss" = None) -> list:
+    def create_choke(self, app=None):
         """Create a choke.
 
         Returns
@@ -309,7 +303,7 @@ class Choke(PyAedtBase):
         return list_object
 
     @pyaedt_function_handler()
-    def create_ground(self, app: "Hfss") -> object:
+    def create_ground(self, app):
         """Create the ground plane.
 
         Returns
@@ -332,7 +326,7 @@ class Choke(PyAedtBase):
         return ground
 
     @pyaedt_function_handler()
-    def create_mesh(self, app: "Hfss") -> "MeshOperation":
+    def create_mesh(self, app):
         """Create the mesh.
 
         Returns
@@ -361,7 +355,7 @@ class Choke(PyAedtBase):
         return mesh
 
     @pyaedt_function_handler()
-    def create_ports(self, ground: "Object3d", app: "Hfss") -> list:
+    def create_ports(self, ground, app):
         """Create the ports.
 
         Parameters

@@ -189,6 +189,7 @@ class Geoanalysis:
         self.logger.info(f"Analyze {self.country} {self.crop}")
 
         self._plot_yield_with_ci(self.df_analysis)
+        self._plot_yield_with_ci_historical(self.df_analysis)
 
         df = self._clean_data()
         if df.empty:
@@ -735,6 +736,92 @@ class Geoanalysis:
         plt.tight_layout()
 
         fname = f"yield_ci_{self.country}_{self.crop}.png"
+        fig.savefig(self.dir_country_plots / fname, dpi=250)
+        plt.close(fig)
+
+    def _plot_yield_with_ci_historical(self, df):
+        """Forest plot of predicted yield with CI and individual historical year yields."""
+        if "lower CI" not in df.columns or "upper CI" not in df.columns:
+            return
+        df_ci = df.dropna(subset=["lower CI", "upper CI"])
+        if df_ci.empty:
+            return
+
+        # Use latest stage per region
+        df_ci = (
+            df_ci.sort_values("Stage Name")
+            .groupby("Region")
+            .last()
+            .reset_index()
+            .sort_values(self.predicted)
+        )
+
+        # Load historical yields from statistics CSV
+        try:
+            if self.country == "pooled":
+                frames = []
+                for c in self.countries:
+                    f = utils.statistics_file_path(self.dir_out, self.method, c, self.crop)
+                    if f.exists():
+                        frames.append(pd.read_csv(f))
+                df_hist = pd.concat(frames, ignore_index=True)
+            else:
+                f = utils.statistics_file_path(self.dir_out, self.method, self.country, self.crop)
+                df_hist = pd.read_csv(f)
+            df_hist = df_hist[["Region", "Harvest Year", "Yield (tn per ha)"]].dropna()
+        except Exception:
+            return
+
+        # Last 5 years of available data
+        years = sorted(df_hist["Harvest Year"].unique())[-5:]
+        df_hist = df_hist[df_hist["Harvest Year"].isin(years)]
+
+        # Pivot: one column per year
+        df_pivot = df_hist.pivot_table(
+            index="Region", columns="Harvest Year", values="Yield (tn per ha)"
+        )
+
+        # Only keep regions that are in df_ci
+        regions = df_ci["Region"].values
+        df_pivot = df_pivot.reindex(regions)
+
+        fig, ax = plt.subplots(figsize=(8, max(4, len(df_ci) * 0.4)))
+        y_pos = np.arange(len(df_ci))
+
+        # CI error bars
+        xerr_low = df_ci[self.predicted].values - df_ci["lower CI"].values
+        xerr_high = df_ci["upper CI"].values - df_ci[self.predicted].values
+        ax.errorbar(
+            df_ci[self.predicted].values, y_pos,
+            xerr=[xerr_low, xerr_high],
+            fmt="o", color="steelblue", capsize=3, zorder=10,
+            label="Predicted \u00b1 CI",
+        )
+
+        # Historical year diamonds — each year gets a distinct color
+        cmap = plt.cm.RdYlGn
+        colors = [cmap(i / max(len(years) - 1, 1)) for i in range(len(years))]
+        for idx, yr in enumerate(years):
+            if yr in df_pivot.columns:
+                vals = df_pivot[yr].values
+                ax.scatter(
+                    vals, y_pos,
+                    marker="D", color=colors[idx], edgecolors="k",
+                    linewidths=0.3, s=25, zorder=5,
+                    label=str(int(yr)),
+                )
+
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(regions, fontsize=8)
+        ax.set_xlabel("Yield (tn per ha)")
+        ax.set_title(
+            f"Predicted Yield with CI & Historical Yields \u2014 {self.country} {self.crop}",
+            fontsize=10, fontweight="bold",
+        )
+        ax.legend(fontsize=7, loc="lower right")
+        plt.tight_layout()
+
+        fname = f"yield_ci_historical_{self.country}_{self.crop}.png"
         fig.savefig(self.dir_country_plots / fname, dpi=250)
         plt.close(fig)
 

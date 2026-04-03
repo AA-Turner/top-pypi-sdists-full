@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PraisonAI
-Version: 4.5.110
+Version: 4.5.112
 Summary: PraisonAI is an AI Agents Framework with Self Reflection. PraisonAI application combines PraisonAI Agents, AutoGen, and CrewAI into a low-code solution for building and managing multi-agent LLM systems, focusing on simplicity, customisation, and efficient human-agent collaboration.
 Author: Mervin Praison
 License: MIT
@@ -11,7 +11,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: rich>=13.7
 Requires-Dist: markdown>=3.5
 Requires-Dist: pyparsing>=3.0.0
-Requires-Dist: praisonaiagents>=1.5.110
+Requires-Dist: praisonaiagents>=1.5.112
 Requires-Dist: python-dotenv>=0.19.0
 Requires-Dist: litellm<=1.82.6,>=1.81.0
 Requires-Dist: PyYAML>=6.0
@@ -372,6 +372,15 @@ PraisonAI supports 100+ LLM providers through seamless integration:
 | 🖥️ | **Bot Gateway** — multi-agent routing across channels | [Docs](https://docs.praison.ai/docs/features/bot-gateway) |
 
 </details>
+
+
+<div align="center">
+  <a href="https://x.com/elonmusk/status/1893870468249141688" target="_blank">
+    <img src=".github/images/elon_musk_praisonai.png" alt="Highlighted by Elon Musk" width="600" />
+  </a>
+  <p><em>"Grok 3 customer support" — <a href="https://x.com/elonmusk/status/1893870468249141688">Elon Musk quoting PraisonAI's tutorial</a></em></p>
+</div>
+<br>
 
 ---
 

@@ -5810,7 +5810,7 @@ class BaseServiceOptions:
         :param service_connect_configuration: Configuration for Service Connect. Default: No ports are advertised via Service Connect on this service, and the service cannot make requests to other services via Service Connect.
         :param service_name: The name of the service. Default: - CloudFormation-generated name.
         :param task_definition_revision: Revision number for the task definition or ``latest`` to use the latest active task revision. Default: - Uses the revision of the passed task definition deployed by CloudFormation
-        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attched to ECS tasks. Default: - undefined
+        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attached to ECS tasks. Default: - undefined
 
         :exampleMetadata: fixture=_generated
 
@@ -6213,7 +6213,7 @@ class BaseServiceOptions:
         '''Configuration details for a volume used by the service.
 
         This allows you to specify
-        details about the EBS volume that can be attched to ECS tasks.
+        details about the EBS volume that can be attached to ECS tasks.
 
         :default: - undefined
         '''
@@ -6312,7 +6312,7 @@ class BaseServiceProps(BaseServiceOptions):
         :param service_connect_configuration: Configuration for Service Connect. Default: No ports are advertised via Service Connect on this service, and the service cannot make requests to other services via Service Connect.
         :param service_name: The name of the service. Default: - CloudFormation-generated name.
         :param task_definition_revision: Revision number for the task definition or ``latest`` to use the latest active task revision. Default: - Uses the revision of the passed task definition deployed by CloudFormation
-        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attched to ECS tasks. Default: - undefined
+        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attached to ECS tasks. Default: - undefined
         :param launch_type: The launch type on which to run your service. LaunchType will be omitted if capacity provider strategies are specified on the service.
 
         :exampleMetadata: fixture=_generated
@@ -6719,7 +6719,7 @@ class BaseServiceProps(BaseServiceOptions):
         '''Configuration details for a volume used by the service.
 
         This allows you to specify
-        details about the EBS volume that can be attched to ECS tasks.
+        details about the EBS volume that can be attached to ECS tasks.
 
         :default: - undefined
         '''
@@ -7293,6 +7293,7 @@ class CfnCapacityProvider(
                         reservation_preference="reservationPreference"
                     ),
                     fips_enabled=False,
+                    instance_metadata_tags_propagation=False,
                     instance_requirements=ecs.CfnCapacityProvider.InstanceRequirementsRequestProperty(
                         memory_mi_b=ecs.CfnCapacityProvider.MemoryMiBRequestProperty(
                             min=123,
@@ -8073,6 +8074,7 @@ class CfnCapacityProvider(
             "capacity_option_type": "capacityOptionType",
             "capacity_reservations": "capacityReservations",
             "fips_enabled": "fipsEnabled",
+            "instance_metadata_tags_propagation": "instanceMetadataTagsPropagation",
             "instance_requirements": "instanceRequirements",
             "monitoring": "monitoring",
             "storage_configuration": "storageConfiguration",
@@ -8087,6 +8089,7 @@ class CfnCapacityProvider(
             capacity_option_type: typing.Optional[builtins.str] = None,
             capacity_reservations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.CapacityReservationRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             fips_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            instance_metadata_tags_propagation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             instance_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.InstanceRequirementsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             monitoring: typing.Optional[builtins.str] = None,
             storage_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.ManagedInstancesStorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8100,6 +8103,7 @@ class CfnCapacityProvider(
             :param capacity_option_type: The capacity option type. This determines whether Amazon ECS launches On-Demand or Spot Instances for your managed instance capacity provider. Valid values are: - ``ON_DEMAND`` - Launches standard On-Demand Instances. On-Demand Instances provide predictable pricing and availability. - ``SPOT`` - Launches Spot Instances that use spare Amazon EC2 capacity at reduced cost. Spot Instances can be interrupted by Amazon EC2 with a two-minute notification when the capacity is needed back. The default is On-Demand For more information about Amazon EC2 capacity options, see `Instance purchasing options <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-purchasing-options.html>`_ in the *Amazon EC2 User Guide* .
             :param capacity_reservations: 
             :param fips_enabled: 
+            :param instance_metadata_tags_propagation: 
             :param instance_requirements: The instance requirements. You can specify:. - The instance types - Instance requirements such as vCPU count, memory, network performance, and accelerator specifications Amazon ECS automatically selects the instances that match the specified criteria.
             :param monitoring: CloudWatch provides two categories of monitoring: basic monitoring and detailed monitoring. By default, your managed instance is configured for basic monitoring. You can optionally enable detailed monitoring to help you more quickly identify and act on operational issues. You can enable or turn off detailed monitoring at launch or when the managed instance is running or stopped. For more information, see `Detailed monitoring for Amazon ECS Managed Instances <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/detailed-monitoring-managed-instances.html>`_ in the Amazon ECS Developer Guide.
             :param storage_configuration: The storage configuration for Amazon ECS Managed Instances. This defines the root volume size and type for the instances.
@@ -8127,6 +8131,7 @@ class CfnCapacityProvider(
                         reservation_preference="reservationPreference"
                     ),
                     fips_enabled=False,
+                    instance_metadata_tags_propagation=False,
                     instance_requirements=ecs.CfnCapacityProvider.InstanceRequirementsRequestProperty(
                         memory_mi_b=ecs.CfnCapacityProvider.MemoryMiBRequestProperty(
                             min=123,
@@ -8199,6 +8204,7 @@ class CfnCapacityProvider(
                 check_type(argname="argument capacity_option_type", value=capacity_option_type, expected_type=type_hints["capacity_option_type"])
                 check_type(argname="argument capacity_reservations", value=capacity_reservations, expected_type=type_hints["capacity_reservations"])
                 check_type(argname="argument fips_enabled", value=fips_enabled, expected_type=type_hints["fips_enabled"])
+                check_type(argname="argument instance_metadata_tags_propagation", value=instance_metadata_tags_propagation, expected_type=type_hints["instance_metadata_tags_propagation"])
                 check_type(argname="argument instance_requirements", value=instance_requirements, expected_type=type_hints["instance_requirements"])
                 check_type(argname="argument monitoring", value=monitoring, expected_type=type_hints["monitoring"])
                 check_type(argname="argument storage_configuration", value=storage_configuration, expected_type=type_hints["storage_configuration"])
@@ -8212,6 +8218,8 @@ class CfnCapacityProvider(
                 self._values["capacity_reservations"] = capacity_reservations
             if fips_enabled is not None:
                 self._values["fips_enabled"] = fips_enabled
+            if instance_metadata_tags_propagation is not None:
+                self._values["instance_metadata_tags_propagation"] = instance_metadata_tags_propagation
             if instance_requirements is not None:
                 self._values["instance_requirements"] = instance_requirements
             if monitoring is not None:
@@ -8285,6 +8293,16 @@ class CfnCapacityProvider(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-instancelaunchtemplate.html#cfn-ecs-capacityprovider-instancelaunchtemplate-fipsenabled
             '''
             result = self._values.get("fips_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def instance_metadata_tags_propagation(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-instancelaunchtemplate.html#cfn-ecs-capacityprovider-instancelaunchtemplate-instancemetadatatagspropagation
+            '''
+            result = self._values.get("instance_metadata_tags_propagation")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
@@ -9003,6 +9021,7 @@ class CfnCapacityProvider(
                             reservation_preference="reservationPreference"
                         ),
                         fips_enabled=False,
+                        instance_metadata_tags_propagation=False,
                         instance_requirements=ecs.CfnCapacityProvider.InstanceRequirementsRequestProperty(
                             memory_mi_b=ecs.CfnCapacityProvider.MemoryMiBRequestProperty(
                                 min=123,
@@ -9878,6 +9897,7 @@ class CfnCapacityProviderProps:
                             reservation_preference="reservationPreference"
                         ),
                         fips_enabled=False,
+                        instance_metadata_tags_propagation=False,
                         instance_requirements=ecs.CfnCapacityProvider.InstanceRequirementsRequestProperty(
                             memory_mi_b=ecs.CfnCapacityProvider.MemoryMiBRequestProperty(
                                 min=123,
@@ -31647,7 +31667,7 @@ class Ec2ServiceProps(BaseServiceOptions):
         :param service_connect_configuration: Configuration for Service Connect. Default: No ports are advertised via Service Connect on this service, and the service cannot make requests to other services via Service Connect.
         :param service_name: The name of the service. Default: - CloudFormation-generated name.
         :param task_definition_revision: Revision number for the task definition or ``latest`` to use the latest active task revision. Default: - Uses the revision of the passed task definition deployed by CloudFormation
-        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attched to ECS tasks. Default: - undefined
+        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attached to ECS tasks. Default: - undefined
         :param task_definition: The task definition to use for tasks in the service. [disable-awslint:ref-via-interface]
         :param assign_public_ip: Specifies whether the task's elastic network interface receives a public IP address. If true, each task will receive a public IP address. This property is only used for tasks that use the awsvpc network mode. Default: false
         :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled: ``maxHealthyPercent`` must be greater than 100; ``daemon`` must be false; if there are any ``placementStrategies``, the first must be "spread across Availability Zones"; there must be no ``placementConstraints`` using ``attribute:ecs.availability-zone``, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.ENABLED
@@ -32015,7 +32035,7 @@ class Ec2ServiceProps(BaseServiceOptions):
         '''Configuration details for a volume used by the service.
 
         This allows you to specify
-        details about the EBS volume that can be attched to ECS tasks.
+        details about the EBS volume that can be attached to ECS tasks.
 
         :default: - undefined
         '''
@@ -33746,7 +33766,7 @@ class ExternalServiceProps(BaseServiceOptions):
         :param service_connect_configuration: Configuration for Service Connect. Default: No ports are advertised via Service Connect on this service, and the service cannot make requests to other services via Service Connect.
         :param service_name: The name of the service. Default: - CloudFormation-generated name.
         :param task_definition_revision: Revision number for the task definition or ``latest`` to use the latest active task revision. Default: - Uses the revision of the passed task definition deployed by CloudFormation
-        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attched to ECS tasks. Default: - undefined
+        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attached to ECS tasks. Default: - undefined
         :param task_definition: The task definition to use for tasks in the service. [disable-awslint:ref-via-interface]
         :param daemon: By default, service use REPLICA scheduling strategy, this parameter enable DAEMON scheduling strategy. If true, the service scheduler deploys exactly one task on each container instance in your cluster. When you are using this strategy, do not specify a desired number of tasks or any task placement strategies. Tasks using the Fargate launch type or the CODE_DEPLOY or EXTERNAL deployment controller types don't support the DAEMON scheduling strategy. Default: false
         :param security_groups: The security groups to associate with the service. If you do not specify a security group, a new security group is created. Default: - A new security group is created.
@@ -34082,7 +34102,7 @@ class ExternalServiceProps(BaseServiceOptions):
         '''Configuration details for a volume used by the service.
 
         This allows you to specify
-        details about the EBS volume that can be attched to ECS tasks.
+        details about the EBS volume that can be attached to ECS tasks.
 
         :default: - undefined
         '''
@@ -34684,7 +34704,7 @@ class FargateServiceProps(BaseServiceOptions):
         :param service_connect_configuration: Configuration for Service Connect. Default: No ports are advertised via Service Connect on this service, and the service cannot make requests to other services via Service Connect.
         :param service_name: The name of the service. Default: - CloudFormation-generated name.
         :param task_definition_revision: Revision number for the task definition or ``latest`` to use the latest active task revision. Default: - Uses the revision of the passed task definition deployed by CloudFormation
-        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attched to ECS tasks. Default: - undefined
+        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attached to ECS tasks. Default: - undefined
         :param task_definition: The task definition to use for tasks in the service. [disable-awslint:ref-via-interface]
         :param assign_public_ip: Specifies whether the task's elastic network interface receives a public IP address. If true, each task will receive a public IP address. Default: false
         :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled, ``maxHealthyPercent`` must be greater than 100, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.ENABLED
@@ -35053,7 +35073,7 @@ class FargateServiceProps(BaseServiceOptions):
         '''Configuration details for a volume used by the service.
 
         This allows you to specify
-        details about the EBS volume that can be attched to ECS tasks.
+        details about the EBS volume that can be attached to ECS tasks.
 
         :default: - undefined
         '''
@@ -50625,7 +50645,7 @@ class Ec2Service(
         :param service_connect_configuration: Configuration for Service Connect. Default: No ports are advertised via Service Connect on this service, and the service cannot make requests to other services via Service Connect.
         :param service_name: The name of the service. Default: - CloudFormation-generated name.
         :param task_definition_revision: Revision number for the task definition or ``latest`` to use the latest active task revision. Default: - Uses the revision of the passed task definition deployed by CloudFormation
-        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attched to ECS tasks. Default: - undefined
+        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attached to ECS tasks. Default: - undefined
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e578461670bd6cdf856f914534e1feff8905e31d33cd7aea2b9f51512de5cea)
@@ -51133,7 +51153,7 @@ class ExternalService(
         :param service_connect_configuration: Configuration for Service Connect. Default: No ports are advertised via Service Connect on this service, and the service cannot make requests to other services via Service Connect.
         :param service_name: The name of the service. Default: - CloudFormation-generated name.
         :param task_definition_revision: Revision number for the task definition or ``latest`` to use the latest active task revision. Default: - Uses the revision of the passed task definition deployed by CloudFormation
-        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attched to ECS tasks. Default: - undefined
+        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attached to ECS tasks. Default: - undefined
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ceef4de126cbb6bd6f379ba0b53be2fb61c35761f50685b5d228c682b979cc7)
@@ -51631,7 +51651,7 @@ class FargateService(
         :param service_connect_configuration: Configuration for Service Connect. Default: No ports are advertised via Service Connect on this service, and the service cannot make requests to other services via Service Connect.
         :param service_name: The name of the service. Default: - CloudFormation-generated name.
         :param task_definition_revision: Revision number for the task definition or ``latest`` to use the latest active task revision. Default: - Uses the revision of the passed task definition deployed by CloudFormation
-        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attched to ECS tasks. Default: - undefined
+        :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attached to ECS tasks. Default: - undefined
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ddac6b19472d00f74c1777e699ce5b239dc49e62ff4ab4674c917bbed10c538)
@@ -52616,6 +52636,7 @@ def _typecheckingstub__cb545da33f3067adee24bf90d3e903b06a7562a7e6ea6b3785f5b0ae6
     capacity_option_type: typing.Optional[builtins.str] = None,
     capacity_reservations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.CapacityReservationRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     fips_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    instance_metadata_tags_propagation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     instance_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.InstanceRequirementsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     monitoring: typing.Optional[builtins.str] = None,
     storage_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.ManagedInstancesStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

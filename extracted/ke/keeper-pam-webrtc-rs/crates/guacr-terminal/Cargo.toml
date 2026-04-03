@@ -40,6 +40,9 @@ png = "0.17"  # Streaming PNG encoder for zero-copy encoding
 guacr-protocol = { path = "../guacr-protocol" }
 guacr-recording = { path = "../guacr-recording" }
 
+# H.264 software encoding (optional, enabled by default)
+openh264 = { version = "0.9", optional = true }
+
 # Zero-copy buffer pooling
 crossbeam-queue = "0.3"
 
@@ -51,7 +54,8 @@ tempfile = "3.8"
 criterion = "0.5"
 
 [features]
-default = []
+default = ["h264-soft"]
+h264-soft = ["openh264"]
 # sixel-support = ["sixel"]  # Disabled due to security vulnerabilities in sixel 0.3
 
 [[bench]]

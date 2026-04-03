@@ -3,6 +3,7 @@ import sys
 from rich.console import Console
 from rich_rst import RestructuredText
 from rich.terminal_theme import TerminalTheme
+from rich.traceback import install
 
 def rgb(r, g, b):
     """
@@ -33,6 +34,7 @@ def parse_arguments():
     parser.add_argument("-w", "--width", type=int, dest="width", default=None, help="width of output (default will auto-detect)")
     parser.add_argument("-hw", "--html-width", type=str, dest="html_width", default="1675px", help="width of html output (default: 1675px)")
     parser.add_argument("-t", "--code-theme", dest="code_theme", type=str, default="monokai", help="pygments code theme")
+    parser.add_argument("--show-line-numbers", action="store_true", dest="show_line_numbers", default=False, help="show line numbers for syntax-highlighted code blocks")
     parser.add_argument("-html", "--save-html", type=str, dest="html_filename", default=False, help="save to html")
     parser.add_argument("-r", "--wrap", dest="word_wrap", action="store_true", default=False, help="word wrap long lines")
     parser.add_argument("-s", "--soft-wrap", action="store_true", dest="soft_wrap", default=False, help="enable soft wrapping mode")
@@ -68,16 +70,21 @@ def main():
             rgb(255, 255, 255),
         ],
     )
-    CONSOLE_HTML_FORMAT = f"""\
+    # NOTE: CSS braces must be doubled ({{ / }}) so that Rich's internal
+    # code_format.format(...) call treats them as literal characters.
+    # args.html_width is spliced in with a plain str.replace to avoid
+    # adding a third round of brace escaping.
+    CONSOLE_HTML_FORMAT = """\
     <!DOCTYPE html>
+    <html>
     <head>
     <meta charset="UTF-8">
     <style>
-    {{stylesheet}}
+    {stylesheet}
     body {{
-        color: {{foreground}};
-        background-color: {{background}};
-        max-width: {args.html_width}
+        color: {foreground};
+        background-color: {background};
+        max-width: HTML_WIDTH_PLACEHOLDER
     }}
     pre {{
         white-space: pre-wrap;       /* Since CSS 2.1 */
@@ -86,7 +93,7 @@ def main():
         white-space: -o-pre-wrap;    /* Opera 7 */
         word-wrap: break-word;       /* Internet Explorer 5.5+ */
     }}
-    ::-moz-selection {{ /* Code for Firefox */
+    ::-moz-selection {{
       background: #44475a;
     }}
     ::selection {{
@@ -94,19 +101,21 @@ def main():
     }}
     </style>
     </head>
-    <html>
     <body>
-        <code>
-            <pre style="font-family:ui-monospace,'Fira Code',Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">{{code}}</pre>
-        </code>
+        <pre style="font-family:ui-monospace,'Fira Code',Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"><code>{code}</code></pre>
     </body>
     </html>
-    """
+    """.replace("HTML_WIDTH_PLACEHOLDER", args.html_width)
     console = Console(force_terminal=args.force_color, width=args.width, record=bool(args.html_filename))
-    code = sys.stdin.read() if args.path == "-" else open(args.path, "rt", encoding=args.encoding).read()
+    if args.path == "-":
+        code = sys.stdin.read()
+    else:
+        with open(args.path, "rt", encoding=args.encoding) as file_handle:
+            code = file_handle.read()
     rst = RestructuredText(
         code,
         code_theme=args.code_theme,
+        show_line_numbers=args.show_line_numbers,
         guess_lexer=args.guess_lexer,
         default_lexer=args.default_lexer,
         show_errors=not args.hide_errors,
@@ -117,4 +126,5 @@ def main():
         console.save_html(args.html_filename, theme=DRACULA_TERMINAL_THEME, code_format=CONSOLE_HTML_FORMAT)
 
 if __name__ == "__main__":
+    install()
     main()

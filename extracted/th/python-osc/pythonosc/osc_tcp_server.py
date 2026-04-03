@@ -35,6 +35,7 @@ loop.run_forever()
 import asyncio
 import logging
 import os
+import socket
 import socketserver
 import struct
 from typing import List, Tuple
@@ -75,7 +76,7 @@ class _TCPHandler1_0(socketserver.BaseRequestHandler):
             )
             # resp = _call_handlers_for_packet(data, self.server.dispatcher)
             for r in resp:
-                if not isinstance(r, list):
+                if not isinstance(r, tuple):
                     r = [r]
                 msg = osc_message_builder.build_msg(r[0], r[1:])
                 b = struct.pack("!I", len(msg.dgram))
@@ -117,7 +118,7 @@ class _TCPHandler1_1(socketserver.BaseRequestHandler):
                     p, self.client_address
                 )
                 for r in resp:
-                    if not isinstance(r, list):
+                    if not isinstance(r, tuple):
                         r = [r]
                     msg = osc_message_builder.build_msg(r[0], r[1:])
                     self.request.sendall(slip.encode(msg.dgram))
@@ -146,11 +147,30 @@ class OSCTCPServer(socketserver.TCPServer):
         server_address: Tuple[str | bytes | bytearray, int],
         dispatcher: Dispatcher,
         mode: str = MODE_1_1,
+        family: socket.AddressFamily | None = None,
     ):
         self.request_queue_size = 300
         self.mode = mode
         if mode not in [MODE_1_0, MODE_1_1]:
             raise ValueError("OSC Mode must be '1.0' or '1.1'")
+
+        if family is not None:
+            self.address_family = family
+        elif isinstance(server_address[0], str):
+            # Try to infer address family from server_address
+            try:
+                infos = socket.getaddrinfo(
+                    server_address[0],
+                    server_address[1],
+                    type=socket.SOCK_STREAM,
+                    family=socket.AF_UNSPEC,
+                )
+                if infos:
+                    self.address_family = infos[0][0]
+            except (socket.gaierror, IndexError):
+                # Fallback to default if resolution fails
+                pass
+
         if self.mode == MODE_1_0:
             super().__init__(server_address, _TCPHandler1_0)
         else:
@@ -284,7 +304,7 @@ class AsyncOSCTCPServer:
                 buf, client_address
             )
             for r in result:
-                if not isinstance(r, list):
+                if not isinstance(r, tuple):
                     r = [r]
                 msg = osc_message_builder.build_msg(r[0], r[1:])
                 b = struct.pack("!I", len(msg.dgram))
@@ -319,7 +339,7 @@ class AsyncOSCTCPServer:
                     p, client_address
                 )
                 for r in result:
-                    if not isinstance(r, list):
+                    if not isinstance(r, tuple):
                         r = [r]
                     msg = osc_message_builder.build_msg(r[0], r[1:])
                     writer.write(slip.encode(msg.dgram))

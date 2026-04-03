@@ -1,6 +1,7 @@
 import { check, fail } from "k6";
 import { Trend, Counter } from "k6/metrics";
 import { Benchmarks } from "./benchmark-runners/dist/benchmarks.js";
+import { get_profile } from "./benchmark-runners/dist/benchmark_profiles.js";
 
 // Metrics
 const runExecutionLatency = new Trend("run_execution_latency");
@@ -21,17 +22,12 @@ const RUN_EXECUTION_TIMEOUT_SECONDS = parseInt(
   __ENV.RUN_EXECUTION_TIMEOUT_SECONDS || "10",
 );
 
-// Run mode: 'stateless' (default) or 'stateful' (creates thread first)
-const RUN_MODE = __ENV.RUN_MODE || "stateless";
-
-// Benchmark type: 'wait_write' (default), 'stream_write', 'thread', 'assistant'
-const BENCHMARK_TYPE = __ENV.BENCHMARK_TYPE || "wait_write";
-
-// Agent params
-const DATA_SIZE = parseInt(__ENV.DATA_SIZE || "1000");
-const DELAY = parseInt(__ENV.DELAY || "0");
-const EXPAND = parseInt(__ENV.EXPAND || "10");
-const STEPS = parseInt(__ENV.STEPS || "10");
+const profile = get_profile(__ENV);
+const BENCHMARK_TYPE = profile.benchmarkType;
+const BENCHMARK_PROFILE = profile.name;
+const RUN_MODE = profile.runMode;
+const EFFECTIVE_CONTEXT = profile.context;
+const RESUMABLE = profile.resumable;
 
 // K6 options
 export const options = {
@@ -64,12 +60,9 @@ function buildBenchmarkGraphOptions() {
   return {
     graph_id: "benchmark",
     stateful: RUN_MODE === "stateful",
-    input: {
-      data_size: DATA_SIZE,
-      delay: DELAY,
-      expand: EXPAND,
-      steps: STEPS,
-    },
+    input: {},
+    context: EFFECTIVE_CONTEXT,
+    resumable: RESUMABLE,
   };
 }
 
@@ -84,12 +77,13 @@ export default function (data) {
     console.log(`BASE_URL: ${BASE_URL}`);
     console.log(`TARGET: ${TARGET}`);
     console.log(`BENCHMARK_TYPE: ${BENCHMARK_TYPE}`);
+    console.log(`BENCHMARK_PROFILE: ${BENCHMARK_PROFILE}`);
     console.log(`RUN_MODE: ${RUN_MODE}`);
+    console.log(`RESUMABLE: ${RESUMABLE}`);
     console.log(
       `RUN_EXECUTION_TIMEOUT_SECONDS: ${RUN_EXECUTION_TIMEOUT_SECONDS}`,
     );
-    console.log(`EXPAND: ${EXPAND}`);
-    console.log(`DATA_SIZE: ${DATA_SIZE}`);
+    console.log(`CONTEXT: ${JSON.stringify(EFFECTIVE_CONTEXT)}`);
     console.log(`=========================\n`);
   }
 

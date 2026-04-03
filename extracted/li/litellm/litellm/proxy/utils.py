@@ -2235,6 +2235,32 @@ class ProxyLogging:
         async for chunk in current_response:
             yield chunk
 
+        # Fire deferred logging AFTER all guardrail end-of-stream blocks
+        # completed.  unified_guardrail writes guardrail_information during
+        # its end-of-stream block (inside current_response), so by the time
+        # we reach this point the metadata is fully populated.
+        ProxyLogging._fire_deferred_stream_logging(request_data)
+
+    @staticmethod
+    def _fire_deferred_stream_logging(request_data: dict) -> None:
+        """
+        Fire the deferred streaming logging callback after the full streaming
+        pipeline (including guardrail end-of-stream blocks) has completed.
+
+        CSW.__anext__ stores the callback and args on logging_obj instead of
+        scheduling via create_task (which would race with unified_guardrail's
+        end-of-stream block).  This method retrieves and fires them.
+        """
+        logging_obj = request_data.get("litellm_logging_obj")
+        if logging_obj is None:
+            return
+        _deferred_cb = getattr(logging_obj, "_on_deferred_stream_complete", None)
+        _args = getattr(logging_obj, "_deferred_stream_complete_args", None)
+        if _deferred_cb is not None and _args is not None:
+            logging_obj._on_deferred_stream_complete = None
+            logging_obj._deferred_stream_complete_args = None
+            asyncio.create_task(_deferred_cb(*_args))
+
     def _init_response_taking_too_long_task(self, data: Optional[dict] = None):
         """
         Initialize the response taking too long task if user is using slack alerting
@@ -4575,7 +4601,9 @@ def verify_password(password: str, stored: str) -> bool:
         try:
             raw = base64.b64decode(stored[7:])
             salt, dk = raw[:16], raw[16:]
-            dk2 = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1, dklen=32)
+            dk2 = hashlib.scrypt(
+                password.encode(), salt=salt, n=16384, r=8, p=1, dklen=32
+            )
             return secrets.compare_digest(dk, dk2)
         except Exception:
             return False
@@ -4596,12 +4624,16 @@ async def migrate_passwords_to_scrypt_async(prisma_client) -> str:
     all_with_pw = await prisma_client.db.litellm_usertable.find_many(
         where={"password": {"not": None}},
     )
+
     def _is_sha256_hex(s: str) -> bool:
         return len(s) == 64 and all(c in "0123456789abcdef" for c in s)
 
     plaintext_users = [
-        u for u in all_with_pw
-        if u.password and not u.password.startswith("scrypt:") and not _is_sha256_hex(u.password)
+        u
+        for u in all_with_pw
+        if u.password
+        and not u.password.startswith("scrypt:")
+        and not _is_sha256_hex(u.password)
     ]
     if not plaintext_users:
         return "No plaintext passwords found"

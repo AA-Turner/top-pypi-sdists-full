@@ -193,7 +193,7 @@ def wrap_lifespan_context_aenter(
     warn_message: str | None = (
         "User lifespan startup exceeded expected time. "
         "Slow work done at entry time within lifespan context can delay readiness, "
-        "reduce scale-out capacity, and may cause deployments to be marked unhealthy."
+        "slow scale-out velocity, and may cause deployments to be marked unhealthy."
     ),
     error_threshold_secs: float | None = 30,
     error_message: str | None = None,

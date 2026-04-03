@@ -336,6 +336,7 @@ STREAM_PUBLISH_RETRY_JITTER = env(
     default=0.3,  # 0 means no jitter, 1 means max jitter
 )
 
+FF_ASYNC_PUBLISH_QUEUE = env("FF_ASYNC_PUBLISH_QUEUE", cast=bool, default=False)
 FF_CRONS_ENABLED = env("FF_CRONS_ENABLED", cast=bool, default=True)
 FF_LOG_DROPPED_EVENTS = env("FF_LOG_DROPPED_EVENTS", cast=bool, default=False)
 FF_LOG_QUERY_AND_PARAMS = env("FF_LOG_QUERY_AND_PARAMS", cast=bool, default=False)
@@ -520,6 +521,8 @@ FF_PYSPY_PROFILING_MAX_DURATION_SECS = env(
 )
 FF_PROFILE_IMPORTS = env("FF_PROFILE_IMPORTS", cast=bool, default=False)
 
+JS_READY_TIMEOUT_SECS = env("LANGGRAPH_JS_READY_TIMEOUT_SECS", cast=int, default=120)
+
 SELF_HOSTED_OBSERVABILITY_SERVICE_NAME = "LGP_Self_Hosted"
 
 IS_QUEUE_ENTRYPOINT = False
@@ -568,6 +571,7 @@ __all__ = [
     "IS_EXECUTOR_ENTRYPOINT",
     "IS_QUEUE_ENTRYPOINT",
     "JSON_THREAD_POOL_MINIMUM_SIZE_BYTES",
+    "JS_READY_TIMEOUT_SECS",
     "LANGGRAPH_AES_JSON_KEYS",
     "LANGGRAPH_AES_KEY",
     "LANGGRAPH_AUTH",

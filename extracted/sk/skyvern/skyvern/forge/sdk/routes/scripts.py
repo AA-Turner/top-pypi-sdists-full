@@ -734,7 +734,7 @@ async def get_workflow_script_blocks(
                 statuses=[ScriptStatus.published],
             )
             if workflow_script:
-                published_script = await workflow_script_service.get_workflow_script_by_cache_key_value(
+                published_script, _is_pinned = await workflow_script_service.get_workflow_script_by_cache_key_value(
                     organization_id=current_org.organization_id,
                     workflow_permanent_id=workflow_permanent_id,
                     cache_key_value=workflow_script.cache_key_value,
@@ -752,7 +752,7 @@ async def get_workflow_script_blocks(
                     )
 
             # Fall back to latest version (for runs without a workflow_script entry)
-            published_script, _ = await workflow_script_service.get_workflow_script(
+            published_script, _rendered_cache_key, _is_pinned = await workflow_script_service.get_workflow_script(
                 workflow=workflow,
                 workflow_run=workflow_run,
                 status=ScriptStatus.published,
@@ -770,7 +770,7 @@ async def get_workflow_script_blocks(
     cache_key = block_script_request.cache_key or workflow.cache_key or ""
     status = block_script_request.status
 
-    script = await workflow_script_service.get_workflow_script_by_cache_key_value(
+    script, _is_pinned = await workflow_script_service.get_workflow_script_by_cache_key_value(
         organization_id=current_org.organization_id,
         workflow_permanent_id=workflow_permanent_id,
         workflow_run_id=block_script_request.workflow_run_id,
@@ -1330,8 +1330,12 @@ async def review_script_with_instructions(
                 workflow_run_id=data.workflow_run_id,
             )
             for wf_param, run_param in run_param_tuples:
-                if isinstance(run_param.value, str) and run_param.value:
-                    run_parameter_values[wf_param.key] = run_param.value
+                if (
+                    run_param.value is not None
+                    and str(run_param.value).strip()
+                    and not wf_param.parameter_type.is_secret_or_credential()
+                ):
+                    run_parameter_values[wf_param.key] = str(run_param.value)
         except Exception:
             LOG.warning("Failed to load run parameter values", exc_info=True)
 

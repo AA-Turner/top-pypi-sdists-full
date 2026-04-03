@@ -37,8 +37,8 @@ webp = "0.3"
 # Utilities
 base64.workspace = true
 
-# Zero-copy optimizations
-guacr-terminal = { path = "../guacr-terminal" }
+# Zero-copy optimizations + software H.264 encoder (for xrdp/non-EGFX fallback)
+guacr-terminal = { path = "../guacr-terminal", features = ["h264-soft"] }
 guacr-protocol = { path = "../guacr-protocol" }
 
 # Video session recording: fMP4 + AES-256-GCM + WebSocket upload

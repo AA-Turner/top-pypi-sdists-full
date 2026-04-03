@@ -13,55 +13,14 @@ from pathlib import Path
 from typing import Any, Optional
 
 from mcp.server import Server
-from mcp.types import Tool, TextContent, Resource
+from mcp.types import Tool, TextContent, Resource, Prompt, PromptMessage, GetPromptResult
 
 from . import __version__
 from . import config as config_module
-from .tools.index_repo import index_repo
-from .tools.index_folder import index_folder
-from .tools.index_file import index_file
-from .tools.summarize_repo import summarize_repo
-from .tools.list_repos import list_repos
-from .tools.resolve_repo import resolve_repo
-from .tools.get_file_tree import get_file_tree
-from .tools.get_file_outline import get_file_outline
-from .tools.get_file_content import get_file_content
-from .tools.get_symbol import get_symbol_source
-from .tools.search_symbols import search_symbols
-from .tools.invalidate_cache import invalidate_cache
-from .tools.search_text import search_text
-from .tools.get_repo_outline import get_repo_outline
-from .tools.find_importers import find_importers
-from .tools.find_references import find_references
-from .tools.check_references import check_references
-from .tools.get_session_stats import get_session_stats
-from .tools.test_summarizer import test_summarizer
-from .tools.get_dependency_graph import get_dependency_graph
-from .tools.get_blast_radius import get_blast_radius
-from .tools.get_dependency_cycles import get_dependency_cycles
-from .tools.get_coupling_metrics import get_coupling_metrics
-from .tools.get_layer_violations import get_layer_violations
-from .tools.get_call_hierarchy import get_call_hierarchy
-from .tools.get_impact_preview import get_impact_preview
-from .tools.check_rename_safe import check_rename_safe
-from .tools.get_dead_code_v2 import get_dead_code_v2
-from .tools.get_extraction_candidates import get_extraction_candidates
-from .tools.get_symbol_complexity import get_symbol_complexity
-from .tools.get_churn_rate import get_churn_rate
-from .tools.get_hotspots import get_hotspots
-from .tools.get_repo_health import get_repo_health
-from .tools.get_symbol_diff import get_symbol_diff
-from .tools.get_class_hierarchy import get_class_hierarchy
-from .tools.get_related_symbols import get_related_symbols
-from .tools.get_symbol_importance import get_symbol_importance
-from .tools.find_dead_code import find_dead_code
-from .tools.get_changed_symbols import get_changed_symbols
-from .tools.suggest_queries import suggest_queries
-from .tools.search_columns import search_columns
-from .tools.get_context_bundle import get_context_bundle
-from .tools.get_ranked_context import get_ranked_context
-from .tools.embed_repo import embed_repo
-from .tools.get_cross_repo_map import get_cross_repo_map
+# Tool modules are imported lazily inside each call_tool() dispatch branch.
+# This defers loading heavy dependencies (tree-sitter, httpx, pathspec) until
+# the first actual call to a tool that needs them, reducing cold-start latency
+# for sessions that only use query tools and never trigger indexing.
 from .parser.symbols import VALID_KINDS
 from .summarizer import get_provider_name
 from .reindex_state import await_freshness_if_strict
@@ -74,6 +33,38 @@ except ImportError:
     watch_folders = None  # type: ignore[assignment, misc]
     WatcherError = type("WatcherError", (Exception,), {})  # type: ignore[assignment, misc]
 
+
+# Canonical list of all registered tool names (unfiltered).
+# Keep in sync with _build_tools_list(). Used by `config --check` and
+# `claude-md --generate` to detect CLAUDE.md / hook-script drift.
+_CANONICAL_TOOL_NAMES: tuple[str, ...] = (
+    # Indexing
+    "index_repo", "index_folder", "summarize_repo", "index_file",
+    # Discovery
+    "list_repos", "resolve_repo", "suggest_queries",
+    "get_repo_outline", "get_file_tree", "get_file_outline",
+    # Search & Retrieval
+    "search_symbols", "get_symbol_source", "get_context_bundle",
+    "get_file_content", "search_text", "search_columns", "get_ranked_context",
+    # Relationships
+    "find_importers", "find_references", "check_references",
+    "get_dependency_graph", "get_class_hierarchy", "get_related_symbols",
+    "get_call_hierarchy",
+    # Impact & Safety
+    "get_blast_radius", "check_rename_safe", "get_impact_preview",
+    "get_changed_symbols",
+    # Architecture
+    "get_dependency_cycles", "get_coupling_metrics", "get_layer_violations",
+    "get_extraction_candidates", "get_cross_repo_map",
+    # Quality & Metrics
+    "get_symbol_complexity", "get_churn_rate", "get_hotspots",
+    "get_repo_health", "get_symbol_importance", "find_dead_code",
+    "get_dead_code_v2",
+    # Diffs & Embeddings
+    "get_symbol_diff", "embed_repo",
+    # Utilities
+    "get_session_stats", "invalidate_cache", "test_summarizer",
+)
 
 # Tools excluded from strict freshness mode (don't wait for reindex)
 _EXCLUDED_FROM_STRICT = frozenset({
@@ -199,6 +190,11 @@ server = Server("jcodemunch-mcp")
 @server.list_tools()
 async def list_tools() -> list[Tool]:
     """List all available tools."""
+    return _build_tools_list()
+
+
+def _build_tools_list() -> list[Tool]:
+    """Build the full tool list, applying config-driven filtering and overrides."""
     tools = [
         Tool(
             name="index_repo",
@@ -319,7 +315,15 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="list_repos",
-            description="List all indexed repositories.",
+            description=(
+                "List all indexed repositories. "
+                "START HERE before using Grep/Read/search tools — check if the project is "
+                "already indexed, then use search_symbols / get_symbol_source instead of "
+                "native file reads. If jcodemunch tools appear as deferred in your tool list, "
+                "call ToolSearch to load their schemas first."
+                if config_module.get("discovery_hint", True)
+                else "List all indexed repositories."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {}
@@ -393,7 +397,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="get_symbol_source",
-            description="Get full source of one symbol (symbol_id → flat object) or many (symbol_ids[] → {symbols, errors}). Supports verify and context_lines.",
+            description="Get full source of one symbol (symbol_id → flat object) or many (symbol_ids[] → {symbols, errors}). Supports verify, context_lines, and fqn (PHP FQN via PSR-4).",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -419,6 +423,10 @@ async def list_tools() -> list[Tool]:
                         "type": "integer",
                         "description": "Number of lines before/after symbol to include for context",
                         "default": 0
+                    },
+                    "fqn": {
+                        "type": "string",
+                        "description": "PHP fully-qualified class name (e.g. 'App\\Models\\User'). Resolves to symbol_id via PSR-4. Alternative to symbol_id."
                     }
                 },
                 "required": ["repo"]
@@ -533,6 +541,10 @@ async def list_tools() -> list[Tool]:
                         "type": "boolean",
                         "description": "Skip BM25 entirely and rank solely by embedding cosine similarity. Implies semantic=true.",
                         "default": False
+                    },
+                    "fqn": {
+                        "type": "string",
+                        "description": "PHP fully-qualified class name (e.g. 'App\\Models\\User'). Resolves via PSR-4 and uses the class name as query. Alternative to query."
                     }
                 },
                 "required": ["repo", "query"]
@@ -693,7 +705,8 @@ async def list_tools() -> list[Tool]:
             description=(
                 "Get full source + imports for one or more symbols in one call. "
                 "Multi-symbol bundles deduplicate shared imports. "
-                "Set token_budget to cap response size; use budget_strategy to control what's kept."
+                "Set token_budget to cap response size; use budget_strategy to control what's kept. "
+                "Supports fqn (PHP FQN via PSR-4) as alternative to symbol_id."
             ),
             inputSchema={
                 "type": "object",
@@ -740,6 +753,10 @@ async def list_tools() -> list[Tool]:
                         "type": "boolean",
                         "description": "When true, include a 'budget_report' field showing tokens used, symbols included/excluded, and strategy applied.",
                         "default": False
+                    },
+                    "fqn": {
+                        "type": "string",
+                        "description": "PHP fully-qualified class name (e.g. 'App\\Models\\User'). Resolves to symbol_id via PSR-4. Alternative to symbol_id."
                     }
                 },
                 "required": ["repo"]
@@ -882,6 +899,10 @@ async def list_tools() -> list[Tool]:
                         "type": "integer",
                         "description": "When > 0, also find symbols that *call* this symbol (call-level analysis). Returns a callers list alongside the import-level confirmed/potential. Max 3. Default 0 (disabled).",
                         "default": 0,
+                    },
+                    "fqn": {
+                        "type": "string",
+                        "description": "PHP fully-qualified class name (e.g. 'App\\Models\\User'). Resolves to symbol via PSR-4. Alternative to symbol."
                     },
                 },
                 "required": ["repo", "symbol"]
@@ -1475,10 +1496,58 @@ async def list_resources() -> list[Resource]:
     return []
 
 
+_WORKFLOW_PROMPT_TEXT = """\
+# jcodemunch-mcp — Workflow Guide
+
+Use these tools instead of Grep/Read/search for any indexed repository.
+
+## Step-by-step
+
+1. **list_repos** — check if the project is already indexed.
+   - If not found, run **index_folder** (local) or **index_repo** (GitHub URL).
+
+2. **search_symbols** — find functions, classes, methods by name or description.
+   - Use `detail_level: "full"` to get source inline, or follow up with **get_symbol_source**.
+
+3. **get_context_bundle** — get symbol source + its imports in one call.
+
+4. **search_text** — fall back to full-text / regex search for string literals or comments.
+
+5. **get_file_outline** — list all symbols in a file without reading the whole thing.
+
+## Claude Code deferred-tool note
+
+jcodemunch tools may appear as *deferred* in your system-reminder. Call **ToolSearch** with
+a query like `"list repos"` or `"search symbols"` to load the full schema before use.
+Set `discovery_hint: false` in config.jsonc to suppress the reminder in tool descriptions.
+"""
+
+
 @server.list_prompts()
-async def list_prompts() -> list:
-    """Return empty prompt list for client compatibility (e.g. Windsurf)."""
-    return []
+async def list_prompts() -> list[Prompt]:
+    """Return the workflow guidance prompt."""
+    return [
+        Prompt(
+            name="workflow",
+            description="Step-by-step guide for using jcodemunch-mcp tools in Claude Code.",
+        )
+    ]
+
+
+@server.get_prompt()
+async def get_prompt(name: str, arguments: dict | None = None) -> GetPromptResult:
+    """Return the requested prompt content."""
+    if name == "workflow":
+        return GetPromptResult(
+            description="jcodemunch-mcp workflow guide for Claude Code.",
+            messages=[
+                PromptMessage(
+                    role="user",
+                    content=TextContent(type="text", text=_WORKFLOW_PROMPT_TEXT),
+                )
+            ],
+        )
+    raise ValueError(f"Unknown prompt: {name}")
 
 
 @server.call_tool(validate_input=False)
@@ -1520,6 +1589,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             }, indent=2))]
 
         if name == "index_repo":
+            from .tools.index_repo import index_repo
             result = await index_repo(
                 url=arguments["url"],
                 use_ai_summaries=arguments.get("use_ai_summaries", _default_use_ai_summaries()),
@@ -1529,6 +1599,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             )
             _result_cache_invalidate()
         elif name == "index_folder":
+            from .tools.index_folder import index_folder
             _ai = arguments.get("use_ai_summaries", _default_use_ai_summaries())
             result = await asyncio.to_thread(
                 functools.partial(
@@ -1543,6 +1614,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             )
             _result_cache_invalidate()
         elif name == "summarize_repo":
+            from .tools.summarize_repo import summarize_repo
             result = await asyncio.to_thread(
                 functools.partial(
                     summarize_repo,
@@ -1552,6 +1624,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "index_file":
+            from .tools.index_file import index_file
             _ai = arguments.get("use_ai_summaries", _default_use_ai_summaries())
             result = await asyncio.to_thread(
                 functools.partial(
@@ -1564,10 +1637,12 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             )
             _result_cache_invalidate()
         elif name == "list_repos":
+            from .tools.list_repos import list_repos
             result = await asyncio.to_thread(
                 functools.partial(list_repos, storage_path=storage_path)
             )
         elif name == "resolve_repo":
+            from .tools.resolve_repo import resolve_repo
             result = await asyncio.to_thread(
                 functools.partial(
                     resolve_repo,
@@ -1576,6 +1651,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_file_tree":
+            from .tools.get_file_tree import get_file_tree
             result = await asyncio.to_thread(
                 functools.partial(
                     get_file_tree,
@@ -1587,6 +1663,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_file_outline":
+            from .tools.get_file_outline import get_file_outline
             result = await asyncio.to_thread(
                 functools.partial(
                     get_file_outline,
@@ -1597,6 +1674,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_file_content":
+            from .tools.get_file_content import get_file_content
             result = await asyncio.to_thread(
                 functools.partial(
                     get_file_content,
@@ -1608,6 +1686,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_symbol_source":
+            from .tools.get_symbol import get_symbol_source
             result = await asyncio.to_thread(
                 functools.partial(
                     get_symbol_source,
@@ -1617,9 +1696,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     verify=arguments.get("verify", False),
                     context_lines=arguments.get("context_lines", 0),
                     storage_path=storage_path,
+                    fqn=arguments.get("fqn"),
                 )
             )
         elif name == "search_symbols":
+            from .tools.search_symbols import search_symbols
             kind_filter = arguments.get("kind")
             if kind_filter and kind_filter not in VALID_KINDS:
                 result = {"error": f"Unknown kind '{kind_filter}'. Valid values: {sorted(VALID_KINDS)}"}
@@ -1644,9 +1725,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                         semantic_weight=arguments.get("semantic_weight", 0.5),
                         semantic_only=arguments.get("semantic_only", False),
                         storage_path=storage_path,
+                        fqn=arguments.get("fqn"),
                     )
                 )
         elif name == "invalidate_cache":
+            from .tools.invalidate_cache import invalidate_cache
             result = await asyncio.to_thread(
                 functools.partial(
                     invalidate_cache,
@@ -1656,6 +1739,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             )
             _result_cache_invalidate()
         elif name == "search_text":
+            from .tools.search_text import search_text
             result = await asyncio.to_thread(
                 functools.partial(
                     search_text,
@@ -1669,6 +1753,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_repo_outline":
+            from .tools.get_repo_outline import get_repo_outline
             result = await asyncio.to_thread(
                 functools.partial(
                     get_repo_outline,
@@ -1677,6 +1762,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "find_importers":
+            from .tools.find_importers import find_importers
             result = await asyncio.to_thread(
                 functools.partial(
                     find_importers,
@@ -1689,6 +1775,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "find_references":
+            from .tools.find_references import find_references
             result = await asyncio.to_thread(
                 functools.partial(
                     find_references,
@@ -1701,6 +1788,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "check_references":
+            from .tools.check_references import check_references
             result = await asyncio.to_thread(
                 functools.partial(
                     check_references,
@@ -1713,6 +1801,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "search_columns":
+            from .tools.search_columns import search_columns
             result = await asyncio.to_thread(
                 functools.partial(
                     search_columns,
@@ -1724,6 +1813,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_context_bundle":
+            from .tools.get_context_bundle import get_context_bundle
             result = await asyncio.to_thread(
                 functools.partial(
                     get_context_bundle,
@@ -1736,9 +1826,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     budget_strategy=arguments.get("budget_strategy", "most_relevant"),
                     include_budget_report=arguments.get("include_budget_report", False),
                     storage_path=storage_path,
+                    fqn=arguments.get("fqn"),
                 )
             )
         elif name == "get_ranked_context":
+            from .tools.get_ranked_context import get_ranked_context
             result = await asyncio.to_thread(
                 functools.partial(
                     get_ranked_context,
@@ -1752,6 +1844,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_session_stats":
+            from .tools.get_session_stats import get_session_stats
             result = await asyncio.to_thread(
                 functools.partial(
                     get_session_stats,
@@ -1759,6 +1852,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "test_summarizer":
+            from .tools.test_summarizer import test_summarizer
             result = await asyncio.to_thread(
                 functools.partial(
                     test_summarizer,
@@ -1766,6 +1860,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_dependency_graph":
+            from .tools.get_dependency_graph import get_dependency_graph
             result = await asyncio.to_thread(
                 functools.partial(
                     get_dependency_graph,
@@ -1778,6 +1873,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_blast_radius":
+            from .tools.get_blast_radius import get_blast_radius
             result = await asyncio.to_thread(
                 functools.partial(
                     get_blast_radius,
@@ -1788,9 +1884,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     storage_path=storage_path,
                     cross_repo=arguments.get("cross_repo"),
                     call_depth=arguments.get("call_depth", 0),
+                    fqn=arguments.get("fqn"),
                 )
             )
         elif name == "get_call_hierarchy":
+            from .tools.get_call_hierarchy import get_call_hierarchy
             result = await asyncio.to_thread(
                 functools.partial(
                     get_call_hierarchy,
@@ -1802,6 +1900,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_impact_preview":
+            from .tools.get_impact_preview import get_impact_preview
             result = await asyncio.to_thread(
                 functools.partial(
                     get_impact_preview,
@@ -1811,6 +1910,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_dependency_cycles":
+            from .tools.get_dependency_cycles import get_dependency_cycles
             result = await asyncio.to_thread(
                 functools.partial(
                     get_dependency_cycles,
@@ -1819,6 +1919,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_coupling_metrics":
+            from .tools.get_coupling_metrics import get_coupling_metrics
             result = await asyncio.to_thread(
                 functools.partial(
                     get_coupling_metrics,
@@ -1828,6 +1929,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_layer_violations":
+            from .tools.get_layer_violations import get_layer_violations
             result = await asyncio.to_thread(
                 functools.partial(
                     get_layer_violations,
@@ -1837,6 +1939,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "check_rename_safe":
+            from .tools.check_rename_safe import check_rename_safe
             result = await asyncio.to_thread(
                 functools.partial(
                     check_rename_safe,
@@ -1847,6 +1950,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_dead_code_v2":
+            from .tools.get_dead_code_v2 import get_dead_code_v2
             result = await asyncio.to_thread(
                 functools.partial(
                     get_dead_code_v2,
@@ -1857,6 +1961,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_extraction_candidates":
+            from .tools.get_extraction_candidates import get_extraction_candidates
             result = await asyncio.to_thread(
                 functools.partial(
                     get_extraction_candidates,
@@ -1868,6 +1973,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_symbol_complexity":
+            from .tools.get_symbol_complexity import get_symbol_complexity
             result = await asyncio.to_thread(
                 functools.partial(
                     get_symbol_complexity,
@@ -1877,6 +1983,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_churn_rate":
+            from .tools.get_churn_rate import get_churn_rate
             result = await asyncio.to_thread(
                 functools.partial(
                     get_churn_rate,
@@ -1887,6 +1994,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_hotspots":
+            from .tools.get_hotspots import get_hotspots
             result = await asyncio.to_thread(
                 functools.partial(
                     get_hotspots,
@@ -1898,6 +2006,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_repo_health":
+            from .tools.get_repo_health import get_repo_health
             result = await asyncio.to_thread(
                 functools.partial(
                     get_repo_health,
@@ -1907,6 +2016,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_symbol_diff":
+            from .tools.get_symbol_diff import get_symbol_diff
             result = await asyncio.to_thread(
                 functools.partial(
                     get_symbol_diff,
@@ -1916,6 +2026,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_class_hierarchy":
+            from .tools.get_class_hierarchy import get_class_hierarchy
             result = await asyncio.to_thread(
                 functools.partial(
                     get_class_hierarchy,
@@ -1925,6 +2036,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_related_symbols":
+            from .tools.get_related_symbols import get_related_symbols
             result = await asyncio.to_thread(
                 functools.partial(
                     get_related_symbols,
@@ -1935,6 +2047,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "suggest_queries":
+            from .tools.suggest_queries import suggest_queries
             result = await asyncio.to_thread(
                 functools.partial(
                     suggest_queries,
@@ -1943,6 +2056,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_symbol_importance":
+            from .tools.get_symbol_importance import get_symbol_importance
             result = await asyncio.to_thread(
                 functools.partial(
                     get_symbol_importance,
@@ -1954,6 +2068,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "find_dead_code":
+            from .tools.find_dead_code import find_dead_code
             result = await asyncio.to_thread(
                 functools.partial(
                     find_dead_code,
@@ -1966,6 +2081,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_changed_symbols":
+            from .tools.get_changed_symbols import get_changed_symbols
             result = await asyncio.to_thread(
                 functools.partial(
                     get_changed_symbols,
@@ -1978,6 +2094,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "embed_repo":
+            from .tools.embed_repo import embed_repo
             result = await asyncio.to_thread(
                 functools.partial(
                     embed_repo,
@@ -1988,6 +2105,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 )
             )
         elif name == "get_cross_repo_map":
+            from .tools.get_cross_repo_map import get_cross_repo_map
             result = await asyncio.to_thread(
                 functools.partial(
                     get_cross_repo_map,
@@ -2097,7 +2215,7 @@ async def run_stdio_server():
     logger.info(
         "startup version=%s transport=stdio storage=%s ai_summaries=%s",
         __version__,
-        os.environ.get("CODE_INDEX_PATH", "~/.code-index/"),
+        os.path.expanduser(os.environ.get("CODE_INDEX_PATH", "~/.code-index/")),
         _default_use_ai_summaries(),
     )
     try:
@@ -2232,7 +2350,7 @@ async def run_sse_server(host: str, port: int):
     logger.info(
         "startup version=%s transport=sse host=%s port=%d storage=%s",
         __version__, host, port,
-        os.environ.get("CODE_INDEX_PATH", "~/.code-index/"),
+        os.path.expanduser(os.environ.get("CODE_INDEX_PATH", "~/.code-index/")),
     )
     config = uvicorn.Config(starlette_app, host=host, port=port, log_level="warning")
     await uvicorn.Server(config).serve()
@@ -2290,7 +2408,7 @@ async def run_streamable_http_server(host: str, port: int):
     logger.info(
         "startup version=%s transport=streamable-http host=%s port=%d storage=%s",
         __version__, host, port,
-        os.environ.get("CODE_INDEX_PATH", "~/.code-index/"),
+        os.path.expanduser(os.environ.get("CODE_INDEX_PATH", "~/.code-index/")),
     )
     config = uvicorn.Config(starlette_app, host=host, port=port, log_level="warning")
     await uvicorn.Server(config).serve()
@@ -2331,6 +2449,85 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
         default=os.environ.get("JCODEMUNCH_LOG_FILE"),
         help="Log file path (also via JCODEMUNCH_LOG_FILE env var). Defaults to stderr.",
     )
+
+
+def _generate_claude_md_snippet(missing_only: bool = False) -> str:
+    """Return the recommended CLAUDE.md prompt-policy snippet.
+
+    When *missing_only* is True, reads ~/.claude/CLAUDE.md and returns only
+    the tools not yet mentioned in it (as a minimal addendum block).
+    Returns an empty string when the file is already fully up to date.
+    """
+    all_tools = list(_CANONICAL_TOOL_NAMES)
+
+    if missing_only:
+        claude_md = Path.home() / ".claude" / "CLAUDE.md"
+        if claude_md.exists():
+            content = claude_md.read_text(encoding="utf-8", errors="replace")
+            missing = [t for t in all_tools if t not in content]
+            if not missing:
+                return ""
+            tool_lines = "\n".join(f"- {t}" for t in missing)
+            return (
+                f"<!-- jcodemunch-mcp: add these new tools to your existing snippet -->\n"
+                f"{tool_lines}\n"
+            )
+        # Fall through to full generation if CLAUDE.md doesn't exist yet
+
+    # Group tools by category for readability
+    categories = [
+        ("Indexing", ["index_repo", "index_folder", "summarize_repo", "index_file"]),
+        ("Discovery", ["list_repos", "resolve_repo", "suggest_queries",
+                       "get_repo_outline", "get_file_tree", "get_file_outline"]),
+        ("Search & Retrieval", ["search_symbols", "get_symbol_source", "get_context_bundle",
+                                 "get_file_content", "search_text", "search_columns",
+                                 "get_ranked_context"]),
+        ("Relationships", ["find_importers", "find_references", "check_references",
+                           "get_dependency_graph", "get_class_hierarchy",
+                           "get_related_symbols", "get_call_hierarchy"]),
+        ("Impact & Safety", ["get_blast_radius", "check_rename_safe",
+                              "get_impact_preview", "get_changed_symbols"]),
+        ("Architecture", ["get_dependency_cycles", "get_coupling_metrics",
+                          "get_layer_violations", "get_extraction_candidates",
+                          "get_cross_repo_map"]),
+        ("Quality & Metrics", ["get_symbol_complexity", "get_churn_rate", "get_hotspots",
+                                "get_repo_health", "get_symbol_importance",
+                                "find_dead_code", "get_dead_code_v2"]),
+        ("Diffs & Embeddings", ["get_symbol_diff", "embed_repo"]),
+        ("Utilities", ["get_session_stats", "invalidate_cache", "test_summarizer"]),
+    ]
+    from . import __version__ as _ver
+    lines = [
+        f"## jcodemunch-mcp (v{_ver})",
+        "",
+        "Use jcodemunch-mcp tools instead of Grep/Read/Glob for any indexed repository.",
+        "",
+        "### Quick start",
+        "1. `list_repos` — check if the project is indexed.",
+        "   If not: `index_folder` (local) or `index_repo` (GitHub URL).",
+        "2. `search_symbols` — find functions/classes by name or description.",
+        "3. `get_context_bundle` — symbol source + imports in one call.",
+        "4. `search_text` — full-text/regex search for literals and comments.",
+        "",
+        "### All tools",
+    ]
+    for cat, tools in categories:
+        lines.append(f"**{cat}:** " + ", ".join(f"`{t}`" for t in tools))
+    lines.append("")
+    lines.append("Never fall back to Grep, Read, or Glob for indexed repos.")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _run_claude_md(generate: bool = False, fmt: str = "full") -> None:
+    """Output the recommended CLAUDE.md snippet for the current tool set."""
+    missing_only = fmt == "append"
+    snippet = _generate_claude_md_snippet(missing_only=missing_only)
+    if missing_only and not snippet:
+        import sys as _sys
+        print("CLAUDE.md is already up to date — no new tools to add.", file=_sys.stderr)
+        return
+    print(snippet, end="")
 
 
 def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) -> None:
@@ -2541,8 +2738,8 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
         row("  OPENAI_TIMEOUT", v, "env" if not d else "default")
         v, d = env("OPENAI_BATCH_SIZE", "10")
         row("  OPENAI_BATCH_SIZE", v, "env" if not d else "default")
-        v, d = env("OPENAI_CONCURRENCY", "1")
-        row("  OPENAI_CONCURRENCY", v, "env" if not d else "default")
+        v, d = env("OPENAI_CONCURRENCY", str(_cfg.get("summarizer_concurrency", 4)))
+        row("  OPENAI_CONCURRENCY", v, "env" if not d else "config")
         v, d = env("OPENAI_MAX_TOKENS", "500")
         row("  OPENAI_MAX_TOKENS", v, "env" if not d else "default")
     elif provider_name == "minimax":
@@ -2665,6 +2862,63 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
             else:
                 print(f"  {green(CHECK)} HTTP transport packages installed (uvicorn, starlette, anyio)")
 
+        # ── CLAUDE.md drift check ────────────────────────────────────────────
+        section("CLAUDE.md check")
+        claude_md_path = Path.home() / ".claude" / "CLAUDE.md"
+        canonical_tools = list(_CANONICAL_TOOL_NAMES)
+        if claude_md_path.exists():
+            try:
+                cm_content = claude_md_path.read_text(encoding="utf-8", errors="replace")
+                missing_in_cm = [t for t in canonical_tools if t not in cm_content]
+                if missing_in_cm:
+                    # Wrap into ~60-char lines for readability
+                    _wrapped = _wrap_names(missing_in_cm)
+                    print(f"  {yellow(WARN)} {len(missing_in_cm)} tool(s) not mentioned in CLAUDE.md:")
+                    for _line in _wrapped:
+                        print(f"       {dim(_line)}")
+                    print(f"  {dim('  Run: jcodemunch-mcp claude-md --generate  (or --format=append for delta only)')}")
+                    issues.append("claude_md")
+                else:
+                    print(f"  {green(CHECK)} All {len(canonical_tools)} tools mentioned in CLAUDE.md")
+            except Exception as _e:
+                print(f"  {yellow(WARN)} Could not read CLAUDE.md: {_e}")
+        else:
+            print(f"  {yellow(WARN)} CLAUDE.md not found: {claude_md_path}")
+            print(f"  {dim('  Run: jcodemunch-mcp claude-md --generate > /path/to/CLAUDE.md')}")
+
+        # ── Hook-script drift check ───────────────────────────────────────────
+        section("Hook scripts check")
+        hooks_dir = Path.home() / ".claude" / "hooks"
+        if hooks_dir.exists():
+            read_guards = (
+                list(hooks_dir.glob("jcodemunch_read_guard.sh"))
+                + list(hooks_dir.glob("jcodemunch_read_guard.ps1"))
+            )
+            if read_guards:
+                for _script in sorted(read_guards):
+                    try:
+                        _sc = _script.read_text(encoding="utf-8", errors="replace")
+                        _missing_h = [t for t in canonical_tools if t not in _sc]
+                        if _missing_h:
+                            _wrapped_h = _wrap_names(_missing_h)
+                            print(f"  {yellow(WARN)} {_script.name}: {len(_missing_h)} tool(s) absent from feedback message:")
+                            for _line in _wrapped_h:
+                                print(f"       {dim(_line)}")
+                        else:
+                            print(f"  {green(CHECK)} {_script.name} is current")
+                    except Exception as _e:
+                        print(f"  {yellow(WARN)} {_script.name}: could not read ({_e})")
+            else:
+                print(f"  {dim('(no jcodemunch_read_guard.* hook scripts found)')}")
+            other_hooks = (
+                list(hooks_dir.glob("jcodemunch_edit_guard.*"))
+                + list(hooks_dir.glob("jcodemunch_index_hook.*"))
+            )
+            for _script in sorted(other_hooks):
+                print(f"  {green(CHECK)} {_script.name} present")
+        else:
+            print(f"  {dim('(~/.claude/hooks/ not found — hooks not installed)')}")
+
         print()
         if issues:
             print(yellow(f"  {len(issues)} issue(s) found — see above."))
@@ -2672,6 +2926,22 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
         else:
             print(green("  All checks passed."))
     print()
+
+
+def _wrap_names(names: list[str], width: int = 72) -> list[str]:
+    """Wrap a flat list of names into lines no longer than *width* chars."""
+    lines: list[str] = []
+    current = ""
+    for name in names:
+        piece = (", " if current else "") + name
+        if current and len(current) + len(piece) > width:
+            lines.append(current)
+            current = name
+        else:
+            current += piece
+    if current:
+        lines.append(current)
+    return lines
 
 
 def _can_import(module: str) -> bool:
@@ -2843,6 +3113,24 @@ def main(argv: Optional[list[str]] = None):
         help="Add missing keys from the current template to an existing config.jsonc, preserving user values",
     )
 
+    # --- claude-md ---
+    claude_md_parser = subparsers.add_parser(
+        "claude-md",
+        help="Generate a CLAUDE.md prompt-policy snippet for the current tool set",
+    )
+    claude_md_parser.add_argument(
+        "--generate",
+        action="store_true",
+        help="Output the recommended CLAUDE.md snippet to stdout",
+    )
+    claude_md_parser.add_argument(
+        "--format",
+        choices=["full", "append"],
+        default="full",
+        dest="fmt",
+        help="'full' (default) — complete snippet; 'append' — only tools not yet in your CLAUDE.md",
+    )
+
     # --- index-file ---
     index_file_parser = subparsers.add_parser(
         "index-file",
@@ -2920,7 +3208,7 @@ def main(argv: Optional[list[str]] = None):
     if any(arg in top_level_flags for arg in raw_argv):
         args = parser.parse_args(raw_argv)
     else:
-        known_commands = {"serve", "watch", "hook-event", "watch-claude", "config", "index-file"}
+        known_commands = {"serve", "watch", "hook-event", "watch-claude", "config", "index-file", "claude-md"}
         has_subcommand = any(arg in known_commands for arg in raw_argv if not arg.startswith("-"))
         if not has_subcommand:
             raw_argv = ["serve"] + list(raw_argv)
@@ -2931,6 +3219,13 @@ def main(argv: Optional[list[str]] = None):
             check=getattr(args, "check", False),
             init=getattr(args, "init", False),
             upgrade=getattr(args, "upgrade", False),
+        )
+        return
+
+    if args.command == "claude-md":
+        _run_claude_md(
+            generate=getattr(args, "generate", False),
+            fmt=getattr(args, "fmt", "full"),
         )
         return
 

@@ -38,7 +38,7 @@ from ansys.aedt.core.modeler.cad.elements_3d import VertexPrimitive
 class BoundaryProps(dict):
     """AEDT Boundary Component Internal Parameters."""
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key, value) -> None:
         value = _units_assignment(value)
         dict.__setitem__(self, key, value)
         if self._pyaedt_boundary.auto_update:
@@ -67,7 +67,7 @@ class BoundaryProps(dict):
                     dict.__setitem__(self, key, value)
         self._pyaedt_boundary = boundary
 
-    def _setitem_without_update(self, key, value):
+    def _setitem_without_update(self, key, value) -> None:
         dict.__setitem__(self, key, value)
 
 
@@ -178,7 +178,7 @@ class BoundaryCommon(PropsManager, PyAedtBase):
             return []
 
 
-def disable_auto_update(func: callable) -> callable:
+def disable_auto_update(func):
     """Decorator used to disable automatic update."""
 
     def wrapper(self, *args, **kwargs):
@@ -292,7 +292,7 @@ class BoundaryObject(BoundaryCommon, BinaryTreeNode, PyAedtBase):
         return None
 
     @property
-    def props(self) -> BoundaryProps:
+    def props(self):
         """Boundary data.
 
         Returns
@@ -309,7 +309,7 @@ class BoundaryObject(BoundaryCommon, BinaryTreeNode, PyAedtBase):
         return self.__props
 
     @property
-    def type(self) -> str:
+    def type(self):
         """Boundary type.
 
         Returns
@@ -332,18 +332,18 @@ class BoundaryObject(BoundaryCommon, BinaryTreeNode, PyAedtBase):
             return self._type
 
     @type.setter
-    def type(self, value: str) -> None:
+    def type(self, value) -> None:
         self._type = value
 
     @property
-    def name(self) -> str:
+    def name(self):
         """Boundary Name."""
         if getattr(self, "child_object", None):
             self._name = str(self.properties["Name"])
         return self._name
 
     @name.setter
-    def name(self, value: str) -> None:
+    def name(self, value) -> None:
         if getattr(self, "child_object", None):
             try:
                 self.properties["Name"] = value
@@ -373,7 +373,7 @@ class BoundaryObject(BoundaryCommon, BinaryTreeNode, PyAedtBase):
         return arg
 
     @pyaedt_function_handler()
-    def create(self) -> bool:
+    def create(self):
         """Create a boundary.
 
         Returns
@@ -481,8 +481,6 @@ class BoundaryObject(BoundaryCommon, BinaryTreeNode, PyAedtBase):
             self._app.oboundary.AssignFixedSupport(self._get_args())
         elif bound_type == "Voltage":
             self._app.oboundary.AssignVoltage(self._get_args())
-        elif bound_type == "VoltageAPhi":
-            self._app.oboundary.AssignVoltageAPhi(self._get_args())
         elif bound_type == "VoltageDrop":
             self._app.oboundary.AssignVoltageDrop(self._get_args())
         elif bound_type == "Floating":

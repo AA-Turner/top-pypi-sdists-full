@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use guacr_handlers::{
     send_disconnect, EventBasedHandler, EventCallback, HandlerError, HandlerStats, HealthStatus,
-    ProtocolHandler, RecordingConfig, VideoOutput,
+    KeepAliveManager, ProtocolHandler, RecordingConfig, VideoOutput,
+    DEFAULT_KEEPALIVE_INTERVAL_SECS,
 };
 use guacr_terminal::QueryResult;
 use log::{debug, info, warn};
@@ -28,6 +29,7 @@ use crate::security::{
 };
 
 use std::sync::atomic::AtomicI32;
+use std::time::Duration;
 
 /// Global stream index counter for unique stream IDs
 static STREAM_INDEX: AtomicI32 = AtomicI32::new(1000);
@@ -43,6 +45,7 @@ pub struct PostgreSqlHandler {
 pub struct PostgreSqlConfig {
     pub default_port: u16,
     pub connection_timeout_secs: u64,
+    pub query_timeout_secs: u64,
     pub max_connections: u32,
 }
 
@@ -51,6 +54,7 @@ impl Default for PostgreSqlConfig {
         Self {
             default_port: 5432,
             connection_timeout_secs: guacr_handlers::DEFAULT_CONNECTION_TIMEOUT_SECS,
+            query_timeout_secs: 300,
             max_connections: 5,
         }
     }
@@ -308,8 +312,25 @@ impl ProtocolHandler for PostgreSqlHandler {
         let mut debounce = tokio::time::interval(std::time::Duration::from_millis(16));
         debounce.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
+        // Keepalive to prevent ICE disconnect on idle sessions
+        let mut keepalive = KeepAliveManager::new(DEFAULT_KEEPALIVE_INTERVAL_SECS);
+        let mut keepalive_interval = tokio::time::interval(std::time::Duration::from_secs(
+            DEFAULT_KEEPALIVE_INTERVAL_SECS,
+        ));
+        keepalive_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         'outer: loop {
             tokio::select! {
+                // Keepalive ping to prevent ICE disconnect on idle sessions
+                _ = keepalive_interval.tick() => {
+                    if let Some(sync_instr) = keepalive.check() {
+                        if send_and_record(&to_client, &mut recorder, sync_instr).await.is_err() {
+                            debug!("PostgreSQL: Client channel closed during keepalive, stopping");
+                            break;
+                        }
+                    }
+                }
+
                 // Debounce tick - render if terminal or input changed
                 _ = debounce.tick() => {
                     // Check if client is still connected before rendering
@@ -453,9 +474,20 @@ impl ProtocolHandler for PostgreSqlHandler {
                             continue;
                         }
 
-                        // Execute query
-                        match execute_with_timing(|| execute_postgres_query(&pool, &query)).await {
-                            Ok(exec_result) => {
+                        // Execute query with timeout
+                        let timeout_secs = self.config.query_timeout_secs;
+                        match tokio::time::timeout(
+                            Duration::from_secs(timeout_secs),
+                            execute_with_timing(|| execute_postgres_query(&pool, &query)),
+                        ).await {
+                            Err(_elapsed) => {
+                                let msg = format!("Query timed out after {}s", timeout_secs);
+                                record_error_output(&mut recorder, &msg);
+                                executor
+                                    .write_error(&msg)
+                                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                            }
+                            Ok(Ok(exec_result)) => {
                                 let result = exec_result.into_query_result();
 
                                 // Record query output
@@ -465,7 +497,7 @@ impl ProtocolHandler for PostgreSqlHandler {
                                     .write_result(&result)
                                     .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                             }
-                            Err(e) => {
+                            Ok(Err(e)) => {
                                 // Record error output
                                 record_error_output(&mut recorder, &e);
 
@@ -992,25 +1024,5 @@ impl EventBasedHandler for PostgreSqlHandler {
             4096,
         )
         .await
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_postgresql_handler_new() {
-        let handler = PostgreSqlHandler::with_defaults();
-        assert_eq!(
-            <PostgreSqlHandler as ProtocolHandler>::name(&handler),
-            "postgresql"
-        );
-    }
-
-    #[test]
-    fn test_postgresql_config() {
-        let config = PostgreSqlConfig::default();
-        assert_eq!(config.default_port, 5432);
     }
 }

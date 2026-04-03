@@ -13,9 +13,9 @@
 // 4. Server -> Client: ready,<connection-id>;
 // 5. Interactive phase begins
 
-mod args;
+pub(crate) mod args;
 pub mod client;
-mod server;
+pub(crate) mod server;
 
 pub use args::{get_protocol_arg_names, get_protocol_args, protocol_args, ArgDescriptor};
 pub use server::{
@@ -24,3 +24,6 @@ pub use server::{
     DEFAULT_HANDSHAKE_TIMEOUT_SECS, GUACAMOLE_PROTOCOL_VERSION, GUACD_DEFAULT_PORT,
     MAX_INSTRUCTION_SIZE,
 };
+
+#[cfg(test)]
+mod tests;

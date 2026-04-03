@@ -392,7 +392,7 @@ class LoncapaResponse(six.with_metaclass(abc.ABCMeta)):
 
         # This is the "feedback hint" event
         event_info = {}
-        event_info["module_id"] = str(self.capa_block.location)
+        event_info["module_id"] = str(self.capa_block.usage_key)
         event_info["problem_part_id"] = self.id
         event_info["trigger_type"] = "single"  # maybe be overwritten by log_extra
         event_info["hint_label"] = label

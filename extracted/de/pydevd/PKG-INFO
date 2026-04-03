@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pydevd
-Version: 3.4.1
+Version: 3.5.0
 Summary: PyDev.Debugger (used in PyDev, PyCharm and VSCode Python)
 Home-page: https://github.com/fabioz/PyDev.Debugger/
 Author: Fabio Zadrozny and others

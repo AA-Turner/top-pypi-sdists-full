@@ -11,7 +11,13 @@ from urllib.parse import urljoin
 from flask import request, abort, jsonify, g
 
 from nsj_flask_auth.caching import Caching
-from nsj_flask_auth.exceptions import Forbidden, MissingAuthorizationHeader, Unauthorized, InternalUnauthorized, UnknowAuthorizationException
+from nsj_flask_auth.exceptions import (
+    Forbidden,
+    MissingAuthorizationHeader,
+    Unauthorized,
+    InternalUnauthorized,
+    UnknowAuthorizationException,
+)
 from nsj_flask_auth.settings import log_time
 import base64
 import time
@@ -22,6 +28,7 @@ class Scope(Enum):
     GRUPO_EMPRESARIAL = 1
     EMPRESA = 2
     ESTABELECIMENTO = 3
+
 
 class ProfileVendor(Enum):
     DIRETORIO = 1
@@ -81,7 +88,6 @@ class Auth:
         introspect_url: str = None,
         introspect_token: str = None,
         erp_token_validation_url: str = None,
-        
     ):
         self._diretorio_base_uri = diretorio_base_uri
         self._profile_uri = profile_uri
@@ -125,7 +131,8 @@ class Auth:
 
         if not instalacao_key:
             raise MissingAuthorizationHeader(
-                f"Missing {self._api_instalacao_header} header")
+                f"Missing {self._api_instalacao_header} header"
+            )
 
         app_profile = self._get_app_profile_by_instalacao(instalacao_key)
 
@@ -161,12 +168,12 @@ class Auth:
             raise Unauthorized("O token do usuário não é válido")
 
         if user_internal_permissions:
-            profile = self._verify_user_permissions(
-                user_internal_permissions, email)
+            profile = self._verify_user_permissions(user_internal_permissions, email)
 
         if self._user_internal_permissions:
             profile = self._verify_user_permissions(
-                self._user_internal_permissions, email)
+                self._user_internal_permissions, email
+            )
 
         else:
             profile = self._verify_user_permissions(None, email)
@@ -179,8 +186,7 @@ class Auth:
         }
 
         if user_scope_permissions:
-            self._verify_permission_by_scope(
-                user_scope_permissions, email, scope=scope)
+            self._verify_permission_by_scope(user_scope_permissions, email, scope=scope)
             return
 
         if self._user_scope_permissions:
@@ -199,7 +205,7 @@ class Auth:
             raise MissingAuthorizationHeader(
                 f"Missing {self._access_token_header} header"
             )
-        
+
         # Se token não possui 'Basic', a autenticação será gerida pelo validador de access token
         if "Basic " not in authorization_token:
             raise MissingAuthorizationHeader(
@@ -213,14 +219,17 @@ class Auth:
         response = requests.get(url, headers=headers)
 
         if response.status_code == 401 or response.status_code == 403:
-            raise InternalUnauthorized("A chave recebida na autenticação basic (header Authorization) não é válida")
+            raise InternalUnauthorized(
+                "A chave recebida na autenticação basic (header Authorization) não é válida"
+            )
         elif response.status_code != 200:
-            raise UnknowAuthorizationException(f"Erro desconhecido na validação do profile: {response.status_code}. Mensagem: {response.content.decode()}")
+            raise UnknowAuthorizationException(
+                f"Erro desconhecido na validação do profile: {response.status_code}. Mensagem: {response.content.decode()}"
+            )
 
         g.profile = self._create_profile_from_app_profile(response.json())
 
-
-    @log_time('Pegar profile do diretório')
+    @log_time("Pegar profile do diretório")
     def _get_user_profile_diretorio(self, email):
         user_profile = None
 
@@ -237,7 +246,9 @@ class Auth:
         if response.status_code == 401 or response.status_code == 403:
             raise InternalUnauthorized("A api-key do sistema não é válida")
         elif response.status_code != 200:
-            raise Exception(f"Erro desconhecido na recuperação do profile: {response.status_code}. Mensagem: {response.content.decode()}. URL: {url}")
+            raise Exception(
+                f"Erro desconhecido na recuperação do profile: {response.status_code}. Mensagem: {response.content.decode()}. URL: {url}"
+            )
 
         user_profile = response.json()
 
@@ -246,7 +257,7 @@ class Auth:
 
         return user_profile
 
-    @log_time('Pegar profile do nsj auth api')
+    @log_time("Pegar profile do nsj auth api")
     def _get_user_profile_auth_api(self, email):
         user_profile = None
 
@@ -274,7 +285,9 @@ class Auth:
         if response.status_code == 401 or response.status_code == 403:
             raise InternalUnauthorized("O token de autenticação não é válido.")
         elif response.status_code != 200:
-            raise Exception(f"Erro desconhecido na recuperação do profile: {response.status_code}. Mensagem: {response.content.decode()}. URL: {url}")
+            raise Exception(
+                f"Erro desconhecido na recuperação do profile: {response.status_code}. Mensagem: {response.content.decode()}. URL: {url}"
+            )
 
         user_profile = response.json()
 
@@ -294,7 +307,7 @@ class Auth:
                 raise Exception(f"Profile inválido: {str(self._profile_vendor)}.")
 
     def _create_profile_from_app_profile(self, app_profile: dict):
-        """ Cria objeto de profile da aplicação a partir do profile retornado pelo diretório ou nsj-authorization-api"""
+        """Cria objeto de profile da aplicação a partir do profile retornado pelo diretório ou nsj-authorization-api"""
 
         if app_profile.get("tipo") == "sistema":
             return {
@@ -302,7 +315,7 @@ class Auth:
                 "email": "",
                 "authentication_type": "api_key",
             }
-    
+
         if app_profile.get("tipo") == "tenant":
             return {
                 "nome": app_profile["codigo"],
@@ -310,7 +323,7 @@ class Auth:
                 "tenant": app_profile["tenant"].get("id"),
                 "authentication_type": "api_key",
             }
-    
+
         raise Unauthorized("Somente api-keys de sistema/tenant são válidas")
 
     def _verify_user_permissions(self, user_internal_permissions: List, email: str):
@@ -321,13 +334,11 @@ class Auth:
             return user_profile
 
         if list(
-            set(user_profile.get("permissao", [])) & set(
-                user_internal_permissions)
+            set(user_profile.get("permissao", [])) & set(user_internal_permissions)
         ):
             return user_profile
 
-        raise Forbidden(
-            "O usuário não possui permissão para acessar este recurso.")
+        raise Forbidden("O usuário não possui permissão para acessar este recurso.")
 
     def _verify_permission_by_scope(
         self, permissions: List, email: str, scope: Scope = Scope.GRUPO_EMPRESARIAL
@@ -343,14 +354,12 @@ class Auth:
         all_permissions = []
 
         for function in functions:
-            all_permissions += self._get_permissions_by_function(
-                function["id"])
+            all_permissions += self._get_permissions_by_function(function["id"])
 
         if list(set(all_permissions) & set(permissions)):
             return
 
-        raise Forbidden(
-            "O usuário não possui permissão para acessar este recurso.")
+        raise Forbidden("O usuário não possui permissão para acessar este recurso.")
 
     def _get_entity_scope_id_from_request(self, scope: Scope = Scope.GRUPO_EMPRESARIAL):
         data = {}
@@ -417,10 +426,7 @@ class Auth:
             user_internal_permissions, scope, user_scope_permissions
         )
 
-    def _verify_api_key_or_instalacao_key(
-        self,
-        app_required_permissions: list = None
-    ):
+    def _verify_api_key_or_instalacao_key(self, app_required_permissions: list = None):
         try:
             self._verify_api_key(app_required_permissions)
             return
@@ -429,11 +435,9 @@ class Auth:
         except Unauthorized:
             pass
 
-        self._verify_instalacao_key(
-            app_required_permissions
-        )
+        self._verify_instalacao_key(app_required_permissions)
 
-    @log_time('Pegar profile a partir do access token')
+    @log_time("Pegar profile a partir do access token")
     def _get_user_profile(self, access_token):
 
         if self._cache:
@@ -464,7 +468,7 @@ class Auth:
 
         return response.json()
 
-    @log_time('Pegar profile a partir da apikey')
+    @log_time("Pegar profile a partir da apikey")
     def _get_app_profile(self, api_key):
 
         if self._cache:
@@ -486,14 +490,16 @@ class Auth:
         if response.status_code == 401 or response.status_code == 403:
             raise InternalUnauthorized("A api-key do sistema não é válida")
         elif response.status_code != 200:
-            raise Exception(f"Erro desconhecido na validação do profile: {response.status_code}. Mensagem: {response.content.decode()}")
+            raise Exception(
+                f"Erro desconhecido na validação do profile: {response.status_code}. Mensagem: {response.content.decode()}"
+            )
 
         if self._cache:
             self._cache.set(api_key, response.json())
 
         return response.json()
 
-    @log_time('Pegar profile a partir da instalação')
+    @log_time("Pegar profile a partir da instalação")
     def _get_app_profile_by_instalacao(self, instalacao):
 
         if self._cache:
@@ -515,14 +521,16 @@ class Auth:
         if response.status_code == 401 or response.status_code == 403:
             raise InternalUnauthorized("A instalação do sistema não é válida")
         elif response.status_code != 200:
-            raise Exception(f"Erro desconhecido na validação do profile: {response.status_code}. Mensagem: {response.content.decode()}")
+            raise Exception(
+                f"Erro desconhecido na validação do profile: {response.status_code}. Mensagem: {response.content.decode()}"
+            )
 
         if self._cache:
             self._cache.set(instalacao, response.json())
 
         return response.json()
 
-    @log_time('Pegar permissões por funções')
+    @log_time("Pegar permissões por funções")
     def _get_permissions_by_function(self, function_id):
 
         permissions = None
@@ -542,7 +550,9 @@ class Auth:
             if response.status_code == 401 or response.status_code == 403:
                 raise InternalUnauthorized("A api-key do sistema não é válida")
             elif response.status_code != 200:
-                raise Exception(f"Erro desconhecido na recuperação das permissões do profile: {response.status_code}. Mensagem: {response.content.decode()}")
+                raise Exception(
+                    f"Erro desconhecido na recuperação das permissões do profile: {response.status_code}. Mensagem: {response.content.decode()}"
+                )
 
             permissions = response.json()
 
@@ -554,14 +564,9 @@ class Auth:
     def _format_erro(self, status_code: int, message: str):
         import json
 
-        error_body = {
-            'code': status_code,
-            'message': message
-        }
+        error_body = {"code": status_code, "message": message}
 
-        headers = {
-            "Content-type": "application/json"
-        }
+        headers = {"Content-type": "application/json"}
 
         return (json.dumps(error_body), status_code, headers)
 
@@ -589,7 +594,8 @@ class Auth:
                     return self._format_erro(500, f"{e}")
                 except Exception as e:
                     self._logger.exception(
-                        f"Erro na autenticação/autorização. Mensagem: {e}")
+                        f"Erro na autenticação/autorização. Mensagem: {e}"
+                    )
                     return self._format_erro(500, f"{e}")
 
             return wrapper
@@ -620,7 +626,8 @@ class Auth:
                     return self._format_erro(500, f"{e}")
                 except Exception as e:
                     self._logger.exception(
-                        f"Erro na autenticação/autorização. Mensagem: {e}")
+                        f"Erro na autenticação/autorização. Mensagem: {e}"
+                    )
                     return self._format_erro(500, f"{e}")
 
             return wrapper
@@ -649,7 +656,8 @@ class Auth:
                     return self._format_erro(500, f"{e}")
                 except Exception as e:
                     self._logger.exception(
-                        f"Erro na autenticação/autorização. Mensagem: {e}")
+                        f"Erro na autenticação/autorização. Mensagem: {e}"
+                    )
                     return self._format_erro(500, f"{e}")
 
             return wrapper
@@ -689,7 +697,8 @@ class Auth:
                     return self._format_erro(500, f"{e}")
                 except Exception as e:
                     self._logger.exception(
-                        f"Erro na autenticação/autorização. Mensagem: {e}")
+                        f"Erro na autenticação/autorização. Mensagem: {e}"
+                    )
                     return self._format_erro(500, f"{e}")
 
             return wrapper
@@ -718,10 +727,12 @@ class Auth:
                         scope,
                         user_scope_permissions,
                     )
-                    tenant_from_request = self._get_entity_scope_id_from_request(Scope.TENANT)
+                    tenant_from_request = self._get_entity_scope_id_from_request(
+                        Scope.TENANT
+                    )
                     if tenant_from_request:
                         self._verify_tenant_scope(tenant_from_request)
-                        
+
                     return func(*args, **kwargs)
                 except Forbidden as e:
                     return self._format_erro(403, f"{e}")
@@ -733,13 +744,14 @@ class Auth:
                     return self._format_erro(500, f"{e}")
                 except Exception as e:
                     self._logger.exception(
-                        f"Erro na autenticação/autorização. Mensagem: {e}")
+                        f"Erro na autenticação/autorização. Mensagem: {e}"
+                    )
                     return self._format_erro(500, f"{e}")
 
             return wrapper
 
         return decorator
-    
+
     def _fast_access_token_or_apikey(self, access_token: str, apikey: str):
 
         if access_token:
@@ -747,12 +759,12 @@ class Auth:
             if access_token.startswith("Bearer "):
                 headers = {
                     "Authorization": f"Basic {self._introspect_token}",
-                    "Content-Type": "application/x-www-form-urlencoded"
+                    "Content-Type": "application/x-www-form-urlencoded",
                 }
                 url = self._introspect_url
                 data = {
                     "token": access_token.replace("Bearer ", ""),
-                    "token_type_hint": "access_token"
+                    "token_type_hint": "access_token",
                 }
                 request_method = "post"
             # Se for Basic
@@ -765,21 +777,16 @@ class Auth:
                 # Tenta como Bearer se não tiver prefixo
                 headers = {
                     "Authorization": f"Basic {self._introspect_token}",
-                    "Content-Type": "application/x-www-form-urlencoded"
+                    "Content-Type": "application/x-www-form-urlencoded",
                 }
                 url = self._introspect_url
-                data = {
-                    "token": access_token,
-                    "token_type_hint": "access_token"
-                }
+                data = {"token": access_token, "token_type_hint": "access_token"}
                 request_method = "post"
         elif apikey:
             # Validação com apikey
             headers = {"apikey": apikey}
             url = urljoin(self._diretorio_base_uri, "v2/api/validate")
-            data = {
-                "apikey": apikey
-            }
+            data = {"apikey": apikey}
             request_method = "post"
         else:
             raise MissingAuthorizationHeader("Missing authorization headers")
@@ -790,47 +797,66 @@ class Auth:
             response = requests.get(url, headers=headers)
 
         if response.status_code != 200:
-            raise Unauthorized("A api-key do sistema, access token ou basic não é válido")
+            raise Unauthorized(
+                "A api-key do sistema, access token ou basic não é válido"
+            )
 
         response_json = response.json()
 
         # Para introspect (Bearer), espera campo 'active'. Para basic/apikey, espera status 200
-        if request_method == "post" and data is not None and response_json.get("active") is False:
+        if (
+            request_method == "post"
+            and data is not None
+            and response_json.get("active") is False
+        ):
             raise Unauthorized("A api-key do sistema ou access token não é válido")
 
         g.user_data = {
             "name": response_json.get("name") if access_token else "unknown",
             "email": response_json.get("email") if access_token else "unknown",
             "type": (
-                "access_token" if access_token and (access_token.startswith("Bearer ") or not access_token.startswith("Basic "))
-                else "basic" if access_token and access_token.startswith("Basic ")
-                else "apikey"
-            )
+                "access_token"
+                if access_token
+                and (
+                    access_token.startswith("Bearer ")
+                    or not access_token.startswith("Basic ")
+                )
+                else (
+                    "basic"
+                    if access_token and access_token.startswith("Basic ")
+                    else "apikey"
+                )
+            ),
         }
         return
-    
+
     def fast_access_token_or_apikey(self):
         """
         Decorador para validar apenas o access token ou API Key, sem verificar permissões adicionais.
         O access token é validado pela url do introspect
         """
+
         def decorator(func):
             @wraps(func)
             def wrapper(*args, **kwargs):
-                
+
                 try:
-                    
+
                     access_token = request.headers.get(self._access_token_header)
                     apikey = request.headers.get(self._api_key_header)
 
                     if not access_token and not apikey:
-                        raise MissingAuthorizationHeader("Missing authorization or X-API-KEY header")
+                        raise MissingAuthorizationHeader(
+                            "Missing authorization or X-API-KEY header"
+                        )
 
                     # Chama o método de validação que agora lida com ambos
-                    self._fast_access_token_or_apikey(access_token=access_token, apikey=apikey)
+                    self._fast_access_token_or_apikey(
+                        access_token=access_token, apikey=apikey
+                    )
 
                     return func(*args, **kwargs)
-                
+
                 except Forbidden as e:
                     return self._format_erro(403, f"{e}")
                 except MissingAuthorizationHeader as e:
@@ -839,65 +865,70 @@ class Auth:
                     return self._format_erro(401, f"{e}")
                 except Exception as e:
                     self._logger.exception(
-                        f"Erro na autenticação/autorização. Mensagem: {e}")
+                        f"Erro na autenticação/autorização. Mensagem: {e}"
+                    )
                     return self._format_erro(500, f"{e}")
 
             return wrapper
-        
+
         return decorator
 
     def _verify_tenant_scope(self, tenant_from_request: int) -> None:
         """
         Verifica se o tenant da requisição corresponde ao tenant autenticado.
-        
+
         Args:
             tenant_from_request: Tenant enviado na requisição
-            
+
         Raises:
             Forbidden: Se o tenant não corresponder ao autenticado
         """
-        profile = g.get('profile', {})
-        authentication_type = profile.get('authentication_type')
-        
+        profile = g.get("profile", {})
+        authentication_type = profile.get("authentication_type")
+
         # Se for API Key de sistema, permite qualquer tenant
-        if authentication_type == 'api_key' and 'tenant' not in profile:
+        if authentication_type == "api_key" and "tenant" not in profile:
             return
-        
+
         # Se for API Key de tenant, valida se corresponde
-        if authentication_type == 'api_key' and 'tenant' in profile:
-            tenant_autenticado = profile.get('tenant')
-            if tenant_autenticado != tenant_from_request:
+        if authentication_type == "api_key" and "tenant" in profile:
+            tenant_autenticado = profile.get("tenant")
+            if str(tenant_autenticado) != str(tenant_from_request):
                 raise Forbidden(
                     f"Acesso negado. Tenant da API Key ({tenant_autenticado}) não corresponde ao tenant da requisição ({tenant_from_request})"
                 )
-        
+
         # Se for Access Token (usuário), valida se tem acesso ao tenant
-        if authentication_type == 'access_token':
-            user_profile = profile.get('user_profile', {})
-            tenants_usuario = user_profile.get('tenants', [])
-            
+        if authentication_type == "access_token":
+            user_profile = profile.get("user_profile", {})
+            tenants_usuario = user_profile.get("tenants", [])
+
             # Verifica se o tenant da requisição está na lista de tenants do usuário
-            tenant_encontrado = any(t.get('id') == tenant_from_request for t in tenants_usuario)
-            
+            tenant_encontrado = any(
+                str(t.get("id")) == str(tenant_from_request) for t in tenants_usuario
+            )
+
             if not tenant_encontrado:
                 raise Forbidden(
                     f"Acesso negado. Usuário não possui permissão para o tenant {tenant_from_request}"
                 )
-                
+
     def _requires_erp_sql_key(self):
-    
+
         try:
             # 1. Extrai e decodifica o Header (CNPJ:TOKEN)
             token_header = request.headers.get("X-ERP-SQL-KEY")
-            
+
             if not token_header:
                 raise MissingAuthorizationHeader("Missing X-ERP-SQL-KEY header")
 
-            header_auth = base64.b64decode(token_header).decode('utf-8')
-            parts = header_auth.split(':')
-            
+            header_auth = base64.b64decode(token_header).decode("utf-8")
+            parts = header_auth.split(":")
+
             if len(parts) < 2:
-                raise Unauthorized("Formato inválido do header. Esperado base64(CNPJ:TOKEN)")
+                raise Unauthorized(
+                    "Formato inválido do header. Esperado base64(CNPJ:TOKEN)"
+                )
 
             cnpj = parts[0]
             token = parts[1]
@@ -906,49 +937,43 @@ class Auth:
             timestamp_hora = int(time.time() // 3600) * 3600
 
             # 3. Normalização da URL
-            url = request.url.strip().rstrip('/')
-            
+            url = request.url.strip().rstrip("/")
+
             # 4. Processamento do Body como TEXTO BRUTO
             body_raw = request.get_data(as_text=True) or ""
-            
+
             # REMOVE TODOS os espaços em branco para evitar problemas de formatação
             body_normalized = "".join(body_raw.split())
             body_part = body_normalized[:500]
-            
+
             # 5. Encapsula para a API de autorização
             data = {
-                'cnpj': cnpj,
-                'token': token,
-                'url': url,
-                'timestamp_hora': timestamp_hora,
-                'body_part': body_part
+                "cnpj": cnpj,
+                "token": token,
+                "url": url,
+                "timestamp_hora": timestamp_hora,
+                "body_part": body_part,
             }
-            
-            headers = {
-                "X-ERP-SQL-KEY": token
-            }            
-            
+
+            headers = {"X-ERP-SQL-KEY": token}
+
             # 6. Chamada HTTP para validação no Service
             response = requests.post(
-                url=self.erp_token_validation_url, 
-                headers=headers, 
-                json=data,
-                timeout=5
+                url=self.erp_token_validation_url, headers=headers, json=data, timeout=5
             )
-            
+
             if response.status_code != 200:
                 raise Unauthorized("Token ERP SQL inválido ou expirado")
-                
+
         except Exception as e:
             self._logger.exception(f"Erro na autenticação ERP SQL: {e}")
             raise Unauthorized("Token ERP SQL inválido ou expirado")
-        
-
 
     def requires_erp_sql_key(self):
         """
         Decorador para validar a chave de acesso específica para o ERP SQL. A chave é esperada no header 'X-ERP-SQL-Key'.
         """
+
         def decorator(func):
             @wraps(func)
             def wrapper(*args, **kwargs):
@@ -957,7 +982,7 @@ class Auth:
                     self._requires_erp_sql_key()
 
                     return func(*args, **kwargs)
-                
+
                 except Forbidden as e:
                     return self._format_erro(403, f"{e}")
                 except MissingAuthorizationHeader as e:
@@ -966,9 +991,10 @@ class Auth:
                     return self._format_erro(401, f"{e}")
                 except Exception as e:
                     self._logger.exception(
-                        f"Erro na autenticação/autorização. Mensagem: {e}")
+                        f"Erro na autenticação/autorização. Mensagem: {e}"
+                    )
                     return self._format_erro(500, f"{e}")
 
             return wrapper
-        
+
         return decorator

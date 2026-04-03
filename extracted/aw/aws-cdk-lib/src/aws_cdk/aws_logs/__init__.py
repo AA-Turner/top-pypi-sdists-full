@@ -4008,6 +4008,7 @@ class CfnLogGroup(
         # resource_policy_document: Any
         
         cfn_log_group = logs.CfnLogGroup(self, "MyCfnLogGroup",
+            bearer_token_authentication_enabled=False,
             data_protection_policy=data_protection_policy,
             deletion_protection_enabled=False,
             field_index_policies=[field_index_policies],
@@ -4028,6 +4029,7 @@ class CfnLogGroup(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        bearer_token_authentication_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         data_protection_policy: typing.Any = None,
         deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         field_index_policies: typing.Optional[typing.Union[typing.Sequence[typing.Any], "_IResolvable_da3f097b"]] = None,
@@ -4042,6 +4044,7 @@ class CfnLogGroup(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
+        :param bearer_token_authentication_enabled: Default: - false
         :param data_protection_policy: Creates a data protection policy and assigns it to the log group. A data protection policy can help safeguard sensitive data that's ingested by the log group by auditing and masking the sensitive log data. When a user who does not have permission to view masked data views a log event that includes masked data, the sensitive data is replaced by asterisks.
         :param deletion_protection_enabled: Indicates whether deletion protection is enabled for this log group. When enabled, deletion protection blocks all deletion operations until it is explicitly disabled. Default: - false
         :param field_index_policies: Creates or updates a *field index policy* for the specified log group. Only log groups in the Standard log class support field index policies. For more information about log classes, see `Log classes <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch_Logs_Log_Classes.html>`_ . You can use field index policies to create *field indexes* on fields found in log events in the log group. Creating field indexes lowers the costs for CloudWatch Logs Insights queries that reference those field indexes, because these queries attempt to skip the processing of log events that are known to not match the indexed field. Good fields to index are fields that you often need to query for and fields that have high cardinality of values Common examples of indexes include request ID, session ID, userID, and instance IDs. For more information, see `Create field indexes to improve query performance and reduce costs <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatchLogs-Field-Indexing.html>`_ . Currently, this array supports only one field index policy object.
@@ -4057,6 +4060,7 @@ class CfnLogGroup(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnLogGroupProps(
+            bearer_token_authentication_enabled=bearer_token_authentication_enabled,
             data_protection_policy=data_protection_policy,
             deletion_protection_enabled=deletion_protection_enabled,
             field_index_policies=field_index_policies,
@@ -4190,6 +4194,23 @@ class CfnLogGroup(
     def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bearerTokenAuthenticationEnabled")
+    def bearer_token_authentication_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "bearerTokenAuthenticationEnabled"))
+
+    @bearer_token_authentication_enabled.setter
+    def bearer_token_authentication_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__acecbdab5d0cee71811ac415b107972ac56533d17e350c1fbe427477b072d3ba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bearerTokenAuthenticationEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="dataProtectionPolicy")
@@ -4326,6 +4347,7 @@ class CfnLogGroup(
     jsii_type="aws-cdk-lib.aws_logs.CfnLogGroupProps",
     jsii_struct_bases=[],
     name_mapping={
+        "bearer_token_authentication_enabled": "bearerTokenAuthenticationEnabled",
         "data_protection_policy": "dataProtectionPolicy",
         "deletion_protection_enabled": "deletionProtectionEnabled",
         "field_index_policies": "fieldIndexPolicies",
@@ -4341,6 +4363,7 @@ class CfnLogGroupProps:
     def __init__(
         self,
         *,
+        bearer_token_authentication_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         data_protection_policy: typing.Any = None,
         deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         field_index_policies: typing.Optional[typing.Union[typing.Sequence[typing.Any], "_IResolvable_da3f097b"]] = None,
@@ -4353,6 +4376,7 @@ class CfnLogGroupProps:
     ) -> None:
         '''Properties for defining a ``CfnLogGroup``.
 
+        :param bearer_token_authentication_enabled: Default: - false
         :param data_protection_policy: Creates a data protection policy and assigns it to the log group. A data protection policy can help safeguard sensitive data that's ingested by the log group by auditing and masking the sensitive log data. When a user who does not have permission to view masked data views a log event that includes masked data, the sensitive data is replaced by asterisks.
         :param deletion_protection_enabled: Indicates whether deletion protection is enabled for this log group. When enabled, deletion protection blocks all deletion operations until it is explicitly disabled. Default: - false
         :param field_index_policies: Creates or updates a *field index policy* for the specified log group. Only log groups in the Standard log class support field index policies. For more information about log classes, see `Log classes <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch_Logs_Log_Classes.html>`_ . You can use field index policies to create *field indexes* on fields found in log events in the log group. Creating field indexes lowers the costs for CloudWatch Logs Insights queries that reference those field indexes, because these queries attempt to skip the processing of log events that are known to not match the indexed field. Good fields to index are fields that you often need to query for and fields that have high cardinality of values Common examples of indexes include request ID, session ID, userID, and instance IDs. For more information, see `Create field indexes to improve query performance and reduce costs <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatchLogs-Field-Indexing.html>`_ . Currently, this array supports only one field index policy object.
@@ -4378,6 +4402,7 @@ class CfnLogGroupProps:
             # resource_policy_document: Any
             
             cfn_log_group_props = logs.CfnLogGroupProps(
+                bearer_token_authentication_enabled=False,
                 data_protection_policy=data_protection_policy,
                 deletion_protection_enabled=False,
                 field_index_policies=[field_index_policies],
@@ -4394,6 +4419,7 @@ class CfnLogGroupProps:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a2ba122502a64b05bea3e56f15389c84f127761b660b1d06de3ea638b95f816)
+            check_type(argname="argument bearer_token_authentication_enabled", value=bearer_token_authentication_enabled, expected_type=type_hints["bearer_token_authentication_enabled"])
             check_type(argname="argument data_protection_policy", value=data_protection_policy, expected_type=type_hints["data_protection_policy"])
             check_type(argname="argument deletion_protection_enabled", value=deletion_protection_enabled, expected_type=type_hints["deletion_protection_enabled"])
             check_type(argname="argument field_index_policies", value=field_index_policies, expected_type=type_hints["field_index_policies"])
@@ -4404,6 +4430,8 @@ class CfnLogGroupProps:
             check_type(argname="argument retention_in_days", value=retention_in_days, expected_type=type_hints["retention_in_days"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if bearer_token_authentication_enabled is not None:
+            self._values["bearer_token_authentication_enabled"] = bearer_token_authentication_enabled
         if data_protection_policy is not None:
             self._values["data_protection_policy"] = data_protection_policy
         if deletion_protection_enabled is not None:
@@ -4422,6 +4450,18 @@ class CfnLogGroupProps:
             self._values["retention_in_days"] = retention_in_days
         if tags is not None:
             self._values["tags"] = tags
+
+    @builtins.property
+    def bearer_token_authentication_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html#cfn-logs-loggroup-bearertokenauthenticationenabled
+        '''
+        result = self._values.get("bearer_token_authentication_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def data_protection_policy(self) -> typing.Any:
@@ -20477,6 +20517,7 @@ def _typecheckingstub__8e283e76ec168d67513d106f9413697672f161b29f03fa9b13486e96b
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    bearer_token_authentication_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     data_protection_policy: typing.Any = None,
     deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     field_index_policies: typing.Optional[typing.Union[typing.Sequence[typing.Any], _IResolvable_da3f097b]] = None,
@@ -20526,6 +20567,12 @@ def _typecheckingstub__5c5bac0ef7ae74529e652cc24b33213b3432954607a3665dd72bd69b6
 
 def _typecheckingstub__167d66406821a4fe8a6ca05ec99424e7c4abd7946ba6eb30ee37e04443759ddc(
     props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__acecbdab5d0cee71811ac415b107972ac56533d17e350c1fbe427477b072d3ba(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20586,6 +20633,7 @@ def _typecheckingstub__9ea9a0a37724d334e68ee325d75e901df12c6765b4c229366a1cef403
 
 def _typecheckingstub__1a2ba122502a64b05bea3e56f15389c84f127761b660b1d06de3ea638b95f816(
     *,
+    bearer_token_authentication_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     data_protection_policy: typing.Any = None,
     deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     field_index_policies: typing.Optional[typing.Union[typing.Sequence[typing.Any], _IResolvable_da3f097b]] = None,

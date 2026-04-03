@@ -5,43 +5,35 @@ import os
 import sys
 import shutil
 import importlib
-import importlib.util
+import inspect
+import subprocess
+import tempfile
 from pathlib import Path
 
 from typing import Any
 
 from .base_types import BinProviderName, PATHStr, BinName, InstallArgs
+from .semver import SemVer
 from .binprovider import BinProvider, OPERATING_SYSTEM, DEFAULT_PATH, remap_kwargs
 
-PYINFRA_INSTALLED = importlib.util.find_spec("pyinfra") is not None
+PYINFRA_INSTALLED = shutil.which("pyinfra") is not None
 
 
 def pyinfra_package_install(
     pkg_names: InstallArgs,
     installer_module: str = "auto",
     installer_extra_kwargs: dict[str, Any] | None = None,
+    timeout: int | None = None,
 ) -> str:
     if not PYINFRA_INSTALLED:
         raise RuntimeError(
             "Pyinfra is not installed! To fix:\n    pip install pyinfra",
         )
 
-    from pyinfra.api.config import Config
-    from pyinfra.api.inventory import Inventory
-    from pyinfra.api.state import State
-    from pyinfra.api.connect import connect_all
-    from pyinfra.api.operation import add_op
-    from pyinfra.api.operations import run_ops
-    from pyinfra.api.exceptions import PyinfraError
-
-    config = Config()
-    inventory = Inventory((["@local"], {}))
-    state = State(inventory=inventory, config=config)
-
     if isinstance(pkg_names, str):
         pkg_names = pkg_names.split(" ")
-
-    connect_all(state)
+    else:
+        pkg_names = list(pkg_names)
 
     _sudo_user = None
     if installer_module == "auto":
@@ -64,29 +56,65 @@ def pyinfra_package_install(
         module_name, operation_name = installer_module.rsplit(".", 1)
         installer_module_obj = importlib.import_module(f"pyinfra.{module_name}")
         installer_module_op = getattr(installer_module_obj, operation_name)
+        operation_signature = inspect.signature(installer_module_op)
+        operation_arg_name = next(iter(operation_signature.parameters))
     except Exception as err:
         raise RuntimeError(
             f"Failed to import pyinfra installer_module {installer_module}: {err.__class__.__name__}",
         ) from err
 
-    result = add_op(
-        state,
-        installer_module_op,
-        name=f"Install system packages: {pkg_names}",
-        packages=pkg_names,
-        _sudo_user=_sudo_user,
-        **(installer_extra_kwargs or {}),
-    )
+    accepted_kwargs = {
+        name
+        for name, parameter in operation_signature.parameters.items()
+        if parameter.kind
+        in (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        )
+    }
+    operation_kwargs = {
+        operation_arg_name: pkg_names,
+        **({"_sudo_user": _sudo_user} if _sudo_user is not None else {}),
+        **{
+            key: value
+            for key, value in (installer_extra_kwargs or {}).items()
+            if key in accepted_kwargs
+        },
+    }
 
-    succeeded = False
-    try:
-        run_ops(state)
-        succeeded = True
-    except PyinfraError:
-        succeeded = False
+    with tempfile.TemporaryDirectory() as temp_dir:
+        deploy_path = Path(temp_dir) / "deploy.py"
+        deploy_path.write_text(
+            "\n".join(
+                [
+                    f"from pyinfra.{module_name} import {operation_name}",
+                    "",
+                    f"{operation_name}(",
+                    f"    name={f'Install system packages: {pkg_names}'!r},",
+                    *(
+                        f"    {key}={value!r},"
+                        for key, value in operation_kwargs.items()
+                    ),
+                    ")",
+                    "",
+                ],
+            ),
+            encoding="utf-8",
+        )
+        pyinfra_bin = (
+            shutil.which("pyinfra", path=os.environ.get("PATH", DEFAULT_PATH))
+            or "pyinfra"
+        )
+        proc = subprocess.run(
+            [pyinfra_bin, "--yes", "@local", str(deploy_path)],
+            capture_output=True,
+            text=True,
+            cwd=temp_dir,
+            timeout=timeout,
+        )
 
-    result = result[state.inventory.hosts["@local"]]
-    result_text = f"Installing {pkg_names} on {OPERATING_SYSTEM} using Pyinfra {installer_module} {['failed', 'succeeded'][succeeded]}\n{result.stdout}\n{result.stderr}".strip()
+    succeeded = proc.returncode == 0
+    result_text = f"Installing {pkg_names} on {OPERATING_SYSTEM} using Pyinfra {installer_module} {['failed', 'succeeded'][succeeded]}\n{proc.stdout}\n{proc.stderr}".strip()
 
     if succeeded:
         return result_text
@@ -115,7 +143,10 @@ class PyinfraProvider(BinProvider):
         self,
         bin_name: str,
         install_args: InstallArgs | None = None,
-        **context,
+        postinstall_scripts: bool | None = None,
+        min_release_age: float | None = None,
+        min_version: SemVer | None = None,
+        timeout: int | None = None,
     ) -> str:
         install_args = install_args or self.get_install_args(bin_name)
 
@@ -123,6 +154,7 @@ class PyinfraProvider(BinProvider):
             pkg_names=install_args,
             installer_module=self.pyinfra_installer_module,
             installer_extra_kwargs=self.pyinfra_installer_kwargs,
+            timeout=timeout,
         )
 
     @remap_kwargs({"packages": "install_args"})
@@ -130,7 +162,10 @@ class PyinfraProvider(BinProvider):
         self,
         bin_name: str,
         install_args: InstallArgs | None = None,
-        **context,
+        postinstall_scripts: bool | None = None,
+        min_release_age: float | None = None,
+        min_version: SemVer | None = None,
+        timeout: int | None = None,
     ) -> str:
         install_args = install_args or self.get_install_args(bin_name)
 
@@ -141,6 +176,7 @@ class PyinfraProvider(BinProvider):
                 **self.pyinfra_installer_kwargs,
                 "latest": True,
             },
+            timeout=timeout,
         )
 
     @remap_kwargs({"packages": "install_args"})
@@ -148,7 +184,10 @@ class PyinfraProvider(BinProvider):
         self,
         bin_name: str,
         install_args: InstallArgs | None = None,
-        **context,
+        postinstall_scripts: bool | None = None,
+        min_release_age: float | None = None,
+        min_version: SemVer | None = None,
+        timeout: int | None = None,
     ) -> bool:
         install_args = install_args or self.get_install_args(bin_name)
 
@@ -159,6 +198,7 @@ class PyinfraProvider(BinProvider):
                 **self.pyinfra_installer_kwargs,
                 "present": False,
             },
+            timeout=timeout,
         )
         return True
 

@@ -91,7 +91,15 @@ def parse_file(content: str, filename: str, language: str, source_bytes: Optiona
     elif language == "openapi":
         symbols = _parse_openapi_symbols(source_bytes, filename)
     elif language == "al":
-        symbols = _parse_al_symbols(source_bytes, filename)        
+        symbols = _parse_al_symbols(source_bytes, filename)
+    elif language == "css":
+        symbols = _parse_css_symbols(source_bytes, filename)
+    elif language == "scss":
+        symbols = _parse_scss_symbols(source_bytes, filename)
+    elif language in ("sass", "less", "styl"):
+        symbols = []  # No tree-sitter grammar; files indexed for text search only
+    elif language == "json":
+        symbols = _parse_json_symbols(source_bytes, filename)
     else:
         spec = LANGUAGE_REGISTRY[language]
         symbols = _parse_with_spec(source_bytes, filename, language, spec)
@@ -5084,6 +5092,236 @@ def _parse_graphql_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
             _walk(child)
 
     _walk(tree.root_node)
+    return symbols
+
+
+def _parse_css_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
+    """Parse CSS files and extract rule sets, @keyframes, @media, and @supports as symbols.
+
+    Extracted symbol kinds:
+    - rule_set selectors  → kind "class"    (e.g. ``.container``, ``#header``, ``body``)
+    - @keyframes          → kind "function" (e.g. ``@keyframes slideIn``)
+    - @media / @supports  → kind "type"     (e.g. ``@media (max-width: 768px)``)
+    """
+    try:
+        parser = get_parser("css")
+    except Exception:
+        return []
+
+    tree = parser.parse(source_bytes)
+    symbols: list[Symbol] = []
+
+    def _text(node) -> str:
+        return source_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+
+    def _selector_name(selectors_node) -> str:
+        """Return a concise, stable selector string (≤80 chars)."""
+        raw = _text(selectors_node).strip()
+        # Collapse internal whitespace sequences to a single space
+        raw = " ".join(raw.split())
+        return raw[:80] if len(raw) > 80 else raw
+
+    def _make(name: str, kind: str, node, signature: str) -> Symbol:
+        return Symbol(
+            id=make_symbol_id(filename, name, kind),
+            file=filename,
+            name=name,
+            qualified_name=name,
+            kind=kind,
+            language="css",
+            signature=signature,
+            line=node.start_point[0] + 1,
+            end_line=node.end_point[0] + 1,
+            byte_offset=node.start_byte,
+            byte_length=node.end_byte - node.start_byte,
+            content_hash=compute_content_hash(source_bytes[node.start_byte:node.end_byte]),
+        )
+
+    for node in tree.root_node.children:
+        if node.type == "rule_set":
+            selectors_node = next((c for c in node.children if c.type == "selectors"), None)
+            if selectors_node is None:
+                continue
+            name = _selector_name(selectors_node)
+            if not name:
+                continue
+            symbols.append(_make(name, "class", node, name))
+
+        elif node.type == "keyframes_statement":
+            name_node = next((c for c in node.children if c.type == "keyframes_name"), None)
+            if name_node is None:
+                continue
+            kf_name = _text(name_node).strip()
+            if not kf_name:
+                continue
+            full_name = f"@keyframes {kf_name}"
+            symbols.append(_make(full_name, "function", node, full_name))
+
+        elif node.type in ("media_statement", "supports_statement"):
+            # Use first line stripped of trailing '{' as the name/signature
+            first_line = _text(node).split("\n")[0].strip().rstrip("{").strip()
+            if len(first_line) > 80:
+                first_line = first_line[:77] + "..."
+            if not first_line:
+                continue
+            symbols.append(_make(first_line, "type", node, first_line))
+
+    return symbols
+
+
+def _parse_json_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
+    """Parse JSON files and extract top-level object keys as constants.
+
+    Extracted symbol kind:
+    - Top-level key in the root object → kind "constant"
+      (e.g. ``"name"``, ``"dependencies"``, ``"scripts"`` in package.json)
+
+    Arrays at the root level produce no symbols. Deeply nested keys are
+    intentionally skipped — only root-level keys are extracted to avoid
+    noise in large config files.
+    """
+    try:
+        parser = get_parser("json")
+    except Exception:
+        return []
+
+    tree = parser.parse(source_bytes)
+    symbols: list[Symbol] = []
+
+    # document → object → pair*
+    root = tree.root_node
+    obj = next((c for c in root.children if c.type == "object"), None)
+    if obj is None:
+        return []
+
+    for pair in obj.children:
+        if pair.type != "pair":
+            continue
+        key_node = next((c for c in pair.children if c.type == "string"), None)
+        if key_node is None:
+            continue
+        content_node = next((c for c in key_node.children if c.type == "string_content"), None)
+        key_text = (
+            source_bytes[content_node.start_byte:content_node.end_byte].decode("utf-8", errors="replace")
+            if content_node is not None
+            else source_bytes[key_node.start_byte:key_node.end_byte].decode("utf-8", errors="replace").strip('"')
+        )
+        if not key_text:
+            continue
+        # Build a brief signature: "key": <first-line-of-value>
+        val_src = source_bytes[pair.start_byte:pair.end_byte].decode("utf-8", errors="replace")
+        sig = " ".join(val_src.split())
+        if len(sig) > 100:
+            sig = sig[:97] + "..."
+        symbols.append(Symbol(
+            id=make_symbol_id(filename, key_text, "constant"),
+            file=filename,
+            name=key_text,
+            qualified_name=key_text,
+            kind="constant",
+            language="json",
+            signature=sig,
+            line=pair.start_point[0] + 1,
+            end_line=pair.end_point[0] + 1,
+            byte_offset=pair.start_byte,
+            byte_length=pair.end_byte - pair.start_byte,
+            content_hash=compute_content_hash(source_bytes[pair.start_byte:pair.end_byte]),
+        ))
+
+    return symbols
+
+
+def _parse_scss_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
+    """Parse SCSS files and extract variables, mixins, functions, rule sets, and at-rules.
+
+    Extracted symbol kinds:
+    - $variable declarations  → kind "constant"  (e.g. ``$primary-color: #333``)
+    - @mixin definitions      → kind "function"   (e.g. ``@mixin flex-center($dir)``)
+    - @function definitions   → kind "function"   (e.g. ``@function px-to-rem($px)``)
+    - rule_set selectors      → kind "class"      (e.g. ``.container``, ``%placeholder``)
+    - @media / @supports      → kind "type"       (e.g. ``@media (max-width: 768px)``)
+    """
+    try:
+        parser = get_parser("scss")
+    except Exception:
+        return []
+
+    tree = parser.parse(source_bytes)
+    symbols: list[Symbol] = []
+
+    def _text(node) -> str:
+        return source_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+
+    def _make(name: str, kind: str, node, signature: str) -> Symbol:
+        return Symbol(
+            id=make_symbol_id(filename, name, kind),
+            file=filename,
+            name=name,
+            qualified_name=name,
+            kind=kind,
+            language="scss",
+            signature=signature,
+            line=node.start_point[0] + 1,
+            end_line=node.end_point[0] + 1,
+            byte_offset=node.start_byte,
+            byte_length=node.end_byte - node.start_byte,
+            content_hash=compute_content_hash(source_bytes[node.start_byte:node.end_byte]),
+        )
+
+    def _selector_name(selectors_node) -> str:
+        raw = " ".join(_text(selectors_node).split())
+        return raw[:80] if len(raw) > 80 else raw
+
+    def _walk(node) -> None:
+        if node.type == "declaration":
+            # Top-level $variable declarations
+            prop = next((c for c in node.children if c.type == "property_name"), None)
+            if prop is not None:
+                prop_text = _text(prop)
+                if prop_text.startswith("$"):
+                    # Build a concise signature: $var: value
+                    sig = " ".join(_text(node).split()).rstrip(";")
+                    if len(sig) > 80:
+                        sig = sig[:77] + "..."
+                    symbols.append(_make(prop_text, "constant", node, sig))
+
+        elif node.type == "mixin_statement":
+            name_node = next((c for c in node.children if c.type == "identifier"), None)
+            if name_node is not None:
+                mixin_name = _text(name_node)
+                params_node = next((c for c in node.children if c.type == "parameters"), None)
+                sig = f"@mixin {mixin_name}"
+                if params_node is not None:
+                    sig += _text(params_node)
+                symbols.append(_make(f"@mixin {mixin_name}", "function", node, sig))
+
+        elif node.type == "function_statement":
+            name_node = next((c for c in node.children if c.type == "identifier"), None)
+            if name_node is not None:
+                func_name = _text(name_node)
+                params_node = next((c for c in node.children if c.type == "parameters"), None)
+                sig = f"@function {func_name}"
+                if params_node is not None:
+                    sig += _text(params_node)
+                symbols.append(_make(f"@function {func_name}", "function", node, sig))
+
+        elif node.type == "rule_set":
+            selectors_node = next((c for c in node.children if c.type == "selectors"), None)
+            if selectors_node is not None:
+                name = _selector_name(selectors_node)
+                if name:
+                    symbols.append(_make(name, "class", node, name))
+
+        elif node.type in ("media_statement", "supports_statement"):
+            first_line = _text(node).split("\n")[0].strip().rstrip("{").strip()
+            if len(first_line) > 80:
+                first_line = first_line[:77] + "..."
+            if first_line:
+                symbols.append(_make(first_line, "type", node, first_line))
+
+    for child in tree.root_node.children:
+        _walk(child)
+
     return symbols
 
 

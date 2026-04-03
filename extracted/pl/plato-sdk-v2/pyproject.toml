@@ -76,6 +76,9 @@ build-backend = "hatchling.build"
 path = "VERSION"
 pattern = "(?P<version>.+)"
 
+[tool.hatch.build]
+exclude = ["plato-fuse/", "tests/"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["plato"]
 

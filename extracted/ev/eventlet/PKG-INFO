@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eventlet
-Version: 0.40.4
+Version: 0.41.0
 Summary: Highly concurrent networking library
 Project-URL: Homepage, https://github.com/eventlet/eventlet
 Project-URL: History, https://github.com/eventlet/eventlet/blob/master/NEWS
@@ -19,7 +19,6 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -27,7 +26,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: dnspython>=1.15.0
 Requires-Dist: greenlet>=1.0
 Provides-Extra: dev

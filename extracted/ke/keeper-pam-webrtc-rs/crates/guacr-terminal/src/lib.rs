@@ -21,6 +21,10 @@
 // ```
 
 mod buffer_pool;
+#[cfg(feature = "h264-soft")]
+pub mod h264_encoder;
+#[cfg(feature = "h264-soft")]
+pub use h264_encoder::SoftwareH264Encoder;
 pub mod ratatui_renderer;
 pub use ratatui_renderer::RatatuiRenderer;
 mod clipboard;
@@ -95,3 +99,6 @@ pub enum TerminalError {
 }
 
 pub type Result<T> = std::result::Result<T, TerminalError>;
+
+#[cfg(test)]
+mod tests;

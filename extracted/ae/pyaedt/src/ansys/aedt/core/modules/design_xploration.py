@@ -27,7 +27,7 @@ from __future__ import annotations
 import copy
 import csv
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any
 
 from ansys.aedt.core.base import PyAedtBase
 from ansys.aedt.core.generic.constants import SolutionsHfss
@@ -45,9 +45,6 @@ from ansys.aedt.core.modules.optimetrics_templates import defaultparametricSetup
 from ansys.aedt.core.modules.optimetrics_templates import defaultsensitivitySetup
 from ansys.aedt.core.modules.optimetrics_templates import defaultstatisticalSetup
 from ansys.aedt.core.modules.solve_sweeps import SetupProps
-
-if TYPE_CHECKING:
-    from ansys.aedt.core.modules.solve_setup import Setup
 
 
 class CommonOptimetrics(PropsManager, PyAedtBase):
@@ -112,7 +109,7 @@ class CommonOptimetrics(PropsManager, PyAedtBase):
                         if isinstance(self._app.design_properties["SolutionManager"]["ID Map"]["Setup"], list):
                             for setup in self._app.design_properties["SolutionManager"]["ID Map"]["Setup"]:
                                 if setup["I"] == el:
-                                    setups[setups.index(el)] = setup["N"]
+                                    setups[setups.index(el)] = setup["I"]
                                     break
                         else:
                             if self._app.design_properties["SolutionManager"]["ID Map"]["Setup"]["I"] == el:
@@ -120,7 +117,6 @@ class CommonOptimetrics(PropsManager, PyAedtBase):
                                     "Setup"
                                 ]["N"]
                                 break
-
                     except (TypeError, KeyError):
                         pass
 
@@ -161,7 +157,7 @@ class CommonOptimetrics(PropsManager, PyAedtBase):
 
         self.auto_update = True
 
-    def _get_setup_props(self, arg1: dict):
+    def _get_setup_props(self, arg1: dict[str, Any]) -> None:
         for k, v in arg1.items():
             if isinstance(v, dict):
                 arg1[k] = SetupProps(self, v)
@@ -293,7 +289,7 @@ class CommonOptimetrics(PropsManager, PyAedtBase):
         return sweep_definition
 
     @pyaedt_function_handler()
-    def update(self, update_dictionary: dict = None) -> bool:
+    def update(self, update_dictionary: dict[str, Any] | None = None) -> bool:
         """Update the setup based on stored properties.
 
         Parameters
@@ -347,15 +343,15 @@ class CommonOptimetrics(PropsManager, PyAedtBase):
     @pyaedt_function_handler()
     def add_calculation(
         self,
-        calculation: str,
-        ranges: dict = None,
-        variables: dict = None,
-        solution: str = None,
-        context: str = None,
-        subdesign_id: int = None,
+        calculation,
+        ranges=None,
+        variables=None,
+        solution: str | None = None,
+        context=None,
+        subdesign_id: int | None = None,
         polyline_points: int = 1001,
-        report_type: str = None,
-    ) -> bool:
+        report_type=None,
+    ):
         """Add a calculation to the setup.
 
         Parameters
@@ -487,7 +483,7 @@ class CommonOptimetrics(PropsManager, PyAedtBase):
         return self.update()
 
     @pyaedt_function_handler()
-    def _activate_variable(self, variable_name):
+    def _activate_variable(self, variable_name) -> None:
         if self.soltype in ["OptiDesignExplorer", "OptiDXDOE", "OptiOptimization", "optiSLang"]:
             self._app.activate_variable_optimization(variable_name)
         elif self.soltype == "OptiParametric":
@@ -591,18 +587,18 @@ class SetupOpti(CommonOptimetrics, PyAedtBase):
     @pyaedt_function_handler()
     def add_goal(
         self,
-        calculation: str,
-        ranges: dict,
-        variables: dict = None,
-        solution: str = None,
-        context: str = None,
-        subdesign_id: int = None,
+        calculation,
+        ranges,
+        variables=None,
+        solution: str | None = None,
+        context=None,
+        subdesign_id: int | None = None,
         polyline_points: int = 1001,
-        report_type: str = None,
+        report_type=None,
         condition: str = "<=",
         goal_value: int = 1,
         goal_weight: int = 1,
-    ) -> bool:
+    ):
         """Add a goal to the setup.
 
         Parameters
@@ -660,14 +656,14 @@ class SetupOpti(CommonOptimetrics, PyAedtBase):
     @pyaedt_function_handler()
     def add_variation(
         self,
-        variable_name: str,
-        min_value: float,
-        max_value: float,
-        starting_point: float = None,
-        min_step: float = None,
-        max_step: float = None,
+        variable_name,
+        min_value,
+        max_value,
+        starting_point=None,
+        min_step=None,
+        max_step=None,
         use_manufacturable: bool = False,
-        levels: list = None,
+        levels=None,
     ) -> bool:
         """Add a new variable as input for the optimization and defines its ranges.
 
@@ -811,13 +807,13 @@ class SetupParam(CommonOptimetrics, PyAedtBase):
     @pyaedt_function_handler()
     def add_variation(
         self,
-        sweep_variable: str,
-        start_point: float,
-        end_point: float = None,
-        step: float = 100,
-        units: str = None,
+        sweep_variable,
+        start_point,
+        end_point=None,
+        step: int = 100,
+        units=None,
         variation_type: str = "LinearCount",
-    ) -> bool:
+    ):
         """Add a variation to an existing parametric setup.
 
         Parameters
@@ -894,7 +890,7 @@ class SetupParam(CommonOptimetrics, PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def sync_variables(self, variables: list, sync_n: int = 1) -> bool:
+    def sync_variables(self, variables, sync_n: int = 1) -> bool:
         """Sync variable variations in an existing parametric setup.
         Setting the sync number to `0` will effectively unsync the variables.
 
@@ -946,7 +942,7 @@ class SetupParam(CommonOptimetrics, PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def export_to_csv(self, output_file: str) -> bool:
+    def export_to_csv(self, output_file) -> bool:
         """Export the current Parametric Setup to csv.
 
         Parameters
@@ -1016,14 +1012,14 @@ class ParametricSetups(PyAedtBase):
     @pyaedt_function_handler()
     def add(
         self,
-        variable: str,
-        start_point: float,
-        end_point: float = None,
-        step: float = 100,
+        variable,
+        start_point,
+        end_point=None,
+        step: int = 100,
         variation_type: str = "LinearCount",
-        solution: str = None,
-        name: str = None,
-    ) -> SetupParam | bool:
+        solution: str | None = None,
+        name: str | None = None,
+    ):
         """Add a basic sensitivity analysis.
         You can customize all options after the analysis is added.
 
@@ -1102,7 +1098,7 @@ class ParametricSetups(PyAedtBase):
         return False
 
     @pyaedt_function_handler()
-    def add_from_file(self, input_file: str, name: str = None):
+    def add_from_file(self, input_file: str, name: str | None = None):
         """Add a Parametric setup from either a csv or txt file.
 
         Parameters
@@ -1195,7 +1191,7 @@ class OptimizationSetups(PyAedtBase):
         return self._app
 
     @property
-    def design_setups(self) -> dict["Setup"]:
+    def design_setups(self):
         """All design setups ordered by name.
 
         Returns
@@ -1238,20 +1234,20 @@ class OptimizationSetups(PyAedtBase):
     @pyaedt_function_handler()
     def add(
         self,
-        calculation: str = None,
-        ranges: dict = None,
-        variables: list = None,
+        calculation=None,
+        ranges=None,
+        variables=None,
         optimization_type: str = "Optimization",
         condition: str = "<=",
         goal_value: int = 1,
         goal_weight: int = 1,
-        solution: str = None,
-        name: str = None,
-        context: str = None,
-        subdesign_id: int = None,
+        solution: str | None = None,
+        name: str | None = None,
+        context=None,
+        subdesign_id: int | None = None,
         polyline_points: int = 1001,
-        report_type: str = None,
-    ) -> SetupOpti | bool:
+        report_type=None,
+    ):
         """Add a basic optimization analysis.
         You can customize all options after the analysis is added.
 

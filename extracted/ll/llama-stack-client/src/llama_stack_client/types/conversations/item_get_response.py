@@ -43,6 +43,9 @@ __all__ = [
     "OpenAIResponseOutputMessageMcpCall",
     "OpenAIResponseOutputMessageMcpListTools",
     "OpenAIResponseOutputMessageMcpListToolsTool",
+    "OpenAIResponseOutputMessageReasoningItem",
+    "OpenAIResponseOutputMessageReasoningItemSummary",
+    "OpenAIResponseOutputMessageReasoningItemContent",
 ]
 
 
@@ -129,6 +132,8 @@ class OpenAIResponseMessageOutputContentListOpenAIResponseOutputMessageContentOu
 class OpenAIResponseMessageOutputContentListOpenAIResponseOutputMessageContentOutputTextOutputOpenAIResponseContentPartRefusalOpenAIResponseOutputMessageContentOutputTextOutputAnnotationOpenAIResponseAnnotationContainerFileCitation(
     BaseModel
 ):
+    """Container file citation annotation referencing a file within a container."""
+
     container_id: str
 
     end_index: int
@@ -145,6 +150,8 @@ class OpenAIResponseMessageOutputContentListOpenAIResponseOutputMessageContentOu
 class OpenAIResponseMessageOutputContentListOpenAIResponseOutputMessageContentOutputTextOutputOpenAIResponseContentPartRefusalOpenAIResponseOutputMessageContentOutputTextOutputAnnotationOpenAIResponseAnnotationFilePath(
     BaseModel
 ):
+    """File path annotation referencing a generated file in response content."""
+
     file_id: str
 
     index: int
@@ -207,6 +214,8 @@ class OpenAIResponseMessageOutputContentListOpenAIResponseOutputMessageContentOu
 class OpenAIResponseMessageOutputContentListOpenAIResponseOutputMessageContentOutputTextOutputOpenAIResponseContentPartRefusalOpenAIResponseOutputMessageContentOutputTextOutput(
     BaseModel
 ):
+    """Text content within an output message of an OpenAI response."""
+
     text: str
 
     annotations: Optional[
@@ -463,6 +472,45 @@ class OpenAIResponseOutputMessageMcpListTools(BaseModel):
     type: Optional[Literal["mcp_list_tools"]] = None
 
 
+class OpenAIResponseOutputMessageReasoningItemSummary(BaseModel):
+    """A summary of reasoning output from the model."""
+
+    text: str
+    """The summary text of the reasoning output."""
+
+    type: Optional[Literal["summary_text"]] = None
+    """The type identifier, always 'summary_text'."""
+
+
+class OpenAIResponseOutputMessageReasoningItemContent(BaseModel):
+    """Reasoning text from the model."""
+
+    text: str
+    """The reasoning text content from the model."""
+
+    type: Optional[Literal["reasoning_text"]] = None
+    """The type identifier, always 'reasoning_text'."""
+
+
+class OpenAIResponseOutputMessageReasoningItem(BaseModel):
+    """Reasoning output from the model, representing the model's thinking process."""
+
+    id: str
+    """Unique identifier for the reasoning output item."""
+
+    summary: List[OpenAIResponseOutputMessageReasoningItemSummary]
+    """Summary of the reasoning output."""
+
+    content: Optional[List[OpenAIResponseOutputMessageReasoningItemContent]] = None
+    """The reasoning content from the model."""
+
+    status: Optional[Literal["in_progress", "completed", "incomplete"]] = None
+    """The status of the reasoning output."""
+
+    type: Optional[Literal["reasoning"]] = None
+    """The type identifier, always 'reasoning'."""
+
+
 ItemGetResponse: TypeAlias = Annotated[
     Union[
         OpenAIResponseMessageOutput,
@@ -474,6 +522,7 @@ ItemGetResponse: TypeAlias = Annotated[
         OpenAIResponseMcpApprovalResponse,
         OpenAIResponseOutputMessageMcpCall,
         OpenAIResponseOutputMessageMcpListTools,
+        OpenAIResponseOutputMessageReasoningItem,
     ],
     PropertyInfo(discriminator="type"),
 ]

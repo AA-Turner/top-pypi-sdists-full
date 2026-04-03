@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use guacr_handlers::{
     send_disconnect, EventBasedHandler, EventCallback, HandlerError, HandlerStats, HealthStatus,
-    ProtocolHandler, RecordingConfig, VideoOutput,
+    KeepAliveManager, ProtocolHandler, RecordingConfig, VideoOutput,
+    DEFAULT_KEEPALIVE_INTERVAL_SECS,
 };
 use log::{debug, info, warn};
 use std::collections::HashMap;
@@ -415,8 +416,25 @@ impl OracleHandler {
         let mut debounce = tokio::time::interval(std::time::Duration::from_millis(16));
         debounce.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
+        // Keepalive to prevent ICE disconnect on idle sessions
+        let mut keepalive = KeepAliveManager::new(DEFAULT_KEEPALIVE_INTERVAL_SECS);
+        let mut keepalive_interval = tokio::time::interval(std::time::Duration::from_secs(
+            DEFAULT_KEEPALIVE_INTERVAL_SECS,
+        ));
+        keepalive_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         'outer: loop {
             tokio::select! {
+                // Keepalive ping to prevent ICE disconnect on idle sessions
+                _ = keepalive_interval.tick() => {
+                    if let Some(sync_instr) = keepalive.check() {
+                        if send_and_record(to_client, recorder, sync_instr).await.is_err() {
+                            debug!("Oracle: Client channel closed during keepalive, stopping");
+                            break;
+                        }
+                    }
+                }
+
                 // Debounce tick - render if terminal changed
                 _ = debounce.tick() => {
                     // Check if client is still connected before rendering
@@ -648,8 +666,25 @@ impl OracleHandler {
         let mut debounce = tokio::time::interval(std::time::Duration::from_millis(16));
         debounce.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
+        // Keepalive to prevent ICE disconnect on idle sessions
+        let mut keepalive = KeepAliveManager::new(DEFAULT_KEEPALIVE_INTERVAL_SECS);
+        let mut keepalive_interval = tokio::time::interval(std::time::Duration::from_secs(
+            DEFAULT_KEEPALIVE_INTERVAL_SECS,
+        ));
+        keepalive_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         'outer: loop {
             tokio::select! {
+                // Keepalive ping to prevent ICE disconnect on idle sessions
+                _ = keepalive_interval.tick() => {
+                    if let Some(sync_instr) = keepalive.check() {
+                        if send_and_record(to_client, recorder, sync_instr).await.is_err() {
+                            debug!("Oracle: Client channel closed during keepalive, stopping");
+                            break;
+                        }
+                    }
+                }
+
                 // Debounce tick - render if terminal changed
                 _ = debounce.tick() => {
                     // Check if client is still connected before rendering
@@ -1302,7 +1337,7 @@ async fn handle_csv_import_real(
 }
 
 /// Simulate Oracle query response (demonstration mode)
-fn simulate_oracle_query(query: &str) -> Result<String, String> {
+pub(crate) fn simulate_oracle_query(query: &str) -> Result<String, String> {
     let query_upper = query.to_uppercase();
 
     // Simulate common Oracle commands
@@ -1587,53 +1622,5 @@ impl EventBasedHandler for OracleHandler {
             4096,
         )
         .await
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_oracle_handler_new() {
-        let handler = OracleHandler::with_defaults();
-        assert_eq!(<OracleHandler as ProtocolHandler>::name(&handler), "oracle");
-    }
-
-    #[test]
-    fn test_oracle_config() {
-        let config = OracleConfig::default();
-        assert_eq!(config.default_port, 1521);
-        assert_eq!(config.service_name, "ORCL");
-        assert!(config.require_encryption);
-    }
-
-    #[test]
-    fn test_simulate_oracle_query() {
-        let result = simulate_oracle_query("SELECT SYSDATE FROM DUAL");
-        assert!(result.is_ok());
-        let output = result.unwrap();
-        assert!(
-            output.contains("row selected") || output.contains("-"),
-            "Expected date output: {}",
-            output
-        );
-    }
-
-    #[test]
-    fn test_oracle_client_check() {
-        // This will vary based on environment
-        let available = oracle_client_available();
-        let path = oracle_client_path();
-
-        if available {
-            assert!(path.is_some());
-        }
-    }
-
-    #[test]
-    fn test_env_var_names() {
-        assert_eq!(ORACLE_HOME_ENV, "ORACLE_HOME");
-        assert_eq!(OCI_LIB_DIR_ENV, "OCI_LIB_DIR");
     }
 }

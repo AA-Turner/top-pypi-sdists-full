@@ -14,7 +14,6 @@ from copy import deepcopy
 import markupsafe
 from django.utils.translation import gettext_noop as _
 from lxml import etree
-from opaque_keys.edx.keys import UsageKey
 from web_fragments.fragment import Fragment
 from xblock.core import XBlock
 from xblock.fields import Boolean, Dict, List, Scope, String
@@ -119,30 +118,6 @@ class PollBlock(LegacyXmlMixin, XBlock):
         self.save()
         return self._field_data._kvs  # pylint: disable=protected-access
 
-    @property
-    def url_name(self):
-        return self.location.block_id
-
-    @property
-    def course_id(self):
-        return self.location.course_key
-
-    @property
-    def category(self):
-        return self.scope_ids.block_type
-
-    @property
-    def location(self):
-        return self.scope_ids.usage_id
-
-    @location.setter
-    def location(self, value):
-        assert isinstance(value, UsageKey)
-        self.scope_ids = self.scope_ids._replace(
-            def_id=value,  # Note: assigning a UsageKey as def_id is OK in old mongo / import system but wrong in split
-            usage_id=value,
-        )
-
     def handle_ajax(self, dispatch, data):  # legacy support for tests
         """
         Legacy method to mimic old ajax handler behavior for backward compatibility.
@@ -162,8 +137,8 @@ class PollBlock(LegacyXmlMixin, XBlock):
             resource_loader.render_django_template(
                 "templates/poll.html",
                 {
-                    "element_id": self.scope_ids.usage_id.html_id(),
-                    "element_class": self.scope_ids.usage_id.block_type,
+                    "element_id": self.usage_key.html_id(),
+                    "element_class": self.usage_key.block_type,
                     "configuration_json": self.dump_poll(),
                 },
                 i18n_service=self.runtime.service(self, "i18n"),
@@ -251,7 +226,7 @@ class PollBlock(LegacyXmlMixin, XBlock):
         return self.submit_answer(answer)
 
     @XBlock.json_handler
-    def handle_reset_state(self):
+    def handle_reset_state(self, data, suffix=""):  # pylint: disable=unused-argument
         """
         handler to Reset poll answer.
         """
@@ -298,7 +273,7 @@ class PollBlock(LegacyXmlMixin, XBlock):
                     result[field.name] = field.read_json(self)
                 except TypeError as exception:
                     exception_message = "{message}, Block-location:{location}, Field-name:{field_name}".format(
-                        message=str(exception), location=str(self.location), field_name=field.name
+                        message=str(exception), location=str(self.usage_key), field_name=field.name
                     )
                     raise TypeError(exception_message)  # pylint: disable=raise-missing-from
         return result

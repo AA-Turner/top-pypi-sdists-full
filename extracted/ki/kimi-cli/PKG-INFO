@@ -1,12 +1,12 @@
 Metadata-Version: 2.3
 Name: kimi-cli
-Version: 1.29.0
+Version: 1.30.0
 Summary: Kimi Code CLI is your next CLI agent.
 Requires-Dist: agent-client-protocol==0.8.0
 Requires-Dist: aiofiles>=24.0,<26.0
 Requires-Dist: aiohttp==3.13.3
 Requires-Dist: typer==0.21.1
-Requires-Dist: kosong[contrib]==0.47.0
+Requires-Dist: kosong[contrib]==0.48.0
 Requires-Dist: loguru>=0.6.0,<0.8
 Requires-Dist: prompt-toolkit==3.0.52
 Requires-Dist: pillow==12.1.0
@@ -20,7 +20,7 @@ Requires-Dist: tenacity==9.1.2
 Requires-Dist: fastmcp==2.12.5
 Requires-Dist: pydantic==2.12.5
 Requires-Dist: httpx[socks]==0.28.1
-Requires-Dist: pykaos==0.8.0
+Requires-Dist: pykaos==0.9.0
 Requires-Dist: batrachian-toad==0.5.23 ; python_full_version >= '3.14'
 Requires-Dist: tomlkit==0.14.0
 Requires-Dist: jinja2==3.1.6

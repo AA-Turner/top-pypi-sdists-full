@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skyvern
-Version: 1.0.28
+Version: 1.0.29
 Author-email: Skyvern AI <info@skyvern.com>
 License-File: LICENSE
 Requires-Python: <3.14,>=3.11
@@ -8,6 +8,7 @@ Requires-Dist: aioboto3<15,>=14.3.0
 Requires-Dist: aiofiles<25,>=24.1.0
 Requires-Dist: aiohttp<4,>=3.8.5
 Requires-Dist: aioredlock<0.8,>=0.7.3
+Requires-Dist: aiosqlite<0.22,>=0.21.0
 Requires-Dist: alembic<2,>=1.12.1
 Requires-Dist: anthropic<0.51,>=0.50.0
 Requires-Dist: asyncache<0.4,>=0.3.1

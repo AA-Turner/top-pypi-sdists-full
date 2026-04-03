@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 import orjson
 import structlog
+from google.protobuf import field_mask_pb2
 from grpc.aio import AioRpcError
 from langgraph.checkpoint.serde.jsonplus import _msgpack_ext_hook_to_json
 from langgraph.types import StateSnapshot, StateUpdate
@@ -561,6 +562,7 @@ class Threads(Authenticated):
         metadata: MetadataInput,
         ttl: dict[str, Any] | None = None,
         ctx: Any = None,
+        read_mask_paths: list[str] | None = None,
     ) -> AsyncIterator[Thread]:
         metadata = metadata or {}
 
@@ -583,6 +585,9 @@ class Threads(Authenticated):
         ttl_config = _map_thread_ttl(ttl)
         if ttl_config is not None:
             request.ttl.CopyFrom(ttl_config)
+
+        if read_mask_paths is not None:
+            request.read_mask.CopyFrom(field_mask_pb2.FieldMask(paths=read_mask_paths))
 
         client = await get_shared_client()
         response = await client.threads.Patch(request)

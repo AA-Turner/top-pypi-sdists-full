@@ -240,12 +240,15 @@ SchemaTypeType = Literal["array", "boolean", "integer", "number", "object", "str
 SearchTypeType = Literal["SEMANTIC"]
 ServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
 TargetStatusType = Literal[
+    "CREATE_PENDING_AUTH",
     "CREATING",
     "DELETING",
     "FAILED",
     "READY",
+    "SYNCHRONIZE_PENDING_AUTH",
     "SYNCHRONIZE_UNSUCCESSFUL",
     "SYNCHRONIZING",
+    "UPDATE_PENDING_AUTH",
     "UPDATE_UNSUCCESSFUL",
     "UPDATING",
 ]

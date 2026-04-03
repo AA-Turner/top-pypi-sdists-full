@@ -129,16 +129,16 @@ class GeneticAlgorithm(PyAedtBase):
 
     def __init__(
         self,
-        function: callable,
-        dim: int,
-        reference_file: str = None,
-        population_file: str = None,
+        function,
+        dim,
+        reference_file=None,
+        population_file=None,
         goal: int = 0,
         var_type: str = "bool",
-        boundaries: np.ndarray = None,
-        var_type_mixed: np.ndarray = None,
+        boundaries=None,
+        var_type_mixed=None,
         function_timeout: int = 0,
-        algorithm_parameters: dict = None,
+        algorithm_parameters=None,
         progress_bar: bool = True,
     ) -> None:
         self.population_file = None
@@ -437,7 +437,7 @@ class GeneticAlgorithm(PyAedtBase):
 
         return True
 
-    def cross(self, x: np.ndarray, y: np.ndarray, c_type: str) -> np.ndarray:
+    def cross(self, x, y, c_type):
         ofs1 = x.copy()
         ofs2 = y.copy()
 
@@ -464,7 +464,7 @@ class GeneticAlgorithm(PyAedtBase):
 
         return np.array([ofs1, ofs2])
 
-    def mut(self, x: np.ndarray) -> np.ndarray:
+    def mut(self, x):
         for i in self.integers[0]:
             ran = np.random.random()
             if ran < self.prob_mut:
@@ -477,7 +477,7 @@ class GeneticAlgorithm(PyAedtBase):
 
         return x
 
-    def mutmiddle(self, x: np.ndarray, p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
+    def mutmiddle(self, x, p1, p2):
         for i in self.integers[0]:
             ran = np.random.random()
             if ran < self.prob_mut:
@@ -507,7 +507,7 @@ class GeneticAlgorithm(PyAedtBase):
             self.evaluate_val = self.function(self.temp, self.reference_file)
             return True
 
-    def sim(self, X: np.ndarray) -> np.ndarray:
+    def sim(self, X):
         self.temp = X.copy()
         if self.timeout > 0:
             thread = ThreadTrace(target=self.evaluate, daemon=None)
@@ -522,7 +522,7 @@ class GeneticAlgorithm(PyAedtBase):
             self.evaluate()
         return self.evaluate_val
 
-    def progress(self, count: int, total: int, status: str = ""):
+    def progress(self, count, total, status: str = "") -> None:
         bar_len = 50
         filled_len = int(round(bar_len * count / float(total)))
 

@@ -3,6 +3,7 @@
 import json
 import posixpath
 import re
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -258,6 +259,16 @@ def _extract_haskell_imports(content: str) -> list[dict]:
     return [{"specifier": m.group(1), "names": []} for m in _HASKELL_IMPORT.finditer(content)]
 
 
+# Dart: import 'package:flutter/material.dart' / import 'dart:async' / import './foo.dart'
+_DART_IMPORT = re.compile(
+    r"""^\s*(?:import|export)\s+['"]([^'"]+)['"]""", re.MULTILINE
+)
+
+
+def _extract_dart_imports(content: str) -> list[dict]:
+    return [{"specifier": m.group(1), "names": []} for m in _DART_IMPORT.finditer(content)]
+
+
 # SQL/dbt: {{ ref('model_name') }} and {{ source('source', 'table') }}
 _DBT_REF = re.compile(
     r"""\{\{[\s-]*ref\s*\(\s*['"]([^'"]+)['"]\s*(?:,\s*v\s*=\s*\d+\s*)?\)\s*[\s-]*\}\}"""
@@ -293,12 +304,100 @@ def _extract_sql_dbt_imports(content: str) -> list[dict]:
 # Public API
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Vue <template> component extraction
+# ---------------------------------------------------------------------------
+
+_VUE_TEMPLATE_BLOCK = re.compile(r"<template\b[^>]*>(.*)</template>", re.DOTALL)
+
+_VUE_TEMPLATE_COMPONENT = re.compile(
+    r"""<(?P<tag>[A-Z][\w]*|[a-z]+-[\w-]+)[\s/>]""",
+    re.MULTILINE,
+)
+
+_HTML_STANDARD_ELEMENTS = frozenset({
+    # HTML5 elements
+    "a", "abbr", "address", "area", "article", "aside", "audio",
+    "b", "base", "bdi", "bdo", "blockquote", "body", "br", "button",
+    "canvas", "caption", "cite", "code", "col", "colgroup",
+    "data", "datalist", "dd", "del", "details", "dfn", "dialog", "div", "dl", "dt",
+    "em", "embed",
+    "fieldset", "figcaption", "figure", "footer", "form",
+    "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr", "html",
+    "i", "iframe", "img", "input", "ins",
+    "kbd",
+    "label", "legend", "li", "link",
+    "main", "map", "mark", "menu", "meta", "meter",
+    "nav", "noscript",
+    "object", "ol", "optgroup", "option", "output",
+    "p", "param", "picture", "pre", "progress",
+    "q",
+    "rp", "rt", "ruby",
+    "s", "samp", "script", "search", "section", "select", "slot", "small", "source", "span",
+    "strong", "style", "sub", "summary", "sup",
+    "table", "tbody", "td", "template", "textarea", "tfoot", "th", "thead", "time", "title", "tr", "track",
+    "u", "ul",
+    "var", "video",
+    "wbr",
+    # SVG elements
+    "svg", "path", "circle", "rect", "line", "g", "defs", "use", "text",
+    "polygon", "polyline", "ellipse", "image", "mask", "pattern",
+    # Vue built-in elements
+    "transition", "transition-group", "keep-alive", "teleport", "suspense", "component",
+})
+
+
+def _kebab_to_pascal(name: str) -> str:
+    """Convert kebab-case to PascalCase: 'user-table' → 'UserTable'."""
+    return "".join(part.capitalize() for part in name.split("-"))
+
+
+def _extract_vue_template_components(content: str) -> list[str]:
+    """Extract component names used in Vue <template> blocks."""
+    m = _VUE_TEMPLATE_BLOCK.search(content)
+    if not m:
+        return []
+    template = m.group(1)
+
+    components: set[str] = set()
+    for cm in _VUE_TEMPLATE_COMPONENT.finditer(template):
+        tag = cm.group("tag")
+        # Normalize to lowercase for HTML check
+        if tag.lower() not in _HTML_STANDARD_ELEMENTS:
+            components.add(tag)
+    return sorted(components)
+
+
+def _extract_vue_imports(content: str) -> list[dict]:
+    """Extract imports from Vue SFC: script imports + template component usage."""
+    edges = _extract_js_imports(content)
+
+    template_components = _extract_vue_template_components(content)
+    if not template_components:
+        return edges
+
+    # Collect already-imported names from <script> for dedup
+    imported_names: set[str] = set()
+    for edge in edges:
+        imported_names.update(edge["names"])
+
+    for component in template_components:
+        # Check if already imported (PascalCase or kebab→PascalCase)
+        pascal = _kebab_to_pascal(component) if "-" in component else component
+        if component in imported_names or pascal in imported_names:
+            continue
+        # Synthetic import edge for template-only component usage
+        edges.append({"specifier": pascal, "names": [pascal]})
+
+    return edges
+
+
 _LANGUAGE_EXTRACTORS = {
     "javascript": _extract_js_imports,
     "typescript": _extract_js_imports,
     "tsx": _extract_js_imports,
     "jsx": _extract_js_imports,
-    "vue": _extract_js_imports,
+    "vue": _extract_vue_imports,
     "python": _extract_python_imports,
     "go": _extract_go_imports,
     "java": lambda c: _extract_java_imports(c, "java"),
@@ -313,6 +412,7 @@ _LANGUAGE_EXTRACTORS = {
     "swift": _extract_swift_imports,
     "scala": _extract_scala_imports,
     "haskell": _extract_haskell_imports,
+    "dart": _extract_dart_imports,
     "sql": _extract_sql_dbt_imports,
     "asm": _extract_asm_imports,
 }
@@ -345,24 +445,104 @@ _PY_EXTENSIONS = (".py",)
 _RUBY_EXTENSIONS = (".rb",)
 _ALL_EXTENSIONS = _JS_EXTENSIONS + _PY_EXTENSIONS + _RUBY_EXTENSIONS + (".go",)
 
+# ---------------------------------------------------------------------------
+# PSR-4 namespace resolution (PHP / Composer)
+# ---------------------------------------------------------------------------
+
+# Module-level cache: source_root -> {namespace_prefix: relative_dir}
+_psr4_map_cache: dict[str, dict[str, str]] = {}
+
+
+def build_psr4_map(source_root: str) -> dict[str, str]:
+    """Parse composer.json PSR-4 autoload mappings for a project root.
+
+    Returns a dict mapping namespace prefix strings (e.g. ``"App\\\\"`` ) to
+    repo-root-relative directory strings (e.g. ``"app/"``).  Includes both
+    ``autoload`` and ``autoload-dev`` sections.  Results are module-level
+    cached by ``source_root``; a re-index is needed if composer.json changes.
+
+    Returns an empty dict when composer.json is absent or cannot be parsed.
+    """
+    if not source_root:
+        return {}
+    if source_root in _psr4_map_cache:
+        return _psr4_map_cache[source_root]
+
+    composer_path = Path(source_root) / "composer.json"
+    if not composer_path.exists():
+        _psr4_map_cache[source_root] = {}
+        return {}
+
+    try:
+        data = json.loads(composer_path.read_text("utf-8", errors="replace"))
+        mapping: dict[str, str] = {}
+        for section in ("autoload", "autoload-dev"):
+            for prefix, paths in data.get(section, {}).get("psr-4", {}).items():
+                if prefix in mapping:
+                    continue  # first definition wins
+                if isinstance(paths, str):
+                    paths = [paths]
+                if paths:
+                    rel_dir = paths[0].replace("\\", "/").rstrip("/") + "/"
+                    mapping[prefix] = rel_dir
+        _psr4_map_cache[source_root] = mapping
+        return mapping
+    except Exception:
+        _psr4_map_cache[source_root] = {}
+        return {}
+
+
+def resolve_php_namespace(
+    fqn: str,
+    psr4_map: dict[str, str],
+    source_files: set[str],
+) -> Optional[str]:
+    """Resolve a PHP fully-qualified class name to a repo-relative file path.
+
+    Example: ``"App\\\\Models\\\\User"`` with ``{"App\\\\": "app/"}``
+    resolves to ``"app/Models/User.php"``.
+
+    Prefixes are matched longest-first so more specific mappings win.
+    Returns ``None`` if no prefix matches or the resolved path is not in
+    ``source_files``.
+    """
+    for prefix, base_dir in sorted(psr4_map.items(), key=lambda x: -len(x[0])):
+        if fqn.startswith(prefix):
+            relative = fqn[len(prefix):].replace("\\", "/") + ".php"
+            candidate = base_dir + relative
+            if candidate in source_files:
+                return candidate
+    return None
+
+
 # Cache for SQL stem lookups — avoids O(n) scans when resolve_specifier is
 # called repeatedly with the same source_files set (common in tight loops).
-_sql_stem_cache: tuple[int, dict[str, str]] = (0, {})
+# Keyed by frozenset of .sql paths (content identity, not object identity) to
+# prevent id() aliasing after GC (C7-A).
+_sql_stem_cache: dict[frozenset, dict[str, str]] = {}
+_SQL_STEM_CACHE_MAX = 4
+_SQL_STEM_LOCK = threading.Lock()
 
 
 def _get_sql_stems(source_files: set[str]) -> dict[str, str]:
-    """Return a lowered-stem -> file_path dict for .sql files, cached by set identity."""
-    global _sql_stem_cache
-    sf_id = id(source_files)
-    if _sql_stem_cache[0] == sf_id:
-        return _sql_stem_cache[1]
+    """Return a lowered-stem -> file_path dict for .sql files, cached by content."""
+    key = frozenset(f for f in source_files if f.endswith(".sql"))
+    with _SQL_STEM_LOCK:
+        cached = _sql_stem_cache.get(key)
+        if cached is not None:
+            return cached
+
+    # Miss: build without holding the lock
     stems: dict[str, str] = {}
-    for sf in source_files:
-        if sf.endswith(".sql"):
-            stem = posixpath.splitext(posixpath.basename(sf))[0].lower()
-            if stem not in stems:  # first match wins
-                stems[stem] = sf
-    _sql_stem_cache = (sf_id, stems)
+    for sf in key:
+        stem = posixpath.splitext(posixpath.basename(sf))[0].lower()
+        if stem not in stems:  # first match wins
+            stems[stem] = sf
+
+    with _SQL_STEM_LOCK:
+        if len(_sql_stem_cache) >= _SQL_STEM_CACHE_MAX:
+            _sql_stem_cache.pop(next(iter(_sql_stem_cache)))
+        _sql_stem_cache[key] = stems
     return stems
 
 
@@ -392,6 +572,7 @@ def _candidates(base: str) -> list[str]:
 # Module-level cache: source_root -> alias_map (no mtime invalidation — tsconfig rarely
 # changes during a session; a re-index is needed anyway if paths change).
 _alias_map_cache: dict[str, dict[str, list[str]]] = {}
+_ALIAS_MAP_LOCK = threading.Lock()
 
 
 def _norm_alias_replacement(rep: str, tsconfig_dir_rel: str = "") -> str:
@@ -433,9 +614,11 @@ def _load_tsconfig_aliases(source_root: str) -> dict[str, list[str]]:
     """
     if not source_root:
         return {}
-    if source_root in _alias_map_cache:
-        return _alias_map_cache[source_root]
+    with _ALIAS_MAP_LOCK:
+        if source_root in _alias_map_cache:
+            return _alias_map_cache[source_root]
 
+    # Miss: load tsconfig files without holding the lock (filesystem I/O)
     alias_map: dict[str, list[str]] = {}
     root = Path(source_root)
 
@@ -469,7 +652,8 @@ def _load_tsconfig_aliases(source_root: str) -> dict[str, list[str]]:
         data = _load_json(svelte_cfg)
         _ingest(data.get("compilerOptions", {}).get("paths", {}), tsconfig_dir_rel=".svelte-kit")
 
-    _alias_map_cache[source_root] = alias_map
+    with _ALIAS_MAP_LOCK:
+        _alias_map_cache[source_root] = alias_map
     return alias_map
 
 
@@ -502,19 +686,23 @@ def resolve_specifier(
     importer_path: str,
     source_files: set[str],
     alias_map: Optional[dict[str, list[str]]] = None,
+    psr4_map: Optional[dict[str, str]] = None,
 ) -> Optional[str]:
     """Attempt to resolve an import specifier to a concrete file in the index.
 
     Resolves relative imports (starting with '.') and tries common extension
     permutations.  For TypeScript/JS projects with path aliases (e.g. ``@/*``
     or ``$lib/*``), pass the project's ``alias_map`` (from
-    :func:`_load_tsconfig_aliases`) to enable alias expansion.
+    :func:`_load_tsconfig_aliases`) to enable alias expansion.  For PHP
+    projects using Composer, pass ``psr4_map`` (from :func:`build_psr4_map`)
+    to resolve ``use App\\Models\\User`` → ``app/Models/User.php``.
 
     Args:
         specifier: Raw import specifier (e.g. '../intake/IntakeService' or '@/lib/utils').
         importer_path: POSIX path of the importing file (e.g. 'src/a/b.js').
         source_files: Set of all file paths present in the index.
         alias_map: Optional tsconfig path alias map for this project.
+        psr4_map: Optional PSR-4 namespace map from composer.json.
 
     Returns:
         The matching source file path, or None if unresolvable.
@@ -527,6 +715,12 @@ def resolve_specifier(
             if c in source_files:
                 return c
         return None
+
+    # PHP PSR-4 namespace resolution (specifiers containing backslashes)
+    if psr4_map and "\\" in specifier:
+        resolved = resolve_php_namespace(specifier, psr4_map, source_files)
+        if resolved:
+            return resolved
 
     # Absolute: try direct match first (e.g., for Go or absolute paths)
     for c in _candidates(specifier):
@@ -543,7 +737,7 @@ def resolve_specifier(
     # Stem matching fallback: bare names like dbt ref('dim_client')
     # resolve to any .sql file whose stem matches.  Uses a cached stem
     # dict to avoid O(n) scans on repeated calls with the same source_files.
-    if "/" not in specifier and "." not in specifier:
+    if "/" not in specifier and "." not in specifier and "\\" not in specifier:
         return _get_sql_stems(source_files).get(specifier.lower())
 
     return None

@@ -784,11 +784,13 @@ impl RbiInputHandler {
             buttons_released.push(MouseButton::Right);
         }
 
-        // Handle scroll
+        // Handle scroll. CDP deltaY convention: negative = scroll up, positive = scroll down.
+        // Guacamole MOUSE_SCROLL_UP (0x08) means the user is scrolling up, so deltaY must
+        // be negative. The previous assignment was inverted.
         let scroll_delta_y = if (pressed_mask & MOUSE_SCROLL_UP) != 0 {
-            Some(MOUSE_SCROLL_DISTANCE)
-        } else if (pressed_mask & MOUSE_SCROLL_DOWN) != 0 {
             Some(-MOUSE_SCROLL_DISTANCE)
+        } else if (pressed_mask & MOUSE_SCROLL_DOWN) != 0 {
+            Some(MOUSE_SCROLL_DISTANCE)
         } else {
             None
         };
@@ -871,98 +873,4 @@ pub enum KeyboardShortcut {
     Copy,
     Paste,
     Cut,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_keysym_to_js_keycode() {
-        // Test letter 'A'
-        assert_eq!(keysym_to_js_keycode('A' as u32), 'A' as u32);
-
-        // Test lowercase 'a' -> 'A'
-        assert_eq!(keysym_to_js_keycode('a' as u32), 'A' as u32);
-
-        // Test Enter
-        assert_eq!(keysym_to_js_keycode(0xFF0D), 13);
-
-        // Test F1
-        assert_eq!(keysym_to_js_keycode(0xFFBE), 112);
-
-        // Test backtick
-        assert_eq!(keysym_to_js_keycode('`' as u32), 192);
-    }
-
-    #[test]
-    fn test_keyboard_state() {
-        let mut state = KeyboardState::new();
-
-        // Press Ctrl
-        state.set_pressed(KEYSYM_CTRL_LEFT, true);
-        assert!(state.is_pressed(KEYSYM_CTRL_LEFT));
-        assert_eq!(state.pressed_count(), 1);
-        assert_eq!(
-            state.get_modifiers() & ChromeEventFlags::CONTROL_DOWN,
-            ChromeEventFlags::CONTROL_DOWN
-        );
-
-        // Press 'A'
-        state.set_pressed('A' as u32, true);
-        assert_eq!(state.pressed_count(), 2);
-
-        // Release Ctrl
-        state.set_pressed(KEYSYM_CTRL_LEFT, false);
-        assert!(!state.is_pressed(KEYSYM_CTRL_LEFT));
-        assert_eq!(state.pressed_count(), 1);
-    }
-
-    #[test]
-    fn test_mouse_state() {
-        let state = MouseState::new();
-
-        let modifiers = state.get_mouse_modifiers(MOUSE_BUTTON_LEFT | MOUSE_BUTTON_RIGHT);
-        assert_eq!(
-            modifiers & ChromeEventFlags::LEFT_MOUSE_BUTTON,
-            ChromeEventFlags::LEFT_MOUSE_BUTTON
-        );
-        assert_eq!(
-            modifiers & ChromeEventFlags::RIGHT_MOUSE_BUTTON,
-            ChromeEventFlags::RIGHT_MOUSE_BUTTON
-        );
-    }
-
-    #[test]
-    fn test_input_handler_shortcut() {
-        let mut handler = RbiInputHandler::new();
-
-        // Press Ctrl
-        handler.handle_keyboard(KEYSYM_CTRL_LEFT, true);
-
-        // Press 'C' - we need to handle the key first so it's tracked
-        handler.handle_keyboard('c' as u32, true);
-
-        // Now check shortcut - should detect Copy
-        let shortcut = handler.check_shortcut('c' as u32, true);
-        assert_eq!(shortcut, Some(KeyboardShortcut::Copy));
-
-        // Release 'C'
-        handler.handle_keyboard('c' as u32, false);
-
-        // Press 'V'
-        handler.handle_keyboard('v' as u32, true);
-
-        // Check shortcut - should detect Paste
-        let shortcut = handler.check_shortcut('v' as u32, true);
-        assert_eq!(shortcut, Some(KeyboardShortcut::Paste));
-    }
-
-    #[test]
-    fn test_unicode_conversion() {
-        assert_eq!(keysym_to_unicode(0xFF0D), Some('\r'));
-        assert_eq!(keysym_to_unicode(0xFF09), Some('\t'));
-        assert_eq!(keysym_to_unicode(0xFFB5), Some('5')); // Keypad 5
-        assert_eq!(keysym_to_unicode('a' as u32), Some('a'));
-    }
 }

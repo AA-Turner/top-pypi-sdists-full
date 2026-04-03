@@ -2,9 +2,9 @@
 //
 // Provides secure file transfer over SSH with graphical file browser
 
-mod channel_adapter;
-mod file_browser;
-mod handler;
+pub(crate) mod channel_adapter;
+pub(crate) mod file_browser;
+pub(crate) mod handler;
 
 pub use channel_adapter::ChannelStreamAdapter;
 pub use file_browser::FileBrowser;
@@ -31,3 +31,6 @@ pub enum SftpError {
 }
 
 pub type Result<T> = std::result::Result<T, SftpError>;
+
+#[cfg(test)]
+mod tests;

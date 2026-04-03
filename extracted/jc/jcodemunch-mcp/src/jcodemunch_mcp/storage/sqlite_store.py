@@ -124,7 +124,7 @@ class _CacheEntry(NamedTuple):
 
 _index_cache: OrderedDict[tuple[str, str], _CacheEntry] = OrderedDict()
 _cache_lock = threading.Lock()
-_CACHE_MAX_SIZE = 16
+_CACHE_MAX_SIZE = 32
 
 
 def _cache_get(owner: str, name: str, mtime_ns: int) -> Optional["CodeIndex"]:
@@ -526,14 +526,19 @@ class SQLiteIndexStore:
         if not db_path.exists():
             return None
 
-        # Check in-memory cache (mirrors old @lru_cache on JSON load)
-        try:
-            mtime_ns = _db_mtime_ns(db_path)
-        except OSError:
-            return None  # file was deleted between exists() and stat()
-        cached = _cache_get(owner, safe_name, mtime_ns)
-        if cached is not None:
-            return cached
+        # Check in-memory cache (mirrors old @lru_cache on JSON load).
+        # Stat only when the key is present — avoids a syscall on cold starts.
+        key = (owner, safe_name)
+        with _cache_lock:
+            _has_key = key in _index_cache
+        if _has_key:
+            try:
+                mtime_ns = _db_mtime_ns(db_path)
+            except OSError:
+                return None  # file was deleted between exists() and stat()
+            cached = _cache_get(owner, safe_name, mtime_ns)
+            if cached is not None:
+                return cached
 
         conn = self._connect(db_path)
         try:
@@ -605,10 +610,10 @@ class SQLiteIndexStore:
             conn.execute("BEGIN")
 
             # Delete symbols for changed + deleted files
-            files_to_remove = list(set(deleted_files) | set(changed_files))
+            files_to_remove: set[str] = set(deleted_files) | set(changed_files)
             if files_to_remove:
                 placeholders = ",".join("?" * len(files_to_remove))
-                conn.execute(f"DELETE FROM symbols WHERE file IN ({placeholders})", files_to_remove)
+                conn.execute(f"DELETE FROM symbols WHERE file IN ({placeholders})", tuple(files_to_remove))
 
             # Preserve existing hash/mtime for changed files before deleting them
             preserved: dict[str, dict] = {}
@@ -1095,7 +1100,11 @@ class SQLiteIndexStore:
         # v5: read directly from columns. Fallback to data JSON for mid-migration rows.
         if row["data"]:
             # Legacy v4 row (data not yet migrated) — parse JSON
-            data = json.loads(row["data"])
+            try:
+                data = json.loads(row["data"])
+            except (json.JSONDecodeError, ValueError):
+                logger.warning("Corrupted JSON in symbol data column for row %s, skipping legacy fields", row["name"])
+                data = {}
             qualified_name = data.get("qualified_name", row["name"])
             language = data.get("language", "")
             decorators = data.get("decorators", [])
@@ -1107,9 +1116,17 @@ class SQLiteIndexStore:
             qualified_name = row["qualified_name"] or row["name"]
             language = row["language"] or ""
             deco_raw = row["decorators"]
-            decorators = json.loads(deco_raw) if deco_raw and deco_raw != "[]" else []
+            try:
+                decorators = json.loads(deco_raw) if deco_raw and deco_raw != "[]" else []
+            except (json.JSONDecodeError, ValueError):
+                logger.warning("Corrupted decorators JSON for symbol %s", row["name"])
+                decorators = []
             kw_raw = row["keywords"]
-            keywords = json.loads(kw_raw) if kw_raw and kw_raw != "[]" else []
+            try:
+                keywords = json.loads(kw_raw) if kw_raw and kw_raw != "[]" else []
+            except (json.JSONDecodeError, ValueError):
+                logger.warning("Corrupted keywords JSON for symbol %s", row["name"])
+                keywords = []
             content_hash = row["content_hash"] or ""
             ecosystem_context = row["ecosystem_context"] or ""
         return {
@@ -1196,12 +1213,18 @@ class SQLiteIndexStore:
         new_sym_dicts = [self._symbol_to_dict(s) for s in new_symbols]
 
         # Patch symbol list: drop changed/deleted, append new.
+        # Also drop any retained symbol whose id is being replaced by a new_sym_dict
+        # (e.g. deferred summarization updates existing symbols in-place without
+        # touching files_to_remove — without this check they would be duplicated).
         # Strip BM25 internal keys from any retained symbol that lacks a content_hash —
         # matches the carry-forward contract of the cold path (no hash = can't verify).
         _bm25_keys = {"_tokens", "_tf", "_dl"}
+        new_sym_ids = {s.get("id") for s in new_sym_dicts}
         retained_syms = []
         for s in old.symbols:
             if s.get("file") in files_to_remove:
+                continue
+            if s.get("id") in new_sym_ids:
                 continue
             if s.keys() & _bm25_keys and not s.get("content_hash"):
                 s = {k: v for k, v in s.items() if k not in _bm25_keys}
@@ -1294,17 +1317,28 @@ class SQLiteIndexStore:
             if size is not None:
                 file_sizes[p] = size
             if r["imports"]:
-                parsed = json.loads(r["imports"])
-                if parsed:
-                    imports[p] = parsed
+                try:
+                    parsed = json.loads(r["imports"])
+                    if parsed:
+                        imports[p] = parsed
+                except (json.JSONDecodeError, ValueError):
+                    logger.warning("Corrupted imports JSON for file %s, skipping", p)
         source_files = sorted(source_files_unsorted)
         if not imports:
             # v3 format had no imports field — preserve None for backward compatibility
             index_version = int(meta.get("index_version", "0"))
             imports = None if index_version < 4 else {}
 
-        languages = json.loads(meta.get("languages", "{}"))
-        context_metadata = json.loads(meta.get("context_metadata", "{}"))
+        try:
+            languages = json.loads(meta.get("languages", "{}"))
+        except (json.JSONDecodeError, ValueError):
+            logger.warning("Corrupted languages JSON in metadata, defaulting to empty")
+            languages = {}
+        try:
+            context_metadata = json.loads(meta.get("context_metadata", "{}"))
+        except (json.JSONDecodeError, ValueError):
+            logger.warning("Corrupted context_metadata JSON in metadata, defaulting to empty")
+            context_metadata = {}
         package_names_raw = meta.get("package_names", "[]")
         try:
             package_names = json.loads(package_names_raw) if package_names_raw else []

@@ -31,6 +31,7 @@ from .literals import (
     EvaluationStateType,
     HistoryItemTypeType,
     MetricStreamOutputFormatType,
+    OTelEnrichmentStatusType,
     ScanByType,
     StandardUnitType,
     StateValueType,
@@ -48,6 +49,7 @@ __all__ = (
     "AlarmContributorTypeDef",
     "AlarmHistoryItemTypeDef",
     "AlarmMuteRuleSummaryTypeDef",
+    "AlarmPromQLCriteriaTypeDef",
     "AnomalyDetectorConfigurationOutputTypeDef",
     "AnomalyDetectorConfigurationTypeDef",
     "AnomalyDetectorConfigurationUnionTypeDef",
@@ -99,6 +101,7 @@ __all__ = (
     "EnableInsightRulesOutputTypeDef",
     "EntityMetricDataTypeDef",
     "EntityTypeDef",
+    "EvaluationCriteriaTypeDef",
     "GetAlarmMuteRuleInputTypeDef",
     "GetAlarmMuteRuleInputWaitTypeDef",
     "GetAlarmMuteRuleOutputTypeDef",
@@ -116,6 +119,7 @@ __all__ = (
     "GetMetricStreamOutputTypeDef",
     "GetMetricWidgetImageInputTypeDef",
     "GetMetricWidgetImageOutputTypeDef",
+    "GetOTelEnrichmentOutputTypeDef",
     "InsightRuleContributorDatapointTypeDef",
     "InsightRuleContributorTypeDef",
     "InsightRuleMetricDatapointTypeDef",
@@ -230,6 +234,12 @@ class AlarmMuteRuleSummaryTypeDef(TypedDict):
     Status: NotRequired[AlarmMuteRuleStatusType]
     MuteType: NotRequired[str]
     LastUpdatedTimestamp: NotRequired[datetime]
+
+
+class AlarmPromQLCriteriaTypeDef(TypedDict):
+    Query: str
+    PendingPeriod: NotRequired[int]
+    RecoveryPeriod: NotRequired[int]
 
 
 class RangeOutputTypeDef(TypedDict):
@@ -568,6 +578,10 @@ class UntagResourceInputTypeDef(TypedDict):
     TagKeys: Sequence[str]
 
 
+class EvaluationCriteriaTypeDef(TypedDict):
+    PromQLCriteria: NotRequired[AlarmPromQLCriteriaTypeDef]
+
+
 class AnomalyDetectorConfigurationOutputTypeDef(TypedDict):
     ExcludedTimeRanges: NotRequired[list[RangeOutputTypeDef]]
     MetricTimezone: NotRequired[str]
@@ -672,6 +686,11 @@ class GetMetricStatisticsOutputTypeDef(TypedDict):
 
 class GetMetricWidgetImageOutputTypeDef(TypedDict):
     MetricWidgetImage: bytes
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetOTelEnrichmentOutputTypeDef(TypedDict):
+    Status: OTelEnrichmentStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1168,6 +1187,8 @@ class MetricAlarmTypeDef(TypedDict):
     ThresholdMetricId: NotRequired[str]
     EvaluationState: NotRequired[EvaluationStateType]
     StateTransitionedTimestamp: NotRequired[datetime]
+    EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
+    EvaluationInterval: NotRequired[int]
 
 
 class MetricMathAnomalyDetectorOutputTypeDef(TypedDict):
@@ -1287,8 +1308,6 @@ class GetMetricDataInputTypeDef(TypedDict):
 
 class PutMetricAlarmInputMetricPutAlarmTypeDef(TypedDict):
     AlarmName: str
-    EvaluationPeriods: int
-    ComparisonOperator: ComparisonOperatorType
     AlarmDescription: NotRequired[str]
     ActionsEnabled: NotRequired[bool]
     OKActions: NotRequired[Sequence[str]]
@@ -1299,19 +1318,21 @@ class PutMetricAlarmInputMetricPutAlarmTypeDef(TypedDict):
     Dimensions: NotRequired[Sequence[DimensionTypeDef]]
     Period: NotRequired[int]
     Unit: NotRequired[StandardUnitType]
+    EvaluationPeriods: NotRequired[int]
     DatapointsToAlarm: NotRequired[int]
     Threshold: NotRequired[float]
+    ComparisonOperator: NotRequired[ComparisonOperatorType]
     TreatMissingData: NotRequired[str]
     EvaluateLowSampleCountPercentile: NotRequired[str]
     Metrics: NotRequired[Sequence[MetricDataQueryUnionTypeDef]]
     Tags: NotRequired[Sequence[TagTypeDef]]
     ThresholdMetricId: NotRequired[str]
+    EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
+    EvaluationInterval: NotRequired[int]
 
 
 class PutMetricAlarmInputTypeDef(TypedDict):
     AlarmName: str
-    EvaluationPeriods: int
-    ComparisonOperator: ComparisonOperatorType
     AlarmDescription: NotRequired[str]
     ActionsEnabled: NotRequired[bool]
     OKActions: NotRequired[Sequence[str]]
@@ -1324,13 +1345,17 @@ class PutMetricAlarmInputTypeDef(TypedDict):
     Dimensions: NotRequired[Sequence[DimensionTypeDef]]
     Period: NotRequired[int]
     Unit: NotRequired[StandardUnitType]
+    EvaluationPeriods: NotRequired[int]
     DatapointsToAlarm: NotRequired[int]
     Threshold: NotRequired[float]
+    ComparisonOperator: NotRequired[ComparisonOperatorType]
     TreatMissingData: NotRequired[str]
     EvaluateLowSampleCountPercentile: NotRequired[str]
     Metrics: NotRequired[Sequence[MetricDataQueryUnionTypeDef]]
     Tags: NotRequired[Sequence[TagTypeDef]]
     ThresholdMetricId: NotRequired[str]
+    EvaluationCriteria: NotRequired[EvaluationCriteriaTypeDef]
+    EvaluationInterval: NotRequired[int]
 
 
 MetricMathAnomalyDetectorUnionTypeDef = Union[

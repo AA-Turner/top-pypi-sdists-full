@@ -236,7 +236,7 @@ optional = true
 workspace = true
 
 [features]
-python = ["dep:pyo3", "dep:pyo3-log", "common-daft-config/python", "common-display/python", "common-partitioning/python", "common-resource-request/python", "common-file-formats/python", "common-system-info/python", "common-metrics/python", "daft-ai/python", "daft-catalog/python", "daft-cli/python", "daft-context/python", "daft-core/python", "daft-csv/python", "daft-text/python", "daft-dashboard/python", "daft-distributed/python", "daft-dsl/python", "daft-file/python", "daft-functions-binary/python", "daft-functions-json/python", "daft-functions-list/python", "daft-functions-utf8/python", "daft-functions/python", "daft-image/python", "daft-io/python", "daft-json/python", "daft-local-execution/python", "daft-local-plan/python", "daft-logical-plan/python", "daft-micropartition/python", "daft-parquet/python", "daft-scan/python", "daft-sql/python", "daft-session/python", "daft-shuffles/python", "daft-stats/python", "daft-recordbatch/python", "daft-writers/python"]
+python = ["dep:pyo3", "dep:pyo3-log", "common-daft-config/python", "common-display/python", "common-partitioning/python", "common-resource-request/python", "common-file-formats/python", "common-system-info/python", "common-metrics/python", "daft-ai/python", "daft-catalog/python", "daft-cli/python", "daft-context/python", "daft-core/python", "daft-csv/python", "daft-text/python", "daft-dashboard/python", "daft-distributed/python", "daft-dsl/python", "daft-file/python", "daft-functions-binary/python", "daft-functions-json/python", "daft-functions-list/python", "daft-functions-utf8/python", "daft-functions/python", "daft-image/python", "daft-io/python", "daft-json/python", "daft-local-execution/python", "daft-local-plan/python", "daft-logical-plan/python", "daft-micropartition/python", "daft-parquet/python", "daft-scan/python", "daft-sql/python", "daft-session/python", "daft-stats/python", "daft-recordbatch/python", "daft-writers/python"]
 
 [lib]
 crate-type = ["cdylib"]
@@ -246,7 +246,7 @@ name = "daft"
 edition = "2024"
 name = "daft"
 publish = false
-version = "0.7.6"
+version = "0.7.7"
 exclude = ["examples/dvector", "tests/", "benchmarking/", "tutorials/", "k8s/", "ci/", "docs/", "assets/", "tools/", "*.md", "codecov.yml", "mkdocs.yml"]
 
 [package.metadata.cargo-machete]
@@ -553,7 +553,7 @@ features = ["log"]
 [workspace.dependencies.tracing-subscriber]
 version = "0.3.22"
 default-features = false
-features = ["std", "fmt", "ansi", "env-filter"]
+features = ["std", "fmt", "ansi", "env-filter", "json"]
 
 [workspace.dependencies.uuid]
 version = "1.19.0"
@@ -681,4 +681,4 @@ priority = 1
 
 [workspace.package]
 edition = "2024"
-version = "0.7.6"
+version = "0.7.7"

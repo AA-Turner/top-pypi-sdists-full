@@ -5,11 +5,13 @@
  * Supports running multiple workloads sequentially for a single cluster.
  * Set WORKLOAD_NAMES as a comma-separated list (e.g., "parallel-small,parallel-tiny,sequential-small")
  * or use WORKLOAD_NAME for a single workload (backwards compatible).
+ * Optionally set BENCHMARK_PROFILE (e.g., "etsy", "metaview") to force a profile globally.
  */
 
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { clean } from './clean.js';
+import { get_profile } from './benchmark-runners/dist/benchmark_profiles.js';
 
 // Minimum success rate to consider a target successful (allows some failures)
 const MIN_SUCCESS_RATE = 99;
@@ -53,41 +55,28 @@ const clusterNameToSettings = {
   },
 };
 
+function profileWorkload(profileName, overrides = {}) {
+  const resolved = get_profile({ BENCHMARK_PROFILE: profileName });
+  return {
+    benchmarkProfile: profileName,
+    runMode: resolved.runMode,
+    resumable: resolved.resumable,
+    delay: resolved.context.delay,
+    expand: resolved.context.expand,
+    steps: resolved.context.steps,
+    rampEndBase: resolved.capacity.rampEndBase,
+    runExecutionTimeoutSeconds: resolved.capacity.runExecutionTimeoutSeconds,
+    ...overrides,
+  };
+}
+
 const workloadNameToAgentParams = {
-  'stateless-parallel-small': {
-    expand: 100,  // 100 parallel branches
-    steps: 1,    // 1 supserstep only
-    dataSize: 1000, // 1KB per step × 100 = 100KB total
-    delay: 0,
-    rampEndBase: 200,
-    runExecutionTimeoutSeconds: 60,
-  },
-  'stateless-parallel-medium': {
-    expand: 100,  // 100 parallel branches
-    steps: 1,    // 1 supserstep only
-    dataSize: 10000, // 10KB per step × 100 = 1MB total
-    delay: 0,
-    rampEndBase: 200,
-    runExecutionTimeoutSeconds: 60,
-  },
-  'parallel-small': {
-    runMode: 'stateful',
-    expand: 100,
-    steps: 1,    // 1 supserstep only
-    dataSize: 1000, // 1KB * 100 = 100KB total
-    delay: 0,
-    rampEndBase: 200,
-    runExecutionTimeoutSeconds: 60,
-  },
-  'parallel-medium': {
-    runMode: 'stateful',
-    expand: 100,
-    steps: 1,    // 1 supserstep only
-    dataSize: 10000, // 10KB * 100 = 1MB total
-    delay: 0,
-    rampEndBase: 200,
-    runExecutionTimeoutSeconds: 60,
-  }
+  'stateless-parallel-small': profileWorkload('stateless-parallel-small'),
+  'stateless-parallel-medium': profileWorkload('stateless-parallel-medium'),
+  'parallel-small': profileWorkload('parallel-small'),
+  'parallel-medium': profileWorkload('parallel-medium'),
+  'default': profileWorkload('default'),
+  'streaming-long': profileWorkload('streaming-long'),
 };
 
 // Environment variables
@@ -100,6 +89,7 @@ const WORKLOAD_NAMES = process.env.WORKLOAD_NAMES
     : [];
 // Run mode: 'stateless' (default) or 'stateful' (creates thread first)
 const RUN_MODE = process.env.RUN_MODE || 'stateless';
+const BENCHMARK_PROFILE = process.env.BENCHMARK_PROFILE;
 
 // Validate inputs
 validateInputs();
@@ -131,18 +121,41 @@ function validateInputs() {
 function runK6(target, workloadName) {
   const baseUrl = clusterNameToSettings[CLUSTER_NAME].url;
   const agentParams = workloadNameToAgentParams[workloadName];
+  const resolved = get_profile({
+    ...process.env,
+    BENCHMARK_PROFILE: agentParams.benchmarkProfile || BENCHMARK_PROFILE,
+    RUN_MODE: agentParams.runMode || RUN_MODE,
+    STREAM_RESUMABLE: agentParams.resumable != null ? String(agentParams.resumable) : process.env.STREAM_RESUMABLE,
+    DELAY: agentParams.delay != null ? String(agentParams.delay) : process.env.DELAY,
+    EXPAND: agentParams.expand != null ? String(agentParams.expand) : process.env.EXPAND,
+    STEPS: agentParams.steps != null ? String(agentParams.steps) : process.env.STEPS,
+    CHECKPOINT_SIZE: process.env.CHECKPOINT_SIZE,
+    LLM_ENABLED: process.env.LLM_ENABLED,
+    STREAM_SIZE: process.env.STREAM_SIZE,
+    CHUNK_SIZE: process.env.CHUNK_SIZE,
+    BURST_MODE: process.env.BURST_MODE,
+    BURST_PROBABILITY: process.env.BURST_PROBABILITY,
+    BURST_SIZE: process.env.BURST_SIZE,
+  });
 
   const envVars = {
     ...process.env,
     BASE_URL: baseUrl,
     TARGET: String(target),
-    DATA_SIZE: String(agentParams.dataSize),
-    DELAY: String(agentParams.delay),
-    EXPAND: String(agentParams.expand),
-    STEPS: String(agentParams.steps),
+    BENCHMARK_PROFILE: resolved.name,
+    RUN_MODE: resolved.runMode,
+    DELAY: String(resolved.context.delay),
+    EXPAND: String(resolved.context.expand),
+    STEPS: String(resolved.context.steps),
+    CHECKPOINT_SIZE: String(resolved.context.checkpoint_size),
+    LLM_ENABLED: String(resolved.context.llm_enabled),
+    STREAM_SIZE: String(resolved.context.stream_size),
+    CHUNK_SIZE: String(resolved.context.chunk_size),
+    BURST_MODE: String(resolved.context.burst_mode),
+    BURST_PROBABILITY: String(resolved.context.burst_probability),
+    BURST_SIZE: String(resolved.context.burst_size),
+    STREAM_RESUMABLE: String(resolved.resumable),
     RUN_EXECUTION_TIMEOUT_SECONDS: String(agentParams.runExecutionTimeoutSeconds),
-    // Use workload-specific runMode if set, otherwise use global RUN_MODE
-    RUN_MODE: agentParams.runMode || RUN_MODE,
   };
   if (agentParams.benchmarkType) {
     envVars.BENCHMARK_TYPE = agentParams.benchmarkType;
@@ -189,6 +202,15 @@ function sleep(seconds) {
  */
 async function runWorkloadBenchmark(workloadName) {
   const workloadConfig = workloadNameToAgentParams[workloadName];
+  const resolved = get_profile({
+    ...process.env,
+    BENCHMARK_PROFILE: workloadConfig.benchmarkProfile || BENCHMARK_PROFILE,
+    RUN_MODE: workloadConfig.runMode || RUN_MODE,
+    STREAM_RESUMABLE: workloadConfig.resumable != null ? String(workloadConfig.resumable) : process.env.STREAM_RESUMABLE,
+    DELAY: workloadConfig.delay != null ? String(workloadConfig.delay) : process.env.DELAY,
+    EXPAND: workloadConfig.expand != null ? String(workloadConfig.expand) : process.env.EXPAND,
+    STEPS: workloadConfig.steps != null ? String(workloadConfig.steps) : process.env.STEPS,
+  });
   const rampEnd = workloadConfig.rampEndBase * clusterSettings.rampEndMultiplier;
 
   console.log(`\n${'='.repeat(60)}`);
@@ -196,16 +218,23 @@ async function runWorkloadBenchmark(workloadName) {
   console.log(`${'='.repeat(60)}`);
   console.log(`  - Search Range: (0, ${rampEnd}] (${workloadConfig.rampEndBase} × ${clusterSettings.rampEndMultiplier}) (using binary search)`);
   console.log(`  - Timeout: ${workloadConfig.runExecutionTimeoutSeconds}s`);
-  console.log(`  - Expand: ${workloadConfig.expand}`);
-  console.log(`  - Steps: ${workloadConfig.steps}`);
-  console.log(`  - Data Size: ${workloadConfig.dataSize} bytes`);
-  console.log(`  - Delay: ${workloadConfig.delay}s`);
+  console.log(`  - Expand: ${resolved.context.expand}`);
+  console.log(`  - Steps: ${resolved.context.steps}`);
+  console.log(`  - Delay: ${resolved.context.delay}s`);
+  console.log(`  - LLM Enabled: ${resolved.context.llm_enabled}`);
+  console.log(`  - Stream Size: ${resolved.context.stream_size} bytes`);
+  console.log(`  - Chunk Size: ${resolved.context.chunk_size} bytes`);
+  console.log(`  - Burst Mode: ${resolved.context.burst_mode}`);
+  console.log(`  - Burst Probability: ${resolved.context.burst_probability}`);
+  console.log(`  - Burst Size: ${resolved.context.burst_size} bytes`);
+  console.log(`  - Stream Resumable: ${resolved.resumable}`);
   if (workloadConfig.runMode) {
     console.log(`  - Run Mode: ${workloadConfig.runMode} (workload-specific)`);
   }
   if (workloadConfig.benchmarkType) {
     console.log(`  - Benchmark Type: ${workloadConfig.benchmarkType}`);
   }
+  console.log(`  - Benchmark Profile: ${resolved.name}`);
 
   // Clean up threads/assistants before stateful workloads
   const runMode = workloadConfig.runMode || RUN_MODE;

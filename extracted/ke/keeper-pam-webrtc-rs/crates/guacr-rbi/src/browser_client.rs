@@ -6,7 +6,7 @@ use crate::clipboard::RbiClipboard;
 use crate::dirty_tracker::RbiDirtyTracker;
 use crate::file_upload::{format_upload_dialog_instruction, UploadEngine};
 use crate::js_dialog::{JsDialogConfig, JsDialogManager};
-use crate::screencast::{ScreencastConfig, ScreencastProcessor};
+use crate::screencast::ScreencastConfig;
 use crate::scroll_detector::ScrollDetector;
 // Events module provides types used for more complex RBI scenarios
 use crate::handler::{RbiBackend, RbiConfig};
@@ -27,8 +27,8 @@ use std::sync::Arc;
 /// Browser client for RBI sessions
 pub struct BrowserClient {
     stream_id: u32,
-    width: u32,
-    height: u32,
+    pub(crate) width: u32,
+    pub(crate) height: u32,
     config: RbiConfig,
     input_handler: RbiInputHandler,
     clipboard: RbiClipboard,
@@ -169,10 +169,15 @@ impl BrowserClient {
             &self.config.chromium_path,
         );
 
-        chrome_session
-            .launch(url, &self.config.chromium_path, &self.config.popup_handling)
-            .await
-            .map_err(|e| format!("Chrome launch failed: {}", e))?;
+        // 30-second timeout prevents the session from hanging indefinitely if the
+        // chromium subprocess fails to start or never opens its DevTools port.
+        tokio::time::timeout(
+            Duration::from_secs(30),
+            chrome_session.launch(url, &self.config.chromium_path, &self.config.popup_handling),
+        )
+        .await
+        .map_err(|_| "Chrome launch timed out after 30s".to_string())?
+        .map_err(|e| format!("Chrome launch failed: {}", e))?;
 
         // Block popups if configured
         match &self.config.popup_handling {
@@ -271,14 +276,32 @@ impl BrowserClient {
         let mut adaptive_fps = AdaptiveFps::new(5, self.config.capture_fps);
         let mut scroll_detector = ScrollDetector::new();
 
+        // Post-click screenshot fallback: tracks whether we need a screenshot
+        // 150ms after a left-click (in case Chrome's screencast doesn't push a frame).
+        let mut post_click_capture = false;
+        let mut prev_mouse_mask: u32 = 0;
+
         // Screencast mode (use if enabled in config, otherwise fall back to screenshots)
-        let use_screencast = self.config.use_screencast.unwrap_or(false);
+        let mut use_screencast = self.config.use_screencast.unwrap_or(true);
+        // screencast_stream is Some when screencast mode is active (chrome feature only)
+        #[cfg(feature = "chrome")]
+        let mut screencast_stream: Option<
+            chromiumoxide::listeners::EventStream<
+                chromiumoxide::cdp::browser_protocol::page::EventScreencastFrame,
+            >,
+        > = None;
 
+        #[cfg(feature = "chrome")]
         if use_screencast {
-            info!("RBI: Screencast mode enabled - H.264 video streaming");
+            info!("RBI: Screencast mode enabled - JPEG video streaming");
 
-            // Start screencast
-            let screencast_config = ScreencastConfig::default();
+            // Start screencast using actual session dimensions to avoid downscaling
+            let screencast_config = ScreencastConfig {
+                max_width: self.width,
+                max_height: self.height,
+                quality: 85,
+                ..ScreencastConfig::default()
+            };
             if let Err(e) = chrome_session
                 .start_screencast(
                     screencast_config.format.as_str(),
@@ -292,17 +315,56 @@ impl BrowserClient {
                     "RBI: Failed to start screencast, falling back to screenshots: {}",
                     e
                 );
-                // Continue with screenshot mode
+                use_screencast = false;
             } else {
-                // Screencast started successfully
-                let _screencast_processor = ScreencastProcessor::new(screencast_config);
-
-                // TODO: Listen for screencast frame events
-                // This requires chromiumoxide to expose Page.screencastFrame events
-                // For now, we'll use screenshot mode as the implementation
-                warn!("RBI: Screencast events not yet implemented in chromiumoxide, using screenshots");
+                // Subscribe to screencast frame events
+                match chrome_session.screencast_event_listener().await {
+                    Ok(stream) => {
+                        info!("RBI: Screencast event listener subscribed successfully");
+                        screencast_stream = Some(stream);
+                    }
+                    Err(e) => {
+                        warn!(
+                            "RBI: Failed to subscribe to screencast events, falling back to screenshots: {}",
+                            e
+                        );
+                        use_screencast = false;
+                    }
+                }
             }
-        } else {
+        }
+
+        // Take an initial screenshot immediately so the user sees the page right away.
+        // Chrome's screencast often doesn't push a first frame until content changes,
+        // leaving the user staring at a blank screen until they interact. This primes
+        // the display regardless of which capture mode is active.
+        #[cfg(feature = "chrome")]
+        {
+            match chrome_session.capture_screenshot().await {
+                Ok(Some(screenshot)) => {
+                    if let Err(e) = self.send_screenshot(&screenshot, &to_client).await {
+                        warn!("RBI: Failed to send initial screenshot: {}", e);
+                    } else {
+                        debug!("RBI: Initial screenshot sent ({} bytes)", screenshot.len());
+                        // Seed the dirty tracker so subsequent identical frames are skipped.
+                        let _ = dirty_tracker.has_changed(&screenshot);
+                    }
+                }
+                Ok(None) => debug!("RBI: Initial screenshot returned no data"),
+                Err(e) => warn!("RBI: Initial screenshot failed: {}", e),
+            }
+        }
+
+        #[cfg(feature = "chrome")]
+        if !use_screencast {
+            info!(
+                "RBI: Screenshot mode - adaptive FPS (5-{}), dirty tracking",
+                self.config.capture_fps
+            );
+        }
+        #[cfg(not(feature = "chrome"))]
+        {
+            use_screencast = false;
             info!(
                 "RBI: Screenshot mode - adaptive FPS (5-{}), dirty tracking",
                 self.config.capture_fps
@@ -320,10 +382,185 @@ impl BrowserClient {
         let mut resource_interval = interval(Duration::from_secs(5));
         let mut resource_check_count = 0u32;
 
+        // Throttle MouseMoved CDP calls — track last time we sent one (capped at 30fps)
+        let mut last_mouse_move: Option<std::time::Instant> = None;
+
         loop {
             tokio::select! {
-                // Capture screenshots at adaptive FPS with dirty tracking
-                _ = capture_interval.tick() => {
+                biased; // Check arms in order: input first, then frames, then timers.
+                        // Ensures clicks/keyboard/scroll are never starved by a
+                        // high-frequency screencast stream.
+
+                // Client input has highest priority — process immediately when ready.
+                // Listed first so biased select always drains input before rendering.
+                msg = from_client.recv() => {
+                    let Some(msg) = msg else {
+                        info!("RBI: Client disconnected");
+                        break;
+                    };
+                    self.record_client_input(&msg);
+                    if let Ok(msg_str) = std::str::from_utf8(&msg) {
+                        if msg_str.starts_with("4.sync,") {
+                            if let Some(ts) = self.sync_control.pending_timestamp() {
+                                self.sync_control.clear_pending();
+                                debug!("RBI: Client acknowledged sync (ts={})", ts);
+                            }
+                            continue;
+                        }
+                        if msg_str.starts_with("4.size,") {
+                            let parts: Vec<&str> = msg_str.split(',').collect();
+                            if parts.len() >= 3 {
+                                if let Some(width_part) = parts.get(2) {
+                                    if let Some(height_part) = parts.get(3) {
+                                        if let Some(w_str) = width_part.split('.').nth(1) {
+                                            if let Some(h_str) = height_part
+                                                .split('.')
+                                                .nth(1)
+                                                .and_then(|s| s.strip_suffix(';'))
+                                            {
+                                                if let (Ok(w), Ok(h)) =
+                                                    (w_str.parse::<u32>(), h_str.parse::<u32>())
+                                                {
+                                                    info!(
+                                                        "RBI: Client requested size change: {}x{} (was {}x{})",
+                                                        w, h, self.width, self.height
+                                                    );
+                                                    self.width = w;
+                                                    self.height = h;
+                                                    if let Err(e) = chrome_session.resize(w, h).await {
+                                                        warn!("RBI: Failed to resize Chrome: {}", e);
+                                                    } else {
+                                                        use guacr_protocol::format_instruction;
+                                                        let size_instr = format_instruction(
+                                                            "size",
+                                                            &["0", &w.to_string(), &h.to_string()],
+                                                        );
+                                                        let size_bytes = Bytes::from(size_instr);
+                                                        self.record_server_instruction(&size_bytes);
+                                                        if let Err(e) = to_client.send(size_bytes).await {
+                                                            warn!("RBI: Failed to send size confirmation: {}", e);
+                                                        }
+                                                    }
+                                                    continue;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if let Err(e) = self.handle_client_input(&mut chrome_session, &msg, &to_client, &mut last_mouse_move).await {
+                        warn!("RBI: Error handling input: {}", e);
+                    }
+
+                    // Detect left-button release to schedule a post-click fallback screenshot.
+                    if let Ok(instr) = guacr_protocol::GuacamoleParser::parse_instruction(&msg) {
+                        if instr.opcode == "mouse" && instr.args.len() >= 3 {
+                            if let Ok(mask) = instr.args[2].parse::<u32>() {
+                                if (prev_mouse_mask & 1) != 0 && (mask & 1) == 0 {
+                                    post_click_capture = true;
+                                }
+                                prev_mouse_mask = mask;
+                            }
+                        }
+                    }
+                }
+
+                // Post-click screenshot fallback: fires 150ms after left-click release if
+                // Chrome's screencast hasn't pushed a new frame (common in headless mode).
+                _ = tokio::time::sleep(tokio::time::Duration::from_millis(150)), if post_click_capture => {
+                    post_click_capture = false;
+                    match chrome_session.capture_screenshot().await {
+                        Ok(Some(screenshot)) => {
+                            if dirty_tracker.has_changed(&screenshot) {
+                                if let Err(e) = self.send_screenshot(&screenshot, &to_client).await {
+                                    warn!("RBI: Failed to send post-click frame: {}", e);
+                                }
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(e) => debug!("RBI: Post-click screenshot error: {}", e),
+                    }
+                }
+
+                // Screencast frame events (active when screencast mode is running)
+                // Always present in the select to avoid cfg-in-select issues;
+                // guarded by `if use_screencast` which is always false without the chrome feature.
+                screencast_frame = async {
+                    #[cfg(feature = "chrome")]
+                    {
+                        match screencast_stream.as_mut() {
+                            Some(s) => {
+                                use futures::StreamExt as _;
+                                s.next().await
+                            }
+                            None => std::future::pending().await,
+                        }
+                    }
+                    #[cfg(not(feature = "chrome"))]
+                    {
+                        std::future::pending::<Option<()>>().await
+                    }
+                }, if use_screencast => {
+                    #[cfg(feature = "chrome")]
+                    {
+                        match screencast_frame {
+                            Some(frame) => {
+                                // frame.data is chromiumoxide_types::Binary, base64-encoded JPEG
+                                // Binary implements AsRef<str> returning the raw base64 string
+                                use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+                                match BASE64.decode(frame.data.as_ref() as &str) {
+                                    Ok(frame_bytes) => {
+                                        let send_result = self.send_screenshot(&frame_bytes, &to_client).await;
+                                        if let Err(e) = send_result {
+                                            warn!("RBI: Failed to send screencast frame: {}", e);
+                                            break;
+                                        }
+
+                                        // Send sync instruction for flow control
+                                        let timestamp = std::time::SystemTime::now()
+                                            .duration_since(std::time::UNIX_EPOCH)
+                                            .unwrap()
+                                            .as_millis() as u64;
+                                        let sync_instr = format!("4.sync,{}.{};", timestamp.to_string().len(), timestamp);
+                                        let sync_bytes = Bytes::from(sync_instr);
+                                        self.record_server_instruction(&sync_bytes);
+                                        if let Err(e) = to_client.send(sync_bytes).await {
+                                            warn!("RBI: Failed to send sync: {}", e);
+                                            break;
+                                        }
+                                        self.sync_control.set_pending_sync(timestamp);
+
+                                        // Ack immediately so Chrome can prepare the next frame.
+                                        // Input starvation is prevented by biased select (input arm first).
+                                        chrome_session.ack_screencast_frame(frame.session_id).await.ok();
+
+                                        // Content is changing — stay at active FPS
+                                        adaptive_fps.boost_fps();
+                                    }
+                                    Err(e) => {
+                                        warn!("RBI: Screencast frame base64 decode failed: {}", e);
+                                    }
+                                }
+                            }
+                            None => {
+                                // Stream ended — fall back to screenshot mode
+                                warn!("RBI: Screencast stream ended, falling back to screenshots");
+                                screencast_stream = None;
+                                use_screencast = false;
+                            }
+                        }
+                    }
+                    #[cfg(not(feature = "chrome"))]
+                    {
+                        // use_screencast is always false without chrome feature; this arm never fires
+                        let _ = screencast_frame;
+                    }
+                }
+
+                // Capture screenshots at adaptive FPS with dirty tracking (fallback when not in screencast mode)
+                _ = capture_interval.tick(), if !use_screencast => {
                     debug!("RBI: Capture interval tick - calling capture_screenshot()");
                     match chrome_session.capture_screenshot().await {
                         Ok(Some(screenshot)) => {
@@ -582,78 +819,6 @@ impl BrowserClient {
                     }
                 }
 
-                // Handle client input (including sync acknowledgments for flow control)
-                msg = from_client.recv() => {
-                    let Some(msg) = msg else {
-                        info!("RBI: Client disconnected");
-                        break;
-                    };
-                    // Record client input (if recording is enabled)
-                    self.record_client_input(&msg);
-                    // Check if this is a sync acknowledgment for flow control
-                    if let Ok(msg_str) = std::str::from_utf8(&msg) {
-                        if msg_str.starts_with("4.sync,") {
-                            // Client acknowledged sync - flow control satisfied
-                            if let Some(ts) = self.sync_control.pending_timestamp() {
-                                self.sync_control.clear_pending();
-                                debug!("RBI: Client acknowledged sync (ts={})", ts);
-                            }
-                            continue; // Don't process sync as input
-                        }
-
-                        // Check if this is a size instruction from client (dynamic resize)
-                        if msg_str.starts_with("4.size,") {
-                            let parts: Vec<&str> = msg_str.split(',').collect();
-                            if parts.len() >= 3 {
-                                // Extract width and height (skip length prefixes)
-                                if let Some(width_part) = parts.get(2) {
-                                    if let Some(height_part) = parts.get(3) {
-                                        // Parse "N.VALUE" format
-                                        if let Some(w_str) = width_part.split('.').nth(1) {
-                                            if let Some(h_str) = height_part
-                                                .split('.')
-                                                .nth(1)
-                                                .and_then(|s| s.strip_suffix(';'))
-                                            {
-                                                if let (Ok(w), Ok(h)) =
-                                                    (w_str.parse::<u32>(), h_str.parse::<u32>())
-                                                {
-                                                    info!(
-                                                        "RBI: Client requested size change: {}x{} (was {}x{})",
-                                                        w, h, self.width, self.height
-                                                    );
-                                                    self.width = w;
-                                                    self.height = h;
-                                                    // Resize Chrome to match client viewport
-                                                    if let Err(e) = chrome_session.resize(w, h).await {
-                                                        warn!("RBI: Failed to resize Chrome: {}", e);
-                                                    } else {
-                                                        // Send updated size instruction back to client
-                                                        use guacr_protocol::format_instruction;
-                                                        let size_instr = format_instruction(
-                                                            "size",
-                                                            &["0", &w.to_string(), &h.to_string()],
-                                                        );
-                                                        let size_bytes = Bytes::from(size_instr);
-                                                        self.record_server_instruction(&size_bytes);
-                                                        if let Err(e) = to_client.send(size_bytes).await {
-                                                            warn!("RBI: Failed to send size confirmation: {}", e);
-                                                        }
-                                                    }
-                                                    continue; // Don't process size as regular input
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if let Err(e) = self.handle_client_input(&mut chrome_session, &msg, &to_client).await {
-                        warn!("RBI: Error handling input: {}", e);
-                    }
-                }
 
                 else => {
                     debug!("RBI: Connection closed");
@@ -661,6 +826,10 @@ impl BrowserClient {
                 }
             }
         }
+
+        // Close Chrome explicitly before anything else — frees the subprocess,
+        // all its sockets, and the temp profile directory.
+        chrome_session.close().await;
 
         // Finalize recording
         if let Some(recorder) = self.recorder.take() {
@@ -682,6 +851,7 @@ impl BrowserClient {
         chrome_session: &mut crate::chrome_session::ChromeSession,
         msg: &Bytes,
         to_client: &mpsc::Sender<Bytes>,
+        last_mouse_move: &mut Option<std::time::Instant>,
     ) -> Result<(), String> {
         let instr = GuacamoleParser::parse_instruction(msg)
             .map_err(|e| format!("Failed to parse instruction: {}", e))?;
@@ -733,6 +903,21 @@ impl BrowserClient {
                         // Clamp coordinates
                         let x = x.max(0).min(self.width as i32 - 1);
                         let y = y.max(0).min(self.height as i32 - 1);
+
+                        // Throttle MouseMoved CDP calls to ~30fps to avoid flooding
+                        // the CDP channel and starving click/scroll/screenshot calls.
+                        let now = std::time::Instant::now();
+                        let should_send_move = last_mouse_move
+                            .map(|t: std::time::Instant| now.duration_since(t).as_millis() >= 33)
+                            .unwrap_or(true);
+                        if should_send_move
+                            && chrome_session
+                                .inject_mouse_move(x, y)
+                                .await
+                                .unwrap_or(false)
+                        {
+                            *last_mouse_move = Some(now);
+                        }
 
                         // Use the new input handler for proper button tracking
                         let mouse_event = self.input_handler.handle_mouse(x, y, mask);
@@ -1106,21 +1291,5 @@ impl BrowserClient {
     /// Record a client-to-server instruction (if recording is enabled)
     fn record_client_input(&mut self, instruction: &Bytes) {
         shared_record_client_input(&mut self.recorder, instruction);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::handler::RbiConfig;
-
-    #[test]
-    fn test_browser_client_new() {
-        let config = RbiConfig::default();
-        let recording_config = RecordingConfig::default();
-        let params = HashMap::new();
-        let client = BrowserClient::new(1920, 1080, config, &recording_config, &params, None);
-        assert_eq!(client.width, 1920);
-        assert_eq!(client.height, 1080);
     }
 }

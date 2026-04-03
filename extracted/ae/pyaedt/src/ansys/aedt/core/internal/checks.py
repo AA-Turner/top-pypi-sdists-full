@@ -47,7 +47,7 @@ __GRAPHICS_AVAILABLE = None
 """Global variable to store the result of the graphics imports."""
 
 
-def min_aedt_version(min_version: str) -> callable:
+def min_aedt_version(min_version: str):
     """Compare a minimum required version to the current AEDT version.
 
     This decorator should only be used on methods where the associated object can reach the desktop instance.
@@ -57,7 +57,7 @@ def min_aedt_version(min_version: str) -> callable:
     ----------
     min_version: str
         Minimum AEDT version required by the method.
-        The value should follow the format YEAR.RELEASE, for example '2026.1'.
+        The value should follow the format YEAR.RELEASE, for example '2025.2'.
 
     Raises
     ------
@@ -65,26 +65,26 @@ def min_aedt_version(min_version: str) -> callable:
         If the method version is higher than the AEDT version.
     """
 
-    def fetch_odesktop_from_common_attributes_names(item: object) -> object:
+    def fetch_odesktop_from_common_attributes_names(item):
         attributes_to_check = ["odesktop", "_odesktop", "_desktop"]
         for attribute in attributes_to_check:
             odesktop = getattr(item, attribute, None)
             if odesktop is not None:
                 return odesktop
 
-    def fetch_odesktop_from_private_app_attribute(item: object) -> object:
+    def fetch_odesktop_from_private_app_attribute(item):
         app = getattr(item, f"_{item.__class__.__name__}__app", None)
         if app is not None:
             return app.odesktop
 
-    def fetch_odesktop_from_desktop_class(item: object) -> object:
+    def fetch_odesktop_from_desktop_class(item):
         attributes_to_check = ["desktop_class", "_desktop_class"]
         for attribute in attributes_to_check:
             desktop_class = getattr(item, attribute, None)
             if desktop_class is not None:
                 return desktop_class.odesktop
 
-    def aedt_version_decorator(method: callable) -> callable:
+    def aedt_version_decorator(method):
         """Decorator to check AEDT version compatibility for a method."""
 
         @wraps(method)
@@ -111,7 +111,7 @@ def min_aedt_version(min_version: str) -> callable:
     return aedt_version_decorator
 
 
-def check_graphics_available(warning: bool = False) -> None:
+def check_graphics_available(warning: bool = False):
     """Check if graphics are available."""
     global __GRAPHICS_AVAILABLE
 
@@ -142,7 +142,7 @@ def check_graphics_available(warning: bool = False) -> None:
             raise ImportError(ERROR_GRAPHICS_REQUIRED)
 
 
-def graphics_required(method: callable) -> callable:
+def graphics_required(method):
     """Decorate a method as requiring graphics.
 
     Parameters

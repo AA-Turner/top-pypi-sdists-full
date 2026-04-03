@@ -1,0 +1,1279 @@
+! Copyright (C) 2021 Barcelona Supercomputing Center and University of
+! Illinois at Urbana-Champaign
+! SPDX-License-Identifier: MIT
+
+!> \file
+!> The camp_aero_rep_modal_binned_mass module.
+
+!> \page camp_aero_rep_modal_binned_mass CAMP: Modal/Binned Mass Aerosol Representation
+!!
+!! The modal/binned mass aerosol representation includes a set of sections/bins
+!! that are made up of one or more \ref camp_aero_phase "aerosol phases." The
+!! \c json object for this \ref camp_aero_rep "aerosol representation" has the
+!! following format:
+!! \code{.json}
+!!  { "camp-data" : [
+!!    {
+!!      "name" : "my modal/binned aero rep",
+!!      "type" : "AERO_REP_MODAL_BINNED_MASS",
+!!      "modes/bins" :
+!!      {
+!!        "dust" :
+!!        {
+!!          "type" : "BINNED",
+!!          "phases" : [ "insoluble", "organic", "aqueous" ],
+!!          "bins" : 8,
+!!          "minimum diameter [m]" : 0.8e-9,
+!!          "maximum diameter [m]" : 1.0e-6,
+!!          "scale" : "LOG"
+!!        },
+!!        "depeche" :
+!!        {
+!!          "type" : "MODAL",
+!!          "phases" : [ "moody", "listless" ],
+!!          "shape" : "LOG_NORMAL",
+!!        }
+!!      }
+!!    },
+!!    ...
+!!  ]}
+!! \endcode
+!! The key-value pair \b type is required and must be
+!! \b AERO_REP_MODAL_BINNED_MASS. The key-value pair \b modes/bins is also
+!! required and must contain a set of at least one uniquely named mode or
+!! bin-set key-value pair whose value(s) specify a \b type that must be either
+!! \b MODAL or \b BINNED and an array of \b phases that correspond to existing
+!! \ref camp_aero_phase "aerosol phase" objects. Each phase will be present
+!! once within a mode or once within each bin in a bin-set.
+!!
+!! Modes must also specify a distribution \b shape which must be \b LOG_NORMAL
+!! (the available shapes may be expanded in the future). Log-normal sections
+!! have \b geometric \b mean \b diameter (m) and a \b geometric
+!! \b standard \b deviation (unitless) properties that must be set using an
+!! \c aero_rep_update_data_modal_binned_mass_GMD_t or and
+!! \c aero_rep_update_data_modal_binned_mass_GSD_t object and will be used along
+!! with the mass
+!! concentration of species in each phase and their densities to calculate a
+!! lognormal distribution for each mode at runtime.
+!!
+!! Bin sets must specify the number of \b bins, a \b minimum \b diameter (m),
+!! a \b maximum \b diameter (m) and a \b scale, which must be \b LOG or
+!! \b LINEAR. The number concentration will be calculated at run-time based on
+!! the total mass of each bin, the species densities and the diameter of
+!! particles in that bin.
+!!
+!! The GMD and GSD for each mode must be set from an external model using
+!! \c camp_aero_rep_modal_binned_mass::aero_rep_update_data_modal_binned_mass_GMD_t
+!! and
+!! \c camp_aero_rep_modal_binned_mass::aero_rep_update_data_modal_binned_mass_GSD_t
+!! objects.
+
+!> The abstract aero_rep_modal_binned_mass_t structure and associated subroutines.
+module camp_aero_rep_modal_binned_mass
+
+  use camp_aero_phase_data
+  use camp_aero_rep_data
+  use camp_chem_spec_data
+  use camp_camp_state
+  use camp_mpi
+  use camp_property
+  use camp_util,                               only: dp, i_kind, &
+                                                    string_t, assert_msg, &
+                                                    assert, die_msg, to_string
+
+  use iso_c_binding
+
+  implicit none
+  private
+
+#define BINNED 1
+#define MODAL 2
+
+#define NUM_SECTION_ this%condensed_data_int(1)
+#define INT_DATA_SIZE_ this%condensed_data_int(2)
+#define REAL_DATA_SIZE_ this%condensed_data_int(3)
+#define AERO_REP_ID_ this%condensed_data_int(4)
+#define NUM_INT_PROP_ 4
+#define NUM_REAL_PROP_ 0
+#define NUM_ENV_PARAM_ 0
+#define MODE_INT_PROP_LOC_(x) this%condensed_data_int(NUM_INT_PROP_+x)
+#define MODE_REAL_PROP_LOC_(x) this%condensed_data_int(NUM_INT_PROP_+NUM_SECTION_+x)
+#define SECTION_TYPE_(x) this%condensed_data_int(MODE_INT_PROP_LOC_(x))
+
+! For modes, NUM_BINS_ = 1
+#define NUM_BINS_(x) this%condensed_data_int(MODE_INT_PROP_LOC_(x)+1)
+
+! Number of aerosol phases in this mode/bin set
+#define NUM_PHASE_(x) this%condensed_data_int(MODE_INT_PROP_LOC_(x)+2)
+
+! Phase state and model data ids
+#define PHASE_STATE_ID_(x,y,b) this%condensed_data_int(MODE_INT_PROP_LOC_(x)+2+(b-1)*NUM_PHASE_(x)+y)
+#define PHASE_MODEL_DATA_ID_(x,y,b) this%condensed_data_int(MODE_INT_PROP_LOC_(x)+2+NUM_BINS_(x)*NUM_PHASE_(x)+(b-1)*NUM_PHASE_(x)+y)
+
+! Number of Jacobian elements in a phase
+#define PHASE_NUM_JAC_ELEM_(x,y,b) this%condensed_data_int(MODE_INT_PROP_LOC_(x)+2+2*NUM_BINS_(x)*NUM_PHASE_(x)+(b-1)*NUM_PHASE_(x)+y)
+
+! Bin diameter (bins only)
+#define BIN_DP_(x,b) this%condensed_data_real(MODE_REAL_PROP_LOC_(x)+(b-1)*3)
+
+! Real-time number concetration - used for modes and bins - for modes, b=1
+#define NUMBER_CONC_(x,b) this%condensed_data_real(MODE_REAL_PROP_LOC_(x)+(b-1)*3+1)
+
+! Real-time effective radius - for modes, b=1
+#define EFFECTIVE_RADIUS_(x,b) this%condensed_data_real(MODE_REAL_PROP_LOC_(x)+(b-1)*3+2)
+
+! Real-time aerosol phase mass - used for modes and bins - for modes, b=1
+#define PHASE_MASS_(x,y,b) this%condensed_data_real(MODE_REAL_PROP_LOC_(x)+3*NUM_BINS_(x)+(b-1)*NUM_PHASE_(x)+y-1)
+
+! Real-time aerosol phase average MW - used for modes and bins - for modes, b=0
+#define PHASE_AVG_MW_(x,y,b) this%condensed_data_real(MODE_REAL_PROP_LOC_(x)+(3+NUM_PHASE_(x))*NUM_BINS_(x)+(b-1)*NUM_PHASE_(x)+y-1)
+
+  ! Update types (These must match values in aero_rep_modal_binned_mass.c)
+  integer(kind=i_kind), parameter, public :: UPDATE_GMD = 0
+  integer(kind=i_kind), parameter, public :: UPDATE_GSD = 1
+
+  public :: aero_rep_modal_binned_mass_t, &
+            aero_rep_update_data_modal_binned_mass_GMD_t, &
+            aero_rep_update_data_modal_binned_mass_GSD_t
+
+  !> Modal mass aerosol representation
+  !!
+  !! Time-invariant data related to a modal/binned mass aerosol representation.
+  type, extends(aero_rep_data_t) :: aero_rep_modal_binned_mass_t
+    !> Mode names (only used during initialization)
+    type(string_t), allocatable :: section_name(:)
+    !> Phase state id (only used during initialization)
+    integer(kind=i_kind), allocatable :: phase_state_id(:)
+  contains
+    !> Initialize the aerosol representation data, validating component data and
+    !! loading any required information from the \c
+    !! aero_rep_data_t::property_set. This routine should be called once for
+    !! each aerosol representation at the beginning of a model run after all
+    !! the input files have been read in. It ensures all data required during
+    !! the model run are included in the condensed data arrays.
+    procedure :: initialize
+    !> Initialize an update data GSD object
+    procedure :: update_data_initialize_GSD => update_data_init_GSD
+    !> Initialize an update data GMD object
+    procedure :: update_data_initialize_GMD => update_data_init_GMD
+    !> Get an id for a mode or bin in the aerosol representation by name for
+    !! use with updates from external modules
+    procedure :: get_section_id
+    !> Get the size of the section of the
+    !! \c camp_camp_state::camp_state_t::state_var array required for this
+    !! aerosol representation.
+    !!
+    !! For a modal/binned mass representation, the size will correspond to the
+    !! the sum of the sizes of a single instance of each aerosol phase
+    !! provided to \c aero_rep_modal_binned_mass::initialize()
+    procedure :: size => get_size
+    !> Get a list of unique names for each element on the
+    !! \c camp_camp_state::camp_state_t::state_var array for this aerosol
+    !! representation. The list may be restricted to a particular phase and/or
+    !! aerosol species by including the phase_name and spec_name arguments.
+    !!
+    !! For a modal/binned mass representation, the unique names for bins are:
+    !!   - "bin name.bin #.phase name.species name"
+    !!
+    !! ... and for modes are:
+    !!   - "mode name.phase name.species name"
+    procedure :: unique_names
+    !> Get a species id on the \c camp_camp_state::camp_state_t::state_var
+    !! array by its unique name. These are unique ids for each element on the
+    !! state array for this \ref camp_aero_rep "aerosol representation" and
+    !! are numbered:
+    !!
+    !!   \f[x_u \in x_f ... (x_f+n-1)\f]
+    !!
+    !! where \f$x_u\f$ is the id of the element corresponding to the species
+    !! with unique name \f$u\f$ on the \c
+    !! camp_camp_state::camp_state_t::state_var array, \f$x_f\f$ is the index
+    !! of the first element for this aerosol representation on the state array
+    !! and \f$n\f$ is the total number of variables on the state array from
+    !! this aerosol representation.
+    procedure :: spec_state_id
+    !> Get the non-unique name of a species by its unique name
+    procedure :: spec_name
+    !> Get the number of instances of an aerosol phase in this representation
+    procedure :: num_phase_instances
+    !> Get the number of Jacobian elements used in calculations of aerosol mass,
+    !! volume, number, etc. for a particular phase
+    procedure :: num_jac_elem
+    !> Finalize the aerosol representation
+    final :: finalize
+
+  end type aero_rep_modal_binned_mass_t
+
+  ! Constructor for aero_rep_modal_binned_mass_t
+  interface aero_rep_modal_binned_mass_t
+    procedure :: constructor
+  end interface aero_rep_modal_binned_mass_t
+
+  !> Update GMD object
+  type, extends(aero_rep_update_data_t) :: &
+            aero_rep_update_data_modal_binned_mass_GMD_t
+  private
+    !> Flag indicating whether the update data has been allocated
+    logical :: is_malloced = .false.
+    !> Unique id for finding aerosol representations during initialization
+    integer(kind=i_kind) :: aero_rep_unique_id = 0
+  contains
+    !> Update the GMD
+    procedure :: set_GMD => update_data_set_GMD
+    !> Determine the pack size of the local update data
+    procedure :: internal_pack_size => internal_pack_size_GMD
+    !> Pack the local update data to a binary
+    procedure :: internal_bin_pack => internal_bin_pack_GMD
+    !> Unpack the local update data from a binary
+    procedure :: internal_bin_unpack => internal_bin_unpack_GMD
+    !> Finalize the GMD update data
+    final :: update_data_GMD_finalize
+  end type aero_rep_update_data_modal_binned_mass_GMD_t
+
+  !> Update GSD object
+  type, extends(aero_rep_update_data_t) :: &
+            aero_rep_update_data_modal_binned_mass_GSD_t
+  private
+    !> Flag indicating whether the update data has been allocated
+    logical :: is_malloced = .false.
+    !> Unique id for finding aerosol representations during initialization
+    integer(kind=i_kind) :: aero_rep_unique_id = 0
+  contains
+    !> Update the GSD
+    procedure :: set_GSD => update_data_set_GSD
+    !> Determine the pack size of the local update data
+    procedure :: internal_pack_size => internal_pack_size_GSD
+    !> Pack the local update data to a binary
+    procedure :: internal_bin_pack => internal_bin_pack_GSD
+    !> Unpack the local update data from a binary
+    procedure :: internal_bin_unpack => internal_bin_unpack_GSD
+    !> Finalize the GSD update data
+    final :: update_data_GSD_finalize
+  end type aero_rep_update_data_modal_binned_mass_GSD_t
+
+  !> Interface to c aerosol representation functions
+  interface
+
+    !> Allocate space for a GMD update object
+    function aero_rep_modal_binned_mass_create_gmd_update_data() &
+              result (update_data) bind (c)
+      use iso_c_binding
+      !> Allocated update data object
+      type(c_ptr) :: update_data
+    end function aero_rep_modal_binned_mass_create_gmd_update_data
+
+    !> Set a new mode GMD
+    subroutine aero_rep_modal_binned_mass_set_gmd_update_data(update_data, &
+              aero_rep_unique_id, section_id, gmd) bind (c)
+      use iso_c_binding
+      !> Update data
+      type(c_ptr), value :: update_data
+      !> Aerosol representation unique id
+      integer(kind=c_int), value :: aero_rep_unique_id
+      !> Section id from
+      !! camp_aero_rep_modal_binned_mass::aero_rep_modal_binned_mass_t::get_section_id
+      integer(kind=c_int), value :: section_id
+      !> New GMD (m)
+      real(kind=c_double), value :: gmd
+    end subroutine aero_rep_modal_binned_mass_set_gmd_update_data
+
+    !> Allocate space for a GSD update object
+    function aero_rep_modal_binned_mass_create_gsd_update_data() &
+              result (update_data) bind (c)
+      use iso_c_binding
+      !> Allocated update data object
+      type(c_ptr) :: update_data
+    end function aero_rep_modal_binned_mass_create_gsd_update_data
+
+    !> Set a new mode GSD
+    subroutine aero_rep_modal_binned_mass_set_gsd_update_data(update_data, &
+              aero_rep_unique_id, section_id, gsd) bind (c)
+      use iso_c_binding
+      !> Update data
+      type(c_ptr), value :: update_data
+      !> Aerosol representation unique id
+      integer(kind=c_int), value :: aero_rep_unique_id
+      !> Section id from
+      !! camp_aero_rep_modal_binned_mass::aero_rep_modal_binned_mass_t::get_section_id
+      integer(kind=c_int), value :: section_id
+      !> New GSD (m)
+      real(kind=c_double), value :: gsd
+    end subroutine aero_rep_modal_binned_mass_set_gsd_update_data
+
+    !> Free an update data object
+    pure subroutine aero_rep_free_update_data(update_data) bind (c)
+      use iso_c_binding
+      !> Update data
+      type(c_ptr), value, intent(in) :: update_data
+    end subroutine aero_rep_free_update_data
+
+  end interface
+
+contains
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Constructor for aero_rep_modal_binned_mass_t
+  function constructor() result (new_obj)
+
+    !> New aerosol representation
+    type(aero_rep_modal_binned_mass_t), pointer :: new_obj
+
+    allocate(new_obj)
+
+  end function constructor
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Initialize the aerosol representation data, validating component data and
+  !! loading any required information from the \c
+  !! aero_rep_data_t::property_set. This routine should be called once for
+  !! each aerosol representation at the beginning of a model run after all
+  !! the input files have been read in. It ensures all data required during
+  !! the model run are included in the condensed data arrays.
+  subroutine initialize(this, aero_phase_set, spec_state_id)
+
+    !> Aerosol representation data
+    class(aero_rep_modal_binned_mass_t), intent(inout) :: this
+    !> The set of aerosol phases
+    type(aero_phase_data_ptr), pointer, intent(in) :: aero_phase_set(:)
+    !> Beginning state id for this aerosol representationin the model species
+    !! state array
+    integer(kind=i_kind), intent(in) :: spec_state_id
+
+    type(property_t), pointer :: sections, section, phases
+    integer(kind=i_kind) :: i_section, i_phase, j_phase, k_phase, &
+                            i_bin
+    integer(kind=i_kind) :: curr_spec_state_id
+    integer(kind=i_kind) :: num_phase, num_bin
+    integer(kind=i_kind) :: n_int_param, n_float_param
+    character(len=:), allocatable :: key_name, phase_name, sect_type, str_val
+    real(kind=dp) :: min_Dp, max_Dp, d_log_Dp
+
+    ! Determine the size of the condensed data arrays
+    n_int_param = NUM_INT_PROP_
+    n_float_param = NUM_REAL_PROP_
+
+    ! Get the set of sections/bin-sets
+    key_name = "modes/bins"
+    call assert_msg(877855909, &
+            this%property_set%get_property_t(key_name, sections), &
+            "Missing sections/bins for modal/binned mass aerosol "// &
+            "representation '"//this%rep_name//"'")
+    call assert_msg(894962494, sections%size().gt.0, "No sections or bins "// &
+            "specified for modal/binned mass aerosol representation '"// &
+            this%rep_name//"'")
+
+    ! Allocate space for the mode/bin names
+    allocate(this%section_name(sections%size()))
+
+    ! Loop through the sections, adding names and counting the spaces needed
+    ! on the condensed data arrays, and counting the total phases instances
+    num_phase = 0
+    call sections%iter_reset()
+    do i_section = 1, sections%size()
+
+      ! Get the mode/bin name
+      call assert(867378489, sections%get_key(key_name))
+      call assert_msg(234513113, len(key_name).gt.0, "Missing mode/bin "// &
+              "name in modal/binned mass aerosol representation '"// &
+              this%rep_name//"'")
+      this%section_name(i_section)%string = key_name
+
+      ! Get the mode/bin properties
+      call assert_msg(517138327, sections%get_property_t(val=section), &
+              "Invalid structure for mode/bin '"// &
+              this%section_name(i_section)%string// &
+              "' in modal/binned mass aerosol representation '"// &
+              this%rep_name//"'")
+
+      ! Get the section type
+      key_name = "type"
+      call assert_msg(742404898, section%get_string(key_name, sect_type), &
+              "Missing mode/bin type in mode/bin '"// &
+              this%section_name(i_section)%string// &
+              "' in modal/binned mass aerosol representation '"// &
+              this%rep_name//"'")
+      call assert_msg(618556995, &
+              sect_type.eq."MODAL".or.sect_type.eq."BINNED", &
+              "Invalid mode/bin type '"//sect_type//"' in mode/bin '"// &
+              this%section_name(i_section)%string// &
+              "' in modal/binned mass aerosol representation '"// &
+              this%rep_name//"'")
+
+      ! Get the number of bins (or set to 1 for a mode)
+      num_bin = 1
+      if (sect_type.eq."BINNED") then
+
+        key_name = "bins"
+        call assert_msg(824494286, section%get_int(key_name, num_bin), &
+                "Missing number of bins in bin '"// &
+              this%section_name(i_section)%string// &
+              "' in modal/binned mass aerosol representation '"// &
+              this%rep_name//"'")
+      end if
+
+      ! Add space for the mode/bin type, number of bins, and phase count
+      ! and parameter locations
+      n_int_param = n_int_param + 5
+
+      ! Add space for the bin diameter, number concentration, and
+      ! effective radius
+      n_float_param = n_float_param + 3*num_bin
+
+      ! Get the set of phases
+      key_name = "phases"
+      call assert_msg(815518058, section%get_property_t(key_name, phases), &
+              "Missing phases for mode '"// &
+              this%section_name(i_section)%string// &
+              "' in modal/binned mass aerosol representation '"// &
+              this%rep_name//"'")
+
+      ! Add the phases to the counter
+      call assert_msg(772593427, phases%size().gt.0, &
+              "No phases specified for mode '"// &
+              this%section_name(i_section)%string// &
+              "' in modal/binned mass aerosol representation '"// &
+              this%rep_name//"'")
+      num_phase = num_phase + phases%size() * num_bin
+
+      ! Loop through the phases and make sure they exist
+      call phases%iter_reset()
+      do i_phase = 1, phases%size()
+
+        ! Get the phase name
+        call assert_msg(393427582, phases%get_string(val=phase_name), &
+                "Non-string phase name for mode '"// &
+                this%section_name(i_section)%string// &
+                "' in modal/binned mass aerosol representation '"// &
+                this%rep_name//"'")
+
+        ! Find the aerosol phase and add space for its variables
+        do j_phase = 1, size(aero_phase_set)
+          if (phase_name.eq.aero_phase_set(j_phase)%val%name()) then
+
+            ! Add space for the phase state, model data ids, and number
+            ! of Jacobian elements
+            n_int_param = n_int_param + 3 * num_bin
+
+            ! Add space for total aerosol phase mass and average MW,
+            n_float_param = n_float_param + 2 * num_bin
+
+            exit
+          else if (j_phase.eq.size(aero_phase_set)) then
+            call die_msg(652391420, "Non-existant aerosol phase '"// &
+                    phase_name//"' specified for mode '"// &
+                    this%section_name(i_section)%string// &
+                    "' in modal/binned mass aerosol representation '"// &
+                    this%rep_name//"'")
+          end if
+        end do
+
+        call phases%iter_next()
+      end do
+
+      call sections%iter_next()
+    end do
+
+    ! Allocate space for the aerosol phases and species state ids
+    allocate(this%aero_phase(num_phase))
+    allocate(this%phase_state_id(size(this%aero_phase)))
+
+    ! Allocate condensed data arrays
+    allocate(this%condensed_data_int(n_int_param))
+    allocate(this%condensed_data_real(n_float_param))
+    this%condensed_data_int(:) = int(0, kind=i_kind)
+    this%condensed_data_real(:) = real(0.0, kind=dp)
+    INT_DATA_SIZE_ = n_int_param
+    REAL_DATA_SIZE_ = n_float_param
+
+    ! Set the number of sections
+    NUM_SECTION_ = sections%size()
+
+    ! Save space for the environment-dependent parameters (GMD and GSD)
+    this%num_env_params = 2 * NUM_SECTION_
+
+    ! Loop through the sections, adding names and distribution parameters and
+    ! counting the phases in each section
+    i_phase = 1
+    curr_spec_state_id = spec_state_id
+    n_int_param = NUM_INT_PROP_+2*NUM_SECTION_+1
+    n_float_param = NUM_REAL_PROP_+1
+    call sections%iter_reset()
+    do i_section = 1, NUM_SECTION_
+
+      ! Set the data locations for this mode
+      MODE_INT_PROP_LOC_(i_section) = n_int_param
+      MODE_REAL_PROP_LOC_(i_section) = n_float_param
+
+      ! Get the mode/bin properties
+      call assert(394743663, sections%get_property_t(val=section))
+
+      ! Get the mode/bin type
+      key_name = "type"
+      call assert(667058653, section%get_string(key_name, sect_type))
+      if (sect_type.eq."MODAL") then
+        SECTION_TYPE_(i_section) = MODAL
+      else if (sect_type.eq."BINNED") then
+        SECTION_TYPE_(i_section) = BINNED
+      else
+        call die_msg(256924433, "Internal error")
+      end if
+
+      ! Get the number of bins (or set to 1 for a mode)
+      NUM_BINS_(i_section) = 1
+      if (SECTION_TYPE_(i_section).eq.BINNED) then
+        key_name = "bins"
+        call assert(315215287, section%get_int(key_name, NUM_BINS_(i_section)))
+      end if
+
+      ! Get mode parameters
+      if (SECTION_TYPE_(i_section).eq.MODAL) then
+
+        ! Currently no mode parameters
+
+        EFFECTIVE_RADIUS_(i_section,1) = -9999.9
+        NUMBER_CONC_(i_section,1)      = -9999.9
+
+      ! Get bin parameters
+      else if (SECTION_TYPE_(i_section).eq.BINNED) then
+
+        ! Get the minimum diameter (m)
+        key_name = "minimum diameter [m]"
+        call assert_msg(548762180, section%get_real(key_name, min_Dp), &
+                "Missing minimum diameter for bin '"// &
+                this%section_name(i_section)%string// &
+                "' in modal/binned mass aerosol representation '"// &
+                this%rep_name//"'")
+
+        ! Get the maximum diameter (m)
+        key_name = "maximum diameter [m]"
+        call assert_msg(288632226, section%get_real(key_name, max_Dp), &
+                "Missing maximum diameter for bin '"// &
+                this%section_name(i_section)%string// &
+                "' in modal/binned mass aerosol representation '"// &
+                this%rep_name//"'")
+
+        ! Get the scale
+        key_name = "scale"
+        call assert_msg(404761639, section%get_string(key_name, str_val), &
+                "Missing bin scale for bin '"// &
+                this%section_name(i_section)%string// &
+                "' in modal/binned mass aerosol representation '"// &
+                this%rep_name//"'")
+
+        ! Assign the bin diameters
+        if (str_val.eq."LINEAR") then
+          do i_bin = 1, NUM_BINS_(i_section)
+            BIN_DP_(i_section,i_bin) = min_Dp + &
+                    (i_bin-1) * (max_Dp-min_Dp)/(NUM_BINS_(i_section)-1)
+          end do
+        else if (str_val.eq."LOG") then
+          d_log_Dp = (log10(max_Dp)-log10(min_Dp))/(NUM_BINS_(i_section)-1)
+          do i_bin = 1, NUM_BINS_(i_section)
+            BIN_DP_(i_section,i_bin) = 10.0d0**( log10(min_Dp) + &
+                    (i_bin-1) * d_log_Dp )
+          end do
+        else
+          call die_msg(236797392, "Invalid scale specified for bin '"// &
+                this%section_name(i_section)%string// &
+                "' in modal/binned mass aerosol representation '"// &
+                this%rep_name//"'")
+        end if
+        do i_bin = 1, NUM_BINS_(i_section)
+          ! Set the effective radius
+          EFFECTIVE_RADIUS_(i_section,i_bin) = BIN_DP_(i_section,i_bin) / 2.0
+          NUMBER_CONC_(i_section,i_bin)      = -9999.9
+        end do
+      end if
+
+      ! Get the set of phases
+      key_name = "phases"
+      call assert(712411046, section%get_property_t(key_name, phases))
+
+      ! Save the number of phases
+      NUM_PHASE_(i_section) = phases%size()
+
+      ! Add space for the mode/bin type, number of bins, and number of phases
+      n_int_param = n_int_param + 3
+
+      ! Add space for bin diameter, number concentration and effective radius
+      n_float_param = n_float_param + 3 * NUM_BINS_(i_section)
+
+      ! Loop through the phase names, look them up, and add them to the list
+      call phases%iter_reset()
+      do j_phase = 1, phases%size()
+
+        ! Get the phase name
+        call assert(775801035, phases%get_string(val=phase_name))
+
+        ! Find the aerosol phase and add it to the list
+        do k_phase = 1, size(aero_phase_set)
+          if (phase_name.eq.aero_phase_set(k_phase)%val%name()) then
+
+            ! Loop through the bins
+            do i_bin = 1, NUM_BINS_(i_section)
+
+              ! Add the aerosol phase to the list
+              this%aero_phase(i_phase) = aero_phase_set(k_phase)
+
+              ! Save the starting id for this phase on the state array
+              this%phase_state_id(i_phase) = curr_spec_state_id
+              PHASE_STATE_ID_(i_section, j_phase, i_bin) = curr_spec_state_id
+
+              ! Increment the state id by the size of the phase
+              curr_spec_state_id = curr_spec_state_id + &
+                        aero_phase_set(k_phase)%val%size()
+
+              ! Save the phase model data id
+              PHASE_MODEL_DATA_ID_(i_section, j_phase, i_bin) = k_phase
+
+              i_phase = i_phase + 1
+            end do
+
+            ! Add space for aerosol phase state, model data ids, and
+            ! number of Jacobian elements
+            n_int_param = n_int_param + 3*NUM_BINS_(i_section)
+
+            ! Add space for aerosol phase mass and average MW
+            n_float_param = n_float_param + 2*NUM_BINS_(i_section)
+
+            exit
+          else if (k_phase.eq.size(aero_phase_set)) then
+            call die_msg(652391420, "Internal error.")
+          end if
+        end do
+
+        call phases%iter_next()
+      end do
+
+      call sections%iter_next()
+    end do
+
+    ! Initialize the aerosol representation id
+    AERO_REP_ID_ = -1
+
+    ! Check the data sizes
+    call assert(951534966, i_phase-1.eq.num_phase)
+    call assert(951534966, n_int_param.eq.INT_DATA_SIZE_+1)
+    call assert(325387136, n_float_param.eq.REAL_DATA_SIZE_+1)
+
+  end subroutine initialize
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Get an id for a mode or bin by name for use with updates from external
+  !! modules
+  function get_section_id(this, section_name, section_id) result (found)
+
+    !> Flag indicating whether the mode/bin was found
+    logical :: found
+    !> Aerosol representation
+    class(aero_rep_modal_binned_mass_t), intent(in) :: this
+    !> Section name
+    character(len=*), intent(in) :: section_name
+    !> Section id
+    integer(kind=i_kind), intent(out) :: section_id
+
+    integer(kind=i_kind) :: i_section
+
+    call assert_msg(194186171, len(trim(section_name)).gt.0, &
+            "Trying to get section id of unnamed aerosol "// &
+            "representation.")
+
+    found = .false.
+    do i_section = 1, size(this%section_name)
+      if (this%section_name(i_section)%string.eq.trim(section_name)) then
+        found = .true.
+        section_id = i_section
+        return
+      end if
+    end do
+
+  end function get_section_id
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Get the size of the section of the
+  !! \c camp_camp_state::camp_state_t::state_var array required for this
+  !! aerosol representation.
+  !!
+  !! For a modal/binned mass representation, the size will correspond to the
+  !! the sum of the sizes of a single instance of each aerosol phase
+  !! provided to \c aero_rep_modal_binned_mass::initialize()
+  function get_size(this) result (state_size)
+
+    !> Size on the state array
+    integer(kind=i_kind) :: state_size
+    !> Aerosol representation data
+    class(aero_rep_modal_binned_mass_t), intent(in) :: this
+
+    integer(kind=i_kind) :: i_phase
+
+    ! Get the total number of species across all phases
+    state_size = 0
+    do i_phase = 1, size(this%aero_phase)
+      state_size = state_size + this%aero_phase(i_phase)%val%size()
+    end do
+
+  end function get_size
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Get a list of unique names for each element on the
+  !! \c camp_camp_state::camp_state_t::state_var array for this aerosol
+  !! representation. The list may be restricted to a particular phase and/or
+  !! aerosol species by including the phase_name and spec_name arguments.
+  !!
+  !! For a modal/binned mass representation, the unique names for bins are:
+  !!   - "bin name.bin #.phase name.species name"
+  !!
+  !! ... and for modes are:
+  !!   - "mode name.phase name.species name"
+  function unique_names(this, phase_name, tracer_type, spec_name)
+
+    !> List of unique names
+    type(string_t), allocatable :: unique_names(:)
+    !> Aerosol representation data
+    class(aero_rep_modal_binned_mass_t), intent(in) :: this
+    !> Aerosol phase name
+    character(len=*), optional, intent(in) :: phase_name
+    !> Aerosol-phase species tracer type
+    integer(kind=i_kind), optional, intent(in) :: tracer_type
+    !> Aerosol-phase species name
+    character(len=*), optional, intent(in) :: spec_name
+
+    integer(kind=i_kind) :: num_spec, i_spec, j_spec, i_phase, j_phase, &
+                            i_section, i_bin
+    integer(kind=i_kind) :: curr_tracer_type
+    character(len=:), allocatable :: curr_section_name, curr_phase_name, &
+                                     curr_bin_str
+    type(string_t), allocatable :: spec_names(:)
+
+    ! Count the number of unique names
+    num_spec = 0
+    do i_phase = 1, size(this%aero_phase)
+
+      ! Filter by phase name
+      if (present(phase_name)) then
+        curr_phase_name = this%aero_phase(i_phase)%val%name()
+        if (phase_name.ne.curr_phase_name) cycle
+      end if
+
+      ! Filter by spec name and/or tracer type
+      if (present(spec_name).or.present(tracer_type)) then
+        spec_names = this%aero_phase(i_phase)%val%get_species_names()
+        do j_spec = 1, size(spec_names)
+          curr_tracer_type = &
+                  this%aero_phase(i_phase)%val%get_species_type( &
+                  spec_names(j_spec)%string)
+          if (present(spec_name)) then
+            if (spec_name.ne.spec_names(j_spec)%string) cycle
+          end if
+          if (present(tracer_type)) then
+            if (tracer_type.ne.curr_tracer_type) cycle
+          end if
+          num_spec = num_spec + 1
+        end do
+      else
+        num_spec = num_spec + this%aero_phase(i_phase)%val%size()
+      end if
+
+    end do
+
+    ! Allocate space for the unique names
+    allocate(unique_names(num_spec))
+
+    ! Loop through the modes/bin sets
+    i_phase = 1
+    i_spec = 1
+    do i_section = 1, NUM_SECTION_
+
+      ! Get the current section name
+      curr_section_name = this%section_name(i_section)%string
+
+      ! Loop through the phases for this mode/bin set
+      do j_phase = 1, NUM_PHASE_(i_section)
+
+        ! Set the current phase name
+        curr_phase_name = this%aero_phase(i_phase)%val%name()
+
+        ! Filter by phase name
+        if (present(phase_name)) then
+          if (phase_name.ne.curr_phase_name) then
+            i_phase = i_phase + NUM_BINS_(i_section)
+            cycle
+          end if
+        end if
+
+        ! Get the species names in this phase
+        spec_names = this%aero_phase(i_phase)%val%get_species_names()
+
+        ! Loop through the bins (one iteration for modes)
+        do i_bin = 1, NUM_BINS_(i_section)
+
+          ! Set the current bin label (except for single bins or mode)
+          if (NUM_BINS_(i_section).gt.1) then
+            curr_bin_str = trim(to_string(i_bin))//"."
+          else
+            curr_bin_str = ""
+          end if
+
+          ! Add species from this phase/bin
+          num_spec = this%aero_phase(i_phase)%val%size()
+          do j_spec = 1, num_spec
+
+            ! Filter by species name
+            if (present(spec_name)) then
+              if (spec_name.ne.spec_names(j_spec)%string) cycle
+            end if
+
+            ! Filter by species tracer type
+            if (present(tracer_type)) then
+              curr_tracer_type = &
+                  this%aero_phase(i_phase)%val%get_species_type( &
+                  spec_names(j_spec)%string)
+              if (tracer_type.ne.curr_tracer_type) cycle
+            end if
+
+            ! Add the unique name for this species
+            unique_names(i_spec)%string = curr_section_name//"."// &
+                  curr_bin_str//curr_phase_name//'.'// &
+                  spec_names(j_spec)%string
+
+            i_spec = i_spec + 1
+          end do
+
+          ! Move to the next phase instance
+          i_phase = i_phase + 1
+
+        end do
+
+        deallocate(spec_names)
+
+      end do
+    end do
+
+  end function unique_names
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Get a species id on the \c camp_camp_state::camp_state_t::state_var
+  !! array by its unique name. These are unique ids for each element on the
+  !! state array for this \ref camp_aero_rep "aerosol representation" and
+  !! are numbered:
+  !!
+  !!   \f[x_u \in x_f ... (x_f+n-1)\f]
+  !!
+  !! where \f$x_u\f$ is the id of the element corresponding to the species
+  !! with unique name \f$u\f$ on the \c
+  !! camp_camp_state::camp_state_t::state_var array, \f$x_f\f$ is the index
+  !! of the first element for this aerosol representation on the state array
+  !! and \f$n\f$ is the total number of variables on the state array from
+  !! this aerosol representation.
+  function spec_state_id(this, unique_name) result (spec_id)
+
+    !> Species state id
+    integer(kind=i_kind) :: spec_id
+    !> Aerosol representation data
+    class(aero_rep_modal_binned_mass_t), intent(in) :: this
+    !> Unique name
+    character(len=*), intent(in) :: unique_name
+
+    type(string_t), allocatable :: unique_names(:)
+    integer(kind=i_kind) :: i_spec
+
+    spec_id = 0
+    unique_names = this%unique_names()
+    do i_spec = 1, size(unique_names)
+      if (unique_names(i_spec)%string .eq. unique_name) then
+        spec_id = this%phase_state_id(1) + i_spec - 1
+        return
+      end if
+    end do
+    call die_msg( 105414960, "Cannot find species '"//unique_name//"'" )
+
+  end function spec_state_id
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Get the non-unique name of a species by its unique name
+  function spec_name(this, unique_name)
+
+    !> Chemical species name
+    character(len=:), allocatable :: spec_name
+    !> Aerosol representation data
+    class(aero_rep_modal_binned_mass_t), intent(in) :: this
+    !> Unique name of the species in this aerosol representation
+    character(len=*), intent(in) :: unique_name
+
+    ! Indices for iterators
+    integer(kind=i_kind) :: i_spec, j_spec, i_phase
+
+    ! species names in the aerosol phase
+    type(string_t), allocatable :: spec_names(:)
+
+    ! unique name list
+    type(string_t), allocatable :: unique_names(:)
+
+    unique_names = this%unique_names()
+
+    i_spec = 1
+    do i_phase = 1, size(this%aero_phase)
+      spec_names = this%aero_phase(i_phase)%val%get_species_names()
+      do j_spec = 1, this%aero_phase(i_phase)%val%size()
+        if (unique_name.eq.unique_names(i_spec)%string) then
+          spec_name = spec_names(j_spec)%string
+        end if
+        i_spec = i_spec + 1
+      end do
+      deallocate(spec_names)
+    end do
+
+    deallocate(unique_names)
+
+  end function spec_name
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Get the number of instances of a specified aerosol phase.
+  function num_phase_instances(this, phase_name)
+
+    !> Number of instances of the aerosol phase
+    integer(kind=i_kind) :: num_phase_instances
+    !> Aerosol representation data
+    class(aero_rep_modal_binned_mass_t), intent(in) :: this
+    !> Aerosol phase name
+    character(len=*), intent(in) :: phase_name
+
+    integer(kind=i_kind) :: i_phase
+
+    num_phase_instances = 0
+    do i_phase = 1, size(this%aero_phase)
+      if (this%aero_phase(i_phase)%val%name().eq.phase_name) then
+        num_phase_instances = num_phase_instances + 1
+      end if
+    end do
+
+  end function num_phase_instances
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Get the number of Jacobian elements used in calculations of aerosol mass,
+  !! volume, number, etc. for a particular phase
+  function num_jac_elem(this, phase_id)
+
+    !> Number of Jacobian elements used
+    integer(kind=i_kind) :: num_jac_elem
+    !> Aerosol respresentation data
+    class(aero_rep_modal_binned_mass_t), intent(in) :: this
+    !> Aerosol phase id
+    integer(kind=i_kind), intent(in) :: phase_id
+
+    integer(kind=i_kind) :: i_section, i_phase, i_bin, j_phase, &
+                            phase_id_to_find, section_size,     &
+                            section_start
+
+    phase_id_to_find = phase_id
+    section_start = 1
+    do i_section = 1, NUM_SECTION_
+      section_size = NUM_PHASE_(i_section) * NUM_BINS_(i_section)
+      if( phase_id_to_find .le. section_size ) then
+        i_phase      = ( phase_id_to_find - 1 ) / NUM_BINS_(i_section) + 1
+        i_bin        = mod( phase_id_to_find - 1, NUM_BINS_(i_section) ) + 1
+        num_jac_elem = 0
+        do j_phase = section_start + i_bin - 1,                              &
+                     section_start + i_bin - 1 +                             &
+                       ( NUM_PHASE_(i_section) - 1 ) * NUM_BINS_(i_section), &
+                     NUM_BINS_(i_section)
+          num_jac_elem = num_jac_elem +                                      &
+                         this%aero_phase( j_phase )%val%num_jac_elem( )
+        end do
+        return
+      end if
+      phase_id_to_find = phase_id_to_find - section_size
+      section_start = section_start + section_size
+    end do
+
+  end function num_jac_elem
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Finalize the aerosol representation
+  elemental subroutine finalize(this)
+
+    !> Aerosol representation data
+    type(aero_rep_modal_binned_mass_t), intent(inout) :: this
+
+    if (allocated(this%rep_name)) deallocate(this%rep_name)
+    if (allocated(this%aero_phase)) then
+      ! The core will deallocate the aerosol phases
+      call this%aero_phase(:)%dereference()
+      deallocate(this%aero_phase)
+    end if
+    if (associated(this%property_set)) &
+            deallocate(this%property_set)
+    if (allocated(this%condensed_data_real)) &
+            deallocate(this%condensed_data_real)
+    if (allocated(this%condensed_data_int)) &
+            deallocate(this%condensed_data_int)
+
+  end subroutine finalize
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Initialize a GMD update object
+  subroutine update_data_init_GMD(this, update_data, aero_rep_type)
+
+    use camp_rand,                                only : generate_int_id
+
+    !> Aerosol representation to update
+    class(aero_rep_modal_binned_mass_t), intent(inout) :: this
+    !> Update data object
+    class(aero_rep_update_data_modal_binned_mass_GMD_t), intent(out) :: &
+        update_data
+    !> Aerosol representation id
+    integer(kind=i_kind), intent(in) :: aero_rep_type
+
+    ! If an aerosol representation id has not been generated, do it now
+    if (AERO_REP_ID_.eq.-1) then
+      AERO_REP_ID_ = generate_int_id()
+    end if
+
+    update_data%aero_rep_unique_id = AERO_REP_ID_
+    update_data%aero_rep_type = int(aero_rep_type, kind=c_int)
+    update_data%update_data = aero_rep_modal_binned_mass_create_gmd_update_data()
+    update_data%is_malloced = .true.
+
+  end subroutine update_data_init_GMD
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Set packed update data for mode GMD
+  subroutine update_data_set_GMD(this, section_id, GMD)
+
+    !> Update data
+    class(aero_rep_update_data_modal_binned_mass_GMD_t), intent(inout) :: this
+    !> Aerosol section id from
+    !! camp_aero_rep_modal_binned_mass::aero_rep_modal_binned_mass_t::get_section_id
+    integer(kind=i_kind), intent(in) :: section_id
+    !> Updated GMD (m)
+    real(kind=dp), intent(in) :: GMD
+
+    call aero_rep_modal_binned_mass_set_gmd_update_data(this%get_data(), &
+            this%aero_rep_unique_id, section_id-1, GMD)
+
+  end subroutine update_data_set_GMD
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Determine the size of a binary required to pack the reaction data
+  integer(kind=i_kind) function internal_pack_size_GMD(this, comm) &
+      result(pack_size)
+
+    !> Aerosol representation update data
+    class(aero_rep_update_data_modal_binned_mass_GMD_t), intent(in) :: this
+    !> MPI communicator
+    integer, intent(in) :: comm
+
+    pack_size = &
+      camp_mpi_pack_size_logical(this%is_malloced, comm) + &
+      camp_mpi_pack_size_integer(this%aero_rep_unique_id, comm)
+
+  end function internal_pack_size_GMD
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Pack the given value to the buffer, advancing position
+  subroutine internal_bin_pack_GMD(this, buffer, pos, comm)
+
+    !> Aerosol representation update data
+    class(aero_rep_update_data_modal_binned_mass_GMD_t), intent(in) :: this
+    !> Memory buffer
+    character, intent(inout) :: buffer(:)
+    !> Current buffer position
+    integer, intent(inout) :: pos
+    !> MPI communicator
+    integer, intent(in) :: comm
+
+#ifdef CAMP_USE_MPI
+    integer :: prev_position
+
+    prev_position = pos
+    call camp_mpi_pack_logical(buffer, pos, this%is_malloced, comm)
+    call camp_mpi_pack_integer(buffer, pos, this%aero_rep_unique_id, comm)
+    call assert(685522546, &
+         pos - prev_position <= this%pack_size(comm))
+#endif
+
+  end subroutine internal_bin_pack_GMD
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Unpack the given value from the buffer, advancing position
+  subroutine internal_bin_unpack_GMD(this, buffer, pos, comm)
+
+    !> Aerosol representation update data
+    class(aero_rep_update_data_modal_binned_mass_GMD_t), intent(inout) :: this
+    !> Memory buffer
+    character, intent(inout) :: buffer(:)
+    !> Current buffer position
+    integer, intent(inout) :: pos
+    !> MPI communicator
+    integer, intent(in) :: comm
+
+#ifdef CAMP_USE_MPI
+    integer :: prev_position
+
+    prev_position = pos
+    call camp_mpi_unpack_logical(buffer, pos, this%is_malloced, comm)
+    call camp_mpi_unpack_integer(buffer, pos, this%aero_rep_unique_id, comm)
+    call assert(855679450, &
+         pos - prev_position <= this%pack_size(comm))
+    this%update_data = aero_rep_modal_binned_mass_create_GMD_update_data()
+#endif
+
+  end subroutine internal_bin_unpack_GMD
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Finalize a GMD update data object
+  elemental subroutine update_data_GMD_finalize(this)
+
+    !> Update data object to free
+    type(aero_rep_update_data_modal_binned_mass_GMD_t), intent(inout) :: this
+
+    if (this%is_malloced) call aero_rep_free_update_data(this%update_data)
+
+  end subroutine update_data_GMD_finalize
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Initialize a GSD update data object
+  subroutine update_data_init_GSD(this, update_data, aero_rep_type)
+
+    use camp_rand,                                only : generate_int_id
+
+    !> Aerosol representation to update
+    class(aero_rep_modal_binned_mass_t), intent(inout) :: this
+    !> Update data object
+    class(aero_rep_update_data_modal_binned_mass_GSD_t), intent(out) :: &
+        update_data
+    !> Aerosol representation id
+    integer(kind=i_kind), intent(in) :: aero_rep_type
+
+    ! If an aerosol representation id has not been generated, do it now
+    if (AERO_REP_ID_.eq.-1) then
+      AERO_REP_ID_ = generate_int_id()
+    end if
+
+    update_data%aero_rep_unique_id = AERO_REP_ID_
+    update_data%aero_rep_type = int(aero_rep_type, kind=c_int)
+    update_data%update_data = aero_rep_modal_binned_mass_create_gsd_update_data()
+    update_data%is_malloced = .true.
+
+  end subroutine update_data_init_GSD
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Set packed update data for mode GSD
+  subroutine update_data_set_GSD(this, section_id, GSD)
+
+    !> Update data
+    class(aero_rep_update_data_modal_binned_mass_GSD_t), intent(inout) :: this
+    !> Aerosol section id from
+    !! camp_aero_rep_modal_binned_mass::aero_rep_modal_binned_mass_t::get_section_id
+    integer(kind=i_kind), intent(in) :: section_id
+    !> Updated GSD (m)
+    real(kind=dp), intent(in) :: GSD
+
+    call aero_rep_modal_binned_mass_set_gsd_update_data(this%get_data(), &
+            this%aero_rep_unique_id, section_id-1, GSD)
+
+  end subroutine update_data_set_GSD
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Determine the size of a binary required to pack the reaction data
+  integer(kind=i_kind) function internal_pack_size_GSD(this, comm) &
+      result(pack_size)
+
+    !> Aerosol representation update data
+    class(aero_rep_update_data_modal_binned_mass_GSD_t), intent(in) :: this
+    !> MPI communicator
+    integer, intent(in) :: comm
+
+    pack_size = &
+      camp_mpi_pack_size_logical(this%is_malloced, comm) + &
+      camp_mpi_pack_size_integer(this%aero_rep_unique_id, comm)
+
+  end function internal_pack_size_GSD
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Pack the given value to the buffer, advancing position
+  subroutine internal_bin_pack_GSD(this, buffer, pos, comm)
+
+    !> Aerosol representation update data
+    class(aero_rep_update_data_modal_binned_mass_GSD_t), intent(in) :: this
+    !> Memory buffer
+    character, intent(inout) :: buffer(:)
+    !> Current buffer position
+    integer, intent(inout) :: pos
+    !> MPI communicator
+    integer, intent(in) :: comm
+
+#ifdef CAMP_USE_MPI
+    integer :: prev_position
+
+    prev_position = pos
+    call camp_mpi_pack_logical(buffer, pos, this%is_malloced, comm)
+    call camp_mpi_pack_integer(buffer, pos, this%aero_rep_unique_id, comm)
+    call assert(295993259, &
+         pos - prev_position <= this%pack_size(comm))
+#endif
+
+  end subroutine internal_bin_pack_GSD
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Unpack the given value from the buffer, advancing position
+  subroutine internal_bin_unpack_GSD(this, buffer, pos, comm)
+
+    !> Aerosol representation update data
+    class(aero_rep_update_data_modal_binned_mass_GSD_t), intent(inout) :: this
+    !> Memory buffer
+    character, intent(inout) :: buffer(:)
+    !> Current buffer position
+    integer, intent(inout) :: pos
+    !> MPI communicator
+    integer, intent(in) :: comm
+
+#ifdef CAMP_USE_MPI
+    integer :: prev_position
+
+    prev_position = pos
+    call camp_mpi_unpack_logical(buffer, pos, this%is_malloced, comm)
+    call camp_mpi_unpack_integer(buffer, pos, this%aero_rep_unique_id, comm)
+    call assert(518724415, &
+         pos - prev_position <= this%pack_size(comm))
+    this%update_data = aero_rep_modal_binned_mass_create_GSD_update_data()
+#endif
+
+  end subroutine internal_bin_unpack_GSD
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Finalize a GSD update data object
+  elemental subroutine update_data_GSD_finalize(this)
+
+    !> Update data object to free
+    type(aero_rep_update_data_modal_binned_mass_GSD_t), intent(inout) :: this
+
+    if (this%is_malloced) call aero_rep_free_update_data(this%update_data)
+
+  end subroutine update_data_GSD_finalize
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+end module camp_aero_rep_modal_binned_mass

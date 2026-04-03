@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tabpfn"
-version = "7.0.1"
+version = "7.1.0"
 dependencies = [
   "torch>=2.5",
   "numpy>=1.21.6",
@@ -106,6 +106,10 @@ ci = [
   "pytest-mock>=3.14.1",
   "pytest>=8.4.2",
 ]
+
+[tool.uv]
+exclude-newer = "7 days"
+exclude-newer-package = {torch = false} 
 
 [tool.setuptools.package-data]
 "tabpfn.architectures.shared" = ["tabpfn_col_embedding.pt"]

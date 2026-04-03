@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arcade-mcp
-Version: 1.12.2
+Version: 1.13.1
 Summary: Arcade.dev - Tool Calling platform for Agents
 Author-email: Arcade <dev@arcade.dev>
 License: MIT License
@@ -40,6 +40,7 @@ Requires-Dist: arcadepy==1.8.0
 Requires-Dist: authlib==1.6.9
 Requires-Dist: click==8.1.8
 Requires-Dist: jinja2==3.1.6
+Requires-Dist: packaging>=23.0
 Requires-Dist: platformdirs>=4.3.6; platform_system == 'Windows'
 Requires-Dist: python-dateutil>=2.8.2
 Requires-Dist: rich<15.0.0,>=14.0.0

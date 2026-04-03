@@ -583,6 +583,53 @@ typing.cast(typing.Any, IObjectTypeRef).__jsii_proxy_class__ = lambda : _IObject
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.IRecommenderRef"
+)
+class IRecommenderRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Recommender.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderRef")
+    def recommender_ref(self) -> "RecommenderReference":
+        '''(experimental) A reference to a Recommender resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRecommenderRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Recommender.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_customerprofiles.IRecommenderRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderRef")
+    def recommender_ref(self) -> "RecommenderReference":
+        '''(experimental) A reference to a Recommender resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RecommenderReference", jsii.get(self, "recommenderRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRecommenderRef).__jsii_proxy_class__ = lambda : _IRecommenderRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.ISegmentDefinitionRef"
 )
 class ISegmentDefinitionRef(
@@ -755,6 +802,87 @@ class ObjectTypeReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.RecommenderReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_name": "domainName",
+        "recommender_arn": "recommenderArn",
+        "recommender_name": "recommenderName",
+    },
+)
+class RecommenderReference:
+    def __init__(
+        self,
+        *,
+        domain_name: builtins.str,
+        recommender_arn: builtins.str,
+        recommender_name: builtins.str,
+    ) -> None:
+        '''A reference to a Recommender resource.
+
+        :param domain_name: The DomainName of the Recommender resource.
+        :param recommender_arn: The ARN of the Recommender resource.
+        :param recommender_name: The RecommenderName of the Recommender resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_customerprofiles as interfaces_customerprofiles
+            
+            recommender_reference = interfaces_customerprofiles.RecommenderReference(
+                domain_name="domainName",
+                recommender_arn="recommenderArn",
+                recommender_name="recommenderName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__880f1b8ece67b6b9b370ab6527bad59ca1de36c60efe95075558badcc1b3c919)
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument recommender_arn", value=recommender_arn, expected_type=type_hints["recommender_arn"])
+            check_type(argname="argument recommender_name", value=recommender_name, expected_type=type_hints["recommender_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_name": domain_name,
+            "recommender_arn": recommender_arn,
+            "recommender_name": recommender_name,
+        }
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The DomainName of the Recommender resource.'''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def recommender_arn(self) -> builtins.str:
+        '''The ARN of the Recommender resource.'''
+        result = self._values.get("recommender_arn")
+        assert result is not None, "Required property 'recommender_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def recommender_name(self) -> builtins.str:
+        '''The RecommenderName of the Recommender resource.'''
+        result = self._values.get("recommender_name")
+        assert result is not None, "Required property 'recommender_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RecommenderReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.SegmentDefinitionReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -846,9 +974,11 @@ __all__ = [
     "IEventTriggerRef",
     "IIntegrationRef",
     "IObjectTypeRef",
+    "IRecommenderRef",
     "ISegmentDefinitionRef",
     "IntegrationReference",
     "ObjectTypeReference",
+    "RecommenderReference",
     "SegmentDefinitionReference",
 ]
 
@@ -902,6 +1032,15 @@ def _typecheckingstub__dcdfa1e22cd22dc7400da7632968be09334b8baeadcbbfcdcedf890b2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__880f1b8ece67b6b9b370ab6527bad59ca1de36c60efe95075558badcc1b3c919(
+    *,
+    domain_name: builtins.str,
+    recommender_arn: builtins.str,
+    recommender_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5e30c09a37c8a79e5b1574fa33f089f6b93ba58323998bc89f415eb9d8f457d6(
     *,
     domain_name: builtins.str,
@@ -911,5 +1050,5 @@ def _typecheckingstub__5e30c09a37c8a79e5b1574fa33f089f6b93ba58323998bc89f415eb9d
     """Type checking stubs"""
     pass
 
-for cls in [ICalculatedAttributeDefinitionRef, IDomainRef, IEventStreamRef, IEventTriggerRef, IIntegrationRef, IObjectTypeRef, ISegmentDefinitionRef]:
+for cls in [ICalculatedAttributeDefinitionRef, IDomainRef, IEventStreamRef, IEventTriggerRef, IIntegrationRef, IObjectTypeRef, IRecommenderRef, ISegmentDefinitionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

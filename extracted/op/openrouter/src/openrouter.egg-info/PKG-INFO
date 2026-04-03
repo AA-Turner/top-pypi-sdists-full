@@ -1,10 +1,9 @@
 Metadata-Version: 2.4
 Name: openrouter
-Version: 0.8.0
+Version: 0.8.1
 Summary: Official Python Client SDK for OpenRouter.
 Author: OpenRouter
 License: Apache-2.0
-Project-URL: repository, https://github.com/OpenRouterTeam/python-sdk.git
 Requires-Python: >=3.9.2
 Description-Content-Type: text/markdown
 License-File: LICENSE

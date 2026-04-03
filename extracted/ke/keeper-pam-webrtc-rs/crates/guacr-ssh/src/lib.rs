@@ -52,3 +52,6 @@ pub enum SshError {
 }
 
 pub type Result<T> = std::result::Result<T, SshError>;
+
+#[cfg(test)]
+mod tests;

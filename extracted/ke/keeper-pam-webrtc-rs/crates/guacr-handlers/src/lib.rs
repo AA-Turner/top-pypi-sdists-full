@@ -145,3 +145,6 @@ pub use kubernetes::{
 
 #[cfg(test)]
 pub use mock::MockProtocolHandler;
+
+#[cfg(test)]
+mod tests;

@@ -43,3 +43,6 @@ pub enum VncError {
 }
 
 pub type Result<T> = std::result::Result<T, VncError>;
+
+#[cfg(test)]
+mod tests;

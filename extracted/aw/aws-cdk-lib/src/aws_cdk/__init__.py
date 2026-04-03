@@ -4271,15 +4271,33 @@ class Bitrate(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Bitrate"):
 
     When the amount is passed as a token, unit conversion is not possible.
 
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        import aws_cdk as cdk
+        from aws_cdk.aws_mediapackagev2_alpha import FilterConfiguration
+        # channel: Channel
         
-        bitrate = cdk.Bitrate.bps(123)
+        
+        OriginEndpoint(self, "Endpoint",
+            channel=channel,
+            segment=Segment.cmaf(),
+            manifests=[
+                Manifest.hls(
+                    manifest_name="index",
+                    filter_configuration=FilterConfiguration(
+                        manifest_filter=[
+                            ManifestFilter.bitrate_range(BitrateFilterKey.VIDEO_BITRATE, Bitrate.mbps(1), Bitrate.mbps(5)),
+                            ManifestFilter.numeric_range(NumericFilterKey.VIDEO_HEIGHT, 720, 1080),
+                            ManifestFilter.video_codec_list([VideoCodec.H264, VideoCodec.H265]),
+                            ManifestFilter.numeric(NumericFilterKey.AUDIO_CHANNELS, 2),
+                            ManifestFilter.text_list(TextFilterKey.AUDIO_LANGUAGE, ["en-US", "fr"])
+                        ],
+                        time_delay=Duration.seconds(30)
+                    )
+                )
+            ]
+        )
     '''
 
     @jsii.member(jsii_name="bps")
@@ -40170,6 +40188,7 @@ __all__ = [
     "aws_imagebuilder",
     "aws_inspector",
     "aws_inspectorv2",
+    "aws_interconnect",
     "aws_internetmonitor",
     "aws_invoicing",
     "aws_iot",
@@ -40317,6 +40336,7 @@ __all__ = [
     "aws_systemsmanagersap",
     "aws_timestream",
     "aws_transfer",
+    "aws_uxc",
     "aws_verifiedpermissions",
     "aws_voiceid",
     "aws_vpclattice",
@@ -40489,6 +40509,7 @@ from . import aws_identitystore
 from . import aws_imagebuilder
 from . import aws_inspector
 from . import aws_inspectorv2
+from . import aws_interconnect
 from . import aws_internetmonitor
 from . import aws_invoicing
 from . import aws_iot
@@ -40636,6 +40657,7 @@ from . import aws_synthetics
 from . import aws_systemsmanagersap
 from . import aws_timestream
 from . import aws_transfer
+from . import aws_uxc
 from . import aws_verifiedpermissions
 from . import aws_voiceid
 from . import aws_vpclattice

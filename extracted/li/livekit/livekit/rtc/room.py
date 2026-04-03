@@ -43,6 +43,7 @@ from .data_stream import (
     TextStreamHandler,
     ByteStreamHandler,
 )
+from .data_track import RemoteDataTrack
 
 
 EventTypes = Literal[
@@ -78,6 +79,8 @@ EventTypes = Literal[
     "room_updated",
     "moved",
     "token_refreshed",
+    "data_track_published",
+    "data_track_unpublished",
 ]
 
 
@@ -392,6 +395,10 @@ class Room(EventEmitter[EventTypes]):
                 - Arguments: None
             - **"moved"**: Called when the participant has been moved to another room.
                 - Arguments: None
+            - **"data_track_published"**: Called when a remote participant publishes a data track.
+                - Arguments: `track` (RemoteDataTrack)
+            - **"data_track_unpublished"**: Called when a remote participant unpublishes a data track.
+                - Arguments: `sid` (str)
 
         Example:
             ```python
@@ -573,7 +580,9 @@ class Room(EventEmitter[EventTypes]):
         if self._text_stream_handlers.get(topic):
             self._text_stream_handlers.pop(topic)
 
-    async def disconnect(self) -> None:
+    async def disconnect(
+        self, *, reason: DisconnectReason = DisconnectReason.CLIENT_INITIATED
+    ) -> None:
         """Disconnects from the room."""
         if not self.isconnected():
             return
@@ -583,6 +592,7 @@ class Room(EventEmitter[EventTypes]):
 
         req = proto_ffi.FfiRequest()
         req.disconnect.room_handle = self._ffi_handle.handle  # type: ignore
+        req.disconnect.reason = reason  # type: ignore
         queue = FfiClient.instance.queue.subscribe()
         try:
             resp = FfiClient.instance.request(req)
@@ -596,10 +606,10 @@ class Room(EventEmitter[EventTypes]):
         # we should manually flip the state, since the connection could have been torn down before
         # the callbacks were processed
         if self._connection_state != ConnectionState.CONN_DISCONNECTED:
-            self.local_participant._info.disconnect_reason = DisconnectReason.CLIENT_INITIATED
+            self.local_participant._info.disconnect_reason = reason
             self._connection_state = ConnectionState.CONN_DISCONNECTED
             self.emit("connection_state_changed", self._connection_state)
-            self.emit("disconnected", DisconnectReason.CLIENT_INITIATED)
+            self.emit("disconnected", reason)
 
     async def _listen_task(self) -> None:
         # listen to incoming room events
@@ -923,6 +933,13 @@ class Room(EventEmitter[EventTypes]):
         elif which == "token_refreshed":
             self._token = event.token_refreshed.token
             self.emit("token_refreshed")
+
+        elif which == "data_track_published":
+            remote_data_track = RemoteDataTrack(event.data_track_published.track)
+            self.emit("data_track_published", remote_data_track)
+
+        elif which == "data_track_unpublished":
+            self.emit("data_track_unpublished", event.data_track_unpublished.sid)
 
     def _handle_stream_header(
         self, header: proto_room.DataStream.Header, participant_identity: str

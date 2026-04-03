@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyaedt
-Version: 0.26.0
+Version: 0.25.1
 Summary: High-level Python API for Ansys Electronics Desktop Framework
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
@@ -27,7 +27,6 @@ Classifier: Operating System :: OS Independent
 Requires-Python: <4,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: ansys-tools-common
 Requires-Dist: grpcio<1.79,>=1.50.0
 Requires-Dist: jsonschema
 Requires-Dist: psutil
@@ -45,9 +44,9 @@ Requires-Dist: dotnetcore2==3.1.23; platform_system == "Linux" and extra == "dot
 Requires-Dist: pywin32>=303; platform_system == "Windows" and extra == "dotnet"
 Provides-Extra: graphics
 Requires-Dist: ansys-tools-visualization-interface; extra == "graphics"
-Requires-Dist: pyvista[io]<0.48,>=0.38.0; extra == "graphics"
+Requires-Dist: pyvista[io]<0.47,>=0.38.0; extra == "graphics"
 Requires-Dist: matplotlib<3.11,>=3.5.0; extra == "graphics"
-Requires-Dist: vtk<9.7,>=9.0; extra == "graphics"
+Requires-Dist: vtk<9.6,>=9.0; extra == "graphics"
 Requires-Dist: fpdf2; extra == "graphics"
 Provides-Extra: jupyter
 Requires-Dist: jupyterlab<4.6,>=3.6.0; extra == "jupyter"
@@ -55,32 +54,32 @@ Requires-Dist: ipython<9.1,>=7.30.0; extra == "jupyter"
 Provides-Extra: all
 Requires-Dist: matplotlib<3.11,>=3.5.0; extra == "all"
 Requires-Dist: openpyxl<3.3,>=3.1.0; extra == "all"
-Requires-Dist: osmnx<2.2,>=2.0.0; extra == "all"
+Requires-Dist: osmnx<2.1,>=1.1.0; extra == "all"
 Requires-Dist: pandas<2.4,>=1.1.0; extra == "all"
-Requires-Dist: pyvista[io]<0.48,>=0.38.0; extra == "all"
+Requires-Dist: pyvista[io]<0.47,>=0.38.0; extra == "all"
 Requires-Dist: fast-simplification>=0.1.7; extra == "all"
 Requires-Dist: ansys-tools-visualization-interface; extra == "all"
 Requires-Dist: tables; python_version >= "3.10" and extra == "all"
-Requires-Dist: scikit-rf<1.12,>=0.30.0; extra == "all"
+Requires-Dist: scikit-rf<1.11,>=0.30.0; extra == "all"
 Requires-Dist: pyaedt[jupyter]; extra == "all"
 Requires-Dist: requests; extra == "all"
 Requires-Dist: typer>=0.20.0; extra == "all"
 Requires-Dist: fpdf2; extra == "all"
 Requires-Dist: rpyc<6.1,>=6.0.0; extra == "all"
+Requires-Dist: uv>=0.8.17; extra == "all"
 Provides-Extra: examples
 Requires-Dist: imageio<2.38,>=2.34.0; extra == "examples"
 Requires-Dist: matplotlib<3.11,>=3.5.0; extra == "examples"
 Requires-Dist: openpyxl<3.3,>=3.1.0; extra == "examples"
-Requires-Dist: osmnx<2.2,>=2.0.0; extra == "examples"
+Requires-Dist: osmnx<2.1,>=1.1.0; extra == "examples"
 Requires-Dist: pandas<2.4,>=1.1.0; extra == "examples"
-Requires-Dist: pyvista[jupyter]<0.48,>=0.38.0; extra == "examples"
+Requires-Dist: pyvista<0.47,>=0.38.0; extra == "examples"
 Requires-Dist: fast-simplification>=0.1.7; extra == "examples"
 Requires-Dist: joblib<1.6,>=1.4.0; extra == "examples"
-Requires-Dist: plotly<6.7,>=6.0; extra == "examples"
-Requires-Dist: scikit-rf<1.12,>=0.30.0; extra == "examples"
+Requires-Dist: plotly<6.6,>=6.0; extra == "examples"
+Requires-Dist: scikit-rf<1.11,>=0.30.0; extra == "examples"
 Requires-Dist: fpdf2; extra == "examples"
 Requires-Dist: rpyc<6.1,>=6.0.0; extra == "examples"
-Requires-Dist: tables; python_version >= "3.10" and extra == "examples"
 Dynamic: license-file
 
 <!-- -->
@@ -99,7 +98,7 @@ Dynamic: license-file
 [![pypi](https://img.shields.io/pypi/v/pyaedt.svg?logo=python&logoColor=white)](https://pypi.org/project/pyaedt/)
 [![PyPIact](https://static.pepy.tech/badge/pyaedt/month)](https://www.pepy.tech/projects/pyaedt)
 [![PythonVersion](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![GH-CI](https://github.com/ansys/pyaedt/actions/workflows/nightly-tests.yml/badge.svg)](https://github.com/ansys/pyaedt/actions/workflows/nightly-tests.yml)
+[![GH-CI](https://github.com/ansys/pyaedt/actions/workflows/ci_cd.yml/badge.svg)](https://github.com/ansys/pyaedt/actions/workflows/ci_cd.yml)
 [![codecov](https://codecov.io/gh/ansys/pyaedt/branch/main/graph/badge.svg)](https://codecov.io/gh/ansys/pyaedt)
 [![MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/blog/license/mit)
 [![black](https://img.shields.io/badge/code%20style-black-000000.svg?style=flat)](https://github.com/psf/black)

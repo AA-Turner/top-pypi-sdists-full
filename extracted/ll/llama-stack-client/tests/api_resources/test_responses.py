@@ -65,11 +65,15 @@ class TestResponses:
                 "version": "version",
             },
             prompt_cache_key="prompt_cache_key",
-            reasoning={"effort": "none"},
+            reasoning={
+                "effort": "none",
+                "summary": "auto",
+            },
             safety_identifier="safety_identifier",
             service_tier="auto",
             store=True,
             stream=False,
+            stream_options={"include_obfuscation": True},
             temperature=0,
             text={
                 "format": {
@@ -158,10 +162,14 @@ class TestResponses:
                 "version": "version",
             },
             prompt_cache_key="prompt_cache_key",
-            reasoning={"effort": "none"},
+            reasoning={
+                "effort": "none",
+                "summary": "auto",
+            },
             safety_identifier="safety_identifier",
             service_tier="auto",
             store=True,
+            stream_options={"include_obfuscation": True},
             temperature=0,
             text={
                 "format": {
@@ -366,11 +374,15 @@ class TestAsyncResponses:
                 "version": "version",
             },
             prompt_cache_key="prompt_cache_key",
-            reasoning={"effort": "none"},
+            reasoning={
+                "effort": "none",
+                "summary": "auto",
+            },
             safety_identifier="safety_identifier",
             service_tier="auto",
             store=True,
             stream=False,
+            stream_options={"include_obfuscation": True},
             temperature=0,
             text={
                 "format": {
@@ -459,10 +471,14 @@ class TestAsyncResponses:
                 "version": "version",
             },
             prompt_cache_key="prompt_cache_key",
-            reasoning={"effort": "none"},
+            reasoning={
+                "effort": "none",
+                "summary": "auto",
+            },
             safety_identifier="safety_identifier",
             service_tier="auto",
             store=True,
+            stream_options={"include_obfuscation": True},
             temperature=0,
             text={
                 "format": {

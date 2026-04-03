@@ -65,7 +65,7 @@ pub struct CsvImporter {
     cancelled: Arc<AtomicBool>,
 
     /// Parsed CSV data
-    parsed_data: Option<CsvData>,
+    pub(crate) parsed_data: Option<CsvData>,
 }
 
 impl CsvImporter {
@@ -241,7 +241,7 @@ impl CsvImporter {
 }
 
 /// Parse CSV content into headers and rows
-fn parse_csv(content: &str) -> Result<CsvData, String> {
+pub(crate) fn parse_csv(content: &str) -> Result<CsvData, String> {
     let mut data = CsvData::new();
     let mut lines = content.lines().peekable();
 
@@ -264,7 +264,7 @@ fn parse_csv(content: &str) -> Result<CsvData, String> {
 }
 
 /// Parse a single CSV line, handling quoted fields
-fn parse_csv_line(line: &str) -> Vec<String> {
+pub(crate) fn parse_csv_line(line: &str) -> Vec<String> {
     let mut fields = Vec::new();
     let mut current_field = String::new();
     let mut in_quotes = false;
@@ -301,7 +301,7 @@ fn parse_csv_line(line: &str) -> Vec<String> {
 }
 
 /// Escape a value for SQL insertion
-fn escape_sql_value(value: &str) -> String {
+pub(crate) fn escape_sql_value(value: &str) -> String {
     if value.eq_ignore_ascii_case("null") || value.is_empty() {
         return "NULL".to_string();
     }
@@ -317,7 +317,7 @@ fn escape_sql_value(value: &str) -> String {
 }
 
 /// Base64 decode
-fn base64_decode(data: &[u8]) -> Result<Vec<u8>, String> {
+pub(crate) fn base64_decode(data: &[u8]) -> Result<Vec<u8>, String> {
     const DECODE_TABLE: [i8; 128] = [
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 62, -1, -1,
@@ -414,85 +414,4 @@ pub fn parse_blob_instruction(data: &[u8]) -> Option<(i32, Vec<u8>)> {
     let decoded = base64_decode(data_b64.as_bytes()).ok()?;
 
     Some((stream_idx, decoded))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_csv_line_simple() {
-        let result = parse_csv_line("a,b,c");
-        assert_eq!(result, vec!["a", "b", "c"]);
-    }
-
-    #[test]
-    fn test_parse_csv_line_quoted() {
-        let result = parse_csv_line("\"hello, world\",b,c");
-        assert_eq!(result, vec!["hello, world", "b", "c"]);
-    }
-
-    #[test]
-    fn test_parse_csv_line_escaped_quotes() {
-        let result = parse_csv_line("\"say \"\"hello\"\"\",b");
-        assert_eq!(result, vec!["say \"hello\"", "b"]);
-    }
-
-    #[test]
-    fn test_parse_csv() {
-        let csv = "name,age,city\nAlice,30,NYC\nBob,25,LA";
-        let data = parse_csv(csv).unwrap();
-
-        assert_eq!(data.headers, vec!["name", "age", "city"]);
-        assert_eq!(data.rows.len(), 2);
-        assert_eq!(data.rows[0], vec!["Alice", "30", "NYC"]);
-        assert_eq!(data.rows[1], vec!["Bob", "25", "LA"]);
-    }
-
-    #[test]
-    fn test_escape_sql_value() {
-        assert_eq!(escape_sql_value("hello"), "'hello'");
-        assert_eq!(escape_sql_value("it's"), "'it''s'");
-        assert_eq!(escape_sql_value("NULL"), "NULL");
-        assert_eq!(escape_sql_value(""), "NULL");
-        assert_eq!(escape_sql_value("123"), "123");
-        assert_eq!(escape_sql_value("45.67"), "45.67");
-    }
-
-    #[test]
-    fn test_generate_mysql_inserts() {
-        let mut importer = CsvImporter::new(1);
-        importer.parsed_data = Some(CsvData {
-            headers: vec!["name".to_string(), "age".to_string()],
-            rows: vec![
-                vec!["Alice".to_string(), "30".to_string()],
-                vec!["Bob".to_string(), "25".to_string()],
-            ],
-        });
-
-        let inserts = importer.generate_mysql_inserts("users").unwrap();
-        assert_eq!(inserts.len(), 2);
-        assert!(inserts[0].contains("INSERT INTO `users`"));
-        assert!(inserts[0].contains("'Alice'"));
-        assert!(inserts[0].contains("30"));
-    }
-
-    #[test]
-    fn test_base64_decode() {
-        let decoded = base64_decode(b"SGVsbG8=").unwrap();
-        assert_eq!(decoded, b"Hello");
-
-        let decoded = base64_decode(b"SGVsbG8sIFdvcmxkIQ==").unwrap();
-        assert_eq!(decoded, b"Hello, World!");
-    }
-
-    #[test]
-    fn test_cancellation() {
-        let importer = CsvImporter::new(1);
-        let handle = importer.cancellation_handle();
-
-        assert!(!importer.is_cancelled());
-        handle.store(true, Ordering::SeqCst);
-        assert!(importer.is_cancelled());
-    }
 }

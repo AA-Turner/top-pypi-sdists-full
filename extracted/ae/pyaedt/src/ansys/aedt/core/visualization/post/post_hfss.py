@@ -28,17 +28,11 @@ This module contains the `PostProcessor3D` class.
 It contains all advanced postprocessing functionalities for creating and editing plots in the 3D tools.
 """
 
-from typing import TYPE_CHECKING
-
 from ansys.aedt.core.base import PyAedtBase
 from ansys.aedt.core.generic.general_methods import pyaedt_function_handler
 from ansys.aedt.core.visualization.post.post_3dlayout import PostProcessor3DLayout
 from ansys.aedt.core.visualization.post.post_common_3d import PostProcessor3D
 from ansys.aedt.core.visualization.post.vrt_data import VRTFieldPlot
-
-if TYPE_CHECKING:
-    from ansys.aedt.core.visualization.post.field_data import FieldPlot
-    from ansys.aedt.core.visualization.post.solution_data import SolutionData
 
 
 class PostProcessorHFSS(PostProcessor3D, PyAedtBase):
@@ -60,12 +54,8 @@ class PostProcessorHFSS(PostProcessor3D, PyAedtBase):
 
     @pyaedt_function_handler()
     def get_far_field_data(
-        self,
-        expressions: str = "GainTotal",
-        setup_sweep_name: str = "",
-        domain: str = "Infinite Sphere1",
-        sweeps: dict = None,
-    ) -> "SolutionData":
+        self, expressions: str = "GainTotal", setup_sweep_name: str = "", domain: str = "Infinite Sphere1", sweeps=None
+    ):
         """Generate far field data using the ``GetSolutionDataPerVariation()`` method.
 
         This method returns the data ``solData``, ``ThetaVals``,
@@ -122,7 +112,7 @@ class PostProcessorHFSS(PostProcessor3D, PyAedtBase):
         incident_theta: int = 0,
         incident_phi: int = 0,
         is_vertical_polarization: bool = False,
-    ) -> "VRTFieldPlot":
+    ):
         """Create a Creeping Wave Plane Wave Visual Ray Tracing and return the class object.
 
         Parameters
@@ -169,8 +159,8 @@ class PostProcessorHFSS(PostProcessor3D, PyAedtBase):
         sample_density: int = 10,
         ray_cutoff: int = 40,
         irregular_surface_tolerance: int = 50,
-        custom_location: list = None,
-    ) -> "VRTFieldPlot":
+        custom_location=None,
+    ):
         """Create a Creeping Wave Point Source Visual Ray Tracing and return the class object.
 
         Parameters
@@ -221,8 +211,8 @@ class PostProcessorHFSS(PostProcessor3D, PyAedtBase):
         ray_index_start: int = 0,
         ray_index_stop: int = 1,
         ray_index_step: int = 1,
-        ray_box: int | str = None,
-    ) -> "VRTFieldPlot":
+        ray_box=None,
+    ):
         """Create an SBR Plane Wave Visual Ray Tracing and return the class object.
 
         Parameters
@@ -288,13 +278,13 @@ class PostProcessorHFSS(PostProcessor3D, PyAedtBase):
         multi_bounce: bool = False,
         mbrd_max_sub_division: int = 2,
         shoot_utd: bool = False,
-        custom_location: list = None,
+        custom_location=None,
         shoot_filter_type: str = "All Rays",
         ray_index_start: int = 0,
         ray_index_stop: int = 1,
         ray_index_step: int = 1,
-        ray_box: int | str = None,
-    ) -> "VRTFieldPlot":
+        ray_box=None,
+    ):
         """Create an SBR Point Source Visual Ray Tracing and return the class object.
 
         Parameters
@@ -349,7 +339,7 @@ class PostProcessorHFSS(PostProcessor3D, PyAedtBase):
         return vrt
 
     @pyaedt_function_handler()
-    def set_tuning_offset(self, setup: str, offsets: dict) -> bool:
+    def set_tuning_offset(self, setup, offsets):
         """Set derivative variable to a specific offset value.
 
         Parameters
@@ -372,14 +362,14 @@ class PostProcessorHFSS(PostProcessor3D, PyAedtBase):
     @pyaedt_function_handler()
     def create_fieldplot_layers(
         self,
-        layers: list,
-        quantity: str,
+        layers,
+        quantity,
         setup: str | None = None,
-        nets: list | None = None,
+        nets=None,
         plot_on_surface: bool = True,
-        intrinsics: dict | None = None,
+        intrinsics=None,
         name: str | None = None,
-    ) -> "FieldPlot":
+    ):
         # type: (list, str, str, list, bool, dict, str) -> FieldPlot
         """Create a field plot of stacked layer plot.
 
@@ -436,13 +426,13 @@ class PostProcessorHFSS(PostProcessor3D, PyAedtBase):
     @pyaedt_function_handler()
     def create_fieldplot_layers_nets(
         self,
-        layers_nets: list,
-        quantity: str,
-        setup: str = None,
-        intrinsics: dict = None,
+        layers_nets,
+        quantity,
+        setup: str | None = None,
+        intrinsics=None,
         plot_on_surface: bool = True,
-        plot_name: str = None,
-    ) -> "FieldPlot":
+        plot_name=None,
+    ):
         # type: (list, str, str, dict, bool, str) -> FieldPlot
         """Create a field plot of stacked layer plot on specified matrix of layers and nets.
 

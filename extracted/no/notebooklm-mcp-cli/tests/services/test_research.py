@@ -191,7 +191,12 @@ class TestPollResearch:
 
         mock_client.poll_research.side_effect = [
             {"status": "in_progress", "task_id": "t-1", "sources": [], "report": ""},
-            {"status": "completed", "task_id": "t-1", "sources": [{"title": "A"}], "report": "Done"},
+            {
+                "status": "completed",
+                "task_id": "t-1",
+                "sources": [{"title": "A"}],
+                "report": "Done",
+            },
         ]
 
         result = poll_research(mock_client, "nb-1", poll_interval=5, max_wait=30)

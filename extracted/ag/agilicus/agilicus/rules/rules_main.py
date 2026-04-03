@@ -5,6 +5,7 @@ import click_extension
 import calendar
 import datetime
 from zoneinfo import ZoneInfo
+from ..resources import resource_type_enum
 
 from .. import context
 from . import rules
@@ -481,6 +482,24 @@ def cli_command_add_timeperiod_condition_rule(ctx, action, day, **kwargs):
 def cli_command_add_always_match_condition_rule(ctx, action, **kwargs):
     output_entry(
         ctx, rules.add_always_match_condition_rule(ctx, actions=action, **kwargs)
+    )
+
+
+@click.command(name="add-has-resource-permission-condition-rule")
+@click.option("--name", required=True)
+@click.option("--action", required=True, multiple=True, type=click.Choice(rules.ACTIONS))
+@click.option("--org-id", default=None)
+@click.option("--standalone-rule-policy-id", default=None)
+@click.option("--resource-type", multiple=True, type=resource_type_enum)
+@click.pass_context
+def cli_command_add_has_resource_permission_condition_rule(
+    ctx, action, resource_type, **kwargs
+):
+    output_entry(
+        ctx,
+        rules.add_has_resource_permission_condition_rule(
+            ctx, actions=action, resource_types=list(resource_type) or None, **kwargs
+        ),
     )
 
 

@@ -339,6 +339,7 @@ from agilicus_api.model.http_detailed_stats import HTTPDetailedStats
 from agilicus_api.model.http_response_code_counter import HTTPResponseCodeCounter
 from agilicus_api.model.http_security_settings import HTTPSecuritySettings
 from agilicus_api.model.http_summary_stats import HTTPSummaryStats
+from agilicus_api.model.has_resource_permission import HasResourcePermission
 from agilicus_api.model.host import Host
 from agilicus_api.model.host_bundle import HostBundle
 from agilicus_api.model.host_bundle_client_config import HostBundleClientConfig

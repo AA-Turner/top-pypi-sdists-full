@@ -1,7 +1,7 @@
 # Benchmark commands
 
 # Capacity benchmark
-CLUSTER_NAME ?= dr-small
+CLUSTER_NAME ?= dr-1-node
 # WORKLOAD_NAMES supports comma-separated list (e.g., "parallel-small,parallel-tiny")
 # Falls back to WORKLOAD_NAME for backwards compatibility
 WORKLOAD_NAMES ?= $(WORKLOAD_NAME)

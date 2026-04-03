@@ -54,7 +54,7 @@ class EMIReceiver(CommonReport):
         self.primary_sweep = "Freq"
 
     @property
-    def net(self) -> str:
+    def net(self):
         """Net attached to the EMI receiver.
 
         Returns
@@ -73,7 +73,7 @@ class EMIReceiver(CommonReport):
         return self._net
 
     @net.setter
-    def net(self, value: str) -> None:
+    def net(self, value) -> None:
         if value not in self.available_nets:
             self.logger.error("Net not available.")
         else:
@@ -81,7 +81,7 @@ class EMIReceiver(CommonReport):
             self._net = value
 
     @property
-    def overlap_rate(self) -> int:
+    def overlap_rate(self):
         """Overlap rate to the EMI receiver.
 
         Returns
@@ -92,11 +92,11 @@ class EMIReceiver(CommonReport):
         return self._legacy_props["context"].get("overlap_rate", 95)
 
     @overlap_rate.setter
-    def overlap_rate(self, value: int) -> None:
+    def overlap_rate(self, value) -> None:
         self._legacy_props["context"]["overlap_rate"] = value
 
     @property
-    def band(self) -> str:
+    def band(self):
         """Band attached to the EMI receiver.
 
         Returns
@@ -107,11 +107,11 @@ class EMIReceiver(CommonReport):
         return self._legacy_props["context"].get("band", "0")
 
     @band.setter
-    def band(self, value: str) -> None:
+    def band(self, value) -> None:
         self._legacy_props["context"]["band"] = value
 
     @property
-    def rbw(self) -> str:
+    def rbw(self):
         """RBW attached to the EMI receiver.
 
         Returns
@@ -122,11 +122,11 @@ class EMIReceiver(CommonReport):
         return self._legacy_props["context"].get("RBW", "0")
 
     @rbw.setter
-    def rbw(self, value: str) -> None:
+    def rbw(self, value) -> None:
         self._legacy_props["context"]["RBW"] = value
 
     @property
-    def rbw_factor(self) -> str:
+    def rbw_factor(self):
         """RBW Factor attached to the EMI receiver.
 
         Returns
@@ -137,11 +137,11 @@ class EMIReceiver(CommonReport):
         return self._legacy_props["context"].get("RBW_factor", "0")
 
     @rbw_factor.setter
-    def rbw_factor(self, value: str) -> None:
+    def rbw_factor(self, value) -> None:
         self._legacy_props["context"]["RBW_factor"] = value
 
     @property
-    def emission(self) -> str:
+    def emission(self):
         """Emission test.
 
         Options are ``"CE"`` and ``"RE"``.
@@ -154,7 +154,7 @@ class EMIReceiver(CommonReport):
         return self._emission
 
     @emission.setter
-    def emission(self, value: str) -> None:
+    def emission(self, value) -> None:
         if value == "CE":
             self._emission = value
             self._legacy_props["context"]["emission"] = "CE"
@@ -165,7 +165,7 @@ class EMIReceiver(CommonReport):
             self.logger.error(f"Emission must be 'CE' or 'RE', value '{value}' is not valid.")
 
     @property
-    def time_start(self) -> str:
+    def time_start(self):
         """Time start value.
 
         Returns
@@ -176,11 +176,11 @@ class EMIReceiver(CommonReport):
         return self._legacy_props["context"].get("time_start", None)
 
     @time_start.setter
-    def time_start(self, value: str) -> None:
+    def time_start(self, value) -> None:
         self._legacy_props["context"]["time_start"] = value
 
     @property
-    def time_stop(self) -> str:
+    def time_stop(self):
         """Time stop value.
 
         Returns
@@ -191,7 +191,7 @@ class EMIReceiver(CommonReport):
         return self._legacy_props["context"].get("time_stop", None)
 
     @time_stop.setter
-    def time_stop(self, value: str) -> None:
+    def time_stop(self, value) -> None:
         self._legacy_props["context"]["time_stop"] = value
 
     @property
@@ -268,17 +268,15 @@ class EMIReceiver(CommonReport):
         ]
         return arg
 
-    @pyaedt_function_handler()
-    def _trace_info(self, expressions=None):
-        if not expressions:
-            expressions = self.expressions[::]
-        if isinstance(expressions, list):
-            return expressions
+    @property
+    def _trace_info(self):
+        if isinstance(self.expressions, list):
+            return self.expressions
         else:
-            return [expressions]
+            return [self.expressions]
 
     @pyaedt_function_handler()
-    def create(self, name: str = None) -> "EMIReceiver":
+    def create(self, name: str | None = None):
         """Create an EMI receiver report.
 
         Parameters
@@ -307,7 +305,7 @@ class EMIReceiver(CommonReport):
                 "X Component:=",
                 self.primary_sweep,
                 "Y Component:=",
-                self._trace_info(),
+                self._trace_info,
             ],
         )
         self._post.plots.append(self)

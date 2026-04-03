@@ -44,7 +44,6 @@ from plato.cli.chronos.dev.sync import SyncManager
 from plato.cli.chronos.provision import provision_vm
 from plato.cli.chronos.registry import parse_package_string
 from plato.cli.chronos.settings import get_settings
-from plato.utils.pypi_index import plato_token_simple_index
 
 if TYPE_CHECKING:
     from plato.v2 import AsyncPlato
@@ -663,15 +662,14 @@ class DevRunner:
         if not editable_paths:
             return
 
-        editables = " ".join(f"-e {p}" for p in editable_paths)
-        pypi_store_idx = plato_token_simple_index("pypi-store", api_key=self.api_key)
+        from plato.agents.runtime.install import build_editable_install_commands
+
+        install_cmds = build_editable_install_commands(editable_paths)
         with self._startup_profiler.time("setup.env.packages.editable_install"):
-            result = await self.world_env.execute(
-                f"uv pip install --system --index-url {shlex.quote(pypi_store_idx)} {editables}",
-                timeout=300,
-            )
-        if result.exit_code != 0:
-            raise RuntimeError(f"Package install failed: {result.stderr}")
+            for cmd in install_cmds:
+                result = await self.world_env.execute(cmd, timeout=120)
+                if result.exit_code != 0:
+                    raise RuntimeError(f"Package install failed: {result.stderr}")
 
     async def _setup_ecr_auth(self) -> None:
         """Setup ECR authentication on world VM."""
@@ -835,7 +833,6 @@ class DevRunner:
             raise RuntimeError("sync_manager must be initialized")
 
         world_name, _ = parse_package_string(self.config.world.package)
-        pypi_store_idx = plato_token_simple_index("pypi-store", api_key=self.api_key)
 
         # Start file watcher
         watch_task = asyncio.create_task(self.sync_manager.watch())
@@ -904,16 +901,15 @@ class DevRunner:
                     if reinstall_parts:
                         editables = " ".join(reinstall_parts)
                         reinstall_cmd = (
-                            f"uv pip install --system --no-deps "
-                            f"--index-url {shlex.quote(pypi_store_idx)} {editables} -q 2>/dev/null; "
+                            f"uv pip install --python /opt/plato-venv/bin/python --no-deps {editables} -q 2>/dev/null; "
                         )
 
                 # Run the world
-                runner_cmd = f"plato-world-runner run --world {world_name} --config /tmp/config.json"
+                runner_cmd = (
+                    f"/opt/plato-venv/bin/plato-world-runner run --world {world_name} --config /tmp/config.json"
+                )
                 if self.memray:
-                    reinstall_cmd += (
-                        f"uv pip install --system --index-url {shlex.quote(pypi_store_idx)} memray -q 2>/dev/null; "
-                    )
+                    reinstall_cmd += "uv pip install --python /opt/plato-venv/bin/python memray -q 2>/dev/null; "
                     runner_cmd = f"memray run --output /tmp/memray.bin --force -m plato.worlds.runner -- run --world {world_name} --config /tmp/config.json"
                 debug_env = self._forwarded_debug_env_assignments()
                 debug_prefix = f"{debug_env} " if debug_env else ""

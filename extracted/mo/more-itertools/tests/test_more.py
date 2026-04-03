@@ -5,8 +5,8 @@ import gc
 import platform
 import weakref
 
-from collections import Counter, abc, deque
-from collections.abc import Set
+from collections import Counter, deque
+from collections.abc import Set, Sequence, Iterable, Iterator, Hashable
 from datetime import datetime, timedelta
 from decimal import Decimal
 from doctest import DocTestSuite
@@ -26,15 +26,15 @@ from itertools import (
     product,
     repeat,
 )
-from operator import add, mul, itemgetter
+from operator import add, mul, itemgetter, not_
 from pickle import loads, dumps
-from random import Random, random, randrange, seed
-from statistics import mean
+from random import Random, choices, random, randrange, seed
+from statistics import mean, median
 from string import ascii_letters
-from sys import version_info
+from threading import Thread, Lock
 from time import sleep
-from typing import Iterable, Iterator, NamedTuple
-from unittest import skipIf, TestCase
+from typing import NamedTuple
+from unittest import TestCase, mock
 
 import more_itertools as mi
 
@@ -540,7 +540,7 @@ class DistinctPermutationsTests(TestCase):
     def test_unhashable(self):
         iterable = ([1], [1], 2)
         actual = list(mi.distinct_permutations(iterable))
-        expected = list(mi.unique_everseen(permutations(iterable)))
+        expected = list(mi.unique_everseen(permutations(iterable), key=str))
         self.assertCountEqual(actual, expected)
 
 
@@ -706,6 +706,17 @@ class WithIterTests(TestCase):
         self.assertTrue(s.closed)
 
 
+class SizedIteratorTests(TestCase):
+    def test_sized_iterator(self):
+        gen = (x for x in range(3))
+        sized_gen = mi.sized_iterator(gen, 3)
+
+        # The sized_generator should have the correct length
+        self.assertEqual(len(sized_gen), 3)
+        # The sized_generator elements should be the same as the original
+        self.assertListEqual(list(sized_gen), list(range(3)))
+
+
 class OneTests(TestCase):
     def test_basic(self):
         it = iter(['item'])
@@ -818,7 +829,6 @@ class WindowedTests(TestCase):
             (3, [(1, 2, 3), (2, 3, 4), (3, 4, 5)]),
             (2, [(1, 2), (2, 3), (3, 4), (4, 5)]),
             (1, [(1,), (2,), (3,), (4,), (5,)]),
-            (0, [()]),
         ):
             with self.subTest(n=n):
                 actual = list(mi.windowed(iterable, n))
@@ -854,9 +864,11 @@ class WindowedTests(TestCase):
         expected = [(1, 2, 3), (4, 5, '!')]
         self.assertEqual(actual, expected)
 
-    def test_negative(self):
+    def test_invalid_n(self):
         with self.assertRaises(ValueError):
-            list(mi.windowed([1, 2, 3, 4, 5], -1))
+            list(mi.windowed([1, 2, 3, 4, 5], 0))  # n is zero
+        with self.assertRaises(ValueError):
+            list(mi.windowed([1, 2, 3, 4, 5], -1))  # n is negative
 
     def test_empty_seq(self):
         actual = list(mi.windowed([], 3))
@@ -2025,58 +2037,6 @@ class StaggerTest(TestCase):
             self.assertEqual(list(all_groups), expected)
 
 
-class ZipEqualTest(TestCase):
-    @skipIf(version_info[:2] < (3, 10), 'zip_equal deprecated for 3.10+')
-    def test_deprecation(self):
-        with self.assertWarns(DeprecationWarning):
-            self.assertEqual(
-                list(mi.zip_equal([1, 2], [3, 4])), [(1, 3), (2, 4)]
-            )
-
-    def test_equal(self):
-        lists = [0, 1, 2], [2, 3, 4]
-
-        for iterables in [lists, map(iter, lists)]:
-            actual = list(mi.zip_equal(*iterables))
-            expected = [(0, 2), (1, 3), (2, 4)]
-            self.assertEqual(actual, expected)
-
-    def test_unequal_lists(self):
-        two_items = [0, 1]
-        three_items = [2, 3, 4]
-        four_items = [5, 6, 7, 8]
-
-        # the mismatch is at index 1
-        try:
-            list(mi.zip_equal(two_items, three_items, four_items))
-        except mi.UnequalIterablesError as e:
-            self.assertEqual(
-                e.args[0],
-                (
-                    'Iterables have different lengths: '
-                    'index 0 has length 2; index 1 has length 3'
-                ),
-            )
-
-        # the mismatch is at index 2
-        try:
-            list(mi.zip_equal(two_items, two_items, four_items, four_items))
-        except mi.UnequalIterablesError as e:
-            self.assertEqual(
-                e.args[0],
-                (
-                    'Iterables have different lengths: '
-                    'index 0 has length 2; index 2 has length 4'
-                ),
-            )
-
-        # One without length: delegate to _zip_equal_generator
-        try:
-            list(mi.zip_equal(two_items, iter(two_items), three_items))
-        except mi.UnequalIterablesError as e:
-            self.assertEqual(e.args[0], 'Iterables have different lengths')
-
-
 class ZipOffsetTest(TestCase):
     """Tests for ``zip_offset()``"""
 
@@ -2292,7 +2252,7 @@ class SortTogetherTest(TestCase):
     def test_strict(self):
         # Test for list of lists or tuples
         self.assertRaises(
-            mi.UnequalIterablesError,
+            ValueError,
             lambda: mi.sort_together(
                 [(4, 3, 2, 1), ('a', 'b', 'c')], strict=True
             ),
@@ -2300,13 +2260,13 @@ class SortTogetherTest(TestCase):
 
         # Test for list of iterables
         self.assertRaises(
-            mi.UnequalIterablesError,
+            ValueError,
             lambda: mi.sort_together([range(4), range(5)], strict=True),
         )
 
         # Test for iterable of iterables
         self.assertRaises(
-            mi.UnequalIterablesError,
+            ValueError,
             lambda: mi.sort_together(
                 (range(i) for i in range(4)), strict=True
             ),
@@ -2897,6 +2857,11 @@ class NumericRangeTests(TestCase):
             ((1.0, 9.0, 1.5), slice(None, -10, 3), (1.0, 1.0, 4.5)),
             ((1.0, 9.0, 1.5), slice(None, 10, 3), (1.0, 9.0, 4.5)),
             (
+                (10.0, 0.0, -2.0),
+                slice(None, None, -1),
+                (2.0, 12.0, 2.0),
+            ),
+            (
                 (Decimal("1.0"), Decimal("9.0"), Decimal("1.5")),
                 slice(1, -1, None),
                 (Decimal("2.5"), Decimal("8.5"), Decimal("1.5")),
@@ -3139,10 +3104,10 @@ class NumericRangeTests(TestCase):
 
     def test_parent_classes(self):
         r = mi.numeric_range(7.0)
-        self.assertTrue(isinstance(r, abc.Iterable))
-        self.assertFalse(isinstance(r, abc.Iterator))
-        self.assertTrue(isinstance(r, abc.Sequence))
-        self.assertTrue(isinstance(r, abc.Hashable))
+        self.assertTrue(isinstance(r, Iterable))
+        self.assertFalse(isinstance(r, Iterator))
+        self.assertTrue(isinstance(r, Sequence))
+        self.assertTrue(isinstance(r, Hashable))
 
     def test_bad_key(self):
         r = mi.numeric_range(7.0)
@@ -3252,7 +3217,7 @@ class LocateTests(TestCase):
 
     def test_window_size_large(self):
         iterable = [1, 2, 3, 4]
-        pred = lambda a, b, c, d, e: True
+        pred = lambda *args: True
         actual = list(mi.locate(iterable, pred, window_size=5))
         expected = [0]
         self.assertEqual(actual, expected)
@@ -3727,6 +3692,8 @@ class ExactlyNTests(TestCase):
         self.assertTrue(mi.exactly_n([1, 1, 1, 0], 3))
         self.assertTrue(mi.exactly_n([False, False], 0))
         self.assertTrue(mi.exactly_n(range(100), 10, lambda x: x < 10))
+        self.assertTrue(mi.exactly_n(repeat(True, 100), 100))
+        self.assertTrue(mi.exactly_n(repeat(False, 100), 100, predicate=not_))
 
     def test_false(self):
         """Iterable does not have ``n`` ``True`` elements"""
@@ -3734,6 +3701,10 @@ class ExactlyNTests(TestCase):
         self.assertFalse(mi.exactly_n([True, True, False], 1))
         self.assertFalse(mi.exactly_n([False], 1))
         self.assertFalse(mi.exactly_n([True], -1))
+        self.assertFalse(mi.exactly_n([True], -10))
+        self.assertFalse(mi.exactly_n([], -1))
+        self.assertFalse(mi.exactly_n([], -10))
+        self.assertFalse(mi.exactly_n([True], 0))
         self.assertFalse(mi.exactly_n(repeat(True), 100))
 
     def test_empty(self):
@@ -3944,7 +3915,7 @@ class RlocateTests(TestCase):
 
     def test_window_size_large(self):
         iterable = [1, 2, 3, 4]
-        pred = lambda a, b, c, d, e: True
+        pred = lambda *args: True
         for it in (iterable, iter(iterable)):
             actual = list(mi.rlocate(iterable, pred, window_size=5))
             expected = [0]
@@ -4003,7 +3974,7 @@ class ReplaceTests(TestCase):
 
     def test_window_size_large(self):
         iterable = range(4)
-        pred = lambda a, b, c, d, e: True
+        pred = lambda *args: True
         substitutes = [5, 6, 7]
         actual = list(mi.replace(iterable, pred, substitutes, window_size=5))
         expected = [5, 6, 7]
@@ -4622,7 +4593,7 @@ class SampleTests(TestCase):
         self.assertTrue(difference_in_means < 4.4)
 
     def test_error_cases(self):
-        # weights and counts are mutally exclusive
+        # weights and counts are mutually exclusive
         with self.assertRaises(TypeError):
             mi.sample(
                 'abcde', 3, weights=[1, 2, 3, 4, 5], counts=[1, 2, 3, 4, 5]
@@ -4901,6 +4872,20 @@ class NthProductTests(TestCase):
         with self.assertRaises(IndexError):
             mi.nth_product(24, 'ab', 'cde', 'fghi')
 
+    def test_repeat(self):
+        self.assertEqual(
+            mi.nth_product(1234, 'abcde', repeat=5),
+            mi.nth_product(1234, 'abcde', 'abcde', 'abcde', 'abcde', 'abcde'),
+        )
+        self.assertEqual(
+            mi.nth_product(123, 'AB', 'CD', 'EFG', repeat=2),
+            mi.nth_product(123, 'AB', 'CD', 'EFG', 'AB', 'CD', 'EFG'),
+        )
+        self.assertEqual(
+            mi.nth_product(123, iter('AB'), iter('CD'), iter('EFG'), repeat=2),
+            mi.nth_product(123, 'AB', 'CD', 'EFG', 'AB', 'CD', 'EFG'),
+        )
+
 
 class NthCombinationWithReplacementTests(TestCase):
     def test_basic(self):
@@ -4911,6 +4896,10 @@ class NthCombinationWithReplacementTests(TestCase):
         ):
             actual = mi.nth_combination_with_replacement(iterable, r, index)
             self.assertEqual(actual, expected)
+        self.assertEqual(
+            mi.nth_combination_with_replacement('abcde', 7, 320),
+            ('c', 'd', 'e', 'e', 'e', 'e', 'e'),
+        )
 
     def test_long(self):
         actual = mi.nth_combination_with_replacement(range(90), 4, 2000000)
@@ -4918,13 +4907,14 @@ class NthCombinationWithReplacementTests(TestCase):
         self.assertEqual(actual, expected)
 
     def test_invalid_r(self):
-        for r in (-1, 3):
-            with self.assertRaises(ValueError):
-                mi.nth_combination_with_replacement([], r, 0)
+        with self.assertRaises(ValueError):
+            mi.nth_combination_with_replacement([], -1, 0)
 
     def test_invalid_index(self):
         with self.assertRaises(IndexError):
             mi.nth_combination_with_replacement('abcdefg', 3, -85)
+        with self.assertRaises(IndexError):
+            mi.nth_combination_with_replacement('abcde', 7, 400)
 
 
 class ValueChainTests(TestCase):
@@ -4999,6 +4989,31 @@ class ProductIndexTests(TestCase):
     def test_invalid_match(self):
         with self.assertRaises(ValueError):
             mi.product_index('axf', 'ab', 'cde', 'fghi')
+
+    def test_iterator_input(self):
+        self.assertEqual(
+            mi.product_index(iter(['i', 'a']), iter('snicker'), iter('snack')),
+            12,
+        )
+
+    def test_repeat(self):
+        self.assertEqual(
+            mi.product_index([1, 2, 3, 4], range(10), repeat=4),
+            mi.product_index(
+                [1, 2, 3, 4], range(10), range(10), range(10), range(10)
+            ),
+        )
+        target = ['B', 'D', 'E', 'A', 'C', 'G']
+        self.assertEqual(
+            mi.product_index(target, 'AB', 'CD', 'EFG', repeat=2),
+            mi.product_index(target, 'AB', 'CD', 'EFG', 'AB', 'CD', 'EFG'),
+        )
+        self.assertEqual(
+            mi.product_index(
+                iter(target), iter('AB'), iter('CD'), iter('EFG'), repeat=2
+            ),
+            mi.product_index(target, 'AB', 'CD', 'EFG', 'AB', 'CD', 'EFG'),
+        )
 
 
 class CombinationIndexTests(TestCase):
@@ -5838,6 +5853,10 @@ class IequalsTests(TestCase):
     def test_not_identical_but_equal(self):
         self.assertTrue([1, True], [1.0, complex(1, 0)])
 
+    def test_fillvalue_not_fakeable(self):
+        # See https://github.com/more-itertools/more-itertools/issues/900
+        self.assertFalse(mi.iequals([], [mock.ANY]))
+
 
 class ConstrainedBatchesTests(TestCase):
     def test_basic(self):
@@ -5989,6 +6008,35 @@ class GrayProductTests(TestCase):
             sorted(product(*iters)), sorted(mi.gray_product(*iters))
         )
 
+    def test_repeat(self):
+        self.assertEqual(
+            list(mi.gray_product('ABC', repeat=5)),
+            list(mi.gray_product('ABC', 'ABC', 'ABC', 'ABC', 'ABC')),
+        )
+        self.assertEqual(
+            list(mi.gray_product('ABC', 'DE', repeat=5)),
+            list(
+                mi.gray_product(
+                    'ABC',
+                    'DE',
+                    'ABC',
+                    'DE',
+                    'ABC',
+                    'DE',
+                    'ABC',
+                    'DE',
+                    'ABC',
+                    'DE',
+                )
+            ),
+        )
+
+    def test_repeat_with_iterators(self):
+        self.assertEqual(
+            list(mi.gray_product(iter('abc'), iter('def'), repeat=2)),
+            list(mi.gray_product('abc', 'def', repeat=2)),
+        )
+
 
 class PartialProductTests(TestCase):
     def test_no_iterables(self):
@@ -6056,6 +6104,35 @@ class PartialProductTests(TestCase):
         ]
 
         self.assertEqual(list(mi.partial_product('AB', 'C', 'DEF')), expected)
+
+    def test_repeat(self):
+        self.assertEqual(
+            list(mi.partial_product('ABC', repeat=5)),
+            list(mi.partial_product('ABC', 'ABC', 'ABC', 'ABC', 'ABC')),
+        )
+        self.assertEqual(
+            list(mi.partial_product('ABC', 'DE', repeat=5)),
+            list(
+                mi.partial_product(
+                    'ABC',
+                    'DE',
+                    'ABC',
+                    'DE',
+                    'ABC',
+                    'DE',
+                    'ABC',
+                    'DE',
+                    'ABC',
+                    'DE',
+                )
+            ),
+        )
+
+    def test_repeat_with_iterators(self):
+        self.assertEqual(
+            list(mi.partial_product(iter('abc'), iter('def'), repeat=2)),
+            list(mi.partial_product('abc', 'def', repeat=2)),
+        )
 
 
 class IterateTests(TestCase):
@@ -6204,6 +6281,16 @@ class PowersetOfSetsTests(TestCase):
         iterable = map(Str, 'ABBBCDD')
         self.assertEqual(len(list(mi.powerset_of_sets(iterable))), 128)
         self.assertLessEqual(hash_count, 14)
+
+    def test_baseset(self):
+        iterable = [0, 1, 2]
+        for kind in (set, frozenset):
+            ps = list(mi.powerset_of_sets(iterable, baseset=kind))
+            self.assertEqual(set(map(type, ps)), {kind})
+
+        # Verify that an actual set can be formed.
+        ps = set(mi.powerset_of_sets('abc', baseset=frozenset))
+        self.assertIn({'a', 'b'}, ps)
 
 
 class JoinMappingTests(TestCase):
@@ -6402,6 +6489,34 @@ class ExtractTests(TestCase):
         self.assertEqual(value, 'E')  #  Returns E.
         self.assertEqual(dead, {'A', 'B', 'D', 'C'})  # D and C are now dead.
 
+    def test_monotonic(self):
+        collatz = mi.iterate(lambda x: 3 * x + 1 if x % 2 == 1 else x // 2, 42)
+        indices = count(0, 2)
+        self.assertEqual(
+            mi.take(3, mi.extract(collatz, indices, monotonic=True)),
+            [42, 64, 16],
+        )
+        self.assertEqual(next(collatz), 8)
+        self.assertEqual(next(indices), 6)
+
+        # Finite Inputs
+        self.assertEqual(
+            list(mi.extract('abcdefgh', [0, 2, 4], monotonic=True)),
+            ['a', 'c', 'e'],
+        )
+        with self.assertRaises(IndexError):
+            list(mi.extract('abcdefgh', [0, 2, 40], monotonic=True))
+
+        # Error cases
+        with self.assertRaises(ValueError):
+            list(
+                mi.extract('abcdefg', [2, 4, 3], monotonic=True)
+            )  # decreasing index
+        with self.assertRaises(ValueError):
+            list(
+                mi.extract('abcdefg', [-1, 0, 1], monotonic=True)
+            )  # negative index
+
     def test_lazy_consumption(self):
         extract = mi.extract
 
@@ -6418,3 +6533,359 @@ class ExtractTests(TestCase):
         self.assertEqual(
             list(extract(count(), [5, 7, 3, 9, 4])), [5, 7, 3, 9, 4]
         )
+
+
+class TestSerialize(TestCase):
+    def test_concurrent_calls(self):
+        result = 0
+        result_lock = Lock()
+
+        def producer(limit):
+            'Non-concurrent producer. A generator version of range(limit).'
+            for x in range(limit):
+                yield x
+
+        def consumer(counter):
+            'Concurrent data consumer'
+            nonlocal result
+            total = 0
+            for x in counter:
+                total += x
+            with result_lock:
+                result += total
+
+        limit = 10**6
+        counter = mi.serialize(producer(limit))
+        workers = [Thread(target=consumer, args=[counter]) for _ in range(10)]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join()
+
+        self.assertEqual(result, limit * (limit - 1) // 2)
+
+
+class TestSynchronized(TestCase):
+    def test_concurrent_calls(self):
+        unique = 10  # Number of distinct counters
+        repetitions = 5  # Number of times each counter is used
+        limit = 100  # Calls per counter per repetition
+
+        @mi.synchronized
+        def atomic_counter():
+            # This is a generator so that non-concurrent calls are detectable.
+            # To make calls while running more likely, this code uses random
+            # time delays.
+            i = 0
+            while True:
+                yield i
+                next_i = i + 1
+                sleep(random() / 1000)
+                i = next_i
+
+        def consumer(counter):
+            for i in range(limit):
+                next(counter)
+
+        unique_counters = [atomic_counter() for _ in range(unique)]
+        counters = unique_counters * repetitions
+        workers = [
+            Thread(target=consumer, args=[counter]) for counter in counters
+        ]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join()
+        self.assertEqual(
+            {next(counter) for counter in unique_counters},
+            {limit * repetitions},
+        )
+
+
+class TestConcurrentTee(TestCase):
+    def test_concurrent_consumers(self):
+        result = 0
+        result_lock = Lock()
+
+        def producer(limit):
+            'Non-concurrent producer. A generator version of range(limit).'
+            for x in range(limit):
+                yield x
+
+        def consumer(iterator):
+            'Concurrent data consumer'
+            nonlocal result
+            reconstructed = [x for x in iterator]
+            if reconstructed == list(range(limit)):
+                with result_lock:
+                    result += 1
+
+        limit = 10**5
+        num_threads = 100
+        non_concurrent_source = producer(limit)
+        tees = mi.concurrent_tee(non_concurrent_source, n=num_threads)
+
+        # Verify that locks are shared
+        self.assertEqual(len({id(t_obj.lock) for t_obj in tees}), 1)
+
+        # Run the consumers
+        workers = [Thread(target=consumer, args=[t_obj]) for t_obj in tees]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join()
+
+        # Verify that every consumer received 100% of the  data (no dups or drops).
+        self.assertEqual(result, len(tees))
+
+        # Corner case
+        non_concurrent_source = producer(limit)
+        tees = mi.concurrent_tee(non_concurrent_source, n=0)  # Zero n
+        self.assertEqual(tees, ())
+
+        # Error cases
+        with self.assertRaises(ValueError):
+            non_concurrent_source = producer(limit)
+            mi.concurrent_tee(non_concurrent_source, n=-1)  # Negative n
+
+
+def grow_to_window(data, maxlen):
+    "Return growing window views upto maxlen."
+    for j in range(1, len(data) + 1):
+        i = max(j - maxlen, 0)
+        yield data[i:j]
+
+
+class TestRunningMin(TestCase):
+    def test_basic(self):
+        for i, (iterable, expected) in enumerate(
+            [
+                ([], []),
+                ([1], [1]),
+                ([1, 2], [1, 1]),
+                (
+                    [Fraction(1, 1), Fraction(2, 1)],
+                    [Fraction(1, 1), Fraction(1, 1)],
+                ),
+                (
+                    [Decimal('1.0'), Decimal('2.0')],
+                    [Decimal('1.0'), Decimal('1.0')],
+                ),
+                ([8.5, 9.5, 7.5, 6.5], [8.5, 8.5, 7.5, 6.5]),
+            ]
+        ):
+            with self.subTest(i=i, iterable=iterable, expected=expected):
+                actual = list(mi.running_min(iterable))
+                self.assertEqual(actual, expected)
+
+    def test_maxlen(self):
+        data = choices(range(20), k=1000)
+
+        # Window size must be positive
+        with self.assertRaises(ValueError):
+            list(mi.running_min(iter(data), maxlen=0))
+
+        # Window size of 1 should return the original dataset unchanged
+        self.assertEqual(list(mi.running_min(iter(data), maxlen=1)), data)
+
+        # Window size normal cases
+        for maxlen in range(2, 6):
+            with self.subTest(maxlen=maxlen):
+                actual = list(mi.running_min(iter(data), maxlen=maxlen))
+                expected = list(map(min, grow_to_window(data, maxlen)))
+                self.assertEqual(actual, expected)
+
+        # Window size larger than the data same as the unbounded case
+        self.assertEqual(
+            list(mi.running_min(iter(data), maxlen=len(data) * 2)),
+            list(mi.running_min(iter(data))),
+        )
+
+
+class TestRunningMax(TestCase):
+    def test_basic(self):
+        for i, (iterable, expected) in enumerate(
+            [
+                ([], []),
+                ([1], [1]),
+                ([1, 2], [1, 2]),
+                (
+                    [Fraction(1, 1), Fraction(2, 1)],
+                    [Fraction(1, 1), Fraction(2, 1)],
+                ),
+                (
+                    [Decimal('1.0'), Decimal('2.0')],
+                    [Decimal('1.0'), Decimal('2.0')],
+                ),
+                ([8.5, 9.5, 7.5, 6.5], [8.5, 9.5, 9.5, 9.5]),
+            ]
+        ):
+            with self.subTest(i=i, iterable=iterable, expected=expected):
+                actual = list(mi.running_max(iterable))
+                self.assertEqual(actual, expected)
+
+    def test_maxlen(self):
+        data = choices(range(20), k=1000)
+
+        # Window size must be positive
+        with self.assertRaises(ValueError):
+            list(mi.running_max(iter(data), maxlen=0))
+
+        # Window size of 1 should return the original dataset unchanged
+        self.assertEqual(list(mi.running_max(iter(data), maxlen=1)), data)
+
+        # Window size normal cases
+        for maxlen in range(2, 6):
+            with self.subTest(maxlen=maxlen):
+                actual = list(mi.running_max(iter(data), maxlen=maxlen))
+                expected = list(map(max, grow_to_window(data, maxlen)))
+                self.assertEqual(actual, expected)
+
+        # Window size larger than the data same as the unbounded case
+        self.assertEqual(
+            list(mi.running_max(iter(data), maxlen=len(data) * 2)),
+            list(mi.running_max(iter(data))),
+        )
+
+
+class TestRunningStats(TestCase):
+    # Assumes that the component functions are already tested,
+    # so we only need to test whether they are properly integrated
+    # (i.e correctly pass *maxlen* to each and correctly send
+    # each statistic to the correct slot in Stats).
+
+    def test_single_example(self):
+        data = [4, 3, 7, 0, 8, 1, 6, 2, 9, 5]
+
+        it = mi.running_statistics(iter(data))
+        self.assertEqual(
+            next(it),
+            mi.Stats(size=1, minimum=4, median=4, maximum=4, mean=4.0),
+        )
+        self.assertEqual(
+            next(it),
+            mi.Stats(size=2, minimum=3, median=3.5, maximum=4, mean=7 / 2),
+        )
+        self.assertEqual(
+            next(it),
+            mi.Stats(size=3, minimum=3, median=4, maximum=7, mean=14 / 3),
+        )
+        self.assertEqual(
+            next(it),
+            mi.Stats(size=4, minimum=0, median=3.5, maximum=7, mean=14 / 4),
+        )
+        self.assertEqual(
+            next(it),
+            mi.Stats(size=5, minimum=0, median=4, maximum=8, mean=22 / 5),
+        )
+        w = [4, 3, 7, 0, 8, 1]  # Unbounded window
+        self.assertEqual(
+            next(it),
+            mi.Stats(
+                size=len(w),
+                minimum=min(w),
+                median=median(w),
+                maximum=max(w),
+                mean=mean(w),
+            ),
+        )
+        w = [4, 3, 7, 0, 8, 1, 6]  # Unbounded window
+        self.assertEqual(
+            next(it),
+            mi.Stats(
+                size=len(w),
+                minimum=min(w),
+                median=median(w),
+                maximum=max(w),
+                mean=mean(w),
+            ),
+        )
+
+        it = mi.running_statistics(iter(data), maxlen=3)
+        self.assertEqual(
+            next(it),
+            mi.Stats(size=1, minimum=4, median=4, maximum=4, mean=4.0),
+        )
+        self.assertEqual(
+            next(it),
+            mi.Stats(size=2, minimum=3, median=3.5, maximum=4, mean=7 / 2),
+        )
+        self.assertEqual(
+            next(it),
+            mi.Stats(size=3, minimum=3, median=4, maximum=7, mean=14 / 3),
+        )
+        self.assertEqual(
+            next(it),
+            mi.Stats(size=3, minimum=0, median=3, maximum=7, mean=10 / 3),
+        )
+        self.assertEqual(
+            next(it),
+            mi.Stats(size=3, minimum=0, median=7, maximum=8, mean=15 / 3),
+        )
+        w = [0, 8, 1]  # Window with maxlen=3
+        self.assertEqual(
+            next(it),
+            mi.Stats(
+                size=len(w),
+                minimum=min(w),
+                median=median(w),
+                maximum=max(w),
+                mean=mean(w),
+            ),
+        )
+        w = [8, 1, 6]  # Window with maxlen=3
+        self.assertEqual(
+            next(it),
+            mi.Stats(
+                size=len(w),
+                minimum=min(w),
+                median=median(w),
+                maximum=max(w),
+                mean=mean(w),
+            ),
+        )
+
+    def test_early_error_detection(self):
+        with self.assertRaises(TypeError):
+            mi.running_statistics(None)  # Non-iterable input
+
+        with self.assertRaises(ValueError):
+            mi.running_statistics([10, 5, 20], maxlen=0)  # Non-positive maxlen
+
+    def test_stat_properties(self):
+        st = mi.Stats(size=5, minimum=0, median=4, maximum=8, mean=22 / 5)
+
+        # Comparable
+        self.assertEqual(
+            st, mi.Stats(size=5, minimum=0, median=4, maximum=8, mean=22 / 5)
+        )
+
+        # Hashable
+        hash(st)
+
+        # Slots
+        with self.assertRaises(TypeError):
+            vars(st)
+
+        # Immutable
+        with self.assertRaises(AttributeError):
+            st.size = 10
+
+        # Not sizeable, indexable, or iterable
+        # (so we can add new fields in the future)
+        with self.assertRaises(TypeError):
+            len(st)
+        with self.assertRaises(TypeError):
+            st[0]
+        with self.assertRaises(TypeError):
+            iter(st)
+
+    def test_datatypes(self):
+        data = [4, 3, 7, 0, 8, 1, 6, 2, 9, 5]
+        for kind in (int, float, Fraction, Decimal):
+            list(mi.running_statistics(map(kind, data)))
+            list(mi.running_statistics(map(kind, data), maxlen=3))
+        with self.assertRaises(TypeError):
+            list(mi.running_statistics(map(complex, data)))
+        with self.assertRaises(TypeError):
+            list(mi.running_statistics(map(complex, data), maxlen=3))

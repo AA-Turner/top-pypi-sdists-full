@@ -12,6 +12,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
     UnicodeText,
     UniqueConstraint,
     desc,
@@ -20,6 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase
 
+from skyvern.forge.sdk.db._soft_delete import SoftDeleteMixin
 from skyvern.forge.sdk.db.enums import TaskType
 from skyvern.forge.sdk.db.id import (
     generate_action_id,
@@ -64,6 +66,7 @@ from skyvern.forge.sdk.db.id import (
     generate_workflow_script_id,
     generate_workflow_template_id,
 )
+from skyvern.forge.sdk.schemas.runs import TERMINAL_STATUSES
 from skyvern.forge.sdk.schemas.task_v2 import ThoughtType
 
 
@@ -122,6 +125,7 @@ class TaskModel(Base):
     waiting_for_verification_code = Column(Boolean, nullable=False, default=False, server_default=sqlalchemy.false())
     verification_code_identifier = Column(String, nullable=True)
     verification_code_polling_started_at = Column(DateTime, nullable=True)
+    failure_category = Column(JSON, nullable=True)
 
 
 class StepModel(Base):
@@ -273,7 +277,9 @@ class FolderModel(Base):
     deleted_at = Column(DateTime, nullable=True)
 
 
-class WorkflowModel(Base):
+# TODO: ~22 other models with manual deleted_at columns could inherit SoftDeleteMixin.
+# WorkflowModel is the proof of concept; remaining models will be migrated in a follow-up PR.
+class WorkflowModel(SoftDeleteMixin, Base):
     __tablename__ = "workflows"
     __table_args__ = (
         UniqueConstraint(
@@ -321,13 +327,12 @@ class WorkflowModel(Base):
         onupdate=datetime.datetime.utcnow,
         nullable=False,
     )
-    deleted_at = Column(DateTime, nullable=True)
-
     workflow_permanent_id = Column(String, nullable=False, default=generate_workflow_permanent_id, index=True)
     version = Column(Integer, default=1, nullable=False)
     is_saved_task = Column(Boolean, default=False, nullable=False)
 
 
+# TODO: Apply SoftDeleteMixin to WorkflowScheduleModel (requires migration + query audit)
 class WorkflowScheduleModel(Base):
     __tablename__ = "workflow_schedules"
     __table_args__ = (
@@ -418,6 +423,7 @@ class WorkflowRunModel(Base):
     waiting_for_verification_code = Column(Boolean, nullable=False, default=False, server_default=sqlalchemy.false())
     verification_code_identifier = Column(String, nullable=True)
     verification_code_polling_started_at = Column(DateTime, nullable=True)
+    failure_category = Column(JSON, nullable=True)
 
     queued_at = Column(DateTime, nullable=True)
     started_at = Column(DateTime, nullable=True)
@@ -860,6 +866,7 @@ class TaskV2Model(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
     modified_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
     model = Column(JSON, nullable=True)
+    failure_category = Column(JSON, nullable=True)
 
 
 class ThoughtModel(Base):
@@ -961,6 +968,35 @@ class TaskRunModel(Base):
         Index("task_run_org_url_index", "organization_id", "url_hash", "cached"),
         Index("task_run_org_run_id_index", "organization_id", "run_id"),
         Index("ix_task_runs_org_created_at", "organization_id", "created_at"),
+        Index(
+            "ix_task_runs_org_toplevel_created",
+            "organization_id",
+            desc("created_at"),
+            postgresql_using="btree",
+            postgresql_where=text("parent_workflow_run_id IS NULL AND debug_session_id IS NULL AND status IS NOT NULL"),
+        ),
+        Index(
+            "ix_task_runs_org_status_created",
+            "organization_id",
+            "status",
+            desc("created_at"),
+            postgresql_using="btree",
+        ),
+        Index(
+            "ix_task_runs_searchable_text_gin",
+            "searchable_text",
+            postgresql_using="gin",
+            postgresql_ops={"searchable_text": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_task_runs_nonterminal",
+            "run_id",
+            "task_run_type",
+            postgresql_where=sqlalchemy.or_(
+                sqlalchemy.column("status").is_(None),
+                ~sqlalchemy.column("status").in_(TERMINAL_STATUSES),
+            ),
+        ),
     )
 
     task_run_id = Column(String, primary_key=True, default=generate_task_run_id)
@@ -971,6 +1007,17 @@ class TaskRunModel(Base):
     url = Column(String, nullable=True)
     url_hash = Column(String, nullable=True)
     cached = Column(Boolean, nullable=False, default=False)
+    # Run history fields
+    # status is an open-ended str (not an enum) because task_runs covers multiple
+    # run types (task, workflow, observer) each with its own status set.
+    status = Column(String, nullable=True)
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+    workflow_permanent_id = Column(String, nullable=True)
+    script_run = Column(JSON, nullable=True)
+    parent_workflow_run_id = Column(String, nullable=True)
+    debug_session_id = Column(String, nullable=True)
+    searchable_text = Column(Text, nullable=True)
     # Compute cost tracking fields
     instance_type = Column(String, nullable=True)
     vcpu_millicores = Column(Integer, nullable=True)

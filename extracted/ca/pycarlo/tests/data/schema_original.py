@@ -19508,7 +19508,19 @@ class ConversationTurnV2(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("trace_id", "turn_index", "system_messages", "messages", "internal_steps")
+    __field_names__ = (
+        "trace_id",
+        "turn_index",
+        "system_messages",
+        "messages",
+        "internal_steps",
+        "duration_seconds",
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens",
+        "error_count",
+        "error_messages",
+    )
     trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
     """Trace ID (hex-encoded)"""
 
@@ -19536,6 +19548,36 @@ class ConversationTurnV2(sgqlc.types.Type):
         graphql_name="internalSteps",
     )
     """Non-main-chain spans (internal agent steps) for this turn"""
+
+    duration_seconds = sgqlc.types.Field(Float, graphql_name="durationSeconds")
+    """Wall-clock duration of this turn in seconds, measured from the
+    earliest span start to the latest span end across all LLM spans in
+    the trace. Null when timing data is unavailable.
+    """
+
+    prompt_tokens = sgqlc.types.Field(Int, graphql_name="promptTokens")
+    """Total prompt (input) tokens consumed across all LLM spans in this
+    turn. Null when token data is unavailable.
+    """
+
+    completion_tokens = sgqlc.types.Field(Int, graphql_name="completionTokens")
+    """Total completion (output) tokens generated across all LLM spans in
+    this turn. Null when token data is unavailable.
+    """
+
+    total_tokens = sgqlc.types.Field(Int, graphql_name="totalTokens")
+    """Total tokens (prompt + completion) across all LLM spans in this
+    turn. Null when token data is unavailable.
+    """
+
+    error_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="errorCount")
+    """Number of spans with OTel ERROR status in this turn"""
+
+    error_messages = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="errorMessages",
+    )
+    """Deduplicated human-readable error messages for this turn"""
 
 
 class ConversationsResult(sgqlc.types.Type):
@@ -81250,6 +81292,8 @@ class TraceOverviewMetrics(sgqlc.types.Type):
         "total_tokens",
         "total_prompt_tokens",
         "total_completion_tokens",
+        "error_count",
+        "error_percentage",
     )
     total_traces = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTraces")
 
@@ -81267,6 +81311,10 @@ class TraceOverviewMetrics(sgqlc.types.Type):
 
     total_completion_tokens = sgqlc.types.Field(Int, graphql_name="totalCompletionTokens")
 
+    error_count = sgqlc.types.Field(Int, graphql_name="errorCount")
+
+    error_percentage = sgqlc.types.Field(Float, graphql_name="errorPercentage")
+
 
 class TraceOverviewMetricsWithComparison(sgqlc.types.Type):
     __schema__ = schema
@@ -81279,6 +81327,8 @@ class TraceOverviewMetricsWithComparison(sgqlc.types.Type):
         "total_tokens",
         "total_prompt_tokens",
         "total_completion_tokens",
+        "error_count",
+        "error_percentage",
         "prev_period",
     )
     total_traces = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTraces")
@@ -81296,6 +81346,10 @@ class TraceOverviewMetricsWithComparison(sgqlc.types.Type):
     total_prompt_tokens = sgqlc.types.Field(Int, graphql_name="totalPromptTokens")
 
     total_completion_tokens = sgqlc.types.Field(Int, graphql_name="totalCompletionTokens")
+
+    error_count = sgqlc.types.Field(Int, graphql_name="errorCount")
+
+    error_percentage = sgqlc.types.Field(Float, graphql_name="errorPercentage")
 
     prev_period = sgqlc.types.Field(TraceOverviewMetrics, graphql_name="prevPeriod")
 

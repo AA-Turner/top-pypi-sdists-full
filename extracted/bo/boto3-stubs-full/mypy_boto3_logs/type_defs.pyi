@@ -488,12 +488,14 @@ class CSVOutputTypeDef(TypedDict):
     delimiter: NotRequired[str]
     columns: NotRequired[list[str]]
     source: NotRequired[str]
+    destination: NotRequired[str]
 
 class CSVTypeDef(TypedDict):
     quoteCharacter: NotRequired[str]
     delimiter: NotRequired[str]
     columns: NotRequired[Sequence[str]]
     source: NotRequired[str]
+    destination: NotRequired[str]
 
 class CancelExportTaskRequestTypeDef(TypedDict):
     taskId: str

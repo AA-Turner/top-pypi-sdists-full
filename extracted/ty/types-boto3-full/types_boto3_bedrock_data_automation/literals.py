@@ -29,6 +29,7 @@ __all__ = (
     "BlueprintOptimizationJobStatusType",
     "BlueprintStageFilterType",
     "BlueprintStageType",
+    "DataAutomationLibraryStatusType",
     "DataAutomationProjectStageFilterType",
     "DataAutomationProjectStageType",
     "DataAutomationProjectStatusType",
@@ -37,10 +38,16 @@ __all__ = (
     "DesiredModalityType",
     "DocumentExtractionGranularityTypeType",
     "DocumentOutputTextFormatTypeType",
+    "EntityTypeType",
     "ImageExtractionCategoryTypeType",
     "ImageStandardGenerativeFieldTypeType",
     "LanguageType",
+    "LibraryIngestionJobOperationTypeType",
+    "LibraryIngestionJobStatusType",
     "ListBlueprintsPaginatorName",
+    "ListDataAutomationLibrariesPaginatorName",
+    "ListDataAutomationLibraryEntitiesPaginatorName",
+    "ListDataAutomationLibraryIngestionJobsPaginatorName",
     "ListDataAutomationProjectsPaginatorName",
     "PIIEntityTypeType",
     "PIIRedactionMaskModeType",
@@ -67,6 +74,7 @@ BlueprintOptimizationJobStatusType = Literal[
 ]
 BlueprintStageFilterType = Literal["ALL", "DEVELOPMENT", "LIVE"]
 BlueprintStageType = Literal["DEVELOPMENT", "LIVE"]
+DataAutomationLibraryStatusType = Literal["ACTIVE", "DELETING"]
 DataAutomationProjectStageFilterType = Literal["ALL", "DEVELOPMENT", "LIVE"]
 DataAutomationProjectStageType = Literal["DEVELOPMENT", "LIVE"]
 DataAutomationProjectStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
@@ -74,10 +82,20 @@ DataAutomationProjectTypeType = Literal["ASYNC", "SYNC"]
 DesiredModalityType = Literal["AUDIO", "DOCUMENT", "IMAGE", "VIDEO"]
 DocumentExtractionGranularityTypeType = Literal["DOCUMENT", "ELEMENT", "LINE", "PAGE", "WORD"]
 DocumentOutputTextFormatTypeType = Literal["CSV", "HTML", "MARKDOWN", "PLAIN_TEXT"]
+EntityTypeType = Literal["VOCABULARY"]
 ImageExtractionCategoryTypeType = Literal["CONTENT_MODERATION", "LOGOS", "TEXT_DETECTION"]
 ImageStandardGenerativeFieldTypeType = Literal["IAB", "IMAGE_SUMMARY"]
 LanguageType = Literal["CN", "DE", "EN", "ES", "FR", "HK", "IT", "JA", "KO", "PT", "TW"]
+LibraryIngestionJobOperationTypeType = Literal["DELETE", "UPSERT"]
+LibraryIngestionJobStatusType = Literal[
+    "COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "IN_PROGRESS"
+]
 ListBlueprintsPaginatorName = Literal["list_blueprints"]
+ListDataAutomationLibrariesPaginatorName = Literal["list_data_automation_libraries"]
+ListDataAutomationLibraryEntitiesPaginatorName = Literal["list_data_automation_library_entities"]
+ListDataAutomationLibraryIngestionJobsPaginatorName = Literal[
+    "list_data_automation_library_ingestion_jobs"
+]
 ListDataAutomationProjectsPaginatorName = Literal["list_data_automation_projects"]
 PIIEntityTypeType = Literal[
     "ADDRESS",
@@ -549,4 +567,10 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_blueprints", "list_data_automation_projects"]
+PaginatorName = Literal[
+    "list_blueprints",
+    "list_data_automation_libraries",
+    "list_data_automation_library_entities",
+    "list_data_automation_library_ingestion_jobs",
+    "list_data_automation_projects",
+]

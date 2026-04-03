@@ -7,19 +7,20 @@ from typing import Optional
 
 from ..storage import IndexStore, result_cache_get, result_cache_put
 from ..parser.imports import resolve_specifier
-from ._utils import resolve_repo
+from ._utils import resolve_repo, resolve_fqn
 from .package_registry import extract_root_package_from_specifier
 from ._call_graph import build_symbols_by_file, find_direct_callers, bfs_callers
 
 
 def _build_reverse_adjacency(
-    imports: dict, source_files: frozenset, alias_map: Optional[dict] = None
+    imports: dict, source_files: frozenset, alias_map: Optional[dict] = None,
+    psr4_map: Optional[dict] = None,
 ) -> dict[str, list[str]]:
     """Return {file: [files_that_import_it]} from raw import data."""
     rev: dict[str, list[str]] = {}
     for src_file, file_imports in imports.items():
         for imp in file_imports:
-            target = resolve_specifier(imp["specifier"], src_file, source_files, alias_map)
+            target = resolve_specifier(imp["specifier"], src_file, source_files, alias_map, psr4_map)
             if target and target != src_file:
                 rev.setdefault(target, []).append(src_file)
     # Deduplicate
@@ -76,6 +77,7 @@ def get_blast_radius(
     storage_path: Optional[str] = None,
     cross_repo: Optional[bool] = None,
     call_depth: int = 0,
+    fqn: Optional[str] = None,
 ) -> dict:
     """Find all files that would be affected if a symbol's signature or behaviour changed.
 
@@ -99,6 +101,12 @@ def get_blast_radius(
         Dict with symbol info, confirmed/potential affected files, counts, and _meta.
         When call_depth > 0: also includes ``callers`` and ``caller_count``.
     """
+    # FQN resolution: translate PHP FQN → symbol name/id
+    if fqn:
+        _resolved, _ = resolve_fqn(repo, fqn, storage_path)
+        if _resolved:
+            symbol = _resolved
+
     depth = max(1, min(depth, 3))
     call_depth = max(0, min(call_depth, 3))
     start = time.perf_counter()
@@ -158,7 +166,7 @@ def get_blast_radius(
 
     # Build reverse adjacency (importer graph)
     source_files = frozenset(index.source_files)
-    rev = _build_reverse_adjacency(index.imports, source_files, index.alias_map)
+    rev = _build_reverse_adjacency(index.imports, source_files, index.alias_map, getattr(index, "psr4_map", None))
 
     # BFS to collect all importing files
     importer_files, files_by_depth = _bfs_importers(sym_file, rev, depth)

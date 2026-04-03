@@ -3,7 +3,7 @@ import type { ErrorMetrics } from './benchmark-runner.js';
 import { check } from 'k6';
 import http from 'k6/http';
 import type { BenchmarkResult, BenchmarkGraphOptions } from './types.js';
-import { DEFAULT_GRAPH_ID, JOIN_TIMEOUT } from './types.js';
+import { JOIN_TIMEOUT } from './types.js';
 import { addResponse, failResult, okResult } from './types.js';
 import { logFailure } from './log-failure.js';
 
@@ -19,12 +19,13 @@ export class CancelFirstSecondCompletes extends BenchmarkRunner {
   static run(
     baseUrl: string,
     requestParams: Record<string, unknown>,
-    benchmarkGraphOptions?: BenchmarkGraphOptions
+    benchmarkGraphOptions: BenchmarkGraphOptions
   ): BenchmarkResult<CancelFirstSecondCompletesData> {
-    const graphId = benchmarkGraphOptions?.graph_id ?? DEFAULT_GRAPH_ID;
+    const graphId = benchmarkGraphOptions.graph_id;
     const longDelaySec = 3;
     const responses: Record<string, import('./types.js').HttpResponse> = {};
     const joinParams = { ...requestParams, timeout: JOIN_TIMEOUT };
+    const baseContext = benchmarkGraphOptions.context;
 
     const createThreadRes = http.post(`${baseUrl}/threads`, '{}', requestParams);
     addResponse(responses, 'create_thread', createThreadRes);
@@ -35,7 +36,8 @@ export class CancelFirstSecondCompletes extends BenchmarkRunner {
 
     const run1Payload = JSON.stringify({
       assistant_id: graphId,
-      input: { mode: 'single', delay: longDelaySec, expand: 1, steps: 1 },
+      input: {},
+      context: { ...baseContext, delay: longDelaySec, expand: 1, steps: 1 },
       config: { recursion_limit: 5 },
     });
     const run1Res = http.post(`${baseUrl}/threads/${threadId}/runs`, run1Payload, requestParams);
@@ -47,7 +49,8 @@ export class CancelFirstSecondCompletes extends BenchmarkRunner {
 
     const run2Payload = JSON.stringify({
       assistant_id: graphId,
-      input: { mode: 'single', delay: 0, expand: 1, steps: 1 },
+      input: {},
+      context: { ...baseContext, delay: 0, expand: 1, steps: 1 },
       config: { recursion_limit: 5 },
       multitask_strategy: 'enqueue',
     });
@@ -85,7 +88,7 @@ export class CancelFirstSecondCompletes extends BenchmarkRunner {
   static validate(
     result: BenchmarkResult<CancelFirstSecondCompletesData>,
     errorMetrics: ErrorMetrics,
-    _benchmarkGraphOptions?: BenchmarkGraphOptions
+    _benchmarkGraphOptions: BenchmarkGraphOptions
   ): boolean {
     if (!result.ok) {
       logFailure(CancelFirstSecondCompletes.toString(), result);

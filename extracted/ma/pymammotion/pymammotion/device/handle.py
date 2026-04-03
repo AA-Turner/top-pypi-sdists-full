@@ -145,7 +145,7 @@ class DeviceHandle:
         self.iot_id = iot_id
         self.user_account = user_account
         self.broker = DeviceMessageBroker()
-        self.queue = DeviceCommandQueue()
+        self.queue = DeviceCommandQueue(device_name)
         self.state_machine = DeviceStateMachine(device_id, initial_device)
         self._availability = DeviceAvailability()
         self._transports: dict[TransportType, Transport] = {}
@@ -204,7 +204,9 @@ class DeviceHandle:
         """Register a transport (MQTT or BLE). Replaces any existing transport of the same type."""
         existing = self._transports.get(transport.transport_type)
         if existing is not None:
+            _logger.debug("add_transport '%s': replacing existing %s", self.device_name, transport.transport_type.value)
             await existing.disconnect()
+        _logger.debug("add_transport '%s': registered %s", self.device_name, transport.transport_type.value)
         self._wire_transport(transport)
 
     async def remove_transport(self, transport_type: TransportType) -> None:
@@ -267,7 +269,30 @@ class DeviceHandle:
         async def _do_send(cmd: bytes, field: str) -> None:
             from pymammotion.aliyun.exceptions import DeviceOfflineException
 
-            transport = self.active_transport()
+            _logger.debug(
+                "_do_send '%s': field=%s transports=%s",
+                self.device_name,
+                field,
+                {k.value: v.is_connected for k, v in self._transports.items()},
+            )
+            if self._prefer_ble:
+                ble = self._transports.get(TransportType.BLE)
+                if ble is not None and not ble.is_connected:
+                    _logger.debug("BLE preferred but disconnected for '%s' — reconnecting", self.device_name)
+                    await ble.connect()
+            try:
+                transport = self.active_transport()
+            except NoTransportAvailableError:
+                ble = self._transports.get(TransportType.BLE)
+                if ble is not None and not ble.is_connected:
+                    _logger.debug("BLE disconnected for '%s' — reconnecting before send", self.device_name)
+                    await ble.connect()
+                    transport = self.active_transport()
+                else:
+                    raise
+            _logger.debug(
+                "_do_send '%s': sending field=%s via %s", self.device_name, field, transport.transport_type.value
+            )
             try:
                 await self.broker.send_and_wait(
                     send_fn=lambda: transport.send(cmd, iot_id=self.iot_id),
@@ -410,7 +435,30 @@ class DeviceHandle:
         """Send raw bytes via the best available transport, with BLE fallback on offline."""
         from pymammotion.aliyun.exceptions import DeviceOfflineException
 
-        transport = self.active_transport(prefer_ble=prefer_ble)
+        _logger.debug(
+            "send_raw '%s': %d bytes prefer_ble=%s transports=%s",
+            self.device_name,
+            len(payload),
+            prefer_ble,
+            {k.value: v.is_connected for k, v in self._transports.items()},
+        )
+        use_ble = prefer_ble or self._prefer_ble
+        if use_ble:
+            ble = self._transports.get(TransportType.BLE)
+            if ble is not None and not ble.is_connected:
+                _logger.debug("BLE preferred but disconnected for '%s' — reconnecting", self.device_name)
+                await ble.connect()
+        try:
+            transport = self.active_transport(prefer_ble=prefer_ble)
+        except NoTransportAvailableError:
+            ble = self._transports.get(TransportType.BLE)
+            if ble is not None and not ble.is_connected:
+                _logger.debug("BLE disconnected for '%s' — reconnecting before send", self.device_name)
+                await ble.connect()
+                transport = self.active_transport(prefer_ble=prefer_ble)
+            else:
+                raise
+        _logger.debug("send_raw '%s': sending via %s", self.device_name, transport.transport_type.value)
         try:
             await transport.send(payload, iot_id=self.iot_id)
         except DeviceOfflineException:
@@ -530,15 +578,32 @@ class DeviceHandle:
                 break
         mqtt_ok = mqtt is not None
 
+        _logger.debug(
+            "active_transport '%s': prefer_ble=%s ble_registered=%s ble_connected=%s mqtt_connected=%s",
+            self.device_name,
+            use_ble_first,
+            ble is not None,
+            ble_ok,
+            mqtt_ok,
+        )
+
         if use_ble_first:
             if ble_ok:
+                _logger.debug("active_transport '%s': selected BLE", self.device_name)
                 return ble
             if mqtt_ok:
+                _logger.debug(
+                    "active_transport '%s': BLE preferred but not connected — falling back to %s",
+                    self.device_name,
+                    mqtt.transport_type,
+                )
                 return mqtt
         else:
             if mqtt_ok:
+                _logger.debug("active_transport '%s': selected %s", self.device_name, mqtt.transport_type)
                 return mqtt
             if ble_ok:
+                _logger.debug("active_transport '%s': MQTT not connected — falling back to BLE", self.device_name)
                 return ble
 
         msg = f"No connected transport available for device '{self.device_id}'"

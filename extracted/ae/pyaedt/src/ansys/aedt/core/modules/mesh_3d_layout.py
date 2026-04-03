@@ -192,7 +192,7 @@ class Mesh3d(PyAedtBase):
         return self._app.omeshmodule
 
     @pyaedt_function_handler()
-    def delete_mesh_operations(self, setup: str, name: str) -> bool:
+    def delete_mesh_operations(self, setup, name: str) -> bool:
         """Remove mesh operations from a setup.
 
         Parameters
@@ -242,14 +242,14 @@ class Mesh3d(PyAedtBase):
     @pyaedt_function_handler()
     def assign_length_mesh(
         self,
-        setup: str,
-        layer: str,
-        net: str,
+        setup,
+        layer,
+        net,
         is_inside: bool = True,
         maximum_length: int = 1,
         maximum_elements: int = 1000,
-        name: str = None,
-    ) -> Mesh3DOperation:
+        name: str | None = None,
+    ):
         """Assign mesh length.
 
         Parameters
@@ -336,15 +336,15 @@ class Mesh3d(PyAedtBase):
     @pyaedt_function_handler()
     def assign_skin_depth(
         self,
-        setup: str,
-        layer: str,
-        net: str,
+        setup,
+        layer,
+        net,
         skin_depth: int = 1,
-        maximum_elements: int = None,
+        maximum_elements=None,
         triangulation_max_length: float = 0.1,
         layers_number: str = "2",
-        name: str = None,
-    ) -> Mesh3DOperation:
+        name: str | None = None,
+    ):
         """Assign skin depth to the mesh.
 
         Parameters

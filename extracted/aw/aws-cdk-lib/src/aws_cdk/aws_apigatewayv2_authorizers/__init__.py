@@ -176,6 +176,8 @@ Lambda authorizers use a Lambda function to control access to your HTTP API. Whe
 
 Lambda authorizers depending on their response, fall into either two types - Simple or IAM. You can learn about differences [here](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-lambda-authorizer.html#http-api-lambda-authorizer.payload-format-response).
 
+If the Lambda function is in another account, you need to provide an IAM role to the authorizer that has permission to invoke the Lambda function.
+
 ```python
 from aws_cdk.aws_apigatewayv2_authorizers import HttpLambdaAuthorizer, HttpLambdaResponseType
 from aws_cdk.aws_apigatewayv2_integrations import HttpUrlIntegration
@@ -183,9 +185,13 @@ from aws_cdk.aws_apigatewayv2_integrations import HttpUrlIntegration
 # This function handles your auth logic
 # auth_handler: lambda.Function
 
+# This role will be used to invoke the Lambda function
+# role: iam.Role
+
 
 authorizer = HttpLambdaAuthorizer("BooksAuthorizer", auth_handler,
-    response_types=[HttpLambdaResponseType.SIMPLE]
+    response_types=[HttpLambdaResponseType.SIMPLE],  # Define if returns simple and/or iam response
+    role=role
 )
 
 api = apigwv2.HttpApi(self, "HttpApi")
@@ -415,6 +421,7 @@ from ..aws_cognito import (
     IUserPool as _IUserPool_1f1029e2, IUserPoolClient as _IUserPoolClient_75623ba4
 )
 from ..aws_lambda import IFunction as _IFunction_6adb0ab8
+from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
 
 
 @jsii.implements(_IHttpRouteAuthorizer_6333bae7)
@@ -675,9 +682,13 @@ class HttpLambdaAuthorizer(
         # This function handles your auth logic
         # auth_handler: lambda.Function
         
+        # This role will be used to invoke the Lambda function
+        # role: iam.Role
+        
         
         authorizer = HttpLambdaAuthorizer("BooksAuthorizer", auth_handler,
-            response_types=[HttpLambdaResponseType.SIMPLE]
+            response_types=[HttpLambdaResponseType.SIMPLE],  # Define if returns simple and/or iam response
+            role=role
         )
         
         api = apigwv2.HttpApi(self, "HttpApi")
@@ -698,6 +709,7 @@ class HttpLambdaAuthorizer(
         identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
         response_types: typing.Optional[typing.Sequence["HttpLambdaResponseType"]] = None,
         results_cache_ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        role: typing.Optional["_IRoleRef_8400221f"] = None,
     ) -> None:
         '''Initialize a lambda authorizer to be bound with HTTP route.
 
@@ -707,6 +719,7 @@ class HttpLambdaAuthorizer(
         :param identity_source: The identity source for which authorization is requested. Default: ['$request.header.Authorization']
         :param response_types: The types of responses the lambda can return. If HttpLambdaResponseType.SIMPLE is included then response format 2.0 will be used. Default: [HttpLambdaResponseType.IAM]
         :param results_cache_ttl: How long APIGateway should cache the results. Max 1 hour. Disable caching by setting this to ``Duration.seconds(0)``. Default: Duration.minutes(5)
+        :param role: The IAM role that the API Gateway service assumes while invoking the authorizer. Supported only for REQUEST authorizers. Default: - No role
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f9dfd289d96085c1bacae84e1686b20fe545518f32edd1c7873fb7f286532f88)
@@ -717,6 +730,7 @@ class HttpLambdaAuthorizer(
             identity_source=identity_source,
             response_types=response_types,
             results_cache_ttl=results_cache_ttl,
+            role=role,
         )
 
         jsii.create(self.__class__, self, [id, handler, props])
@@ -758,6 +772,7 @@ class HttpLambdaAuthorizer(
         "identity_source": "identitySource",
         "response_types": "responseTypes",
         "results_cache_ttl": "resultsCacheTtl",
+        "role": "role",
     },
 )
 class HttpLambdaAuthorizerProps:
@@ -768,6 +783,7 @@ class HttpLambdaAuthorizerProps:
         identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
         response_types: typing.Optional[typing.Sequence["HttpLambdaResponseType"]] = None,
         results_cache_ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        role: typing.Optional["_IRoleRef_8400221f"] = None,
     ) -> None:
         '''Properties to initialize HttpTokenAuthorizer.
 
@@ -775,6 +791,7 @@ class HttpLambdaAuthorizerProps:
         :param identity_source: The identity source for which authorization is requested. Default: ['$request.header.Authorization']
         :param response_types: The types of responses the lambda can return. If HttpLambdaResponseType.SIMPLE is included then response format 2.0 will be used. Default: [HttpLambdaResponseType.IAM]
         :param results_cache_ttl: How long APIGateway should cache the results. Max 1 hour. Disable caching by setting this to ``Duration.seconds(0)``. Default: Duration.minutes(5)
+        :param role: The IAM role that the API Gateway service assumes while invoking the authorizer. Supported only for REQUEST authorizers. Default: - No role
 
         :exampleMetadata: infused
 
@@ -786,9 +803,13 @@ class HttpLambdaAuthorizerProps:
             # This function handles your auth logic
             # auth_handler: lambda.Function
             
+            # This role will be used to invoke the Lambda function
+            # role: iam.Role
+            
             
             authorizer = HttpLambdaAuthorizer("BooksAuthorizer", auth_handler,
-                response_types=[HttpLambdaResponseType.SIMPLE]
+                response_types=[HttpLambdaResponseType.SIMPLE],  # Define if returns simple and/or iam response
+                role=role
             )
             
             api = apigwv2.HttpApi(self, "HttpApi")
@@ -805,6 +826,7 @@ class HttpLambdaAuthorizerProps:
             check_type(argname="argument identity_source", value=identity_source, expected_type=type_hints["identity_source"])
             check_type(argname="argument response_types", value=response_types, expected_type=type_hints["response_types"])
             check_type(argname="argument results_cache_ttl", value=results_cache_ttl, expected_type=type_hints["results_cache_ttl"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if authorizer_name is not None:
             self._values["authorizer_name"] = authorizer_name
@@ -814,6 +836,8 @@ class HttpLambdaAuthorizerProps:
             self._values["response_types"] = response_types
         if results_cache_ttl is not None:
             self._values["results_cache_ttl"] = results_cache_ttl
+        if role is not None:
+            self._values["role"] = role
 
     @builtins.property
     def authorizer_name(self) -> typing.Optional[builtins.str]:
@@ -858,6 +882,17 @@ class HttpLambdaAuthorizerProps:
         '''
         result = self._values.get("results_cache_ttl")
         return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+
+    @builtins.property
+    def role(self) -> typing.Optional["_IRoleRef_8400221f"]:
+        '''The IAM role that the API Gateway service assumes while invoking the authorizer.
+
+        Supported only for REQUEST authorizers.
+
+        :default: - No role
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional["_IRoleRef_8400221f"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1345,6 +1380,7 @@ def _typecheckingstub__f9dfd289d96085c1bacae84e1686b20fe545518f32edd1c7873fb7f28
     identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
     response_types: typing.Optional[typing.Sequence[HttpLambdaResponseType]] = None,
     results_cache_ttl: typing.Optional[_Duration_4839e8c3] = None,
+    role: typing.Optional[_IRoleRef_8400221f] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1355,6 +1391,7 @@ def _typecheckingstub__89dc09a234be8e090cbe13cf95c66656012ddc54d4b0cece939a05ea9
     identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
     response_types: typing.Optional[typing.Sequence[HttpLambdaResponseType]] = None,
     results_cache_ttl: typing.Optional[_Duration_4839e8c3] = None,
+    role: typing.Optional[_IRoleRef_8400221f] = None,
 ) -> None:
     """Type checking stubs"""
     pass

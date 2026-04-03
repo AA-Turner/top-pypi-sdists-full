@@ -421,13 +421,20 @@ async def patch_thread(
             ["metadata"],
         )
 
+    return_minimal = request.headers.get("Prefer") == "return=minimal"
+
     async with connect() as conn:
         thread = await Threads.patch(
             conn,
             thread_id,
             metadata=effective_payload.get("metadata") or {},
             ttl=payload.get("ttl"),
+            read_mask_paths=(["thread_id"] if return_minimal else None),
         )
+
+    if return_minimal:
+        await fetchone(thread)  # drain the iterator
+        return Response(status_code=204)
 
     thread_data = await fetchone(thread)
     if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():

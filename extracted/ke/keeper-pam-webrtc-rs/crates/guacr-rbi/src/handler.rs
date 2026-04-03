@@ -119,6 +119,13 @@ pub struct ResourceLimits {
 impl RbiConfig {
     /// Auto-detect Chromium/Chrome installation path
     fn find_chromium_path() -> String {
+        // Allow explicit override via environment variable
+        if let Ok(path) = std::env::var("CHROMIUM_PATH") {
+            if !path.is_empty() && std::path::Path::new(&path).exists() {
+                return path;
+            }
+        }
+
         // Common Chromium/Chrome paths across different Linux distributions
         // IMPORTANT: Rocky/RHEL use chromium-browser, check it BEFORE chromium
         let candidates = vec![
@@ -175,7 +182,8 @@ impl Default for RbiConfig {
                 timeout_seconds: 3600,
             },
             capture_fps: 30,
-            use_screencast: Some(false), // Default to screenshots (more compatible)
+            use_screencast: Some(true), // Prefer JPEG screencast (Chrome pushes frames on change);
+            // falls back to screenshot polling if setup fails.
             servo_allowlist: vec![
                 "docs.rs".to_string(),
                 "github.com".to_string(),
@@ -518,26 +526,5 @@ impl EventBasedHandler for RbiHandler {
             4096, // channel capacity
         )
         .await
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_rbi_handler_new() {
-        let handler = RbiHandler::with_defaults();
-        assert_eq!(
-            <_ as guacr_handlers::ProtocolHandler>::name(&handler),
-            "http"
-        );
-    }
-
-    #[test]
-    fn test_rbi_config() {
-        let config = RbiConfig::default();
-        assert_eq!(config.default_width, 1920);
-        assert_eq!(config.default_height, 1080);
     }
 }

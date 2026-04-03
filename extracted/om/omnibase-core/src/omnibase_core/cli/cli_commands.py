@@ -556,6 +556,11 @@ def _check_error_handling() -> tuple[bool, str]:
         return False, f"Error: {e}"
 
 
+# Register compliance command group from separate module
+from omnibase_core.cli.cli_compliance import compliance_group
+
+cli.add_command(compliance_group, "compliance")
+
 # Register composition-report command from separate module
 from omnibase_core.cli.cli_composition_report import composition_report
 
@@ -600,6 +605,11 @@ cli.add_command(init_command, "init")
 from omnibase_core.cli.cli_registry import registry
 
 cli.add_command(registry)
+
+# Register run command from separate module
+from omnibase_core.cli.cli_run import run_workflow
+
+cli.add_command(run_workflow)
 
 
 if __name__ == "__main__":

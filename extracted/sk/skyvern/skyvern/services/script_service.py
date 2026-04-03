@@ -18,7 +18,12 @@ from fastapi import BackgroundTasks, HTTPException
 from jinja2.sandbox import SandboxedEnvironment
 
 from skyvern.config import settings
-from skyvern.constants import BROWSER_DOWNLOADING_SUFFIX, GET_DOWNLOADED_FILES_TIMEOUT, SAVE_DOWNLOADED_FILES_TIMEOUT
+from skyvern.constants import (
+    BROWSER_DOWNLOADING_SUFFIX,
+    DEFAULT_LOGIN_COMPLETE_CRITERION,
+    GET_DOWNLOADED_FILES_TIMEOUT,
+    SAVE_DOWNLOADED_FILES_TIMEOUT,
+)
 from skyvern.core.script_generations.constants import SCRIPT_TASK_BLOCKS
 from skyvern.core.script_generations.generate_script import _build_block_fn, create_or_update_script_block
 from skyvern.core.script_generations.script_skyvern_page import script_run_context_manager
@@ -63,6 +68,7 @@ from skyvern.forge.sdk.workflow.models.block import (
     TextPromptBlock,
     UrlBlock,
     ValidationBlock,
+    WorkflowTriggerBlock,
 )
 from skyvern.forge.sdk.workflow.models.parameter import PARAMETER_TYPE, OutputParameter, ParameterType
 from skyvern.forge.sdk.workflow.models.workflow import Workflow, is_adaptive_caching
@@ -422,6 +428,8 @@ async def _create_workflow_block_run_and_task(
     label: str | None = None,
     model: dict[str, Any] | None = None,
     created_by: str | None = None,
+    totp_verification_url: str | None = None,
+    totp_identifier: str | None = None,
 ) -> tuple[str | None, str | None, str | None]:
     """
     Create a workflow block run and optionally a task if workflow_run_id is available in context.
@@ -470,14 +478,25 @@ async def _create_workflow_block_run_and_task(
                 prompt = _render_template_with_label(prompt, label)
             if url:
                 url = _render_template_with_label(url, label)
+            # Include script parameters as navigation_payload so handlers
+            # (e.g. file upload) can find URLs like resume_link in the payload.
+            nav_payload = context.script_run_parameters or None
+            # Apply default complete_criterion for login blocks so cached scripts
+            # get the same rigorous LLM verification as the agent path (SKY-8540).
+            # Without this, the LLM only sees a generic navigation_goal and can
+            # falsely mark login as complete when credentials were never entered.
+            task_complete_criterion = DEFAULT_LOGIN_COMPLETE_CRITERION if block_type == BlockType.LOGIN else None
             task = await app.DATABASE.create_task(
                 # fix HACK: changed the type of url to str | None to support None url. url is not used in the script right now.
                 url=url or "",
                 title=f"Script {block_type.value} task",
                 navigation_goal=prompt,
+                complete_criterion=task_complete_criterion,
                 data_extraction_goal=prompt if block_type == BlockType.EXTRACTION else None,
                 extracted_information_schema=schema,
-                navigation_payload=None,
+                navigation_payload=nav_payload,
+                totp_verification_url=totp_verification_url,
+                totp_identifier=totp_identifier,
                 status="running",
                 organization_id=organization_id,
                 workflow_run_id=workflow_run_id,
@@ -520,6 +539,9 @@ async def _create_workflow_block_run_and_task(
 
         context.step_id = step_id
         context.task_id = task_id
+        # Set for archive accumulator DB rows. Overwritten at the start of each block,
+        # so no explicit clear is needed between sequential blocks.
+        context.workflow_run_block_id = workflow_run_block_id
 
         return workflow_run_block_id, task_id, step_id
 
@@ -619,6 +641,17 @@ async def _update_workflow_block(
         context = skyvern_context.current()
         if not context or not context.organization_id or not context.workflow_run_id or not context.workflow_id:
             return
+
+        # Flush accumulated step artifacts into a single ZIP before finalizing the step.
+        # This mirrors the agent path (agent.py flush_step_archive at step completion).
+        # Known limitation: if flush fails (e.g. S3 timeout), accumulated artifacts for
+        # this step are lost. This matches the agent path's behavior.
+        if context.use_artifact_bundling and step_id:
+            try:
+                await app.ARTIFACT_MANAGER.flush_step_archive(step_id)
+            except Exception:
+                LOG.warning("Failed to flush step archive for cached block", step_id=step_id, exc_info=True)
+
         final_output = output
         if task_id:
             if step_id:
@@ -1061,13 +1094,12 @@ async def _fallback_to_ai_run(
     script_step_id = context.step_id
     try:
         LOG.info(
-            "Script trying to fallback to AI run",
+            "Script block failed, checking AI fallback",
             cache_key=cache_key,
+            block_type=block_type.value if hasattr(block_type, "value") else str(block_type),
+            error=str(error) if error else None,
             organization_id=organization_id,
-            workflow_id=workflow_id,
             workflow_run_id=workflow_run_id,
-            task_id=task_id,
-            step_id=script_step_id,
         )
         # 1. fail the previous step
         previous_step = await app.DATABASE.update_step(
@@ -1097,8 +1129,8 @@ async def _fallback_to_ai_run(
         )
         if not effective_ai_fallback:
             LOG.info(
-                "AI fallback is not enabled for the workflow",
-                workflow_id=workflow_id,
+                "AI fallback disabled — script failure will not be retried by agent",
+                cache_key=cache_key,
                 workflow_permanent_id=workflow_permanent_id,
                 workflow_run_id=workflow_run_id,
             )
@@ -1250,8 +1282,9 @@ async def _fallback_to_ai_run(
                 parameter_type=ParameterType.OUTPUT,
             )
         LOG.info(
-            "Script starting to fallback to AI run",
+            "Falling back to agent for block — script failed, AI will re-run",
             cache_key=cache_key,
+            block_type=block_type.value if hasattr(block_type, "value") else str(block_type),
             organization_id=organization_id,
             workflow_id=workflow_id,
             workflow_run_id=workflow_run_id,
@@ -1444,7 +1477,7 @@ async def _regenerate_script_block_after_ai_fallback(
         if not cache_key_value:
             cache_key_value = cache_key  # Fallback
 
-        existing_script = await app.DATABASE.get_workflow_script_by_cache_key_value(
+        existing_script, _is_pinned = await app.DATABASE.get_workflow_script_by_cache_key_value(
             organization_id=organization_id,
             workflow_permanent_id=workflow.workflow_permanent_id,
             cache_key_value=cache_key_value,
@@ -1707,14 +1740,19 @@ async def run_task(
 
     context: skyvern_context.SkyvernContext | None = None
     if cache_key and cached_fn:
-        # Auto-create workflow block run and task if workflow_run_id is available
+        # Auto-create workflow block run and task if workflow_run_id is available.
+        # Use `label` (the workflow block label) for the block run so the
+        # framework can match it, and `cache_key` to look up the cached function.
+        block_label = label or cache_key
         workflow_run_block_id, task_id, step_id = await _create_workflow_block_run_and_task(
             block_type=BlockType.NAVIGATION,
             prompt=prompt,
             url=url,
-            label=cache_key,
+            label=block_label,
             model=model,
             created_by="script",
+            totp_verification_url=totp_url,
+            totp_identifier=totp_identifier,
         )
         prompt = _render_template_with_label(prompt, cache_key)
         # set the prompt in the RunContext
@@ -2089,6 +2127,8 @@ async def action(
             label=cache_key,
             model=model,
             created_by="script",
+            totp_verification_url=totp_url,
+            totp_identifier=totp_identifier,
         )
         prompt = _render_template_with_label(prompt, cache_key)
         # set the prompt in the RunContext
@@ -2166,6 +2206,11 @@ async def login(
     if cache_key and cached_fn:
         # Auto-create workflow block run and task if workflow_run_id is available
         # render template with label
+        prompt = _render_template_with_label(prompt, cache_key) if prompt else prompt
+        if totp_url:
+            totp_url = _render_template_with_label(totp_url, cache_key)
+        if totp_identifier:
+            totp_identifier = _render_template_with_label(totp_identifier, cache_key)
         workflow_run_block_id, task_id, step_id = await _create_workflow_block_run_and_task(
             block_type=BlockType.LOGIN,
             prompt=prompt,
@@ -2173,12 +2218,9 @@ async def login(
             label=cache_key,
             model=model,
             created_by="script",
+            totp_verification_url=totp_url,
+            totp_identifier=totp_identifier,
         )
-        prompt = _render_template_with_label(prompt, cache_key)
-        if totp_url:
-            totp_url = _render_template_with_label(totp_url, cache_key)
-        if totp_identifier:
-            totp_identifier = _render_template_with_label(totp_identifier, cache_key)
 
         # set the prompt in the RunContext
         context = skyvern_context.ensure_context()
@@ -2847,6 +2889,46 @@ async def goto(
     except Exception:
         run_context = script_run_context_manager.ensure_run_context()
         await run_context.page.goto(url)
+
+
+async def trigger_workflow(
+    workflow_permanent_id: str,
+    payload: dict[str, Any] | None = None,
+    wait_for_completion: bool = True,
+    use_parent_browser_session: bool = False,
+    browser_session_id: str | None = None,
+    label: str | None = None,
+    parameters: list[str] | None = None,
+) -> dict[str, Any] | None:
+    """Execute a WorkflowTriggerBlock during cached script runs.
+
+    The trigger block makes zero LLM calls — it's pure orchestration
+    (template resolution, workflow dispatch, output collection). Safe to
+    execute as-is without caching.
+    """
+    block_validation_output = await _validate_and_get_output_parameter(label, parameters)
+    workflow_permanent_id = _render_template_with_label(workflow_permanent_id, label)
+    if browser_session_id:
+        browser_session_id = _render_template_with_label(browser_session_id, label)
+    # payload is a dict; WorkflowTriggerBlock._render_templates_in_payload resolves templates internally
+    trigger_block = WorkflowTriggerBlock(
+        workflow_permanent_id=workflow_permanent_id,
+        payload=payload,
+        wait_for_completion=wait_for_completion,
+        use_parent_browser_session=use_parent_browser_session,
+        browser_session_id=browser_session_id,
+        label=block_validation_output.label,
+        output_parameter=block_validation_output.output_parameter,
+        parameters=block_validation_output.input_parameters,
+    )
+    result = await trigger_block.execute_safe(
+        workflow_run_id=block_validation_output.workflow_run_id,
+        parent_workflow_run_block_id=block_validation_output.context.parent_workflow_run_block_id,
+        organization_id=block_validation_output.organization_id,
+        browser_session_id=block_validation_output.browser_session_id,
+    )
+    _append_to_loop_output(result.output_parameter_value, label)
+    return result.output_parameter_value
 
 
 async def prompt(

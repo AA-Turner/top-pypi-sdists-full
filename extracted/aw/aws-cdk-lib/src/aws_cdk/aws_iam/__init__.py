@@ -7748,35 +7748,20 @@ class Effect(enum.Enum):
 
     Example::
 
-        from aws_cdk.aws_apigatewayv2_authorizers import WebSocketIamAuthorizer
-        from aws_cdk.aws_apigatewayv2_integrations import WebSocketLambdaIntegration
-        
-        # This function handles your connect route
-        # connect_handler: lambda.Function
+        # books: apigateway.Resource
+        # iam_user: iam.User
         
         
-        web_socket_api = apigwv2.WebSocketApi(self, "WebSocketApi")
-        
-        web_socket_api.add_route("$connect",
-            integration=WebSocketLambdaIntegration("Integration", connect_handler),
-            authorizer=WebSocketIamAuthorizer()
+        get_books = books.add_method("GET", apigateway.HttpIntegration("http://amazon.com"),
+            authorization_type=apigateway.AuthorizationType.IAM
         )
         
-        # Create an IAM user (identity)
-        user = iam.User(self, "User")
-        
-        web_socket_arn = Stack.of(self).format_arn(
-            service="execute-api",
-            resource=web_socket_api.api_id
-        )
-        
-        # Grant access to the IAM user
-        user.attach_inline_policy(iam.Policy(self, "AllowInvoke",
+        iam_user.attach_inline_policy(iam.Policy(self, "AllowBooks",
             statements=[
                 iam.PolicyStatement(
                     actions=["execute-api:Invoke"],
                     effect=iam.Effect.ALLOW,
-                    resources=[web_socket_arn]
+                    resources=[get_books.method_arn]
                 )
             ]
         ))

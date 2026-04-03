@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: FastWARC
-Version: 0.15.2
+Version: 0.16.0
 Summary: A high-performance WARC parsing library for Python written in C++/Cython.
 Author: Janek Bevendorff
 License: Apache License 2.0
@@ -13,7 +13,11 @@ Requires-Dist: brotli
 Requires-Dist: click
 Requires-Dist: tqdm
 Provides-Extra: all
+Requires-Dist: fastwarc[fsspec]; extra == "all"
+Provides-Extra: fsspec
+Requires-Dist: fsspec; extra == "fsspec"
 Provides-Extra: test
+Requires-Dist: fastwarc[all]; extra == "test"
 Requires-Dist: pytest>=7.2.2; extra == "test"
 Requires-Dist: pytest-cov>=4.0.0; extra == "test"
 Requires-Dist: lz4; extra == "test"

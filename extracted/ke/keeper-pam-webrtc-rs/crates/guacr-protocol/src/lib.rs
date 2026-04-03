@@ -3,14 +3,14 @@
 // Provides utilities for formatting Guacamole protocol instructions
 // according to the official Apache Guacamole protocol specification.
 
-mod advanced;
-mod binary;
-mod drawing;
-mod layers;
-mod parser;
+pub(crate) mod advanced;
+pub(crate) mod binary;
+pub(crate) mod drawing;
+pub(crate) mod layers;
+pub(crate) mod parser;
 pub mod streaming;
-mod streams;
-mod text_optimized;
+pub(crate) mod streams;
+pub(crate) mod text_optimized;
 
 pub use advanced::{
     // Instructions
@@ -78,18 +78,4 @@ pub fn format_instruction(opcode: &str, args: &[&str]) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_format_instruction() {
-        let instr = format_instruction("key", &["65507", "1"]);
-        assert_eq!(instr, "3.key,5.65507,1.1;");
-    }
-
-    #[test]
-    fn test_format_instruction_empty_args() {
-        let instr = format_instruction("sync", &[]);
-        assert_eq!(instr, "4.sync;");
-    }
-}
+mod tests;

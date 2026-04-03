@@ -62,11 +62,11 @@ def _is_barrel(file_path: str) -> bool:
     return _filename(file_path) in _BARREL_FILENAMES
 
 
-def _build_reverse_adjacency(imports: dict, source_files: frozenset, alias_map: dict) -> dict[str, list[str]]:
+def _build_reverse_adjacency(imports: dict, source_files: frozenset, alias_map: dict, psr4_map: Optional[dict] = None) -> dict[str, list[str]]:
     rev: dict[str, list[str]] = {}
     for src_file, file_imports in imports.items():
         for imp in file_imports:
-            target = resolve_specifier(imp["specifier"], src_file, source_files, alias_map)
+            target = resolve_specifier(imp["specifier"], src_file, source_files, alias_map, psr4_map)
             if target and target != src_file:
                 rev.setdefault(target, []).append(src_file)
     return {k: list(dict.fromkeys(v)) for k, v in rev.items()}
@@ -146,9 +146,11 @@ def get_dead_code_v2(
 
     source_files = frozenset(index.source_files)
     alias_map = getattr(index, "alias_map", {}) or {}
-    rev = _build_reverse_adjacency(index.imports, source_files, alias_map)
+    psr4_map = getattr(index, "psr4_map", None)
+    rev = _build_reverse_adjacency(index.imports, source_files, alias_map, psr4_map)
 
     # Pre-compute reachable files from entry points (Signal 1 input)
+    entry_point_count = sum(1 for f in index.source_files if _is_entry_point(f))
     reachable_files = _reachable_from_entry_points(list(index.source_files), rev)
 
     # Pre-compute barrel exports (Signal 3 input)
@@ -226,7 +228,7 @@ def get_dead_code_v2(
     dead_symbols.sort(key=lambda x: (-x["confidence"], x["file"], x["line"]))
 
     timing_ms = round((time.monotonic() - t0) * 1000, 1)
-    return {
+    result: dict = {
         "repo": f"{owner}/{name}",
         "dead_symbols": dead_symbols,
         "total_analysed": sum(
@@ -234,8 +236,20 @@ def get_dead_code_v2(
             if s.get("kind") in ("function", "method")
         ),
         "min_confidence": min_confidence,
-        "_meta": {"timing_ms": timing_ms},
+        "_meta": {
+            "timing_ms": timing_ms,
+            "methodology": "multi_signal",
+            "confidence_level": "medium",
+        },
     }
+    if entry_point_count == 0:
+        result["framework_warning"] = (
+            "No standard entry points detected (e.g. main.py, app.py, __main__.py). "
+            "Signal 1 (unreachable_file) fires for every symbol, inflating dead code counts. "
+            "Pass entry_point_patterns to identify framework-specific roots "
+            "(e.g. handler functions for AWS Lambda, route modules for FastAPI)."
+        )
+    return result
 
 
 def _is_test_file(file_path: str) -> bool:

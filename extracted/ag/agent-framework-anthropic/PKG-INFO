@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-anthropic
-Version: 1.0.0b260330
+Version: 1.0.0b260402
 Summary: Anthropic integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.0.0rc6
+Requires-Dist: agent-framework-core>=1.0.0,<2
 Requires-Dist: anthropic>=0.80.0,<0.80.1
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
@@ -34,6 +34,12 @@ pip install agent-framework-anthropic --pre
 ## Anthropic Integration
 
 The Anthropic integration enables communication with the Anthropic API, allowing your Agent Framework applications to leverage Anthropic's capabilities.
+
+The package also includes Anthropic-hosted transport wrappers for:
+
+- Azure AI Foundry via `AnthropicFoundryClient`
+- Amazon Bedrock via `AnthropicBedrockClient`
+- Google Vertex AI via `AnthropicVertexClient`
 
 ### Basic Usage Example
 

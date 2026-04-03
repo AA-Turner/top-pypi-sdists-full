@@ -18,6 +18,7 @@ from abstra_internals.controllers.codebase_events import CodebaseEventController
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.repositories.project.project import Project
+from abstra_internals.services.requirements import validate_requirements_content
 from abstra_internals.settings import Settings
 from abstra_internals.utils.code_check import code_check
 from abstra_internals.utils.zip import zip_folder_to_buffer
@@ -194,5 +195,10 @@ def get_editor_bp(repos: Repositories):
             return {"valid": False, "error": f"Invalid field type: {e}"}
         except Exception as e:
             return {"valid": False, "error": f"Invalid abstra.json structure: {e}"}
+
+    @bp.post("/validate-requirements")
+    def _validate_requirements():
+        content = flask.request.get_data(as_text=True)
+        return validate_requirements_content(content).to_dict()
 
     return bp

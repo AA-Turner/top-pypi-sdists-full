@@ -9,7 +9,7 @@ from .api.v2 import fetch_allowed_params
 
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 
-_ALLOWED_OPS = set((">=", "=>", "<=", "=<"))
+_ALLOWED_OPS = {">=", "=>", "<=", "=<"}
 
 
 def url_segment(url):
@@ -108,7 +108,7 @@ def parse_two_ops(compiled_m, host=DEFAULT_URL):
     allowed_params = fetch_allowed_params(host=host)
     md = compiled_m.groupdict()
     op1, op2 = md["op1"], md["op2"]
-    if not set((op1, op2)).issubset(_ALLOWED_OPS):
+    if not {op1, op2}.issubset(_ALLOWED_OPS):
         raise ValueError("Could not parse select string.\n" "Unknown operators.")
     param, val1, val2 = md["param"], md["val1"], md["val2"]
     if param not in allowed_params:
@@ -133,7 +133,7 @@ def parse_one_op(compiled_m, host=DEFAULT_URL):
     allowed_params = fetch_allowed_params(host=host)
     md = compiled_m.groupdict()
     op = md["op"]
-    if not set((op,)).issubset(_ALLOWED_OPS):
+    if not {op}.issubset(_ALLOWED_OPS):
         raise ValueError("Could not parse select string.\n" "Unknown operator.")
     param, val = md["param"], md["val"]
     if param not in allowed_params:

@@ -5012,6 +5012,11 @@ class CfnImageBuilder(
             iam_role_arn="iamRoleArn",
             image_arn="imageArn",
             image_name="imageName",
+            root_volume_config=appstream.CfnImageBuilder.VolumeConfigProperty(
+                volume_size_in_gb=123
+            ),
+            softwares_to_install=["softwaresToInstall"],
+            softwares_to_uninstall=["softwaresToUninstall"],
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -5039,6 +5044,9 @@ class CfnImageBuilder(
         iam_role_arn: typing.Optional[builtins.str] = None,
         image_arn: typing.Optional[builtins.str] = None,
         image_name: typing.Optional[builtins.str] = None,
+        root_volume_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnImageBuilder.VolumeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        softwares_to_install: typing.Optional[typing.Sequence[builtins.str]] = None,
+        softwares_to_uninstall: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnImageBuilder.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -5057,6 +5065,9 @@ class CfnImageBuilder(
         :param iam_role_arn: The ARN of the IAM role that is applied to the image builder. To assume a role, the image builder calls the Security Token Service ``AssumeRole`` API operation and passes the ARN of the role to use. The operation creates a new session with temporary credentials. AppStream 2.0 retrieves the temporary credentials and creates the *appstream_machine_role* credential profile on the instance. For more information, see `Using an IAM Role to Grant Permissions to Applications and Scripts Running on AppStream 2.0 Streaming Instances <https://docs.aws.amazon.com/appstream2/latest/developerguide/using-iam-roles-to-grant-permissions-to-applications-scripts-streaming-instances.html>`_ in the *Amazon AppStream 2.0 Administration Guide* .
         :param image_arn: The ARN of the public, private, or shared image to use.
         :param image_name: The name of the image used to create the image builder.
+        :param root_volume_config: 
+        :param softwares_to_install: 
+        :param softwares_to_uninstall: 
         :param tags: An array of key-value pairs.
         :param vpc_config: The VPC configuration for the image builder. You can specify only one subnet.
         '''
@@ -5076,6 +5087,9 @@ class CfnImageBuilder(
             iam_role_arn=iam_role_arn,
             image_arn=image_arn,
             image_name=image_name,
+            root_volume_config=root_volume_config,
+            softwares_to_install=softwares_to_install,
+            softwares_to_uninstall=softwares_to_uninstall,
             tags=tags,
             vpc_config=vpc_config,
         )
@@ -5347,6 +5361,53 @@ class CfnImageBuilder(
         jsii.set(self, "imageName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="rootVolumeConfig")
+    def root_volume_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnImageBuilder.VolumeConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnImageBuilder.VolumeConfigProperty"]], jsii.get(self, "rootVolumeConfig"))
+
+    @root_volume_config.setter
+    def root_volume_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnImageBuilder.VolumeConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__441fc235791561223e65119b090322cd36e33392ca2e37e30a53a448716e602f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rootVolumeConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="softwaresToInstall")
+    def softwares_to_install(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "softwaresToInstall"))
+
+    @softwares_to_install.setter
+    def softwares_to_install(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__421853327ebb28095212d87e79a65db02fa3e8a0d954ba35e455ffeb10acdcd0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "softwaresToInstall", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="softwaresToUninstall")
+    def softwares_to_uninstall(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "softwaresToUninstall"))
+
+    @softwares_to_uninstall.setter
+    def softwares_to_uninstall(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8cedda62a84cd6948191e24e9125865705eb3d069b5b146a5513f5c2f8d716a5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "softwaresToUninstall", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tagsRaw")
     def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs.'''
@@ -5526,6 +5587,59 @@ class CfnImageBuilder(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appstream.CfnImageBuilder.VolumeConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"volume_size_in_gb": "volumeSizeInGb"},
+    )
+    class VolumeConfigProperty:
+        def __init__(
+            self,
+            *,
+            volume_size_in_gb: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param volume_size_in_gb: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appstream-imagebuilder-volumeconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appstream as appstream
+                
+                volume_config_property = appstream.CfnImageBuilder.VolumeConfigProperty(
+                    volume_size_in_gb=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__761119866b24060a7fe22b4ea08300cd438240ecda20b822bf2e39549358add4)
+                check_type(argname="argument volume_size_in_gb", value=volume_size_in_gb, expected_type=type_hints["volume_size_in_gb"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if volume_size_in_gb is not None:
+                self._values["volume_size_in_gb"] = volume_size_in_gb
+
+        @builtins.property
+        def volume_size_in_gb(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appstream-imagebuilder-volumeconfig.html#cfn-appstream-imagebuilder-volumeconfig-volumesizeingb
+            '''
+            result = self._values.get("volume_size_in_gb")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VolumeConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_appstream.CfnImageBuilder.VpcConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -5616,6 +5730,9 @@ class CfnImageBuilder(
         "iam_role_arn": "iamRoleArn",
         "image_arn": "imageArn",
         "image_name": "imageName",
+        "root_volume_config": "rootVolumeConfig",
+        "softwares_to_install": "softwaresToInstall",
+        "softwares_to_uninstall": "softwaresToUninstall",
         "tags": "tags",
         "vpc_config": "vpcConfig",
     },
@@ -5635,6 +5752,9 @@ class CfnImageBuilderProps:
         iam_role_arn: typing.Optional[builtins.str] = None,
         image_arn: typing.Optional[builtins.str] = None,
         image_name: typing.Optional[builtins.str] = None,
+        root_volume_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnImageBuilder.VolumeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        softwares_to_install: typing.Optional[typing.Sequence[builtins.str]] = None,
+        softwares_to_uninstall: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnImageBuilder.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -5651,6 +5771,9 @@ class CfnImageBuilderProps:
         :param iam_role_arn: The ARN of the IAM role that is applied to the image builder. To assume a role, the image builder calls the Security Token Service ``AssumeRole`` API operation and passes the ARN of the role to use. The operation creates a new session with temporary credentials. AppStream 2.0 retrieves the temporary credentials and creates the *appstream_machine_role* credential profile on the instance. For more information, see `Using an IAM Role to Grant Permissions to Applications and Scripts Running on AppStream 2.0 Streaming Instances <https://docs.aws.amazon.com/appstream2/latest/developerguide/using-iam-roles-to-grant-permissions-to-applications-scripts-streaming-instances.html>`_ in the *Amazon AppStream 2.0 Administration Guide* .
         :param image_arn: The ARN of the public, private, or shared image to use.
         :param image_name: The name of the image used to create the image builder.
+        :param root_volume_config: 
+        :param softwares_to_install: 
+        :param softwares_to_uninstall: 
         :param tags: An array of key-value pairs.
         :param vpc_config: The VPC configuration for the image builder. You can specify only one subnet.
 
@@ -5684,6 +5807,11 @@ class CfnImageBuilderProps:
                 iam_role_arn="iamRoleArn",
                 image_arn="imageArn",
                 image_name="imageName",
+                root_volume_config=appstream.CfnImageBuilder.VolumeConfigProperty(
+                    volume_size_in_gb=123
+                ),
+                softwares_to_install=["softwaresToInstall"],
+                softwares_to_uninstall=["softwaresToUninstall"],
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -5707,6 +5835,9 @@ class CfnImageBuilderProps:
             check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
             check_type(argname="argument image_arn", value=image_arn, expected_type=type_hints["image_arn"])
             check_type(argname="argument image_name", value=image_name, expected_type=type_hints["image_name"])
+            check_type(argname="argument root_volume_config", value=root_volume_config, expected_type=type_hints["root_volume_config"])
+            check_type(argname="argument softwares_to_install", value=softwares_to_install, expected_type=type_hints["softwares_to_install"])
+            check_type(argname="argument softwares_to_uninstall", value=softwares_to_uninstall, expected_type=type_hints["softwares_to_uninstall"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5731,6 +5862,12 @@ class CfnImageBuilderProps:
             self._values["image_arn"] = image_arn
         if image_name is not None:
             self._values["image_name"] = image_name
+        if root_volume_config is not None:
+            self._values["root_volume_config"] = root_volume_config
+        if softwares_to_install is not None:
+            self._values["softwares_to_install"] = softwares_to_install
+        if softwares_to_uninstall is not None:
+            self._values["softwares_to_uninstall"] = softwares_to_uninstall
         if tags is not None:
             self._values["tags"] = tags
         if vpc_config is not None:
@@ -5901,6 +6038,32 @@ class CfnImageBuilderProps:
         '''
         result = self._values.get("image_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def root_volume_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnImageBuilder.VolumeConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-rootvolumeconfig
+        '''
+        result = self._values.get("root_volume_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnImageBuilder.VolumeConfigProperty"]], result)
+
+    @builtins.property
+    def softwares_to_install(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-softwarestoinstall
+        '''
+        result = self._values.get("softwares_to_install")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def softwares_to_uninstall(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-imagebuilder.html#cfn-appstream-imagebuilder-softwarestouninstall
+        '''
+        result = self._values.get("softwares_to_uninstall")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -8873,6 +9036,9 @@ def _typecheckingstub__25dccb4354e677f39c5c97fd983d6a76f7631b1133ab64219d2975708
     iam_role_arn: typing.Optional[builtins.str] = None,
     image_arn: typing.Optional[builtins.str] = None,
     image_name: typing.Optional[builtins.str] = None,
+    root_volume_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageBuilder.VolumeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    softwares_to_install: typing.Optional[typing.Sequence[builtins.str]] = None,
+    softwares_to_uninstall: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageBuilder.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -8977,6 +9143,24 @@ def _typecheckingstub__9671544139fb85d314712452cdf120b8083f58b155c561f6fe3cf4492
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__441fc235791561223e65119b090322cd36e33392ca2e37e30a53a448716e602f(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnImageBuilder.VolumeConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__421853327ebb28095212d87e79a65db02fa3e8a0d954ba35e455ffeb10acdcd0(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cedda62a84cd6948191e24e9125865705eb3d069b5b146a5513f5c2f8d716a5(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__32bb0a47350b5b67e1529a3d54fee7241fa2dab126f8e11eba610f03592bc255(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -9005,6 +9189,13 @@ def _typecheckingstub__4e8369c89d03719c64d2c83e51b7e08b1b75d665769bd928f11984729
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__761119866b24060a7fe22b4ea08300cd438240ecda20b822bf2e39549358add4(
+    *,
+    volume_size_in_gb: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e8d93dcafbda7cc30fc6a56bcf4eebd91a55747713e0043d6fdac8bc1f7237ce(
     *,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -9026,6 +9217,9 @@ def _typecheckingstub__f00d771423a1edbc076328e18ee5a37fbf5bb31404bdb6b4224eba3f8
     iam_role_arn: typing.Optional[builtins.str] = None,
     image_arn: typing.Optional[builtins.str] = None,
     image_name: typing.Optional[builtins.str] = None,
+    root_volume_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageBuilder.VolumeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    softwares_to_install: typing.Optional[typing.Sequence[builtins.str]] = None,
+    softwares_to_uninstall: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnImageBuilder.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

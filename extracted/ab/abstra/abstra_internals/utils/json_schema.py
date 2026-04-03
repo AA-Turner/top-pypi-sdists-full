@@ -1,4 +1,19 @@
+import sys
 from collections.abc import Iterable, Sized
+
+# Python 3.10+ has types.UnionType for `int | None` syntax.
+# On older versions, _is_union_type() always returns False.
+if sys.version_info >= (3, 10):
+    import types as _types_mod
+
+    def _is_union_type(t: object) -> bool:
+        return isinstance(t, _types_mod.UnionType)
+else:
+
+    def _is_union_type(t: object) -> bool:
+        return False
+
+
 from dataclasses import MISSING, fields, is_dataclass
 from inspect import Parameter, signature
 from typing import (
@@ -17,6 +32,25 @@ from typing import (
 
 from pydantic import BaseModel
 
+_COPYWRITING_KEYS = ("title", "activity", "activityTemplate")
+
+
+def extract_copywritings(docstring: "str | None") -> Dict[str, str]:
+    """Extract the Copywritings block from the *end* of a docstring.
+
+    Uses rsplit so that a docstring mentioning "Copywritings:" in its body
+    doesn't confuse the parser — only the last occurrence is treated as the block.
+    """
+    if not docstring:
+        return {}
+
+    parts = docstring.rsplit("Copywritings:", maxsplit=1)
+    if len(parts) < 2:
+        return {}
+
+    lines = [line.strip() for line in parts[1].strip().splitlines() if line.strip()]
+    return {key: lines[i] for i, key in enumerate(_COPYWRITING_KEYS) if i < len(lines)}
+
 
 def get_function_metadata(func: Callable) -> Dict[str, Any]:
     """Extract metadata from a function for JSON schema generation"""
@@ -28,11 +62,14 @@ def get_function_metadata(func: Callable) -> Dict[str, Any]:
         requires_approval = func._requires_approval  # type: ignore
         func_name += "__req_approval__"
 
+    copywritings = extract_copywritings(func.__doc__)
+
     return {
         "name": func_name,
         "description": func.__doc__.strip() if func.__doc__ else f"Tool: {func_name}",
         "inputSchema": input_schema,
         "requiresApproval": requires_approval,
+        "copywritings": copywritings,
     }
 
 
@@ -143,12 +180,15 @@ def type_to_json_schema(field_type: Any) -> Dict[str, Any]:
         else:
             return {"type": "object", "additionalProperties": True}
 
-    elif origin is Union:
+    # Handle Union types — both typing.Union and Python 3.10+ `X | Y` syntax
+    if origin is Union or _is_union_type(field_type):
+        # For types.UnionType (int | None), get_args works directly
+        union_args = get_args(field_type) if args else ()
         # Handle empty Union
-        if not args:
+        if not union_args:
             return {}
         # Handle Optional (Union[T, None]) and other unions
-        non_none_args = [arg for arg in args if arg is not type(None)]
+        non_none_args = [arg for arg in union_args if arg is not type(None)]
         if len(non_none_args) == 0:
             # Only NoneType
             return {"type": "null"}
@@ -218,7 +258,57 @@ def dataclass_to_json_schema(dataclass_type: Any) -> Dict[str, Any]:
     }
 
 
+def coerce_value(value: object, schema: dict) -> object:
+    """Coerce a value to match the expected schema type.
+
+    LLMs sometimes send "30" instead of 30, or "true" instead of true.
+    This function tolerates these common mismatches.
+    """
+    # Handle nullable schemas: coerce "null" string to None
+    if (
+        schema.get("nullable")
+        and isinstance(value, str)
+        and value.strip().lower() == "null"
+    ):
+        return None
+
+    t = schema.get("type")
+
+    if t == "integer":
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.lstrip("-").isdigit():
+                return int(stripped)
+        if isinstance(value, float) and value == int(value):
+            return int(value)
+
+    if t == "number" and isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            pass
+
+    if t == "boolean" and isinstance(value, str):
+        lower = value.strip().lower()
+        if lower in ("true", "1", "yes"):
+            return True
+        if lower in ("false", "0", "no"):
+            return False
+
+    return value
+
+
+def coerce_and_validate(value: object, schema: dict) -> Tuple[object, bool]:
+    """Coerce a value then validate it. Returns (coerced_value, is_valid)."""
+    coerced = coerce_value(value, schema)
+    return coerced, validate_type(coerced, schema)
+
+
 def validate_type(value: object, schema: dict) -> bool:
+    # Handle nullable: None is always valid for nullable schemas
+    if schema.get("nullable") and value is None:
+        return True
+
     # Handle anyOf at the top level
     if "anyOf" in schema:
         return any(validate_type(value, s) for s in schema["anyOf"])

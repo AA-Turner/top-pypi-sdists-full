@@ -392,11 +392,6 @@ if TYPE_CHECKING:
         ContentPartDoneEventTypedDict,
     )
     from .contextcompressionengine import ContextCompressionEngine
-    from .createchargerequest import (
-        ChainID,
-        CreateChargeRequest,
-        CreateChargeRequestTypedDict,
-    )
     from .customtool import (
         CustomTool,
         CustomToolTypedDict,
@@ -515,6 +510,10 @@ if TYPE_CHECKING:
         OutputInputImage,
         OutputInputImageTypedDict,
         OutputType,
+    )
+    from .goneresponseerrordata import (
+        GoneResponseErrorData,
+        GoneResponseErrorDataTypedDict,
     )
     from .imagegencallcompletedevent import (
         ImageGenCallCompletedEvent,
@@ -1268,7 +1267,6 @@ __all__ = [
     "By",
     "CacheControl",
     "CacheControlTypedDict",
-    "ChainID",
     "ChatAssistantImages",
     "ChatAssistantImagesImageURL",
     "ChatAssistantImagesImageURLTypedDict",
@@ -1510,8 +1508,6 @@ __all__ = [
     "ContextCompressionEngine",
     "CostDetails",
     "CostDetailsTypedDict",
-    "CreateChargeRequest",
-    "CreateChargeRequestTypedDict",
     "CustomTool",
     "CustomToolTypedDict",
     "Data",
@@ -1608,6 +1604,8 @@ __all__ = [
     "FunctionCallOutputItemOutputUnion2TypedDict",
     "FunctionCallOutputItemTypeFunctionCallOutput",
     "FunctionCallOutputItemTypedDict",
+    "GoneResponseErrorData",
+    "GoneResponseErrorDataTypedDict",
     "ImageGenCallCompletedEvent",
     "ImageGenCallCompletedEventType",
     "ImageGenCallCompletedEventTypedDict",
@@ -2464,9 +2462,6 @@ _dynamic_imports: dict[str, str] = {
     "ContentPartDoneEventType": ".contentpartdoneevent",
     "ContentPartDoneEventTypedDict": ".contentpartdoneevent",
     "ContextCompressionEngine": ".contextcompressionengine",
-    "ChainID": ".createchargerequest",
-    "CreateChargeRequest": ".createchargerequest",
-    "CreateChargeRequestTypedDict": ".createchargerequest",
     "CustomTool": ".customtool",
     "CustomToolTypedDict": ".customtool",
     "Format": ".customtool",
@@ -2568,6 +2563,8 @@ _dynamic_imports: dict[str, str] = {
     "OutputInputImage": ".functioncalloutputitem",
     "OutputInputImageTypedDict": ".functioncalloutputitem",
     "OutputType": ".functioncalloutputitem",
+    "GoneResponseErrorData": ".goneresponseerrordata",
+    "GoneResponseErrorDataTypedDict": ".goneresponseerrordata",
     "ImageGenCallCompletedEvent": ".imagegencallcompletedevent",
     "ImageGenCallCompletedEventType": ".imagegencallcompletedevent",
     "ImageGenCallCompletedEventTypedDict": ".imagegencallcompletedevent",

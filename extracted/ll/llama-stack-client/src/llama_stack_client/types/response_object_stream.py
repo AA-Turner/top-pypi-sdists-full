@@ -42,6 +42,9 @@ __all__ = [
     "OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseOutputMessageMcpListTools",
     "OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseOutputMessageMcpListToolsTool",
     "OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseMcpApprovalRequest",
+    "OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseOutputMessageReasoningItem",
+    "OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseOutputMessageReasoningItemSummary",
+    "OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseOutputMessageReasoningItemContent",
     "OpenAIResponseObjectStreamResponseOutputItemDone",
     "OpenAIResponseObjectStreamResponseOutputItemDoneItem",
     "OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseMessage",
@@ -67,6 +70,9 @@ __all__ = [
     "OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseOutputMessageMcpListTools",
     "OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseOutputMessageMcpListToolsTool",
     "OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseMcpApprovalRequest",
+    "OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseOutputMessageReasoningItem",
+    "OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseOutputMessageReasoningItemSummary",
+    "OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseOutputMessageReasoningItemContent",
     "OpenAIResponseObjectStreamResponseOutputTextDelta",
     "OpenAIResponseObjectStreamResponseOutputTextDeltaLogprob",
     "OpenAIResponseObjectStreamResponseOutputTextDeltaLogprobTopLogprob",
@@ -238,6 +244,8 @@ class OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseMessage
 class OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseMessageContentListOpenAIResponseOutputMessageContentOutputTextOpenAIResponseContentPartRefusalOpenAIResponseOutputMessageContentOutputTextAnnotationOpenAIResponseAnnotationContainerFileCitation(
     BaseModel
 ):
+    """Container file citation annotation referencing a file within a container."""
+
     container_id: str
 
     end_index: int
@@ -254,6 +262,8 @@ class OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseMessage
 class OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseMessageContentListOpenAIResponseOutputMessageContentOutputTextOpenAIResponseContentPartRefusalOpenAIResponseOutputMessageContentOutputTextAnnotationOpenAIResponseAnnotationFilePath(
     BaseModel
 ):
+    """File path annotation referencing a generated file in response content."""
+
     file_id: str
 
     index: int
@@ -316,6 +326,8 @@ class OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseMessage
 class OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseMessageContentListOpenAIResponseOutputMessageContentOutputTextOpenAIResponseContentPartRefusalOpenAIResponseOutputMessageContentOutputText(
     BaseModel
 ):
+    """Text content within an output message of an OpenAI response."""
+
     text: str
 
     annotations: Optional[
@@ -491,6 +503,47 @@ class OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseMcpAppr
     type: Optional[Literal["mcp_approval_request"]] = None
 
 
+class OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseOutputMessageReasoningItemSummary(BaseModel):
+    """A summary of reasoning output from the model."""
+
+    text: str
+    """The summary text of the reasoning output."""
+
+    type: Optional[Literal["summary_text"]] = None
+    """The type identifier, always 'summary_text'."""
+
+
+class OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseOutputMessageReasoningItemContent(BaseModel):
+    """Reasoning text from the model."""
+
+    text: str
+    """The reasoning text content from the model."""
+
+    type: Optional[Literal["reasoning_text"]] = None
+    """The type identifier, always 'reasoning_text'."""
+
+
+class OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseOutputMessageReasoningItem(BaseModel):
+    """Reasoning output from the model, representing the model's thinking process."""
+
+    id: str
+    """Unique identifier for the reasoning output item."""
+
+    summary: List[OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseOutputMessageReasoningItemSummary]
+    """Summary of the reasoning output."""
+
+    content: Optional[
+        List[OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseOutputMessageReasoningItemContent]
+    ] = None
+    """The reasoning content from the model."""
+
+    status: Optional[Literal["in_progress", "completed", "incomplete"]] = None
+    """The status of the reasoning output."""
+
+    type: Optional[Literal["reasoning"]] = None
+    """The type identifier, always 'reasoning'."""
+
+
 OpenAIResponseObjectStreamResponseOutputItemAddedItem: TypeAlias = Annotated[
     Union[
         OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseMessage,
@@ -500,6 +553,7 @@ OpenAIResponseObjectStreamResponseOutputItemAddedItem: TypeAlias = Annotated[
         OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseOutputMessageMcpCall,
         OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseOutputMessageMcpListTools,
         OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseMcpApprovalRequest,
+        OpenAIResponseObjectStreamResponseOutputItemAddedItemOpenAIResponseOutputMessageReasoningItem,
     ],
     PropertyInfo(discriminator="type"),
 ]
@@ -607,6 +661,8 @@ class OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseMessageC
 class OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseMessageContentListOpenAIResponseOutputMessageContentOutputTextOpenAIResponseContentPartRefusalOpenAIResponseOutputMessageContentOutputTextAnnotationOpenAIResponseAnnotationContainerFileCitation(
     BaseModel
 ):
+    """Container file citation annotation referencing a file within a container."""
+
     container_id: str
 
     end_index: int
@@ -623,6 +679,8 @@ class OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseMessageC
 class OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseMessageContentListOpenAIResponseOutputMessageContentOutputTextOpenAIResponseContentPartRefusalOpenAIResponseOutputMessageContentOutputTextAnnotationOpenAIResponseAnnotationFilePath(
     BaseModel
 ):
+    """File path annotation referencing a generated file in response content."""
+
     file_id: str
 
     index: int
@@ -685,6 +743,8 @@ class OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseMessageC
 class OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseMessageContentListOpenAIResponseOutputMessageContentOutputTextOpenAIResponseContentPartRefusalOpenAIResponseOutputMessageContentOutputText(
     BaseModel
 ):
+    """Text content within an output message of an OpenAI response."""
+
     text: str
 
     annotations: Optional[
@@ -860,6 +920,47 @@ class OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseMcpAppro
     type: Optional[Literal["mcp_approval_request"]] = None
 
 
+class OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseOutputMessageReasoningItemSummary(BaseModel):
+    """A summary of reasoning output from the model."""
+
+    text: str
+    """The summary text of the reasoning output."""
+
+    type: Optional[Literal["summary_text"]] = None
+    """The type identifier, always 'summary_text'."""
+
+
+class OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseOutputMessageReasoningItemContent(BaseModel):
+    """Reasoning text from the model."""
+
+    text: str
+    """The reasoning text content from the model."""
+
+    type: Optional[Literal["reasoning_text"]] = None
+    """The type identifier, always 'reasoning_text'."""
+
+
+class OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseOutputMessageReasoningItem(BaseModel):
+    """Reasoning output from the model, representing the model's thinking process."""
+
+    id: str
+    """Unique identifier for the reasoning output item."""
+
+    summary: List[OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseOutputMessageReasoningItemSummary]
+    """Summary of the reasoning output."""
+
+    content: Optional[
+        List[OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseOutputMessageReasoningItemContent]
+    ] = None
+    """The reasoning content from the model."""
+
+    status: Optional[Literal["in_progress", "completed", "incomplete"]] = None
+    """The status of the reasoning output."""
+
+    type: Optional[Literal["reasoning"]] = None
+    """The type identifier, always 'reasoning'."""
+
+
 OpenAIResponseObjectStreamResponseOutputItemDoneItem: TypeAlias = Annotated[
     Union[
         OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseMessage,
@@ -869,6 +970,7 @@ OpenAIResponseObjectStreamResponseOutputItemDoneItem: TypeAlias = Annotated[
         OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseOutputMessageMcpCall,
         OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseOutputMessageMcpListTools,
         OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseMcpApprovalRequest,
+        OpenAIResponseObjectStreamResponseOutputItemDoneItemOpenAIResponseOutputMessageReasoningItem,
     ],
     PropertyInfo(discriminator="type"),
 ]
@@ -1001,6 +1103,8 @@ class OpenAIResponseObjectStreamResponseWebSearchCallInProgress(BaseModel):
 
 
 class OpenAIResponseObjectStreamResponseWebSearchCallSearching(BaseModel):
+    """Streaming event for web search calls currently searching."""
+
     item_id: str
 
     output_index: int
@@ -1023,24 +1127,32 @@ class OpenAIResponseObjectStreamResponseWebSearchCallCompleted(BaseModel):
 
 
 class OpenAIResponseObjectStreamResponseMcpListToolsInProgress(BaseModel):
+    """Streaming event for MCP list tools operation in progress."""
+
     sequence_number: int
 
     type: Optional[Literal["response.mcp_list_tools.in_progress"]] = None
 
 
 class OpenAIResponseObjectStreamResponseMcpListToolsFailed(BaseModel):
+    """Streaming event for a failed MCP list tools operation."""
+
     sequence_number: int
 
     type: Optional[Literal["response.mcp_list_tools.failed"]] = None
 
 
 class OpenAIResponseObjectStreamResponseMcpListToolsCompleted(BaseModel):
+    """Streaming event for a completed MCP list tools operation."""
+
     sequence_number: int
 
     type: Optional[Literal["response.mcp_list_tools.completed"]] = None
 
 
 class OpenAIResponseObjectStreamResponseMcpCallArgumentsDelta(BaseModel):
+    """Streaming event for incremental MCP call argument updates."""
+
     delta: str
 
     item_id: str
@@ -1053,6 +1165,8 @@ class OpenAIResponseObjectStreamResponseMcpCallArgumentsDelta(BaseModel):
 
 
 class OpenAIResponseObjectStreamResponseMcpCallArgumentsDone(BaseModel):
+    """Streaming event for completed MCP call arguments."""
+
     arguments: str
 
     item_id: str
@@ -1125,6 +1239,8 @@ class OpenAIResponseObjectStreamResponseContentPartAddedPartOpenAIResponseConten
 class OpenAIResponseObjectStreamResponseContentPartAddedPartOpenAIResponseContentPartOutputTextAnnotationOpenAIResponseAnnotationContainerFileCitation(
     BaseModel
 ):
+    """Container file citation annotation referencing a file within a container."""
+
     container_id: str
 
     end_index: int
@@ -1141,6 +1257,8 @@ class OpenAIResponseObjectStreamResponseContentPartAddedPartOpenAIResponseConten
 class OpenAIResponseObjectStreamResponseContentPartAddedPartOpenAIResponseContentPartOutputTextAnnotationOpenAIResponseAnnotationFilePath(
     BaseModel
 ):
+    """File path annotation referencing a generated file in response content."""
+
     file_id: str
 
     index: int
@@ -1290,6 +1408,8 @@ class OpenAIResponseObjectStreamResponseContentPartDonePartOpenAIResponseContent
 class OpenAIResponseObjectStreamResponseContentPartDonePartOpenAIResponseContentPartOutputTextAnnotationOpenAIResponseAnnotationContainerFileCitation(
     BaseModel
 ):
+    """Container file citation annotation referencing a file within a container."""
+
     container_id: str
 
     end_index: int
@@ -1306,6 +1426,8 @@ class OpenAIResponseObjectStreamResponseContentPartDonePartOpenAIResponseContent
 class OpenAIResponseObjectStreamResponseContentPartDonePartOpenAIResponseContentPartOutputTextAnnotationOpenAIResponseAnnotationFilePath(
     BaseModel
 ):
+    """File path annotation referencing a generated file in response content."""
+
     file_id: str
 
     index: int
@@ -1599,6 +1721,8 @@ class OpenAIResponseObjectStreamResponseOutputTextAnnotationAddedAnnotationOpenA
 class OpenAIResponseObjectStreamResponseOutputTextAnnotationAddedAnnotationOpenAIResponseAnnotationContainerFileCitation(
     BaseModel
 ):
+    """Container file citation annotation referencing a file within a container."""
+
     container_id: str
 
     end_index: int
@@ -1613,6 +1737,8 @@ class OpenAIResponseObjectStreamResponseOutputTextAnnotationAddedAnnotationOpenA
 
 
 class OpenAIResponseObjectStreamResponseOutputTextAnnotationAddedAnnotationOpenAIResponseAnnotationFilePath(BaseModel):
+    """File path annotation referencing a generated file in response content."""
+
     file_id: str
 
     index: int

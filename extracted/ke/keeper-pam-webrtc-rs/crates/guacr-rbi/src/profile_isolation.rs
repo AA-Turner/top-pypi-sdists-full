@@ -17,7 +17,7 @@ use std::os::unix::io::AsRawFd;
 use log::warn;
 
 /// Name of the lock file placed in profile directories
-const PROFILE_LOCK_FILE_NAME: &str = "guacr-rbi-profile.lock";
+pub(crate) const PROFILE_LOCK_FILE_NAME: &str = "guacr-rbi-profile.lock";
 
 /// Profile directory creation mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -269,67 +269,4 @@ impl DbusIsolation {
     }
 
     pub fn cleanup(&mut self) {}
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_profile_lock_temp_dir() {
-        // Create a temp directory for testing
-        let temp = tempfile::tempdir().unwrap();
-        let profile_path = temp.path().join("test_profile");
-
-        // Should fail if directory doesn't exist (MustExist mode)
-        let result = ProfileLock::acquire(&profile_path, ProfileCreationMode::MustExist);
-        assert!(matches!(
-            result,
-            Err(ProfileLockError::DirectoryNotFound(_))
-        ));
-
-        // Should succeed with Create mode
-        let lock = ProfileLock::acquire(&profile_path, ProfileCreationMode::Create).unwrap();
-        assert!(profile_path.exists());
-        assert!(profile_path.join(PROFILE_LOCK_FILE_NAME).exists());
-
-        // Should fail to acquire second lock on same profile
-        #[cfg(target_os = "linux")]
-        {
-            let result2 = ProfileLock::acquire(&profile_path, ProfileCreationMode::MustExist);
-            assert!(matches!(result2, Err(ProfileLockError::ProfileInUse(_))));
-        }
-
-        // Release lock
-        drop(lock);
-
-        // Should succeed now
-        let _lock2 = ProfileLock::acquire(&profile_path, ProfileCreationMode::MustExist).unwrap();
-    }
-
-    #[test]
-    fn test_profile_creation_modes() {
-        let temp = tempfile::tempdir().unwrap();
-
-        // Test CreateRecursive
-        let nested_path = temp.path().join("a/b/c/profile");
-        let lock =
-            ProfileLock::acquire(&nested_path, ProfileCreationMode::CreateRecursive).unwrap();
-        assert!(nested_path.exists());
-        drop(lock);
-
-        // Test Create (single level)
-        let single_path = temp.path().join("single_profile");
-        let lock = ProfileLock::acquire(&single_path, ProfileCreationMode::Create).unwrap();
-        assert!(single_path.exists());
-        drop(lock);
-
-        // Test Create fails for nested
-        let nested_fail = temp.path().join("x/y/z");
-        let result = ProfileLock::acquire(&nested_fail, ProfileCreationMode::Create);
-        assert!(matches!(
-            result,
-            Err(ProfileLockError::DirectoryCreationFailed(_, _))
-        ));
-    }
 }

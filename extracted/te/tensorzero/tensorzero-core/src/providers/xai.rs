@@ -7,7 +7,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use tensorzero_types_providers::xai::{
     XAIAssistantRequestMessage, XAIRequestMessage, XAIResponse as XAIResponseGeneric,
-    XAISystemRequestMessage, XAIToolRequestMessage, XAIUsage, XAIUserRequestMessage,
+    XAISystemRequestMessage, XAIToolRequestMessage, XAIUserRequestMessage,
 };
 use tokio::time::Instant;
 use url::Url;
@@ -19,6 +19,7 @@ use crate::error::{
 };
 use crate::http::TensorzeroHttpClient;
 use crate::inference::InferenceProvider;
+use crate::inference::types::ProviderInferenceResponseArgs;
 use crate::inference::types::batch::{BatchRequestRow, PollBatchInferenceResponse};
 use crate::inference::types::chat_completion_inference_params::{
     ChatCompletionInferenceParamsV2, warn_inference_parameter_not_supported,
@@ -27,8 +28,8 @@ use crate::inference::types::usage::raw_usage_entries_from_value;
 use crate::inference::types::{
     ApiType, ContentBlock, ContentBlockOutput, Latency, ModelInferenceRequest,
     ModelInferenceRequestJsonMode, PeekableProviderInferenceResponseStream,
-    ProviderInferenceResponse, ProviderInferenceResponseArgs, ProviderInferenceResponseChunk,
-    ProviderInferenceResponseStreamInner, RequestMessage, Role, Text, Thought, Unknown, Usage,
+    ProviderInferenceResponse, ProviderInferenceResponseChunk,
+    ProviderInferenceResponseStreamInner, RequestMessage, Role, Text, Thought, Unknown,
     batch::StartBatchProviderInferenceResponse,
 };
 use crate::model::{Credential, ModelProvider};
@@ -56,29 +57,6 @@ const PROVIDER_NAME: &str = "xAI";
 pub const PROVIDER_TYPE: &str = "xai";
 
 type XAIResponse = XAIResponseGeneric<OpenAIResponseChoice>;
-
-impl From<XAIUsage> for Usage {
-    fn from(usage: XAIUsage) -> Self {
-        // Add `reasoning_tokens` to `completion_tokens` for total output tokens
-        let output_tokens = match (usage.completion_tokens, usage.completion_tokens_details) {
-            (Some(completion), Some(details)) => {
-                Some(completion + details.reasoning_tokens.unwrap_or(0))
-            }
-            (Some(completion), None) => Some(completion),
-            (None, Some(details)) => details.reasoning_tokens,
-            (None, None) => None,
-        };
-        Usage {
-            input_tokens: usage.prompt_tokens,
-            output_tokens,
-            provider_cache_read_input_tokens: usage
-                .prompt_tokens_details
-                .and_then(|d| d.cached_tokens),
-            provider_cache_write_input_tokens: None,
-            cost: None,
-        }
-    }
-}
 
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Serialize)]
@@ -706,6 +684,7 @@ impl<'a> XAIRequest<'a> {
                 provider_type: PROVIDER_TYPE,
                 fetch_and_encode_input_files_before_inference: request
                     .fetch_and_encode_input_files_before_inference,
+                content_type_overrides: None,
             },
         )
         .await?;
@@ -852,6 +831,7 @@ impl<'a> TryFrom<XAIResponseWithMetadata<'a>> for ProviderInferenceResponse {
         let input_messages = generic_request.messages.clone();
         Ok(ProviderInferenceResponse::new(
             ProviderInferenceResponseArgs {
+                id: model_inference_id,
                 output: content,
                 system,
                 input_messages,
@@ -862,7 +842,6 @@ impl<'a> TryFrom<XAIResponseWithMetadata<'a>> for ProviderInferenceResponse {
                 relay_raw_response: None,
                 provider_latency: latency,
                 finish_reason: Some(finish_reason.into()),
-                id: model_inference_id,
             },
         ))
     }
@@ -930,6 +909,7 @@ mod tests {
         OpenAIFinishReason, OpenAIResponseChoice, OpenAIResponseMessage,
     };
     use crate::providers::test_helpers::{WEATHER_TOOL, WEATHER_TOOL_CONFIG};
+    use tensorzero_types_providers::xai::XAIUsage;
 
     #[tokio::test]
     async fn test_xai_request_new() {
@@ -1191,6 +1171,7 @@ mod tests {
             json_mode: None,
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: false,
+            content_type_overrides: None,
         };
 
         let result = tensorzero_to_xai_assistant_message(&content_blocks, messages_config)
@@ -1228,6 +1209,7 @@ mod tests {
             json_mode: None,
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: false,
+            content_type_overrides: None,
         };
 
         let result = tensorzero_to_xai_assistant_message(&content_blocks, messages_config)
@@ -1266,6 +1248,7 @@ mod tests {
             json_mode: None,
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: false,
+            content_type_overrides: None,
         };
 
         let result = tensorzero_to_xai_assistant_message(&content_blocks, messages_config)
@@ -1303,6 +1286,7 @@ mod tests {
             json_mode: None,
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: false,
+            content_type_overrides: None,
         };
 
         let result = tensorzero_to_xai_assistant_message(&content_blocks, messages_config)
@@ -1393,6 +1377,7 @@ mod tests {
             json_mode: Some(&ModelInferenceRequestJsonMode::On),
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: false,
+            content_type_overrides: None,
         };
 
         let result = prepare_xai_messages(system, &messages, messages_config)
@@ -1435,6 +1420,7 @@ mod tests {
             json_mode: Some(&ModelInferenceRequestJsonMode::On),
             provider_type: PROVIDER_TYPE,
             fetch_and_encode_input_files_before_inference: false,
+            content_type_overrides: None,
         };
 
         let result = prepare_xai_messages(system, &messages, messages_config)

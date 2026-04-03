@@ -11276,6 +11276,7 @@ class HttpAuthorizerAttributes:
         "jwt_issuer": "jwtIssuer",
         "payload_format_version": "payloadFormatVersion",
         "results_cache_ttl": "resultsCacheTtl",
+        "role": "role",
     },
 )
 class HttpAuthorizerProps:
@@ -11292,6 +11293,7 @@ class HttpAuthorizerProps:
         jwt_issuer: typing.Optional[builtins.str] = None,
         payload_format_version: typing.Optional["AuthorizerPayloadVersion"] = None,
         results_cache_ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        role: typing.Optional["_IRoleRef_8400221f"] = None,
     ) -> None:
         '''Properties to initialize an instance of ``HttpAuthorizer``.
 
@@ -11305,6 +11307,7 @@ class HttpAuthorizerProps:
         :param jwt_issuer: The base domain of the identity provider that issues JWT. Default: - required for JWT authorizer types.
         :param payload_format_version: Specifies the format of the payload sent to an HTTP API Lambda authorizer. Default: AuthorizerPayloadVersion.VERSION_2_0 if the authorizer type is HttpAuthorizerType.LAMBDA
         :param results_cache_ttl: How long APIGateway should cache the results. Max 1 hour. Default: - API Gateway will not cache authorizer responses
+        :param role: The IAM role that the API Gateway service assumes while invoking the authorizer. Supported only for REQUEST authorizers. Default: - No role
 
         :exampleMetadata: fixture=_generated
 
@@ -11314,8 +11317,10 @@ class HttpAuthorizerProps:
             # The values are placeholders you should change.
             import aws_cdk as cdk
             from aws_cdk import aws_apigatewayv2 as apigatewayv2
+            from aws_cdk.interfaces import aws_iam as interfaces_iam
             
             # http_api_ref: apigatewayv2.IHttpApiRef
+            # role_ref: interfaces_iam.IRoleRef
             
             http_authorizer_props = apigatewayv2.HttpAuthorizerProps(
                 http_api=http_api_ref,
@@ -11329,7 +11334,8 @@ class HttpAuthorizerProps:
                 jwt_audience=["jwtAudience"],
                 jwt_issuer="jwtIssuer",
                 payload_format_version=apigatewayv2.AuthorizerPayloadVersion.VERSION_1_0,
-                results_cache_ttl=cdk.Duration.minutes(30)
+                results_cache_ttl=cdk.Duration.minutes(30),
+                role=role_ref
             )
         '''
         if __debug__:
@@ -11344,6 +11350,7 @@ class HttpAuthorizerProps:
             check_type(argname="argument jwt_issuer", value=jwt_issuer, expected_type=type_hints["jwt_issuer"])
             check_type(argname="argument payload_format_version", value=payload_format_version, expected_type=type_hints["payload_format_version"])
             check_type(argname="argument results_cache_ttl", value=results_cache_ttl, expected_type=type_hints["results_cache_ttl"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "http_api": http_api,
             "identity_source": identity_source,
@@ -11363,6 +11370,8 @@ class HttpAuthorizerProps:
             self._values["payload_format_version"] = payload_format_version
         if results_cache_ttl is not None:
             self._values["results_cache_ttl"] = results_cache_ttl
+        if role is not None:
+            self._values["role"] = role
 
     @builtins.property
     def http_api(self) -> "IHttpApiRef":
@@ -11458,6 +11467,17 @@ class HttpAuthorizerProps:
         '''
         result = self._values.get("results_cache_ttl")
         return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+
+    @builtins.property
+    def role(self) -> typing.Optional["_IRoleRef_8400221f"]:
+        '''The IAM role that the API Gateway service assumes while invoking the authorizer.
+
+        Supported only for REQUEST authorizers.
+
+        :default: - No role
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional["_IRoleRef_8400221f"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19006,8 +19026,10 @@ class HttpAuthorizer(
         # The values are placeholders you should change.
         import aws_cdk as cdk
         from aws_cdk import aws_apigatewayv2 as apigatewayv2
+        from aws_cdk.interfaces import aws_iam as interfaces_iam
         
         # http_api_ref: apigatewayv2.IHttpApiRef
+        # role_ref: interfaces_iam.IRoleRef
         
         http_authorizer = apigatewayv2.HttpAuthorizer(self, "MyHttpAuthorizer",
             http_api=http_api_ref,
@@ -19021,7 +19043,8 @@ class HttpAuthorizer(
             jwt_audience=["jwtAudience"],
             jwt_issuer="jwtIssuer",
             payload_format_version=apigatewayv2.AuthorizerPayloadVersion.VERSION_1_0,
-            results_cache_ttl=cdk.Duration.minutes(30)
+            results_cache_ttl=cdk.Duration.minutes(30),
+            role=role_ref
         )
     '''
 
@@ -19040,6 +19063,7 @@ class HttpAuthorizer(
         jwt_issuer: typing.Optional[builtins.str] = None,
         payload_format_version: typing.Optional["AuthorizerPayloadVersion"] = None,
         results_cache_ttl: typing.Optional["_Duration_4839e8c3"] = None,
+        role: typing.Optional["_IRoleRef_8400221f"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -19054,6 +19078,7 @@ class HttpAuthorizer(
         :param jwt_issuer: The base domain of the identity provider that issues JWT. Default: - required for JWT authorizer types.
         :param payload_format_version: Specifies the format of the payload sent to an HTTP API Lambda authorizer. Default: AuthorizerPayloadVersion.VERSION_2_0 if the authorizer type is HttpAuthorizerType.LAMBDA
         :param results_cache_ttl: How long APIGateway should cache the results. Max 1 hour. Default: - API Gateway will not cache authorizer responses
+        :param role: The IAM role that the API Gateway service assumes while invoking the authorizer. Supported only for REQUEST authorizers. Default: - No role
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7da0023111eeaa20140212b6b10bdb3fc690c730188acea2d4f7443b8f801ce4)
@@ -19070,6 +19095,7 @@ class HttpAuthorizer(
             jwt_issuer=jwt_issuer,
             payload_format_version=payload_format_version,
             results_cache_ttl=results_cache_ttl,
+            role=role,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -24707,6 +24733,7 @@ def _typecheckingstub__f1fe97485bbc5a620b78f1e8a3be5294e95494746492949834f083faf
     jwt_issuer: typing.Optional[builtins.str] = None,
     payload_format_version: typing.Optional[AuthorizerPayloadVersion] = None,
     results_cache_ttl: typing.Optional[_Duration_4839e8c3] = None,
+    role: typing.Optional[_IRoleRef_8400221f] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25579,6 +25606,7 @@ def _typecheckingstub__7da0023111eeaa20140212b6b10bdb3fc690c730188acea2d4f7443b8
     jwt_issuer: typing.Optional[builtins.str] = None,
     payload_format_version: typing.Optional[AuthorizerPayloadVersion] = None,
     results_cache_ttl: typing.Optional[_Duration_4839e8c3] = None,
+    role: typing.Optional[_IRoleRef_8400221f] = None,
 ) -> None:
     """Type checking stubs"""
     pass

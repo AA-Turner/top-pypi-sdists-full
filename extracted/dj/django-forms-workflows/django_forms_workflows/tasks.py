@@ -149,6 +149,71 @@ def _send_html_email(
             )
 
 
+def _send_html_email_from_string(
+    subject: str,
+    to: Iterable[str],
+    body_template_string: str,
+    context: dict,
+    from_email: str | None = None,
+    *,
+    notification_type: str = "other",
+    submission_id: int | None = None,
+) -> None:
+    """Like _send_html_email but renders an inline Django template string
+    instead of loading a template file.  Used when a NotificationRule has a
+    custom ``body_template``.
+    """
+    from django.template import Context, Template
+
+    to_list = [e for e in to if e]
+    if not to_list:
+        logger.info("Skipping email '%s' (no recipients)", subject)
+        _write_notification_log(
+            notification_type=notification_type,
+            submission_id=submission_id,
+            recipient_email="(none)",
+            subject=subject,
+            status="skipped",
+        )
+        return
+
+    context.setdefault("site_name", _site_name())
+
+    tpl = Template(body_template_string)
+    html_body = tpl.render(Context(context))
+    text_body = strip_tags(html_body)
+    from_addr = from_email or getattr(
+        settings, "DEFAULT_FROM_EMAIL", "no-reply@localhost"
+    )
+
+    msg = EmailMultiAlternatives(
+        subject=subject, body=text_body, from_email=from_addr, to=to_list
+    )
+    msg.attach_alternative(html_body, "text/html")
+    try:
+        msg.send(fail_silently=False)
+        logger.info("Sent email '%s' to %s", subject, to_list)
+        for recipient in to_list:
+            _write_notification_log(
+                notification_type=notification_type,
+                submission_id=submission_id,
+                recipient_email=recipient,
+                subject=subject,
+                status="sent",
+            )
+    except Exception as e:  # pragma: no cover
+        logger.exception("Failed sending email '%s' to %s: %s", subject, to_list, e)
+        for recipient in to_list:
+            _write_notification_log(
+                notification_type=notification_type,
+                submission_id=submission_id,
+                recipient_email=recipient,
+                subject=subject,
+                status="failed",
+                error_message=str(e),
+            )
+
+
 def _write_notification_log(
     *,
     notification_type: str,
@@ -726,10 +791,12 @@ def check_approval_deadlines() -> str:
             )
             if now > reminder_time:
                 try:
-                    send_approval_reminder.delay(task.id)
+                    send_notification_rules.delay(
+                        submission.id, "approval_reminder", task_id=task.id
+                    )
                 except Exception:
                     logger.debug(
-                        "Could not enqueue send_approval_reminder for task %s",
+                        "Could not enqueue approval_reminder for task %s",
                         task.id,
                         exc_info=True,
                     )
@@ -971,7 +1038,7 @@ def _get_form_field_email(form_data: dict, email_field: str) -> str | None:
 
 
 def _collect_notification_recipients(
-    notif, form_data: dict, submission=None
+    notif, form_data: dict, submission=None, task=None
 ) -> list[str]:
     """Return the deduplicated list of recipient emails for a notification rule.
 
@@ -983,6 +1050,10 @@ def _collect_notification_recipients(
     4. notify_stage_assignees → ApprovalTask.assigned_to.email
     5. notify_stage_groups    → all users in the stage's approval groups
     6. notify_groups (M2M)    → all users in explicitly-listed groups
+
+    When ``use_triggering_stage`` is True and a *task* is provided, the
+    task's ``workflow_stage`` is used to scope stage-based recipients
+    instead of ``notif.stage``.
     """
     recipients: list[str] = []
 
@@ -1004,6 +1075,18 @@ def _collect_notification_recipients(
         if addr and "@" in addr:
             _add(addr)
 
+    # Resolve the effective stage for stage-scoped recipient sources.
+    # Priority: use_triggering_stage (from task) > explicit stage FK > all stages.
+    _triggering_stage_id = None
+    if getattr(notif, "use_triggering_stage", False) and task is not None:
+        _triggering_stage_id = getattr(task, "workflow_stage_id", None)
+
+    def _effective_stage_id():
+        """Return the stage ID to scope to, or None for all stages."""
+        if _triggering_stage_id:
+            return _triggering_stage_id
+        return getattr(notif, "stage_id", None)
+
     # 4. Stage assignees (NotificationRule only)
     if getattr(notif, "notify_stage_assignees", False) and submission is not None:
         qs = (
@@ -1012,20 +1095,31 @@ def _collect_notification_recipients(
             .exclude(workflow_stage__assignee_form_field__isnull=True)
             .exclude(workflow_stage__assignee_form_field="")
         )
-        # If rule is stage-scoped, limit to that stage
-        if getattr(notif, "stage_id", None):
-            qs = qs.filter(workflow_stage_id=notif.stage_id)
+        eff_stage = _effective_stage_id()
+        if eff_stage:
+            qs = qs.filter(workflow_stage_id=eff_stage)
         for email in qs.values_list("assigned_to__email", flat=True):
             _add(email)
 
     # 5. Stage approval groups (NotificationRule only)
-    if getattr(notif, "notify_stage_groups", False) and submission is not None:
+    #    When the task already has a specific individual assigned
+    #    (assigned_to), skip the group notification — the individual was
+    #    resolved via assignee_form_field so the fallback group should not
+    #    also be notified, regardless of use_triggering_stage.
+    _skip_stage_groups = (
+        task is not None and getattr(task, "assigned_to_id", None) is not None
+    )
+    if (
+        getattr(notif, "notify_stage_groups", False)
+        and submission is not None
+        and not _skip_stage_groups
+    ):
         from django.contrib.auth import get_user_model
 
         user_model = get_user_model()
-        # Determine which stages to include
-        if getattr(notif, "stage_id", None):
-            stage_ids = [notif.stage_id]
+        eff_stage = _effective_stage_id()
+        if eff_stage:
+            stage_ids = [eff_stage]
         else:
             # All stages in this workflow
             from .models import WorkflowStage
@@ -1101,6 +1195,8 @@ _EVENT_TEMPLATE_MAP: dict[str, str] = {
     "workflow_approved": "emails/approval_notification.html",
     "workflow_denied": "emails/rejection_notification.html",
     "form_withdrawn": "emails/withdrawal_notification.html",
+    "approval_reminder": "emails/approval_reminder.html",
+    "escalation": "emails/escalation_notification.html",
 }
 
 _EVENT_DEFAULT_SUBJECTS: dict[str, str] = {
@@ -1110,6 +1206,8 @@ _EVENT_DEFAULT_SUBJECTS: dict[str, str] = {
     "workflow_approved": "Submission Approved: {form_name} (ID {submission_id})",
     "workflow_denied": "Submission Rejected: {form_name} (ID {submission_id})",
     "form_withdrawn": "Submission Withdrawn: {form_name} (ID {submission_id})",
+    "approval_reminder": "Reminder: Approval Pending for {form_name} (ID {submission_id})",
+    "escalation": "Escalation: {form_name} (ID {submission_id})",
 }
 
 
@@ -1134,8 +1232,8 @@ def send_notification_rules(
         event: The NotificationRule event type (e.g. ``workflow_approved``).
         task_id: Optional ApprovalTask ID (used for approval_request context).
     """
-    template = _EVENT_TEMPLATE_MAP.get(event)
-    if not template:
+    default_template = _EVENT_TEMPLATE_MAP.get(event)
+    if not default_template:
         logger.warning("send_notification_rules: unknown event '%s'", event)
         return
 
@@ -1152,14 +1250,28 @@ def send_notification_rules(
     workflow = getattr(submission.form_definition, "workflow", None)
     hide_approval_history = bool(getattr(workflow, "hide_approval_history", False))
 
-    rules = (
-        NotificationRule.objects.filter(
-            workflow__form_definition=submission.form_definition,
-            event=event,
-        )
+    # Resolve the task (if any) to scope rules to its workflow
+    task = None
+    if task_id:
+        try:
+            task = ApprovalTask.objects.select_related("workflow_stage").get(id=task_id)
+        except ApprovalTask.DoesNotExist:
+            pass
+
+    rules_qs = (
+        NotificationRule.objects.filter(event=event)
         .select_related("workflow", "stage")
         .prefetch_related("notify_groups")
     )
+
+    # Scope rules to the specific workflow that owns the triggering task,
+    # rather than firing rules from every workflow on the form.
+    if task and getattr(task, "workflow_stage_id", None):
+        rules_qs = rules_qs.filter(workflow_id=task.workflow_stage.workflow_id)
+    else:
+        rules_qs = rules_qs.filter(workflow__form_definition=submission.form_definition)
+
+    rules = rules_qs
 
     default_subject_tpl = _EVENT_DEFAULT_SUBJECTS.get(
         event, "{form_name} (ID {submission_id})"
@@ -1190,7 +1302,7 @@ def send_notification_rules(
 
         # Resolve recipients
         recipients = _collect_notification_recipients(
-            rule, form_data, submission=submission
+            rule, form_data, submission=submission, task=task
         )
         if not recipients:
             logger.info(
@@ -1219,7 +1331,7 @@ def send_notification_rules(
                 form_name=form_name, submission_id=submission.id
             )
 
-        context = {
+        base_context = {
             "submission": submission,
             "form_data": form_data,
             "submission_url": submission_url,
@@ -1228,9 +1340,20 @@ def send_notification_rules(
         }
         if task_id:
             try:
-                context["task"] = ApprovalTask.objects.get(id=task_id)
+                base_context["task"] = ApprovalTask.objects.get(id=task_id)
             except ApprovalTask.DoesNotExist:
                 pass
+
+        # Pre-fetch User objects for all recipients so templates that
+        # reference ``{{ approver }}`` (e.g. approval_request.html) work
+        # identically to the legacy send_approval_request task.
+        from django.contrib.auth import get_user_model
+
+        user_model = get_user_model()
+        _users_by_email: dict = {}
+        if recipients:
+            for u in user_model.objects.filter(email__in=recipients):
+                _users_by_email[u.email] = u
 
         # Check cadence — batch or send immediately
         cadence = (
@@ -1257,12 +1380,28 @@ def send_notification_rules(
                 scheduled_for,
             )
         else:
+            # Determine template: per-rule body_template overrides file.
+            rule_body = getattr(rule, "body_template", "") or ""
             for recipient in recipients:
-                _send_html_email(
-                    subject,
-                    [recipient],
-                    template,
-                    context,
-                    notification_type=event,
-                    submission_id=submission_id,
-                )
+                ctx = {**base_context}
+                recipient_user = _users_by_email.get(recipient)
+                if recipient_user:
+                    ctx["approver"] = recipient_user
+                if rule_body.strip():
+                    _send_html_email_from_string(
+                        subject,
+                        [recipient],
+                        rule_body,
+                        ctx,
+                        notification_type=event,
+                        submission_id=submission_id,
+                    )
+                else:
+                    _send_html_email(
+                        subject,
+                        [recipient],
+                        default_template,
+                        ctx,
+                        notification_type=event,
+                        submission_id=submission_id,
+                    )

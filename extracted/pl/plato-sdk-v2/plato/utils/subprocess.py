@@ -14,6 +14,11 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+#: Shell snippet that sets PATH to include the pre-baked venv and common install
+#: locations.  Use in any SSH command that needs to find SDK entry-points
+#: (plato-agent-runner, plato-world-runner, plato-git-ops-server, etc.).
+VM_PATH_EXPORT = 'export PATH="/opt/plato-venv/bin:/root/.local/bin:/usr/local/bin:$PATH"'
+
 
 def _close_subprocess(proc: asyncio.subprocess.Process) -> None:
     """Explicitly close subprocess transport pipes to prevent 'Event loop is closed' noise.

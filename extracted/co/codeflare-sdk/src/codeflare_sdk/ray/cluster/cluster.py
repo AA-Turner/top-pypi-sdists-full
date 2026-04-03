@@ -66,6 +66,8 @@ class Cluster:
             return
         else:
             self.resource_yaml = self.create_resource()
+            if not self.config.write_to_file:
+                print(f"Yaml resources loaded for {self.config.name}")
 
         if is_notebook():
             cluster_apply_down_buttons(self)
@@ -87,7 +89,7 @@ class Cluster:
 
     @property
     def _client_verify_tls(self):
-        return _is_openshift_cluster and self.config.verify_tls
+        return _is_openshift_cluster() and self.config.verify_tls
 
     @property
     def job_client(self):
@@ -115,7 +117,7 @@ class Cluster:
         if self.config.namespace is None:
             self.config.namespace = get_current_namespace()
             if self.config.namespace is None:
-                print("Please specify with namespace=<your_current_namespace>")
+                print("Please specify namespace=<your_current_namespace>")
             elif type(self.config.namespace) is not str:
                 raise TypeError(
                     f"Namespace {self.config.namespace} is of type {type(self.config.namespace)}. Check your Kubernetes Authentication."
@@ -128,8 +130,11 @@ class Cluster:
         Applies the Cluster yaml, pushing the resource request onto
         the Kueue localqueue.
         """
-        print(
-            "WARNING: The up() function is planned for deprecation in favor of apply()."
+        # Fix for RHOAIENG-54731: Use warnings.warn() instead of print() for deprecation
+        warnings.warn(
+            "up() is deprecated and will be removed in a future version. Use apply() instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
         # check if RayCluster CustomResourceDefinition exists if not throw RuntimeError
         self._throw_for_no_raycluster()
@@ -141,13 +146,17 @@ class Cluster:
             self._component_resources_up(namespace, api_instance)
             print(f"Ray Cluster: '{self.config.name}' has successfully been created")
         except Exception as e:  # pragma: no cover
-            if e.status == 422:
+            if hasattr(e, "status") and e.status == 422:
+                print("WARNING: RayCluster creation was rejected (invalid request).")
+            elif hasattr(e, "status") and e.status == 409:
                 print(
-                    "WARNING: RayCluster creation rejected due to invalid Kueue configuration. Please contact your administrator."
+                    "WARNING: A RayCluster with this name already exists. "
+                    "Delete or use a different name, then try again."
                 )
+                return
             else:
                 print(
-                    "WARNING: Failed to create RayCluster due to unexpected error. Please contact your administrator."
+                    "WARNING: Failed to create RayCluster due to an unexpected error."
                 )
             return _kube_api_error_handling(e)
 
@@ -192,12 +201,16 @@ class Cluster:
             if (
                 hasattr(e, "status") and e.status == 422
             ):  # adding status check to avoid returning false positive
+                print("WARNING: RayCluster creation was rejected (invalid request).")
+            elif hasattr(e, "status") and e.status == 409:
                 print(
-                    "WARNING: RayCluster creation rejected due to invalid Kueue configuration. Please contact your administrator."
+                    "WARNING: A RayCluster with this name already exists. "
+                    "Delete or use a different name, then try again."
                 )
+                return
             else:
                 print(
-                    "WARNING: Failed to create RayCluster due to unexpected error. Please contact your administrator."
+                    "WARNING: Failed to create RayCluster due to an unexpected error."
                 )
             return _kube_api_error_handling(e)
 
@@ -297,12 +310,11 @@ class Cluster:
         except ApiException as e:
             if e.status == 404:
                 raise RuntimeError(
-                    "RayCluster CustomResourceDefinition unavailable contact your administrator."
+                    "RayCluster CustomResourceDefinition unavailable. "
+                    "Contact your administrator."
                 )
-            else:
-                raise RuntimeError(
-                    "Failed to get RayCluster CustomResourceDefinition: " + str(e)
-                )
+            _kube_api_error_handling(e)
+            raise RuntimeError("Failed to get RayCluster CustomResourceDefinition.")
 
     def down(self):
         """
@@ -342,21 +354,21 @@ class Cluster:
         # check the ray cluster status
         cluster = _ray_cluster_status(self.config.name, self.config.namespace)
         if cluster:
-            if cluster.status == RayClusterStatus.SUSPENDED:
-                ready = False
-                status = CodeFlareClusterStatus.SUSPENDED
-            if cluster.status == RayClusterStatus.UNKNOWN:
-                ready = False
-                status = CodeFlareClusterStatus.STARTING
             if cluster.status == RayClusterStatus.READY:
                 ready = True
                 status = CodeFlareClusterStatus.READY
+            elif cluster.status == RayClusterStatus.SUSPENDED:
+                ready = False
+                status = CodeFlareClusterStatus.SUSPENDED
             elif cluster.status in [
                 RayClusterStatus.UNHEALTHY,
                 RayClusterStatus.FAILED,
             ]:
                 ready = False
                 status = CodeFlareClusterStatus.FAILED
+            elif cluster.status == RayClusterStatus.UNKNOWN:
+                ready = False
+                status = CodeFlareClusterStatus.STARTING
 
             if print_to_console:
                 # overriding the number of gpus with requested
@@ -678,14 +690,17 @@ class Cluster:
     @staticmethod
     def _head_worker_extended_resources_from_rc_dict(rc: Dict) -> Tuple[dict, dict]:
         head_extended_resources, worker_extended_resources = {}, {}
-        for resource in rc["spec"]["workerGroupSpecs"][0]["template"]["spec"][
-            "containers"
-        ][0]["resources"]["limits"].keys():
-            if resource in ["memory", "cpu"]:
-                continue
-            worker_extended_resources[resource] = rc["spec"]["workerGroupSpecs"][0][
-                "template"
-            ]["spec"]["containers"][0]["resources"]["limits"][resource]
+
+        # Fix for RHOAIENG-54729: Check if workerGroupSpecs exists before accessing [0]
+        if len(rc["spec"].get("workerGroupSpecs", [])) > 0:
+            for resource in rc["spec"]["workerGroupSpecs"][0]["template"]["spec"][
+                "containers"
+            ][0]["resources"]["limits"].keys():
+                if resource in ["memory", "cpu"]:
+                    continue
+                worker_extended_resources[resource] = rc["spec"]["workerGroupSpecs"][0][
+                    "template"
+                ]["spec"]["containers"][0]["resources"]["limits"][resource]
 
         for resource in rc["spec"]["headGroupSpec"]["template"]["spec"]["containers"][
             0
@@ -730,18 +745,6 @@ class Cluster:
         else:
             _apply_ray_cluster(self.resource_yaml, namespace, api_instance)
 
-    def _component_resources_down(
-        self, namespace: str, api_instance: client.CustomObjectsApi
-    ):
-        cluster_name = self.config.name
-        if self.config.write_to_file:
-            with open(self.resource_yaml) as f:
-                yamls = yaml.load_all(f, Loader=yaml.FullLoader)
-                _delete_resources(yamls, namespace, api_instance, cluster_name)
-        else:
-            yamls = yaml.safe_load_all(self.resource_yaml)
-            _delete_resources(yamls, namespace, api_instance, cluster_name)
-
 
 def list_all_clusters(namespace: str, print_to_console: bool = True):
     """
@@ -753,17 +756,69 @@ def list_all_clusters(namespace: str, print_to_console: bool = True):
     return clusters
 
 
+def _get_kueue_workload_for_cluster(
+    cluster_name: str, namespace: str
+) -> Optional[dict]:
+    """
+    Find the Kueue Workload associated with a RayCluster.
+
+    Returns the workload object if found, None otherwise.
+    """
+    try:
+        config_check()
+        api_instance = client.CustomObjectsApi(get_api_client())
+        workloads = api_instance.list_namespaced_custom_object(
+            group="kueue.x-k8s.io",
+            version="v1beta1",
+            plural="workloads",
+            namespace=namespace,
+        )
+
+        # Find workload with matching RayCluster owner reference
+        for workload in workloads.get("items", []):
+            owner_refs = workload.get("metadata", {}).get("ownerReferences", [])
+
+            for owner_ref in owner_refs:
+                if (
+                    owner_ref.get("kind") == "RayCluster"
+                    and owner_ref.get("name") == cluster_name
+                ):
+                    return workload
+
+        return None
+    except Exception:
+        # If Kueue is not installed or workload not found, return None
+        return None
+
+
 def list_all_queued(namespace: str, print_to_console: bool = True):
     """
     Returns (and prints by default) a list of all currently queued-up Ray Clusters
     in a given namespace.
+
+    A cluster is considered queued if it has an associated Kueue Workload that has
+    not been admitted yet (workload.status.admission is None or empty).
     """
-    resources = _get_ray_clusters(
-        namespace, filter=[RayClusterStatus.READY, RayClusterStatus.SUSPENDED]
-    )
+    # Fix for RHOAIENG-54734: Check Kueue Workload admission status instead of
+    # RayCluster state. The previous approach incorrectly inferred queue status
+    # from RayCluster state, which doesn't reliably indicate Kueue admission.
+    all_clusters = _get_ray_clusters(namespace)
+    queued_clusters = []
+
+    for cluster in all_clusters:
+        workload = _get_kueue_workload_for_cluster(cluster.name, namespace)
+
+        if workload:
+            # Check if workload has been admitted by Kueue
+            admission = workload.get("status", {}).get("admission")
+            if not admission:
+                # No admission field = workload not admitted yet = still queued
+                queued_clusters.append(cluster)
+        # If no workload exists, cluster is not using Kueue, so it's not "queued"
+
     if print_to_console:
-        pretty_print.print_ray_clusters_status(resources)
-    return resources
+        pretty_print.print_ray_clusters_status(queued_clusters)
+    return queued_clusters
 
 
 def get_cluster(
@@ -814,6 +869,30 @@ def get_cluster(
         head_extended_resources,
         worker_extended_resources,
     ) = Cluster._head_worker_extended_resources_from_rc_dict(resource)
+
+    # Fix for RHOAIENG-54729: Handle head-only clusters (no workers)
+    if len(resource["spec"].get("workerGroupSpecs", [])) > 0:
+        num_workers = resource["spec"]["workerGroupSpecs"][0]["minReplicas"]
+        worker_cpu_limits = resource["spec"]["workerGroupSpecs"][0]["template"]["spec"][
+            "containers"
+        ][0]["resources"]["limits"]["cpu"]
+        worker_cpu_requests = resource["spec"]["workerGroupSpecs"][0]["template"][
+            "spec"
+        ]["containers"][0]["resources"]["requests"]["cpu"]
+        worker_memory_limits = resource["spec"]["workerGroupSpecs"][0]["template"][
+            "spec"
+        ]["containers"][0]["resources"]["limits"]["memory"]
+        worker_memory_requests = resource["spec"]["workerGroupSpecs"][0]["template"][
+            "spec"
+        ]["containers"][0]["resources"]["requests"]["memory"]
+    else:
+        # Head-only cluster - use defaults for worker specs
+        num_workers = 0
+        worker_cpu_limits = 0
+        worker_cpu_requests = 0
+        worker_memory_limits = 0
+        worker_memory_requests = 0
+
     # Create a Cluster Configuration with just the necessary provided parameters
     cluster_config = ClusterConfiguration(
         name=cluster_name,
@@ -822,29 +901,21 @@ def get_cluster(
         write_to_file=write_to_file,
         head_cpu_limits=resource["spec"]["headGroupSpec"]["template"]["spec"][
             "containers"
-        ][0]["resources"]["requests"]["cpu"],
+        ][0]["resources"]["limits"]["cpu"],
         head_cpu_requests=resource["spec"]["headGroupSpec"]["template"]["spec"][
             "containers"
-        ][0]["resources"]["limits"]["cpu"],
+        ][0]["resources"]["requests"]["cpu"],
         head_memory_limits=resource["spec"]["headGroupSpec"]["template"]["spec"][
             "containers"
-        ][0]["resources"]["requests"]["memory"],
+        ][0]["resources"]["limits"]["memory"],
         head_memory_requests=resource["spec"]["headGroupSpec"]["template"]["spec"][
             "containers"
-        ][0]["resources"]["limits"]["memory"],
-        num_workers=resource["spec"]["workerGroupSpecs"][0]["minReplicas"],
-        worker_cpu_limits=resource["spec"]["workerGroupSpecs"][0]["template"]["spec"][
-            "containers"
-        ][0]["resources"]["limits"]["cpu"],
-        worker_cpu_requests=resource["spec"]["workerGroupSpecs"][0]["template"]["spec"][
-            "containers"
-        ][0]["resources"]["requests"]["cpu"],
-        worker_memory_limits=resource["spec"]["workerGroupSpecs"][0]["template"][
-            "spec"
-        ]["containers"][0]["resources"]["requests"]["memory"],
-        worker_memory_requests=resource["spec"]["workerGroupSpecs"][0]["template"][
-            "spec"
-        ]["containers"][0]["resources"]["limits"]["memory"],
+        ][0]["resources"]["requests"]["memory"],
+        num_workers=num_workers,
+        worker_cpu_limits=worker_cpu_limits,
+        worker_cpu_requests=worker_cpu_requests,
+        worker_memory_limits=worker_memory_limits,
+        worker_memory_requests=worker_memory_requests,
         head_extended_resource_requests=head_extended_resources,
         worker_extended_resource_requests=worker_extended_resources,
     )
@@ -1077,23 +1148,38 @@ def _map_to_ray_cluster(rc) -> Optional[RayCluster]:
         worker_extended_resources,
     ) = Cluster._head_worker_extended_resources_from_rc_dict(rc)
 
+    # Fix for RHOAIENG-54729: Handle head-only clusters (no workers)
+    if len(rc["spec"].get("workerGroupSpecs", [])) > 0:
+        num_workers = rc["spec"]["workerGroupSpecs"][0]["replicas"]
+        worker_mem_limits = rc["spec"]["workerGroupSpecs"][0]["template"]["spec"][
+            "containers"
+        ][0]["resources"]["limits"]["memory"]
+        worker_mem_requests = rc["spec"]["workerGroupSpecs"][0]["template"]["spec"][
+            "containers"
+        ][0]["resources"]["requests"]["memory"]
+        worker_cpu_requests = rc["spec"]["workerGroupSpecs"][0]["template"]["spec"][
+            "containers"
+        ][0]["resources"]["requests"]["cpu"]
+        worker_cpu_limits = rc["spec"]["workerGroupSpecs"][0]["template"]["spec"][
+            "containers"
+        ][0]["resources"]["limits"]["cpu"]
+    else:
+        # Head-only cluster - use defaults for worker specs
+        num_workers = 0
+        worker_mem_limits = 0
+        worker_mem_requests = 0
+        worker_cpu_requests = 0
+        worker_cpu_limits = 0
+
     return RayCluster(
         name=rc["metadata"]["name"],
         status=status,
         # for now we are not using autoscaling so same replicas is fine
-        num_workers=rc["spec"]["workerGroupSpecs"][0]["replicas"],
-        worker_mem_limits=rc["spec"]["workerGroupSpecs"][0]["template"]["spec"][
-            "containers"
-        ][0]["resources"]["limits"]["memory"],
-        worker_mem_requests=rc["spec"]["workerGroupSpecs"][0]["template"]["spec"][
-            "containers"
-        ][0]["resources"]["requests"]["memory"],
-        worker_cpu_requests=rc["spec"]["workerGroupSpecs"][0]["template"]["spec"][
-            "containers"
-        ][0]["resources"]["requests"]["cpu"],
-        worker_cpu_limits=rc["spec"]["workerGroupSpecs"][0]["template"]["spec"][
-            "containers"
-        ][0]["resources"]["limits"]["cpu"],
+        num_workers=num_workers,
+        worker_mem_limits=worker_mem_limits,
+        worker_mem_requests=worker_mem_requests,
+        worker_cpu_requests=worker_cpu_requests,
+        worker_cpu_limits=worker_cpu_limits,
         worker_extended_resources=worker_extended_resources,
         namespace=rc["metadata"]["namespace"],
         head_cpu_requests=rc["spec"]["headGroupSpec"]["template"]["spec"]["containers"][

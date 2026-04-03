@@ -20,7 +20,7 @@ from plato.agents.runtime.base import AgentContext, OTelContext, PreparedAgent, 
 from plato.agents.runtime.dev import sync_dev_code
 from plato.agents.runtime.install import install_production_agent, parse_image_url
 from plato.transports import Transport
-from plato.utils.subprocess import build_ssh_command, run_local, run_ssh, run_ssh_streaming
+from plato.utils.subprocess import VM_PATH_EXPORT, build_ssh_command, run_local, run_ssh, run_ssh_streaming
 from plato.v2 import Env
 from plato.v2.types import SimConfigCompute
 
@@ -65,7 +65,7 @@ async def resolve_runner_path(ssh_key_path: Path | None, hostname: str) -> str:
     exit_code, stdout, stderr = await run_ssh(
         ssh_key_path,
         hostname,
-        'export PATH="/root/.local/bin:/usr/local/bin:$PATH"; '
+        f"{VM_PATH_EXPORT}; "
         'runner_path="$(command -v plato-agent-runner || true)"; '
         'if [ -n "$runner_path" ] && [ -x "$runner_path" ]; then printf "%s\\n" "$runner_path"; '
         'else echo "plato-agent-runner not found" >&2; exit 1; fi',
@@ -554,7 +554,7 @@ class PlatoVMRuntime(Runtime):
             raise RuntimeError(f"Failed to write instruction file to VM: {write_err.decode()}")
 
         agent_cmd = (
-            f'{env_exports} export PATH="/root/.local/bin:$PATH"; '
+            f"{env_exports} {VM_PATH_EXPORT}; "
             f'cd {workdir} && {shlex.quote(runner_path)} run --instruction-b64 "$(cat {instruction_file})"'
         )
 

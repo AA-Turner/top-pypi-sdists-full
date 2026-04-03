@@ -25,7 +25,6 @@
 from enum import Enum
 
 from ansys.aedt.core.emit_core.nodes.emit_node import EmitNode
-from ansys.aedt.core.internal.checks import min_aedt_version
 
 
 class ErcegCouplingNode(EmitNode):
@@ -34,29 +33,24 @@ class ErcegCouplingNode(EmitNode):
         self._is_component = False
 
     @property
-    @min_aedt_version("2025.2")
-    def parent(self) -> EmitNode:
+    def parent(self):
         """The parent of this emit node."""
         return self._parent
 
     @property
-    @min_aedt_version("2025.2")
     def node_type(self) -> str:
         """The type of this emit node."""
         return self._node_type
 
-    @min_aedt_version("2025.2")
-    def duplicate(self, new_name: str = "") -> EmitNode:
+    def duplicate(self, new_name: str = ""):
         """Duplicate this node"""
         return self._duplicate(new_name)
 
-    @min_aedt_version("2025.2")
     def delete(self) -> None:
         """Delete this node"""
         self._delete()
 
     @property
-    @min_aedt_version("2025.2")
     def enabled(self) -> bool:
         """Enable/Disable coupling.
 
@@ -66,31 +60,26 @@ class ErcegCouplingNode(EmitNode):
         return val == "true"
 
     @enabled.setter
-    @min_aedt_version("2025.2")
     def enabled(self, value: bool) -> None:
         self._set_property("Enabled", f"{str(value).lower()}")
 
     @property
-    @min_aedt_version("2025.2")
     def base_antenna(self) -> EmitNode:
         """First antenna of the pair to apply the coupling values to."""
         val = self._get_property("Base Antenna")
         return val
 
     @base_antenna.setter
-    @min_aedt_version("2025.2")
     def base_antenna(self, value: EmitNode) -> None:
         self._set_property("Base Antenna", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def mobile_antenna(self) -> EmitNode:
         """Second antenna of the pair to apply the coupling values to."""
         val = self._get_property("Mobile Antenna")
         return val
 
     @mobile_antenna.setter
-    @min_aedt_version("2025.2")
     def mobile_antenna(self, value: EmitNode) -> None:
         self._set_property("Mobile Antenna", f"{value}")
 
@@ -100,7 +89,6 @@ class ErcegCouplingNode(EmitNode):
         TYPE_C = "TypeC"
 
     @property
-    @min_aedt_version("2025.2")
     def terrain_category(self) -> TerrainCategoryOption:
         """Specify the terrain category type for the Erceg model."""
         val = self._get_property("Terrain Category")
@@ -108,12 +96,10 @@ class ErcegCouplingNode(EmitNode):
         return val
 
     @terrain_category.setter
-    @min_aedt_version("2025.2")
     def terrain_category(self, value: TerrainCategoryOption) -> None:
         self._set_property("Terrain Category", f"{value.value}")
 
     @property
-    @min_aedt_version("2025.2")
     def custom_fading_margin(self) -> float:
         """Custom Fading Margin.
 
@@ -126,12 +112,10 @@ class ErcegCouplingNode(EmitNode):
         return float(val)
 
     @custom_fading_margin.setter
-    @min_aedt_version("2025.2")
     def custom_fading_margin(self, value: float) -> None:
         self._set_property("Custom Fading Margin", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def polarization_mismatch(self) -> float:
         """Polarization Mismatch.
 
@@ -144,12 +128,10 @@ class ErcegCouplingNode(EmitNode):
         return float(val)
 
     @polarization_mismatch.setter
-    @min_aedt_version("2025.2")
     def polarization_mismatch(self, value: float) -> None:
         self._set_property("Polarization Mismatch", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def pointing_error_loss(self) -> float:
         """Pointing Error Loss.
 
@@ -162,7 +144,6 @@ class ErcegCouplingNode(EmitNode):
         return float(val)
 
     @pointing_error_loss.setter
-    @min_aedt_version("2025.2")
     def pointing_error_loss(self, value: float) -> None:
         self._set_property("Pointing Error Loss", f"{value}")
 
@@ -173,7 +154,6 @@ class ErcegCouplingNode(EmitNode):
         FAST_FADING_AND_SHADOWING = "ShadowingAndFastFading"
 
     @property
-    @min_aedt_version("2025.2")
     def fading_type(self) -> FadingTypeOption:
         """Specify the type of fading to include."""
         val = self._get_property("Fading Type")
@@ -181,12 +161,10 @@ class ErcegCouplingNode(EmitNode):
         return val
 
     @fading_type.setter
-    @min_aedt_version("2025.2")
     def fading_type(self, value: FadingTypeOption) -> None:
         self._set_property("Fading Type", f"{value.value}")
 
     @property
-    @min_aedt_version("2025.2")
     def fading_availability(self) -> float:
         """Fading Availability.
 
@@ -199,12 +177,10 @@ class ErcegCouplingNode(EmitNode):
         return float(val)
 
     @fading_availability.setter
-    @min_aedt_version("2025.2")
     def fading_availability(self, value: float) -> None:
         self._set_property("Fading Availability", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def std_deviation(self) -> float:
         """Standard deviation modeling the random amount of shadowing loss.
 
@@ -214,12 +190,10 @@ class ErcegCouplingNode(EmitNode):
         return float(val)
 
     @std_deviation.setter
-    @min_aedt_version("2025.2")
     def std_deviation(self, value: float) -> None:
         self._set_property("Std Deviation", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def include_rain_attenuation(self) -> bool:
         """Adds a margin for rain attenuation to the computed coupling.
 
@@ -229,12 +203,10 @@ class ErcegCouplingNode(EmitNode):
         return val == "true"
 
     @include_rain_attenuation.setter
-    @min_aedt_version("2025.2")
     def include_rain_attenuation(self, value: bool) -> None:
         self._set_property("Include Rain Attenuation", f"{str(value).lower()}")
 
     @property
-    @min_aedt_version("2025.2")
     def rain_availability(self) -> float:
         """Rain Availability.
 
@@ -247,12 +219,10 @@ class ErcegCouplingNode(EmitNode):
         return float(val)
 
     @rain_availability.setter
-    @min_aedt_version("2025.2")
     def rain_availability(self, value: float) -> None:
         self._set_property("Rain Availability", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def rain_rate(self) -> float:
         """Rain rate (mm/hr) exceeded for 0.01% of the time.
 
@@ -262,12 +232,10 @@ class ErcegCouplingNode(EmitNode):
         return float(val)
 
     @rain_rate.setter
-    @min_aedt_version("2025.2")
     def rain_rate(self, value: float) -> None:
         self._set_property("Rain Rate", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def polarization_tilt_angle(self) -> float:
         """Polarization Tilt Angle.
 
@@ -280,12 +248,10 @@ class ErcegCouplingNode(EmitNode):
         return float(val)
 
     @polarization_tilt_angle.setter
-    @min_aedt_version("2025.2")
     def polarization_tilt_angle(self, value: float) -> None:
         self._set_property("Polarization Tilt Angle", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def include_atmospheric_absorption(self) -> bool:
         """Include Atmospheric Absorption.
 
@@ -298,12 +264,10 @@ class ErcegCouplingNode(EmitNode):
         return val == "true"
 
     @include_atmospheric_absorption.setter
-    @min_aedt_version("2025.2")
     def include_atmospheric_absorption(self, value: bool) -> None:
         self._set_property("Include Atmospheric Absorption", f"{str(value).lower()}")
 
     @property
-    @min_aedt_version("2025.2")
     def temperature(self) -> float:
         """Air temperature in degrees Celsius.
 
@@ -313,12 +277,10 @@ class ErcegCouplingNode(EmitNode):
         return float(val)
 
     @temperature.setter
-    @min_aedt_version("2025.2")
     def temperature(self, value: float) -> None:
         self._set_property("Temperature", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def total_air_pressure(self) -> float:
         """Total air pressure.
 
@@ -328,12 +290,10 @@ class ErcegCouplingNode(EmitNode):
         return float(val)
 
     @total_air_pressure.setter
-    @min_aedt_version("2025.2")
     def total_air_pressure(self, value: float) -> None:
         self._set_property("Total Air Pressure", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def water_vapor_concentration(self) -> float:
         """Water vapor concentration.
 
@@ -343,6 +303,5 @@ class ErcegCouplingNode(EmitNode):
         return float(val)
 
     @water_vapor_concentration.setter
-    @min_aedt_version("2025.2")
     def water_vapor_concentration(self, value: float) -> None:
         self._set_property("Water Vapor Concentration", f"{value}")

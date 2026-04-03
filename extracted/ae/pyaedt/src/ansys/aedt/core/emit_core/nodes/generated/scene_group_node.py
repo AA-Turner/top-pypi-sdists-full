@@ -25,7 +25,6 @@
 from enum import Enum
 
 from ansys.aedt.core.emit_core.nodes.emit_node import EmitNode
-from ansys.aedt.core.internal.checks import min_aedt_version
 
 
 class SceneGroupNode(EmitNode):
@@ -34,49 +33,40 @@ class SceneGroupNode(EmitNode):
         self._is_component = False
 
     @property
-    @min_aedt_version("2025.2")
-    def parent(self) -> EmitNode:
+    def parent(self):
         """The parent of this emit node."""
         return self._parent
 
     @property
-    @min_aedt_version("2025.2")
     def node_type(self) -> str:
         """The type of this emit node."""
         return self._node_type
 
-    @min_aedt_version("2025.2")
-    def add_emitter(self) -> EmitNode:
+    def add_emitter(self):
         """Add a new emitter"""
         return self._add_child_node("Emitter")
 
-    @min_aedt_version("2025.2")
-    def add_group(self) -> EmitNode:
+    def add_group(self):
         """Add a new scene group"""
         return self._add_child_node("Group")
 
-    @min_aedt_version("2025.2")
-    def import_cad(self, file_name: str) -> EmitNode:
+    def import_cad(self, file_name: str):
         """Add an existing CAD file"""
         return self._import(file_name, "CAD")
 
-    @min_aedt_version("2025.2")
-    def add_antenna(self) -> EmitNode:
+    def add_antenna(self):
         """Add a new antenna"""
         return self._add_child_node("Antenna")
 
-    @min_aedt_version("2025.2")
-    def duplicate(self, new_name: str = "") -> EmitNode:
+    def duplicate(self, new_name: str = ""):
         """Duplicate this node"""
         return self._duplicate(new_name)
 
-    @min_aedt_version("2025.2")
     def delete(self) -> None:
         """Delete this node"""
         self._delete()
 
     @property
-    @min_aedt_version("2025.2")
     def show_relative_coordinates(self) -> bool:
         """Show Relative Coordinates.
 
@@ -89,38 +79,33 @@ class SceneGroupNode(EmitNode):
         return val == "true"
 
     @show_relative_coordinates.setter
-    @min_aedt_version("2025.2")
     def show_relative_coordinates(self, value: bool) -> None:
         self._set_property("Show Relative Coordinates", f"{str(value).lower()}")
 
     @property
-    @min_aedt_version("2025.2")
-    def position(self) -> list[float]:
+    def position(self):
         """Set position of the Scene Group in parent-node coordinates.
 
-        Value should be a list of 3 floats.
+        Value should be x/y/z, delimited by spaces.
         """
         val = self._get_property("Position")
         return val
 
     @position.setter
-    @min_aedt_version("2025.2")
-    def position(self, value: list[float] | str) -> None:
+    def position(self, value) -> None:
         self._set_property("Position", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
-    def relative_position(self) -> list[float]:
+    def relative_position(self):
         """Set position of the Scene Group relative to placement coordinates.
 
-        Value should be a list of 3 floats.
+        Value should be x/y/z, delimited by spaces.
         """
         val = self._get_property("Relative Position")
         return val
 
     @relative_position.setter
-    @min_aedt_version("2025.2")
-    def relative_position(self, value: list[float] | str) -> None:
+    def relative_position(self, value) -> None:
         self._set_property("Relative Position", f"{value}")
 
     class OrientationModeOption(Enum):
@@ -128,7 +113,6 @@ class SceneGroupNode(EmitNode):
         AZ_EL_TWIST = "aetDeg"
 
     @property
-    @min_aedt_version("2025.2")
     def orientation_mode(self) -> OrientationModeOption:
         """Orientation Mode.
 
@@ -139,13 +123,11 @@ class SceneGroupNode(EmitNode):
         return val
 
     @orientation_mode.setter
-    @min_aedt_version("2025.2")
     def orientation_mode(self, value: OrientationModeOption) -> None:
         self._set_property("Orientation Mode", f"{value.value}")
 
     @property
-    @min_aedt_version("2025.2")
-    def orientation(self) -> list[float]:
+    def orientation(self):
         """Orientation.
 
         Set orientation of the Scene Group relative to parent-node coordinates.
@@ -156,13 +138,11 @@ class SceneGroupNode(EmitNode):
         return val
 
     @orientation.setter
-    @min_aedt_version("2025.2")
-    def orientation(self, value: list[float] | str) -> None:
+    def orientation(self, value) -> None:
         self._set_property("Orientation", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
-    def relative_orientation(self) -> list[float]:
+    def relative_orientation(self):
         """Relative Orientation.
 
         Set orientation of the Scene Group relative to placement coordinates.
@@ -173,12 +153,10 @@ class SceneGroupNode(EmitNode):
         return val
 
     @relative_orientation.setter
-    @min_aedt_version("2025.2")
-    def relative_orientation(self, value: list[float] | str) -> None:
+    def relative_orientation(self, value) -> None:
         self._set_property("Relative Orientation", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def show_axes(self) -> bool:
         """Show Axes.
 
@@ -190,13 +168,11 @@ class SceneGroupNode(EmitNode):
         return val == "true"
 
     @show_axes.setter
-    @min_aedt_version("2025.2")
     def show_axes(self, value: bool) -> None:
         self._set_property("Show Axes", f"{str(value).lower()}")
 
     @property
-    @min_aedt_version("2025.2")
-    def box_color(self) -> str:
+    def box_color(self):
         """Set color of the bounding box of the Scene Group.
 
         Color should be in RGB form: #RRGGBB.
@@ -205,18 +181,15 @@ class SceneGroupNode(EmitNode):
         return val
 
     @box_color.setter
-    @min_aedt_version("2025.2")
-    def box_color(self, value: str) -> None:
+    def box_color(self, value) -> None:
         self._set_property("Box Color", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def notes(self) -> str:
         """Expand to view/edit notes stored with the project."""
         val = self._get_property("Notes")
         return val
 
     @notes.setter
-    @min_aedt_version("2025.2")
     def notes(self, value: str) -> None:
         self._set_property("Notes", f"{value}")

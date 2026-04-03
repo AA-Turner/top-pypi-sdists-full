@@ -8323,18 +8323,27 @@ class CreateAlarmOptions:
 
         Example::
 
-            import aws_cdk.aws_cloudwatch as cloudwatch
+            # channel_group: ChannelGroup
+            # channel: Channel
+            # endpoint: OriginEndpoint
             
-            # my_hosted_zone: route53.HostedZone
             
-            certificate = acm.Certificate(self, "Certificate",
-                domain_name="hello.example.com",
-                validation=acm.CertificateValidation.from_dns(my_hosted_zone)
+            # Create a CloudWatch alarm on channel group egress bytes
+            alarm = channel_group.metric_egress_bytes().create_alarm(self, "HighEgress",
+                threshold=1000,
+                evaluation_periods=1
             )
-            certificate.metric_days_to_expiry().create_alarm(self, "Alarm",
-                comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
-                evaluation_periods=1,
-                threshold=45
+            
+            # Monitor channel ingress response time
+            channel.metric_ingress_response_time().create_alarm(self, "SlowIngress",
+                threshold=1000,
+                evaluation_periods=2
+            )
+            
+            # Track origin endpoint request count
+            request_metric = endpoint.metric_egress_request_count(
+                statistic="sum",
+                period=Duration.minutes(5)
             )
         '''
         if __debug__:

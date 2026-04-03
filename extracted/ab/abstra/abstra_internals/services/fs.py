@@ -98,6 +98,8 @@ class FileSystemService:
         Use git check-ignore to determine if a path should be ignored.
         Much faster than parsing .gitignore files manually.
         """
+        FileSystemService._check_gitignore_modified()
+
         # Quick cache check
         if path in FileSystemService._git_ignore_cache:
             return FileSystemService._git_ignore_cache[path]

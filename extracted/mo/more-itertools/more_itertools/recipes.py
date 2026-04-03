@@ -13,7 +13,7 @@ import random
 from bisect import bisect_left, insort
 from collections import deque
 from contextlib import suppress
-from functools import lru_cache, partial, reduce
+from functools import lru_cache, reduce
 from heapq import heappush, heappushpop
 from itertools import (
     accumulate,
@@ -22,8 +22,10 @@ from itertools import (
     compress,
     count,
     cycle,
+    filterfalse,
     groupby,
     islice,
+    pairwise as itertools_pairwise,
     product,
     repeat,
     starmap,
@@ -32,8 +34,8 @@ from itertools import (
     zip_longest,
 )
 from math import prod, comb, isqrt, gcd
-from operator import mul, not_, itemgetter, getitem, index
-from random import randrange, sample, choice
+from operator import mul, getitem, index, is_, itemgetter, truediv
+from random import randrange, sample, choice, shuffle
 from sys import hexversion
 
 __all__ = [
@@ -69,10 +71,12 @@ __all__ = [
     'reshape',
     'random_combination_with_replacement',
     'random_combination',
+    'random_derangement',
     'random_permutation',
     'random_product',
     'repeatfunc',
     'roundrobin',
+    'running_mean',
     'running_median',
     'sieve',
     'sliding_window',
@@ -90,22 +94,6 @@ __all__ = [
 ]
 
 _marker = object()
-
-
-# zip with strict is available for Python 3.10+
-try:
-    zip(strict=True)
-except TypeError:  # pragma: no cover
-    _zip_strict = zip
-else:  # pragma: no cover
-    _zip_strict = partial(zip, strict=True)
-
-
-# math.sumprod is available for Python 3.12+
-try:
-    from math import sumprod as _sumprod
-except ImportError:  # pragma: no cover
-    _sumprod = lambda x, y: dotproduct(x, y)
 
 
 # heapq max-heap functions are available for Python 3.14+
@@ -296,7 +284,14 @@ def dotproduct(vec1, vec2):
     return sum(map(mul, vec1, vec2))
 
 
-def flatten(listOfLists):
+# math.sumprod is available for Python 3.12+
+try:
+    from math import sumprod as _sumprod
+except ImportError:  # pragma: no cover
+    _sumprod = dotproduct
+
+
+def flatten(list_of_lists):
     """Return an iterator flattening one level of nesting in a list of lists.
 
         >>> list(flatten([[0, 1], [2, 3]]))
@@ -305,11 +300,11 @@ def flatten(listOfLists):
     See also :func:`collapse`, which can flatten multiple levels of nesting.
 
     """
-    return chain.from_iterable(listOfLists)
+    return chain.from_iterable(list_of_lists)
 
 
-def repeatfunc(func, times=None, *args):
-    """Call *func* with *args* repeatedly, returning an iterable over the
+def repeatfunc(function, times=None, *args):
+    """Call *function* with *args* repeatedly, returning an iterable over the
     results.
 
     If *times* is specified, the iterable will terminate after that many
@@ -331,69 +326,20 @@ def repeatfunc(func, times=None, *args):
 
     """
     if times is None:
-        return starmap(func, repeat(args))
-    return starmap(func, repeat(args, times))
+        return starmap(function, repeat(args))
+    return starmap(function, repeat(args, times))
 
 
-def _pairwise(iterable):
-    """Returns an iterator of paired items, overlapping, from the original
-
-    >>> take(4, pairwise(count()))
-    [(0, 1), (1, 2), (2, 3), (3, 4)]
-
-    On Python 3.10 and above, this is an alias for :func:`itertools.pairwise`.
-
+def pairwise(iterable):
     """
-    a, b = tee(iterable)
-    next(b, None)
-    return zip(a, b)
+    Wrapper for :func:`itertools.pairwise`.
 
+    .. warning::
 
-try:
-    from itertools import pairwise as itertools_pairwise
-except ImportError:  # pragma: no cover
-    pairwise = _pairwise
-else:  # pragma: no cover
-
-    def pairwise(iterable):
-        return itertools_pairwise(iterable)
-
-    pairwise.__doc__ = _pairwise.__doc__
-
-
-class UnequalIterablesError(ValueError):
-    def __init__(self, details=None):
-        msg = 'Iterables have different lengths'
-        if details is not None:
-            msg += (': index 0 has length {}; index {} has length {}').format(
-                *details
-            )
-
-        super().__init__(msg)
-
-
-def _zip_equal_generator(iterables):
-    for combo in zip_longest(*iterables, fillvalue=_marker):
-        for val in combo:
-            if val is _marker:
-                raise UnequalIterablesError()
-        yield combo
-
-
-def _zip_equal(*iterables):
-    # Check whether the iterables are all the same size.
-    try:
-        first_size = len(iterables[0])
-        for i, it in enumerate(iterables[1:], 1):
-            size = len(it)
-            if size != first_size:
-                raise UnequalIterablesError(details=(first_size, i, size))
-        # All sizes are equal, we can use the built-in zip.
-        return zip(*iterables)
-    # If any one of the iterables didn't have a length, start reading
-    # them until one runs out.
-    except TypeError:
-        return _zip_equal_generator(iterables)
+       This function is deprecated as of version 11.0.0. It will be removed in a future
+       major release.
+    """
+    return itertools_pairwise(iterable)
 
 
 def grouper(iterable, n, incomplete='fill', fillvalue=None):
@@ -416,24 +362,25 @@ def grouper(iterable, n, incomplete='fill', fillvalue=None):
     >>> list(grouper('ABCDEFG', 3, incomplete='ignore', fillvalue='x'))
     [('A', 'B', 'C'), ('D', 'E', 'F')]
 
-    When *incomplete* is `'strict'`, a subclass of `ValueError` will be raised.
+    When *incomplete* is `'strict'`, a `ValueError` will be raised.
 
     >>> iterator = grouper('ABCDEFG', 3, incomplete='strict')
     >>> list(iterator)  # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
     ...
-    UnequalIterablesError
+    ValueError
 
     """
     iterators = [iter(iterable)] * n
-    if incomplete == 'fill':
-        return zip_longest(*iterators, fillvalue=fillvalue)
-    if incomplete == 'strict':
-        return _zip_equal(*iterators)
-    if incomplete == 'ignore':
-        return zip(*iterators)
-    else:
-        raise ValueError('Expected fill, strict, or ignore')
+    match incomplete:
+        case 'fill':
+            return zip_longest(*iterators, fillvalue=fillvalue)
+        case 'strict':
+            return zip(*iterators, strict=True)
+        case 'ignore':
+            return zip(*iterators)
+        case _:
+            raise ValueError('Expected fill, strict, or ignore')
 
 
 def roundrobin(*iterables):
@@ -476,10 +423,22 @@ def partition(pred, iterable):
     """
     if pred is None:
         pred = bool
+    iterator = iter(iterable)
 
-    t1, t2, p = tee(iterable, 3)
-    p1, p2 = tee(map(pred, p))
-    return (compress(t1, map(not_, p1)), compress(t2, p2))
+    false_queue = deque()
+    true_queue = deque()
+
+    def gen(queue):
+        while True:
+            while queue:
+                yield queue.popleft()
+            for value in iterator:
+                (true_queue if pred(value) else false_queue).append(value)
+                break
+            else:
+                return
+
+    return gen(false_queue), gen(true_queue)
 
 
 def powerset(iterable):
@@ -504,47 +463,38 @@ def powerset(iterable):
 
 
 def unique_everseen(iterable, key=None):
-    """
-    Yield unique elements, preserving order.
+    """Yield unique elements, preserving order. Remember all elements ever seen.
 
         >>> list(unique_everseen('AAAABBBCCDAABBB'))
         ['A', 'B', 'C', 'D']
-        >>> list(unique_everseen('ABBCcAD', str.lower))
+        >>> list(unique_everseen('ABBCcAD', str.casefold))
         ['A', 'B', 'C', 'D']
 
-    Sequences with a mix of hashable and unhashable items can be used.
-    The function will be slower (i.e., `O(n^2)`) for unhashable items.
+    Raises ``TypeError`` for unhashable items.
 
-    Remember that ``list`` objects are unhashable - you can use the *key*
-    parameter to transform the list to a tuple (which is hashable) to
-    avoid a slowdown.
+    Some unhashable objects can be converted to hashable objects
+    using the *key* parameter:
 
-        >>> iterable = ([1, 2], [2, 3], [1, 2])
-        >>> list(unique_everseen(iterable))  # Slow
-        [[1, 2], [2, 3]]
-        >>> list(unique_everseen(iterable, key=tuple))  # Faster
-        [[1, 2], [2, 3]]
+    * For ``list`` objects, try ``key=tuple``.
+    * For ``set`` objects, try ``key=frozenset``.
+    * For ``dict`` objects, try ``key=lambda x: frozenset(x.items())``
+      or in Python 3.15 and later, set ``key=frozendict``.
 
-    Similarly, you may want to convert unhashable ``set`` objects with
-    ``key=frozenset``. For ``dict`` objects,
-    ``key=lambda x: frozenset(x.items())`` can be used.
+    Alternatively, consider the ``unique()`` itertool recipe.  It sorts
+    the data and then uses equality to eliminate duplicates.  Hashability
+    is not required.
 
     """
-    seenset = set()
-    seenset_add = seenset.add
-    seenlist = []
-    seenlist_add = seenlist.append
-    use_key = key is not None
-
-    for element in iterable:
-        k = key(element) if use_key else element
-        try:
-            if k not in seenset:
-                seenset_add(k)
-                yield element
-        except TypeError:
-            if k not in seenlist:
-                seenlist_add(k)
+    seen = set()
+    if key is None:
+        for element in filterfalse(seen.__contains__, iterable):
+            seen.add(element)
+            yield element
+    else:
+        for element in iterable:
+            k = key(element)
+            if k not in seen:
+                seen.add(k)
                 yield element
 
 
@@ -583,11 +533,11 @@ def unique(iterable, key=None, reverse=False):
     return unique_justseen(sequenced, key=key)
 
 
-def iter_except(func, exception, first=None):
+def iter_except(function, exception, first=None):
     """Yields results from a function repeatedly until an exception is raised.
 
     Converts a call-until-exception interface to an iterator interface.
-    Like ``iter(func, sentinel)``, but uses an exception instead of a sentinel
+    Like ``iter(function, sentinel)``, but uses an exception instead of a sentinel
     to end the loop.
 
         >>> l = [0, 1, 2]
@@ -609,7 +559,7 @@ def iter_except(func, exception, first=None):
         if first is not None:
             yield first()
         while True:
-            yield func()
+            yield function()
 
 
 def first_true(iterable, default=None, pred=None):
@@ -632,7 +582,7 @@ def first_true(iterable, default=None, pred=None):
     return next(filter(pred, iterable), default)
 
 
-def random_product(*args, repeat=1):
+def random_product(*iterables, repeat=1):
     """Draw an item at random from each of the input iterables.
 
         >>> random_product('abc', range(4), 'XYZ')  # doctest:+SKIP
@@ -648,8 +598,8 @@ def random_product(*args, repeat=1):
     ``itertools.product(*args, repeat=repeat)``.
 
     """
-    pools = [tuple(pool) for pool in args] * repeat
-    return tuple(choice(pool) for pool in pools)
+    pools = tuple(map(tuple, iterables)) * repeat
+    return tuple(map(choice, pools))
 
 
 def random_permutation(iterable, r=None):
@@ -683,7 +633,7 @@ def random_combination(iterable, r):
     pool = tuple(iterable)
     n = len(pool)
     indices = sorted(sample(range(n), r))
-    return tuple(pool[i] for i in indices)
+    return tuple([pool[i] for i in indices])
 
 
 def random_combination_with_replacement(iterable, r):
@@ -700,7 +650,7 @@ def random_combination_with_replacement(iterable, r):
     pool = tuple(iterable)
     n = len(pool)
     indices = sorted(randrange(n) for i in range(r))
-    return tuple(pool[i] for i in indices)
+    return tuple([pool[i] for i in indices])
 
 
 def nth_combination(iterable, r, index):
@@ -714,24 +664,16 @@ def nth_combination(iterable, r, index):
         >>> nth_combination(range(5), 3, 5)
         (0, 3, 4)
 
-    ``ValueError`` will be raised If *r* is negative or greater than the length
-    of *iterable*.
+    ``ValueError`` will be raised If *r* is negative.
     ``IndexError`` will be raised if the given *index* is invalid.
     """
     pool = tuple(iterable)
     n = len(pool)
-    if (r < 0) or (r > n):
-        raise ValueError
-
-    c = 1
-    k = min(r, n - r)
-    for i in range(1, k + 1):
-        c = c * (n - k + i) // i
+    c = comb(n, r)
 
     if index < 0:
         index += c
-
-    if (index < 0) or (index >= c):
+    if not 0 <= index < c:
         raise IndexError
 
     result = []
@@ -745,19 +687,19 @@ def nth_combination(iterable, r, index):
     return tuple(result)
 
 
-def prepend(value, iterator):
-    """Yield *value*, followed by the elements in *iterator*.
+def prepend(value, iterable):
+    """Yield *value*, followed by the elements in *iterable*.
 
         >>> value = '0'
-        >>> iterator = ['1', '2', '3']
-        >>> list(prepend(value, iterator))
+        >>> iterable = ['1', '2', '3']
+        >>> list(prepend(value, iterable))
         ['0', '1', '2', '3']
 
     To prepend multiple values, see :func:`itertools.chain`
     or :func:`value_chain`.
 
     """
-    return chain([value], iterator)
+    return chain([value], iterable)
 
 
 def convolve(signal, kernel):
@@ -1009,7 +951,7 @@ else:  # pragma: no cover
     batched = _batched
 
 
-def transpose(it):
+def transpose(matrix):
     """Swap the rows and columns of the input matrix.
 
     >>> list(transpose([(1, 2, 3), (11, 22, 33)]))
@@ -1018,7 +960,7 @@ def transpose(it):
     The caller should ensure that the dimensions of the input are compatible.
     If the input is empty, no output will be produced.
     """
-    return _zip_strict(*it)
+    return zip(*matrix, strict=True)
 
 
 def _is_scalar(value, stringlike=(str, bytes)):
@@ -1175,7 +1117,7 @@ def polynomial_eval(coefficients, x):
     return _sumprod(coefficients, powers)
 
 
-def sum_of_squares(it):
+def sum_of_squares(iterable):
     """Return the sum of the squares of the input values.
 
     >>> sum_of_squares([10, 20, 30])
@@ -1183,7 +1125,7 @@ def sum_of_squares(it):
 
     Supports all numeric types: int, float, complex, Decimal, Fraction.
     """
-    return _sumprod(*tee(it))
+    return _sumprod(*tee(iterable))
 
 
 def polynomial_derivative(coefficients):
@@ -1469,3 +1411,66 @@ def running_median(iterable, *, maxlen=None):
         return _running_median_minheap_only(iterator)  # pragma: no cover
 
     return _running_median_minheap_and_maxheap(iterator)  # pragma: no cover
+
+
+def _windowed_running_mean(iterator, n):
+    window = deque()
+    running_sum = 0
+    for value in iterator:
+        window.append(value)
+        running_sum += value
+        if len(window) > n:
+            running_sum -= window.popleft()
+        yield running_sum / len(window)
+
+
+def running_mean(iterable, *, maxlen=None):
+    """Cumulative mean of values seen so far or values in a sliding window.
+
+    Set *maxlen* to a positive integer to specify the maximum size
+    of the sliding window.  The default of *None* is equivalent to
+    an unbounded window.
+
+    For example:
+
+        >>> list(running_mean([40, 30, 50, 46, 39, 44]))
+        [40.0, 35.0, 40.0, 41.5, 41.0, 41.5]
+
+        >>> list(running_mean([40, 30, 50, 46, 39, 44], maxlen=3))
+        [40.0, 35.0, 40.0, 42.0, 45.0, 43.0]
+
+    Supports numeric types such as int, float, complex, Decimal, and Fraction.
+
+    No extra effort is made to reduce round-off errors for float inputs.
+    So the results may be slightly different from `statistics.mean`.
+
+    """
+
+    iterator = iter(iterable)
+
+    if maxlen is None:
+        return map(truediv, accumulate(iterator), count(1))
+
+    if maxlen <= 0:
+        raise ValueError('Window size should be positive')
+
+    return _windowed_running_mean(iterator, maxlen)
+
+
+def random_derangement(iterable):
+    """Return a random derangement of elements in the iterable.
+
+    Equivalent to but much faster than ``choice(list(derangements(iterable)))``.
+
+    """
+    seq = tuple(iterable)
+    if len(seq) < 2:
+        if len(seq) == 0:
+            return ()
+        raise IndexError('No derangments to choose from')
+    perm = list(range(len(seq)))
+    start = tuple(perm)
+    while True:
+        shuffle(perm)
+        if not any(map(is_, start, perm)):
+            return itemgetter(*perm)(seq)

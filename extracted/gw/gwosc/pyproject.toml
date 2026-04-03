@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-  "setuptools >= 61",
+  "setuptools >= 77",
   "setuptools_scm[toml] >= 3.4",
   "wheel",
 ]
@@ -15,13 +15,14 @@ authors = [
   { name = "Duncan Macleod", email = "duncan.macleod@ligo.org" },
   { name = "Martin Beroiz", email = "martin.beroiz@ligo.org" },
 ]
-license = { text = "MIT" }
+license = "MIT"
+license-files = [
+  "LICENSE",
+]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -31,13 +32,13 @@ classifiers = [
   "Topic :: Scientific/Engineering",
   "Topic :: Scientific/Engineering :: Astronomy",
   "Topic :: Scientific/Engineering :: Physics",
-  "License :: OSI Approved :: MIT License",
 ]
 
 # requirements
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
-  "requests >= 1.0.0",
+  "requests >= 2.28.0",
+  "tenacity",
 ]
 
 dynamic = [
@@ -121,11 +122,6 @@ select = [
 # ignore unused import in __init__
 "__init__.py" = [
   "F401",
-]
-
-[tool.setuptools]
-license-files = [
-  "LICENSE",
 ]
 
 [tool.setuptools.packages.find]

@@ -305,6 +305,76 @@ NETWORK_CONFIGS: dict[str, NetworkConfig] = {
             "decimals": 6,
         },
     },
+    # Mezo Testnet (uses Permit2 instead of EIP-3009, supports EIP-2612)
+    "eip155:31611": {
+        "chain_id": 31611,
+        "default_asset": {
+            "address": "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
+            "name": "Mezo USD",
+            "version": "1",
+            "decimals": 18,
+            "asset_transfer_method": "permit2",
+            "supports_eip2612": True,
+        },
+    },
+    # Stable Mainnet
+    "eip155:988": {
+        "chain_id": 988,
+        "default_asset": {
+            "address": "0x779Ded0c9e1022225f8E0630b35a9b54bE713736",
+            "name": "USDT0",
+            "version": "1",
+            "decimals": 6,
+        },
+    },
+    # Stable Testnet
+    "eip155:2201": {
+        "chain_id": 2201,
+        "default_asset": {
+            "address": "0x78Cf24370174180738C5B8E352B6D14c83a6c9A9",
+            "name": "USDT0",
+            "version": "1",
+            "decimals": 6,
+        },
+    },
+    # Polygon Mainnet
+    "eip155:137": {
+        "chain_id": 137,
+        "default_asset": {
+            "address": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+            "name": "USD Coin",
+            "version": "2",
+            "decimals": 6,
+        },
+        "supported_assets": {
+            "USDC": {
+                "address": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+                "name": "USD Coin",
+                "version": "2",
+                "decimals": 6,
+            },
+        },
+    },
+    # Arbitrum One
+    "eip155:42161": {
+        "chain_id": 42161,
+        "default_asset": {
+            "address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+            "name": "USD Coin",
+            "version": "2",
+            "decimals": 6,
+        },
+    },
+    # Arbitrum Sepolia
+    "eip155:421614": {
+        "chain_id": 421614,
+        "default_asset": {
+            "address": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+            "name": "USD Coin",
+            "version": "2",
+            "decimals": 6,
+        },
+    },
 }
 
 # V1 legacy constants are in x402.mechanisms.evm.v1.constants

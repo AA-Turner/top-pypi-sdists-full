@@ -150,6 +150,17 @@ pub struct OfflineQwen3ASRModelConfig {
     pub temperature: c_float,
     pub top_p: c_float,
     pub seed: i32,
+    pub hotwords: *const c_char,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct OfflineCohereTranscribeModelConfig {
+    pub encoder: *const c_char,
+    pub decoder: *const c_char,
+    pub language: *const c_char,
+    pub use_punct: i32,
+    pub use_itn: i32,
 }
 
 #[repr(C)]
@@ -182,6 +193,7 @@ pub struct OfflineModelConfig {
     pub funasr_nano: OfflineFunASRNanoModelConfig,
     pub fire_red_asr_ctc: OfflineFireRedAsrCtcModelConfig,
     pub qwen3_asr: OfflineQwen3ASRModelConfig,
+    pub cohere_transcribe: OfflineCohereTranscribeModelConfig,
 }
 
 #[repr(C)]

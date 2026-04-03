@@ -66,7 +66,7 @@ class AedtBlockObj(list):
                 return super().__getitem__(idx)
         return super().__getitem__(idxOrKey)
 
-    def __setitem__(self, idxOrKey, newVal):
+    def __setitem__(self, idxOrKey, newVal) -> None:
         if isinstance(idxOrKey, int):
             if idxOrKey >= 0 or idxOrKey < len(self):
                 oldItem = self.__getitem__(idxOrKey)
@@ -149,7 +149,7 @@ class AedtObjWrapper:
         except Exception:
             raise GrpcApiError(f"Failed to get gRPC API AEDT attribute {funcName}")
 
-    def __setattr__(self, attrName, val):
+    def __setattr__(self, attrName, val) -> None:
         if attrName == "objectID" or attrName == "__methodNames__":
             raise GrpcApiError("This attribute cannot be modified.")
         elif attrName in self.__methodNames__:
@@ -157,9 +157,11 @@ class AedtObjWrapper:
         else:
             super().__setattr__(attrName, val)
 
-    def match(
-        self, patternStr: str
-    ) -> list[str]:  # IronPython wrapper implemented this function return IEnumerable<string>.
+    def __del__(self) -> None:
+        if "ReleaseAedtObject" in dir(self.dllapi):
+            self.dllapi.ReleaseAedtObject(self.objectID)
+
+    def match(self, patternStr):  # IronPython wrapper implemented this function return IEnumerable<string>.
         class IEnumerable(list):
             def __getattr__(self, key):
                 if key == "Count":
@@ -224,7 +226,7 @@ class AedtPropServer(AedtObjWrapper):
                 return self.GetPropValue(propMap[attrName])
             raise GrpcApiError(f"Failed to retrieve attribute {attrName} from gRPC API")
 
-    def __setattr__(self, attr, val):
+    def __setattr__(self, attr, val) -> None:
         if attr in self.__dict__:
             self.__dict__[attr] = val
             return
@@ -333,11 +335,7 @@ class AEDT:
 
     def CreateAedtApplication(self, machine, port: int | None = 0, NGmode: bool = False, alwaysNew: bool = True):
         try:
-            if machine == "":
-                pyaedt_logger.debug(f"Starting client with port {port}")
-            else:
-                pyaedt_logger.debug(f"Starting client with machine {machine} and port {port}")
-
+            pyaedt_logger.debug(f"Starting client with machine {machine} and port {port}")
             if machine.endswith("InsecureMode"):
                 target = machine.split(":")[0]
                 pyaedt_logger.warning(
@@ -388,7 +386,7 @@ class AEDT:
     def InvokeAedtObjMethod(self, objectID, funcName, argv):
         return self.AedtAPI.InvokeAedtObjMethod(objectID, funcName, argv)
 
-    def ReleaseAedtObject(self, objectID):
+    def ReleaseAedtObject(self, objectID) -> None:
         self.AedtAPI.ReleaseAedtObject(objectID)
 
     def ReleaseAll(self) -> None:

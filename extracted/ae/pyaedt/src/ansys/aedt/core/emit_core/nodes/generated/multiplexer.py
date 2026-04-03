@@ -25,7 +25,6 @@
 from enum import Enum
 
 from ansys.aedt.core.emit_core.nodes.emit_node import EmitNode
-from ansys.aedt.core.internal.checks import min_aedt_version
 
 
 class Multiplexer(EmitNode):
@@ -34,28 +33,23 @@ class Multiplexer(EmitNode):
         self._is_component = True
 
     @property
-    @min_aedt_version("2025.2")
     def node_type(self) -> str:
         """The type of this emit node."""
         return self._node_type
 
-    @min_aedt_version("2025.2")
-    def add_multiplexer_pass_band(self) -> EmitNode:
+    def add_multiplexer_pass_band(self):
         """Add a New Multiplexer Band to this Multiplexer"""
         return self._add_child_node("Multiplexer Pass Band")
 
-    @min_aedt_version("2025.2")
-    def duplicate(self, new_name: str = "") -> EmitNode:
+    def duplicate(self, new_name: str = ""):
         """Duplicate this node"""
         return self._duplicate(new_name)
 
-    @min_aedt_version("2025.2")
     def delete(self) -> None:
         """Delete this node"""
         self._delete()
 
     @property
-    @min_aedt_version("2025.2")
     def filename(self) -> str:
         """Name of file defining the multiplexer.
 
@@ -65,12 +59,10 @@ class Multiplexer(EmitNode):
         return val
 
     @filename.setter
-    @min_aedt_version("2025.2")
     def filename(self, value: str) -> None:
         self._set_property("Filename", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def noise_temperature(self) -> float:
         """System Noise temperature (K) of the component.
 
@@ -80,19 +72,16 @@ class Multiplexer(EmitNode):
         return float(val)
 
     @noise_temperature.setter
-    @min_aedt_version("2025.2")
     def noise_temperature(self, value: float) -> None:
         self._set_property("Noise Temperature", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def notes(self) -> str:
         """Expand to view/edit notes stored with the project."""
         val = self._get_property("Notes")
         return val
 
     @notes.setter
-    @min_aedt_version("2025.2")
     def notes(self, value: str) -> None:
         self._set_property("Notes", f"{value}")
 
@@ -101,7 +90,6 @@ class Multiplexer(EmitNode):
         BY_FILE = "ByFile"
 
     @property
-    @min_aedt_version("2025.2")
     def multiplexer_type(self) -> MultiplexerTypeOption:
         """Multiplexer Type.
 
@@ -114,26 +102,20 @@ class Multiplexer(EmitNode):
         return val
 
     @multiplexer_type.setter
-    @min_aedt_version("2025.2")
     def multiplexer_type(self, value: MultiplexerTypeOption) -> None:
         self._set_property("Multiplexer Type", f"{value.value}")
 
     @property
-    @min_aedt_version("2025.2")
-    def ports(self) -> list[str]:
+    def ports(self):
         """Assigns the child port nodes to the multiplexers ports."""
         val = self._get_property("Ports")
         return val
 
     @ports.setter
-    @min_aedt_version("2025.2")
-    def ports(self, value: list[str] | str) -> None:
-        if isinstance(value, (list, tuple)):
-            value = "|".join(value)
+    def ports(self, value) -> None:
         self._set_property("Ports", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def warnings(self) -> str:
         """Warning(s) for this node."""
         val = self._get_property("Warnings")

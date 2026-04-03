@@ -1,6 +1,8 @@
 import flask
 
+from abstra_internals.controllers.linter_events import LinterEventController
 from abstra_internals.controllers.main import MainController
+from abstra_internals.repositories.linter.rules import run_after_package_install
 from abstra_internals.services.requirements import (
     RequirementsRepository,
     create_requirement,
@@ -9,10 +11,17 @@ from abstra_internals.services.requirements import (
 from abstra_internals.usage import editor_usage
 
 
+def _with_post_install_linters(streamer, controller: MainController):
+    yield from streamer
+    checks = controller.linter_repository.update_specific_checks(
+        run_after_package_install
+    )
+    LinterEventController.broadcast(checks)
+
+
 def get_editor_bp(controller: MainController):
     bp = flask.Blueprint("editor_requirements", __name__)
 
-    # 1s pooling in this route
     @bp.get("/")
     def _get_requirements():
         return RequirementsRepository.load().to_dict()
@@ -40,7 +49,10 @@ def get_editor_bp(controller: MainController):
         if streamer is None:
             flask.abort(403)
 
-        return flask.Response(streamer, mimetype="text/event-stream")
+        return flask.Response(
+            _with_post_install_linters(streamer, controller),
+            mimetype="text/event-stream",
+        )
 
     @bp.post("/<name>/uninstall")
     def _uninstall_requirement(name: str):
@@ -51,7 +63,10 @@ def get_editor_bp(controller: MainController):
         reqs = RequirementsRepository.load()
         reqs.delete(name)
         RequirementsRepository.save(reqs)
-        return flask.Response(streamer, mimetype="text/event-stream")
+        return flask.Response(
+            _with_post_install_linters(streamer, controller),
+            mimetype="text/event-stream",
+        )
 
     @bp.delete("/<name>")
     @editor_usage
@@ -61,7 +76,6 @@ def get_editor_bp(controller: MainController):
         RequirementsRepository.save(requirements)
         return requirements.to_dict()
 
-    # 1s pooling in this route
     @bp.get("/recommendations")
     def _get_requirements_recommendation():
         return [r.to_dict() for r in RequirementsRepository.get_recommendation()]

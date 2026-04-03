@@ -31,7 +31,7 @@ pub struct CsvExporter {
     stream_index: i32,
 
     /// Buffer for accumulating CSV data before sending
-    buffer: Vec<u8>,
+    pub(crate) buffer: Vec<u8>,
 
     /// Maximum blob size for Guacamole protocol (6KB)
     max_blob_size: usize,
@@ -134,7 +134,7 @@ impl CsvExporter {
     }
 
     /// Write a single CSV field, escaping as needed
-    fn write_csv_field(&mut self, field: &str) {
+    pub(crate) fn write_csv_field(&mut self, field: &str) {
         // Check if field needs quoting
         let needs_quoting = field.contains(',')
             || field.contains('"')
@@ -227,7 +227,7 @@ impl CsvExporter {
 }
 
 /// Simple base64 encoding (without external dependency)
-fn base64_encode(data: &[u8]) -> String {
+pub(crate) fn base64_encode(data: &[u8]) -> String {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     let mut result = Vec::with_capacity(data.len().div_ceil(3) * 4);
@@ -276,7 +276,7 @@ pub fn generate_csv_filename(query: &str, database_type: &str) -> String {
 }
 
 /// Try to extract a table name from a SELECT query
-fn extract_table_name(query: &str) -> Option<&str> {
+pub(crate) fn extract_table_name(query: &str) -> Option<&str> {
     let query_upper = query.to_uppercase();
 
     // Look for FROM clause
@@ -320,88 +320,4 @@ pub fn parse_ack_instruction(data: &[u8]) -> Option<(i32, u16)> {
     let status: u16 = status_part.split('.').nth(1)?.parse().ok()?;
 
     Some((stream_idx, status))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_base64_encode() {
-        assert_eq!(base64_encode(b"Hello"), "SGVsbG8=");
-        assert_eq!(base64_encode(b"Hello, World!"), "SGVsbG8sIFdvcmxkIQ==");
-        assert_eq!(base64_encode(b""), "");
-        assert_eq!(base64_encode(b"a"), "YQ==");
-        assert_eq!(base64_encode(b"ab"), "YWI=");
-        assert_eq!(base64_encode(b"abc"), "YWJj");
-    }
-
-    #[test]
-    fn test_csv_field_escaping() {
-        let mut exporter = CsvExporter::new(1);
-
-        // Simple field
-        exporter.write_csv_field("hello");
-        assert_eq!(String::from_utf8_lossy(&exporter.buffer), "hello");
-        exporter.buffer.clear();
-
-        // Field with comma
-        exporter.write_csv_field("hello,world");
-        assert_eq!(String::from_utf8_lossy(&exporter.buffer), "\"hello,world\"");
-        exporter.buffer.clear();
-
-        // Field with quote
-        exporter.write_csv_field("say \"hello\"");
-        assert_eq!(
-            String::from_utf8_lossy(&exporter.buffer),
-            "\"say \"\"hello\"\"\""
-        );
-        exporter.buffer.clear();
-
-        // Field with newline
-        exporter.write_csv_field("line1\nline2");
-        assert_eq!(
-            String::from_utf8_lossy(&exporter.buffer),
-            "\"line1\nline2\""
-        );
-    }
-
-    #[test]
-    fn test_extract_table_name() {
-        assert_eq!(extract_table_name("SELECT * FROM users"), Some("users"));
-        assert_eq!(
-            extract_table_name("SELECT id, name FROM products WHERE id > 5"),
-            Some("products")
-        );
-        assert_eq!(extract_table_name("select * from ORDERS;"), Some("ORDERS"));
-        assert_eq!(extract_table_name("INSERT INTO users"), None);
-    }
-
-    #[test]
-    fn test_generate_filename() {
-        let filename = generate_csv_filename("SELECT * FROM users", "mysql");
-        assert!(filename.starts_with("mysql_users_export_"));
-        assert!(filename.ends_with(".csv"));
-    }
-
-    #[test]
-    fn test_start_download_instruction() {
-        let exporter = CsvExporter::new(5);
-        let instruction = exporter.start_download("test.csv");
-        let s = String::from_utf8_lossy(&instruction);
-        assert!(s.contains("file"));
-        assert!(s.contains("text/csv"));
-        assert!(s.contains("test.csv"));
-    }
-
-    #[test]
-    fn test_cancellation() {
-        let exporter = CsvExporter::new(1);
-        let handle = exporter.cancellation_handle();
-
-        assert!(!exporter.is_cancelled());
-
-        handle.store(true, Ordering::SeqCst);
-        assert!(exporter.is_cancelled());
-    }
 }

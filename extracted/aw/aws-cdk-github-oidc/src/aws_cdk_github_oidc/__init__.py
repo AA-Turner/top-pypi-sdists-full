@@ -1,4 +1,4 @@
-'''
+r'''
 # AWS CDK Github OpenID Connect
 
 ![cdk-support](https://img.shields.io/badge/cdk-%20typescript%20%7C%20python%20-informational)
@@ -146,6 +146,9 @@ jobs:
 
 <br/>
 '''
+from pkgutil import extend_path
+__path__ = extend_path(__path__, __name__)
+
 import abc
 import builtins
 import datetime
@@ -156,7 +159,22 @@ import jsii
 import publication
 import typing_extensions
 
-from typeguard import check_type
+import typeguard
+from importlib.metadata import version as _metadata_package_version
+TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+
+def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
+    if TYPEGUARD_MAJOR_VERSION <= 2:
+        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
+    else:
+        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
+           pass
+        else:
+            if TYPEGUARD_MAJOR_VERSION == 3:
+                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
+                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
+            else:
+                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
@@ -192,7 +210,7 @@ class GithubActionsRole(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         owner: builtins.str,
@@ -201,11 +219,11 @@ class GithubActionsRole(
         filter: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        inline_policies: typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_iam_ceddda9d.PolicyDocument]] = None,
-        managed_policies: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IManagedPolicy]] = None,
-        max_session_duration: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        inline_policies: typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_aws_iam_ceddda9d.PolicyDocument"]] = None,
+        managed_policies: typing.Optional[typing.Sequence["_aws_cdk_aws_iam_ceddda9d.IManagedPolicy"]] = None,
+        max_session_duration: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IManagedPolicy] = None,
+        permissions_boundary: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IManagedPolicy"] = None,
         role_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Define an IAM Role that can be assumed by Github Actions workflow via Github OpenID Connect Identity Provider.
@@ -385,7 +403,7 @@ class GithubConfiguration:
 
 @jsii.interface(jsii_type="aws-cdk-github-oidc.IGithubActionsIdentityProvider")
 class IGithubActionsIdentityProvider(
-    _aws_cdk_aws_iam_ceddda9d.IOpenIdConnectProvider,
+    _aws_cdk_aws_iam_ceddda9d.IOidcProvider,
     typing_extensions.Protocol,
 ):
     '''(experimental) Describes a Github OpenID Connect Identity Provider for AWS IAM.
@@ -397,7 +415,7 @@ class IGithubActionsIdentityProvider(
 
 
 class _IGithubActionsIdentityProviderProxy(
-    jsii.proxy_for(_aws_cdk_aws_iam_ceddda9d.IOpenIdConnectProvider), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_aws_iam_ceddda9d.IOidcProvider), # type: ignore[misc]
 ):
     '''(experimental) Describes a Github OpenID Connect Identity Provider for AWS IAM.
 
@@ -431,19 +449,16 @@ class RoleProps:
         *,
         description: typing.Optional[builtins.str] = None,
         external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        inline_policies: typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_iam_ceddda9d.PolicyDocument]] = None,
-        managed_policies: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IManagedPolicy]] = None,
-        max_session_duration: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        inline_policies: typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_aws_iam_ceddda9d.PolicyDocument"]] = None,
+        managed_policies: typing.Optional[typing.Sequence["_aws_cdk_aws_iam_ceddda9d.IManagedPolicy"]] = None,
+        max_session_duration: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IManagedPolicy] = None,
+        permissions_boundary: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IManagedPolicy"] = None,
         role_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining an IAM Role.
 
-        These are copied fron @aws-cdk/aws-iam, but since JSII does not support
-        TypeScript <Partial<iam.RoleProps>> (or Omit), we have to do this stupid thing.
-
-        Basically exactly the same as source, but with assumedBy removed.
+        These are copied fron
 
         :param description: A description of the role. It can be up to 1000 characters long. Default: - No description.
         :param external_ids: List of IDs that the role assumer needs to provide one of when assuming this role. If the configured and provided external IDs do not match, the AssumeRole operation will fail. Default: No external ID required
@@ -453,6 +468,13 @@ class RoleProps:
         :param path: The path associated with this role. For information about IAM paths, see Friendly Names and Paths in IAM User Guide. Default: /
         :param permissions_boundary: AWS supports permissions boundaries for IAM entities (users or roles). A permissions boundary is an advanced feature for using a managed policy to set the maximum permissions that an identity-based policy can grant to an IAM entity. An entity's permissions boundary allows it to perform only the actions that are allowed by both its identity-based policies and its permissions boundaries. Default: - No permissions boundary.
         :param role_name: A name for the IAM role. For valid values, see the RoleName parameter for the CreateRole action in the IAM API Reference. IMPORTANT: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name. If you specify a name, you must specify the CAPABILITY_NAMED_IAM value to acknowledge your template's capabilities. For more information, see Acknowledging IAM Resources in AWS CloudFormation Templates. Default: - AWS CloudFormation generates a unique physical ID and uses that ID for the role name.
+
+        :aws-cdk:
+
+        /aws-iam, but since JSII does not support
+        TypeScript <Partial<iam.RoleProps>> (or Omit), we have to do this stupid thing.
+
+        Basically exactly the same as source, but with assumedBy removed.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0cd6a3e7d7cf1f8d6e476e7c7fb421f2328a8b971f11011b0003bb9de6651e83)
@@ -508,7 +530,7 @@ class RoleProps:
     @builtins.property
     def inline_policies(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_iam_ceddda9d.PolicyDocument]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_aws_iam_ceddda9d.PolicyDocument"]]:
         '''A list of named policies to inline into this role.
 
         These policies will be
@@ -519,12 +541,12 @@ class RoleProps:
         :default: - No policy is inlined in the Role resource.
         '''
         result = self._values.get("inline_policies")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_iam_ceddda9d.PolicyDocument]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_aws_iam_ceddda9d.PolicyDocument"]], result)
 
     @builtins.property
     def managed_policies(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_iam_ceddda9d.IManagedPolicy]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_iam_ceddda9d.IManagedPolicy"]]:
         '''A list of managed policies associated with this role.
 
         You can add managed policies later using
@@ -533,10 +555,10 @@ class RoleProps:
         :default: - No managed policies.
         '''
         result = self._values.get("managed_policies")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_iam_ceddda9d.IManagedPolicy]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_iam_ceddda9d.IManagedPolicy"]], result)
 
     @builtins.property
-    def max_session_duration(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def max_session_duration(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''The maximum session duration that you want to set for the specified role.
 
         This setting can have a value from 1 hour (3600sec) to 12 (43200sec) hours.
@@ -557,7 +579,7 @@ class RoleProps:
         :link: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html
         '''
         result = self._values.get("max_session_duration")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -574,7 +596,7 @@ class RoleProps:
     @builtins.property
     def permissions_boundary(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IManagedPolicy]:
+    ) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IManagedPolicy"]:
         '''AWS supports permissions boundaries for IAM entities (users or roles).
 
         A permissions boundary is an advanced feature for using a managed policy
@@ -588,7 +610,7 @@ class RoleProps:
         :link: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
         '''
         result = self._values.get("permissions_boundary")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IManagedPolicy], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IManagedPolicy"], result)
 
     @builtins.property
     def role_name(self) -> typing.Optional[builtins.str]:
@@ -627,7 +649,7 @@ class RoleProps:
 
 @jsii.implements(IGithubActionsIdentityProvider)
 class GithubActionsIdentityProvider(
-    _aws_cdk_aws_iam_ceddda9d.OpenIdConnectProvider,
+    _aws_cdk_aws_iam_ceddda9d.OidcProviderNative,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-github-oidc.GithubActionsIdentityProvider",
 ):
@@ -635,12 +657,18 @@ class GithubActionsIdentityProvider(
 
     Use ``fromAccount`` to retrieve a reference to existing Github OIDC provider.
 
+    Uses the native CloudFormation resource AWS::IAM::OIDCProvider (no Lambda functions).
+
     :see: https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services
     :stability: experimental
     '''
 
-    def __init__(self, scope: _constructs_77d1e7e8.Construct, id: builtins.str) -> None:
-        '''(experimental) Define a new Github OpenID Connect Identity PRovider for AWS IAM.
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+    ) -> None:
+        '''(experimental) Define a new Github OpenID Connect Identity Provider for AWS IAM.
 
         There can be only one (per AWS Account).
 
@@ -663,9 +691,9 @@ class GithubActionsIdentityProvider(
     @builtins.classmethod
     def from_account(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
-    ) -> IGithubActionsIdentityProvider:
+    ) -> "IGithubActionsIdentityProvider":
         '''(experimental) Retrieve a reference to existing Github OIDC provider in your AWS account.
 
         An AWS account can only have single Github OIDC provider configured into it,
@@ -687,7 +715,7 @@ class GithubActionsIdentityProvider(
             type_hints = typing.get_type_hints(_typecheckingstub__6dd498a1f69430076a6a88f7090fd13f298542f0b556d9beb15d29ce4a23d9ce)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        return typing.cast(IGithubActionsIdentityProvider, jsii.sinvoke(cls, "fromAccount", [scope, id]))
+        return typing.cast("IGithubActionsIdentityProvider", jsii.sinvoke(cls, "fromAccount", [scope, id]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="issuer")
@@ -721,16 +749,16 @@ class GithubActionsRoleProps(GithubConfiguration, RoleProps):
         self,
         *,
         owner: builtins.str,
-        provider: IGithubActionsIdentityProvider,
+        provider: "IGithubActionsIdentityProvider",
         repo: builtins.str,
         filter: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        inline_policies: typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_iam_ceddda9d.PolicyDocument]] = None,
-        managed_policies: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IManagedPolicy]] = None,
-        max_session_duration: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        inline_policies: typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_aws_iam_ceddda9d.PolicyDocument"]] = None,
+        managed_policies: typing.Optional[typing.Sequence["_aws_cdk_aws_iam_ceddda9d.IManagedPolicy"]] = None,
+        max_session_duration: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IManagedPolicy] = None,
+        permissions_boundary: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IManagedPolicy"] = None,
         role_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Props that define the IAM Role that can be assumed by Github Actions workflow via Github OpenID Connect Identity Provider.
@@ -816,7 +844,7 @@ class GithubActionsRoleProps(GithubConfiguration, RoleProps):
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def provider(self) -> IGithubActionsIdentityProvider:
+    def provider(self) -> "IGithubActionsIdentityProvider":
         '''(experimental) Reference to Github OpenID Connect Provider configured in AWS IAM.
 
         Either pass an construct defined by ``new GithubActionsIdentityProvider``
@@ -827,7 +855,7 @@ class GithubActionsRoleProps(GithubConfiguration, RoleProps):
         '''
         result = self._values.get("provider")
         assert result is not None, "Required property 'provider' is missing"
-        return typing.cast(IGithubActionsIdentityProvider, result)
+        return typing.cast("IGithubActionsIdentityProvider", result)
 
     @builtins.property
     def repo(self) -> builtins.str:
@@ -892,7 +920,7 @@ class GithubActionsRoleProps(GithubConfiguration, RoleProps):
     @builtins.property
     def inline_policies(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_iam_ceddda9d.PolicyDocument]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_aws_iam_ceddda9d.PolicyDocument"]]:
         '''A list of named policies to inline into this role.
 
         These policies will be
@@ -903,12 +931,12 @@ class GithubActionsRoleProps(GithubConfiguration, RoleProps):
         :default: - No policy is inlined in the Role resource.
         '''
         result = self._values.get("inline_policies")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_iam_ceddda9d.PolicyDocument]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_aws_cdk_aws_iam_ceddda9d.PolicyDocument"]], result)
 
     @builtins.property
     def managed_policies(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_iam_ceddda9d.IManagedPolicy]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_iam_ceddda9d.IManagedPolicy"]]:
         '''A list of managed policies associated with this role.
 
         You can add managed policies later using
@@ -917,10 +945,10 @@ class GithubActionsRoleProps(GithubConfiguration, RoleProps):
         :default: - No managed policies.
         '''
         result = self._values.get("managed_policies")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_iam_ceddda9d.IManagedPolicy]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_iam_ceddda9d.IManagedPolicy"]], result)
 
     @builtins.property
-    def max_session_duration(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def max_session_duration(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''The maximum session duration that you want to set for the specified role.
 
         This setting can have a value from 1 hour (3600sec) to 12 (43200sec) hours.
@@ -941,7 +969,7 @@ class GithubActionsRoleProps(GithubConfiguration, RoleProps):
         :link: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html
         '''
         result = self._values.get("max_session_duration")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -958,7 +986,7 @@ class GithubActionsRoleProps(GithubConfiguration, RoleProps):
     @builtins.property
     def permissions_boundary(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IManagedPolicy]:
+    ) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IManagedPolicy"]:
         '''AWS supports permissions boundaries for IAM entities (users or roles).
 
         A permissions boundary is an advanced feature for using a managed policy
@@ -972,7 +1000,7 @@ class GithubActionsRoleProps(GithubConfiguration, RoleProps):
         :link: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
         '''
         result = self._values.get("permissions_boundary")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IManagedPolicy], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IManagedPolicy"], result)
 
     @builtins.property
     def role_name(self) -> typing.Optional[builtins.str]:
@@ -1095,3 +1123,6 @@ def _typecheckingstub__a5294e97cf23a4f3be3a6e45b1c5188fe6f334ee6f6a820488832aecb
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IGithubActionsIdentityProvider]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

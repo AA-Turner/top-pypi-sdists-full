@@ -5,7 +5,7 @@ from collections import defaultdict
 from typing import Optional
 
 from ..parser import parse_file, get_language_for_path
-from ..parser.context import ContextProvider, enrich_symbols
+from ..parser.context import ContextProvider, enrich_symbols, collect_extra_imports
 from ..parser.imports import extract_imports
 from ..parser.symbols import Symbol
 from ..summarizer import summarize_symbols, generate_file_summaries
@@ -143,6 +143,10 @@ def parse_immediate(
         if imps:
             file_imports[rel_path] = imps
 
+    # 6. Merge extra imports from context providers (Blade refs, route→controller, etc.)
+    if providers:
+        collect_extra_imports(providers, file_imports)
+
     return new_symbols, file_summaries, file_langs, file_imports, no_symbols_files
 
 
@@ -261,7 +265,38 @@ def parse_and_prepare_incremental(
         if imps:
             file_imports[rel_path] = imps
 
+    # 6. Merge extra imports from context providers (Blade refs, route→controller, etc.)
+    if providers:
+        collect_extra_imports(providers, file_imports)
+
     return new_symbols, file_summaries, file_langs, file_imports, no_symbols_files
+
+
+def _split_for_summarization(
+    symbols: list[Symbol],
+    existing_summaries: dict[tuple[str, str, str], str],
+    unchanged_files: set[str],
+) -> tuple[list[Symbol], list[Symbol]]:
+    """Split symbols into those needing AI summarization and those with preserved summaries.
+
+    For symbols in unchanged files (same content hash as existing index), copies the
+    existing summary onto the symbol and places it in ``already_summarized``.  All
+    other symbols go into ``needs_summary`` and will be sent to the AI summarizer.
+
+    Returns:
+        (needs_summary, already_summarized)
+    """
+    needs_summary: list[Symbol] = []
+    already_summarized: list[Symbol] = []
+    for sym in symbols:
+        if sym.file in unchanged_files:
+            old_sum = existing_summaries.get((sym.file, sym.name, sym.kind))
+            if old_sum:
+                sym.summary = old_sum
+                already_summarized.append(sym)
+                continue
+        needs_summary.append(sym)
+    return needs_summary, already_summarized
 
 
 def parse_and_prepare_full(
@@ -270,6 +305,8 @@ def parse_and_prepare_full(
     use_ai_summaries: bool = True,
     warnings: Optional[list[str]] = None,
     repo: Optional[str] = None,
+    existing_summaries: Optional[dict[tuple[str, str, str], str]] = None,
+    unchanged_files: Optional[set[str]] = None,
 ) -> tuple[list[Symbol], dict[str, str], dict[str, int], dict[str, str], dict[str, list[dict]], list[str]]:
     """Shared full-index pipeline: parse all files, enrich, summarize.
 
@@ -278,6 +315,12 @@ def parse_and_prepare_full(
         active_providers: Context providers for enrichment.
         use_ai_summaries: Whether to use AI summaries.
         warnings: Mutable list to append warnings to.
+        existing_summaries: Optional map of (file, name, kind) -> summary from a
+            prior index.  When provided together with ``unchanged_files``, symbols
+            whose file content is unchanged reuse the existing summary instead of
+            triggering a new AI call.
+        unchanged_files: Set of rel_paths whose content hash matches the existing
+            index.  Required alongside ``existing_summaries`` to enable preservation.
 
     Returns:
         (symbols, file_summaries, languages, file_languages, file_imports, no_symbols_files)
@@ -323,9 +366,20 @@ def parse_and_prepare_full(
     if providers and all_symbols:
         enrich_symbols(all_symbols, providers)
 
-    # 3. Summarize
+    # 3. Summarize — preserve existing summaries for unchanged files when available
     if all_symbols:
-        all_symbols = summarize_symbols(all_symbols, use_ai=use_ai_summaries)
+        if existing_summaries and unchanged_files:
+            needs_summary, already_summarized = _split_for_summarization(
+                all_symbols, existing_summaries, unchanged_files
+            )
+            logger.info(
+                "Summary preservation: %d symbols reuse existing, %d need AI summarization",
+                len(already_summarized), len(needs_summary),
+            )
+            summarized = summarize_symbols(needs_summary, use_ai=use_ai_summaries) if needs_summary else []
+            all_symbols = summarized + already_summarized
+        else:
+            all_symbols = summarize_symbols(all_symbols, use_ai=use_ai_summaries)
 
     # 4. Rebuild symbols_by_file after summarization (summaries may update fields)
     file_symbols_map: dict[str, list] = defaultdict(list)
@@ -344,5 +398,9 @@ def parse_and_prepare_full(
             imps = extract_imports(content, path, language)
             if imps:
                 file_imports[path] = imps
+
+    # 6. Merge extra imports from context providers (Blade refs, route→controller, etc.)
+    if providers:
+        collect_extra_imports(providers, file_imports)
 
     return all_symbols, file_summaries, languages, file_langs, file_imports, no_symbols_files

@@ -42,6 +42,7 @@ ConditionTypes = Enum(
         "always_match_condition",
         "timeframe_condition",
         "timeperiod_condition",
+        "has_resource_permission_condition",
     ],
 )
 
@@ -612,6 +613,7 @@ def format_rulesets(ctx, rulesets):
         spec_column("org_id"),
         spec_column("name"),
         spec_column("object_conditions"),
+        spec_column("labels"),
         subtable(ctx, "spec.rule_trees", trees_table, out_name="trees"),
     ]
 
@@ -977,6 +979,48 @@ def add_agilicus_default_expose_allow(
     add_ruleset(ctx, name, trees=[name], labels=[label], **kwargs)
 
 
+def add_has_resource_permission_condition_rule(
+    ctx,
+    name,
+    actions,
+    resource_types=None,
+    purpose=None,
+    standalone_rule_policy_id=None,
+    **kwargs,
+):
+    cond = agilicus.HasResourcePermission(
+        condition_type=ConditionTypes.has_resource_permission_condition.name,
+        resource_types=resource_types,
+    )
+    return add_rule(
+        ctx,
+        name,
+        cond,
+        actions,
+        purpose=purpose,
+        standalone_rule_policy_id=standalone_rule_policy_id,
+        **kwargs,
+    )
+
+
+def add_agilicus_default_has_resource_permission(
+    ctx,
+    label="agilicus-defaults-policy",
+    name="default_has_resource_permission",
+    action="allow",
+    **kwargs,
+):
+    add_has_resource_permission_condition_rule(
+        ctx,
+        name,
+        [action],
+        **kwargs,
+    )
+    add_label(ctx, label=label, **kwargs)
+    add_rule_tree(ctx, name, children=[], rules=[name], **kwargs)
+    add_ruleset(ctx, name, trees=[name], labels=[label], **kwargs)
+
+
 def add_rule(
     ctx,
     name,
@@ -1169,6 +1213,7 @@ def add_agilicus_default_policy(
 ):
     add_agilicus_default_expose_allow(ctx)
     add_agilicus_default_database_allow(ctx)
+    add_agilicus_default_has_resource_permission(ctx)
 
 
 def add_timeperiod_condition_rule(

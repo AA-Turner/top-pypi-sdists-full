@@ -39,6 +39,8 @@ use guacr_handlers::{
     // Recording
     RecordingConfig,
     StandardCursor,
+    // Sync flow control (prevents frame pile-up on slow WebRTC connections)
+    SyncFlowControl,
     VideoOutput,
     DEFAULT_KEEPALIVE_INTERVAL_SECS,
     PIPE_NAME_STDIN,
@@ -410,12 +412,56 @@ impl ProtocolHandler for SshHandler {
         let auth_timeout = Duration::from_secs(security.connection_timeout_secs);
         let auth_result = if let Some(pwd) = password {
             debug!("SSH handler: Authenticating with password");
-            tokio::time::timeout(auth_timeout, sh.authenticate_password(username, pwd))
-                .await
-                .map_err(|_| {
-                    error!("SSH handler: Authentication timed out");
-                    HandlerError::AuthenticationFailed("Authentication timed out".to_string())
-                })
+            let pwd_for_kbi = pwd.clone();
+            let password_result = tokio::time::timeout(
+                auth_timeout,
+                sh.authenticate_password(username.clone(), pwd),
+            )
+            .await
+            .map_err(|_| {
+                error!("SSH handler: Authentication timed out");
+                HandlerError::AuthenticationFailed("Authentication timed out".to_string())
+            });
+
+            // If password auth was rejected (Ok(Ok(false))), fall back to
+            // keyboard-interactive. Many SSH servers (OpenSSH default config)
+            // disable the "password" method and only allow "keyboard-interactive",
+            // which is functionally equivalent but uses a challenge-response flow.
+            // libssh2/libguac handles this transparently; we must do it explicitly.
+            match &password_result {
+                Ok(Ok(false)) => {
+                    info!("SSH handler: Password auth rejected, trying keyboard-interactive");
+                    tokio::time::timeout(auth_timeout, async {
+                        use russh::client::KeyboardInteractiveAuthResponse;
+                        let mut resp = sh
+                            .authenticate_keyboard_interactive_start(username.clone(), None)
+                            .await?;
+                        loop {
+                            match resp {
+                                KeyboardInteractiveAuthResponse::Success => return Ok(true),
+                                KeyboardInteractiveAuthResponse::Failure => return Ok(false),
+                                KeyboardInteractiveAuthResponse::InfoRequest {
+                                    prompts, ..
+                                } => {
+                                    // Respond to each prompt with the password
+                                    // (standard PAM password prompt sends one prompt)
+                                    let responses: Vec<String> =
+                                        prompts.iter().map(|_| pwd_for_kbi.clone()).collect();
+                                    resp = sh
+                                        .authenticate_keyboard_interactive_respond(responses)
+                                        .await?;
+                                }
+                            }
+                        }
+                    })
+                    .await
+                    .map_err(|_| {
+                        error!("SSH handler: Keyboard-interactive authentication timed out");
+                        HandlerError::AuthenticationFailed("Authentication timed out".to_string())
+                    })
+                }
+                _ => password_result,
+            }
         } else if let Some(key_pem) = private_key {
             debug!("SSH handler: Authenticating with private key");
 
@@ -696,8 +742,14 @@ impl ProtocolHandler for SshHandler {
         // Terminal text requires high quality - JPEG artifacts on rendered font glyphs
         // make characters unreadable at lower quality levels. Unlike RDP/VNC where
         // reduced quality is acceptable for photos/video, SSH renders small font glyphs
-        // that degrade severely below quality 85.
-        let mut adaptive_quality = guacr_handlers::AdaptiveQuality::new(85).with_min_quality(85);
+        // that degrade severely below quality 85. Sync flow control handles bandwidth
+        // constraints without needing to drop quality.
+        let mut adaptive_quality = guacr_handlers::AdaptiveQuality::new(92).with_min_quality(85);
+
+        // Sync flow control - prevents frame pile-up on slow WebRTC connections.
+        // After each backup-render sync is sent, we wait for the client to acknowledge
+        // before rendering the next frame. This matches the VNC handler model.
+        let mut sync_control = SyncFlowControl::new();
 
         // Zero-allocation protocol encoder (reused for all img instructions)
         let mut protocol_encoder = TextProtocolEncoder::new();
@@ -1025,6 +1077,16 @@ impl ProtocolHandler for SshHandler {
 
                 // Backup render - safety net in case immediate render missed something
                 _ = backup_render.tick() => {
+                    // Wait for client to acknowledge the previous frame before rendering the next.
+                    // This prevents frame pile-up on slow WebRTC connections (the primary source
+                    // of backup-render queue buildup).
+                    if let Some(ts) = sync_control.pending_timestamp() {
+                        if let Err(e) = sync_control.wait_for_client_sync(&mut from_client, ts).await {
+                            debug!("SSH: Sync flow control timeout, client may be slow: {}", e);
+                        }
+                        sync_control.clear_pending();
+                    }
+
                     if terminal.is_dirty() {
                         // Find what changed (dirty region optimization like guacd)
                         let dirty_opt = dirty_tracker.find_dirty_region(terminal.screen());
@@ -1124,14 +1186,14 @@ impl ProtocolHandler for SshHandler {
                                 }
                             }
 
-                            let sync_instr = renderer.format_sync_instruction(
-                                std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_millis() as u64
-                            );
+                            let backup_ts = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis() as u64;
+                            let sync_instr = renderer.format_sync_instruction(backup_ts);
                             send_and_record(&to_client, &mut recorder, Bytes::from(sync_instr)).await
                                 .map_err(HandlerError::ChannelError)?;
+                            sync_control.set_pending_sync(backup_ts);
                         } else {
                             // Dirty tracker failed to find changes (cursor movement, small updates)
                             // Fall back to full screen render to prevent "one char behind" bug
@@ -1166,14 +1228,14 @@ impl ProtocolHandler for SshHandler {
                                     .map_err(HandlerError::ChannelError)?;
                             }
 
-                            let sync_instr = renderer.format_sync_instruction(
-                                std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_millis() as u64
-                            );
+                            let fallback_ts = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis() as u64;
+                            let sync_instr = renderer.format_sync_instruction(fallback_ts);
                             send_and_record(&to_client, &mut recorder, Bytes::from(sync_instr)).await
                                 .map_err(HandlerError::ChannelError)?;
+                            sync_control.set_pending_sync(fallback_ts);
                         }
 
                         terminal.clear_dirty();
@@ -2148,35 +2210,5 @@ impl EventBasedHandler for SshHandler {
             4096, // channel capacity
         )
         .await
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_ssh_handler_new() {
-        let handler = SshHandler::with_defaults();
-        assert_eq!(ProtocolHandler::name(&handler), "ssh");
-    }
-
-    #[tokio::test]
-    async fn test_ssh_handler_health() {
-        let handler = SshHandler::with_defaults();
-        let health = handler.health_check().await.unwrap();
-        assert_eq!(health, HealthStatus::Healthy);
-    }
-
-    #[test]
-    fn test_parse_key_instruction() {
-        // Full Guacamole instruction: "3.key,5.65293,1.1;" (Enter key pressed)
-        let instruction = "3.key,5.65293,1.1;";
-        let result = parse_key_instruction(instruction);
-
-        assert!(result.is_some());
-        let key_event = result.unwrap();
-        assert_eq!(key_event.keysym, 65293);
-        assert!(key_event.pressed);
     }
 }

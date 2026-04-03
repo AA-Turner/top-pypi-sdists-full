@@ -18,7 +18,11 @@ import base64
 import json
 from typing import Any
 
-from secops.exceptions import APIError
+from secops.chronicle.utils.format_utils import remove_none_values
+from secops.chronicle.utils.request_utils import (
+    chronicle_paginated_request,
+    chronicle_request,
+)
 
 # Constants for size limits
 MAX_LOG_SIZE = 10 * 1024 * 1024  # 10MB per log
@@ -44,17 +48,13 @@ def activate_parser(
     Raises:
         APIError: If the API request fails
     """
-    url = (
-        f"{client.base_url}/{client.instance_id}"
-        f"/logTypes/{log_type}/parsers/{id}:activate"
+    return chronicle_request(
+        client,
+        method="POST",
+        endpoint_path=f"logTypes/{log_type}/parsers/{id}:activate",
+        json={},
+        error_message="Failed to activate parser",
     )
-    body = {}
-    response = client.session.post(url, json=body)
-
-    if response.status_code != 200:
-        raise APIError(f"Failed to activate parser: {response.text}")
-
-    return response.json()
 
 
 def activate_release_candidate_parser(
@@ -75,17 +75,16 @@ def activate_release_candidate_parser(
     Raises:
         APIError: If the API request fails
     """
-    url = (
-        f"{client.base_url}/{client.instance_id}"
-        f"/logTypes/{log_type}/parsers/{id}:activateReleaseCandidateParser"
+    return chronicle_request(
+        client,
+        method="POST",
+        endpoint_path=(
+            f"logTypes/{log_type}/parsers/{id}"
+            ":activateReleaseCandidateParser"
+        ),
+        json={},
+        error_message="Failed to activate parser",
     )
-    body = {}
-    response = client.session.post(url, json=body)
-
-    if response.status_code != 200:
-        raise APIError(f"Failed to activate parser: {response.text}")
-
-    return response.json()
 
 
 def copy_parser(
@@ -106,17 +105,13 @@ def copy_parser(
     Raises:
         APIError: If the API request fails
     """
-    url = (
-        f"{client.base_url}/{client.instance_id}"
-        f"/logTypes/{log_type}/parsers/{id}:copy"
+    return chronicle_request(
+        client,
+        method="POST",
+        endpoint_path=f"logTypes/{log_type}/parsers/{id}:copy",
+        json={},
+        error_message="Failed to copy parser",
     )
-    body = {}
-    response = client.session.post(url, json=body)
-
-    if response.status_code != 200:
-        raise APIError(f"Failed to copy parser: {response.text}")
-
-    return response.json()
 
 
 def create_parser(
@@ -139,19 +134,18 @@ def create_parser(
     Raises:
         APIError: If the API request fails
     """
-    url = f"{client.base_url}/{client.instance_id}/logTypes/{log_type}/parsers"
-
     body = {
         "cbn": base64.b64encode(parser_code.encode("utf-8")).decode("utf-8"),
         "validated_on_empty_logs": validated_on_empty_logs,
     }
 
-    response = client.session.post(url, json=body)
-
-    if response.status_code != 200:
-        raise APIError(f"Failed to create parser: {response.text}")
-
-    return response.json()
+    return chronicle_request(
+        client,
+        method="POST",
+        endpoint_path=f"logTypes/{log_type}/parsers",
+        json=body,
+        error_message="Failed to create parser",
+    )
 
 
 def deactivate_parser(
@@ -172,17 +166,13 @@ def deactivate_parser(
     Raises:
         APIError: If the API request fails
     """
-    url = (
-        f"{client.base_url}/{client.instance_id}"
-        f"/logTypes/{log_type}/parsers/{id}:deactivate"
+    return chronicle_request(
+        client,
+        method="POST",
+        endpoint_path=f"logTypes/{log_type}/parsers/{id}:deactivate",
+        json={},
+        error_message="Failed to deactivate parser",
     )
-    body = {}
-    response = client.session.post(url, json=body)
-
-    if response.status_code != 200:
-        raise APIError(f"Failed to deactivate parser: {response.text}")
-
-    return response.json()
 
 
 def delete_parser(
@@ -205,17 +195,15 @@ def delete_parser(
     Raises:
         APIError: If the API request fails
     """
-    url = (
-        f"{client.base_url}/{client.instance_id}"
-        f"/logTypes/{log_type}/parsers/{id}"
-    )
     params = {"force": force}
-    response = client.session.delete(url, params=params)
 
-    if response.status_code != 200:
-        raise APIError(f"Failed to delete parser: {response.text}")
-
-    return response.json()
+    return chronicle_request(
+        client,
+        method="DELETE",
+        endpoint_path=f"logTypes/{log_type}/parsers/{id}",
+        params=params,
+        error_message="Failed to delete parser",
+    )
 
 
 def get_parser(
@@ -236,16 +224,12 @@ def get_parser(
     Raises:
         APIError: If the API request fails
     """
-    url = (
-        f"{client.base_url}/{client.instance_id}"
-        f"/logTypes/{log_type}/parsers/{id}"
+    return chronicle_request(
+        client,
+        method="GET",
+        endpoint_path=f"logTypes/{log_type}/parsers/{id}",
+        error_message="Failed to get parser",
     )
-    response = client.session.get(url)
-
-    if response.status_code != 200:
-        raise APIError(f"Failed to get parser: {response.text}")
-
-    return response.json()
 
 
 def list_parsers(
@@ -254,7 +238,8 @@ def list_parsers(
     page_size: int | None = None,
     page_token: str | None = None,
     filter: str = None,  # pylint: disable=redefined-builtin
-) -> list[Any] | dict[str, Any]:
+    as_list: bool = True,
+) -> dict[str, Any] | list[Any]:
     """List parsers.
 
     Args:
@@ -265,52 +250,36 @@ def list_parsers(
             If None (default), auto-paginates and returns all parsers.
         page_token: A page token, received from a previous ListParsers call.
         filter: Optional filter expression
+        as_list: If True, return only the list of parsers.
+            If False, return dict with metadata and pagination tokens.
+            Defaults to True. When page_size is None, this is automatically
+            set to True for backward compatibility.
 
     Returns:
-        If page_size is None: List of all parsers.
-        If page_size is provided: List of parsers with next page token if
-            available.
+        If as_list is True: List of parsers.
+        If as_list is False: Dict with parsers list and pagination metadata.
 
     Raises:
         APIError: If the API request fails
     """
-    more = True
-    parsers = []
+    extra_params = remove_none_values(
+        {
+            "filter": filter,
+        }
+    )
 
-    while more:
-        url = (
-            f"{client.base_url}/{client.instance_id}"
-            f"/logTypes/{log_type}/parsers"
-        )
+    # For backward compatibility: if page_size is None, force as_list to True
+    effective_as_list = True if page_size is None else as_list
 
-        params = {}
-
-        if page_size:
-            params["pageSize"] = page_size
-        if page_token:
-            params["pageToken"] = page_token
-        if filter:
-            params["filter"] = filter
-
-        response = client.session.get(url, params=params)
-
-        if response.status_code != 200:
-            raise APIError(f"Failed to list parsers: {response.text}")
-
-        data = response.json()
-
-        if page_size is not None:
-            return data
-
-        if "parsers" in data:
-            parsers.extend(data["parsers"])
-
-        if "nextPageToken" in data:
-            page_token = data["nextPageToken"]
-        else:
-            more = False
-
-    return parsers
+    return chronicle_paginated_request(
+        client,
+        path=f"logTypes/{log_type}/parsers",
+        items_key="parsers",
+        page_size=page_size,
+        page_token=page_token,
+        extra_params=extra_params if extra_params else None,
+        as_list=effective_as_list,
+    )
 
 
 def run_parser(
@@ -404,12 +373,6 @@ def run_parser(
             f"{type(parser_extension_code).__name__}"
         )
 
-    # Build request
-    url = (
-        f"{client.base_url}/{client.instance_id}"
-        f"/logTypes/{log_type}:runParser"
-    )
-
     parser = {
         "cbn": base64.b64encode(parser_code.encode("utf-8")).decode("utf-8")
     }
@@ -432,32 +395,13 @@ def run_parser(
         "statedump_allowed": statedump_allowed,
     }
 
-    response = client.session.post(url, json=body)
-
-    if response.status_code != 200:
-        # Provide detailed error messages based on status code
-        error_detail = f"Failed to evaluate parser for log type '{log_type}'"
-
-        if response.status_code == 400:
-            error_detail += f" - Bad request: {response.text}"
-            if "Invalid log type" in response.text:
-                error_detail += f". Log type '{log_type}' may not be valid."
-            elif "Invalid parser" in response.text:
-                error_detail += ". Parser code may contain syntax errors."
-        elif response.status_code == 404:
-            error_detail += f" - Log type '{log_type}' not found"
-        elif response.status_code == 413:
-            error_detail += (
-                " - Request too large. Try reducing the number or size of logs."
-            )
-        elif response.status_code == 500:
-            error_detail += f" - Internal server error: {response.text}"
-        else:
-            error_detail += f" - HTTP {response.status_code}: {response.text}"
-
-        raise APIError(error_detail)
-
-    result = response.json()
+    result = chronicle_request(
+        client,
+        method="POST",
+        endpoint_path=f"logTypes/{log_type}:runParser",
+        json=body,
+        error_message=f"Failed to evaluate parser for log type '{log_type}'",
+    )
 
     if parse_statedump and "runParserResults" in result:
         for run_result in result["runParserResults"]:

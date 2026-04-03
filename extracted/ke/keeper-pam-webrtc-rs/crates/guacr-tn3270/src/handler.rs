@@ -41,14 +41,14 @@ const RENDER_INTERVAL_MS: u64 = 33;
 
 // -- TN3270 Telnet framing bytes ---------------------------------------------
 
-const IAC: u8 = 0xFF;
+pub(crate) const IAC: u8 = 0xFF;
 const WILL: u8 = 0xFB;
-const DO: u8 = 0xFD;
+pub(crate) const DO: u8 = 0xFD;
 const SB: u8 = 0xFA;
 const SE: u8 = 0xF0;
 /// End-of-record marker: IAC EOR terminates each 3270 data record.
-const EOR: u8 = 0xEF;
-const OPT_BINARY: u8 = 0x00;
+pub(crate) const EOR: u8 = 0xEF;
+pub(crate) const OPT_BINARY: u8 = 0x00;
 const OPT_TERMINAL_TYPE: u8 = 0x18;
 const OPT_EOR: u8 = 0x19;
 
@@ -158,6 +158,11 @@ impl ProtocolHandler for Tn3270Handler {
             .await
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
+        let font_size = CHAR_HEIGHT as f32 * 0.70;
+        let term_renderer =
+            TerminalRenderer::new_with_dimensions(CHAR_WIDTH, CHAR_HEIGHT, font_size)
+                .map_err(|e| HandlerError::ConnectionFailed(e.to_string()))?;
+
         let mut screen = ScreenBuffer::new(rows, cols);
         let mut protocol_encoder = TextProtocolEncoder::new();
         let mut stream_id = 1u32;
@@ -211,7 +216,7 @@ impl ProtocolHandler for Tn3270Handler {
                     }
                     dirty = false;
 
-                    let jpeg = match renderer::render_to_jpeg(&screen, CHAR_WIDTH, CHAR_HEIGHT, JPEG_QUALITY) {
+                    let jpeg = match renderer::render_with_renderer(&screen, &term_renderer, JPEG_QUALITY) {
                         Ok(j) => j,
                         Err(e) => {
                             warn!("TN3270: Render error: {}", e);
@@ -407,7 +412,7 @@ fn handle_key(screen: &mut ScreenBuffer, keysym: u32) -> Option<Vec<u8>> {
 ///
 /// Returns `Some(record_bytes)` and drains those bytes from the buffer, or
 /// `None` if no complete record is available yet.
-fn extract_record(buf: &mut Vec<u8>) -> Option<Vec<u8>> {
+pub(crate) fn extract_record(buf: &mut Vec<u8>) -> Option<Vec<u8>> {
     let mut record = Vec::new();
     let mut i = 0;
 
@@ -460,64 +465,4 @@ fn extract_record(buf: &mut Vec<u8>) -> Option<Vec<u8>> {
 
     // No EOR seen yet — leave buffer intact for next call.
     None
-}
-
-// -- Tests -------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_handler_name() {
-        assert_eq!(Tn3270Handler::new().name(), "tn3270");
-    }
-
-    #[test]
-    fn test_extract_record_simple() {
-        // Single complete record terminated by IAC EOR
-        let mut buf = vec![0xF5, 0x40, IAC, EOR];
-        let record = extract_record(&mut buf);
-        assert_eq!(record, Some(vec![0xF5, 0x40]));
-        assert!(buf.is_empty());
-    }
-
-    #[test]
-    fn test_extract_record_incomplete() {
-        // No EOR yet — should return None and leave buffer intact
-        let mut buf = vec![0xF5, 0x40, 0xC8];
-        assert!(extract_record(&mut buf).is_none());
-    }
-
-    #[test]
-    fn test_extract_record_iac_escaped() {
-        // IAC IAC in data should become a single 0xFF byte in the record
-        let mut buf = vec![IAC, IAC, 0x42, IAC, EOR];
-        let record = extract_record(&mut buf).unwrap();
-        assert_eq!(record, vec![IAC, 0x42]);
-        assert!(buf.is_empty());
-    }
-
-    #[test]
-    fn test_extract_record_strips_telnet_option() {
-        // IAC DO BINARY before the actual data — option should be stripped
-        let mut buf = vec![IAC, DO, OPT_BINARY, 0xC8, IAC, EOR];
-        let record = extract_record(&mut buf).unwrap();
-        assert_eq!(record, vec![0xC8]);
-    }
-
-    #[test]
-    fn test_extract_record_multiple() {
-        // Two back-to-back records
-        let mut buf = vec![0x01, IAC, EOR, 0x02, IAC, EOR];
-        assert_eq!(extract_record(&mut buf), Some(vec![0x01]));
-        assert_eq!(extract_record(&mut buf), Some(vec![0x02]));
-        assert!(buf.is_empty());
-    }
-
-    #[tokio::test]
-    async fn test_health_check() {
-        let h = Tn3270Handler::new();
-        assert!(h.health_check().await.is_ok());
-    }
 }

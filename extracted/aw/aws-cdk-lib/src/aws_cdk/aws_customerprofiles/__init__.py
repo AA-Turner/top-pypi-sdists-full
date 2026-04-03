@@ -79,9 +79,11 @@ from ..interfaces.aws_customerprofiles import (
     IEventTriggerRef as _IEventTriggerRef_29992959,
     IIntegrationRef as _IIntegrationRef_78469d92,
     IObjectTypeRef as _IObjectTypeRef_3e102175,
+    IRecommenderRef as _IRecommenderRef_32a41f0e,
     ISegmentDefinitionRef as _ISegmentDefinitionRef_fb9739e9,
     IntegrationReference as _IntegrationReference_7dc76a71,
     ObjectTypeReference as _ObjectTypeReference_55463b5f,
+    RecommenderReference as _RecommenderReference_3b99e5d0,
     SegmentDefinitionReference as _SegmentDefinitionReference_019ca800,
 )
 
@@ -7722,6 +7724,1005 @@ class CfnObjectTypeProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IRecommenderRef_32a41f0e, _ITaggableV2_4e6798f8)
+class CfnRecommender(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommender",
+):
+    '''Resource Type definition for AWS::CustomerProfiles::Recommender.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommender.html
+    :cloudformationResource: AWS::CustomerProfiles::Recommender
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_customerprofiles as customerprofiles
+        
+        cfn_recommender = customerprofiles.CfnRecommender(self, "MyCfnRecommender",
+            domain_name="domainName",
+            recommender_name="recommenderName",
+            recommender_recipe_name="recommenderRecipeName",
+        
+            # the properties below are optional
+            description="description",
+            recommender_config=customerprofiles.CfnRecommender.RecommenderConfigProperty(
+                events_config=customerprofiles.CfnRecommender.EventsConfigProperty(
+                    event_parameters_list=[customerprofiles.CfnRecommender.EventParametersProperty(
+                        event_type="eventType",
+        
+                        # the properties below are optional
+                        event_value_threshold=123
+                    )]
+                )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        domain_name: builtins.str,
+        recommender_name: builtins.str,
+        recommender_recipe_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        recommender_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecommender.RecommenderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CustomerProfiles::Recommender``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param domain_name: The name of the domain for which the recommender will be created.
+        :param recommender_name: The name of the recommender.
+        :param recommender_recipe_name: The name of the recommender recipe.
+        :param description: The description of the recommender.
+        :param recommender_config: Configuration for the recommender.
+        :param tags: The tags used to organize, track, or control access for this resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4ff818499485e69a97d7c347587ce4bcbd3e25e2c98ab96964ad7b769830211)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRecommenderProps(
+            domain_name=domain_name,
+            recommender_name=recommender_name,
+            recommender_recipe_name=recommender_recipe_name,
+            description=description,
+            recommender_config=recommender_config,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRecommender")
+    @builtins.classmethod
+    def arn_for_recommender(cls, resource: "_IRecommenderRef_32a41f0e") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d12ddf7606183ca7c2c05627fbe9755c4f8dc610c2fbe31b6749fc16ba460dc)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRecommender", [resource]))
+
+    @jsii.member(jsii_name="isCfnRecommender")
+    @builtins.classmethod
+    def is_cfn_recommender(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRecommender.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4965024c82c5304845486b2343bbed22f5ef861b638c45d4ddfa0fd15a56103)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRecommender", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c0ad77924a93ca6817fbc195ae835bb03b0503618703e04ba3680fb4bbb2556f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc580a2c083d8bd18bce660e81a252c3466068661002fb53daf2e26528dd50b9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp of when the recommender was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFailureReason")
+    def attr_failure_reason(self) -> builtins.str:
+        '''The reason for recommender failure.
+
+        :cloudformationAttribute: FailureReason
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFailureReason"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedAt")
+    def attr_last_updated_at(self) -> builtins.str:
+        '''The timestamp of when the recommender was last updated.
+
+        :cloudformationAttribute: LastUpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLatestRecommenderUpdate")
+    def attr_latest_recommender_update(self) -> "_IResolvable_da3f097b":
+        '''Information about the latest recommender update.
+
+        :cloudformationAttribute: LatestRecommenderUpdate
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLatestRecommenderUpdate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRecommenderArn")
+    def attr_recommender_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the recommender.
+
+        :cloudformationAttribute: RecommenderArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRecommenderArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the recommender.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTrainingMetrics")
+    def attr_training_metrics(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: TrainingMetrics
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrTrainingMetrics"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderRef")
+    def recommender_ref(self) -> "_RecommenderReference_3b99e5d0":
+        '''A reference to a Recommender resource.'''
+        return typing.cast("_RecommenderReference_3b99e5d0", jsii.get(self, "recommenderRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    def domain_name(self) -> builtins.str:
+        '''The name of the domain for which the recommender will be created.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainName"))
+
+    @domain_name.setter
+    def domain_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd03f33e5169fb5aabbe5673ca263f0e62f6013b671c8d60da4097cab3c5cbde)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderName")
+    def recommender_name(self) -> builtins.str:
+        '''The name of the recommender.'''
+        return typing.cast(builtins.str, jsii.get(self, "recommenderName"))
+
+    @recommender_name.setter
+    def recommender_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a1aacdb0bbfef701ca0a8e381250dc92187b8889df7e96cf05965c655bccffa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recommenderName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderRecipeName")
+    def recommender_recipe_name(self) -> builtins.str:
+        '''The name of the recommender recipe.'''
+        return typing.cast(builtins.str, jsii.get(self, "recommenderRecipeName"))
+
+    @recommender_recipe_name.setter
+    def recommender_recipe_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5e5ffa077e0481717aa7e37876976faaecf73523b98b0e62e9d1cec3ba410732)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recommenderRecipeName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the recommender.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b93e383b53fe83795dd28f0853d67c348047cb4c829af468d55697bcd7d33f0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderConfig")
+    def recommender_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecommender.RecommenderConfigProperty"]]:
+        '''Configuration for the recommender.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecommender.RecommenderConfigProperty"]], jsii.get(self, "recommenderConfig"))
+
+    @recommender_config.setter
+    def recommender_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecommender.RecommenderConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bbf7b82297fef21f24e0a3f5e0f2bcf26b08e7dae8a27957726a72d5ce9e3ba8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recommenderConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags used to organize, track, or control access for this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__61e56ecd7247ce9ead368e720411e5f7d85b95d7fc29a0916fd6a3b000b7f059)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommender.EventParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "event_type": "eventType",
+            "event_value_threshold": "eventValueThreshold",
+        },
+    )
+    class EventParametersProperty:
+        def __init__(
+            self,
+            *,
+            event_type: builtins.str,
+            event_value_threshold: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Event parameters with type and value threshold.
+
+            :param event_type: The type of event.
+            :param event_value_threshold: The threshold of the event type. Only events with a value greater or equal to this threshold will be considered for solution creation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-eventparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                event_parameters_property = customerprofiles.CfnRecommender.EventParametersProperty(
+                    event_type="eventType",
+                
+                    # the properties below are optional
+                    event_value_threshold=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b8bd96ba466e825c554eac8a84517d63a5529d7906c308654b57b751ef7c2660)
+                check_type(argname="argument event_type", value=event_type, expected_type=type_hints["event_type"])
+                check_type(argname="argument event_value_threshold", value=event_value_threshold, expected_type=type_hints["event_value_threshold"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "event_type": event_type,
+            }
+            if event_value_threshold is not None:
+                self._values["event_value_threshold"] = event_value_threshold
+
+        @builtins.property
+        def event_type(self) -> builtins.str:
+            '''The type of event.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-eventparameters.html#cfn-customerprofiles-recommender-eventparameters-eventtype
+            '''
+            result = self._values.get("event_type")
+            assert result is not None, "Required property 'event_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def event_value_threshold(self) -> typing.Optional[jsii.Number]:
+            '''The threshold of the event type.
+
+            Only events with a value greater or equal to this threshold will be considered for solution creation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-eventparameters.html#cfn-customerprofiles-recommender-eventparameters-eventvaluethreshold
+            '''
+            result = self._values.get("event_value_threshold")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EventParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommender.EventsConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"event_parameters_list": "eventParametersList"},
+    )
+    class EventsConfigProperty:
+        def __init__(
+            self,
+            *,
+            event_parameters_list: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecommender.EventParametersProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''Configuration for events used in the recommender.
+
+            :param event_parameters_list: List of event parameters with their value thresholds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-eventsconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                events_config_property = customerprofiles.CfnRecommender.EventsConfigProperty(
+                    event_parameters_list=[customerprofiles.CfnRecommender.EventParametersProperty(
+                        event_type="eventType",
+                
+                        # the properties below are optional
+                        event_value_threshold=123
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f21d295988f0ca5d51f276d711eb396da77f9292622cc072a7cea2d036dd350a)
+                check_type(argname="argument event_parameters_list", value=event_parameters_list, expected_type=type_hints["event_parameters_list"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "event_parameters_list": event_parameters_list,
+            }
+
+        @builtins.property
+        def event_parameters_list(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRecommender.EventParametersProperty"]]]:
+            '''List of event parameters with their value thresholds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-eventsconfig.html#cfn-customerprofiles-recommender-eventsconfig-eventparameterslist
+            '''
+            result = self._values.get("event_parameters_list")
+            assert result is not None, "Required property 'event_parameters_list' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRecommender.EventParametersProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EventsConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommender.MetricsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "coverage": "coverage",
+            "freshness": "freshness",
+            "hit": "hit",
+            "popularity": "popularity",
+            "recall": "recall",
+            "similarity": "similarity",
+        },
+    )
+    class MetricsProperty:
+        def __init__(
+            self,
+            *,
+            coverage: typing.Optional[jsii.Number] = None,
+            freshness: typing.Optional[jsii.Number] = None,
+            hit: typing.Optional[jsii.Number] = None,
+            popularity: typing.Optional[jsii.Number] = None,
+            recall: typing.Optional[jsii.Number] = None,
+            similarity: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Training metrics by type.
+
+            :param coverage: 
+            :param freshness: 
+            :param hit: 
+            :param popularity: 
+            :param recall: 
+            :param similarity: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-metrics.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                metrics_property = customerprofiles.CfnRecommender.MetricsProperty(
+                    coverage=123,
+                    freshness=123,
+                    hit=123,
+                    popularity=123,
+                    recall=123,
+                    similarity=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9d86a5e177dddce62d416cb6930ee0bf0722dbbf059f90af4479399ac84933a7)
+                check_type(argname="argument coverage", value=coverage, expected_type=type_hints["coverage"])
+                check_type(argname="argument freshness", value=freshness, expected_type=type_hints["freshness"])
+                check_type(argname="argument hit", value=hit, expected_type=type_hints["hit"])
+                check_type(argname="argument popularity", value=popularity, expected_type=type_hints["popularity"])
+                check_type(argname="argument recall", value=recall, expected_type=type_hints["recall"])
+                check_type(argname="argument similarity", value=similarity, expected_type=type_hints["similarity"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if coverage is not None:
+                self._values["coverage"] = coverage
+            if freshness is not None:
+                self._values["freshness"] = freshness
+            if hit is not None:
+                self._values["hit"] = hit
+            if popularity is not None:
+                self._values["popularity"] = popularity
+            if recall is not None:
+                self._values["recall"] = recall
+            if similarity is not None:
+                self._values["similarity"] = similarity
+
+        @builtins.property
+        def coverage(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-metrics.html#cfn-customerprofiles-recommender-metrics-coverage
+            '''
+            result = self._values.get("coverage")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def freshness(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-metrics.html#cfn-customerprofiles-recommender-metrics-freshness
+            '''
+            result = self._values.get("freshness")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def hit(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-metrics.html#cfn-customerprofiles-recommender-metrics-hit
+            '''
+            result = self._values.get("hit")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def popularity(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-metrics.html#cfn-customerprofiles-recommender-metrics-popularity
+            '''
+            result = self._values.get("popularity")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def recall(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-metrics.html#cfn-customerprofiles-recommender-metrics-recall
+            '''
+            result = self._values.get("recall")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def similarity(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-metrics.html#cfn-customerprofiles-recommender-metrics-similarity
+            '''
+            result = self._values.get("similarity")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommender.RecommenderConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"events_config": "eventsConfig"},
+    )
+    class RecommenderConfigProperty:
+        def __init__(
+            self,
+            *,
+            events_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecommender.EventsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration for the recommender.
+
+            :param events_config: Configuration for events used in the recommender.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-recommenderconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                recommender_config_property = customerprofiles.CfnRecommender.RecommenderConfigProperty(
+                    events_config=customerprofiles.CfnRecommender.EventsConfigProperty(
+                        event_parameters_list=[customerprofiles.CfnRecommender.EventParametersProperty(
+                            event_type="eventType",
+                
+                            # the properties below are optional
+                            event_value_threshold=123
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6ee0be2782321058c00770f5c0ed835677b5969469e648c6691957c325578d8b)
+                check_type(argname="argument events_config", value=events_config, expected_type=type_hints["events_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if events_config is not None:
+                self._values["events_config"] = events_config
+
+        @builtins.property
+        def events_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecommender.EventsConfigProperty"]]:
+            '''Configuration for events used in the recommender.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-recommenderconfig.html#cfn-customerprofiles-recommender-recommenderconfig-eventsconfig
+            '''
+            result = self._values.get("events_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecommender.EventsConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RecommenderConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommender.RecommenderUpdateProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "creation_date_time": "creationDateTime",
+            "failure_reason": "failureReason",
+            "last_updated_date_time": "lastUpdatedDateTime",
+            "recommender_config": "recommenderConfig",
+            "status": "status",
+        },
+    )
+    class RecommenderUpdateProperty:
+        def __init__(
+            self,
+            *,
+            creation_date_time: typing.Optional[builtins.str] = None,
+            failure_reason: typing.Optional[builtins.str] = None,
+            last_updated_date_time: typing.Optional[builtins.str] = None,
+            recommender_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecommender.RecommenderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            status: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Information about the latest recommender update.
+
+            :param creation_date_time: The timestamp of when the update was created.
+            :param failure_reason: The reason for update failure.
+            :param last_updated_date_time: The timestamp of when the update was last modified.
+            :param recommender_config: Configuration for the recommender.
+            :param status: The status of the recommender.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-recommenderupdate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                recommender_update_property = customerprofiles.CfnRecommender.RecommenderUpdateProperty(
+                    creation_date_time="creationDateTime",
+                    failure_reason="failureReason",
+                    last_updated_date_time="lastUpdatedDateTime",
+                    recommender_config=customerprofiles.CfnRecommender.RecommenderConfigProperty(
+                        events_config=customerprofiles.CfnRecommender.EventsConfigProperty(
+                            event_parameters_list=[customerprofiles.CfnRecommender.EventParametersProperty(
+                                event_type="eventType",
+                
+                                # the properties below are optional
+                                event_value_threshold=123
+                            )]
+                        )
+                    ),
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cb7260c85a77c89205892287348d9743265e4b30a63be72ffaff6f2c7fea1126)
+                check_type(argname="argument creation_date_time", value=creation_date_time, expected_type=type_hints["creation_date_time"])
+                check_type(argname="argument failure_reason", value=failure_reason, expected_type=type_hints["failure_reason"])
+                check_type(argname="argument last_updated_date_time", value=last_updated_date_time, expected_type=type_hints["last_updated_date_time"])
+                check_type(argname="argument recommender_config", value=recommender_config, expected_type=type_hints["recommender_config"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if creation_date_time is not None:
+                self._values["creation_date_time"] = creation_date_time
+            if failure_reason is not None:
+                self._values["failure_reason"] = failure_reason
+            if last_updated_date_time is not None:
+                self._values["last_updated_date_time"] = last_updated_date_time
+            if recommender_config is not None:
+                self._values["recommender_config"] = recommender_config
+            if status is not None:
+                self._values["status"] = status
+
+        @builtins.property
+        def creation_date_time(self) -> typing.Optional[builtins.str]:
+            '''The timestamp of when the update was created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-recommenderupdate.html#cfn-customerprofiles-recommender-recommenderupdate-creationdatetime
+            '''
+            result = self._values.get("creation_date_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def failure_reason(self) -> typing.Optional[builtins.str]:
+            '''The reason for update failure.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-recommenderupdate.html#cfn-customerprofiles-recommender-recommenderupdate-failurereason
+            '''
+            result = self._values.get("failure_reason")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def last_updated_date_time(self) -> typing.Optional[builtins.str]:
+            '''The timestamp of when the update was last modified.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-recommenderupdate.html#cfn-customerprofiles-recommender-recommenderupdate-lastupdateddatetime
+            '''
+            result = self._values.get("last_updated_date_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def recommender_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecommender.RecommenderConfigProperty"]]:
+            '''Configuration for the recommender.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-recommenderupdate.html#cfn-customerprofiles-recommender-recommenderupdate-recommenderconfig
+            '''
+            result = self._values.get("recommender_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecommender.RecommenderConfigProperty"]], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''The status of the recommender.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-recommenderupdate.html#cfn-customerprofiles-recommender-recommenderupdate-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RecommenderUpdateProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommender.TrainingMetricsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"metrics": "metrics", "time": "time"},
+    )
+    class TrainingMetricsProperty:
+        def __init__(
+            self,
+            *,
+            metrics: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecommender.MetricsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            time: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param metrics: Training metrics by type.
+            :param time: Timestamp of the training metrics.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-trainingmetrics.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                training_metrics_property = customerprofiles.CfnRecommender.TrainingMetricsProperty(
+                    metrics=customerprofiles.CfnRecommender.MetricsProperty(
+                        coverage=123,
+                        freshness=123,
+                        hit=123,
+                        popularity=123,
+                        recall=123,
+                        similarity=123
+                    ),
+                    time="time"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7b6ab453a202ce057e98af942458b4b8b199accea5961725709898b326c11ec9)
+                check_type(argname="argument metrics", value=metrics, expected_type=type_hints["metrics"])
+                check_type(argname="argument time", value=time, expected_type=type_hints["time"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if metrics is not None:
+                self._values["metrics"] = metrics
+            if time is not None:
+                self._values["time"] = time
+
+        @builtins.property
+        def metrics(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecommender.MetricsProperty"]]:
+            '''Training metrics by type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-trainingmetrics.html#cfn-customerprofiles-recommender-trainingmetrics-metrics
+            '''
+            result = self._values.get("metrics")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecommender.MetricsProperty"]], result)
+
+        @builtins.property
+        def time(self) -> typing.Optional[builtins.str]:
+            '''Timestamp of the training metrics.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommender-trainingmetrics.html#cfn-customerprofiles-recommender-trainingmetrics-time
+            '''
+            result = self._values.get("time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TrainingMetricsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommenderProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_name": "domainName",
+        "recommender_name": "recommenderName",
+        "recommender_recipe_name": "recommenderRecipeName",
+        "description": "description",
+        "recommender_config": "recommenderConfig",
+        "tags": "tags",
+    },
+)
+class CfnRecommenderProps:
+    def __init__(
+        self,
+        *,
+        domain_name: builtins.str,
+        recommender_name: builtins.str,
+        recommender_recipe_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        recommender_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRecommender.RecommenderConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRecommender``.
+
+        :param domain_name: The name of the domain for which the recommender will be created.
+        :param recommender_name: The name of the recommender.
+        :param recommender_recipe_name: The name of the recommender recipe.
+        :param description: The description of the recommender.
+        :param recommender_config: Configuration for the recommender.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommender.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_customerprofiles as customerprofiles
+            
+            cfn_recommender_props = customerprofiles.CfnRecommenderProps(
+                domain_name="domainName",
+                recommender_name="recommenderName",
+                recommender_recipe_name="recommenderRecipeName",
+            
+                # the properties below are optional
+                description="description",
+                recommender_config=customerprofiles.CfnRecommender.RecommenderConfigProperty(
+                    events_config=customerprofiles.CfnRecommender.EventsConfigProperty(
+                        event_parameters_list=[customerprofiles.CfnRecommender.EventParametersProperty(
+                            event_type="eventType",
+            
+                            # the properties below are optional
+                            event_value_threshold=123
+                        )]
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__09783e2f6ea109d641a038df999faa4e1e44f405b0a868211b8104a5239d734f)
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument recommender_name", value=recommender_name, expected_type=type_hints["recommender_name"])
+            check_type(argname="argument recommender_recipe_name", value=recommender_recipe_name, expected_type=type_hints["recommender_recipe_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument recommender_config", value=recommender_config, expected_type=type_hints["recommender_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_name": domain_name,
+            "recommender_name": recommender_name,
+            "recommender_recipe_name": recommender_recipe_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if recommender_config is not None:
+            self._values["recommender_config"] = recommender_config
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The name of the domain for which the recommender will be created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommender.html#cfn-customerprofiles-recommender-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def recommender_name(self) -> builtins.str:
+        '''The name of the recommender.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommender.html#cfn-customerprofiles-recommender-recommendername
+        '''
+        result = self._values.get("recommender_name")
+        assert result is not None, "Required property 'recommender_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def recommender_recipe_name(self) -> builtins.str:
+        '''The name of the recommender recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommender.html#cfn-customerprofiles-recommender-recommenderrecipename
+        '''
+        result = self._values.get("recommender_recipe_name")
+        assert result is not None, "Required property 'recommender_recipe_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the recommender.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommender.html#cfn-customerprofiles-recommender-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def recommender_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecommender.RecommenderConfigProperty"]]:
+        '''Configuration for the recommender.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommender.html#cfn-customerprofiles-recommender-recommenderconfig
+        '''
+        result = self._values.get("recommender_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRecommender.RecommenderConfigProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommender.html#cfn-customerprofiles-recommender-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRecommenderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556, _ISegmentDefinitionRef_fb9739e9, _ITaggableV2_4e6798f8)
 class CfnSegmentDefinition(
     _CfnResource_9df397a6,
@@ -10871,6 +11872,8 @@ __all__ = [
     "CfnIntegrationProps",
     "CfnObjectType",
     "CfnObjectTypeProps",
+    "CfnRecommender",
+    "CfnRecommenderProps",
     "CfnSegmentDefinition",
     "CfnSegmentDefinitionProps",
 ]
@@ -11887,6 +12890,145 @@ def _typecheckingstub__674aff1f8e16a6059ac0e56bfd831b21c20b3b3358878f53ea82ff2ee
     source_priority: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4ff818499485e69a97d7c347587ce4bcbd3e25e2c98ab96964ad7b769830211(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    domain_name: builtins.str,
+    recommender_name: builtins.str,
+    recommender_recipe_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    recommender_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecommender.RecommenderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d12ddf7606183ca7c2c05627fbe9755c4f8dc610c2fbe31b6749fc16ba460dc(
+    resource: _IRecommenderRef_32a41f0e,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4965024c82c5304845486b2343bbed22f5ef861b638c45d4ddfa0fd15a56103(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0ad77924a93ca6817fbc195ae835bb03b0503618703e04ba3680fb4bbb2556f(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc580a2c083d8bd18bce660e81a252c3466068661002fb53daf2e26528dd50b9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd03f33e5169fb5aabbe5673ca263f0e62f6013b671c8d60da4097cab3c5cbde(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a1aacdb0bbfef701ca0a8e381250dc92187b8889df7e96cf05965c655bccffa(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e5ffa077e0481717aa7e37876976faaecf73523b98b0e62e9d1cec3ba410732(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b93e383b53fe83795dd28f0853d67c348047cb4c829af468d55697bcd7d33f0(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbf7b82297fef21f24e0a3f5e0f2bcf26b08e7dae8a27957726a72d5ce9e3ba8(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRecommender.RecommenderConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61e56ecd7247ce9ead368e720411e5f7d85b95d7fc29a0916fd6a3b000b7f059(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8bd96ba466e825c554eac8a84517d63a5529d7906c308654b57b751ef7c2660(
+    *,
+    event_type: builtins.str,
+    event_value_threshold: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f21d295988f0ca5d51f276d711eb396da77f9292622cc072a7cea2d036dd350a(
+    *,
+    event_parameters_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecommender.EventParametersProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d86a5e177dddce62d416cb6930ee0bf0722dbbf059f90af4479399ac84933a7(
+    *,
+    coverage: typing.Optional[jsii.Number] = None,
+    freshness: typing.Optional[jsii.Number] = None,
+    hit: typing.Optional[jsii.Number] = None,
+    popularity: typing.Optional[jsii.Number] = None,
+    recall: typing.Optional[jsii.Number] = None,
+    similarity: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ee0be2782321058c00770f5c0ed835677b5969469e648c6691957c325578d8b(
+    *,
+    events_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecommender.EventsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb7260c85a77c89205892287348d9743265e4b30a63be72ffaff6f2c7fea1126(
+    *,
+    creation_date_time: typing.Optional[builtins.str] = None,
+    failure_reason: typing.Optional[builtins.str] = None,
+    last_updated_date_time: typing.Optional[builtins.str] = None,
+    recommender_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecommender.RecommenderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b6ab453a202ce057e98af942458b4b8b199accea5961725709898b326c11ec9(
+    *,
+    metrics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecommender.MetricsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    time: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09783e2f6ea109d641a038df999faa4e1e44f405b0a868211b8104a5239d734f(
+    *,
+    domain_name: builtins.str,
+    recommender_name: builtins.str,
+    recommender_recipe_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    recommender_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRecommender.RecommenderConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

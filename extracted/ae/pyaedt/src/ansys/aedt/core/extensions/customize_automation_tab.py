@@ -80,8 +80,8 @@ def _safe_parse_tabconfig(tabconfig_path, logger=None):
 
 def add_automation_tab(
     name: str,
-    lib_dir: str,
-    icon_file: str | None = None,
+    lib_dir,
+    icon_file=None,
     product: str = "Project",
     template: str = "Run PyAEDT Toolkit Script",
     overwrite: bool = False,
@@ -92,7 +92,7 @@ def add_automation_tab(
     group_icon: str | None = None,
     gallery_imagewidth: int = 80,
     gallery_imageheight: int = 72,
-) -> str | None:
+):
     """Add an automation tab in AEDT.
 
     Parameters
@@ -146,10 +146,7 @@ def add_automation_tab(
     default_icon_path = Path(ansys.aedt.core.extensions.__file__).parent / "images" / "large" / "pyansys.png"
 
     if not is_custom and is_linux:  # pragma: no cover
-        if icon_file:
-            images_source = Path(icon_file).parent
-        else:
-            images_source = Path(ansys.aedt.core.extensions.__file__).parent / "installer" / "images" / "large"
+        images_source = Path(ansys.aedt.core.extensions.__file__).parent / "installer" / "images" / "large"
         images_target = lib_dir / product / "images"
         if not images_target.exists() and images_source.exists():
             try:
@@ -232,7 +229,7 @@ def add_automation_tab(
     return str(tab_config_file_path)
 
 
-def is_extension_in_panel(toolkit_dir: str, product: str, name: str, panel: str = "Panel_PyAEDT_Extensions") -> bool:
+def is_extension_in_panel(toolkit_dir, product, name: str, panel: str = "Panel_PyAEDT_Extensions") -> bool:
     """Check if a toolkit configuration exists in the panel.
 
     Parameters
@@ -263,7 +260,7 @@ def is_extension_in_panel(toolkit_dir: str, product: str, name: str, panel: str 
     return parser.has_button(panel, name)
 
 
-def available_toolkits() -> dict:
+def available_toolkits():
     product_toolkits = {}
     for product_extension, product_name in AEDT_APPLICATIONS.items():
         toml_file = Path(__file__).parent / product_extension / "toolkits_catalog.toml"
@@ -275,17 +272,17 @@ def available_toolkits() -> dict:
 
 def add_script_to_menu(
     name: str,
-    script_file: str = None,
+    script_file=None,
     template_file: str = "run_pyaedt_toolkit_script",
-    icon_file: str = None,
+    icon_file=None,
     product: str = "Project",
     copy_to_personal_lib: bool = True,
     panel: str = "Panel_PyAEDT_Extensions",
-    personal_lib: str = None,
+    personal_lib=None,
     is_custom: bool = False,
-    odesktop: object = None,
-    group_name: str = None,
-    group_icon: str = None,
+    odesktop=None,
+    group_name: str | None = None,
+    group_icon=None,
 ) -> bool:
     """Add a script to the ribbon menu.
 
@@ -418,7 +415,7 @@ def add_script_to_menu(
     return True
 
 
-def tab_map(product: str) -> str:  # pragma: no cover
+def tab_map(product):  # pragma: no cover
     """Map exceptions in AEDT applications."""
     if product.lower() == "hfss3dlayout":
         return "HFSS3DLayoutDesign"
@@ -436,7 +433,7 @@ def tab_map(product: str) -> str:  # pragma: no cover
         return product
 
 
-def run_command(command: list[str], desktop_object: object) -> int:  # pragma: no cover
+def run_command(command: list[str], desktop_object):  # pragma: no cover
     """Run a command through subprocess.
 
     .. warning::
@@ -455,9 +452,7 @@ def run_command(command: list[str], desktop_object: object) -> int:  # pragma: n
     return 0
 
 
-def add_custom_toolkit(
-    desktop_object: object, toolkit_name: str, wheel_toolkit: str = None, install: bool = True
-) -> bool:  # pragma: no cover
+def add_custom_toolkit(desktop_object, toolkit_name, wheel_toolkit=None, install: bool = True):  # pragma: no cover
     """Add toolkit to AEDT Automation Tab.
 
     .. warning::
@@ -665,7 +660,7 @@ def add_custom_toolkit(
             desktop_object.logger.info(f"{toolkit_info['name']} uninstalled")
 
 
-def remove_script_from_menu(desktop_object: object, name: str, product: str = "Project") -> bool:
+def remove_script_from_menu(desktop_object, name: str, product: str = "Project") -> bool:
     """Remove a toolkit script from the menu.
 
     Parameters
@@ -706,9 +701,7 @@ def __exe() -> str:
     return ""
 
 
-def get_custom_extensions_from_tabconfig(
-    tabconfig_path: str, toml_names: list, options: dict, logger: object = None
-) -> dict:
+def get_custom_extensions_from_tabconfig(tabconfig_path, toml_names, options, logger=None):
     """Add custom extensions from TabConfig.xml not in TOML."""
     parser = _safe_parse_tabconfig(tabconfig_path, logger=logger)
     if not parser:
@@ -720,7 +713,7 @@ def get_custom_extensions_from_tabconfig(
     return options
 
 
-def get_custom_extension_script(tabconfig_path: str, label: str, logger: object = None) -> str | None:
+def get_custom_extension_script(tabconfig_path, label, logger=None):
     """Get script path for a custom extension from TabConfig.xml."""
     parser = _safe_parse_tabconfig(tabconfig_path, logger=logger)
     if not parser:
@@ -732,7 +725,7 @@ def get_custom_extension_script(tabconfig_path: str, label: str, logger: object 
     return None
 
 
-def get_custom_extension_image(tabconfig_path: str, label: str, logger: object = None) -> str:
+def get_custom_extension_image(tabconfig_path, label, logger=None):
     """Get image path for a custom extension from TabConfig.xml."""
     parser = _safe_parse_tabconfig(tabconfig_path, logger=logger)
     if not parser:

@@ -2594,7 +2594,7 @@ class BlockDeviceVolume(
     @jsii.member(jsii_name="noDevice")
     @builtins.classmethod
     def no_device(cls) -> "BlockDeviceVolume":
-        '''Supresses a volume mapping.'''
+        '''Suppresses a volume mapping.'''
         return typing.cast("BlockDeviceVolume", jsii.sinvoke(cls, "noDevice", []))
 
     @builtins.property
@@ -2674,6 +2674,7 @@ class CfnAutoScalingGroup(
             availability_zone_distribution=autoscaling.CfnAutoScalingGroup.AvailabilityZoneDistributionProperty(
                 capacity_distribution_strategy="capacityDistributionStrategy"
             ),
+            availability_zone_ids=["availabilityZoneIds"],
             availability_zone_impairment_policy=autoscaling.CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty(
                 impaired_zone_health_check_behavior="impairedZoneHealthCheckBehavior",
                 zonal_shift_enabled=False
@@ -2871,6 +2872,7 @@ class CfnAutoScalingGroup(
         min_size: builtins.str,
         auto_scaling_group_name: typing.Optional[builtins.str] = None,
         availability_zone_distribution: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.AvailabilityZoneDistributionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        availability_zone_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         availability_zone_impairment_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
         capacity_rebalance: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
@@ -2913,6 +2915,7 @@ class CfnAutoScalingGroup(
         :param min_size: The minimum size of the group.
         :param auto_scaling_group_name: The name of the Auto Scaling group. This name must be unique per Region per account. The name can contain any ASCII character 33 to 126 including most punctuation characters, digits, and upper and lowercased letters. .. epigraph:: You cannot use a colon (:) in the name.
         :param availability_zone_distribution: The EC2 instance capacity distribution across Availability Zones for the Auto Scaling group.
+        :param availability_zone_ids: 
         :param availability_zone_impairment_policy: The Availability Zone impairment policy for the Auto Scaling group.
         :param availability_zones: A list of Availability Zones where instances in the Auto Scaling group can be created. Used for launching into the default VPC subnet in each Availability Zone when not using the ``VPCZoneIdentifier`` property, or for attaching a network interface when an existing network interface ID is specified in a launch template.
         :param capacity_rebalance: Indicates whether Capacity Rebalancing is enabled. Otherwise, Capacity Rebalancing is disabled. When you turn on Capacity Rebalancing, Amazon EC2 Auto Scaling attempts to launch a Spot Instance whenever Amazon EC2 notifies that a Spot Instance is at an elevated risk of interruption. After launching a new instance, it then terminates an old instance. For more information, see `Use Capacity Rebalancing to handle Amazon EC2 Spot Interruptions <https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-capacity-rebalancing.html>`_ in the in the *Amazon EC2 Auto Scaling User Guide* .
@@ -2956,6 +2959,7 @@ class CfnAutoScalingGroup(
             min_size=min_size,
             auto_scaling_group_name=auto_scaling_group_name,
             availability_zone_distribution=availability_zone_distribution,
+            availability_zone_ids=availability_zone_ids,
             availability_zone_impairment_policy=availability_zone_impairment_policy,
             availability_zones=availability_zones,
             capacity_rebalance=capacity_rebalance,
@@ -3134,6 +3138,21 @@ class CfnAutoScalingGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__d5e9ae536cfa6650d411381d31454774f7e8c68d105e3c7f7476fcbdbc86ab9f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZoneDistribution", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZoneIds")
+    def availability_zone_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "availabilityZoneIds"))
+
+    @availability_zone_ids.setter
+    def availability_zone_ids(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d74bd611a0b69222e5917c10f0879143bf217472e5d432a3f1b38a764ce150e1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "availabilityZoneIds", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZoneImpairmentPolicy")
@@ -7045,6 +7064,7 @@ class CfnAutoScalingGroup(
         "min_size": "minSize",
         "auto_scaling_group_name": "autoScalingGroupName",
         "availability_zone_distribution": "availabilityZoneDistribution",
+        "availability_zone_ids": "availabilityZoneIds",
         "availability_zone_impairment_policy": "availabilityZoneImpairmentPolicy",
         "availability_zones": "availabilityZones",
         "capacity_rebalance": "capacityRebalance",
@@ -7088,6 +7108,7 @@ class CfnAutoScalingGroupProps:
         min_size: builtins.str,
         auto_scaling_group_name: typing.Optional[builtins.str] = None,
         availability_zone_distribution: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.AvailabilityZoneDistributionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        availability_zone_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         availability_zone_impairment_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
         capacity_rebalance: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
@@ -7128,6 +7149,7 @@ class CfnAutoScalingGroupProps:
         :param min_size: The minimum size of the group.
         :param auto_scaling_group_name: The name of the Auto Scaling group. This name must be unique per Region per account. The name can contain any ASCII character 33 to 126 including most punctuation characters, digits, and upper and lowercased letters. .. epigraph:: You cannot use a colon (:) in the name.
         :param availability_zone_distribution: The EC2 instance capacity distribution across Availability Zones for the Auto Scaling group.
+        :param availability_zone_ids: 
         :param availability_zone_impairment_policy: The Availability Zone impairment policy for the Auto Scaling group.
         :param availability_zones: A list of Availability Zones where instances in the Auto Scaling group can be created. Used for launching into the default VPC subnet in each Availability Zone when not using the ``VPCZoneIdentifier`` property, or for attaching a network interface when an existing network interface ID is specified in a launch template.
         :param capacity_rebalance: Indicates whether Capacity Rebalancing is enabled. Otherwise, Capacity Rebalancing is disabled. When you turn on Capacity Rebalancing, Amazon EC2 Auto Scaling attempts to launch a Spot Instance whenever Amazon EC2 notifies that a Spot Instance is at an elevated risk of interruption. After launching a new instance, it then terminates an old instance. For more information, see `Use Capacity Rebalancing to handle Amazon EC2 Spot Interruptions <https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-capacity-rebalancing.html>`_ in the in the *Amazon EC2 Auto Scaling User Guide* .
@@ -7180,6 +7202,7 @@ class CfnAutoScalingGroupProps:
                 availability_zone_distribution=autoscaling.CfnAutoScalingGroup.AvailabilityZoneDistributionProperty(
                     capacity_distribution_strategy="capacityDistributionStrategy"
                 ),
+                availability_zone_ids=["availabilityZoneIds"],
                 availability_zone_impairment_policy=autoscaling.CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty(
                     impaired_zone_health_check_behavior="impairedZoneHealthCheckBehavior",
                     zonal_shift_enabled=False
@@ -7373,6 +7396,7 @@ class CfnAutoScalingGroupProps:
             check_type(argname="argument min_size", value=min_size, expected_type=type_hints["min_size"])
             check_type(argname="argument auto_scaling_group_name", value=auto_scaling_group_name, expected_type=type_hints["auto_scaling_group_name"])
             check_type(argname="argument availability_zone_distribution", value=availability_zone_distribution, expected_type=type_hints["availability_zone_distribution"])
+            check_type(argname="argument availability_zone_ids", value=availability_zone_ids, expected_type=type_hints["availability_zone_ids"])
             check_type(argname="argument availability_zone_impairment_policy", value=availability_zone_impairment_policy, expected_type=type_hints["availability_zone_impairment_policy"])
             check_type(argname="argument availability_zones", value=availability_zones, expected_type=type_hints["availability_zones"])
             check_type(argname="argument capacity_rebalance", value=capacity_rebalance, expected_type=type_hints["capacity_rebalance"])
@@ -7414,6 +7438,8 @@ class CfnAutoScalingGroupProps:
             self._values["auto_scaling_group_name"] = auto_scaling_group_name
         if availability_zone_distribution is not None:
             self._values["availability_zone_distribution"] = availability_zone_distribution
+        if availability_zone_ids is not None:
+            self._values["availability_zone_ids"] = availability_zone_ids
         if availability_zone_impairment_policy is not None:
             self._values["availability_zone_impairment_policy"] = availability_zone_impairment_policy
         if availability_zones is not None:
@@ -7529,6 +7555,14 @@ class CfnAutoScalingGroupProps:
         '''
         result = self._values.get("availability_zone_distribution")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAutoScalingGroup.AvailabilityZoneDistributionProperty"]], result)
+
+    @builtins.property
+    def availability_zone_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscaling-autoscalinggroup.html#cfn-autoscaling-autoscalinggroup-availabilityzoneids
+        '''
+        result = self._values.get("availability_zone_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def availability_zone_impairment_policy(
@@ -22489,6 +22523,7 @@ def _typecheckingstub__d8ba2cee6007161ce4ac8e6f271353563746b8194e9da3c4517351b35
     min_size: builtins.str,
     auto_scaling_group_name: typing.Optional[builtins.str] = None,
     availability_zone_distribution: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.AvailabilityZoneDistributionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    availability_zone_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     availability_zone_impairment_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
     capacity_rebalance: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
@@ -22570,6 +22605,12 @@ def _typecheckingstub__40e8fdc97369d7f8797e7a890acf4c16f1c2a2166b1ca6d1644eaba12
 
 def _typecheckingstub__d5e9ae536cfa6650d411381d31454774f7e8c68d105e3c7f7476fcbdbc86ab9f(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAutoScalingGroup.AvailabilityZoneDistributionProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d74bd611a0b69222e5917c10f0879143bf217472e5d432a3f1b38a764ce150e1(
+    value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23049,6 +23090,7 @@ def _typecheckingstub__63de692030eb0bc729681a791501e2edd744cab3141e27cc9c9c8def2
     min_size: builtins.str,
     auto_scaling_group_name: typing.Optional[builtins.str] = None,
     availability_zone_distribution: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.AvailabilityZoneDistributionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    availability_zone_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     availability_zone_impairment_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAutoScalingGroup.AvailabilityZoneImpairmentPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
     capacity_rebalance: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,

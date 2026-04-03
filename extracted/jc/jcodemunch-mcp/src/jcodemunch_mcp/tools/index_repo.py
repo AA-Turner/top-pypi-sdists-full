@@ -485,23 +485,44 @@ async def index_repo(
         # Full index path
         logger.info("index_repo full — parsing %d files", len(current_files))
 
+        # Compute file hashes up-front so we can compare against the existing index
+        # for summary preservation (unchanged files reuse existing AI summaries).
+        file_hashes = {
+            fp: hashlib.sha256(content.encode("utf-8")).hexdigest()
+            for fp, content in current_files.items()
+        }
+
+        # Build summary-preservation maps when a prior index exists
+        _existing_summaries: Optional[dict[tuple[str, str, str], str]] = None
+        _unchanged_files: Optional[set[str]] = None
+        if existing_index is not None and existing_index.file_hashes and existing_index.symbols:
+            _unchanged_files = {
+                f for f, h in file_hashes.items()
+                if existing_index.file_hashes.get(f) == h
+            }
+            if _unchanged_files:
+                _existing_summaries = {
+                    (s.file, s.name, s.kind): s.summary
+                    for s in existing_index.symbols
+                    if s.summary and s.file in _unchanged_files
+                }
+                logger.info(
+                    "index_repo full — %d/%d files unchanged, %d summaries preserved",
+                    len(_unchanged_files), len(file_hashes),
+                    len(_existing_summaries) if _existing_summaries else 0,
+                )
+
         # Shared pipeline: parse all files, enrich, summarize, extract metadata
         all_symbols, file_summaries, languages, file_languages, file_imports, no_symbols_files = (
             parse_and_prepare_full(
                 file_contents=current_files,
                 use_ai_summaries=use_ai_summaries,
                 warnings=warnings,
+                existing_summaries=_existing_summaries,
+                unchanged_files=_unchanged_files,
             )
         )
         source_file_list = sorted(current_files)
-
-        # Save index
-        # Track hashes for all discovered source files so incremental change detection
-        # does not repeatedly report no-symbol files as "new".
-        file_hashes = {
-            fp: hashlib.sha256(content.encode("utf-8")).hexdigest()
-            for fp, content in current_files.items()
-        }
         index = store.save_index(
             owner=owner,
             name=repo,

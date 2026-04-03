@@ -534,7 +534,6 @@ class FieldAnalysis3D(Analysis, PyAedtBase):
         reduce_percentage: int = 0,
         reduce_error: int = 0,
         merge_planar_faces: bool = True,
-        input_file_unit: str = "Auto",
     ) -> bool:
         """Import a CAD model.
 
@@ -572,8 +571,6 @@ class FieldAnalysis3D(Analysis, PyAedtBase):
             Error percentage during STL reduction operation. The default is ``0``.
         merge_planar_faces : bool, optional
             Whether to merge planar faces during import. The default is ``True``.
-        input_file_unit: str, optional
-            Unit for the stl file. The default is ``"Auto"``, which means that the unit is automatically detected.
 
         Returns
         -------
@@ -601,7 +598,6 @@ class FieldAnalysis3D(Analysis, PyAedtBase):
             reduce_percentage=reduce_percentage,
             reduce_error=reduce_error,
             merge_planar_faces=merge_planar_faces,
-            input_file_unit=input_file_unit,
         )
 
     @pyaedt_function_handler()

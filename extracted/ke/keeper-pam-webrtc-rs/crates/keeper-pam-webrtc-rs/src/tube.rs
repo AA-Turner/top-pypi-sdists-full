@@ -25,6 +25,28 @@ use webrtc::data_channel::data_channel_state::RTCDataChannelState;
 use webrtc::peer_connection::configuration::RTCConfiguration;
 use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 
+/// Determines whether a channel close should terminate the tube (trigger connection_close callback
+/// and tube teardown) or leave the tube alive for ICE restart to bring a new channel.
+///
+/// Terminal when:
+/// - Guacd session: EOF always means the guacd session is genuinely over
+/// - control_connection_closed: client explicitly sent CloseConnection(conn_no=0)
+/// - Non-retryable reason: protocol error, decryption failure, etc.
+///
+/// Non-terminal (tube survives for ICE restart) when:
+/// - Tunnel/proxy protocols (PortForward, Socks5, DatabaseProxy, PythonHandler) with a retryable
+///   reason and no explicit conn_no=0 close — the backend TCP connection died but the session
+///   can continue on a new channel.
+pub(crate) fn is_terminal_channel_close(
+    active_protocol: crate::channel::types::ActiveProtocol,
+    control_connection_closed: bool,
+    close_reason: Option<CloseConnectionReason>,
+) -> bool {
+    active_protocol == crate::channel::types::ActiveProtocol::Guacd
+        || control_connection_closed
+        || close_reason.map(|r| !r.is_retryable()).unwrap_or(true)
+}
+
 // Lightweight metadata for tracking channel information without storing the full Channel
 #[derive(Clone, Debug)]
 pub struct ChannelMetadata {
@@ -684,6 +706,7 @@ impl Tube {
                     // Clone the Arc so we can access it after run() consumes the channel
                     let close_reason_arc = owned_channel.channel_close_reason.clone();
                     let control_connection_closed = owned_channel.control_connection_closed.clone();
+                    let active_protocol = owned_channel.active_protocol;
                     debug!("on_data_channel: About to call channel.run() (tube_id: {}, channel_label: {})", tube_id_for_log, label_clone_for_run);
                     let run_result = owned_channel.run().await;
                     debug!("on_data_channel: channel.run() completed with result: {:?} (tube_id: {}, channel_label: {})", run_result.as_ref().map(|_| "Ok").map_err(|e| format!("{:?}", e)), tube_id_for_log, label_clone_for_run);
@@ -706,9 +729,14 @@ impl Tube {
                         }
                     };
 
-                    // Send connection_close callback when channel finishes
-                    if let Err(e) = tube_arc.send_connection_close_callback(&label_clone_for_run).await {
-                        warn!("Failed to send connection_close callback: {} (tube_id: {}, channel_label: {})", e, tube_id_for_log, label_clone_for_run);
+                    if is_terminal_channel_close(
+                        active_protocol,
+                        control_connection_closed.load(std::sync::atomic::Ordering::Acquire),
+                        close_reason,
+                    ) {
+                        if let Err(e) = tube_arc.send_connection_close_callback(&label_clone_for_run).await {
+                            warn!("Failed to send connection_close callback: {} (tube_id: {}, channel_label: {})", e, tube_id_for_log, label_clone_for_run);
+                        }
                     }
 
                     // Deregister the channel from the tube
@@ -723,7 +751,11 @@ impl Tube {
                         if let Some(sender) = &pc_instance_arc.signal_sender {
                             let mut signal_json = serde_json::json!({
                                 "channel_id": label_clone_for_run, // The label of the channel from on_data_channel
-                                "outcome": outcome_details
+                                "outcome": outcome_details,
+                                // True only when conn_no 0 (or guacd) closed, meaning the tube itself
+                                // should end.  Tunnel channels (conn_no >= 1) leave this false so the
+                                // tube stays alive for the next client connection.
+                                "terminates_tube": control_connection_closed.load(std::sync::atomic::Ordering::Acquire),
                             });
                             // Add close reason if available
                             if let Some(reason) = close_reason {
@@ -1304,7 +1336,6 @@ impl Tube {
                             | crate::channel::types::ActiveProtocol::Socks5
                             | crate::channel::types::ActiveProtocol::Guacd
                     )
-                // Assuming Guacamole might be server mode too
                 {
                     debug!("create_channel: Channel is server mode, attempting to start server. (tube_id: {}, channel_name: {}, protocol: {:?}, listen_addr: {})", self.id, name, owned_channel.active_protocol, listen_addr_str);
                     match owned_channel.start_server(&listen_addr_str).await {
@@ -1358,6 +1389,7 @@ impl Tube {
             // Clone the Arc so we can access it after run() consumes the channel
             let close_reason_arc = owned_channel.channel_close_reason.clone();
             let control_connection_closed = owned_channel.control_connection_closed.clone();
+            let active_protocol = owned_channel.active_protocol;
             let run_result = owned_channel.run().await;
             // Get the close reason after run completes - use try_lock to avoid blocking
             let close_reason = close_reason_arc.try_lock().ok().and_then(|guard| *guard);
@@ -1377,9 +1409,14 @@ impl Tube {
                 }
             };
 
-            // Send connection_close callback when channel finishes
-            if let Err(e) = tube_arc.send_connection_close_callback(&name_clone).await {
-                warn!("Failed to send connection_close callback: {} (tube_id: {}, channel_name: {})", e, tube_id_for_spawn, name_clone);
+            if is_terminal_channel_close(
+                active_protocol,
+                control_connection_closed.load(std::sync::atomic::Ordering::Acquire),
+                close_reason,
+            ) {
+                if let Err(e) = tube_arc.send_connection_close_callback(&name_clone).await {
+                    warn!("Failed to send connection_close callback: {} (tube_id: {}, channel_name: {})", e, tube_id_for_spawn, name_clone);
+                }
             }
 
             // Deregister the channel from the tube
@@ -1394,7 +1431,11 @@ impl Tube {
                 if let Some(sender) = &pc_instance_arc.signal_sender {
                     let mut signal_json = serde_json::json!({
                         "channel_id": name_clone, // This is the label of the channel that finished
-                        "outcome": outcome_details
+                        "outcome": outcome_details,
+                        // True only when conn_no 0 (or guacd) closed, meaning the tube itself
+                        // should end.  Tunnel channels (conn_no >= 1) leave this false so the
+                        // tube stays alive for the next client connection.
+                        "terminates_tube": control_connection_closed.load(std::sync::atomic::Ordering::Acquire),
                     });
                     // Add close reason if available
                     if let Some(reason) = close_reason {
@@ -1475,6 +1516,33 @@ impl Tube {
             .await?;
         *self.control_channel.write().await = Some(control_channel.clone());
         Ok(control_channel)
+    }
+
+    /// Stamp all active channels with `ConnectionLost` when ICE disconnects.
+    ///
+    /// Called by the `PeerConnectionState::Disconnected/Failed` handlers before triggering ICE
+    /// restart. When the data channel subsequently closes (because the old ICE path dropped),
+    /// `channel.run()` returns with `close_reason = ConnectionLost` (retryable) instead of
+    /// `None` (terminal). This allows `is_terminal_channel_close` to return `false` and keep
+    /// the tube alive so ICE restart can attach a new channel.
+    ///
+    /// Only sets the reason if no critical error is already recorded — never downgrades a real
+    /// error (e.g. GuacdError, ProxyError) to ConnectionLost.
+    pub(crate) async fn mark_channels_ice_disconnected(&self) {
+        let close_reasons = self.channel_close_reasons.read().await;
+        for (name, arc) in close_reasons.iter() {
+            let mut guard = arc.lock().await;
+            // ConnectionLost is retryable, so is_terminal_channel_close returns false and
+            // the tube stays alive for ICE restart. Only set if no critical reason is already
+            // recorded (e.g. GuacdError, ProxyError) — never downgrade a real error.
+            if guard.map(|r| !r.is_critical()).unwrap_or(true) {
+                *guard = Some(CloseConnectionReason::ConnectionLost);
+                debug!(
+                    "Tube {}: marked channel {} ConnectionLost for ICE restart",
+                    self.id, name
+                );
+            }
+        }
     }
 
     /// Close a specific channel by signaling its run loop to exit

@@ -1,0 +1,573 @@
+####################################################################################################
+# This file is a part of PyPartMC licensed under the GNU General Public License v3 (LICENSE file)  #
+# Copyright (C) 2022 University of Illinois Urbana-Champaign                                       #
+# Authors: https://github.com/open-atmos/PyPartMC/graphs/contributors                              #
+####################################################################################################
+
+import platform
+
+import numpy as np
+import pytest
+
+import PyPartMC as ppmc
+from PyPartMC import si
+
+from .test_camp_core import CAMP_INPUT_PATH, chdir
+
+# pylint: disable=R0904
+
+AERO_DATA_CTOR_ARG_MINIMAL = (
+    {"H2O": [1000 * si.kg / si.m**3, 1, 18e-3 * si.kg / si.mol, 0, 0, 0]},
+)
+
+AERO_DATA_CTOR_ARG_FULL = (
+    # density, ions in soln (1), molecular weight, kappa (1), ABIFM_m, ABIFM_c
+    #         |                     |   |                   |
+    {"SO4": [1800 * si.kg / si.m**3, 1, 96.0 * si.g / si.mol, 0.00, 0.00, 0.00]},
+    {"NO3": [1800 * si.kg / si.m**3, 1, 62.0 * si.g / si.mol, 0.00, 0.00, 0.00]},
+    {"Cl": [2200 * si.kg / si.m**3, 1, 35.5 * si.g / si.mol, 0.00, 0.00, 0.00]},
+    {"NH4": [1800 * si.kg / si.m**3, 1, 18.0 * si.g / si.mol, 0.00, 0.00, 0.00]},
+    {"MSA": [1800 * si.kg / si.m**3, 0, 95.0 * si.g / si.mol, 0.53, 0.00, 0.00]},
+    {"ARO1": [1400 * si.kg / si.m**3, 0, 150.0 * si.g / si.mol, 0.10, 0.00, 0.00]},
+    {"ARO2": [1400 * si.kg / si.m**3, 0, 150.0 * si.g / si.mol, 0.10, 0.00, 0.00]},
+    {"ALK1": [1400 * si.kg / si.m**3, 0, 140.0 * si.g / si.mol, 0.10, 0.00, 0.00]},
+    {"OLE1": [1400 * si.kg / si.m**3, 0, 140.0 * si.g / si.mol, 0.10, 0.00, 0.00]},
+    {"API1": [1400 * si.kg / si.m**3, 0, 184.0 * si.g / si.mol, 0.10, 0.00, 0.00]},
+    {"API2": [1400 * si.kg / si.m**3, 0, 184.0 * si.g / si.mol, 0.10, 0.00, 0.00]},
+    {"LIM1": [1400 * si.kg / si.m**3, 0, 200.0 * si.g / si.mol, 0.10, 0.00, 0.00]},
+    {"LIM2": [1400 * si.kg / si.m**3, 0, 200.0 * si.g / si.mol, 0.10, 0.00, 0.00]},
+    {"CO3": [2600 * si.kg / si.m**3, 1, 60.0 * si.g / si.mol, 0.00, 0.00, 0.00]},
+    {"Na": [2200 * si.kg / si.m**3, 1, 23.0 * si.g / si.mol, 0.00, 0.00, 0.00]},
+    {"Ca": [2600 * si.kg / si.m**3, 1, 40.0 * si.g / si.mol, 0.00, 0.00, 0.00]},
+    {"OIN": [2600 * si.kg / si.m**3, 0, 1.0 * si.g / si.mol, 0.10, 0.00, 0.00]},
+    {"OC": [1400 * si.kg / si.m**3, 0, 1.0 * si.g / si.mol, 0.10, 0.00, 0.00]},
+    {"BC": [1800 * si.kg / si.m**3, 0, 1.0 * si.g / si.mol, 0.00, 0.00, 0.00]},
+    {"H2O": [1000 * si.kg / si.m**3, 0, 18.0 * si.g / si.mol, 0.00, 0.00, 0.00]},
+)
+
+AERO_DATA_CTOR_ARG_FREEZING = (
+    {"H2O": [1000 * si.kg / si.m**3, 0, 18.0 * si.g / si.mol, 0.00, 0, 0]},
+    {
+        "ILT": [
+            2700 * si.kg / si.m**3,
+            0,
+            389.34 * si.g / si.mol,
+            0.003,
+            54.48075,
+            -10.66873,
+        ]
+    },
+    {
+        "Fe2O3": [
+            5240 * si.kg / si.m**3,
+            0,
+            159.69 * si.g / si.mol,
+            0.01,
+            17.62106,
+            1.42411,
+        ]
+    },
+)
+
+
+class TestAeroData:
+    @staticmethod
+    def test_ctor():
+        # arrange
+
+        # act
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+
+        # assert
+        assert sut is not None
+
+    @staticmethod
+    @pytest.mark.skipif(
+        "site-packages" in ppmc.__file__, reason="Skipped for wheel install"
+    )
+    def test_ctor_with_camp_assuming_installed_in_editable_mode_from_checkout():
+        # arrange
+        assert CAMP_INPUT_PATH.exists()
+        with chdir(CAMP_INPUT_PATH):
+            camp_core = ppmc.CampCore("config.json")
+
+        # act
+        sut = ppmc.AeroData(camp_core)
+
+        # assert
+        assert sut is not None
+
+    @staticmethod
+    def test_spec_by_name_found():
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+
+        # act
+        value = sut.spec_by_name("H2O")
+
+        # assert
+        assert value == 0
+
+    @staticmethod
+    @pytest.mark.skipif(platform.machine() == "arm64", reason="TODO #348")
+    def test_spec_by_name_not_found():
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+
+        # act and assert
+        try:
+            _ = sut.spec_by_name("XXX")
+            assert False
+        except RuntimeError as error:
+            assert str(error) == "Element not found."
+
+    @staticmethod
+    def test_len():
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+
+        # act
+        value = len(sut)
+
+        # assert
+        assert value == len(AERO_DATA_CTOR_ARG_MINIMAL)
+
+    @staticmethod
+    def test_frac_dim():
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+        value = 3
+
+        # act
+        sut.frac_dim = value
+
+        # assert
+        assert value == sut.frac_dim
+
+    @staticmethod
+    def test_vol_fill_factor():
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+        value = 1
+
+        # act
+        sut.vol_fill_factor = value
+
+        # assert
+        assert value == sut.vol_fill_factor
+
+    @staticmethod
+    def test_prime_radius():
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+        value = 44
+
+        # act
+        sut.prime_radius = value
+
+        # assert
+        assert value == sut.prime_radius
+
+    @staticmethod
+    def test_rad2vol_sphere():
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+        radius = 1e-6
+
+        # act
+        value = sut.rad2vol(radius)
+
+        # assert
+        np.testing.assert_almost_equal(value, (4 / 3) * np.pi * (radius) ** 3)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "aero_data_params",
+        (
+            {"frac_dim": 2.4, "vol_fill_factor": 1.2, "prime_radius": 1e-7},
+            {"frac_dim": 2.5, "vol_fill_factor": 1.1, "prime_radius": 1e-8},
+            {"frac_dim": 2.2, "vol_fill_factor": 1.3, "prime_radius": 1e-6},
+        ),
+    )
+    def test_rad2vol_fractal(aero_data_params: dict):
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+        radius = 1e-6
+        for key, value in aero_data_params.items():
+            setattr(sut, key, value)
+
+        # act
+        value = sut.rad2vol(radius)
+
+        # assert
+        np.testing.assert_almost_equal(
+            value,
+            (4 / 3)
+            * np.pi
+            * (sut.prime_radius) ** 3
+            * (radius / sut.prime_radius) ** sut.frac_dim
+            / sut.vol_fill_factor,
+        )
+
+    @staticmethod
+    def test_vol2rad_sphere():
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+        vol = 4.19e-18
+
+        # act
+        value = sut.vol2rad(vol)
+
+        # assert
+        np.testing.assert_almost_equal(value, 1e-6)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "aero_data_params",
+        (
+            {"frac_dim": 2.4, "vol_fill_factor": 1.2, "prime_radius": 1e-7},
+            {"frac_dim": 2.5, "vol_fill_factor": 1.1, "prime_radius": 1e-8},
+            {"frac_dim": 2.2, "vol_fill_factor": 1.3, "prime_radius": 1e-6},
+        ),
+    )
+    def test_vol2rad_fractal(aero_data_params: dict):
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+        vol = 4.19e-18
+        for key, value in aero_data_params.items():
+            setattr(sut, key, value)
+
+        # act
+        value = sut.vol2rad(vol)
+
+        # assert
+        np.testing.assert_almost_equal(
+            value,
+            sut.prime_radius
+            * (
+                ((3 * vol / 4 / np.pi) ** (1 / 3) / sut.prime_radius) ** 3
+                * sut.vol_fill_factor
+            )
+            ** (1 / sut.frac_dim),
+        )
+
+    @staticmethod
+    def test_diam2vol_sphere():
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+        diam = 2e-6
+
+        # act
+        vol = sut.diam2vol(diam)
+
+        # assert
+        np.testing.assert_almost_equal(vol, (np.pi / 6) * diam**3)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "aero_data_params",
+        (
+            {"frac_dim": 2.4, "vol_fill_factor": 1.2, "prime_radius": 1e-7},
+            {"frac_dim": 2.5, "vol_fill_factor": 1.1, "prime_radius": 1e-8},
+            {"frac_dim": 2.2, "vol_fill_factor": 1.3, "prime_radius": 1e-6},
+        ),
+    )
+    def test_diam2vol_fractal(aero_data_params: dict):
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+        diam = 2e-6
+        for key, value in aero_data_params.items():
+            setattr(sut, key, value)
+
+        # act
+        value = sut.diam2vol(diam)
+
+        # assert
+        np.testing.assert_almost_equal(
+            value,
+            (4 / 3)
+            * np.pi
+            * (sut.prime_radius) ** 3
+            * (1e-6 / sut.prime_radius) ** sut.frac_dim
+            / sut.vol_fill_factor,
+        )
+
+    @staticmethod
+    def test_vol2diam_sphere():
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+        vol = 4.19e-18
+
+        # act
+        value = sut.vol2diam(vol)
+
+        # arrange
+        np.testing.assert_almost_equal(value, 2e-6)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "aero_data_params",
+        (
+            {"frac_dim": 2.4, "vol_fill_factor": 1.2, "prime_radius": 1e-7},
+            {"frac_dim": 2.5, "vol_fill_factor": 1.1, "prime_radius": 1e-8},
+            {"frac_dim": 2.2, "vol_fill_factor": 1.3, "prime_radius": 1e-6},
+        ),
+    )
+    def test_vol2diam_fractal(aero_data_params: dict):
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_MINIMAL)
+        vol = 4.19e-18
+        for key, value in aero_data_params.items():
+            setattr(sut, key, value)
+
+        # act
+        value = sut.vol2diam(vol)
+
+        # assert
+        np.testing.assert_almost_equal(
+            value,
+            2
+            * (
+                sut.prime_radius
+                * (
+                    ((3 * vol / 4 / np.pi) ** (1 / 3) / sut.prime_radius) ** 3
+                    * sut.vol_fill_factor
+                )
+                ** (1 / sut.frac_dim)
+            ),
+        )
+
+    @staticmethod
+    def test_aero_data_densities():
+        # arrange
+        densities = [1800, 1400, 1800, 1000]
+        sut = ppmc.AeroData(
+            (
+                {
+                    "SO4": [
+                        densities[0] * si.kg / si.m**3,
+                        1,
+                        96.0 * si.g / si.mol,
+                        0.00,
+                        0.00,
+                        0.00,
+                    ]
+                },
+                {
+                    "OC": [
+                        densities[1] * si.kg / si.m**3,
+                        0,
+                        1.0 * si.g / si.mol,
+                        0.10,
+                        0.00,
+                        0.00,
+                    ]
+                },
+                {
+                    "BC": [
+                        densities[2] * si.kg / si.m**3,
+                        0,
+                        1.0 * si.g / si.mol,
+                        0.00,
+                        0.00,
+                        0.00,
+                    ]
+                },
+                {
+                    "H2O": [
+                        densities[3] * si.kg / si.m**3,
+                        0,
+                        18.0 * si.g / si.mol,
+                        0.00,
+                        0.00,
+                        0.00,
+                    ]
+                },
+            )
+        )
+
+        # act
+        aero_data_densities = sut.densities
+
+        # assert
+        assert aero_data_densities == densities
+
+    @staticmethod
+    def test_aero_data_kappa():
+        # arrange
+        kappa = [0.65, 0.1, 0.0, 0.0]
+        sut = ppmc.AeroData(
+            (
+                {
+                    "SO4": [
+                        1800.0 * si.kg / si.m**3,
+                        0,
+                        96.0 * si.g / si.mol,
+                        kappa[0],
+                        0.00,
+                        0.00,
+                    ]
+                },
+                {
+                    "OC": [
+                        1400.0 * si.kg / si.m**3,
+                        0,
+                        1.0 * si.g / si.mol,
+                        kappa[1],
+                        0.00,
+                        0.00,
+                    ]
+                },
+                {
+                    "BC": [
+                        1800.0 * si.kg / si.m**3,
+                        0,
+                        1.0 * si.g / si.mol,
+                        kappa[2],
+                        0.00,
+                        0.00,
+                    ]
+                },
+                {
+                    "H2O": [
+                        1000.0 * si.kg / si.m**3,
+                        0,
+                        18.0 * si.g / si.mol,
+                        kappa[3],
+                        0.00,
+                        0.00,
+                    ]
+                },
+            )
+        )
+
+        # act
+        aero_data_kappa = sut.kappa
+
+        # assert
+        assert aero_data_kappa == kappa
+
+    @staticmethod
+    def test_aero_data_molecular_weight():
+        # arrange
+        molec_weight = [96.0, 1.0, 1.0, 18.0]
+        sut = ppmc.AeroData(
+            (
+                {
+                    "SO4": [
+                        1800.0 * si.kg / si.m**3,
+                        0,
+                        molec_weight[0] * si.kg / si.mol,
+                        0.65,
+                        0.0,
+                        0.0,
+                    ]
+                },
+                {
+                    "OC": [
+                        1400.0 * si.kg / si.m**3,
+                        0,
+                        molec_weight[1] * si.kg / si.mol,
+                        0.1,
+                        0.0,
+                        0.0,
+                    ]
+                },
+                {
+                    "BC": [
+                        1800.0 * si.kg / si.m**3,
+                        0,
+                        molec_weight[2] * si.kg / si.mol,
+                        0.0,
+                        0.0,
+                        0.0,
+                    ]
+                },
+                {
+                    "H2O": [
+                        1000.0 * si.kg / si.m**3,
+                        0,
+                        molec_weight[3] * si.kg / si.mol,
+                        0.0,
+                        0.0,
+                        0.0,
+                    ]
+                },
+            )
+        )
+
+        # act
+        aero_data_molec_weight = sut.molecular_weights
+
+        # assert
+        assert aero_data_molec_weight == molec_weight
+
+    @staticmethod
+    def test_aero_data_density():
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_FULL)
+
+        for item in AERO_DATA_CTOR_ARG_FULL:
+            keys = item.keys()
+            assert len(keys) == 1
+            key = tuple(keys)[0]
+            val = tuple(item.values())[0]
+
+            # act
+            density = sut.density(key)
+
+            # assert
+            assert density == val[0]
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "ctor_arg", (AERO_DATA_CTOR_ARG_MINIMAL, AERO_DATA_CTOR_ARG_FULL)
+    )
+    def test_names(ctor_arg):
+        # arrange
+        sut = ppmc.AeroData(ctor_arg)
+        names = sut.species
+
+        # assert
+        for i, item in enumerate(ctor_arg):
+            key = tuple(item.keys())[0]
+            # pylint: disable=unsubscriptable-object
+            assert names[i] == key
+
+    @staticmethod
+    @pytest.mark.skipif(platform.machine() == "arm64", reason="TODO #348")
+    def test_ctor_error_on_nonunique_keys():
+        # act
+        with pytest.raises(Exception) as exc_info:
+            ppmc.AeroData([AERO_DATA_CTOR_ARG_MINIMAL[0]] * 2)
+
+        # assert
+        assert str(exc_info.value) == "Species names must be unique"
+
+    @staticmethod
+    @pytest.mark.skipif(platform.machine() == "arm64", reason="TODO #348")
+    def test_n_source_uninitialized():
+        # arrange
+        sut = ppmc.AeroData(AERO_DATA_CTOR_ARG_FULL)
+
+        # act
+        with pytest.raises(Exception) as exc_info:
+            _ = sut.n_source
+
+        # assert
+        assert str(exc_info.value) == "No sources defined."
+
+    @staticmethod
+    def test_names_immutable():
+        # arrange
+        sut = ppmc.AeroData(
+            AERO_DATA_CTOR_ARG_MINIMAL,
+        )
+        names = sut.species
+
+        # act
+        with pytest.raises(TypeError) as exc_info:
+            names[0] = "Z"  # pylint: disable=unsupported-assignment-operation
+
+        # assert
+        assert "not support item assignment" in str(exc_info.value)

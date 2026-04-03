@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: google-cloud-bigtable
-Version: 2.35.0
+Version: 2.36.0
 Summary: Google Cloud Bigtable API client library
-Home-page: https://github.com/googleapis/python-bigtable
+Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-bigtable
 Author: Google LLC
 Author-email: googleapis-packages@google.com
 License: Apache 2.0
@@ -89,7 +89,7 @@ or through the Github `issue tracker`_.
         performance benefits, the codebase should be designed to be async from the ground up.
 
 
-.. _issue tracker: https://github.com/googleapis/python-bigtable/issues
+.. _issue tracker: https://github.com/googleapis/google-cloud-python/issues
 
 
 Quick Start

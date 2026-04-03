@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk-lib",
-    "version": "2.246.0",
+    "version": "2.247.0",
     "description": "Version 2 of the AWS Cloud Development Kit library",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -171,6 +171,7 @@ kwargs = json.loads(
         "aws_cdk.aws_imagebuilder",
         "aws_cdk.aws_inspector",
         "aws_cdk.aws_inspectorv2",
+        "aws_cdk.aws_interconnect",
         "aws_cdk.aws_internetmonitor",
         "aws_cdk.aws_invoicing",
         "aws_cdk.aws_iot",
@@ -319,6 +320,7 @@ kwargs = json.loads(
         "aws_cdk.aws_systemsmanagersap",
         "aws_cdk.aws_timestream",
         "aws_cdk.aws_transfer",
+        "aws_cdk.aws_uxc",
         "aws_cdk.aws_verifiedpermissions",
         "aws_cdk.aws_voiceid",
         "aws_cdk.aws_vpclattice",
@@ -466,6 +468,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_imagebuilder",
         "aws_cdk.interfaces.aws_inspector",
         "aws_cdk.interfaces.aws_inspectorv2",
+        "aws_cdk.interfaces.aws_interconnect",
         "aws_cdk.interfaces.aws_internetmonitor",
         "aws_cdk.interfaces.aws_invoicing",
         "aws_cdk.interfaces.aws_iot",
@@ -600,6 +603,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_systemsmanagersap",
         "aws_cdk.interfaces.aws_timestream",
         "aws_cdk.interfaces.aws_transfer",
+        "aws_cdk.interfaces.aws_uxc",
         "aws_cdk.interfaces.aws_verifiedpermissions",
         "aws_cdk.interfaces.aws_voiceid",
         "aws_cdk.interfaces.aws_vpclattice",
@@ -620,7 +624,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk._jsii": [
-            "aws-cdk-lib@2.246.0.jsii.tgz"
+            "aws-cdk-lib@2.247.0.jsii.tgz"
         ],
         "aws_cdk": [
             "py.typed"
@@ -628,7 +632,7 @@ kwargs = json.loads(
     },
     "python_requires": "~=3.9",
     "install_requires": [
-        "aws-cdk.asset-awscli-v1==2.2.263",
+        "aws-cdk.asset-awscli-v1==2.2.273",
         "aws-cdk.asset-node-proxy-agent-v6>=2.1.1, <3.0.0",
         "aws-cdk.cloud-assembly-schema>=53.0.0, <54.0.0",
         "constructs>=10.5.0, <11.0.0",

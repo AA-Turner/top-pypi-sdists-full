@@ -35,6 +35,7 @@ Environment variables:
     ABORT_ERROR_RATE      Stop the staircase if error rate exceeds this % (default: 10)
 
     BENCHMARK_TYPE        Benchmark runner type (default: wait_write)
+    BENCHMARK_PROFILE     Optional profile override (e.g. etsy, metaview)
     RUN_MODE              stateless (default) or stateful
     DATA_SIZE, DELAY, EXPAND, STEPS, MODE — agent parameters
 """

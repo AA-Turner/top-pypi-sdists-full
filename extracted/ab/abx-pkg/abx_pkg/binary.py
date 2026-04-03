@@ -16,7 +16,13 @@ from pydantic import (
 
 from .semver import SemVer
 from .shallowbinary import ShallowBinary
-from .binprovider import BinProvider, EnvProvider, BinaryOverrides
+from .binprovider import (
+    BinProvider,
+    EnvProvider,
+    BinaryOverrides,
+    env_flag_is_true,
+    default_min_release_age,
+)
 from .logging import format_exception_with_output, get_logger, log_method_call
 from .exceptions import (
     BinaryInstallError,
@@ -60,6 +66,22 @@ class Binary(ShallowBinary):
 
     min_version: SemVer | None = None
 
+    postinstall_scripts: bool = Field(
+        default_factory=lambda: env_flag_is_true("ABX_PKG_POSTINSTALL_SCRIPTS"),
+        description=(
+            "Allow post-install scripts during package installation. "
+            "Defaults to ABX_PKG_POSTINSTALL_SCRIPTS env var (False if unset)."
+        ),
+    )
+    min_release_age: float = Field(
+        default_factory=default_min_release_age,
+        description=(
+            "Minimum days since publication before a package can be installed. "
+            "Defaults to ABX_PKG_MIN_RELEASE_AGE env var (7 if unset). "
+            "Set to 0 to disable."
+        ),
+    )
+
     # bin_filename:  see below
     # is_executable: see below
     # is_script
@@ -82,6 +104,24 @@ class Binary(ShallowBinary):
                     **overrides_for_bin,
                     **self.overrides.get(binprovider.name, {}),
                 }
+
+        explicit_fields = self.model_fields_set
+        if "postinstall_scripts" not in explicit_fields:
+            provider_values = [
+                provider.postinstall_scripts for provider in self.binproviders_supported
+            ]
+            if provider_values and all(
+                value == provider_values[0] for value in provider_values
+            ):
+                self.postinstall_scripts = provider_values[0]
+        if "min_release_age" not in explicit_fields:
+            provider_values = [
+                provider.min_release_age for provider in self.binproviders_supported
+            ]
+            if provider_values and all(
+                value == provider_values[0] for value in provider_values
+            ):
+                self.min_release_age = provider_values[0]
         return self
 
     @field_validator("loaded_abspath", mode="before")
@@ -94,6 +134,9 @@ class Binary(ShallowBinary):
 
     @field_validator("min_version", mode="before")
     def parse_min_version(cls, value: Any) -> SemVer | None:
+        # Preserve the semantic difference between "no version floor" and an
+        # actual minimum version. `None` means any discovered version is
+        # acceptable; non-empty values get normalized into SemVer.
         return SemVer(value) if value else None
 
     @field_serializer("overrides", when_used="json")
@@ -144,6 +187,11 @@ class Binary(ShallowBinary):
             for provider_name, bin_abspaths in self.loaded_abspaths.items()
         }
 
+    @property
+    def abspaths(self) -> dict[BinProviderName, list[HostBinPath]]:
+        """Backward-compatible read alias for loaded_abspaths."""
+        return self.loaded_abspaths
+
     @computed_field
     @property
     def python_name(self) -> str:
@@ -152,12 +200,7 @@ class Binary(ShallowBinary):
     @computed_field
     @property
     def is_valid(self) -> bool:
-        if not (
-            self.name
-            and self.loaded_abspath
-            and self.loaded_version
-            and (self.is_executable or self.is_script)
-        ):
+        if not (self.name and self.loaded_abspath and self.loaded_version):
             return False
         if self.min_version and self.loaded_version < self.min_version:
             return False
@@ -199,6 +242,35 @@ class Binary(ShallowBinary):
             err,
         )
 
+    def _validated_loaded_copy(
+        self,
+        provider: BinProvider,
+        *,
+        abspath: HostBinPath | None,
+        version: SemVer | None,
+        sha256: str | None,
+    ) -> Self:
+        """Return a loaded copy and enforce the Binary-level min_version gate.
+
+        Providers can legitimately resolve a binary that still fails this
+        Binary's declared version floor. Keeping the final validation here makes
+        install/load/load_or_install/update all share one consistent check.
+        """
+        result = self.model_copy(
+            deep=True,
+            update={
+                "loaded_binprovider": provider,
+                "loaded_abspath": abspath,
+                "loaded_version": version,
+                "loaded_sha256": sha256,
+            },
+        )
+        if not result.is_valid:
+            raise ValueError(
+                f"{provider.name} resolved {self.name} with version {result.loaded_version} which does not satisfy min_version {self.min_version}",
+            )
+        return result
+
     @validate_call
     @log_method_call(include_result=True)
     def install(
@@ -228,17 +300,19 @@ class Binary(ShallowBinary):
                     binprovider_name=binprovider.name,
                     **extra_overrides,
                 )
-                installed_bin = provider.install(self.name)
+                installed_bin = provider.install(
+                    self.name,
+                    postinstall_scripts=self.postinstall_scripts,
+                    min_release_age=self.min_release_age,
+                    min_version=self.min_version,
+                )
                 if installed_bin is not None and installed_bin.loaded_abspath:
                     # print('INSTALLED', self.name, installed_bin)
-                    return self.model_copy(
-                        deep=True,
-                        update={
-                            "loaded_binprovider": provider,
-                            "loaded_abspath": installed_bin.loaded_abspath,
-                            "loaded_version": installed_bin.loaded_version,
-                            "loaded_sha256": installed_bin.loaded_sha256,
-                        },
+                    return self._validated_loaded_copy(
+                        provider,
+                        abspath=installed_bin.loaded_abspath,
+                        version=installed_bin.loaded_version,
+                        sha256=installed_bin.loaded_sha256,
                     )
             except Exception as err:
                 inner_exc = err
@@ -289,14 +363,11 @@ class Binary(ShallowBinary):
                 installed_bin = provider.load(self.name, nocache=nocache)
                 if installed_bin is not None and installed_bin.loaded_abspath:
                     # print('LOADED', binprovider, self.name, installed_bin)
-                    return self.model_copy(
-                        deep=True,
-                        update={
-                            "loaded_binprovider": provider,
-                            "loaded_abspath": installed_bin.loaded_abspath,
-                            "loaded_version": installed_bin.loaded_version,
-                            "loaded_sha256": installed_bin.loaded_sha256,
-                        },
+                    return self._validated_loaded_copy(
+                        provider,
+                        abspath=installed_bin.loaded_abspath,
+                        version=installed_bin.loaded_version,
+                        sha256=installed_bin.loaded_sha256,
                     )
                 else:
                     continue
@@ -347,17 +418,20 @@ class Binary(ShallowBinary):
                     binprovider_name=binprovider.name,
                     **extra_overrides,
                 )
-                installed_bin = provider.load_or_install(self.name, nocache=nocache)
+                installed_bin = provider.load_or_install(
+                    self.name,
+                    nocache=nocache,
+                    postinstall_scripts=self.postinstall_scripts,
+                    min_release_age=self.min_release_age,
+                    min_version=self.min_version,
+                )
                 if installed_bin is not None and installed_bin.loaded_abspath:
                     # print('LOADED_OR_INSTALLED', self.name, installed_bin)
-                    return self.model_copy(
-                        deep=True,
-                        update={
-                            "loaded_binprovider": provider,
-                            "loaded_abspath": installed_bin.loaded_abspath,
-                            "loaded_version": installed_bin.loaded_version,
-                            "loaded_sha256": installed_bin.loaded_sha256,
-                        },
+                    return self._validated_loaded_copy(
+                        provider,
+                        abspath=installed_bin.loaded_abspath,
+                        version=installed_bin.loaded_version,
+                        sha256=installed_bin.loaded_sha256,
                     )
                 else:
                     continue
@@ -401,16 +475,18 @@ class Binary(ShallowBinary):
                     binprovider_name=binprovider.name,
                     **extra_overrides,
                 )
-                updated_bin = provider.update(self.name)
+                updated_bin = provider.update(
+                    self.name,
+                    postinstall_scripts=self.postinstall_scripts,
+                    min_release_age=self.min_release_age,
+                    min_version=self.min_version,
+                )
                 if updated_bin is not None and updated_bin.loaded_abspath:
-                    return self.model_copy(
-                        deep=True,
-                        update={
-                            "loaded_binprovider": provider,
-                            "loaded_abspath": updated_bin.loaded_abspath,
-                            "loaded_version": updated_bin.loaded_version,
-                            "loaded_sha256": updated_bin.loaded_sha256,
-                        },
+                    return self._validated_loaded_copy(
+                        provider,
+                        abspath=updated_bin.loaded_abspath,
+                        version=updated_bin.loaded_version,
+                        sha256=updated_bin.loaded_sha256,
                     )
             except Exception as err:
                 inner_exc = err
@@ -451,7 +527,12 @@ class Binary(ShallowBinary):
                     binprovider_name=binprovider.name,
                     **extra_overrides,
                 )
-                uninstalled = provider.uninstall(self.name)
+                uninstalled = provider.uninstall(
+                    self.name,
+                    postinstall_scripts=self.postinstall_scripts,
+                    min_release_age=self.min_release_age,
+                    min_version=self.min_version,
+                )
                 if uninstalled:
                     return self.model_copy(
                         deep=True,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: beaker-py
-Version: 2.5.6
+Version: 2.5.8
 Summary: A Python Beaker client
 Author-email: Allen Institute for Artificial Intelligence <contact@allenai.org>, Pete Walsh <petew@allenai.org>
 Project-URL: Homepage, https://github.com/allenai/beaker
@@ -197,7 +197,8 @@ make checks
 At the moment releases need to be published manually by following these steps:
 
 1. Ensure you've authenticated with [PyPI](https://pypi.org/) through a `~/.pypirc` file and have write permissions to the [beaker-py project](https://pypi.org/project/beaker-py/). The local `~/.pypirc` file looks like:
-```bash
+
+```ini
 [distutils]
 index-servers = pypi
 

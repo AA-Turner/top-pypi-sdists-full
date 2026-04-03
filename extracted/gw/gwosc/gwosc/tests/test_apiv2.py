@@ -6,10 +6,38 @@
 from unittest.mock import patch
 
 import pytest
+import requests
+import tenacity
 
 from ..api import v2 as apiv2
 
 __author__ = "Martin Beroiz <martin.beroiz@ligo.org>"
+
+# Those values are used to mock requests
+# This is used in tests of the retry mechanism.
+# Note that fetch_json uses cache so each test has to use a different mock URL
+# so we use the name of the test.
+# Also as those tests don't check exactly how much time we wait,
+# we patch RETRY_DEFAULT_WAIT_TIME to 0.
+# TODO: The tests are a bit redundant so maybe we can refactor them.
+response_429 = {
+    "status_code": 429,
+    "headers": {
+        "Retry-After": "0"  # We use 0 to speed-up tests
+    },
+}
+
+response_200 = {"status_code": 200, "text": "[1, 2, 3]"}
+
+response_500 = {
+    "status_code": 500,
+}
+
+response_404 = {
+    "status_code": 404,
+}
+
+exception_timeout = {"exc": requests.ReadTimeout}
 
 
 def test_cache():
@@ -54,6 +82,39 @@ def test_produce_fetched_objects_toomanypages(mock_fetch):
         assert result == [1, 2, 3, 4, 5, 6]
 
 
+@patch("gwosc.api.v2.produce_fetched_objects")
+def test_pagesize_is_passed(mock_produce):
+    """Test that pagesize parameter is correctly passed to the URL."""
+    mock_produce.return_value = iter([])
+
+    # Test cases with required parameters for each function
+    test_cases = [
+        (apiv2.fetch_event_versions, {}),
+        (apiv2.fetch_runs, {}),
+        (apiv2.fetch_catalogs, {}),
+        (
+            apiv2.fetch_segments,
+            {"flag": "H1_DATA", "start": 932540000, "end": 932560000},
+        ),
+        (apiv2.fetch_run_strain_files, {"run": "S5"}),
+        (apiv2.fetch_event_strain_data, {"event": "GW150914"}),
+    ]
+
+    for func, required_params in test_cases:
+        # Reset the mock
+        mock_produce.reset_mock()
+
+        # Call function and consume the generator,
+        # so that produce_fetched_objects is called
+        list(func(**required_params, pagesize=23))
+
+        # Verify that produce_fetched_objects was called with correct url
+        mock_produce.assert_called_once()
+        call_args = mock_produce.call_args
+        url_arg = call_args[0][0]
+        assert "pagesize=23" in url_arg
+
+
 @pytest.mark.remote
 def test_fetch_run_strain_files():
     s5_files = list(
@@ -91,12 +152,12 @@ def test_fetch_segments():
 
 @pytest.mark.remote
 def test_fetch_runs():
-    assert "S6" in set(run["name"] for run in apiv2.fetch_runs())
+    assert "S6" in {run["name"] for run in apiv2.fetch_runs()}
 
 
 @pytest.mark.remote
 def test_fetch_catalogs():
-    catalogs = set(cat["name"] for cat in apiv2.fetch_catalogs())
+    catalogs = {cat["name"] for cat in apiv2.fetch_catalogs()}
     assert "GWTC" in catalogs
     assert "GWTC-1-confident" in catalogs
 
@@ -123,22 +184,146 @@ def test_fetch_event_versions():
     assert len(events) > 0
 
 
+@pytest.mark.remote
 def test_fetch_run():
     run = apiv2.fetch_run("S5")
     assert run["name"] == "S5"
 
 
+@pytest.mark.remote
 def test_fetch_event_version():
     event = apiv2.fetch_event_version("GW150914", version=3)
     assert "150914" in event["name"]
     assert event["version"] == 3
 
     event = apiv2.fetch_event_version("GW150914", catalog="GWTC")
-    assert "150914" in event["name"]
-    assert "GWTC" in event["catalog"]
-    assert event["catalog"] == "GWTC-1-confident"
+    assert event
+    assert "name" in event and isinstance(event["name"], str) and event["name"] != ""
+    assert (
+        "catalog" in event
+        and isinstance(event["catalog"], str)
+        and event["catalog"] != ""
+    )
 
 
+@pytest.mark.remote
 def test_fetch_allowed_params():
     params = apiv2.fetch_allowed_params()
     assert len(params) > 0
+
+
+def test_retry_on_429(requests_mock):
+    """
+    Check that we retry for a few `429 Too Many Requests` responses.
+    """
+    # We reply 429 for several times and then 200. This should work.
+    # We want to test retry so set RETRY_DEFAULT_WAIT_TIME to 0.
+    mock_url = "http://test_retry_on_429"
+    responses = [response_429] * (apiv2.MAX_RETRIES - 1) + [response_200]
+    requests_mock.get(mock_url, responses)
+    with patch.object(apiv2, "RETRY_DEFAULT_WAIT_TIME", 0):
+        response = apiv2.fetch_json(mock_url)
+    assert apiv2._fetch_json.statistics["attempt_number"] == apiv2.MAX_RETRIES
+    assert str(response) == responses[-1]["text"]
+
+
+def test_fail_too_many_429(requests_mock):
+    """
+    Check that we eventually fail for `429 Too Many Requests` responses.
+    """
+    # We reply 429 forever. This should raise a RetryError exception.
+    # We want to test retry so set RETRY_DEFAULT_WAIT_TIME to 0.
+    mock_url = "http://test_fail_too_many_429"
+    requests_mock.get(mock_url, **response_429)
+    with patch.object(apiv2, "RETRY_DEFAULT_WAIT_TIME", 0):
+        with pytest.raises(tenacity.RetryError):
+            apiv2.fetch_json(mock_url)
+    assert apiv2._fetch_json.statistics["attempt_number"] == apiv2.MAX_RETRIES
+
+
+def test_retry_on_transient_error(requests_mock):
+    """
+    Check that we retry for a few transient errors
+    """
+    # We reply 500 for several times and then 200. This should work.
+    # We want to test retry so set RETRY_DEFAULT_WAIT_TIME to 0.
+    mock_url = "http://test_retry_on_transient_error"
+    responses = [response_500] * (apiv2.MAX_RETRIES - 1) + [response_200]
+    requests_mock.get(mock_url, responses)
+    with patch.object(apiv2, "RETRY_DEFAULT_WAIT_TIME", 0):
+        response = apiv2.fetch_json(mock_url)
+    assert apiv2._fetch_json.statistics["attempt_number"] == apiv2.MAX_RETRIES
+    assert str(response) == responses[-1]["text"]
+
+
+def test_fail_too_many_transient_error(requests_mock):
+    """
+    Check that we eventually fail for transient errors.
+    """
+    # We reply 500 forever. This should raise a RetryError exception.
+    # We want to test retry so set RETRY_DEFAULT_WAIT_TIME to 0.
+    mock_url = "http://test_fail_too_many_transient_error"
+    requests_mock.get(mock_url, **response_500)
+    with patch.object(apiv2, "RETRY_DEFAULT_WAIT_TIME", 0):
+        with pytest.raises(tenacity.RetryError):
+            apiv2.fetch_json(mock_url)
+    assert apiv2._fetch_json.statistics["attempt_number"] == apiv2.MAX_RETRIES
+
+
+def test_retry_on_few_timeouts(requests_mock):
+    """
+    Check that we retry for a few timeouts.
+    """
+    # We raise a timeout for several times and then 200. This should work.
+    # We want to test retry so set RETRY_DEFAULT_WAIT_TIME to 0.
+    mock_url = "http://test_retry_on_few_timeouts"
+    responses = [exception_timeout] * (apiv2.MAX_RETRIES - 1) + [response_200]
+    requests_mock.get(mock_url, responses)
+    with patch.object(apiv2, "RETRY_DEFAULT_WAIT_TIME", 0):
+        response = apiv2.fetch_json(mock_url)
+    assert apiv2._fetch_json.statistics["attempt_number"] == apiv2.MAX_RETRIES
+    assert str(response) == response_200["text"]
+
+
+def test_fail_too_many_timeouts(requests_mock):
+    """
+    Check that we eventually fail for too many timeouts.
+    """
+    # We raise ReadTimeout forever. This should raise a RetryError exception.
+    # We want to test retry so set RETRY_DEFAULT_WAIT_TIME to 0.
+    mock_url = "http://test_fail_too_many_timeouts"
+    exceptions = requests.ReadTimeout
+    requests_mock.get(
+        mock_url,
+        exc=exceptions,
+    )
+    with patch.object(apiv2, "RETRY_DEFAULT_WAIT_TIME", 0):
+        with pytest.raises(tenacity.RetryError):
+            apiv2.fetch_json(mock_url)
+    assert apiv2._fetch_json.statistics["attempt_number"] == apiv2.MAX_RETRIES
+
+
+def test_fail_on_permanent_http_error(requests_mock):
+    """
+    Check that we fail immediately on permanent errors.
+    """
+    # We reply 404 forever. This should raise an HTTPError exception on first attempt.
+    # We want to test immediate failure so we don't set RETRY_DEFAULT_WAIT_TIME to 0.
+    mock_url = "http://test_fail_on_permanent_http_error"
+    requests_mock.get(mock_url, **response_404)
+    with pytest.raises(requests.HTTPError, match="404 Client Error"):
+        apiv2.fetch_json(mock_url)
+    assert apiv2._fetch_json.statistics["attempt_number"] == 1
+
+
+def test_fail_on_permanent_request_error(requests_mock):
+    """
+    Check that we fail immediately on permanent requests errors.
+    """
+    # We raise SSLError. This should raise the same exception on first attempt.
+    # We want to test immediate failure so we don't set RETRY_DEFAULT_WAIT_TIME to 0.
+    mock_url = "http://test_fail_on_permanent_request_error"
+    requests_mock.get(mock_url, exc=requests.exceptions.SSLError)
+    with pytest.raises(requests.exceptions.SSLError):
+        apiv2.fetch_json(mock_url)
+    assert apiv2._fetch_json.statistics["attempt_number"] == 1

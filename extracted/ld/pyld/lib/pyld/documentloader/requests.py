@@ -9,10 +9,12 @@ Remote document loader using Requests.
 .. moduleauthor:: Tim McNamara <tim.mcnamara@okfn.org>
 .. moduleauthor:: Olaf Conradi <olaf@conradi.org>
 """
+import re
 import string
 import urllib.parse as urllib_parse
 
-from pyld.jsonld import (JsonLdError, parse_link_header, LINK_HEADER_REL)
+from pyld import iri_resolver
+from pyld.jsonld import JsonLdError, parse_link_header, LINK_HEADER_REL
 
 
 def requests_document_loader(secure=False, **kwargs):
@@ -69,7 +71,6 @@ def requests_document_loader(secure=False, **kwargs):
                 'contentType': content_type,
                 'contextUrl': None,
                 'documentUrl': response.url,
-                'document': response.json()
             }
             link_header = response.headers.get('link')
             if link_header:
@@ -77,29 +78,31 @@ def requests_document_loader(secure=False, **kwargs):
                     LINK_HEADER_REL)
                 # only 1 related link header permitted
                 if linked_context and content_type != 'application/ld+json':
-                  if isinstance(linked_context, list):
-                      raise JsonLdError(
-                          'URL could not be dereferenced, '
-                          'it has more than one '
-                          'associated HTTP Link Header.',
-                          'jsonld.LoadDocumentError',
-                          {'url': url},
-                          code='multiple context link headers')
-                  doc['contextUrl'] = linked_context['target']
+                    if isinstance(linked_context, list):
+                        raise JsonLdError(
+                            'URL could not be dereferenced, '
+                            'it has more than one '
+                            'associated HTTP Link Header.',
+                            'jsonld.LoadDocumentError',
+                            {'url': url},
+                            code='multiple context link headers')
+                    doc['contextUrl'] = linked_context['target']
                 linked_alternate = parse_link_header(link_header).get('alternate')
                 # if not JSON-LD, alternate may point there
                 if (linked_alternate and
                         linked_alternate.get('type') == 'application/ld+json' and
                         not re.match(r'^application\/(\w*\+)?json$', content_type)):
                     doc['contentType'] = 'application/ld+json'
-                    doc['documentUrl'] = jsonld.prepend_base(url, linked_alternate['target'])
+                    doc['documentUrl'] = iri_resolver.resolve(linked_alternate['target'], url)
+                    return loader(doc['documentUrl'], options=options)
+            doc['document'] = response.json()
             return doc
         except JsonLdError as e:
             raise e
         except Exception as cause:
             raise JsonLdError(
                 'Could not retrieve a JSON-LD document from the URL.',
-                'jsonld.LoadDocumentError', code='loading document failed',
-                cause=cause)
+                'jsonld.LoadDocumentError',
+                code='loading document failed') from cause
 
     return loader

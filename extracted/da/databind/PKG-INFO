@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databind
-Version: 4.5.3
+Version: 4.5.4
 Summary: Databind is a library inspired by jackson-databind to de-/serialize Python dataclasses. The `databind` package will install the full suite of databind packages. Compatible with Python 3.8 and newer.
 Author: Niklas Rosenstein
 Author-email: Niklas Rosenstein <rosensteinniklas@gmail.com>

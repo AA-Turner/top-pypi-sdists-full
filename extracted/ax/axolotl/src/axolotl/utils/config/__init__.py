@@ -22,7 +22,12 @@ from axolotl.utils.schemas.config import (
     AxolotlConfigWCapabilities as AxolotlConfigWCapabilitiesBase,
     AxolotlInputConfig as AxolotlInputConfigBase,
 )
-from axolotl.utils.schemas.datasets import DPODataset, KTODataset, SFTDataset
+from axolotl.utils.schemas.datasets import (
+    DPODataset,
+    KTODataset,
+    SFTDataset,
+    SyntheticDataset,
+)
 
 LOG = get_logger(__name__)
 
@@ -84,7 +89,7 @@ def resolve_dtype(cfg):
             cfg.fp16 = True
         cfg.bf16 = False
     else:
-        if cfg.tf32:
+        if cfg.tf32 is True:
             torch.set_float32_matmul_precision("high")
             if is_torch_greater_or_equal("2.9.0"):
                 torch.backends.fp32_precision = "tf32"
@@ -195,6 +200,15 @@ def normalize_config(cfg):
 
     cfg.model_config_type = model_config.model_type
 
+    # Resolve inner text backbone type for VLM wrappers (e.g. mistral3 -> mistral4)
+    if callable(getattr(model_config, "get_text_config", None)):
+        text_config = model_config.get_text_config()
+        if (
+            hasattr(text_config, "model_type")
+            and text_config.model_type != model_config.model_type
+        ):
+            cfg.model_config_type_text = text_config.model_type
+
     # figure out if the model is llama
     cfg.is_llama_derived_model = (
         (
@@ -299,6 +313,14 @@ def validate_config(
                 cfg["datasets"][idx] = DPODataset(**ds_cfg)
             elif cfg.get("rl") == "kto" and not isinstance(ds_cfg, KTODataset):
                 cfg["datasets"][idx] = KTODataset(**dict(ds_cfg))
+            elif (
+                ds_cfg.get("type")
+                if isinstance(ds_cfg, dict)
+                else getattr(ds_cfg, "type", None)
+            ) == "_synthetic" and not isinstance(ds_cfg, SyntheticDataset):
+                cfg["datasets"][idx] = SyntheticDataset(
+                    **(ds_cfg if isinstance(ds_cfg, dict) else dict(ds_cfg))
+                )
             elif not isinstance(ds_cfg, SFTDataset):
                 cfg["datasets"][idx] = SFTDataset(**dict(ds_cfg))
 

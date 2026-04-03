@@ -7,9 +7,16 @@ import flask_sock
 from dotenv import load_dotenv
 
 from abstra_internals.contracts_generated import AbstraLibApiEditorCodebaseEventsMessage
+from abstra_internals.controllers.linter_events import LinterEventController
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.modules import reload_module
 from abstra_internals.repositories.factory import Repositories
+from abstra_internals.repositories.linter.rules import (
+    run_after_abstra_json_change,
+    run_after_env_or_gitignore_change,
+    run_after_py_change,
+    run_after_requirements_change,
+)
 from abstra_internals.services.file_watcher import FSEventType
 from abstra_internals.settings import Settings
 
@@ -82,4 +89,18 @@ class CodebaseEventController:
                 return
 
     def lint_files(self, filepath: Path, event: FSEventType, content: Optional[str]):
-        self.repositories.linter.update_checks()
+        filename = filepath.name
+
+        if filename == "requirements.txt":
+            target_rules = run_after_requirements_change
+        elif filename == "abstra.json":
+            target_rules = run_after_abstra_json_change
+        elif filename in (".env", ".gitignore"):
+            target_rules = run_after_env_or_gitignore_change
+        elif filepath.suffix == ".py":
+            target_rules = run_after_py_change
+        else:
+            return
+
+        checks = self.repositories.linter.update_specific_checks(target_rules)
+        LinterEventController.broadcast(checks)

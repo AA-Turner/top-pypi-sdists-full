@@ -48,5 +48,46 @@ class TestSimpleUdpClient(unittest.TestCase):
         self.assertEqual(self.builder.add_arg.call_count, 3)
 
 
+class TestUdpClientClose(unittest.TestCase):
+    @mock.patch("socket.socket")
+    def test_close(self, mock_socket_ctor):
+        mock_socket = mock_socket_ctor.return_value
+        client = udp_client.UDPClient("::1", 31337)
+        client.close()
+        self.assertTrue(mock_socket.close.called)
+
+    @mock.patch("socket.socket")
+    def test_context_manager(self, mock_socket_ctor):
+        mock_socket = mock_socket_ctor.return_value
+        with udp_client.UDPClient("::1", 31337) as client:
+            self.assertIsInstance(client, udp_client.UDPClient)
+        self.assertTrue(mock_socket.close.called)
+
+
+class TestUdpClientTimeout(unittest.TestCase):
+    @mock.patch("socket.socket")
+    def test_init_timeout(self, mock_socket_ctor):
+        mock_socket = mock_socket_ctor.return_value
+        client = udp_client.UDPClient("::1", 31337, timeout=10.0)
+        self.assertEqual(client._timeout, 10.0)
+        mock_socket.settimeout.assert_any_call(10.0)
+
+    @mock.patch("socket.socket")
+    def test_receive_default_timeout(self, mock_socket_ctor):
+        mock_socket = mock_socket_ctor.return_value
+        client = udp_client.UDPClient("::1", 31337, timeout=10.0)
+        mock_socket.recv.return_value = b"data"
+        client.receive()
+        mock_socket.settimeout.assert_called_with(10.0)
+
+    @mock.patch("socket.socket")
+    def test_receive_override_timeout(self, mock_socket_ctor):
+        mock_socket = mock_socket_ctor.return_value
+        client = udp_client.UDPClient("::1", 31337, timeout=10.0)
+        mock_socket.recv.return_value = b"data"
+        client.receive(timeout=5.0)
+        mock_socket.settimeout.assert_called_with(5.0)
+
+
 if __name__ == "__main__":
     unittest.main()

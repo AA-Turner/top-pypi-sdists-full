@@ -5968,6 +5968,22 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    ANTHROPIC_READ_ONLY_ACCESS = "ANTHROPIC_READ_ONLY_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    ANTHROPIC_INFERENCE_ACCESS = "ANTHROPIC_INFERENCE_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    ANTHROPIC_LIMITED_ACCESS = "ANTHROPIC_LIMITED_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    ANTHROPIC_FULL_ACCESS = "ANTHROPIC_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

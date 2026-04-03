@@ -27,7 +27,7 @@ from .api import DEFAULT_URL
 from .api import v2 as apiv2
 
 
-def get_segments(flag, start, end, host=DEFAULT_URL):
+def get_segments(flag, start, end, host=DEFAULT_URL, session=None, pagesize=None):
     """Return the [start, end) GPS segments for this flag
 
     Parameters
@@ -44,6 +44,13 @@ def get_segments(flag, start, end, host=DEFAULT_URL):
     host : `str`, optional
         the URL of the remote GWOSC server
 
+    session : `requests.Session`, optional
+        HTTP session to use for making requests, defaults to
+        using a new session for each API call
+
+    pagesize : `int`, optional
+        the number of results per page
+
     Returns
     -------
     segments : `list` of `(int, int)` tuples
@@ -52,12 +59,14 @@ def get_segments(flag, start, end, host=DEFAULT_URL):
     return list(
         map(
             lambda s: tuple(s.values()),
-            apiv2.fetch_segments(flag, start, end, host=host),
+            apiv2.fetch_segments(
+                flag, start, end, host=host, session=session, pagesize=pagesize
+            ),
         )
     )
 
 
-def timeline_url(flag, start, end, host=DEFAULT_URL):
+def timeline_url(flag, start, end, host=DEFAULT_URL, session=None):
     """Returns the Timeline JSON URL for a flag name and GPS interval"""
     warnings.warn(
         "timeline_url function will be removed in future versions.",
@@ -65,11 +74,11 @@ def timeline_url(flag, start, end, host=DEFAULT_URL):
         stacklevel=2,
     )
     detector = flag.split("_", 1)[0]
-    dataset = _find_dataset(start, end, detector, host=host)
+    dataset = _find_dataset(start, end, detector, host=host, session=session)
     return f"{host}/timeline/segments/json/" f"{dataset}/{flag}/{start}/{end - start}/"
 
 
-def _find_dataset(start, end, detector, host=DEFAULT_URL):
+def _find_dataset(start, end, detector, host=DEFAULT_URL, session=None):
     warnings.warn(
         "_find_dataset function will be removed in future versions.",
         DeprecationWarning,
@@ -83,8 +92,9 @@ def _find_dataset(start, end, detector, host=DEFAULT_URL):
         detector=detector,
         segment=(start, end),
         host=host,
+        session=session,
     ):
-        segment = datasets.run_segment(run, host=host)
+        segment = datasets.run_segment(run, host=host, session=session)
         overlap = min(end, segment[1]) - max(start, segment[0])
         epochs.append((run, duration - overlap))
 

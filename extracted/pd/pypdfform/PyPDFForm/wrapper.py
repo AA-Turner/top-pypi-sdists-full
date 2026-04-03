@@ -29,6 +29,7 @@ from .adapter import (fp_or_f_obj_or_f_content_to_content,
                       fp_or_f_obj_or_stream_to_stream)
 from .constants import VERSION_IDENTIFIER_PREFIX, VERSION_IDENTIFIERS
 from .coordinate import generate_coordinate_grid
+from .deprecation import deprecation_notice
 from .egress import appearance_streams_handler, preserve_pdf_properties
 from .filler import fill
 from .font import (get_all_available_fonts, register_font_acroform,
@@ -664,6 +665,7 @@ class PdfWrapper:
 
         return self
 
+    @deprecation_notice(to_replace="bulk_create_fields")
     def create_field(
         self,
         field: FieldTypes,

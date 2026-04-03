@@ -4603,6 +4603,57 @@ class _ISpotFleetRefProxy(
 typing.cast(typing.Any, ISpotFleetRef).__jsii_proxy_class__ = lambda : _ISpotFleetRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.ISqlHaStandbyDetectedInstanceRef"
+)
+class ISqlHaStandbyDetectedInstanceRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SqlHaStandbyDetectedInstance.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="sqlHaStandbyDetectedInstanceRef")
+    def sql_ha_standby_detected_instance_ref(
+        self,
+    ) -> "SqlHaStandbyDetectedInstanceReference":
+        '''(experimental) A reference to a SqlHaStandbyDetectedInstance resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISqlHaStandbyDetectedInstanceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SqlHaStandbyDetectedInstance.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ec2.ISqlHaStandbyDetectedInstanceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="sqlHaStandbyDetectedInstanceRef")
+    def sql_ha_standby_detected_instance_ref(
+        self,
+    ) -> "SqlHaStandbyDetectedInstanceReference":
+        '''(experimental) A reference to a SqlHaStandbyDetectedInstance resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SqlHaStandbyDetectedInstanceReference", jsii.get(self, "sqlHaStandbyDetectedInstanceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISqlHaStandbyDetectedInstanceRef).__jsii_proxy_class__ = lambda : _ISqlHaStandbyDetectedInstanceRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ISubnetCidrBlockRef")
 class ISubnetCidrBlockRef(
     _constructs_77d1e7e8.IConstruct,
@@ -9043,6 +9094,55 @@ class SpotFleetReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.SqlHaStandbyDetectedInstanceReference",
+    jsii_struct_bases=[],
+    name_mapping={"instance_id": "instanceId"},
+)
+class SqlHaStandbyDetectedInstanceReference:
+    def __init__(self, *, instance_id: builtins.str) -> None:
+        '''A reference to a SqlHaStandbyDetectedInstance resource.
+
+        :param instance_id: The InstanceId of the SqlHaStandbyDetectedInstance resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
+            
+            sql_ha_standby_detected_instance_reference = interfaces_ec2.SqlHaStandbyDetectedInstanceReference(
+                instance_id="instanceId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4e0fc44bd7688cacf09a167c4442dd9f4fc5294b2dc974d3c030094ee9c8be3c)
+            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_id": instance_id,
+        }
+
+    @builtins.property
+    def instance_id(self) -> builtins.str:
+        '''The InstanceId of the SqlHaStandbyDetectedInstance resource.'''
+        result = self._values.get("instance_id")
+        assert result is not None, "Required property 'instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SqlHaStandbyDetectedInstanceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ec2.SubnetCidrBlockReference",
     jsii_struct_bases=[],
     name_mapping={"subnet_cidr_block_id": "subnetCidrBlockId"},
@@ -11749,6 +11849,7 @@ __all__ = [
     "ISecurityGroupVpcAssociationRef",
     "ISnapshotBlockPublicAccessRef",
     "ISpotFleetRef",
+    "ISqlHaStandbyDetectedInstanceRef",
     "ISubnetCidrBlockRef",
     "ISubnetNetworkAclAssociationRef",
     "ISubnetRef",
@@ -11834,6 +11935,7 @@ __all__ = [
     "SecurityGroupVpcAssociationReference",
     "SnapshotBlockPublicAccessReference",
     "SpotFleetReference",
+    "SqlHaStandbyDetectedInstanceReference",
     "SubnetCidrBlockReference",
     "SubnetNetworkAclAssociationReference",
     "SubnetReference",
@@ -12372,6 +12474,13 @@ def _typecheckingstub__e118107621a5bd1c8bc349d74994c79a1a88962c110757dc9faba1d47
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4e0fc44bd7688cacf09a167c4442dd9f4fc5294b2dc974d3c030094ee9c8be3c(
+    *,
+    instance_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6afd0bd0b6454ebc029c534dc448712d3ba20ac3ab16969fba368228dfe49c40(
     *,
     subnet_cidr_block_id: builtins.str,
@@ -12719,5 +12828,5 @@ def _typecheckingstub__5bdce5af9d1e135e7564b00f4d9b2945ac4e23e3d35d3e993e24d29db
     """Type checking stubs"""
     pass
 
-for cls in [ICapacityManagerDataExportRef, ICapacityReservationFleetRef, ICapacityReservationRef, ICarrierGatewayRef, IClientVpnAuthorizationRuleRef, IClientVpnEndpointRef, IClientVpnRouteRef, IClientVpnTargetNetworkAssociationRef, ICustomerGatewayRef, IDHCPOptionsRef, IEC2FleetRef, IEIPAssociationRef, IEIPRef, IEgressOnlyInternetGatewayRef, IEnclaveCertificateIamRoleAssociationRef, IFlowLogRef, IGatewayRouteTableAssociationRef, IHostRef, IIPAMAllocationRef, IIPAMPoolCidrRef, IIPAMPoolRef, IIPAMPrefixListResolverRef, IIPAMPrefixListResolverTargetRef, IIPAMRef, IIPAMResourceDiscoveryAssociationRef, IIPAMResourceDiscoveryRef, IIPAMScopeRef, IInstanceConnectEndpointRef, IInstanceRef, IInternetGatewayRef, IIpPoolRouteTableAssociationRef, IKeyPairRef, ILaunchTemplateRef, ILocalGatewayRouteRef, ILocalGatewayRouteTableRef, ILocalGatewayRouteTableVPCAssociationRef, ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRef, ILocalGatewayVirtualInterfaceGroupRef, ILocalGatewayVirtualInterfaceRef, INatGatewayRef, INetworkAclEntryRef, INetworkAclRef, INetworkInsightsAccessScopeAnalysisRef, INetworkInsightsAccessScopeRef, INetworkInsightsAnalysisRef, INetworkInsightsPathRef, INetworkInterfaceAttachmentRef, INetworkInterfacePermissionRef, INetworkInterfaceRef, INetworkPerformanceMetricSubscriptionRef, IPlacementGroupRef, IPrefixListRef, IRouteRef, IRouteServerAssociationRef, IRouteServerEndpointRef, IRouteServerPeerRef, IRouteServerPropagationRef, IRouteServerRef, IRouteTableRef, ISecurityGroupEgressRef, ISecurityGroupIngressRef, ISecurityGroupRef, ISecurityGroupVpcAssociationRef, ISnapshotBlockPublicAccessRef, ISpotFleetRef, ISubnetCidrBlockRef, ISubnetNetworkAclAssociationRef, ISubnetRef, ISubnetRouteTableAssociationRef, ITrafficMirrorFilterRef, ITrafficMirrorFilterRuleRef, ITrafficMirrorSessionRef, ITrafficMirrorTargetRef, ITransitGatewayAttachmentRef, ITransitGatewayConnectPeerRef, ITransitGatewayConnectRef, ITransitGatewayMeteringPolicyEntryRef, ITransitGatewayMeteringPolicyRef, ITransitGatewayMulticastDomainAssociationRef, ITransitGatewayMulticastDomainRef, ITransitGatewayMulticastGroupMemberRef, ITransitGatewayMulticastGroupSourceRef, ITransitGatewayPeeringAttachmentRef, ITransitGatewayRef, ITransitGatewayRouteRef, ITransitGatewayRouteTableAssociationRef, ITransitGatewayRouteTablePropagationRef, ITransitGatewayRouteTableRef, ITransitGatewayVpcAttachmentRef, IVPCBlockPublicAccessExclusionRef, IVPCBlockPublicAccessOptionsRef, IVPCCidrBlockRef, IVPCDHCPOptionsAssociationRef, IVPCEncryptionControlRef, IVPCEndpointConnectionNotificationRef, IVPCEndpointRef, IVPCEndpointServicePermissionsRef, IVPCEndpointServiceRef, IVPCGatewayAttachmentRef, IVPCPeeringConnectionRef, IVPCRef, IVPNConcentratorRef, IVPNConnectionRef, IVPNConnectionRouteRef, IVPNGatewayRef, IVPNGatewayRoutePropagationRef, IVerifiedAccessEndpointRef, IVerifiedAccessGroupRef, IVerifiedAccessInstanceRef, IVerifiedAccessTrustProviderRef, IVolumeAttachmentRef, IVolumeRef]:
+for cls in [ICapacityManagerDataExportRef, ICapacityReservationFleetRef, ICapacityReservationRef, ICarrierGatewayRef, IClientVpnAuthorizationRuleRef, IClientVpnEndpointRef, IClientVpnRouteRef, IClientVpnTargetNetworkAssociationRef, ICustomerGatewayRef, IDHCPOptionsRef, IEC2FleetRef, IEIPAssociationRef, IEIPRef, IEgressOnlyInternetGatewayRef, IEnclaveCertificateIamRoleAssociationRef, IFlowLogRef, IGatewayRouteTableAssociationRef, IHostRef, IIPAMAllocationRef, IIPAMPoolCidrRef, IIPAMPoolRef, IIPAMPrefixListResolverRef, IIPAMPrefixListResolverTargetRef, IIPAMRef, IIPAMResourceDiscoveryAssociationRef, IIPAMResourceDiscoveryRef, IIPAMScopeRef, IInstanceConnectEndpointRef, IInstanceRef, IInternetGatewayRef, IIpPoolRouteTableAssociationRef, IKeyPairRef, ILaunchTemplateRef, ILocalGatewayRouteRef, ILocalGatewayRouteTableRef, ILocalGatewayRouteTableVPCAssociationRef, ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRef, ILocalGatewayVirtualInterfaceGroupRef, ILocalGatewayVirtualInterfaceRef, INatGatewayRef, INetworkAclEntryRef, INetworkAclRef, INetworkInsightsAccessScopeAnalysisRef, INetworkInsightsAccessScopeRef, INetworkInsightsAnalysisRef, INetworkInsightsPathRef, INetworkInterfaceAttachmentRef, INetworkInterfacePermissionRef, INetworkInterfaceRef, INetworkPerformanceMetricSubscriptionRef, IPlacementGroupRef, IPrefixListRef, IRouteRef, IRouteServerAssociationRef, IRouteServerEndpointRef, IRouteServerPeerRef, IRouteServerPropagationRef, IRouteServerRef, IRouteTableRef, ISecurityGroupEgressRef, ISecurityGroupIngressRef, ISecurityGroupRef, ISecurityGroupVpcAssociationRef, ISnapshotBlockPublicAccessRef, ISpotFleetRef, ISqlHaStandbyDetectedInstanceRef, ISubnetCidrBlockRef, ISubnetNetworkAclAssociationRef, ISubnetRef, ISubnetRouteTableAssociationRef, ITrafficMirrorFilterRef, ITrafficMirrorFilterRuleRef, ITrafficMirrorSessionRef, ITrafficMirrorTargetRef, ITransitGatewayAttachmentRef, ITransitGatewayConnectPeerRef, ITransitGatewayConnectRef, ITransitGatewayMeteringPolicyEntryRef, ITransitGatewayMeteringPolicyRef, ITransitGatewayMulticastDomainAssociationRef, ITransitGatewayMulticastDomainRef, ITransitGatewayMulticastGroupMemberRef, ITransitGatewayMulticastGroupSourceRef, ITransitGatewayPeeringAttachmentRef, ITransitGatewayRef, ITransitGatewayRouteRef, ITransitGatewayRouteTableAssociationRef, ITransitGatewayRouteTablePropagationRef, ITransitGatewayRouteTableRef, ITransitGatewayVpcAttachmentRef, IVPCBlockPublicAccessExclusionRef, IVPCBlockPublicAccessOptionsRef, IVPCCidrBlockRef, IVPCDHCPOptionsAssociationRef, IVPCEncryptionControlRef, IVPCEndpointConnectionNotificationRef, IVPCEndpointRef, IVPCEndpointServicePermissionsRef, IVPCEndpointServiceRef, IVPCGatewayAttachmentRef, IVPCPeeringConnectionRef, IVPCRef, IVPNConcentratorRef, IVPNConnectionRef, IVPNConnectionRouteRef, IVPNGatewayRef, IVPNGatewayRoutePropagationRef, IVerifiedAccessEndpointRef, IVerifiedAccessGroupRef, IVerifiedAccessInstanceRef, IVerifiedAccessTrustProviderRef, IVolumeAttachmentRef, IVolumeRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

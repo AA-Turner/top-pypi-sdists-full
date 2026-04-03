@@ -13,25 +13,23 @@
 
 import { Counter, Trend } from 'k6/metrics';
 import { Benchmarks } from './benchmark-runners/dist/benchmarks.js';
+import { get_profile } from './benchmark-runners/dist/benchmark_profiles.js';
 
 const BASE_URL = __ENV.BASE_URL;
 const LANGSMITH_API_KEY = __ENV.LANGSMITH_API_KEY;
 const TARGET = parseInt(__ENV.TARGET || '10');
 const PLATEAU_DURATION = parseInt(__ENV.PLATEAU_DURATION || '60');
 const WARMUP_ITERS = parseInt(__ENV.WARMUP_ITERS || '1');
-const BENCHMARK_TYPE = __ENV.BENCHMARK_TYPE || 'wait_write';
-const RUN_MODE = __ENV.RUN_MODE || 'stateless';
+const profile = get_profile(__ENV);
+const BENCHMARK_TYPE = profile.benchmarkType;
+const RUN_MODE = profile.runMode;
+const EFFECTIVE_CONTEXT = profile.context;
+const RESUMABLE = profile.resumable;
 
 const K6_EXECUTOR = __ENV.K6_EXECUTOR || 'constant-vus';
 const MAX_VUS_MULTIPLIER = parseInt(__ENV.MAX_VUS_MULTIPLIER || '10');
 const MAX_VUS = parseInt(__ENV.MAX_VUS || String(TARGET * MAX_VUS_MULTIPLIER));
 const PRE_ALLOCATED_VUS = parseInt(__ENV.PRE_ALLOCATED_VUS || String(TARGET));
-
-const DATA_SIZE = parseInt(__ENV.DATA_SIZE || '1000');
-const DELAY = parseInt(__ENV.DELAY || '0');
-const EXPAND = parseInt(__ENV.EXPAND || '50');
-const AGENT_STEPS = __ENV.STEPS ? parseInt(__ENV.STEPS) : undefined;
-const MODE = __ENV.MODE || 'single';
 
 const runDuration = new Trend('run_duration');
 const iterationsStarted = new Counter('iterations_started');
@@ -77,13 +75,12 @@ export const options = {
 
 const runner = Benchmarks.getRunner(BENCHMARK_TYPE);
 
-const input = { data_size: DATA_SIZE, delay: DELAY, expand: EXPAND, mode: MODE };
-if (AGENT_STEPS !== undefined) input.steps = AGENT_STEPS;
-
 const benchmarkGraphOptions = {
   graph_id: 'benchmark',
-  input,
+  input: {},
+  context: EFFECTIVE_CONTEXT,
   stateful: RUN_MODE === 'stateful',
+  resumable: RESUMABLE,
 };
 
 function makeHeaders() {

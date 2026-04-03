@@ -70,7 +70,7 @@ class Quantity(float, PyAedtBase):
             if _unit:
                 self._parse_units(_unit)
 
-    def to(self, unit: str) -> Quantity:
+    def to(self, unit):
         """Convert the actual number to new unit."""
         if self.unit_system and unit in AEDT_UNITS[self.unit_system]:
             new_value = unit_converter(
@@ -85,7 +85,7 @@ class Quantity(float, PyAedtBase):
         else:
             return []
 
-    def _parse_units(self, unit):
+    def _parse_units(self, unit) -> None:
         if unit:
             self._unit_system = unit_system(unit)
             if self._unit_system == "None":
@@ -100,7 +100,7 @@ class Quantity(float, PyAedtBase):
         return f"{self._value}{self._unit}"
 
     @expression.setter
-    def expression(self, value: str) -> None:
+    def expression(self, value) -> None:
         """Value number with unit.
 
         Returns
@@ -112,7 +112,7 @@ class Quantity(float, PyAedtBase):
             self._parse_units(_unit)
 
     @property
-    def unit_system(self) -> str:
+    def unit_system(self):
         """Value unit system.
 
         Returns
@@ -122,7 +122,7 @@ class Quantity(float, PyAedtBase):
         return self._unit_system
 
     @property
-    def unit(self) -> str:
+    def unit(self):
         """Value unit.
 
         Returns
@@ -132,12 +132,12 @@ class Quantity(float, PyAedtBase):
         return self._unit
 
     @unit.setter
-    def unit(self, value: str) -> None:
+    def unit(self, value) -> None:
         if value in AEDT_UNITS[self.unit_system]:
             self._unit = value
 
     @property
-    def value(self) -> float:
+    def value(self):
         """Value number.
 
         Returns
@@ -147,7 +147,7 @@ class Quantity(float, PyAedtBase):
         return self._value
 
     @value.setter
-    def value(self, value: float) -> None:
+    def value(self, value) -> None:
         _value, _unit = decompose_variable_value(value)
         self._value = _value
         self._parse_units(_unit)
@@ -304,48 +304,46 @@ class Quantity(float, PyAedtBase):
 
         return np.array(self.value, dtype=dtype)
 
-    def sqrt(self) -> Quantity:
+    def sqrt(self):
         """Square root of the value."""
         return Quantity(self.value**0.5, self.unit)
 
-    def log10(self) -> Quantity:
-        """Logarithm base 10 of the value."""
+    def log10(self):
+        """Square root of the value."""
         import numpy as np
 
         return Quantity(np.log10(self.value), self.unit)
 
-    def sin(self) -> Quantity:
-        """Sine of the value."""
+    def sin(self):
+        """Square root of the value."""
         import numpy as np
 
         return Quantity(np.sin(self.value), self.unit)
 
-    def cos(self) -> Quantity:
-        """Cosine of the value."""
+    def cos(self):
+        """Square root of the value."""
         import numpy as np
 
         return Quantity(np.cos(self.value), self.unit)
 
-    def arcsin(self) -> Quantity:
-        """Arcsine of the value."""
+    def arcsin(self):
+        """Square root of the value."""
         import numpy as np
 
         return Quantity(np.arcsin(self.value), self.unit)
 
-    def arccos(self) -> Quantity:
-        """Arccosine of the value."""
+    def arccos(self):
+        """Square root of the value."""
         import numpy as np
 
         return Quantity(np.arccos(self.value), self.unit)
 
-    def tan(self) -> Quantity:
-        """Tangent of the value."""
+    def tan(self):
         import numpy as np
 
         return Quantity(np.tan(self.value), self.unit)
 
-    def arctan2(self, other: Quantity) -> Quantity:
-        """Arctangent of the value and another quantity."""
+    def arctan2(self, other):
         import numpy as np
 
         return Quantity(np.arctan2(self.value, other), self.unit)
@@ -396,7 +394,6 @@ def decompose_variable_value(variable_value: str, full_variables: dict[str, Any]
                     units = extract_units
                 except ValueError:
                     float_value = variable_value
-                    units = ""
 
     return float_value, units
 

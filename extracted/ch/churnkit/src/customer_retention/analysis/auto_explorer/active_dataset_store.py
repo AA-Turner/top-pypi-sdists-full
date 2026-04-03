@@ -36,11 +36,36 @@ def optimize_delta(path: str, z_order_columns: Optional[List[str]] = None) -> No
     _local_delta().optimize(path, z_order_columns or None)
 
 
-def _write_delta(df: Any, path: str) -> None:
+def delta_write_summary(path: str) -> dict:
+    """Query Delta table metadata for user-facing write summary."""
+    from customer_retention.core.compat.detection import get_spark_session
+    result: dict = {}
+    spark = get_spark_session()
+    if spark:
+        try:
+            result["cores"] = int(spark.sparkContext.defaultParallelism)
+            files = spark.read.format("delta").load(path).inputFiles()
+            if isinstance(files, (list, tuple)):
+                result["files"] = len(files)
+        except Exception:
+            pass
+    if "files" not in result:
+        try:
+            import deltalake
+            result["files"] = len(deltalake.DeltaTable(path).files())
+        except Exception:
+            pass
+    return result
+
+
+def _write_delta(df: Any, path: str, z_order_columns: Optional[List[str]] = None) -> None:
     if hasattr(df, "to_spark"):
-        get_delta().write(as_spark_df(df), path, mode="overwrite")
+        get_delta().write(as_spark_df(df), path, mode="overwrite", z_order_columns=z_order_columns)
         return
-    _local_delta().write(normalize_timestamps(_compat_to_pandas(df)), path, mode="overwrite")
+    _local_delta().write(
+        normalize_timestamps(_compat_to_pandas(df)), path, mode="overwrite",
+        z_order_columns=z_order_columns,
+    )
 
 
 def save_active_dataset(
@@ -135,7 +160,8 @@ def load_silver_merged(
 
 def save_gold_features(namespace: RunNamespace, composite_name: str, df: Any) -> Path:
     dlt_path = namespace.gold_table_dir(composite_name)
-    _write_delta(df, str(dlt_path))
+    z_cols = [c for c in ("entity_id", "as_of_date") if c in df.columns]
+    _write_delta(df, str(dlt_path), z_order_columns=z_cols or None)
     return dlt_path
 
 
@@ -287,9 +313,10 @@ def merge_datasets_incremental(
             time.monotonic() - t0,
         )
 
-    # Step 3: compaction only (no Z-ORDER)
-    delta.optimize(output_path)
-    logger.info("OPTIMIZE (compaction-only) complete")
+    # Step 3: compact + Z-ORDER by entity/temporal columns
+    z_cols = [c for c in [entity_key, as_of_column] if c]
+    delta.optimize(output_path, z_cols or None)
+    logger.info("OPTIMIZE complete (Z-ORDER: %s)", z_cols or "compaction-only")
 
     # Step 4: read final schema for report
     spark = get_spark_session()

@@ -52,7 +52,7 @@ from ansys.aedt.core.visualization.report.common import CommonReport
 class CircuitNetlistReport(CommonReport):
     """Provides a reporting class that fits Circuit Netlist reports."""
 
-    def __init__(self, app, report_category, setup_name, expressions=None) -> None:
+    def __init__(self, app, report_category, setup_name, expressions=None):
         CommonReport.__init__(self, app, report_category, setup_name, expressions)
 
     @property
@@ -65,7 +65,7 @@ class CircuitNetlistReport(CommonReport):
             return 9
 
     @property
-    def maximum_time(self) -> float:
+    def maximum_time(self):
         """Value of maximum time for TDR plot.
 
         Returns
@@ -76,11 +76,11 @@ class CircuitNetlistReport(CommonReport):
         return self._legacy_props["context"].get("maximum_time", 3.33333333333333e-10) if self.domain == "Time" else 0
 
     @maximum_time.setter
-    def maximum_time(self, val: float) -> None:
+    def maximum_time(self, val):
         self._legacy_props["context"]["maximum_time"] = val
 
     @property
-    def thinning(self) -> int:
+    def thinning(self):
         """Transient windowing.
 
         Returns
@@ -90,11 +90,11 @@ class CircuitNetlistReport(CommonReport):
         return self._legacy_props["context"].get("thinning", 0)
 
     @thinning.setter
-    def thinning(self, value: int) -> None:
+    def thinning(self, value):
         self._legacy_props["context"]["thinning"] = value
 
     @property
-    def thinning_points(self) -> int:
+    def thinning_points(self):
         """Transient thinning points.
 
         Returns
@@ -104,11 +104,11 @@ class CircuitNetlistReport(CommonReport):
         return self._legacy_props["context"].get("thinning_points", 500000000)
 
     @thinning_points.setter
-    def thinning_points(self, value: int) -> None:
+    def thinning_points(self, value):
         self._legacy_props["context"]["thinning_points"] = value
 
     @property
-    def dy_dx_tolerance(self) -> float:
+    def dy_dx_tolerance(self):
         """Transient thinning points.
 
         Returns
@@ -118,11 +118,11 @@ class CircuitNetlistReport(CommonReport):
         return self._legacy_props["context"].get("dy_dx_tolerance", 0.001)
 
     @dy_dx_tolerance.setter
-    def dy_dx_tolerance(self, value: float) -> None:
+    def dy_dx_tolerance(self, value):
         self._legacy_props["context"]["dy_dx_tolerance"] = value
 
     @property
-    def time_start(self) -> str:
+    def time_start(self):
         """Time start value.
 
         Returns
@@ -133,11 +133,11 @@ class CircuitNetlistReport(CommonReport):
         return self._legacy_props["context"].get("time_start", "0ps")
 
     @time_start.setter
-    def time_start(self, value: str) -> None:
+    def time_start(self, value):
         self._legacy_props["context"]["time_start"] = value
 
     @property
-    def time_stop(self) -> str:
+    def time_stop(self):
         """Time stop value.
 
         Returns
@@ -148,11 +148,11 @@ class CircuitNetlistReport(CommonReport):
         return self._legacy_props["context"].get("time_stop", "10ns")
 
     @time_stop.setter
-    def time_stop(self, value: str) -> None:
+    def time_stop(self, value):
         self._legacy_props["context"]["time_stop"] = value
 
     @property
-    def step_time(self) -> float:
+    def step_time(self):
         """Value of step time for TDR plot.
 
         Returns
@@ -163,7 +163,7 @@ class CircuitNetlistReport(CommonReport):
         return self._legacy_props["context"].get("step_time", 3.33333333333333e-12) if self.domain == "Time" else 0
 
     @step_time.setter
-    def step_time(self, val: float) -> None:
+    def step_time(self, val):
         self._legacy_props["context"]["step_time"] = val
 
     @property
@@ -223,7 +223,7 @@ class CircuitNetlistReport(CommonReport):
         return ctxt
 
     @pyaedt_function_handler()
-    def create(self, name: str = None) -> bool:
+    def create(self, name=None):
         """Create a report.
 
         Parameters
@@ -241,7 +241,7 @@ class CircuitNetlistReport(CommonReport):
         --------
         Initialize Circuit Netlist.
         >>> from ansys.aedt.core import CircuitNetlist
-        >>> cir = CircuitNetlist(version="2026.1")
+        >>> cir = CircuitNetlist(version="2025.2")
         Create a report object (not in AEDT) for a transient analysis.
         >>> new_report = cir.post.reports_by_category.circuit_netlist(
         ...     expressions="V(net_20,0)", setup="NexximTransient", domain="Time", primary_sweep_variable="Time"
@@ -269,7 +269,7 @@ class CircuitNetlistReport(CommonReport):
             self.setup,
             self._context,
             self._convert_dict_to_report_sel(self.variations),
-            self._trace_info(),
+            self._trace_info,
         )
         self._post.plots.append(self)
         self._is_created = True

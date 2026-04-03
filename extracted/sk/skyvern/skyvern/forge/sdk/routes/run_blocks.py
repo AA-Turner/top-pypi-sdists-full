@@ -4,6 +4,7 @@ import structlog
 from fastapi import BackgroundTasks, Depends, Header, HTTPException, Request
 
 from skyvern.config import settings
+from skyvern.constants import DEFAULT_LOGIN_PROMPT
 from skyvern.exceptions import MissingBrowserAddressError
 from skyvern.forge import app
 from skyvern.forge.sdk.core import skyvern_context
@@ -39,12 +40,6 @@ from skyvern.services import workflow_service
 from skyvern.utils.url_validators import prepend_scheme_and_validate_url
 
 LOG = structlog.get_logger()
-DEFAULT_LOGIN_PROMPT = """If you're not on the login page, navigate to login page and login using the credentials given.
-First, take actions on promotional popups or cookie prompts that could prevent taking other action on the web page.
-If a 2-factor step appears, enter the authentication code.
-If you fail to login or can't find the login page after several trials, terminate.
-If the credentials are invalid, expired, or rejected by the website, terminate immediately and take no further actions.
-If login is completed, you're successful."""
 
 
 def _validate_url(url: str | None) -> str | None:

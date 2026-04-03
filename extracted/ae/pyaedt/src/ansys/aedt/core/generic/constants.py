@@ -26,7 +26,6 @@ from __future__ import absolute_import
 from enum import IntEnum
 from enum import auto
 import math
-from typing import Callable
 import warnings
 
 from ansys.aedt.core.generic.settings import settings
@@ -45,7 +44,7 @@ MILS2METER = 39370.078740157
 SpeedOfLight = 299792458.0
 
 
-def db20(x: float, inverse: bool = True) -> float:
+def db20(x, inverse: bool = True):
     """Convert db20 to decimal and vice versa."""
     if inverse:
         return 20 * math.log10(x)
@@ -53,7 +52,7 @@ def db20(x: float, inverse: bool = True) -> float:
         return math.pow(10, x / 20.0)
 
 
-def db10(x: float, inverse: bool = True) -> float:
+def db10(x, inverse: bool = True):
     """Convert db10 to decimal and vice versa."""
     if inverse:
         return 10 * math.log10(x)
@@ -61,7 +60,7 @@ def db10(x: float, inverse: bool = True) -> float:
         return math.pow(10, x / 10.0)
 
 
-def dbw(x: float, inverse: bool = True) -> float:
+def dbw(x, inverse: bool = True):
     """Convert W to decimal and vice versa."""
     if inverse:
         return 10 * math.log10(x)
@@ -69,7 +68,7 @@ def dbw(x: float, inverse: bool = True) -> float:
         return math.pow(10, x / 10.0)
 
 
-def dbm(x: float, inverse: bool = True) -> float:
+def dbm(x, inverse: bool = True):
     """Convert W to decimal and vice versa."""
     if inverse:
         return 10 * math.log10(x) + 30
@@ -77,7 +76,7 @@ def dbm(x: float, inverse: bool = True) -> float:
         return math.pow(10, x / 10.0) / 1000
 
 
-def fah2kel(val: float, inverse: bool = True) -> float:
+def fah2kel(val, inverse: bool = True):
     """Convert a temperature from Fahrenheit to Kelvin.
 
     Parameters
@@ -99,7 +98,7 @@ def fah2kel(val: float, inverse: bool = True) -> float:
         return (val - 32) * 5 / 9 + 273.15
 
 
-def cel2kel(val: float, inverse: bool = True) -> float:
+def cel2kel(val, inverse: bool = True):
     """Convert a temperature from Celsius to Kelvin.
 
     Parameters
@@ -121,7 +120,7 @@ def cel2kel(val: float, inverse: bool = True) -> float:
         return val + 273.15
 
 
-def unit_system(units: str) -> str | bool:
+def unit_system(units):
     """Retrieve the name of the unit system associated with a unit string.
 
     Parameters
@@ -143,7 +142,7 @@ def unit_system(units: str) -> str | bool:
     return False
 
 
-def _resolve_unit_system(unit_system_1: str, unit_system_2: str, operation: str) -> str:
+def _resolve_unit_system(unit_system_1, unit_system_2, operation):
     """Retrieve the unit string of an arithmetic operation on ``Variable`` objects.
 
     If no resulting unit system is defined for a specific operation (in unit_system_operations),
@@ -171,9 +170,7 @@ def _resolve_unit_system(unit_system_1: str, unit_system_2: str, operation: str)
         return ""
 
 
-def unit_converter(
-    values: float | list, unit_system: str = "Length", input_units: str = "meter", output_units: str = "mm"
-) -> float | list:
+def unit_converter(values, unit_system: str = "Length", input_units: str = "meter", output_units: str = "mm"):
     """Convert unit in specified unit system.
 
     Parameters
@@ -234,7 +231,7 @@ def unit_converter(
     return values
 
 
-def scale_units(scale_to_unit: str) -> float:
+def scale_units(scale_to_unit):
     """Find the scale_to_unit into main system unit.
 
     Parameters
@@ -259,7 +256,7 @@ def scale_units(scale_to_unit: str) -> float:
     return sunit
 
 
-def validate_enum_class_value(cls, value: int) -> bool:
+def validate_enum_class_value(cls, value):
     """Check whether the value for the class ``enumeration-class`` is valid.
 
     Parameters
@@ -693,14 +690,14 @@ CSS4_COLORS = {
 }
 
 
-def deprecate_enum(new_enum: type) -> Callable:
+def deprecate_enum(new_enum):
     """Decorator to mark an enumeration class as deprecated.
 
     It allows you to keep the old enumeration class in the code
     and redirect its attributes to a new enumeration class.
     """
 
-    def decorator(cls) -> type:
+    def decorator(cls):
         class Wrapper:
             # NOTE: Required to handle correctly the documentation, name of the class and nested classes.
             __doc__ = cls.__doc__

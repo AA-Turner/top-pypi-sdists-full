@@ -3,12 +3,17 @@ from decimal import Decimal
 from doctest import DocTestSuite
 from fractions import Fraction
 from functools import reduce
-from itertools import combinations, count, groupby, permutations, islice
-from operator import mul
+from itertools import (
+    combinations,
+    count,
+    groupby,
+    permutations,
+    islice,
+)
+from operator import mul, eq
 from math import comb, prod, factorial
 from statistics import mean
-from sys import version_info
-from unittest import TestCase, skipIf
+from unittest import TestCase
 from unittest.mock import patch
 
 import more_itertools as mi
@@ -273,26 +278,6 @@ class RepeatfuncTests(TestCase):
         self.assertRaises(StopIteration, lambda: next(r))
 
 
-class PairwiseTests(TestCase):
-    """Tests for ``pairwise()``"""
-
-    def test_base_case(self):
-        """ensure an iterable will return pairwise"""
-        p = mi.pairwise([1, 2, 3])
-        self.assertEqual([(1, 2), (2, 3)], list(p))
-
-    def test_short_case(self):
-        """ensure an empty iterator if there's not enough values to pair"""
-        p = mi.pairwise("a")
-        self.assertRaises(StopIteration, lambda: next(p))
-
-    def test_coverage(self):
-        from more_itertools import recipes
-
-        p = recipes._pairwise([1, 2, 3])
-        self.assertEqual([(1, 2), (2, 3)], list(p))
-
-
 class GrouperTests(TestCase):
     def test_basic(self):
         seq = 'ABCDEF'
@@ -424,15 +409,36 @@ class UniqueEverseenTests(TestCase):
         u = mi.unique_everseen('aAbACCc', key=str.lower)
         self.assertEqual(list('abC'), list(u))
 
-    def test_unhashable(self):
-        iterable = ['a', [1, 2, 3], [1, 2, 3], 'a']
-        u = mi.unique_everseen(iterable)
-        self.assertEqual(list(u), ['a', [1, 2, 3]])
+    def test_unhashable_lists(self):
+        data = [[10, 20], [30, 40], [10, 20]]
 
-    def test_unhashable_key(self):
-        iterable = ['a', [1, 2, 3], [1, 2, 3], 'a']
-        u = mi.unique_everseen(iterable, key=lambda x: x)
-        self.assertEqual(list(u), ['a', [1, 2, 3]])
+        with self.assertRaises(TypeError):
+            list(mi.unique_everseen(data))
+
+        self.assertEqual(
+            list(mi.unique_everseen(data, key=tuple)), [[10, 20], [30, 40]]
+        )
+
+    def test_unhashable_sets(self):
+        data = [{10, 20}, {30, 40}, {20, 10}]
+
+        with self.assertRaises(TypeError):
+            list(mi.unique_everseen(data))
+
+        self.assertEqual(
+            list(mi.unique_everseen(data, key=frozenset)), [{10, 20}, {30, 40}]
+        )
+
+    def test_unhashable_dicts(self):
+        data = [{'a': 10}, {'b': 20}, {'a': 10}]
+
+        with self.assertRaises(TypeError):
+            list(mi.unique_everseen(data))
+
+        self.assertEqual(
+            list(mi.unique_everseen(data, key=frozenset)),
+            [{'a': 10}, {'b': 20}],
+        )
 
 
 class UniqueJustseenTests(TestCase):
@@ -582,6 +588,14 @@ class RandomProductTests(TestCase):
         self.assertEqual(len(n), len(nums))
         self.assertEqual(len(m), len(lets))
 
+        r = list(mi.random_product(iter(nums), iter(lets), repeat=100))
+        self.assertEqual(2 * 100, len(r))
+        n, m = set(r[::2]), set(r[1::2])
+        self.assertEqual(n, set(nums))
+        self.assertEqual(m, set(lets))
+        self.assertEqual(len(n), len(nums))
+        self.assertEqual(len(m), len(lets))
+
 
 class RandomPermutationTests(TestCase):
     """Tests for ``random_permutation()``"""
@@ -668,6 +682,32 @@ class RandomCombinationWithReplacementTests(TestCase):
         self.assertEqual(all_items, set(items))
 
 
+class TestRandomDerangement(TestCase):
+    def test_basics(self):
+        word = tuple('love')
+        for _ in range(20):
+            d = mi.random_derangement(word)
+            self.assertEqual(len(d), len(word))  # Same size
+            self.assertEqual(set(d), set(word))  # Same values
+            self.assertFalse(any(map(eq, d, word)))  # No fixed points
+
+        c = Counter(mi.random_derangement(word) for _ in range(10_000))
+
+        # Repeated calls generate exactly the set of valid derangements.
+        self.assertEqual(set(c), set(mi.derangements(word)))
+
+        # Check approximate equidistribution (all counts within eight
+        # standard deviations of the expected mean).
+        self.assertTrue(940 <= min(c.values()) and max(c.values()) <= 1280)
+
+        # Corner case for empty input
+        self.assertEqual(mi.random_derangement(''), ())
+
+        # Error case
+        with self.assertRaises(IndexError):
+            mi.random_derangement('x')  # Not enough values
+
+
 class NthCombinationTests(TestCase):
     def test_basic(self):
         iterable = 'abcdefg'
@@ -682,9 +722,10 @@ class NthCombinationTests(TestCase):
         self.assertEqual(actual, expected)
 
     def test_invalid_r(self):
-        for r in (-1, 3):
-            with self.assertRaises(ValueError):
-                mi.nth_combination([], r, 0)
+        with self.assertRaises(ValueError):
+            mi.nth_combination([], -1, 0)
+        with self.assertRaises(IndexError):
+            mi.nth_combination('abc', 5, 0)
 
     def test_invalid_index(self):
         with self.assertRaises(IndexError):
@@ -733,14 +774,12 @@ class NthPermutationTests(TestCase):
         for index in [-1 - n, n + 1]:
             with self.assertRaises(IndexError):
                 mi.nth_permutation(iterable, r, index)
+        with self.assertRaises(IndexError):
+            mi.nth_permutation('abc', 5, 0)
 
     def test_invalid_r(self):
-        iterable = 'abcde'
-        r = 4
-        n = factorial(len(iterable)) // factorial(len(iterable) - r)
-        for r in [-1, n + 1]:
-            with self.assertRaises(ValueError):
-                mi.nth_permutation(iterable, r, 0)
+        with self.assertRaises(ValueError):
+            mi.nth_permutation('abcde', -1, 0)
 
 
 class PrependTests(TestCase):
@@ -1073,18 +1112,10 @@ class TransposeTests(TestCase):
         expected = [(10, 20, 30), (11, 21, 31), (12, 22, 32)]
         self.assertEqual(actual, expected)
 
-    @skipIf(version_info[:2] < (3, 10), 'strict=True missing on 3.9')
     def test_incompatible_error(self):
         it = [(10, 11, 12, 13), (20, 21, 22), (30, 31, 32)]
         with self.assertRaises(ValueError):
             list(mi.transpose(it))
-
-    @skipIf(version_info[:2] >= (3, 9), 'strict=True missing on 3.9')
-    def test_incompatible_allow(self):
-        it = [(10, 11, 12, 13), (20, 21, 22), (30, 31, 32)]
-        actual = list(mi.transpose(it))
-        expected = [(10, 20, 30), (11, 21, 31), (12, 22, 32)]
-        self.assertEqual(actual, expected)
 
 
 class ReshapeTests(TestCase):
@@ -1494,6 +1525,60 @@ class MultinomialTests(TestCase):
             multinomial(5, 'x')  # No non-numeric inputs
         with self.assertRaises(TypeError):
             multinomial([5, 7])  # No sequence inputs
+
+
+def grow_to_window(data, maxlen):
+    "Return growing window views upto maxlen."
+    for j in range(1, len(data) + 1):
+        i = max(j - maxlen, 0)
+        yield data[i:j]
+
+
+class RunningMeanTests(TestCase):
+    def test_basic(self):
+        for i, (iterable, expected) in enumerate(
+            [
+                ([], []),
+                ([1], [1.0]),
+                ([1, 2], [1.0, 1.5]),
+                (
+                    [Fraction(1, 1), Fraction(2, 1)],
+                    [Fraction(1, 1), Fraction(3, 2)],
+                ),
+                (
+                    [Decimal('1.0'), Decimal('2.0')],
+                    [Decimal('1.0'), Decimal('1.5')],
+                ),
+                ([8.5, 9.5, 7.5, 6.5], [8.5, 9.0, 8.5, 8.0]),
+                ([3 + 4j, 5 - 1j, 4 + 3j], [(3 + 4j), (4 + 1.5j), (4 + 2j)]),
+            ]
+        ):
+            with self.subTest(i=i):
+                actual = list(mi.running_mean(iterable))
+                self.assertEqual(actual, expected)
+
+    def test_maxlen(self):
+        data = random.choices(range(20), k=1000)
+
+        # Window size must be positive
+        with self.assertRaises(ValueError):
+            list(mi.running_mean(iter(data), maxlen=0))
+
+        # Window size of 1 should return the original dataset unchanged
+        self.assertEqual(list(mi.running_mean(iter(data), maxlen=1)), data)
+
+        # Window size normal cases
+        for maxlen in range(2, 6):
+            with self.subTest(maxlen=maxlen):
+                actual = list(mi.running_mean(iter(data), maxlen=maxlen))
+                expected = list(map(mean, grow_to_window(data, maxlen)))
+                self.assertEqual(actual, expected)
+
+        # Window size larger than the data same as the unbounded case
+        self.assertEqual(
+            list(mi.running_mean(iter(data), maxlen=len(data) * 2)),
+            list(mi.running_mean(iter(data))),
+        )
 
 
 class RunningMedianTests(TestCase):

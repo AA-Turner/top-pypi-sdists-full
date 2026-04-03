@@ -348,12 +348,12 @@ ContactInitiationMethodType = Literal[
     "TRANSFER",
     "WEBRTC_API",
 ]
-ContactInteractionTypeType = Literal["AGENT", "AUTOMATED"]
+ContactInteractionTypeType = Literal["AGENT", "AUTOMATED", "CUSTOMER"]
 ContactMediaProcessingFailureModeType = Literal[
     "DELIVER_UNPROCESSED_MESSAGE", "DO_NOT_DELIVER_UNPROCESSED_MESSAGE"
 ]
 ContactMetricNameType = Literal["ESTIMATED_WAIT_TIME", "POSITION_IN_QUEUE"]
-ContactParticipantRoleType = Literal["AGENT", "CUSTOM_BOT", "SYSTEM"]
+ContactParticipantRoleType = Literal["AGENT", "CUSTOMER", "CUSTOM_BOT", "SYSTEM"]
 ContactRecordingTypeType = Literal["AGENT", "IVR", "SCREEN"]
 ContactStateType = Literal[
     "CONNECTED",
@@ -415,7 +415,9 @@ EvaluationFormItemEnablementOperatorType = Literal["AND", "OR"]
 EvaluationFormItemEnablementSourceTypeType = Literal["QUESTION_REF_ID"]
 EvaluationFormItemEnablementSourceValueTypeType = Literal["OPTION_REF_ID"]
 EvaluationFormItemSourceValuesComparatorType = Literal["ALL_IN", "EXACT", "IN", "NOT_IN"]
-EvaluationFormLanguageCodeType = Literal["de-DE", "en-US", "es-ES", "fr-FR", "it-IT", "pt-BR"]
+EvaluationFormLanguageCodeType = Literal[
+    "de-DE", "en-US", "es-ES", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN"
+]
 EvaluationFormMultiSelectQuestionDisplayModeType = Literal["CHECKBOX", "DROPDOWN"]
 EvaluationFormQuestionAutomationAnswerSourceTypeType = Literal["CONTACT_LENS_DATA", "GEN_AI"]
 EvaluationFormQuestionTypeType = Literal[

@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: x402
-Version: 2.5.0
+Version: 2.6.0
 Summary: x402 Payment Protocol SDK for Python
-Project-URL: Homepage, https://github.com/coinbase/x402
+Project-URL: Homepage, https://github.com/x402-foundation/x402
 Project-URL: Documentation, https://x402.org
-Project-URL: Repository, https://github.com/coinbase/x402
-Author: Coinbase
+Project-URL: Repository, https://github.com/x402-foundation/x402
+Author: x402 Foundation
 License: MIT
 Keywords: 402,http,payment,protocol,x402
 Classifier: Development Status :: 3 - Alpha
@@ -23,7 +23,7 @@ Requires-Dist: pydantic>=2.0.0
 Requires-Dist: typing-extensions>=4.0.0
 Provides-Extra: all
 Requires-Dist: eth-abi>=5.0.0; extra == 'all'
-Requires-Dist: eth-account>=0.12.0; extra == 'all'
+Requires-Dist: eth-account>=0.13.0; extra == 'all'
 Requires-Dist: eth-keys>=0.5.0; extra == 'all'
 Requires-Dist: eth-utils>=4.0.0; extra == 'all'
 Requires-Dist: fastapi[standard]>=0.115.0; extra == 'all'
@@ -41,7 +41,7 @@ Requires-Dist: httpx>=0.28.1; extra == 'clients'
 Requires-Dist: requests>=2.31.0; extra == 'clients'
 Provides-Extra: evm
 Requires-Dist: eth-abi>=5.0.0; extra == 'evm'
-Requires-Dist: eth-account>=0.12.0; extra == 'evm'
+Requires-Dist: eth-account>=0.13.0; extra == 'evm'
 Requires-Dist: eth-keys>=0.5.0; extra == 'evm'
 Requires-Dist: eth-utils>=4.0.0; extra == 'evm'
 Requires-Dist: web3>=7.0.0; extra == 'evm'
@@ -58,7 +58,7 @@ Provides-Extra: mcp
 Requires-Dist: mcp>=1.0.0; extra == 'mcp'
 Provides-Extra: mechanisms
 Requires-Dist: eth-abi>=5.0.0; extra == 'mechanisms'
-Requires-Dist: eth-account>=0.12.0; extra == 'mechanisms'
+Requires-Dist: eth-account>=0.13.0; extra == 'mechanisms'
 Requires-Dist: eth-keys>=0.5.0; extra == 'mechanisms'
 Requires-Dist: eth-utils>=4.0.0; extra == 'mechanisms'
 Requires-Dist: solana>=0.36.0; extra == 'mechanisms'
@@ -337,4 +337,4 @@ client.register("eip155:8453", CustomScheme())
 
 ## Examples
 
-See [examples/python](https://github.com/coinbase/x402/tree/main/examples/python).
+See [examples/python](https://github.com/x402-foundation/x402/tree/main/examples/python).

@@ -584,6 +584,14 @@ class CfnCollection(
         return typing.cast(builtins.str, jsii.get(self, "attrDashboardEndpoint"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrFipsEndpoints")
+    def attr_fips_endpoints(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: FipsEndpoints
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrFipsEndpoints"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
         '''A unique identifier for the collection.
@@ -803,6 +811,76 @@ class CfnCollection(
 
         def __repr__(self) -> str:
             return "EncryptionConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnCollection.FipsEndpointsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "collection_endpoint": "collectionEndpoint",
+            "dashboard_endpoint": "dashboardEndpoint",
+        },
+    )
+    class FipsEndpointsProperty:
+        def __init__(
+            self,
+            *,
+            collection_endpoint: typing.Optional[builtins.str] = None,
+            dashboard_endpoint: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param collection_endpoint: 
+            :param dashboard_endpoint: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collection-fipsendpoints.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_opensearchserverless as opensearchserverless
+                
+                fips_endpoints_property = opensearchserverless.CfnCollection.FipsEndpointsProperty(
+                    collection_endpoint="collectionEndpoint",
+                    dashboard_endpoint="dashboardEndpoint"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5e8c46bc528f398011f0e962a95fbadd0cf17c36f1bec228dea50b964b83f4ff)
+                check_type(argname="argument collection_endpoint", value=collection_endpoint, expected_type=type_hints["collection_endpoint"])
+                check_type(argname="argument dashboard_endpoint", value=dashboard_endpoint, expected_type=type_hints["dashboard_endpoint"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if collection_endpoint is not None:
+                self._values["collection_endpoint"] = collection_endpoint
+            if dashboard_endpoint is not None:
+                self._values["dashboard_endpoint"] = dashboard_endpoint
+
+        @builtins.property
+        def collection_endpoint(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collection-fipsendpoints.html#cfn-opensearchserverless-collection-fipsendpoints-collectionendpoint
+            '''
+            result = self._values.get("collection_endpoint")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def dashboard_endpoint(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collection-fipsendpoints.html#cfn-opensearchserverless-collection-fipsendpoints-dashboardendpoint
+            '''
+            result = self._values.get("dashboard_endpoint")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FipsEndpointsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4351,6 +4429,14 @@ def _typecheckingstub__834b94cc298846a5bf61134fb27e603dd476782999349d69ca2c27cb8
     *,
     aws_owned_key: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e8c46bc528f398011f0e962a95fbadd0cf17c36f1bec228dea50b964b83f4ff(
+    *,
+    collection_endpoint: typing.Optional[builtins.str] = None,
+    dashboard_endpoint: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

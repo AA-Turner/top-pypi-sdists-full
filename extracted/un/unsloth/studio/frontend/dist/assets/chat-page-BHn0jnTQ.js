@@ -1,0 +1,1 @@
+import{t as e}from"./chat-page-5LA78QeZ.js";export{e as ChatPage};

@@ -877,6 +877,48 @@ impl Channel {
         debug!("Channel.run() started (channel_id: {})", self.channel_id);
         self.setup_webrtc_state_monitoring();
 
+        // Gateway side (server_mode=false): prime SCTP cwnd before screenshot/stream data
+        // flows. The SCTP slow-start window opens at ~4380 bytes; each ping+pong round-trip
+        // causes the remote peer to ACK ~1 MTU, growing cwnd exponentially. Three pings
+        // brings cwnd from ~4 KB to ~35 KB before the first real frame is queued.
+        // handle_ping echoes the payload straight back as Pong — no protocol changes needed.
+        //
+        // The send is retried up to 5 times with a 20ms backoff because webrtc-rs may not
+        // accept sends immediately after on_open fires (internal state races). Cycling
+        // channels that close before the retries complete are detected via should_exit.
+        if !self.server_mode {
+            let conn_no_bytes = 0u32.to_be_bytes();
+            let padding = [0u8; 1400];
+            let mut payload = self.buffer_pool.acquire();
+            'warmup: for ping_idx in 0..3usize {
+                for attempt in 0..5usize {
+                    if self.should_exit.load(std::sync::atomic::Ordering::Acquire) {
+                        break 'warmup;
+                    }
+                    payload.clear();
+                    payload.extend_from_slice(&conn_no_bytes);
+                    payload.extend_from_slice(&padding);
+                    match self
+                        .send_control_message(crate::tube_protocol::ControlMessage::Ping, &payload)
+                        .await
+                    {
+                        Ok(()) => break, // this ping sent; move to next
+                        Err(_) if attempt < 4 => {
+                            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                        }
+                        Err(e) => {
+                            debug!(
+                                "Warmup ping {} failed after retries (channel_id: {}): {}",
+                                ping_idx, self.channel_id, e
+                            );
+                            break 'warmup;
+                        }
+                    }
+                }
+            }
+            self.buffer_pool.release(payload);
+        }
+
         let mut buf = BytesMut::with_capacity(64 * 1024);
 
         // Take the receiver channel for server connections

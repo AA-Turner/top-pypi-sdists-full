@@ -151,7 +151,7 @@ EMIT_FN_ALLOWED_FUNCS = {"abs", "trunc"}
 EMIT_FN_ALLOWED_OPS = {"+", "-", "*", "/"}
 
 
-def data_rate_conv(value: float, units: str, to_internal: bool = True) -> float:
+def data_rate_conv(value: float, units: str, to_internal: bool = True):
     """Converts the data rate to (from) the internal units from the
     specified units.
 
@@ -191,7 +191,7 @@ def data_rate_conv(value: float, units: str, to_internal: bool = True) -> float:
     return value * mult
 
 
-def emit_unit_type_string_to_enum(unit_string: str) -> UnitType:
+def emit_unit_type_string_to_enum(unit_string):
     EMIT_UNIT_TYPE_STRING_TO_ENUM = {
         "Power": UnitType.POWER,
         "Frequency": UnitType.FREQUENCY,
@@ -204,7 +204,7 @@ def emit_unit_type_string_to_enum(unit_string: str) -> UnitType:
     return EMIT_UNIT_TYPE_STRING_TO_ENUM[unit_string]
 
 
-def emi_cat_enum_to_string(emi_cat_enum) -> str:
+def emi_cat_enum_to_string(emi_cat_enum):
     EMI_CAT_ENUM_TO_STR = {
         EmiCategoryFilter.IN_CHANNEL_TX_FUNDAMENTAL: "In-Channel Tx Fundamental",
         EmiCategoryFilter.IN_CHANNEL_TX_HARMONIC_SPURIOUS: "In-Channel Tx Harmonic/Spurious",

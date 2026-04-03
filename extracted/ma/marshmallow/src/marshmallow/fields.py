@@ -500,7 +500,7 @@ class Nested(Field):
             | SchemaMeta
             | str
             | dict[str, Field]
-            | typing.Callable[[], Schema | SchemaMeta | dict[str, Field]]
+            | typing.Callable[[], Schema | SchemaMeta | str | dict[str, Field]]
         ),
         *,
         only: types.StrSequenceOrSet | None = None,
@@ -528,12 +528,12 @@ class Nested(Field):
     def schema(self) -> Schema:
         """The nested Schema object."""
         if not self._schema:
-            if callable(self.nested) and not isinstance(self.nested, type):
-                nested = self.nested()
-            else:
-                nested = typing.cast("Schema", self.nested)
             # defer the import of `marshmallow.schema` to avoid circular imports
-            from marshmallow.schema import Schema  # noqa: PLC0415
+            from marshmallow.schema import Schema, SchemaMeta  # noqa: PLC0415
+
+            nested = self.nested
+            if callable(nested) and not isinstance(nested, SchemaMeta):
+                nested = nested()
 
             if isinstance(nested, dict):
                 nested = Schema.from_dict(nested)

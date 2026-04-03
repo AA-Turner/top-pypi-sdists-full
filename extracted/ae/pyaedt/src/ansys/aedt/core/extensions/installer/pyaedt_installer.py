@@ -156,4 +156,3 @@ def add_pyaedt_to_aedt(
             personal_lib=personal_lib,
             odesktop=odesktop,
         )
-    return True

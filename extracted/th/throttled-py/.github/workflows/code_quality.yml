@@ -10,7 +10,6 @@ on:
 # `pull-requests` is for permission to pull request
 permissions:
   contents: write
-  checks: write
   pull-requests: write
 
 jobs:
@@ -77,8 +76,10 @@ jobs:
         run: uv run pytest -n auto --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=throttled tests/ | tee pytest-coverage.txt
 
       - name: Pytest coverage comment
+        # Skip PRs from forks, as GITHUB_TOKEN has no write permissions for forked PRs.
+        if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
         uses: MishaKav/pytest-coverage-comment@main
         with:
           pytest-coverage-path: ./pytest-coverage.txt
           junitxml-path: ./pytest.xml
-          github-token: ${{ secrets.PAT }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}

@@ -8,8 +8,8 @@ import os
 import sys
 import time
 import warnings
-from collections.abc import AsyncIterator, Callable
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Callable, Generator
+from contextlib import asynccontextmanager, contextmanager
 from itertools import filterfalse
 from typing import Any, NamedTuple, TypeGuard
 from uuid import UUID, uuid5
@@ -188,6 +188,12 @@ def _get_ddtracer() -> Any:
     return _ddtracer
 
 
+# Eagerly initialize ddtrace at import time so its blocking os.getcwd() call
+# (inside ddtrace's module init) runs synchronously before the event loop starts,
+# not lazily on the first request (which would trigger a blockbuster BlockingError).
+_get_ddtracer()
+
+
 def _start_graph_load_span(graph_id: str, access_context: str | None) -> Any:
     """Start a ddtrace span covering graph factory __aenter__ time.
 
@@ -198,7 +204,7 @@ def _start_graph_load_span(graph_id: str, access_context: str | None) -> Any:
     if ddtracer is None:
         return None
     try:
-        span = ddtracer.start_span("langgraph.graph_load")
+        span = ddtracer.trace("langgraph.graph_load")
         span.set_tag("graph_id", graph_id)
         if access_context:
             span.set_tag("access_context", access_context)
@@ -215,6 +221,66 @@ def _finish_graph_load_span(span: Any, value_type: str) -> None:
         span.finish()
     except Exception:
         pass  # Tracing must never interfere with application logic
+
+
+# Key used to carry the ddtrace span context across the HTTP→worker boundary.
+_DD_TRACE_HEADERS_KEY = "__dd_trace_headers__"
+
+
+def inject_current_dd_trace_context(configurable: dict[str, Any]) -> None:
+    """Serialize the active ddtrace span into the run configurable for worker propagation."""
+    ddtracer = _get_ddtracer()
+    if ddtracer is None:
+        return
+    try:
+        from ddtrace.propagation.http import (  # type: ignore[unresolved-import]  # noqa: PLC0415
+            HTTPPropagator,
+        )
+
+        span = ddtracer.current_span()
+        if span is None:
+            return
+        headers: dict[str, str] = {}
+        HTTPPropagator.inject(span.context, headers)
+        if headers:
+            configurable[_DD_TRACE_HEADERS_KEY] = headers
+    except Exception:
+        logger.debug("Failed to inject ddtrace context", exc_info=True)
+
+
+@contextmanager
+def restore_dd_trace_context(
+    configurable: dict[str, Any],
+    run_id: str | None = None,
+    thread_id: str | None = None,
+) -> Generator[None, None, None]:
+    """Activate a worker.run_graph span under the originating starlette.request span."""
+    ddtracer = _get_ddtracer()
+    headers = configurable.get(_DD_TRACE_HEADERS_KEY)
+    if ddtracer is None or not headers:
+        yield
+        return
+    try:
+        from ddtrace.propagation.http import (  # type: ignore[unresolved-import]  # noqa: PLC0415
+            HTTPPropagator,
+        )
+
+        ctx = HTTPPropagator.extract(headers)
+        # trace() doesn't accept child_of; start_span with activate=True sets the
+        # parent and makes this the active span for subsequent trace() calls.
+        span = ddtracer.start_span("worker.run_graph", child_of=ctx, activate=True)
+        span.set_tag("graph_id", configurable.get("graph_id", ""))
+        if run_id:
+            span.set_tag("run_id", run_id)
+        if thread_id:
+            span.set_tag("thread_id", thread_id)
+        try:
+            yield
+        finally:
+            span.finish()
+    except Exception:
+        logger.debug("Failed to restore ddtrace context", exc_info=True)
+        yield  # Tracing must never interfere with application logic
 
 
 @asynccontextmanager
@@ -612,13 +678,13 @@ def patch_packages_distributions() -> None:
 
 
 @timing.timer(
-    message="Importing graph with id {graph_id}",
+    message="Importing graph profiling",
     metadata_fn=_metadata_fn,
     warn_threshold_secs=3,
     warn_message=(
-        "Import for graph {graph_id} exceeded the expected startup time. "
+        "Graph import exceeded the expected startup time. "
         "Slow initialization (often due to work executed at import time) can delay readiness, "
-        "reduce scale-out capacity, and may cause deployments to be marked unhealthy."
+        "slow scale-out velocity, and may cause deployments to be marked unhealthy."
     ),
     error_threshold_secs=30,
 )

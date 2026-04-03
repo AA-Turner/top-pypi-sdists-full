@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instructor
-Version: 1.14.5
+Version: 1.15.1
 Summary: structured outputs for llm
 Project-URL: repository, https://github.com/instructor-ai/instructor
 Author: Jason Liu, Ivan Leo
@@ -9,10 +9,9 @@ License: MIT
 License-File: LICENSE
 Requires-Python: <4.0,>=3.9
 Requires-Dist: aiohttp<4.0.0,>=3.9.1
-Requires-Dist: diskcache>=5.6.3
 Requires-Dist: docstring-parser<1.0,>=0.16
 Requires-Dist: jinja2<4.0.0,>=3.1.4
-Requires-Dist: jiter<0.12,>=0.6.1
+Requires-Dist: jiter<0.14,>=0.6.1
 Requires-Dist: openai<3.0.0,>=2.0.0
 Requires-Dist: pydantic-core<3.0.0,>=2.18.0
 Requires-Dist: pydantic<3.0.0,>=2.8.0
@@ -21,7 +20,7 @@ Requires-Dist: rich<15.0.0,>=13.7.0
 Requires-Dist: tenacity<10.0.0,>=8.2.3
 Requires-Dist: typer<1.0.0,>=0.9.0
 Provides-Extra: anthropic
-Requires-Dist: anthropic==0.71.0; extra == 'anthropic'
+Requires-Dist: anthropic==0.88.0; extra == 'anthropic'
 Requires-Dist: xmltodict<1.1,>=0.13; extra == 'anthropic'
 Provides-Extra: bedrock
 Requires-Dist: boto3<2.0.0,>=1.34.0; extra == 'bedrock'
@@ -32,7 +31,7 @@ Requires-Dist: cohere<6.0.0,>=5.1.8; extra == 'cohere'
 Provides-Extra: datasets
 Requires-Dist: datasets<5.0.0,>=3.0.1; extra == 'datasets'
 Provides-Extra: dev
-Requires-Dist: anthropic==0.71.0; extra == 'dev'
+Requires-Dist: anthropic==0.88.0; extra == 'dev'
 Requires-Dist: coverage<8.0.0,>=7.3.2; extra == 'dev'
 Requires-Dist: jsonref<2.0.0,>=1.1.0; extra == 'dev'
 Requires-Dist: pre-commit>=4.2.0; extra == 'dev'
@@ -43,8 +42,10 @@ Requires-Dist: pytest<9.0.0,>=8.3.3; extra == 'dev'
 Requires-Dist: python-dotenv>=1.0.1; extra == 'dev'
 Requires-Dist: ty>=0.0.1a23; extra == 'dev'
 Requires-Dist: xmltodict<1.1,>=0.13; extra == 'dev'
+Provides-Extra: diskcache
+Requires-Dist: diskcache<6.0.0,>=5.6.3; extra == 'diskcache'
 Provides-Extra: docs
-Requires-Dist: mkdocs-jupyter<0.26.0,>=0.24.6; extra == 'docs'
+Requires-Dist: mkdocs-jupyter<0.27.0,>=0.24.6; extra == 'docs'
 Requires-Dist: mkdocs-material-extensions>=1.3.1; extra == 'docs'
 Requires-Dist: mkdocs-material>=9.6.14; extra == 'docs'
 Requires-Dist: mkdocs-material[imaging]<10.0.0,>=9.5.9; extra == 'docs'
@@ -63,9 +64,9 @@ Requires-Dist: jsonref<2.0.0,>=1.1.0; extra == 'google-genai'
 Provides-Extra: graphviz
 Requires-Dist: graphviz<1.0.0,>=0.20.3; extra == 'graphviz'
 Provides-Extra: groq
-Requires-Dist: groq<0.34.0,>=0.4.2; extra == 'groq'
+Requires-Dist: groq<1.1.0,>=0.4.2; extra == 'groq'
 Provides-Extra: litellm
-Requires-Dist: litellm<2.0.0,>=1.35.31; extra == 'litellm'
+Requires-Dist: litellm<=1.83.0,>=1.35.31; extra == 'litellm'
 Provides-Extra: mistral
 Requires-Dist: mistralai<2.0.0,>=1.5.1; extra == 'mistral'
 Provides-Extra: perplexity
@@ -78,8 +79,8 @@ Provides-Extra: sqlmodel
 Requires-Dist: sqlmodel<1.0.0,>=0.0.22; extra == 'sqlmodel'
 Provides-Extra: test-docs
 Requires-Dist: diskcache<6.0.0,>=5.6.3; extra == 'test-docs'
-Requires-Dist: fastapi<0.121.0,>=0.109.2; extra == 'test-docs'
-Requires-Dist: litellm<2.0.0,>=1.35.31; extra == 'test-docs'
+Requires-Dist: fastapi<0.129.0,>=0.109.2; extra == 'test-docs'
+Requires-Dist: litellm<=1.83.0,>=1.35.31; extra == 'test-docs'
 Requires-Dist: mistralai<2.0.0,>=1.5.1; extra == 'test-docs'
 Requires-Dist: pandas<3.0.0,>=2.2.0; extra == 'test-docs'
 Requires-Dist: pydantic-extra-types<3.0.0,>=2.6.0; extra == 'test-docs'
@@ -93,7 +94,6 @@ Requires-Dist: jsonref<2.0.0,>=1.1.0; extra == 'vertexai'
 Provides-Extra: writer
 Requires-Dist: writer-sdk<3.0.0,>=2.2.0; extra == 'writer'
 Provides-Extra: xai
-Requires-Dist: python-dotenv>=1.0.0; extra == 'xai'
 Requires-Dist: xai-sdk>=0.2.0; (python_version >= '3.10') and extra == 'xai'
 Description-Content-Type: text/markdown
 
@@ -126,7 +126,7 @@ print(user)  # User(name='John', age=25)
 
 [![PyPI](https://img.shields.io/pypi/v/instructor?style=flat-square)](https://pypi.org/project/instructor/)
 [![Downloads](https://img.shields.io/pypi/dm/instructor?style=flat-square)](https://pypi.org/project/instructor/)
-[![GitHub Stars](https://img.shields.io/github/stars/instructor-ai/instructor?style=flat-square)](https://github.com/instructor-ai/instructor)
+[![GitHub Stars](https://img.shields.io/github/stars/567-labs/instructor?style=flat-square)](https://github.com/567-labs/instructor)
 [![Discord](https://img.shields.io/discord/1192334452110659664?style=flat-square)](https://discord.gg/bD9YE9JArw)
 [![Twitter](https://img.shields.io/twitter/follow/jxnlco?style=flat-square)](https://twitter.com/jxnlco)
 
@@ -382,14 +382,14 @@ Instructor's simple API is available in many languages:
 
 ## Contributing
 
-We welcome contributions! Check out our [good first issues](https://github.com/instructor-ai/instructor/labels/good%20first%20issue) to get started.
+We welcome contributions! Check out our [good first issues](https://github.com/567-labs/instructor/labels/good%20first%20issue) to get started.
 
 ## License
 
-MIT License - see [LICENSE](https://github.com/instructor-ai/instructor/blob/main/LICENSE) for details.
+MIT License - see [LICENSE](https://github.com/567-labs/instructor/blob/main/LICENSE) for details.
 
 ---
 
 <p align="center">
-Built by the Instructor community. Special thanks to <a href="https://twitter.com/jxnlco">Jason Liu</a> and all <a href="https://github.com/instructor-ai/instructor/graphs/contributors">contributors</a>.
+Built by the Instructor community. Special thanks to <a href="https://twitter.com/jxnlco">Jason Liu</a> and all <a href="https://github.com/567-labs/instructor/graphs/contributors">contributors</a>.
 </p>

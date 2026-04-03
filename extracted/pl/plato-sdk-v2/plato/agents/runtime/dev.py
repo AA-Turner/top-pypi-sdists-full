@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import logging
-import shlex
 import time
 from pathlib import Path
 
-from plato.agents.runtime.install import build_editable_sdk_install_command
+from plato.agents.runtime.install import build_editable_install_commands, build_editable_sdk_install_command
 from plato.transports.rsync import rsync_to
-from plato.utils.pypi_index import plato_token_simple_index
 from plato.utils.subprocess import run_ssh
 
 logger = logging.getLogger(__name__)
@@ -53,25 +51,24 @@ async def sync_dev_code(
             "SDK will be editable-only and runtime should install the production agent package.",
         )
 
-    editables = " ".join(f"-e {p}" for p in editable_paths)
-    store_idx = plato_token_simple_index("pypi-store")
-    pip_cmd = f"uv pip install --system --index-url {shlex.quote(store_idx)} {editables}"
+    install_cmds = build_editable_install_commands(editable_paths)
     t0 = time.monotonic()
     logger.info("Installing editable packages on %s: %s", hostname, editable_paths)
-    exit_code, stdout, stderr = await run_ssh(ssh_key, hostname, pip_cmd, timeout=300)
+    for cmd in install_cmds:
+        exit_code, stdout, stderr = await run_ssh(ssh_key, hostname, cmd, timeout=120)
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to install packages: {stderr or stdout}")
     logger.info("Editable pip install on %s took %.1fs", hostname, time.monotonic() - t0)
-    if exit_code != 0:
-        raise RuntimeError(f"Failed to install packages: {stderr or stdout}")
 
-    # Also update the plato CLI tool so agent VMs have the latest CLI commands
-    # (the base image may have an old version baked in).
-    # Include the agent package (--with -e /app) so entry points are discoverable
-    # by plato-agent-runner in the tool's isolated environment.
-    tool_cmd = f"uv tool install -e /sdk --force --python 3.12 --index-url {shlex.quote(store_idx)}"
+    # Also install the SDK editably into the venv so agent VMs have the latest
+    # CLI commands. Include the agent package so entry points are discoverable
+    # by plato-agent-runner.
     if agent_synced:
-        tool_cmd += " --with-editable /app"
+        tool_cmd = "uv pip install --python /opt/plato-venv/bin/python -e /sdk -e /app --force-reinstall"
     elif package_name and version:
         tool_cmd = build_editable_sdk_install_command(package_name, version)
+    else:
+        tool_cmd = "uv pip install --python /opt/plato-venv/bin/python -e /sdk --force-reinstall"
     t0 = time.monotonic()
     logger.info("Updating plato CLI tool on %s", hostname)
     exit_code, stdout, stderr = await run_ssh(

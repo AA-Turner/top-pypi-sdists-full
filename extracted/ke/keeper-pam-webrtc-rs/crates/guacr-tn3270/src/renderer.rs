@@ -79,9 +79,23 @@ pub fn screen_to_buffer(screen: &ScreenBuffer) -> Buffer {
     buffer
 }
 
+/// Render a 3270 screen buffer to a JPEG using a pre-created renderer.
+///
+/// Callers that render multiple frames should create the renderer once and reuse it.
+pub fn render_with_renderer(
+    screen: &ScreenBuffer,
+    renderer: &guacr_terminal::TerminalRenderer,
+    quality: u8,
+) -> Result<Vec<u8>, TerminalError> {
+    let buffer = screen_to_buffer(screen);
+    renderer.render_ratatui_buffer(&buffer, quality)
+}
+
 /// Render a 3270 screen buffer to a JPEG using fontdue.
 ///
 /// Character cell size is the same 9x18 used by all other handlers.
+/// For repeated rendering (e.g. in a render loop), prefer creating a
+/// `TerminalRenderer` once and calling `render_with_renderer` instead.
 pub fn render_to_jpeg(
     screen: &ScreenBuffer,
     char_width: u32,

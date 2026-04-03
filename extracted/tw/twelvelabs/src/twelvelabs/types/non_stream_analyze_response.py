@@ -5,6 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .finish_reason import FinishReason
+from .generated_text_data import GeneratedTextData
 from .token_usage import TokenUsage
 
 
@@ -18,11 +19,7 @@ class NonStreamAnalyzeResponse(UniversalBaseModel):
     Unique identifier of the response.
     """
 
-    data: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    The generated text based on the prompt you provided.
-    """
-
+    data: typing.Optional[GeneratedTextData] = None
     finish_reason: typing.Optional[FinishReason] = None
     usage: typing.Optional[TokenUsage] = None
 

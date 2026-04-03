@@ -46,12 +46,12 @@ class CircuitPins(PyAedtBase):
         self._oeditor = circuit_comp._oeditor
 
     @property
-    def units(self) -> str:
+    def units(self):
         """Length units."""
         return self._circuit_comp.units
 
     @property
-    def total_angle(self) -> int:
+    def total_angle(self):
         """Return the pin orientation in the schematic."""
         tol = 1e-9
         loc = self.location[::]
@@ -73,7 +73,7 @@ class CircuitPins(PyAedtBase):
         return angle
 
     @property
-    def location(self) -> list:
+    def location(self):
         """Pin Position in [x,y] format.
 
         References
@@ -108,7 +108,7 @@ class CircuitPins(PyAedtBase):
         ]
 
     @property
-    def net(self) -> str:
+    def net(self):
         """Get pin net."""
         if "PagePort@" in self.name:
             return self._circuit_comp.name.split("@")[1]
@@ -120,7 +120,7 @@ class CircuitPins(PyAedtBase):
         return ""
 
     @property
-    def angle(self) -> float:
+    def angle(self):
         """Pin angle."""
         props = list(self._oeditor.GetComponentPinInfo(self._circuit_comp.composed_name, self.name))
         for i in props:
@@ -177,14 +177,14 @@ class CircuitPins(PyAedtBase):
     @pyaedt_function_handler()
     def connect_to_component(
         self,
-        assignment: "CircuitPins",
-        page_name: str = None,
+        assignment,
+        page_name=None,
         use_wire: bool = False,
         wire_name: str = "",
         clearance_units: int = 1,
-        page_port_angle: int = None,
+        page_port_angle=None,
         offset: float = 0.00254,
-    ) -> bool:
+    ):
         """Connect schematic components.
 
         Parameters
@@ -372,7 +372,7 @@ class CircuitPins(PyAedtBase):
 class ComponentParameters(dict):
     """Manages component parameters."""
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key, value) -> None:
         if isinstance(value, (int, float)):
             if self._component._change_property(key, value, tab_name=self._tab):
                 dict.__setitem__(self, key, value)
@@ -446,7 +446,7 @@ class CircuitComponent(PyAedtBase):
         raise KeyError(f"Pin {item} not found.")
 
     @property
-    def composed_name(self) -> str:
+    def composed_name(self):
         """Composed names."""
         if self.id:
             return self.name + ";" + str(self.id) + ";" + str(self.schematic_id)
@@ -482,7 +482,7 @@ class CircuitComponent(PyAedtBase):
         self._page = 1
 
     @property
-    def instance_name(self) -> str:
+    def instance_name(self):
         """Instance name."""
         if self._InstanceName:
             return self._InstanceName
@@ -491,7 +491,7 @@ class CircuitComponent(PyAedtBase):
         return self._InstanceName
 
     @instance_name.setter
-    def instance_name(self, value: str) -> None:
+    def instance_name(self, value) -> None:
         if "InstanceName" in self.parameters:
             self.parameters["InstanceName"] = value
             self._InstanceName = value
@@ -579,16 +579,16 @@ class CircuitComponent(PyAedtBase):
         return True
 
     @property
-    def name(self) -> str:
+    def name(self):
         """Name of the component."""
         return self.__name
 
     @name.setter
-    def name(self, value: str) -> None:
+    def name(self, value) -> None:
         self.__name = value
 
     @property
-    def refdes(self) -> str:
+    def refdes(self):
         """Reference designator."""
         if self._refdes:
             return self._refdes
@@ -597,7 +597,7 @@ class CircuitComponent(PyAedtBase):
         return self._refdes
 
     @property
-    def units(self) -> str:
+    def units(self):
         """Length units."""
         return self._circuit_components.schematic_units
 
@@ -610,7 +610,7 @@ class CircuitComponent(PyAedtBase):
             return []
 
     @property
-    def model_name(self) -> str:
+    def model_name(self):
         """Return Model Name if present.
 
         Returns
@@ -622,7 +622,7 @@ class CircuitComponent(PyAedtBase):
         return None
 
     @property
-    def model_data(self) -> ModelParameters:
+    def model_data(self):
         """Return the model data if the component has one.
 
         Returns
@@ -638,7 +638,7 @@ class CircuitComponent(PyAedtBase):
         return self._model_data
 
     @property
-    def parameters(self) -> ComponentParameters:
+    def parameters(self):
         """Circuit Parameters.
 
         References
@@ -675,7 +675,7 @@ class CircuitComponent(PyAedtBase):
         return self._parameters
 
     @property
-    def component_info(self) -> ComponentParameters:
+    def component_info(self):
         """Component parameters.
 
         References
@@ -696,7 +696,7 @@ class CircuitComponent(PyAedtBase):
         return self._component_info
 
     @property
-    def bounding_box(self) -> list[float]:
+    def bounding_box(self):
         """Component bounding box."""
         comp_info = self._oeditor.GetComponentInfo(self.composed_name)
         if not comp_info:
@@ -723,7 +723,7 @@ class CircuitComponent(PyAedtBase):
         return [i / AEDT_UNITS["Length"][self._circuit_components.schematic_units] for i in bounding_box]
 
     @property
-    def pins(self) -> list["CircuitPins"]:
+    def pins(self):
         """Pins of the component.
 
         Returns
@@ -773,7 +773,7 @@ class CircuitComponent(PyAedtBase):
         return self._page
 
     @property
-    def location(self) -> list:
+    def location(self):
         """Get the part location.
 
         References
@@ -795,7 +795,7 @@ class CircuitComponent(PyAedtBase):
         return self._location
 
     @location.setter
-    def location(self, location_xy: list[float | str]) -> None:
+    def location(self, location_xy) -> None:
         """Set the part location.
 
         Parameters
@@ -813,7 +813,7 @@ class CircuitComponent(PyAedtBase):
         self.change_property(vMaterial)
 
     @property
-    def angle(self) -> float:
+    def angle(self):
         """Get the part angle.
 
         References
@@ -842,7 +842,7 @@ class CircuitComponent(PyAedtBase):
         return self._angle
 
     @angle.setter
-    def angle(self, angle: float | int | None = None) -> None:
+    def angle(self, angle=None) -> None:
         """Set the part angle."""
         from ansys.aedt.core.generic.settings import settings
 
@@ -868,7 +868,7 @@ class CircuitComponent(PyAedtBase):
             )
 
     @property
-    def mirror(self) -> bool:
+    def mirror(self):
         """Get the part mirror.
 
         References
@@ -903,7 +903,7 @@ class CircuitComponent(PyAedtBase):
         self.change_property(vMaterial)
 
     @pyaedt_function_handler()
-    def set_use_symbol_color(self, color: bool = None) -> bool:
+    def set_use_symbol_color(self, color=None) -> bool:
         """Set symbol color usage.
 
         Parameters
@@ -1013,7 +1013,7 @@ class CircuitComponent(PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def change_property(self, property_name: list, names: list = None) -> bool:
+    def change_property(self, property_name, names=None):
         """Modify a property.
 
         Parameters
@@ -1055,7 +1055,7 @@ class CircuitComponent(PyAedtBase):
         return False
 
     @pyaedt_function_handler()
-    def enforce_touchstone_model_passive(self) -> bool:
+    def enforce_touchstone_model_passive(self):
         """Enforce touchstone model passive.
 
         Returns
@@ -1086,7 +1086,7 @@ class CircuitComponent(PyAedtBase):
         return self.model_data.update()
 
     @pyaedt_function_handler()
-    def change_symbol_pin_locations(self, pin_locations: dict, keep_original_size: bool = True) -> bool:
+    def change_symbol_pin_locations(self, pin_locations, keep_original_size: bool = True) -> bool:
         """Change the locations of symbol pins.
 
         Parameters
@@ -1245,7 +1245,7 @@ class CircuitComponent(PyAedtBase):
         return True
 
     @property
-    def component_path(self) -> str | None:
+    def component_path(self):
         """Component definition path."""
         if self.component_info.get("Info", None) is None:
             return None
@@ -1284,7 +1284,7 @@ class Wire(PyAedtBase):
         self._points_in_segment = {}
 
     @property
-    def points_in_segment(self) -> dict:
+    def points_in_segment(self):
         """Points in segment."""
         if not self.composed_name:
             return {}
@@ -1308,7 +1308,7 @@ class Wire(PyAedtBase):
         return self._app.logger
 
     @property
-    def wires(self) -> list:
+    def wires(self):
         """List of all schematic wires in the design."""
         wire_names = []
         for wire in self._oeditor.GetAllElements():
@@ -1379,7 +1379,7 @@ class Wire(PyAedtBase):
             return False
 
     @pyaedt_function_handler()
-    def get_net_name(self) -> str:
+    def get_net_name(self):
         """Get the wire net name.
 
         Returns
@@ -1429,11 +1429,11 @@ class Excitations(CircuitComponent):
         self._name = name
         CircuitComponent.__init__(self, circuit_components, tabname="PassedParameterTab", custom_editor=None)
 
+        self._props = {}
         self.__reference_node = None
-        self.is_port = True
 
     @property
-    def name(self) -> str:
+    def name(self):
         """Excitation name.
 
         Returns
@@ -1443,7 +1443,7 @@ class Excitations(CircuitComponent):
         return self._name
 
     @name.setter
-    def name(self, port_name: str) -> None:
+    def name(self, port_name) -> None:
         if port_name not in self._circuit_components._app.excitation_names:
             if port_name != self._name:
                 # Take previous properties
@@ -1454,56 +1454,58 @@ class Excitations(CircuitComponent):
             self._logger.warning("Name %s already assigned in the design", port_name)
 
     @property
-    def composed_name(self) -> str:
+    def composed_name(self):
         """Composed names."""
         return "IPort@" + self.name + ";" + str(self.schematic_id)
 
     @property
-    def impedance(self) -> list:
+    def impedance(self):
         """Port termination.
 
         Returns
         -------
         list
         """
-        return [self.parameters["rz"], self.parameters["iz"]]
+        return [self._props["rz"], self._props["iz"]]
 
     @impedance.setter
-    def impedance(self, termination: list) -> None:
-        if len(termination) == 2:
+    def impedance(self, termination=None) -> None:
+        if termination and len(termination) == 2:
             self.change_property(["NAME:rz", "Value:=", termination[0]])
             self.change_property(["NAME:iz", "Value:=", termination[1]])
-            self._parameters = {}
+            self._props["rz"] = termination[0]
+            self._props["iz"] = termination[1]
 
     @property
-    def enable_noise(self) -> bool:
+    def enable_noise(self):
         """Enable noise.
 
         Returns
         -------
         bool
         """
-        return self.parameters["EnableNoise"]
+        return self._props["EnableNoise"]
 
     @enable_noise.setter
     def enable_noise(self, enable: bool = False) -> None:
         self.change_property(["NAME:EnableNoise", "Value:=", enable])
-        self._parameters = {}
+        self._props["EnableNoise"] = enable
 
     @property
-    def noise_temperature(self) -> str:
+    def noise_temperature(self):
         """Enable noise.
 
         Returns
         -------
         str
         """
-        return self.parameters["noisetemp"]
+        return self._props["noisetemp"]
 
     @noise_temperature.setter
-    def noise_temperature(self, noise: str) -> None:
-        self.change_property(["NAME:noisetemp", "Value:=", noise])
-        self._parameters = {}
+    def noise_temperature(self, noise=None) -> None:
+        if noise:
+            self.change_property(["NAME:noisetemp", "Value:=", noise])
+            self._props["noisetemp"] = noise
 
     @property
     def microwave_symbol(self) -> bool:
@@ -1513,7 +1515,7 @@ class Excitations(CircuitComponent):
         -------
         bool
         """
-        if self.parameters["SymbolType"] == 1:
+        if self._props["SymbolType"] == 1:
             return True
         else:
             return False
@@ -1521,22 +1523,22 @@ class Excitations(CircuitComponent):
     @microwave_symbol.setter
     def microwave_symbol(self, enable: bool = False) -> None:
         if enable:
-            self.parameters["SymbolType"] = 1
+            self._props["SymbolType"] = 1
         else:
-            self.parameters["SymbolType"] = 0
+            self._props["SymbolType"] = 0
         self.update()
 
     @property
-    def reference_node(self) -> str:
+    def reference_node(self):
         """Reference node.
 
         Returns
         -------
         str
         """
-        if self.parameters["RefNode"] != "Z":
+        if self._props["RefNode"] != "Z":
             try:
-                self.__reference_node = self.parameters["RefNode"]
+                self.__reference_node = self._props["RefNode"]
             except Exception:  # pragma: no cover
                 self.__reference_node = "Ground"
         else:
@@ -1544,7 +1546,7 @@ class Excitations(CircuitComponent):
         return self.__reference_node
 
     @reference_node.setter
-    def reference_node(self, value: str) -> None:
+    def reference_node(self, value) -> None:
         """Set the reference node of the port.
 
         Parameters
@@ -1578,44 +1580,46 @@ class Excitations(CircuitComponent):
                 [["NAME:Properties", [], ["NAME:DeletedProps", "RefNode"]]],
             )
         self.__reference_node = value
-        self._parameters = {}
+        self._props["RefNode"] = self.__reference_node
 
     @property
-    def enabled_sources(self) -> list:
+    def enabled_sources(self):
         """Enabled sources.
 
         Returns
         -------
         list
         """
-        return self.parameters["EnabledPorts"]
+        return self._props["EnabledPorts"]
 
     @enabled_sources.setter
-    def enabled_sources(self, sources: list) -> None:
-        self.parameters["EnabledPorts"] = sources
-        self.update()
+    def enabled_sources(self, sources=None) -> None:
+        if sources:
+            self._props["EnabledPorts"] = sources
+            self.update()
 
     @property
-    def enabled_analyses(self) -> dict:
+    def enabled_analyses(self):
         """Enabled analyses.
 
         Returns
         -------
         dict
         """
-        return self.parameters["EnabledAnalyses"]
+        return self._props["EnabledAnalyses"]
 
     @enabled_analyses.setter
-    def enabled_analyses(self, analyses: dict) -> None:
-        self.parameters["EnabledAnalyses"] = analyses
-        self.update()
+    def enabled_analyses(self, analyses=None) -> None:
+        if analyses:
+            self._props["EnabledAnalyses"] = analyses
+            self.update()
 
     @pyaedt_function_handler()
     def _excitation_props(self):
         excitation_prop_dict = {}
 
-        if "PortName" in self._parameters.keys():
-            port = self._parameters["PortName"]
+        if "PortName" in self.parameters.keys():
+            port = self.parameters["PortName"]
             excitation_prop_dict["rz"] = "50ohm"
             excitation_prop_dict["iz"] = "0ohm"
             excitation_prop_dict["term"] = None
@@ -1624,23 +1628,23 @@ class Excitations(CircuitComponent):
             excitation_prop_dict["EnableNoise"] = False
             excitation_prop_dict["noisetemp"] = "16.85cel"
 
-            if "RefNode" in self._parameters:
-                excitation_prop_dict["RefNode"] = self._parameters["RefNode"]
-            if "term" in self._parameters:
-                excitation_prop_dict["term"] = self._parameters["term"]
-                excitation_prop_dict["TerminationData"] = self._parameters["TerminationData"]
+            if "RefNode" in self.parameters:
+                excitation_prop_dict["RefNode"] = self.parameters["RefNode"]
+            if "term" in self.parameters:
+                excitation_prop_dict["term"] = self.parameters["term"]
+                excitation_prop_dict["TerminationData"] = self.parameters["TerminationData"]
             else:
-                if "rz" in self._parameters:
-                    excitation_prop_dict["rz"] = self._parameters["rz"]
-                    excitation_prop_dict["iz"] = self._parameters["iz"]
+                if "rz" in self.parameters:
+                    excitation_prop_dict["rz"] = self.parameters["rz"]
+                    excitation_prop_dict["iz"] = self.parameters["iz"]
 
-            if "EnableNoise" in self._parameters:
-                if self._parameters["EnableNoise"] == "true":
+            if "EnableNoise" in self.parameters:
+                if self.parameters["EnableNoise"] == "true":
                     excitation_prop_dict["EnableNoise"] = True
                 else:
                     excitation_prop_dict["EnableNoise"] = False
 
-                excitation_prop_dict["noisetemp"] = self._parameters["noisetemp"]
+                excitation_prop_dict["noisetemp"] = self.parameters["noisetemp"]
 
             app = self._circuit_components._app
             if not app.design_properties or not app.design_properties["NexximPorts"]["Data"]:
@@ -1648,8 +1652,8 @@ class Excitations(CircuitComponent):
             else:
                 excitation_prop_dict["SymbolType"] = app.design_properties["NexximPorts"]["Data"][port]["SymbolType"]
 
-            if "pnum" in self._parameters:
-                excitation_prop_dict["pnum"] = self._parameters["pnum"]
+            if "pnum" in self.parameters:
+                excitation_prop_dict["pnum"] = self.parameters["pnum"]
             else:
                 excitation_prop_dict["pnum"] = None
             source_port = []
@@ -1690,44 +1694,6 @@ class Excitations(CircuitComponent):
             excitation_prop_dict["EnabledAnalyses"] = port_analyses
             return excitation_prop_dict
 
-    @property
-    def parameters(self) -> ComponentParameters:
-        """Circuit Parameters.
-
-        References
-        ----------
-        >>> oEditor.GetProperties
-        >>> oEditor.GetPropertyValue
-        """
-        if self._parameters:
-            return self._parameters
-        _parameters = {}
-        if self._circuit_components._app.design_type == "Circuit Design" or self.name in [
-            "CompInst@FML_INIT",
-            "CompInst@Measurement",
-        ]:
-            tabs = ["PassedParameterTab"]
-        elif self._circuit_components._app.design_type == "Maxwell Circuit":
-            tabs = ["PassedParameterTab"]
-        else:
-            tabs = ["Quantities", "PassedParameterTab"]
-        proparray = {}
-        for tab in tabs:
-            try:
-                proparray[tab] = self._oeditor.GetProperties(tab, self.composed_name)
-            except Exception:
-                proparray[tab] = []
-
-        for tab, props in proparray.items():
-            if not props:
-                continue
-            for j in props:
-                propval = self._oeditor.GetPropertyValue(tab, self.composed_name, j)
-                _parameters[j] = propval
-            self._parameters = ComponentParameters(self, tab, _parameters)
-        self._parameters = self._excitation_props()
-        return self._parameters
-
     @pyaedt_function_handler()
     def update(self) -> bool:
         """Update the excitation in AEDT.
@@ -1740,15 +1706,15 @@ class Excitations(CircuitComponent):
         """
         # self._logger.warning("Property port update only working with GRPC")
 
-        if self.parameters["RefNode"] == "Ground":
-            self.parameters["RefNode"] = "Z"
+        if self._props["RefNode"] == "Ground":
+            self._props["RefNode"] = "Z"
 
         arg0 = [
             "NAME:" + self.name,
             "IIPortName:=",
             self.name,
             "SymbolType:=",
-            self.parameters["SymbolType"],
+            self._props["SymbolType"],
             "DoPostProcess:=",
             False,
         ]
@@ -1757,46 +1723,33 @@ class Excitations(CircuitComponent):
         arg2 = []
 
         # Modify RefNode
-        if self.parameters["RefNode"] != "Z":
+        if self._props["RefNode"] != "Z":
             arg2 = [
                 "NAME:NewProps",
-                [
-                    "NAME:RefNode",
-                    "PropType:=",
-                    "TextProp",
-                    "OverridingDef:=",
-                    True,
-                    "Value:=",
-                    self.parameters["RefNode"],
-                ],
+                ["NAME:RefNode", "PropType:=", "TextProp", "OverridingDef:=", True, "Value:=", self._props["RefNode"]],
             ]
 
         # Modify Termination
-        if self.parameters["term"] and self.parameters["TerminationData"]:
+        if self._props["term"] and self._props["TerminationData"]:
             arg2 = [
                 "NAME:NewProps",
-                ["NAME:term", "PropType:=", "TextProp", "OverridingDef:=", True, "Value:=", self.parameters["term"]],
+                ["NAME:term", "PropType:=", "TextProp", "OverridingDef:=", True, "Value:=", self._props["term"]],
             ]
 
-        for prop in self.parameters:
-            skip1 = (prop == "rz" or prop == "iz") and isinstance(self.parameters["term"], str)
+        for prop in self._props:
+            skip1 = (prop == "rz" or prop == "iz") and isinstance(self._props["term"], str)
             skip2 = prop == "EnabledPorts" or prop == "EnabledMultipleComponents" or prop == "EnabledAnalyses"
             skip3 = prop == "SymbolType"
-            skip4 = prop == "TerminationData" and not isinstance(self.parameters["term"], str)
-            if not skip1 and not skip2 and not skip3 and not skip4 and self.parameters[prop] is not None:
-                command = ["NAME:" + prop, "Value:=", self.parameters[prop]]
+            skip4 = prop == "TerminationData" and not isinstance(self._props["term"], str)
+            if not skip1 and not skip2 and not skip3 and not skip4 and self._props[prop] is not None:
+                command = ["NAME:" + prop, "Value:=", self._props[prop]]
                 arg1.append(command)
 
         arg1 = [["NAME:Properties", arg2, arg1]]
         self._circuit_components._app.odesign.ChangePortProperty(self.name, arg0, arg1)
-        dont_skip = False
-        for prop in self.parameters:
-            dont_skip = (prop == "EnabledPorts" or prop == "EnabledMultipleComponents") and self.parameters[prop] != []
-            if dont_skip:
-                break
-        if dont_skip:
-            for source in self._circuit_components._app.sources:
-                self._circuit_components._app.sources[source].update()
+
+        for source in self._circuit_components._app.sources:
+            self._circuit_components._app.sources[source].update()
         return True
 
     @pyaedt_function_handler()

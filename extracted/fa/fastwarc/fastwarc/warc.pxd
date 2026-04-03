@@ -98,6 +98,7 @@ cdef class ArchiveIterator:
     cdef uint16_t record_type_filter
     cdef bint strict_mode
     cdef str auto_decode
+    cdef fsspec_args
 
     cdef _NextRecStatus _read_next_record(self) except _NextRecStatus.error
     cdef bint _set_stream(self, stream) except 0

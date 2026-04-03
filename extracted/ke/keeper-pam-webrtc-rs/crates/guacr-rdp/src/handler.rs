@@ -85,8 +85,9 @@ use crate::channel_handler::RdpChannelHandler;
 
 // Import shared types from guacr-terminal
 use guacr_terminal::{
-    CopyDetector, FrameBuffer, RdpClipboard, RdpInputHandler, ScrollDetector, ScrollDirection,
-    CLIPBOARD_DEFAULT_SIZE, CLIPBOARD_MAX_SIZE, CLIPBOARD_MIN_SIZE,
+    CellOp, CopyDetector, FrameBuffer, FrameRect, RdpClipboard, RdpInputHandler, ScrollDetector,
+    ScrollDirection, SoftwareH264Encoder, CLIPBOARD_DEFAULT_SIZE, CLIPBOARD_MAX_SIZE,
+    CLIPBOARD_MIN_SIZE,
 };
 
 /// RDP server type detection for compatibility
@@ -720,9 +721,12 @@ struct IronRdpSession {
     scroll_detector: ScrollDetector,
     /// Drag detector for copy optimization during window moves (shared with VNC)
     drag_detector: DragDetector,
-    /// Cell-based copy detector for detecting moved pixel content (shared with VNC)
-    /// Currently disabled: tile fragmentation causes visual artifacts during drag.
-    #[allow(dead_code)]
+    /// True when connected to an xrdp server. Disables drag-copy optimization because
+    /// xrdp's progressive rendering pattern (multiple large dirty rects per frame) false-
+    /// triggers the detector, causing bogus copy shifts that corrupt the display.
+    is_xrdp: bool,
+    /// Cell-based copy detector for detecting moved pixel content (shared with VNC).
+    /// Guarded by drag and large-frame checks; tile cap prevents instruction flooding.
     copy_detector: CopyDetector,
     #[allow(dead_code)] // TODO: Used for clipboard policy
     disable_copy: bool,
@@ -773,6 +777,15 @@ struct IronRdpSession {
     // before EGFX negotiation completes (or for servers that never support EGFX,
     // such as xrdp) the JPEG path still runs normally.
     egfx_active: Arc<AtomicBool>,
+
+    // Software H.264 encoder — used when video_tx is Some but EGFX never activates.
+    h264_encoder: Option<SoftwareH264Encoder>,
+    // True once we have committed to the soft-encode path (grace period expired, no EGFX).
+    h264_active: bool,
+    // Timestamp of the first GDI update received after video_tx was set.
+    egfx_grace_start: Option<std::time::Instant>,
+    // Set to true on each GDI update; cleared after each encode tick.
+    framebuffer_dirty: bool,
 
     // AI threat detection — Some when threat_detection_baml_endpoint param is provided
     #[cfg(feature = "threat-detection")]
@@ -966,6 +979,7 @@ impl IronRdpSession {
             stream_id: 1,
             scroll_detector: ScrollDetector::new(width, height),
             drag_detector: DragDetector::new(width, height),
+            is_xrdp: false,
             copy_detector: CopyDetector::new(width, height),
             channel_handler: RdpChannelHandler::new(
                 clipboard_buffer_size,
@@ -1004,6 +1018,10 @@ impl IronRdpSession {
             video_tx,
             egfx_frames,
             egfx_active,
+            h264_encoder: None,
+            h264_active: false,
+            egfx_grace_start: None,
+            framebuffer_dirty: false,
             video_recording_config,
             video_recorder: None,
             #[cfg(feature = "threat-detection")]
@@ -1059,6 +1077,7 @@ impl IronRdpSession {
         // Build IronRDP connector config
         let settings_ref = settings.ok_or("RDP settings required")?;
         let config = self.build_ironrdp_config(username, password, domain, settings_ref);
+        self.is_xrdp = matches!(self.detect_server_type(settings_ref), RdpServerType::Xrdp);
 
         // Establish TCP connection with timeout (matches guacd behavior)
         let stream =
@@ -1300,11 +1319,12 @@ impl IronRdpSession {
             let mut drdynvc = DrdynvcClient::new()
                 .with_dynamic_channel(DisplayControlClient::new(|_| Ok(Vec::new())));
             if let Some(ref frames) = self.egfx_frames {
-                let egfx_handler = Box::new(EgfxPassthroughHandler::new(
-                    frames.clone(),
-                    self.egfx_active.clone(),
+                let (egfx_handler, egfx_decoder) =
+                    EgfxPassthroughHandler::new(frames.clone(), self.egfx_active.clone());
+                drdynvc = drdynvc.with_dynamic_channel(GraphicsPipelineClient::new(
+                    Box::new(egfx_handler),
+                    Some(Box::new(egfx_decoder)),
                 ));
-                drdynvc = drdynvc.with_dynamic_channel(GraphicsPipelineClient::new(egfx_handler));
                 info!("RDP: EGFX GraphicsPipeline DVC registered for H.264 passthrough");
             }
             connector.attach_static_channel(drdynvc);
@@ -1449,6 +1469,9 @@ impl IronRdpSession {
             tokio::time::interval(Duration::from_secs(DEFAULT_KEEPALIVE_INTERVAL_SECS));
         keepalive_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
+        let mut encode_interval = tokio::time::interval(Duration::from_millis(33));
+        encode_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         info!("RDP: Active session started");
 
         loop {
@@ -1492,6 +1515,16 @@ impl IronRdpSession {
                             info!("RDP: Client channel closed, ending session");
                             return Ok(());
                         }
+                    }
+                }
+
+                // Software H.264 encode tick (30fps, xrdp / non-EGFX path).
+                _ = encode_interval.tick(),
+                    if self.video_tx.is_some()
+                        && !self.egfx_active.load(Ordering::Acquire) =>
+                {
+                    if let Err(e) = self.maybe_encode_h264_rdp().await {
+                        warn!("RDP: Software H.264 encode error: {}", e);
                     }
                 }
 
@@ -1808,6 +1841,11 @@ impl IronRdpSession {
             return Ok(());
         }
 
+        if self.egfx_grace_start.is_none() && self.video_tx.is_some() {
+            self.egfx_grace_start = Some(std::time::Instant::now());
+            debug!("RDP: First GDI update received, starting EGFX grace period");
+        }
+
         let width = (rect.right - rect.left + 1) as u32;
         let height = (rect.bottom - rect.top + 1) as u32;
 
@@ -1819,8 +1857,14 @@ impl IronRdpSession {
         // NOTE: Alpha channel fix is now handled in framebuffer.update_region()
         // IronRDP doesn't set alpha=255, so we fix it during the copy to avoid extra allocation
 
-        // Notify drag detector of graphics update size
-        self.drag_detector.notify_graphics_update(width, height);
+        // Notify drag detector of graphics update size.
+        // Skipped for xrdp: its progressive rendering sends several large dirty rects per
+        // frame (each >80% of screen) which false-triggers the detector into Dragging state,
+        // causing bogus copy shifts that corrupt the display. xrdp uses GDI dirty-rects and
+        // never activates EGFX, so the drag-copy optimization provides no benefit anyway.
+        if !self.is_xrdp {
+            self.drag_detector.notify_graphics_update(width, height);
+        }
 
         // Check for active drag (copy-based optimization)
         if self.drag_detector.is_dragging() {
@@ -1971,14 +2015,151 @@ impl IronRdpSession {
             return Ok(());
         }
 
-        // Update ONLY the dirty region from the full-screen image
+        // Update ONLY the dirty region from the full-screen image.
+        // This must happen even when soft H.264 is active: the encoder reads
+        // the full framebuffer on the next 33ms tick.
         self.framebuffer
             .update_region_from_fullscreen(x, y, width, height, image_data, self.width);
 
-        // Encode and send the dirty region directly as a single image.
-        // CopyDetector cell-based tiling is disabled: it fragments large updates
-        // into hundreds of small PNG tiles, causing visual artifacts during drag
-        // and overwhelming the client with instruction volume.
+        // Soft H.264 path: mark dirty and return without JPEG encoding.
+        if self.h264_active {
+            self.framebuffer_dirty = true;
+            return Ok(());
+        }
+
+        // Use cell-based copy detection for small, focused dirty regions:
+        // dialogs, menus, tooltips, and similar low-tile updates.
+        // Guards: skip when dragging (artifacts) or when the dirty rect covers
+        // more than 30% of the screen (copy detection saves nothing at that scale;
+        // the tile cap in CopyDetector is a second line of defence).
+        let total_pixels = (self.width * self.height) as usize;
+        let dirty_rect_pixels = (width * height) as usize;
+        let is_dragging = self.drag_detector.is_dragging();
+        let is_large = dirty_rect_pixels > total_pixels * 30 / 100;
+
+        if !is_dragging && !is_large {
+            let dirty = FrameRect {
+                x,
+                y,
+                width,
+                height,
+            };
+            let ops = self
+                .copy_detector
+                .plan_frame(self.framebuffer.data(), dirty);
+
+            // Only take the copy-detection path when there are actual Copy or Rect ops.
+            // If the result is a single full-region Image we fall through to the normal
+            // encode path which already does the right thing (and avoids double-encoding).
+            let has_copy_or_rect = ops
+                .iter()
+                .any(|op| matches!(op, CellOp::Copy { .. } | CellOp::Rect { .. }));
+
+            if has_copy_or_rect {
+                use guacr_protocol::{format_cfill, format_chunked_blobs, format_copy, format_img};
+
+                for op in ops {
+                    match op {
+                        CellOp::Copy {
+                            src_x,
+                            src_y,
+                            dst_x,
+                            dst_y,
+                            w,
+                            h,
+                        } => {
+                            let copy_instr =
+                                format_copy(0, src_x, src_y, w, h, 12, 0, dst_x, dst_y);
+                            self.send_and_record(&copy_instr).await?;
+                        }
+                        CellOp::Rect { x, y, w, h, color } => {
+                            let rect_instr = guacr_protocol::format_rect(0, x, y, w, h);
+                            self.send_and_record(&rect_instr).await?;
+                            let fill_instr = format_cfill(12, 0, color[0], color[1], color[2], 255);
+                            self.send_and_record(&fill_instr).await?;
+                        }
+                        CellOp::Image { x, y, w, h } => {
+                            let sub_rect = FrameRect {
+                                x,
+                                y,
+                                width: w,
+                                height: h,
+                            };
+                            let region_pixels = self.framebuffer.get_region_pixels(sub_rect);
+                            let rect_pixels = w * h;
+                            let is_large_update = rect_pixels > total_pixels as u32 / 10;
+                            let adaptive_quality = self.adaptive_quality.calculate_quality();
+
+                            let (encoded_data, mimetype) = if self.supports_webp {
+                                if is_large_update {
+                                    let quality = adaptive_quality as f32 / 100.0;
+                                    let webp_data =
+                                        Self::encode_webp_lossy(&region_pixels, w, h, quality)
+                                            .map_err(|e| format!("WebP encoding failed: {}", e))?;
+                                    (webp_data, "image/webp")
+                                } else {
+                                    let webp_data =
+                                        Self::encode_webp_lossless(&region_pixels, w, h)
+                                            .map_err(|e| format!("WebP encoding failed: {}", e))?;
+                                    (webp_data, "image/webp")
+                                }
+                            } else if self.supports_jpeg && self.use_jpeg {
+                                let quality = if is_large_update {
+                                    adaptive_quality
+                                } else {
+                                    self.jpeg_quality.max(adaptive_quality)
+                                };
+                                let jpeg_data = Self::encode_jpeg(&region_pixels, w, h, quality)
+                                    .map_err(|e| format!("JPEG encoding failed: {}", e))?;
+                                (jpeg_data, "image/jpeg")
+                            } else {
+                                let png_data = Self::encode_png(&region_pixels, w, h)
+                                    .map_err(|e| format!("PNG encoding failed: {}", e))?;
+                                (png_data, "image/png")
+                            };
+
+                            self.base64_buffer.clear();
+                            base64::Engine::encode_string(
+                                &base64::engine::general_purpose::STANDARD,
+                                &encoded_data,
+                                &mut self.base64_buffer,
+                            );
+
+                            let stream_id = self.stream_id;
+                            let img_instr =
+                                format_img(stream_id, 14, 0, mimetype, x as i32, y as i32);
+                            self.send_and_record(&img_instr).await?;
+
+                            let total_size = self.base64_buffer.len();
+                            let blob_instructions =
+                                format_chunked_blobs(stream_id, &self.base64_buffer, None);
+                            for blob_instr in &blob_instructions {
+                                self.send_and_record(blob_instr).await?;
+                            }
+                            self.adaptive_quality.track_frame_sent(total_size);
+                            self.stream_id += 1;
+                        }
+                    }
+                }
+
+                self.framebuffer.clear_dirty();
+
+                // Send sync
+                let timestamp_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64;
+                let timestamp_str = timestamp_ms.to_string();
+                let sync_instr = format_instruction("sync", &[&timestamp_str]);
+                self.send_and_record(&sync_instr).await?;
+                self.sync_control.set_pending_sync(timestamp_ms);
+                self.sync_sent_at = Some(std::time::Instant::now());
+
+                return Ok(());
+            }
+        }
+
+        // Fall through: full dirty-rect encode (large frames, drag, or no copy/rect ops).
         self.encode_and_send_dirty_rects().await
     }
 
@@ -2131,12 +2312,6 @@ impl IronRdpSession {
             }
             "mouse" => {
                 if instr.args.len() >= 3 {
-                    // Debug: Log raw mouse instruction
-                    info!(
-                        "RDP: Raw mouse instruction - args[0]='{}' args[1]='{}' args[2]='{}'",
-                        instr.args[0], instr.args[1], instr.args[2]
-                    );
-
                     // Parse coordinates as integers (per Guacamole protocol spec)
                     // Protocol order: x, y, mask (NOT mask, x, y!)
                     let x: i32 = instr.args[0]
@@ -2149,10 +2324,7 @@ impl IronRdpSession {
                         .parse()
                         .map_err(|e| format!("Invalid mouse mask '{}': {}", instr.args[2], e))?;
 
-                    info!(
-                        "RDP: Parsed mouse - x={} y={} mask=0x{:02x} ({})",
-                        x, y, mask, mask
-                    );
+                    debug!("RDP: mouse x={} y={} mask=0x{:02x}", x, y, mask);
 
                     // Security: Check read-only mode for mouse clicks
                     if self.read_only && !is_mouse_event_allowed_readonly(mask as u32) {
@@ -2273,24 +2445,43 @@ impl IronRdpSession {
                         width, height, self.dpi, instr.args[0], self.width, self.height, self.dpi
                     );
 
-                    // Update dimensions
-                    self.width = width;
-                    self.height = height;
-
-                    // Recreate framebuffer and scroll detector with new dimensions
-                    self.framebuffer = FrameBuffer::new(width, height);
-                    self.scroll_detector.reset(width, height);
+                    let old_width = self.width;
+                    let old_height = self.height;
 
                     // Try server-side resize via DisplayControl DVC
                     match self.send_display_resize(active_stage, width, height).await {
                         Ok(_) => {
                             info!("RDP: DisplayControl resize sent successfully");
+                            // Accept new dimensions and rebuild framebuffer
+                            self.width = width;
+                            self.height = height;
+                            self.framebuffer = FrameBuffer::new(width, height);
+                            self.scroll_detector.reset(width, height);
+                            // Confirm to client that canvas is now the new size
+                            let size_instr = self.protocol_encoder.format_size_instruction(
+                                0,
+                                self.width,
+                                self.height,
+                            );
+                            let size_str = String::from_utf8_lossy(&size_instr).to_string();
+                            if let Err(e) = self.send_and_record(&size_str).await {
+                                warn!("RDP: Failed to send size confirmation: {}", e);
+                            }
                         }
                         Err(e) => {
                             debug!(
-                                "RDP: DisplayControl resize failed: {} - client will scale",
-                                e
+                                "RDP: DisplayControl resize failed: {} - reverting to {}x{}",
+                                e, old_width, old_height
                             );
+                            // Send the actual session size back so the client canvas
+                            // stays in sync with the real RDP session dimensions.
+                            let size_instr = self
+                                .protocol_encoder
+                                .format_size_instruction(0, old_width, old_height);
+                            let size_str = String::from_utf8_lossy(&size_instr).to_string();
+                            if let Err(e) = self.send_and_record(&size_str).await {
+                                warn!("RDP: Failed to send size revert: {}", e);
+                            }
                         }
                     }
                 }
@@ -2369,6 +2560,12 @@ impl IronRdpSession {
 
     /// Encode and send dirty rectangles from framebuffer
     async fn encode_and_send_dirty_rects(&mut self) -> Result<(), String> {
+        // When the soft H.264 path is active, the timer-driven encode loop handles output.
+        if self.h264_active {
+            self.framebuffer_dirty = true;
+            return Ok(());
+        }
+
         self.framebuffer.optimize_dirty_rects();
 
         // Check if we have dirty rects (without cloning)
@@ -2517,7 +2714,7 @@ impl IronRdpSession {
                 rect.y as i32,
             );
 
-            info!(
+            debug!(
                 "RDP: Sending img instruction for rect {}x{} at ({}, {}) (stream {})",
                 rect.width, rect.height, rect.x, rect.y, stream_id
             );
@@ -2552,7 +2749,7 @@ impl IronRdpSession {
             // Track this frame for adaptive quality calculation
             self.adaptive_quality.track_frame_sent(total_size);
 
-            info!(
+            debug!(
                 "RDP: Sent complete image update (stream {}, {} format)",
                 stream_id, mimetype
             );
@@ -2610,6 +2807,103 @@ impl IronRdpSession {
 
         // Encode and send the dirty rects
         self.encode_and_send_dirty_rects().await
+    }
+
+    /// Timer-driven software H.264 encode for the xrdp / non-EGFX path.
+    async fn maybe_encode_h264_rdp(&mut self) -> Result<(), String> {
+        if !self.h264_active {
+            let grace_start = match self.egfx_grace_start {
+                Some(t) => t,
+                None => return Ok(()),
+            };
+            if grace_start.elapsed() < Duration::from_secs(2) {
+                return Ok(());
+            }
+            // H.264 requires even dimensions. xrdp sessions can produce odd resolutions
+            // (e.g. 1003x735) which cause OpenH264 to panic with "width needs to be
+            // multiple of 2". Round down to the nearest even number.
+            let w = self.width & !1;
+            let h = self.height & !1;
+            match SoftwareH264Encoder::new(w, h) {
+                Ok(enc) => {
+                    self.h264_encoder = Some(enc);
+                    self.h264_active = true;
+                    info!(
+                        "RDP: EGFX grace period expired, switching to software H.264 ({}x{})",
+                        w, h
+                    );
+                }
+                Err(e) => {
+                    warn!(
+                        "RDP: Software H.264 encoder init failed, falling back to JPEG: {}",
+                        e
+                    );
+                    self.video_tx = None;
+                    self.egfx_grace_start = None;
+                    return Ok(());
+                }
+            }
+        }
+
+        if !self.framebuffer_dirty {
+            return Ok(());
+        }
+        self.framebuffer_dirty = false;
+
+        let video_tx = match self.video_tx.as_ref() {
+            Some(tx) => tx.clone(),
+            None => return Ok(()),
+        };
+
+        let force_keyframe = video_tx
+            .keyframe_requested()
+            .swap(false, std::sync::atomic::Ordering::AcqRel);
+
+        if let Some(ref mut encoder) = self.h264_encoder {
+            let bps = video_tx
+                .target_bitrate_bps()
+                .load(std::sync::atomic::Ordering::Relaxed);
+            if bps > 0 {
+                encoder.update_bitrate(bps);
+            }
+        }
+
+        let pixels = self.framebuffer.get_all_pixels();
+
+        let (data, is_keyframe) = match self.h264_encoder.as_mut() {
+            Some(enc) => enc
+                .encode_rgba(&pixels, force_keyframe)
+                .map_err(|e| format!("Software H.264 encode failed: {}", e))?,
+            None => return Ok(()),
+        };
+
+        let pts = self
+            .h264_encoder
+            .as_ref()
+            .map_or(0, |enc| enc.frame_count() * 3000);
+
+        let frame = EncodedFrame {
+            data,
+            is_keyframe,
+            pts,
+        };
+
+        if let Some(ref mut recorder) = self.video_recorder {
+            if let Err(e) = recorder.write_frame(&frame).await {
+                warn!("RDP: Video recording error (soft H.264): {}", e);
+                if matches!(e, guacr_recorder::RecorderError::Fatal(_)) {
+                    return Err(format!("Recording failed: {}", e));
+                }
+            }
+        }
+
+        video_tx
+            .send_frame(frame)
+            .await
+            .map_err(|e| format!("Software H.264 send_frame failed: {}", e))?;
+
+        trace!("RDP: Soft H.264 frame sent (keyframe={})", is_keyframe);
+        Ok(())
     }
 
     /// Send instruction to client and record it (if recording is enabled)
@@ -2797,54 +3091,5 @@ impl ironrdp_async::NetworkClient for DummyNetworkClient {
         Err(ironrdp::connector::general_err!(
             "Network client not implemented"
         ))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_rdp_handler_new() {
-        let handler = RdpHandler::with_defaults();
-        assert_eq!(<RdpHandler as ProtocolHandler>::name(&handler), "rdp");
-    }
-
-    #[test]
-    fn test_rdp_config_defaults() {
-        let config = RdpConfig::default();
-        assert_eq!(config.default_port, 3389);
-        assert_eq!(config.default_width, 1920);
-        assert_eq!(config.default_height, 1080);
-        assert_eq!(config.security_mode, "nla");
-    }
-
-    #[tokio::test]
-    async fn test_rdp_handler_health() {
-        let handler = RdpHandler::with_defaults();
-        let health = handler.health_check().await.unwrap();
-        assert_eq!(health, HealthStatus::Healthy);
-    }
-
-    #[tokio::test]
-    async fn test_rdp_handler_stats() {
-        let handler = RdpHandler::with_defaults();
-        let stats = handler.stats().await.unwrap();
-        assert_eq!(stats.total_connections, 0);
-    }
-
-    #[test]
-    fn test_rdp_settings_from_params() {
-        let mut params = HashMap::new();
-        params.insert("hostname".to_string(), "server.example.com".to_string());
-        params.insert("username".to_string(), "user".to_string());
-        params.insert("password".to_string(), "pass".to_string());
-
-        let defaults = RdpConfig::default();
-        let settings = RdpSettings::from_params(&params, &defaults).unwrap();
-
-        assert_eq!(settings.hostname, "server.example.com");
-        assert_eq!(settings.port, 3389);
-        assert_eq!(settings.width, 1920);
     }
 }

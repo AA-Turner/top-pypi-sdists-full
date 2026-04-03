@@ -49,7 +49,7 @@ class CommonRegion(PyAedtBase):
         self._dir_order = ["+X", "-X", "+Y", "-Y", "+Z", "-Z"]
 
     @property
-    def padding_types(self) -> list[str]:
+    def padding_types(self):
         """Get a list of strings containing the padding types used.
 
         One for each direction in the following order:
@@ -63,7 +63,7 @@ class CommonRegion(PyAedtBase):
         return self._padding_type
 
     @property
-    def padding_values(self) -> list[float]:
+    def padding_values(self):
         """Get a list of padding values (string or float) used.
 
         Get one for each direction, in the following order:
@@ -77,7 +77,7 @@ class CommonRegion(PyAedtBase):
         return self._padding_value
 
     @property
-    def positive_x_padding_type(self) -> str:
+    def positive_x_padding_type(self):
         """
         Get a string with the padding type used in the +X direction.
 
@@ -88,7 +88,7 @@ class CommonRegion(PyAedtBase):
         return self._get_region_data("+X")
 
     @property
-    def negative_x_padding_type(self) -> str:
+    def negative_x_padding_type(self):
         """
         Get a string with the padding type used in the -X direction.
 
@@ -99,7 +99,7 @@ class CommonRegion(PyAedtBase):
         return self._get_region_data("-X")
 
     @property
-    def positive_y_padding_type(self) -> str:
+    def positive_y_padding_type(self):
         """
         Get a string with the padding type used in the +Y direction.
 
@@ -110,7 +110,7 @@ class CommonRegion(PyAedtBase):
         return self._get_region_data("+Y")
 
     @property
-    def negative_y_padding_type(self) -> str:
+    def negative_y_padding_type(self):
         """
         Get a string with the padding type used in the -Y direction.
 
@@ -121,7 +121,7 @@ class CommonRegion(PyAedtBase):
         return self._get_region_data("-Y")
 
     @property
-    def positive_z_padding_type(self) -> str:
+    def positive_z_padding_type(self):
         """
         Get a string with the padding type used in the +Z direction.
 
@@ -132,7 +132,7 @@ class CommonRegion(PyAedtBase):
         return self._get_region_data("+Z")
 
     @property
-    def negative_z_padding_type(self) -> str:
+    def negative_z_padding_type(self):
         """
         Get a string with the padding type used in the -Z direction.
 
@@ -143,7 +143,7 @@ class CommonRegion(PyAedtBase):
         return self._get_region_data("-Z")
 
     @property
-    def positive_x_padding(self) -> float:
+    def positive_x_padding(self):
         """
         Get a string with the padding value used in the +X direction.
 
@@ -154,7 +154,7 @@ class CommonRegion(PyAedtBase):
         return self._get_region_data("+X", False)
 
     @property
-    def negative_x_padding(self) -> float:
+    def negative_x_padding(self):
         """
         Get a string with the padding value used in the -X direction.
 
@@ -165,7 +165,7 @@ class CommonRegion(PyAedtBase):
         return self._get_region_data("-X", False)
 
     @property
-    def positive_y_padding(self) -> float:
+    def positive_y_padding(self):
         """
         Get a string with the padding value used in the +Y direction.
 
@@ -176,7 +176,7 @@ class CommonRegion(PyAedtBase):
         return self._get_region_data("+Y", False)
 
     @property
-    def negative_y_padding(self) -> float:
+    def negative_y_padding(self):
         """
         Get a string with the padding value used in the -Y direction.
 
@@ -187,7 +187,7 @@ class CommonRegion(PyAedtBase):
         return self._get_region_data("-Y", False)
 
     @property
-    def positive_z_padding(self) -> float:
+    def positive_z_padding(self):
         """
         Get a string with the padding value used in the +Z direction.
 
@@ -198,7 +198,7 @@ class CommonRegion(PyAedtBase):
         return self._get_region_data("+Z", False)
 
     @property
-    def negative_z_padding(self) -> float:
+    def negative_z_padding(self):
         """
         Get a string with the padding value used in the -Z direction.
 
@@ -209,65 +209,65 @@ class CommonRegion(PyAedtBase):
         return self._get_region_data("-Z", False)
 
     @padding_types.setter
-    def padding_types(self, values: list[str]) -> None:
+    def padding_types(self, values) -> None:
         if not isinstance(values, list):
             values = [values] * 6
         for i, direction in enumerate(self._dir_order):
             self._set_region_data(values[i], direction, True)
 
     @padding_values.setter
-    def padding_values(self, values: list[float]) -> None:
+    def padding_values(self, values) -> None:
         if not isinstance(values, list):
             values = [values] * 6
         for i, direction in enumerate(self._dir_order):
             self._set_region_data(values[i], direction, False)
 
     @positive_x_padding_type.setter
-    def positive_x_padding_type(self, value: float) -> None:
+    def positive_x_padding_type(self, value) -> None:
         self._set_region_data(value, "+X", True)
 
     @negative_x_padding_type.setter
-    def negative_x_padding_type(self, value: float) -> None:
+    def negative_x_padding_type(self, value) -> None:
         self._set_region_data(value, "-X", True)
 
     @positive_y_padding_type.setter
-    def positive_y_padding_type(self, value: float) -> None:
+    def positive_y_padding_type(self, value) -> None:
         self._set_region_data(value, "+Y", True)
 
     @negative_y_padding_type.setter
-    def negative_y_padding_type(self, value: float) -> None:
+    def negative_y_padding_type(self, value) -> None:
         self._set_region_data(value, "-Y", True)
 
     @positive_z_padding_type.setter
-    def positive_z_padding_type(self, value: float) -> None:
+    def positive_z_padding_type(self, value) -> None:
         self._set_region_data(value, "+Z", True)
 
     @negative_z_padding_type.setter
-    def negative_z_padding_type(self, value: float) -> None:
+    def negative_z_padding_type(self, value) -> None:
         self._set_region_data(value, "-Z", True)
 
     @positive_x_padding.setter
-    def positive_x_padding(self, value: float) -> None:
+    def positive_x_padding(self, value) -> None:
         self._set_region_data(value, "+X", False)
 
     @negative_x_padding.setter
-    def negative_x_padding(self, value: float) -> None:
+    def negative_x_padding(self, value) -> None:
         self._set_region_data(value, "-X", False)
 
     @positive_y_padding.setter
-    def positive_y_padding(self, value: float) -> None:
+    def positive_y_padding(self, value) -> None:
         self._set_region_data(value, "+Y", False)
 
     @negative_y_padding.setter
-    def negative_y_padding(self, value: float) -> None:
+    def negative_y_padding(self, value) -> None:
         self._set_region_data(value, "-Y", False)
 
     @positive_z_padding.setter
-    def positive_z_padding(self, value: float) -> None:
+    def positive_z_padding(self, value) -> None:
         self._set_region_data(value, "+Z", False)
 
     @negative_z_padding.setter
-    def negative_z_padding(self, value: float) -> None:
+    def negative_z_padding(self, value) -> None:
         self._set_region_data(value, "-Z", False)
 
     @property
@@ -290,7 +290,7 @@ class CommonRegion(PyAedtBase):
             return self._app.modeler.objects_by_name.get(self._name, None)
 
     @property
-    def name(self) -> str:
+    def name(self):
         """
         Get the subregion name.
 
@@ -301,7 +301,7 @@ class CommonRegion(PyAedtBase):
         return self.object.name
 
     @name.setter
-    def name(self, value: str) -> None:
+    def name(self, value) -> None:
         try:
             if self._app.modeler.objects_by_name[self._name].name != value:
                 self._app.modeler.objects_by_name[self._name].name = value
@@ -309,7 +309,7 @@ class CommonRegion(PyAedtBase):
             if self._app.modeler.objects_by_name[value].history().command == "CreateSubRegion":
                 self._name = value
 
-    def _set_region_data(self, value, direction=None, padding_type: bool = True):
+    def _set_region_data(self, value, direction=None, padding_type: bool = True) -> None:
         self._update_region_data()
         region = self.object
         create_region = region.history()
@@ -361,9 +361,7 @@ class SubRegion(CommonRegion):
         super(SubRegion, self).__init__(app, name)
         self.create(0, "Percentage Offset", name, parts)
 
-    def create(
-        self, padding_values: list[str | float], padding_types: list[str], region_name: str, parts: list[str]
-    ) -> bool:
+    def create(self, padding_values, padding_types, region_name, parts) -> bool:
         """
         Create subregion object.
 
@@ -419,7 +417,7 @@ class SubRegion(CommonRegion):
             return False
 
     @property
-    def parts(self) -> dict:
+    def parts(self):
         """
         Parts included in the subregion.
 
@@ -435,7 +433,7 @@ class SubRegion(CommonRegion):
             return {}
 
     @parts.setter
-    def parts(self, parts: list[str]) -> None:
+    def parts(self, parts) -> None:
         """Parts included in the subregion.
 
         Parameters
@@ -508,7 +506,7 @@ class MeshSettings(PyAedtBase):
             for arg in self._aedt_20212_args:
                 del self._instance_settings[arg]
 
-    def parse_settings_as_args(self) -> list:
+    def parse_settings_as_args(self):
         """Parse mesh region settings.
 
         Returns
@@ -525,7 +523,7 @@ class MeshSettings(PyAedtBase):
         out += ["UserSpecifiedSettings:=", self._mesh_class.manual_settings]
         return out
 
-    def parse_settings_as_dictionary(self) -> dict:
+    def parse_settings_as_dictionary(self):
         """Parse mesh region settings.
 
         Returns
@@ -541,7 +539,7 @@ class MeshSettings(PyAedtBase):
             out[k] = v
         return out
 
-    def keys(self) -> set:
+    def keys(self):
         """Get mesh region settings keys.
 
         Returns
@@ -586,7 +584,7 @@ class MeshSettings(PyAedtBase):
         else:
             raise KeyError("Setting not available.")
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key, value) -> None:
         value = _units_assignment(value)
         if key == "Level":  # backward compatibility
             key = "MeshRegionResolution"
@@ -610,7 +608,7 @@ class MeshSettings(PyAedtBase):
         else:
             self._app.logger.error("Setting not available.")
 
-    def __delitem__(self, key):
+    def __delitem__(self, key) -> None:
         self._app.logger.error("Setting cannot be removed.")
 
     def __iter__(self):
@@ -665,15 +663,15 @@ class MeshRegionCommon(BinaryTreeNode, PyAedtBase):
         return child_object
 
     @abstractmethod
-    def update(self) -> bool:
+    def update(self):
         """Update the mesh region object."""
 
     @abstractmethod
-    def delete(self) -> bool:
+    def delete(self):
         """Delete the mesh region object."""
 
     @abstractmethod
-    def create(self) -> bool:
+    def create(self):
         """Create the mesh region object."""
 
     @pyaedt_function_handler()
@@ -700,7 +698,7 @@ class MeshRegionCommon(BinaryTreeNode, PyAedtBase):
             else:
                 return self.__dict__[name]
 
-    def __setattr__(self, name: str, value):
+    def __setattr__(self, name: str, value) -> None:
         skip_properties = [
             "manual_settings",
             "settings",
@@ -776,7 +774,7 @@ class GlobalMeshRegion(MeshRegionCommon):
             return False
 
     @property
-    def Objects(self) -> str:
+    def Objects(self):
         """Get the region object from the modeler."""
         return self.global_region.name
 
@@ -785,7 +783,7 @@ class GlobalMeshRegion(MeshRegionCommon):
         self.global_region.object.delete()
         self.global_region = None
 
-    def create(self) -> bool:
+    def create(self):
         """Create the region object in the modeler."""
         self.delete()
         self.global_region = Region(self._app)
@@ -838,7 +836,7 @@ class MeshRegion(MeshRegionCommon):
         return a
 
     @property
-    def name(self) -> str:
+    def name(self):
         """
         Name of the mesh region.
 
@@ -851,7 +849,7 @@ class MeshRegion(MeshRegionCommon):
         return self._name
 
     @name.setter
-    def name(self, value: str) -> None:
+    def name(self, value) -> None:
         self._app.odesign.ChangeProperty(
             [
                 "NAME:AllTabs",
@@ -869,7 +867,7 @@ class MeshRegion(MeshRegionCommon):
             self._assignment = self.assignment
 
     @pyaedt_function_handler
-    def update(self) -> bool:
+    def update(self):
         """Update mesh region settings with the settings in the object variable.
 
         Returns
@@ -909,7 +907,7 @@ class MeshRegion(MeshRegionCommon):
         return True
 
     @property
-    def assignment(self) -> list:
+    def assignment(self):
         """
         List of objects included in mesh region.
 
@@ -960,7 +958,7 @@ class MeshRegion(MeshRegionCommon):
             return [self._assignment]
 
     @assignment.setter
-    def assignment(self, value: list) -> None:
+    def assignment(self, value) -> None:
         arg = ["NAME:Assignment"] + self._parse_assignment_value(value)
         try:
             self._app.omeshmodule.ReassignMeshRegion(self.name, arg)
@@ -969,7 +967,7 @@ class MeshRegion(MeshRegionCommon):
             self._app.logger.error("Mesh region reassignment failed.")
 
     @pyaedt_function_handler()
-    def create(self) -> bool:
+    def create(self):
         """Create a mesh region.
 
         Returns
@@ -1033,7 +1031,7 @@ class IcepakMesh(PyAedtBase):
         return self._modeler.model_units
 
     @property
-    def meshregions_dict(self) -> dict:
+    def meshregions_dict(self):
         """
         Get mesh regions in the design.
 
@@ -1061,7 +1059,7 @@ class IcepakMesh(PyAedtBase):
         return self._app.omeshmodule
 
     @property
-    def boundingdimension(self) -> list:
+    def boundingdimension(self):
         """Bounding dimension."""
         return self._modeler.get_bounding_dimension()
 
@@ -1150,7 +1148,7 @@ class IcepakMesh(PyAedtBase):
         return meshops
 
     @pyaedt_function_handler()
-    def assign_mesh_level(self, mesh_order: dict, name: str = None) -> list[MeshOperation] | bool:
+    def assign_mesh_level(self, mesh_order, name: str | None = None):
         """Assign a mesh level to objects.
 
         Parameters
@@ -1189,7 +1187,7 @@ class IcepakMesh(PyAedtBase):
         return list_meshops
 
     @pyaedt_function_handler()
-    def assign_mesh_from_file(self, assignment: list, file_name: str, name: str = None) -> MeshOperation | bool:
+    def assign_mesh_from_file(self, assignment, file_name: str, name: str | None = None):
         """Assign a mesh from a file to objects.
 
         Parameters
@@ -1232,7 +1230,7 @@ class IcepakMesh(PyAedtBase):
         return False
 
     @pyaedt_function_handler()
-    def assign_priorities(self, assignment: list[list[Object3d | UserDefinedComponent | str]]) -> bool:
+    def assign_priorities(self, assignment) -> bool:
         """Set objects priorities.
 
         Parameters
@@ -1312,9 +1310,7 @@ class IcepakMesh(PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def assign_mesh_region(
-        self, assignment: list = None, level: int = 5, name: str = None, **kwargs
-    ) -> MeshRegion | bool:
+    def assign_mesh_region(self, assignment=None, level: int = 5, name: str | None = None, **kwargs):
         """Assign a predefined surface mesh level to an object.
 
         Parameters
@@ -1359,7 +1355,7 @@ class IcepakMesh(PyAedtBase):
             return False
 
     @pyaedt_function_handler()
-    def generate_mesh(self, name: str = None) -> bool:
+    def generate_mesh(self, name: str | None = None):
         """Generate the mesh for a given setup name.
 
         Parameters
@@ -1383,12 +1379,12 @@ class IcepakMesh(PyAedtBase):
     @pyaedt_function_handler()
     def assign_mesh_level_to_group(
         self,
-        mesh_level: int,
-        group_name: str,
+        mesh_level,
+        group_name,
         enable_local_mesh_parameters: bool = False,
         local_mesh_parameters: str = "No local mesh parameters",
-        name: str = None,
-    ) -> MeshOperation:
+        name: str | None = None,
+    ):
         """Assign a mesh level to a group.
 
         Parameters
@@ -1433,7 +1429,7 @@ class IcepakMesh(PyAedtBase):
         self.meshoperations.append(mop)
         return mop
 
-    def assign_mesh_reuse(self, assignment: list, mesh_file: str, name: str = None) -> MeshOperation | bool:
+    def assign_mesh_reuse(self, assignment, mesh_file, name: str | None = None):
         """Assign a mesh file to objects.
 
         Parameters

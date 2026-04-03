@@ -2145,15 +2145,13 @@ class HttpUrlIntegration(
 
     Example::
 
-        from aws_cdk.aws_apigatewayv2_authorizers import HttpLambdaAuthorizer, HttpLambdaResponseType
+        from aws_cdk.aws_apigatewayv2_authorizers import HttpJwtAuthorizer
         from aws_cdk.aws_apigatewayv2_integrations import HttpUrlIntegration
         
-        # This function handles your auth logic
-        # auth_handler: lambda.Function
         
-        
-        authorizer = HttpLambdaAuthorizer("BooksAuthorizer", auth_handler,
-            response_types=[HttpLambdaResponseType.SIMPLE]
+        issuer = "https://test.us.auth0.com"
+        authorizer = HttpJwtAuthorizer("BooksAuthorizer", issuer,
+            jwt_audience=["3131231"]
         )
         
         api = apigwv2.HttpApi(self, "HttpApi")

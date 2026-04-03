@@ -10,12 +10,12 @@ package_data = \
 {'': ['*']}
 
 setup(name='more-itertools',
-      version='10.8.0',
+      version='11.0.1',
       description='More routines for operating on iterables, beyond itertools',
       author=None,
       author_email='Erik Rose <erikrose@grinchcentral.com>',
       url=None,
       packages=packages,
       package_data=package_data,
-      python_requires='>=3.9',
+      python_requires='>=3.10',
      )

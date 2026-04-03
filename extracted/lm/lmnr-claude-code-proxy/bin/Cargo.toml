@@ -1,7 +1,7 @@
 [package]
 edition = "2024"
 name = "cc-proxy"
-version = "0.1.16"
+version = "0.1.17"
 
 [lib]
 crate-type = ["cdylib", "lib"]
@@ -13,6 +13,9 @@ python = ["dep:pyo3", "pyo3-build-config"]
 typescript = ["dep:napi", "dep:napi-derive", "napi-build"]
 
 [dependencies]
+aws-credential-types = "1.2.14"
+aws-sigv4 = "1.4.2"
+base64 = "0.22.1"
 dashmap = "6.1"
 flate2 = "1.1.9"
 futures-util = "0.3"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: workspace-mcp
-Version: 1.17.0
+Version: 1.17.1
 Summary: Comprehensive, highly performant Google Workspace Streamable HTTP & SSE MCP Server for Calendar, Gmail, Docs, Sheets, Slides & Drive
 Author-email: Taylor Wilsdon <taylor@taylorwilsdon.com>
 License-Expression: MIT
@@ -41,6 +41,7 @@ Requires-Dist: python-dotenv>=1.1.0
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: cryptography>=45.0.0
 Requires-Dist: defusedxml>=0.7.1
+Requires-Dist: pytz>=2026.1.post1
 Provides-Extra: disk
 Requires-Dist: py-key-value-aio[filetree]>=0.3.0; extra == "disk"
 Provides-Extra: valkey

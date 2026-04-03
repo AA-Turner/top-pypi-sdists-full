@@ -71,6 +71,8 @@ class ClusterSchedulingPolicy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper)
     CLUSTER_SCHEDULING_POLICY_EAGER: _ClassVar[ClusterSchedulingPolicy]
     CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_PREEMPTIBLE_ONLY: _ClassVar[ClusterSchedulingPolicy]
     CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_ALL: _ClassVar[ClusterSchedulingPolicy]
+    CLUSTER_SCHEDULING_POLICY_EAGER_MIN_RUNTIMES: _ClassVar[ClusterSchedulingPolicy]
+    CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_PREEMPTIBLE_ONLY_MIN_RUNTIMES: _ClassVar[ClusterSchedulingPolicy]
 
 class NodeEventStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -171,6 +173,7 @@ class GPUUsageReportGroupBy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     GPU_USAGE_REPORT_GROUP_BY_USER: _ClassVar[GPUUsageReportGroupBy]
     GPU_USAGE_REPORT_GROUP_BY_PRIORITY: _ClassVar[GPUUsageReportGroupBy]
     GPU_USAGE_REPORT_GROUP_BY_PREEMPTIBLE: _ClassVar[GPUUsageReportGroupBy]
+    GPU_USAGE_REPORT_GROUP_BY_WORKSPACE_GROUP: _ClassVar[GPUUsageReportGroupBy]
 
 class DatasetStorageReportGroupBy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -217,6 +220,8 @@ CLUSTER_SCHEDULING_POLICY_UNSPECIFIED: ClusterSchedulingPolicy
 CLUSTER_SCHEDULING_POLICY_EAGER: ClusterSchedulingPolicy
 CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_PREEMPTIBLE_ONLY: ClusterSchedulingPolicy
 CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_ALL: ClusterSchedulingPolicy
+CLUSTER_SCHEDULING_POLICY_EAGER_MIN_RUNTIMES: ClusterSchedulingPolicy
+CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_PREEMPTIBLE_ONLY_MIN_RUNTIMES: ClusterSchedulingPolicy
 NODE_EVENT_STATUS_UNSPECIFIED: NodeEventStatus
 NODE_EVENT_STATUS_CORDONED: NodeEventStatus
 NODE_EVENT_STATUS_UNCORDONED: NodeEventStatus
@@ -284,6 +289,7 @@ GPU_USAGE_REPORT_GROUP_BY_WORKSPACE: GPUUsageReportGroupBy
 GPU_USAGE_REPORT_GROUP_BY_USER: GPUUsageReportGroupBy
 GPU_USAGE_REPORT_GROUP_BY_PRIORITY: GPUUsageReportGroupBy
 GPU_USAGE_REPORT_GROUP_BY_PREEMPTIBLE: GPUUsageReportGroupBy
+GPU_USAGE_REPORT_GROUP_BY_WORKSPACE_GROUP: GPUUsageReportGroupBy
 DATASET_STORAGE_REPORT_GROUP_BY_UNSPECIFIED: DatasetStorageReportGroupBy
 DATASET_STORAGE_REPORT_GROUP_BY_BUDGET: DatasetStorageReportGroupBy
 DATASET_STORAGE_REPORT_GROUP_BY_USER: DatasetStorageReportGroupBy
@@ -912,7 +918,7 @@ class ReplicaGroupDetails(_message.Message):
     def __init__(self, id: _Optional[str] = ..., size: _Optional[int] = ..., rank: _Optional[int] = ..., is_leader_replica: bool = ..., synchronized_start_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...) -> None: ...
 
 class SystemDetails(_message.Message):
-    __slots__ = ("priority", "preemptible", "timeout", "placement_constraints", "replica_group_details", "propagate_failure", "propagate_preemption")
+    __slots__ = ("priority", "preemptible", "timeout", "placement_constraints", "replica_group_details", "propagate_failure", "propagate_preemption", "min_runtime", "auto_resume")
     PRIORITY_FIELD_NUMBER: _ClassVar[int]
     PREEMPTIBLE_FIELD_NUMBER: _ClassVar[int]
     TIMEOUT_FIELD_NUMBER: _ClassVar[int]
@@ -920,6 +926,8 @@ class SystemDetails(_message.Message):
     REPLICA_GROUP_DETAILS_FIELD_NUMBER: _ClassVar[int]
     PROPAGATE_FAILURE_FIELD_NUMBER: _ClassVar[int]
     PROPAGATE_PREEMPTION_FIELD_NUMBER: _ClassVar[int]
+    MIN_RUNTIME_FIELD_NUMBER: _ClassVar[int]
+    AUTO_RESUME_FIELD_NUMBER: _ClassVar[int]
     priority: JobPriority
     preemptible: bool
     timeout: _duration_pb2.Duration
@@ -927,7 +935,9 @@ class SystemDetails(_message.Message):
     replica_group_details: ReplicaGroupDetails
     propagate_failure: bool
     propagate_preemption: bool
-    def __init__(self, priority: _Optional[_Union[JobPriority, str]] = ..., preemptible: bool = ..., timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., placement_constraints: _Optional[_Iterable[_Union[JobPlacementConstraint, _Mapping]]] = ..., replica_group_details: _Optional[_Union[ReplicaGroupDetails, _Mapping]] = ..., propagate_failure: bool = ..., propagate_preemption: bool = ...) -> None: ...
+    min_runtime: _duration_pb2.Duration
+    auto_resume: bool
+    def __init__(self, priority: _Optional[_Union[JobPriority, str]] = ..., preemptible: bool = ..., timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., placement_constraints: _Optional[_Iterable[_Union[JobPlacementConstraint, _Mapping]]] = ..., replica_group_details: _Optional[_Union[ReplicaGroupDetails, _Mapping]] = ..., propagate_failure: bool = ..., propagate_preemption: bool = ..., min_runtime: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., auto_resume: bool = ...) -> None: ...
 
 class AssignmentDetails(_message.Message):
     __slots__ = ("node_id", "resource_assignment", "port_mapping_assignment", "result_dataset_id", "assigned_environment_variables", "occupied_slots_count")
@@ -3632,14 +3642,14 @@ class UpdateWorkspaceSetWorkspaceGroupResponse(_message.Message):
     def __init__(self, workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
 
 class WorkspacePermissionEntry(_message.Message):
-    __slots__ = ("permission", "user_id", "org_id")
+    __slots__ = ("permission", "user", "org")
     PERMISSION_FIELD_NUMBER: _ClassVar[int]
-    USER_ID_FIELD_NUMBER: _ClassVar[int]
-    ORG_ID_FIELD_NUMBER: _ClassVar[int]
+    USER_FIELD_NUMBER: _ClassVar[int]
+    ORG_FIELD_NUMBER: _ClassVar[int]
     permission: WorkspacePermission
-    user_id: str
-    org_id: str
-    def __init__(self, permission: _Optional[_Union[WorkspacePermission, str]] = ..., user_id: _Optional[str] = ..., org_id: _Optional[str] = ...) -> None: ...
+    user: Reference
+    org: Reference
+    def __init__(self, permission: _Optional[_Union[WorkspacePermission, str]] = ..., user: _Optional[_Union[Reference, _Mapping]] = ..., org: _Optional[_Union[Reference, _Mapping]] = ...) -> None: ...
 
 class GetWorkspacePermissionsRequest(_message.Message):
     __slots__ = ("workspace_id",)
@@ -3706,12 +3716,32 @@ class SetChildAllocationsResponse(_message.Message):
     changeset: AllocationChangeset
     def __init__(self, changeset: _Optional[_Union[AllocationChangeset, _Mapping]] = ...) -> None: ...
 
+class ListAllocationsRequest(_message.Message):
+    __slots__ = ("cluster_id", "org_id", "budget_id", "workspace_group_id")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    ORG_ID_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    org_id: str
+    budget_id: str
+    workspace_group_id: str
+    def __init__(self, cluster_id: _Optional[str] = ..., org_id: _Optional[str] = ..., budget_id: _Optional[str] = ..., workspace_group_id: _Optional[str] = ...) -> None: ...
+
+class ListAllocationsResponse(_message.Message):
+    __slots__ = ("allocations", "current_changeset_id")
+    ALLOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    CURRENT_CHANGESET_ID_FIELD_NUMBER: _ClassVar[int]
+    allocations: _containers.RepeatedCompositeFieldContainer[Allocation]
+    current_changeset_id: str
+    def __init__(self, allocations: _Optional[_Iterable[_Union[Allocation, _Mapping]]] = ..., current_changeset_id: _Optional[str] = ...) -> None: ...
+
 class GetGPUUsageReportRequest(_message.Message):
     __slots__ = ("next_page_token", "options")
     class QueryOptions(_message.Message):
         __slots__ = ("interval", "group_by", "filters", "page_size")
         class Filters(_message.Message):
-            __slots__ = ("organization_ids", "budget_ids", "cluster_ids", "workspace_ids", "user_ids", "priorities", "preemptible")
+            __slots__ = ("organization_ids", "budget_ids", "cluster_ids", "workspace_ids", "user_ids", "priorities", "preemptible", "workspace_group_ids")
             ORGANIZATION_IDS_FIELD_NUMBER: _ClassVar[int]
             BUDGET_IDS_FIELD_NUMBER: _ClassVar[int]
             CLUSTER_IDS_FIELD_NUMBER: _ClassVar[int]
@@ -3719,6 +3749,7 @@ class GetGPUUsageReportRequest(_message.Message):
             USER_IDS_FIELD_NUMBER: _ClassVar[int]
             PRIORITIES_FIELD_NUMBER: _ClassVar[int]
             PREEMPTIBLE_FIELD_NUMBER: _ClassVar[int]
+            WORKSPACE_GROUP_IDS_FIELD_NUMBER: _ClassVar[int]
             organization_ids: _containers.RepeatedScalarFieldContainer[str]
             budget_ids: _containers.RepeatedScalarFieldContainer[str]
             cluster_ids: _containers.RepeatedScalarFieldContainer[str]
@@ -3726,7 +3757,8 @@ class GetGPUUsageReportRequest(_message.Message):
             user_ids: _containers.RepeatedScalarFieldContainer[str]
             priorities: _containers.RepeatedScalarFieldContainer[JobPriority]
             preemptible: bool
-            def __init__(self, organization_ids: _Optional[_Iterable[str]] = ..., budget_ids: _Optional[_Iterable[str]] = ..., cluster_ids: _Optional[_Iterable[str]] = ..., workspace_ids: _Optional[_Iterable[str]] = ..., user_ids: _Optional[_Iterable[str]] = ..., priorities: _Optional[_Iterable[_Union[JobPriority, str]]] = ..., preemptible: bool = ...) -> None: ...
+            workspace_group_ids: _containers.RepeatedScalarFieldContainer[str]
+            def __init__(self, organization_ids: _Optional[_Iterable[str]] = ..., budget_ids: _Optional[_Iterable[str]] = ..., cluster_ids: _Optional[_Iterable[str]] = ..., workspace_ids: _Optional[_Iterable[str]] = ..., user_ids: _Optional[_Iterable[str]] = ..., priorities: _Optional[_Iterable[_Union[JobPriority, str]]] = ..., preemptible: bool = ..., workspace_group_ids: _Optional[_Iterable[str]] = ...) -> None: ...
         INTERVAL_FIELD_NUMBER: _ClassVar[int]
         GROUP_BY_FIELD_NUMBER: _ClassVar[int]
         FILTERS_FIELD_NUMBER: _ClassVar[int]
@@ -3743,7 +3775,7 @@ class GetGPUUsageReportRequest(_message.Message):
     def __init__(self, next_page_token: _Optional[str] = ..., options: _Optional[_Union[GetGPUUsageReportRequest.QueryOptions, _Mapping]] = ...) -> None: ...
 
 class GPUUsageReportEntry(_message.Message):
-    __slots__ = ("budget_id", "budget_name", "cluster_id", "cluster_name", "workspace_id", "workspace_name", "user_id", "user_name", "priority", "preemptible", "gpu_hours")
+    __slots__ = ("budget_id", "budget_name", "cluster_id", "cluster_name", "workspace_id", "workspace_name", "user_id", "user_name", "priority", "preemptible", "gpu_hours", "workspace_group_id", "workspace_group_name")
     BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
     BUDGET_NAME_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
@@ -3755,6 +3787,8 @@ class GPUUsageReportEntry(_message.Message):
     PRIORITY_FIELD_NUMBER: _ClassVar[int]
     PREEMPTIBLE_FIELD_NUMBER: _ClassVar[int]
     GPU_HOURS_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
     budget_id: str
     budget_name: str
     cluster_id: str
@@ -3766,7 +3800,9 @@ class GPUUsageReportEntry(_message.Message):
     priority: JobPriority
     preemptible: bool
     gpu_hours: float
-    def __init__(self, budget_id: _Optional[str] = ..., budget_name: _Optional[str] = ..., cluster_id: _Optional[str] = ..., cluster_name: _Optional[str] = ..., workspace_id: _Optional[str] = ..., workspace_name: _Optional[str] = ..., user_id: _Optional[str] = ..., user_name: _Optional[str] = ..., priority: _Optional[_Union[JobPriority, str]] = ..., preemptible: bool = ..., gpu_hours: _Optional[float] = ...) -> None: ...
+    workspace_group_id: str
+    workspace_group_name: str
+    def __init__(self, budget_id: _Optional[str] = ..., budget_name: _Optional[str] = ..., cluster_id: _Optional[str] = ..., cluster_name: _Optional[str] = ..., workspace_id: _Optional[str] = ..., workspace_name: _Optional[str] = ..., user_id: _Optional[str] = ..., user_name: _Optional[str] = ..., priority: _Optional[_Union[JobPriority, str]] = ..., preemptible: bool = ..., gpu_hours: _Optional[float] = ..., workspace_group_id: _Optional[str] = ..., workspace_group_name: _Optional[str] = ...) -> None: ...
 
 class GetGPUUsageReportResponse(_message.Message):
     __slots__ = ("entries", "next_page_token")

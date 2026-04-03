@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use guacr_handlers::{
     send_disconnect, EventBasedHandler, EventCallback, HandlerError, HandlerStats, HealthStatus,
-    ProtocolHandler, RecordingConfig, VideoOutput,
+    KeepAliveManager, ProtocolHandler, RecordingConfig, VideoOutput,
+    DEFAULT_KEEPALIVE_INTERVAL_SECS,
 };
 use log::{debug, info, warn};
 use std::collections::HashMap;
@@ -19,7 +20,7 @@ use crate::handler_helpers::{
 };
 use crate::query_executor::QueryExecutor;
 use crate::recording::{
-    finalize_recording, init_recording, record_error_output, record_query_input,
+    finalize_recording, init_recording, record_error_output, record_query_input, send_and_record,
 };
 use crate::security::DatabaseSecuritySettings;
 
@@ -251,8 +252,25 @@ impl ProtocolHandler for RedisHandler {
         let mut debounce = tokio::time::interval(std::time::Duration::from_millis(16));
         debounce.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
+        // Keepalive to prevent ICE disconnect on idle sessions
+        let mut keepalive = KeepAliveManager::new(DEFAULT_KEEPALIVE_INTERVAL_SECS);
+        let mut keepalive_interval = tokio::time::interval(std::time::Duration::from_secs(
+            DEFAULT_KEEPALIVE_INTERVAL_SECS,
+        ));
+        keepalive_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         'outer: loop {
             tokio::select! {
+                // Keepalive ping to prevent ICE disconnect on idle sessions
+                _ = keepalive_interval.tick() => {
+                    if let Some(sync_instr) = keepalive.check() {
+                        if send_and_record(&to_client, &mut recorder, sync_instr).await.is_err() {
+                            debug!("Redis: Client channel closed during keepalive, stopping");
+                            break;
+                        }
+                    }
+                }
+
                 // Debounce tick - render if terminal changed
                 _ = debounce.tick() => {
                     // Check if client is still connected before rendering
@@ -437,7 +455,7 @@ async fn execute_redis_command(
 }
 
 /// Format Redis value for display
-fn format_redis_value(value: &redis::Value) -> String {
+pub(crate) fn format_redis_value(value: &redis::Value) -> String {
     match value {
         redis::Value::Nil => "(nil)".to_string(),
         redis::Value::Int(i) => format!("(integer) {}", i),
@@ -893,30 +911,5 @@ impl EventBasedHandler for RedisHandler {
             4096,
         )
         .await
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_redis_handler_new() {
-        let handler = RedisHandler::with_defaults();
-        assert_eq!(<RedisHandler as ProtocolHandler>::name(&handler), "redis");
-    }
-
-    #[test]
-    fn test_redis_config() {
-        let config = RedisConfig::default();
-        assert_eq!(config.default_port, 6379);
-        assert!(config.require_auth);
-    }
-
-    #[test]
-    fn test_format_redis_value() {
-        assert_eq!(format_redis_value(&redis::Value::Nil), "(nil)");
-        assert_eq!(format_redis_value(&redis::Value::Int(42)), "(integer) 42");
-        assert_eq!(format_redis_value(&redis::Value::Okay), "OK");
     }
 }

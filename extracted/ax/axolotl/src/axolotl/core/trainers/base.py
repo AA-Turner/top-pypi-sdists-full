@@ -29,10 +29,12 @@ from transformers.utils import SAFE_WEIGHTS_NAME, is_peft_available
 from trl.experimental.utils import pad_to_length
 from typing_extensions import override
 
+from axolotl.core.trainers.constants import TOKENS_STATE_FILE
 from axolotl.core.trainers.mixins import (
     ActivationOffloadingMixin,
     CheckpointSaveMixin,
     DistributedParallelMixin,
+    LayerOffloadingMixin,
     OptimizerMixin,
     PackingMixin,
     RngLoaderMixin,
@@ -51,8 +53,6 @@ from axolotl.utils.samplers import MultipackBatchSampler, get_dataset_lengths
 
 LOG = get_logger(__name__)
 
-TOKENS_STATE_FILE = "tokens_state."
-
 REDUCTION_FNS = {
     "mean": torch.mean,
     "min": torch.min,
@@ -67,6 +67,7 @@ class AxolotlTrainer(
     OptimizerMixin,
     RngLoaderMixin,
     CheckpointSaveMixin,
+    LayerOffloadingMixin,
     ActivationOffloadingMixin,
     DistributedParallelMixin,
     Trainer,
@@ -380,6 +381,15 @@ class AxolotlTrainer(
             # Store per-step trainable tokens for throughput calculation
             self.state.tokens["trainable_tokens"] = trainable_tokens.detach().cpu()
 
+        # Gemma4 requires mm_token_type_ids during training (even for text-only).
+        # Inject zeros (= text token type) when not provided by the data collator.
+        if (
+            "mm_token_type_ids" not in inputs
+            and "input_ids" in inputs
+            and getattr(getattr(model, "config", None), "model_type", None) == "gemma4"
+        ):
+            inputs["mm_token_type_ids"] = torch.zeros_like(inputs["input_ids"])
+
         if self.args.orpo_alpha:
             return self.orpo_compute_loss(
                 model,
@@ -404,15 +414,13 @@ class AxolotlTrainer(
     def orpo_concatenate_inputs(inputs, label_pad_token=-100, pad_token=0, device=None):
         concatenated_batch = {}
 
-        max_length = max(
-            inputs["input_ids"].shape[1], inputs["rejected_input_ids"].shape[1]
-        )
+        max_length = max(inputs["input_ids"].shape[1], inputs["rejected_ids"].shape[1])
         # Concatenate positive and negative inputs
         concatenated_batch["input_ids"] = pad_to_length(
             inputs["input_ids"], max_length, pad_token
         )
-        concatenated_batch["rejected_input_ids"] = pad_to_length(
-            inputs["rejected_input_ids"], max_length, pad_token
+        concatenated_batch["rejected_ids"] = pad_to_length(
+            inputs["rejected_ids"], max_length, pad_token
         )
         concatenated_batch["labels"] = pad_to_length(
             inputs["labels"], max_length, label_pad_token
@@ -431,7 +439,7 @@ class AxolotlTrainer(
         ).to(device=device)
 
         input_ids = torch.cat(
-            [concatenated_batch["input_ids"], concatenated_batch["rejected_input_ids"]],
+            [concatenated_batch["input_ids"], concatenated_batch["rejected_ids"]],
             dim=0,
         ).to(device=device)
         attention_mask = torch.cat(
@@ -509,12 +517,24 @@ class AxolotlTrainer(
         )
 
         # Perform a single forward pass
+        forward_kwargs = {
+            "input_ids": concat_inputs["input_ids"],
+            "attention_mask": concat_inputs["attention_mask"],
+            "labels": concat_inputs["labels"],
+        }
+        # Gemma4 requires mm_token_type_ids during training (even for text-only)
+        if (
+            getattr(getattr(model, "config", None), "model_type", None) == "gemma4"
+            and "mm_token_type_ids" not in concat_inputs
+        ):
+            forward_kwargs["mm_token_type_ids"] = torch.zeros_like(
+                concat_inputs["input_ids"]
+            )
+        elif "mm_token_type_ids" in concat_inputs:
+            forward_kwargs["mm_token_type_ids"] = concat_inputs["mm_token_type_ids"]
+
         outputs = model(
-            **{
-                "input_ids": concat_inputs["input_ids"],
-                "attention_mask": concat_inputs["attention_mask"],
-                "labels": concat_inputs["labels"],
-            },
+            **forward_kwargs,
             output_hidden_states=True,
         )
 

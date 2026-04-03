@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2019 - 2025, Ilan Schnell; All Rights Reserved
+   Copyright (c) 2019 - 2026, Ilan Schnell; All Rights Reserved
    bitarray is published under the PSF license.
 
    This file contains the C implementation of some useful utility functions.
@@ -102,6 +102,9 @@ resize_lite(bitarrayobject *self, Py_ssize_t nbits)
 
     self->ob_item = PyMem_Realloc(self->ob_item, newsize);
     if (self->ob_item == NULL) {
+        Py_SET_SIZE(self, 0);
+        self->allocated = 0;
+        self->nbits = 0;
         PyErr_NoMemory();
         return -1;
     }
@@ -1154,7 +1157,8 @@ byte_length(Py_ssize_t i)
        BSI(1) = 32                         (BSI = Buffer Size Indexable)
 
    Moving from block type n to n + 1 multiplies the decoded block size
-   by a factor of 256 (as the extra byte can index 256 times as much):
+   by a factor of 256 (as one extra byte can index 256 times as much
+   address space):
 
        BSI(n + 1) = 256 * BSI(n)
 */
@@ -1281,7 +1285,8 @@ module_sc_rts(PyObject *module, PyObject *obj)
       a.count(1, 8 * offset, 8 * offset + (1 << (8 * n)))
 
    The offset must be divisible by SEGSIZE, as this functions makes use of
-   running totals, stored in rts[]. */
+   running totals, stored in rts[].
+   Here, and in the following, 'offset' is in units of bytes. */
 static Py_ssize_t
 sc_count(bitarrayobject *a, Py_ssize_t *rts, Py_ssize_t offset, int n)
 {
@@ -1968,8 +1973,10 @@ chdi_new(PyObject *module, PyObject *args)
         return NULL;
 
     it = PyObject_GC_New(chdi_obj, &CHDI_Type);
-    if (it == NULL)
-        goto error;
+    if (it == NULL) {
+        Py_DECREF(symbol);
+        return NULL;
+    }
 
     if ((count_sum = set_count(it->count, count)) < 0)
         goto error;
@@ -1990,7 +1997,7 @@ chdi_new(PyObject *module, PyObject *args)
 
  error:
     it->array = NULL;
-    Py_XDECREF(symbol);
+    Py_DECREF(symbol);
     it->symbol = NULL;
     Py_DECREF(it);
     return NULL;

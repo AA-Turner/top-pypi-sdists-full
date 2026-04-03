@@ -96,6 +96,7 @@ def test_create_service_tags(client, stubber):
     tags = {"foo": "bar"}
 
     params_without_tags = [
+        "clientToken",
         "cluster",
         "desiredCount",
         "launchType",

@@ -1002,7 +1002,8 @@ class BedrockAgentCoreControlClient(BaseClient):
         self, **kwargs: Unpack[SynchronizeGatewayTargetsRequestTypeDef]
     ) -> SynchronizeGatewayTargetsResponseTypeDef:
         """
-        The gateway targets.
+        Synchronizes the gateway targets by fetching the latest tool definitions from
+        the target endpoints.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/synchronize_gateway_targets.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#synchronize_gateway_targets)

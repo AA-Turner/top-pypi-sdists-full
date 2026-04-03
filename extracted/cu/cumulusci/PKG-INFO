@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cumulusci
-Version: 4.8.1
+Version: 4.9.0
 Summary: Build and release tools for Salesforce developers
 Project-URL: Homepage, https://github.com/SFDO-Tooling/CumulusCI
 Project-URL: Changelog, https://cumulusci.readthedocs.io/en/stable/history.html
@@ -24,7 +24,6 @@ Requires-Dist: cryptography
 Requires-Dist: defusedxml
 Requires-Dist: docutils<=0.21.2
 Requires-Dist: faker
-Requires-Dist: fs
 Requires-Dist: github3-py
 Requires-Dist: jinja2
 Requires-Dist: keyring<=23.0.1
@@ -127,14 +126,15 @@ license](https://github.com/SFDO-Tooling/CumulusCI/blob/main/LICENSE)
 and is not covered by the Salesforce Master Subscription Agreement.
 
 <!-- Changelog -->
-## v4.8.1 (2026-01-30)
+## v4.9.0 (2026-04-02)
 
 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
-## What's Changed
+## What's Changed 
 
 ### Changes
 
--   @W-20921403: Smart Lookup Resolution for Mixed Salesforce IDs and Local References by [@aditya-balachander](https://github.com/aditya-balachander) in [#3946](https://github.com/SFDO-Tooling/CumulusCI/pull/3946)
+- Remove PyFilesystem2 dependency @W-21244194 by [@jstvz](https://github.com/jstvz) in [#3923](https://github.com/SFDO-Tooling/CumulusCI/pull/3923)
+- Expose Rollback Option in the Snowfakery Task by [@aditya-balachander](https://github.com/aditya-balachander) in [#3958](https://github.com/SFDO-Tooling/CumulusCI/pull/3958)
 
-**Full Changelog**: https://github.com/SFDO-Tooling/CumulusCI/compare/v4.8.0...v4.8.1
+**Full Changelog**: https://github.com/SFDO-Tooling/CumulusCI/compare/v4.8.1...v4.9.0

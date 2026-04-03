@@ -16,7 +16,7 @@ export class ThreadsSearchMetadata extends BenchmarkRunner {
   static run(
     baseUrl: string,
     requestParams: Record<string, unknown>,
-    _benchmarkGraphOptions?: BenchmarkGraphOptions
+    _benchmarkGraphOptions: BenchmarkGraphOptions
   ): BenchmarkResult<ThreadsSearchMetadataData> {
     const tag = `bench-search-${crypto.randomUUID()}`;
     const searchMetadata = { scenario: 'threads_search_metadata', tag };
@@ -55,7 +55,7 @@ export class ThreadsSearchMetadata extends BenchmarkRunner {
   static validate(
     result: BenchmarkResult<ThreadsSearchMetadataData>,
     errorMetrics: ErrorMetrics,
-    _benchmarkGraphOptions?: BenchmarkGraphOptions
+    _benchmarkGraphOptions: BenchmarkGraphOptions
   ): boolean {
     if (!result.ok) {
       logFailure(ThreadsSearchMetadata.toString(), result);

@@ -131,6 +131,10 @@ class CfnCluster(
                     secret_arn="secretArn",
                     secret_version="secretVersion"
                 ),
+                cgroup_custom_settings=[pcs.CfnCluster.CgroupCustomSettingProperty(
+                    parameter_name="parameterName",
+                    parameter_value="parameterValue"
+                )],
                 jwt_auth=pcs.CfnCluster.JwtAuthProperty(
                     jwt_key=pcs.CfnCluster.JwtKeyProperty(
                         secret_arn="secretArn",
@@ -139,6 +143,10 @@ class CfnCluster(
                 ),
                 scale_down_idle_time_in_seconds=123,
                 slurm_custom_settings=[pcs.CfnCluster.SlurmCustomSettingProperty(
+                    parameter_name="parameterName",
+                    parameter_value="parameterValue"
+                )],
+                slurmdbd_custom_settings=[pcs.CfnCluster.SlurmdbdCustomSettingProperty(
                     parameter_name="parameterName",
                     parameter_value="parameterValue"
                 )],
@@ -562,6 +570,80 @@ class CfnCluster(
 
         def __repr__(self) -> str:
             return "AuthKeyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_pcs.CfnCluster.CgroupCustomSettingProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "parameter_name": "parameterName",
+            "parameter_value": "parameterValue",
+        },
+    )
+    class CgroupCustomSettingProperty:
+        def __init__(
+            self,
+            *,
+            parameter_name: builtins.str,
+            parameter_value: builtins.str,
+        ) -> None:
+            '''Additional cgroup configuration settings.
+
+            :param parameter_name: The cgroup.conf parameter name.
+            :param parameter_value: The value for the cgroup.conf parameter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-cgroupcustomsetting.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_pcs as pcs
+                
+                cgroup_custom_setting_property = pcs.CfnCluster.CgroupCustomSettingProperty(
+                    parameter_name="parameterName",
+                    parameter_value="parameterValue"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__34700b8c18d2d51aa510ae9815d642d1312585a90e5dbb9acac20f2d5b75d339)
+                check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+                check_type(argname="argument parameter_value", value=parameter_value, expected_type=type_hints["parameter_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "parameter_name": parameter_name,
+                "parameter_value": parameter_value,
+            }
+
+        @builtins.property
+        def parameter_name(self) -> builtins.str:
+            '''The cgroup.conf parameter name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-cgroupcustomsetting.html#cfn-pcs-cluster-cgroupcustomsetting-parametername
+            '''
+            result = self._values.get("parameter_name")
+            assert result is not None, "Required property 'parameter_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def parameter_value(self) -> builtins.str:
+            '''The value for the cgroup.conf parameter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-cgroupcustomsetting.html#cfn-pcs-cluster-cgroupcustomsetting-parametervalue
+            '''
+            result = self._values.get("parameter_value")
+            assert result is not None, "Required property 'parameter_value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CgroupCustomSettingProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1086,9 +1168,11 @@ class CfnCluster(
         name_mapping={
             "accounting": "accounting",
             "auth_key": "authKey",
+            "cgroup_custom_settings": "cgroupCustomSettings",
             "jwt_auth": "jwtAuth",
             "scale_down_idle_time_in_seconds": "scaleDownIdleTimeInSeconds",
             "slurm_custom_settings": "slurmCustomSettings",
+            "slurmdbd_custom_settings": "slurmdbdCustomSettings",
             "slurm_rest": "slurmRest",
         },
     )
@@ -1098,18 +1182,22 @@ class CfnCluster(
             *,
             accounting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.AccountingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             auth_key: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.AuthKeyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cgroup_custom_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.CgroupCustomSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             jwt_auth: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.JwtAuthProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             scale_down_idle_time_in_seconds: typing.Optional[jsii.Number] = None,
             slurm_custom_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.SlurmCustomSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            slurmdbd_custom_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.SlurmdbdCustomSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             slurm_rest: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.SlurmRestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Additional options related to the Slurm scheduler.
 
             :param accounting: The accounting configuration includes configurable settings for Slurm accounting.
             :param auth_key: The shared Slurm key for authentication, also known as the *cluster secret* .
+            :param cgroup_custom_settings: Additional cgroup-specific configuration that directly maps to cgroup.conf settings.
             :param jwt_auth: The JWT authentication configuration for Slurm REST API access.
             :param scale_down_idle_time_in_seconds: The time (in seconds) before an idle node is scaled down. Default: ``600``
             :param slurm_custom_settings: Additional Slurm-specific configuration that directly maps to Slurm settings.
+            :param slurmdbd_custom_settings: Additional slurmdbd-specific configuration that directly maps to slurmdbd.conf settings.
             :param slurm_rest: The Slurm REST API configuration for the cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-slurmconfiguration.html
@@ -1132,6 +1220,10 @@ class CfnCluster(
                         secret_arn="secretArn",
                         secret_version="secretVersion"
                     ),
+                    cgroup_custom_settings=[pcs.CfnCluster.CgroupCustomSettingProperty(
+                        parameter_name="parameterName",
+                        parameter_value="parameterValue"
+                    )],
                     jwt_auth=pcs.CfnCluster.JwtAuthProperty(
                         jwt_key=pcs.CfnCluster.JwtKeyProperty(
                             secret_arn="secretArn",
@@ -1140,6 +1232,10 @@ class CfnCluster(
                     ),
                     scale_down_idle_time_in_seconds=123,
                     slurm_custom_settings=[pcs.CfnCluster.SlurmCustomSettingProperty(
+                        parameter_name="parameterName",
+                        parameter_value="parameterValue"
+                    )],
+                    slurmdbd_custom_settings=[pcs.CfnCluster.SlurmdbdCustomSettingProperty(
                         parameter_name="parameterName",
                         parameter_value="parameterValue"
                     )],
@@ -1152,21 +1248,27 @@ class CfnCluster(
                 type_hints = typing.get_type_hints(_typecheckingstub__e6bb8855a5cf237041c92e56f09fd1b1d2d40c49f363bfde280100fbfd6f137f)
                 check_type(argname="argument accounting", value=accounting, expected_type=type_hints["accounting"])
                 check_type(argname="argument auth_key", value=auth_key, expected_type=type_hints["auth_key"])
+                check_type(argname="argument cgroup_custom_settings", value=cgroup_custom_settings, expected_type=type_hints["cgroup_custom_settings"])
                 check_type(argname="argument jwt_auth", value=jwt_auth, expected_type=type_hints["jwt_auth"])
                 check_type(argname="argument scale_down_idle_time_in_seconds", value=scale_down_idle_time_in_seconds, expected_type=type_hints["scale_down_idle_time_in_seconds"])
                 check_type(argname="argument slurm_custom_settings", value=slurm_custom_settings, expected_type=type_hints["slurm_custom_settings"])
+                check_type(argname="argument slurmdbd_custom_settings", value=slurmdbd_custom_settings, expected_type=type_hints["slurmdbd_custom_settings"])
                 check_type(argname="argument slurm_rest", value=slurm_rest, expected_type=type_hints["slurm_rest"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if accounting is not None:
                 self._values["accounting"] = accounting
             if auth_key is not None:
                 self._values["auth_key"] = auth_key
+            if cgroup_custom_settings is not None:
+                self._values["cgroup_custom_settings"] = cgroup_custom_settings
             if jwt_auth is not None:
                 self._values["jwt_auth"] = jwt_auth
             if scale_down_idle_time_in_seconds is not None:
                 self._values["scale_down_idle_time_in_seconds"] = scale_down_idle_time_in_seconds
             if slurm_custom_settings is not None:
                 self._values["slurm_custom_settings"] = slurm_custom_settings
+            if slurmdbd_custom_settings is not None:
+                self._values["slurmdbd_custom_settings"] = slurmdbd_custom_settings
             if slurm_rest is not None:
                 self._values["slurm_rest"] = slurm_rest
 
@@ -1191,6 +1293,17 @@ class CfnCluster(
             '''
             result = self._values.get("auth_key")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.AuthKeyProperty"]], result)
+
+        @builtins.property
+        def cgroup_custom_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.CgroupCustomSettingProperty"]]]]:
+            '''Additional cgroup-specific configuration that directly maps to cgroup.conf settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-slurmconfiguration.html#cfn-pcs-cluster-slurmconfiguration-cgroupcustomsettings
+            '''
+            result = self._values.get("cgroup_custom_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.CgroupCustomSettingProperty"]]]], result)
 
         @builtins.property
         def jwt_auth(
@@ -1224,6 +1337,17 @@ class CfnCluster(
             '''
             result = self._values.get("slurm_custom_settings")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.SlurmCustomSettingProperty"]]]], result)
+
+        @builtins.property
+        def slurmdbd_custom_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.SlurmdbdCustomSettingProperty"]]]]:
+            '''Additional slurmdbd-specific configuration that directly maps to slurmdbd.conf settings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-slurmconfiguration.html#cfn-pcs-cluster-slurmconfiguration-slurmdbdcustomsettings
+            '''
+            result = self._values.get("slurmdbd_custom_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.SlurmdbdCustomSettingProperty"]]]], result)
 
         @builtins.property
         def slurm_rest(
@@ -1385,6 +1509,80 @@ class CfnCluster(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_pcs.CfnCluster.SlurmdbdCustomSettingProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "parameter_name": "parameterName",
+            "parameter_value": "parameterValue",
+        },
+    )
+    class SlurmdbdCustomSettingProperty:
+        def __init__(
+            self,
+            *,
+            parameter_name: builtins.str,
+            parameter_value: builtins.str,
+        ) -> None:
+            '''Additional slurmdbd configuration settings.
+
+            :param parameter_name: The slurmdbd.conf parameter name.
+            :param parameter_value: The value for the slurmdbd.conf parameter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-slurmdbdcustomsetting.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_pcs as pcs
+                
+                slurmdbd_custom_setting_property = pcs.CfnCluster.SlurmdbdCustomSettingProperty(
+                    parameter_name="parameterName",
+                    parameter_value="parameterValue"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6c3d9a2ccc4252ec527238d07f93939142bb54c6da5984fd149569b811f9386e)
+                check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+                check_type(argname="argument parameter_value", value=parameter_value, expected_type=type_hints["parameter_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "parameter_name": parameter_name,
+                "parameter_value": parameter_value,
+            }
+
+        @builtins.property
+        def parameter_name(self) -> builtins.str:
+            '''The slurmdbd.conf parameter name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-slurmdbdcustomsetting.html#cfn-pcs-cluster-slurmdbdcustomsetting-parametername
+            '''
+            result = self._values.get("parameter_name")
+            assert result is not None, "Required property 'parameter_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def parameter_value(self) -> builtins.str:
+            '''The value for the slurmdbd.conf parameter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-slurmdbdcustomsetting.html#cfn-pcs-cluster-slurmdbdcustomsetting-parametervalue
+            '''
+            result = self._values.get("parameter_value")
+            assert result is not None, "Required property 'parameter_value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SlurmdbdCustomSettingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_pcs.CfnClusterProps",
@@ -1452,6 +1650,10 @@ class CfnClusterProps:
                         secret_arn="secretArn",
                         secret_version="secretVersion"
                     ),
+                    cgroup_custom_settings=[pcs.CfnCluster.CgroupCustomSettingProperty(
+                        parameter_name="parameterName",
+                        parameter_value="parameterValue"
+                    )],
                     jwt_auth=pcs.CfnCluster.JwtAuthProperty(
                         jwt_key=pcs.CfnCluster.JwtKeyProperty(
                             secret_arn="secretArn",
@@ -1460,6 +1662,10 @@ class CfnClusterProps:
                     ),
                     scale_down_idle_time_in_seconds=123,
                     slurm_custom_settings=[pcs.CfnCluster.SlurmCustomSettingProperty(
+                        parameter_name="parameterName",
+                        parameter_value="parameterValue"
+                    )],
+                    slurmdbd_custom_settings=[pcs.CfnCluster.SlurmdbdCustomSettingProperty(
                         parameter_name="parameterName",
                         parameter_value="parameterValue"
                     )],
@@ -3497,6 +3703,14 @@ def _typecheckingstub__1864f71bcded956851b861671a045d1c7d6402331c1d756c5ac88d21e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__34700b8c18d2d51aa510ae9815d642d1312585a90e5dbb9acac20f2d5b75d339(
+    *,
+    parameter_name: builtins.str,
+    parameter_value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fb46faa4736fd5bede060ea1460c35898193ef49ace1726974a1db8958312929(
     *,
     port: builtins.str,
@@ -3552,9 +3766,11 @@ def _typecheckingstub__e6bb8855a5cf237041c92e56f09fd1b1d2d40c49f363bfde280100fbf
     *,
     accounting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.AccountingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     auth_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.AuthKeyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cgroup_custom_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.CgroupCustomSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     jwt_auth: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.JwtAuthProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scale_down_idle_time_in_seconds: typing.Optional[jsii.Number] = None,
     slurm_custom_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SlurmCustomSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    slurmdbd_custom_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SlurmdbdCustomSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     slurm_rest: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.SlurmRestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3571,6 +3787,14 @@ def _typecheckingstub__b9d168abcd7adc19d99485fc5db81c30bba87bb255608ac3a4487d1a1
 def _typecheckingstub__dee485401e4f46d2d16739316420d1c1cc2ba6becf56d1e02bee193a7be77eb7(
     *,
     mode: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c3d9a2ccc4252ec527238d07f93939142bb54c6da5984fd149569b811f9386e(
+    *,
+    parameter_name: builtins.str,
+    parameter_value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -542,6 +542,21 @@ static sherpa_onnx::OfflineRecognizerConfig GetOfflineRecognizerConfig(
   recognizer_config.model_config.canary.use_pnc =
       config->model_config.canary.use_pnc;
 
+  recognizer_config.model_config.cohere_transcribe.encoder =
+      SHERPA_ONNX_OR(config->model_config.cohere_transcribe.encoder, "");
+
+  recognizer_config.model_config.cohere_transcribe.decoder =
+      SHERPA_ONNX_OR(config->model_config.cohere_transcribe.decoder, "");
+
+  recognizer_config.model_config.cohere_transcribe.language =
+      SHERPA_ONNX_OR(config->model_config.cohere_transcribe.language, "");
+
+  recognizer_config.model_config.cohere_transcribe.use_punct =
+      config->model_config.cohere_transcribe.use_punct;
+
+  recognizer_config.model_config.cohere_transcribe.use_itn =
+      config->model_config.cohere_transcribe.use_itn;
+
   recognizer_config.model_config.wenet_ctc.model =
       SHERPA_ONNX_OR(config->model_config.wenet_ctc.model, "");
 
@@ -581,7 +596,7 @@ static sherpa_onnx::OfflineRecognizerConfig GetOfflineRecognizerConfig(
 
   recognizer_config.model_config.fire_red_asr_ctc.model =
       SHERPA_ONNX_OR(config->model_config.fire_red_asr_ctc.model, "");
-    
+
   recognizer_config.model_config.qwen3_asr.conv_frontend =
       SHERPA_ONNX_OR(config->model_config.qwen3_asr.conv_frontend, "");
   recognizer_config.model_config.qwen3_asr.encoder =
@@ -590,6 +605,8 @@ static sherpa_onnx::OfflineRecognizerConfig GetOfflineRecognizerConfig(
       SHERPA_ONNX_OR(config->model_config.qwen3_asr.decoder, "");
   recognizer_config.model_config.qwen3_asr.tokenizer =
       SHERPA_ONNX_OR(config->model_config.qwen3_asr.tokenizer, "");
+  recognizer_config.model_config.qwen3_asr.hotwords =
+      SHERPA_ONNX_OR(config->model_config.qwen3_asr.hotwords, "");
   recognizer_config.model_config.qwen3_asr.max_total_len =
       SHERPA_ONNX_OR(config->model_config.qwen3_asr.max_total_len, 512);
   recognizer_config.model_config.qwen3_asr.max_new_tokens =
@@ -2026,60 +2043,51 @@ void SherpaOnnxFreeWave(const SherpaOnnxWave *wave) {
   }
 }
 
-struct SherpaOnnxMultiChannelWaveImpl {
-  std::vector<std::vector<float>> samples;
-};
-
-// Internal wrapper that pairs the public C struct with its C++ implementation
-// so that SherpaOnnxFreeMultiChannelWave can recover the impl pointer.
-struct SherpaOnnxMultiChannelWaveInternal {
-  SherpaOnnxMultiChannelWave pub;
-  SherpaOnnxMultiChannelWaveImpl *impl;
+struct SherpaOnnxMultiChannelWaveInternal : SherpaOnnxMultiChannelWave {
+  std::vector<float> flat_samples;
+  std::vector<const float *> channel_ptrs;
 };
 
 const SherpaOnnxMultiChannelWave *SherpaOnnxReadWaveMultiChannel(
     const char *filename) {
   int32_t sample_rate = -1;
   bool is_ok = false;
-  auto samples =
+
+  auto samples_2d =
       sherpa_onnx::ReadWaveMultiChannel(filename, &sample_rate, &is_ok);
-  if (!is_ok || samples.empty()) {
+
+  if (!is_ok || samples_2d.empty()) {
     return nullptr;
   }
 
-  int32_t num_channels = samples.size();
-  int32_t num_samples = samples[0].size();
+  int32_t num_channels = static_cast<int32_t>(samples_2d.size());
+  int32_t num_samples = static_cast<int32_t>(samples_2d[0].size());
 
-  // Allocate the internal storage that owns the data.
-  auto *impl = new SherpaOnnxMultiChannelWaveImpl;
-  impl->samples = std::move(samples);
+  auto *w = new SherpaOnnxMultiChannelWaveInternal();
 
-  // Allocate the arrays of pointers visible to the C caller.
-  const float **channel_ptrs = new const float *[num_channels];
-  for (int32_t c = 0; c < num_channels; ++c) {
-    channel_ptrs[c] = impl->samples[c].data();
+  w->flat_samples.reserve(num_channels * num_samples);
+  for (const auto &channel : samples_2d) {
+    w->flat_samples.insert(w->flat_samples.end(), channel.begin(),
+                           channel.end());
   }
 
-  // Pack everything into the public struct.
-  auto *w = new SherpaOnnxMultiChannelWaveInternal;
-  w->pub.samples = channel_ptrs;
-  w->pub.num_channels = num_channels;
-  w->pub.num_samples = num_samples;
-  w->pub.sample_rate = sample_rate;
-  w->impl = impl;
+  w->channel_ptrs.resize(num_channels);
+  for (int32_t c = 0; c != num_channels; ++c) {
+    w->channel_ptrs[c] = w->flat_samples.data() + (c * num_samples);
+  }
 
-  return &w->pub;
+  w->samples = w->channel_ptrs.data();
+  w->num_channels = num_channels;
+  w->num_samples = num_samples;
+  w->sample_rate = sample_rate;
+
+  return w;
 }
 
 void SherpaOnnxFreeMultiChannelWave(const SherpaOnnxMultiChannelWave *wave) {
-  if (!wave) return;
-  // The SherpaOnnxMultiChannelWave is the first member of
-  // SherpaOnnxMultiChannelWaveInternal, so the pointer values are identical.
-  auto *iw = reinterpret_cast<SherpaOnnxMultiChannelWaveInternal *>(
-      const_cast<SherpaOnnxMultiChannelWave *>(wave));
-  delete[] iw->pub.samples;
-  delete iw->impl;
-  delete iw;
+  if (wave) {
+    delete static_cast<const SherpaOnnxMultiChannelWaveInternal *>(wave);
+  }
 }
 
 struct SherpaOnnxSpokenLanguageIdentification {

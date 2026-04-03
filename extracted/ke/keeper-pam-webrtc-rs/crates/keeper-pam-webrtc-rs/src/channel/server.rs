@@ -349,7 +349,7 @@ async fn handle_tunnel_server_connection(
         let mut read_buffer = buffer_pool_clone.acquire();
         let mut encode_buffer = buffer_pool_clone.acquire();
 
-        const MAX_READ_SIZE: usize = 64 * 1024;
+        const MAX_READ_SIZE: usize = 8 * 1024; // Match WebRTC RECEIVE_MTU
 
         let event_sender =
             EventDrivenSender::new(Arc::new(dc_clone.clone()), STANDARD_BUFFER_THRESHOLD);
@@ -362,6 +362,13 @@ async fn handle_tunnel_server_connection(
         }
 
         loop {
+            // Pause TCP reads when WebRTC send queue is filling up, matching
+            // the backpressure logic in connections.rs.
+            if event_sender.queue_depth() > 5000 {
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                continue;
+            }
+
             read_buffer.clear();
             if read_buffer.capacity() < MAX_READ_SIZE {
                 read_buffer.reserve(MAX_READ_SIZE - read_buffer.capacity());
@@ -529,7 +536,7 @@ async fn handle_generic_server_connection(
         let mut read_buffer = buffer_pool_clone.acquire();
         let mut encode_buffer = buffer_pool_clone.acquire();
 
-        const MAX_READ_SIZE: usize = 64 * 1024;
+        const MAX_READ_SIZE: usize = 8 * 1024; // Match WebRTC RECEIVE_MTU
 
         let event_sender =
             EventDrivenSender::new(Arc::new(dc_clone.clone()), STANDARD_BUFFER_THRESHOLD);
@@ -542,6 +549,13 @@ async fn handle_generic_server_connection(
         }
 
         loop {
+            // Pause TCP reads when WebRTC send queue is filling up, matching
+            // the backpressure logic in connections.rs.
+            if event_sender.queue_depth() > 5000 {
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                continue;
+            }
+
             read_buffer.clear();
             if read_buffer.capacity() < MAX_READ_SIZE {
                 read_buffer.reserve(MAX_READ_SIZE - read_buffer.capacity());

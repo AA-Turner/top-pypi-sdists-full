@@ -90,7 +90,7 @@ def mock_capa_block():
         return "i4x://Foo/bar/mock/abc"
 
     capa_block = Mock()
-    capa_block.location.__str__ = mock_location_text
+    capa_block.usage_key.__str__ = mock_location_text
     # The following comes into existence by virtue of being called
     # capa_block.runtime.publish
     return capa_block

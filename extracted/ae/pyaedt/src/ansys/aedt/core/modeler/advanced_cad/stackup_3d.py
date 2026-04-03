@@ -23,17 +23,10 @@
 # SOFTWARE.
 
 
-from typing import TYPE_CHECKING
-
 from ansys.aedt.core import constants
 from ansys.aedt.core.base import PyAedtBase
 from ansys.aedt.core.generic.file_utils import generate_unique_name
 from ansys.aedt.core.generic.general_methods import pyaedt_function_handler
-
-if TYPE_CHECKING:
-    from ansys.aedt.core.hfss import Hfss
-    from ansys.aedt.core.modeler.cad.object_3d import Object3d
-    from ansys.aedt.core.modules.boundary.common import BoundaryObject
 from ansys.aedt.core.modules.material_lib import Material
 
 LAYERS = {"s": "signal", "g": "ground", "d": "dielectric"}
@@ -108,17 +101,17 @@ class NamedVariable(PyAedtBase):
         return self._application.variable_manager.variables[self._name]
 
     @property
-    def name(self) -> str:
+    def name(self):
         """Name of the variable as a string."""
         return self._name
 
     @property
-    def expression(self) -> str:
+    def expression(self):
         """Expression of the variable as a string."""
         return self._expression
 
     @expression.setter
-    def expression(self, expression: str) -> None:
+    def expression(self, expression) -> None:
         """Set the expression of the variable.
 
         Parameters
@@ -133,27 +126,27 @@ class NamedVariable(PyAedtBase):
             self._application.logger.error("Expression must be a string")
 
     @property
-    def unit_system(self) -> str:
+    def unit_system(self):
         """Unit system of the expression as a string."""
         return self._variable.unit_system
 
     @property
-    def units(self) -> str:
+    def units(self):
         """Units."""
         return self._variable.units
 
     @property
-    def value(self) -> str:
+    def value(self):
         """Value."""
         return self._variable.si_value
 
     @property
-    def numeric_value(self) -> float:
+    def numeric_value(self):
         """Numeric part of the expression as a float value."""
         return self._variable.numeric_value
 
     @property
-    def evaluated_value(self) -> str:
+    def evaluated_value(self):
         """String that combines the numeric value and the units."""
         return self._variable.evaluated_value
 
@@ -267,31 +260,31 @@ class DuplicatedParametrizedMaterial(PyAedtBase):
             application.logger.error("The material name %s doesn't exist" % material_name)
 
     @property
-    def material(self) -> "Material":
+    def material(self):
         return self._material
 
     @property
-    def material_name(self) -> str:
+    def material_name(self):
         return self._material_name
 
     @property
-    def permittivity(self) -> "NamedVariable":
+    def permittivity(self):
         return self._permittivity
 
     @property
-    def permeability(self) -> "NamedVariable":
+    def permeability(self):
         return self._permeability
 
     @property
-    def conductivity(self) -> "NamedVariable":
+    def conductivity(self):
         return self._conductivity
 
     @property
-    def dielectric_loss_tangent(self) -> "NamedVariable":
+    def dielectric_loss_tangent(self):
         return self._dielectric_loss_tangent
 
     @property
-    def magnetic_loss_tangent(self) -> "NamedVariable":
+    def magnetic_loss_tangent(self):
         return self._magnetic_loss_tangent
 
 
@@ -422,7 +415,7 @@ class Layer3D(PyAedtBase):
             self._app.logger.error("Generation of the ground layer does not work.")
 
     @property
-    def name(self) -> str:
+    def name(self):
         """Layer name.
 
         Returns
@@ -432,7 +425,7 @@ class Layer3D(PyAedtBase):
         return self._name
 
     @property
-    def type(self) -> str:
+    def type(self):
         """Layer type.
 
         Returns
@@ -442,7 +435,7 @@ class Layer3D(PyAedtBase):
         return self._layer_type
 
     @property
-    def number(self) -> int:
+    def number(self):
         """Layer ID.
 
         Returns
@@ -452,7 +445,7 @@ class Layer3D(PyAedtBase):
         return self._index
 
     @property
-    def material_name(self) -> str:
+    def material_name(self):
         """Material name.
 
         Returns
@@ -462,7 +455,7 @@ class Layer3D(PyAedtBase):
         return self._material.name
 
     @property
-    def material(self) -> "Material":
+    def material(self):
         """Material.
 
         Returns
@@ -473,7 +466,7 @@ class Layer3D(PyAedtBase):
         return self._material
 
     @property
-    def duplicated_material(self) -> "DuplicatedParametrizedMaterial":
+    def duplicated_material(self):
         """Duplicated material.
 
         Returns
@@ -484,7 +477,7 @@ class Layer3D(PyAedtBase):
         return self._duplicated_material
 
     @property
-    def filling_material(self) -> "Material":
+    def filling_material(self):
         """Fill material.
 
         Returns
@@ -495,7 +488,7 @@ class Layer3D(PyAedtBase):
         return self._fill_material
 
     @property
-    def filling_material_name(self) -> str:
+    def filling_material_name(self):
         """Fill material name.
 
         Returns
@@ -505,7 +498,7 @@ class Layer3D(PyAedtBase):
         return self._fill_material_name
 
     @property
-    def thickness(self) -> "NamedVariable":
+    def thickness(self):
         """Thickness variable.
 
         Returns
@@ -516,7 +509,7 @@ class Layer3D(PyAedtBase):
         return self._thickness
 
     @property
-    def thickness_value(self) -> float | str:
+    def thickness_value(self):
         """Thickness value.
 
 
@@ -531,7 +524,7 @@ class Layer3D(PyAedtBase):
         self._thickness.expression = value
 
     @property
-    def elevation(self) -> "NamedVariable":
+    def elevation(self):
         """Layer elevation.
 
         Returns
@@ -542,7 +535,7 @@ class Layer3D(PyAedtBase):
         return self._position
 
     @property
-    def elevation_value(self) -> float | str:
+    def elevation_value(self):
         """Layer elevation value.
 
         Returns
@@ -552,7 +545,7 @@ class Layer3D(PyAedtBase):
         return self._app.variable_manager[self._position.name].value
 
     @property
-    def stackup(self) -> "Stackup3D":
+    def stackup(self):
         """Stackup.
 
         Returns
@@ -562,7 +555,7 @@ class Layer3D(PyAedtBase):
         return self._stackup
 
     @property
-    def frequency(self) -> "NamedVariable":
+    def frequency(self):
         """Frequency variable.
 
         Returns
@@ -574,16 +567,16 @@ class Layer3D(PyAedtBase):
     @pyaedt_function_handler()
     def duplicate_parametrize_material(
         self,
-        material_name: str,
-        cloned_material_name: str = None,
-        list_of_properties: tuple = (
+        material_name,
+        cloned_material_name=None,
+        list_of_properties=(
             "permittivity",
             "permeability",
             "conductivity",
             "dielectric_loss_tangent",
             "magnetic_loss_tangent",
         ),
-    ) -> "DuplicatedParametrizedMaterial":
+    ):
         """Duplicate a material and parametrize all properties.
 
         Parameters
@@ -622,14 +615,14 @@ class Layer3D(PyAedtBase):
     @pyaedt_function_handler()
     def add_patch(
         self,
-        frequency: float | None,
-        patch_width: float,
-        patch_length: float = None,
+        frequency,
+        patch_width,
+        patch_length=None,
         patch_position_x: int = 0,
         patch_position_y: int = 0,
-        patch_name: str | None = None,
+        patch_name=None,
         axis: str = "X",
-    ) -> "Patch":
+    ):
         """Create a parametric patch.
 
         Parameters
@@ -698,17 +691,17 @@ class Layer3D(PyAedtBase):
     @pyaedt_function_handler()
     def add_trace(
         self,
-        line_width: float,
-        line_length: float,
+        line_width,
+        line_length,
         is_electrical_length: bool = False,
         is_impedance: bool = False,
         line_position_x: int = 0,
         line_position_y: int = 0,
-        line_name: str = None,
+        line_name=None,
         axis: str = "X",
-        reference_system: str = None,
+        reference_system=None,
         frequency: float = 1e9,
-    ) -> "Trace":
+    ):
         """Create a trace.
 
         Parameters
@@ -791,9 +784,7 @@ class Layer3D(PyAedtBase):
         return created_line
 
     @pyaedt_function_handler()
-    def add_polygon(
-        self, points: list, material: str | None = "copper", is_void: bool = False, poly_name: str | None = None
-    ) -> "Polygon":
+    def add_polygon(self, points, material: str | None = "copper", is_void: bool = False, poly_name=None):
         """Create a polygon.
 
         Parameters
@@ -876,7 +867,7 @@ class PadstackLayer(PyAedtBase):
         self._units = "mm"
 
     @property
-    def layer_name(self) -> str:
+    def layer_name(self):
         """Padstack instance layer.
 
         Returns
@@ -887,7 +878,7 @@ class PadstackLayer(PyAedtBase):
         return self._layer_name
 
     @property
-    def pad_radius(self) -> float:
+    def pad_radius(self):
         """Pad radius on the specified layer.
 
         Returns
@@ -902,7 +893,7 @@ class PadstackLayer(PyAedtBase):
         self._pad_radius = value
 
     @property
-    def antipad_radius(self) -> float:
+    def antipad_radius(self):
         """Antipad radius on the specified layer.
 
         Returns
@@ -913,7 +904,7 @@ class PadstackLayer(PyAedtBase):
         return self._antipad_radius
 
     @antipad_radius.setter
-    def antipad_radius(self, value: float) -> None:
+    def antipad_radius(self, value) -> None:
         self._antipad_radius = value
 
 
@@ -938,7 +929,7 @@ class Padstack(PyAedtBase):
         self._padstacks_material = material
 
     @property
-    def plating_ratio(self) -> float:
+    def plating_ratio(self):
         """Plating ratio between 0 and 1.
 
         Returns
@@ -948,7 +939,7 @@ class Padstack(PyAedtBase):
         return self._plating_ratio
 
     @plating_ratio.setter
-    def plating_ratio(self, val: float | str) -> None:
+    def plating_ratio(self, val) -> None:
         if isinstance(val, (float, int)) and 0 < val <= 1:
             self._plating_ratio = val
         elif isinstance(val, str):
@@ -957,7 +948,7 @@ class Padstack(PyAedtBase):
             self._app.logger.error("Plating has to be between 0 and 1.")
 
     @property
-    def padstacks_by_layer(self) -> dict:
+    def padstacks_by_layer(self):
         """Get the padstack definitions by layers.
 
         Returns
@@ -968,7 +959,7 @@ class Padstack(PyAedtBase):
         return self._padstacks_by_layer
 
     @property
-    def num_sides(self) -> int:
+    def num_sides(self):
         """Number of sides on the circle, which is ``0`` for a true circle.
 
         Returns
@@ -978,11 +969,11 @@ class Padstack(PyAedtBase):
         return self._num_sides
 
     @num_sides.setter
-    def num_sides(self, val: int) -> None:
+    def num_sides(self, val) -> None:
         self._num_sides = val
 
     @pyaedt_function_handler()
-    def set_all_pad_value(self, value: float) -> bool:
+    def set_all_pad_value(self, value) -> bool:
         """Set all pads in all layers to a specified value.
 
         Parameters
@@ -1000,7 +991,7 @@ class Padstack(PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def set_all_antipad_value(self, value: float) -> bool:
+    def set_all_antipad_value(self, value) -> bool:
         """Set all antipads in all layers to a specified value.
 
         Parameters
@@ -1018,7 +1009,7 @@ class Padstack(PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def set_start_layer(self, layer: str) -> bool:
+    def set_start_layer(self, layer) -> bool:
         """Set the start layer to a specified value.
 
         Parameters
@@ -1047,7 +1038,7 @@ class Padstack(PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def set_stop_layer(self, layer: str) -> bool:
+    def set_stop_layer(self, layer) -> bool:
         """Set the stop layer to a specified value.
 
         Parameters
@@ -1072,9 +1063,7 @@ class Padstack(PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def add_via(
-        self, position_x: float = 0, position_y: float = 0, instance_name: str = None, reference_system: str = None
-    ) -> "Object3d":
+    def add_via(self, position_x: int = 0, position_y: int = 0, instance_name=None, reference_system=None):
         """Insert a new via on this padstack.
 
         Parameters
@@ -1212,7 +1201,7 @@ class Stackup3D(PyAedtBase):
         self._padstacks = []
 
     @property
-    def thickness(self) -> "NamedVariable":
+    def thickness(self):
         """Total stackup thickness.
 
         Returns
@@ -1222,7 +1211,7 @@ class Stackup3D(PyAedtBase):
         return self._stackup_thickness
 
     @property
-    def application(self) -> "Hfss":
+    def application(self):
         """Application object.
 
         Returns
@@ -1232,7 +1221,7 @@ class Stackup3D(PyAedtBase):
         return self._app
 
     @property
-    def padstacks(self) -> list:
+    def padstacks(self):
         """List of definitions created.
 
         Returns
@@ -1242,7 +1231,7 @@ class Stackup3D(PyAedtBase):
         return self._padstacks
 
     @property
-    def dielectrics(self) -> list:
+    def dielectrics(self):
         """List of dielectrics created.
 
         Returns
@@ -1252,7 +1241,7 @@ class Stackup3D(PyAedtBase):
         return self._dielectric_list
 
     @property
-    def grounds(self) -> list:
+    def grounds(self):
         """List of grounds created.
 
         Returns
@@ -1262,7 +1251,7 @@ class Stackup3D(PyAedtBase):
         return self._ground_list
 
     @property
-    def signals(self) -> list:
+    def signals(self):
         """List of signals created.
 
         Returns
@@ -1272,7 +1261,7 @@ class Stackup3D(PyAedtBase):
         return self._signal_list
 
     @property
-    def objects(self) -> list:
+    def objects(self):
         """List of objects created.
 
         Returns
@@ -1282,12 +1271,12 @@ class Stackup3D(PyAedtBase):
         return self._object_list
 
     @property
-    def objects_by_layer(self) -> dict:
+    def objects_by_layer(self):
         """List of definitions created.
 
         Returns
         -------
-        dict
+        List
         """
         objs = {}
         for obj in self.objects:
@@ -1298,7 +1287,7 @@ class Stackup3D(PyAedtBase):
         return objs
 
     @property
-    def start_position(self) -> "NamedVariable":
+    def start_position(self):
         """Variable containing the start position.
 
         Returns
@@ -1308,11 +1297,11 @@ class Stackup3D(PyAedtBase):
         return self._start_position
 
     @start_position.setter
-    def start_position(self, expression: str) -> None:
+    def start_position(self, expression) -> None:
         self._start_position.expression = expression
 
     @property
-    def dielectric_x_position(self) -> "NamedVariable":
+    def dielectric_x_position(self):
         """Stackup x origin.
 
         Returns
@@ -1323,11 +1312,11 @@ class Stackup3D(PyAedtBase):
         return self._dielectric_x_position
 
     @dielectric_x_position.setter
-    def dielectric_x_position(self, expression: str) -> None:
+    def dielectric_x_position(self, expression) -> None:
         self._dielectric_x_position.expression = expression
 
     @property
-    def dielectric_y_position(self) -> "NamedVariable":
+    def dielectric_y_position(self):
         """Stackup y origin.
 
         Returns
@@ -1335,14 +1324,14 @@ class Stackup3D(PyAedtBase):
         :class:`ansys.aedt.core.modeler.advanced_cad.stackup_3d.NamedVariable`
             Variable object.
         """
-        return self._dielectric_y_position
+        return self._dielectric_x_position
 
     @dielectric_y_position.setter
-    def dielectric_y_position(self, expression: str) -> None:
+    def dielectric_y_position(self, expression) -> None:
         self._dielectric_y_position.expression = expression
 
     @property
-    def dielectric_width(self) -> "NamedVariable":
+    def dielectric_width(self):
         """Stackup width.
 
         Returns
@@ -1353,11 +1342,11 @@ class Stackup3D(PyAedtBase):
         return self._dielectric_width
 
     @dielectric_width.setter
-    def dielectric_width(self, expression: str) -> None:
+    def dielectric_width(self, expression) -> None:
         self._dielectric_width.expression = expression
 
     @property
-    def dielectric_length(self) -> "NamedVariable":
+    def dielectric_length(self):
         """Stackup length.
 
         Returns
@@ -1368,11 +1357,11 @@ class Stackup3D(PyAedtBase):
         return self._dielectric_length
 
     @dielectric_length.setter
-    def dielectric_length(self, expression: str) -> None:
+    def dielectric_length(self, expression) -> None:
         self._dielectric_length.expression = expression
 
     @property
-    def layer_names(self) -> list:
+    def layer_names(self):
         """List of all layer names.
 
         Returns
@@ -1382,17 +1371,17 @@ class Stackup3D(PyAedtBase):
         return self._layer_name
 
     @property
-    def layer_positions(self) -> list:
+    def layer_positions(self):
         """List of all layer positions.
 
         Returns
         -------
-        list
+        List
         """
         return self._layer_position
 
     @property
-    def stackup_layers(self) -> dict:
+    def stackup_layers(self):
         """Dictionary of all stackup layers.
 
         Returns
@@ -1402,17 +1391,17 @@ class Stackup3D(PyAedtBase):
         return self._stackup
 
     @property
-    def z_position_offset(self) -> float:
+    def z_position_offset(self):
         """Elevation.
 
         Returns
         -------
-        float
+
         """
         return self._z_position_offset
 
     @property
-    def frequency(self) -> "NamedVariable":
+    def frequency(self):
         """Frequency variable.
 
         Returns
@@ -1422,17 +1411,17 @@ class Stackup3D(PyAedtBase):
         return self._frequency
 
     @property
-    def duplicated_material_list(self) -> list:
+    def duplicated_material_list(self):
         """List of all duplicated material.
 
         Returns
         -------
-        list
+        List
         """
         return self._duplicated_material_list
 
     @pyaedt_function_handler()
-    def add_padstack(self, name: str, material: str | None = "copper") -> "Padstack":
+    def add_padstack(self, name: str, material: str | None = "copper"):
         """Add a new padstack definition.
 
         Parameters
@@ -1459,7 +1448,7 @@ class Stackup3D(PyAedtBase):
         thickness: float = 0.035,
         fill_material: str | None = "FR4_epoxy",
         frequency=None,
-    ) -> "Layer3D":
+    ):
         """Add a new layer to the stackup.
 
         The new layer can be a signal (S), ground (G), or dielectric (D).
@@ -1545,8 +1534,8 @@ class Stackup3D(PyAedtBase):
         material: str = "copper",
         thickness: float = 0.035,
         fill_material: str = "FR4_epoxy",
-        frequency: float = None,
-    ) -> "Layer3D":
+        frequency=None,
+    ):
         """Add a new ground layer to the stackup.
 
         A signal layer is positive. The layer is entirely filled with the fill material.
@@ -1596,9 +1585,7 @@ class Stackup3D(PyAedtBase):
         )
 
     @pyaedt_function_handler()
-    def add_dielectric_layer(
-        self, name: str, material: str = "FR4_epoxy", thickness: float = 0.035, frequency: float = None
-    ) -> "Layer3D":
+    def add_dielectric_layer(self, name: str, material: str = "FR4_epoxy", thickness: float = 0.035, frequency=None):
         """Add a new dielectric layer to the stackup.
 
         Parameters
@@ -1643,8 +1630,8 @@ class Stackup3D(PyAedtBase):
         material: str | None = "copper",
         thickness: float = 0.035,
         fill_material: str = "air",
-        frequency: float = None,
-    ) -> "Layer3D":
+        frequency=None,
+    ):
         """Add a new ground layer to the stackup.
 
         A ground layer is negative.
@@ -1688,7 +1675,7 @@ class Stackup3D(PyAedtBase):
         )
 
     @pyaedt_function_handler()
-    def _layer_position_manager(self, layer):
+    def _layer_position_manager(self, layer) -> None:
         """Set the last layer of the stackup.
 
         Parameters
@@ -1708,7 +1695,7 @@ class Stackup3D(PyAedtBase):
             self._end_of_stackup3D.expression = layer.elevation.name
 
     @pyaedt_function_handler()
-    def resize(self, percentage_offset: float) -> bool:
+    def resize(self, percentage_offset) -> bool:
         """Resize the stackup around objects created by a percentage offset.
 
         Parameters
@@ -1759,7 +1746,7 @@ class Stackup3D(PyAedtBase):
         )
         return True
 
-    def resize_around_element(self, element: "CommonObject", percentage_offset: float = 0.25) -> bool:
+    def resize_around_element(self, element, percentage_offset: float = 0.25) -> bool:
         """Resize the stackup around parametrized objects and make it parametrize.
 
         Parameters
@@ -1813,7 +1800,7 @@ class CommonObject(PyAedtBase):
         self._reference_system = None
 
     @property
-    def reference_system(self) -> str:
+    def reference_system(self):
         """Coordinate system of the object.
 
         Returns
@@ -1823,7 +1810,7 @@ class CommonObject(PyAedtBase):
         return self._reference_system
 
     @property
-    def dielectric_layer(self) -> "Layer3D":
+    def dielectric_layer(self):
         """Dielectric layer that the object belongs to.
 
         Returns
@@ -1833,7 +1820,7 @@ class CommonObject(PyAedtBase):
         return self._dielectric_layer
 
     @property
-    def signal_layer(self) -> "Layer3D":
+    def signal_layer(self):
         """Signal layer that the object belongs to.
 
         Returns
@@ -1843,7 +1830,7 @@ class CommonObject(PyAedtBase):
         return self._signal_layer
 
     @property
-    def name(self) -> str:
+    def name(self):
         """Object name.
 
         Returns
@@ -1853,12 +1840,12 @@ class CommonObject(PyAedtBase):
         return self._name
 
     @property
-    def application(self) -> "Hfss":
+    def application(self):
         """App object."""
         return self._app
 
     @property
-    def aedt_object(self) -> "Object3d":
+    def aedt_object(self):
         """PyAEDT object 3D.
 
         Returns
@@ -1868,7 +1855,7 @@ class CommonObject(PyAedtBase):
         return self._aedt_object
 
     @property
-    def layer_name(self) -> str:
+    def layer_name(self):
         """Layer name.
 
         Returns
@@ -1878,7 +1865,7 @@ class CommonObject(PyAedtBase):
         return self._layer_name
 
     @property
-    def layer_number(self) -> int:
+    def layer_number(self):
         """Layer ID.
 
         Returns
@@ -1888,7 +1875,7 @@ class CommonObject(PyAedtBase):
         return self._layer_number
 
     @property
-    def material_name(self) -> str:
+    def material_name(self):
         """Material name.
 
         Returns
@@ -1898,7 +1885,7 @@ class CommonObject(PyAedtBase):
         return self._material_name
 
     @property
-    def points_on_layer(self) -> list:
+    def points_on_layer(self):
         """Object bounding box.
 
         Returns
@@ -2077,7 +2064,7 @@ class Patch(CommonObject, PyAedtBase):
         application.modeler.subtract(blank_list=[signal_layer.name], tool_list=[patch_name], keep_originals=True)
 
     @property
-    def frequency(self) -> "NamedVariable":
+    def frequency(self):
         """Model frequency.
 
         Returns
@@ -2088,7 +2075,7 @@ class Patch(CommonObject, PyAedtBase):
         return self._frequency
 
     @property
-    def substrate_thickness(self) -> "NamedVariable":
+    def substrate_thickness(self):
         """Substrate thickness.
 
         Returns
@@ -2099,7 +2086,7 @@ class Patch(CommonObject, PyAedtBase):
         return self._substrate_thickness
 
     @property
-    def width(self) -> "NamedVariable":
+    def width(self):
         """Width.
 
         Returns
@@ -2110,7 +2097,7 @@ class Patch(CommonObject, PyAedtBase):
         return self._width
 
     @property
-    def position_x(self) -> "NamedVariable":
+    def position_x(self):
         """Starting position X.
 
         Returns
@@ -2121,7 +2108,7 @@ class Patch(CommonObject, PyAedtBase):
         return self._position_x
 
     @property
-    def position_y(self) -> "NamedVariable":
+    def position_y(self):
         """Starting position Y.
 
         Returns
@@ -2132,7 +2119,7 @@ class Patch(CommonObject, PyAedtBase):
         return self._position_y
 
     @property
-    def permittivity(self) -> "NamedVariable":
+    def permittivity(self):
         """Permittivity.
 
         Returns
@@ -2143,7 +2130,7 @@ class Patch(CommonObject, PyAedtBase):
         return self._permittivity
 
     @property
-    def _permittivity_calcul(self) -> "NamedVariable":
+    def _permittivity_calcul(self):
         """Permittivity calculation.
 
         Returns
@@ -2155,7 +2142,7 @@ class Patch(CommonObject, PyAedtBase):
         return self._permittivity
 
     @property
-    def effective_permittivity(self) -> "NamedVariable":
+    def effective_permittivity(self):
         """Effective permittivity.
 
         Returns
@@ -2166,7 +2153,7 @@ class Patch(CommonObject, PyAedtBase):
         return self._effective_permittivity
 
     @property
-    def _effective_permittivity_calcul(self) -> "NamedVariable":
+    def _effective_permittivity_calcul(self):
         """Create a NamedVariable containing the calculation of the patch effective permittivity and return it.
 
         Returns
@@ -2186,7 +2173,7 @@ class Patch(CommonObject, PyAedtBase):
         return self._effective_permittivity
 
     @property
-    def added_length(self) -> "NamedVariable":
+    def added_length(self):
         """Added length calculation.
 
         Returns
@@ -2219,7 +2206,7 @@ class Patch(CommonObject, PyAedtBase):
         return self._added_length
 
     @property
-    def wave_length(self) -> "NamedVariable":
+    def wave_length(self):
         """Wave length.
 
         Returns
@@ -2250,7 +2237,7 @@ class Patch(CommonObject, PyAedtBase):
         return self._wave_length
 
     @property
-    def length(self) -> "NamedVariable":
+    def length(self):
         """Length.
 
         Returns
@@ -2277,7 +2264,7 @@ class Patch(CommonObject, PyAedtBase):
         return self._length
 
     @property
-    def impedance(self) -> tuple["NamedVariable", "NamedVariable"]:
+    def impedance(self):
         """Impedance.
 
         Returns
@@ -2288,7 +2275,7 @@ class Patch(CommonObject, PyAedtBase):
         return self._impedance_l_w, self._impedance_w_l
 
     @property
-    def _impedance_calcul(self) -> tuple["NamedVariable", "NamedVariable"]:
+    def _impedance_calcul(self):
         """Create NamedVariable containing the calculations of the patch impedance and return it.
 
         Returns
@@ -2323,12 +2310,7 @@ class Patch(CommonObject, PyAedtBase):
         return self._impedance_l_w, self._impedance_w_l
 
     def create_probe_port(
-        self,
-        reference_layer: "Layer3D",
-        rel_x_offset: int = 0,
-        rel_y_offset: int = 0,
-        r: float = 0.01,
-        name: str = "Probe",
+        self, reference_layer, rel_x_offset: int = 0, rel_y_offset: int = 0, r: float = 0.01, name: str = "Probe"
     ) -> None:
         """Create a coaxial probe port for the patch.
 
@@ -2426,9 +2408,7 @@ class Patch(CommonObject, PyAedtBase):
             probe_feed_outer.bottom_face_z, reference=probe_feed_outer.name, create_pec_cap=True, name="Probe_Port"
         )
 
-    def create_lumped_port(
-        self, reference_layer: "Layer3D", opposite_side: bool = False, port_name=None, axisdir=None
-    ) -> bool:
+    def create_lumped_port(self, reference_layer, opposite_side: bool = False, port_name=None, axisdir=None):
         """Create a parametrized lumped port.
 
         Parameters
@@ -2489,7 +2469,7 @@ class Patch(CommonObject, PyAedtBase):
             port = self.application.lumped_port(rect.name, reference=[reference_layer.name], name=port_name)
         return port
 
-    def quarter_wave_feeding_line(self, impedance_to_adapt: int = 50) -> "Trace":
+    def quarter_wave_feeding_line(self, impedance_to_adapt: int = 50):
         """Create a Trace to feed the patch.
 
         The trace length is the quarter wavelength, and this width is calculated
@@ -2756,7 +2736,7 @@ class Trace(CommonObject, PyAedtBase):
         application.modeler.subtract(blank_list=[signal_layer.name], tool_list=[line_name], keep_originals=True)
 
     @property
-    def frequency(self) -> "NamedVariable":
+    def frequency(self):
         """Frequency.
 
         Returns
@@ -2767,7 +2747,7 @@ class Trace(CommonObject, PyAedtBase):
         return self._frequency
 
     @property
-    def substrate_thickness(self) -> "NamedVariable":
+    def substrate_thickness(self):
         """Substrate Thickness.
 
         Returns
@@ -2778,7 +2758,7 @@ class Trace(CommonObject, PyAedtBase):
         return self._substrate_thickness
 
     @property
-    def width(self) -> "NamedVariable":
+    def width(self):
         """Width.
 
         Returns
@@ -2796,7 +2776,7 @@ class Trace(CommonObject, PyAedtBase):
         return self._width_w_h
 
     @property
-    def width_h_w(self) -> "NamedVariable":
+    def width_h_w(self):
         """Width when the substrat thickness is two times upper than the width.
 
         Returns
@@ -2808,7 +2788,7 @@ class Trace(CommonObject, PyAedtBase):
             return self._width_h_w
 
     @property
-    def width_w_h(self) -> "NamedVariable":
+    def width_w_h(self):
         """Width when the width is two times upper than substrat thickness.
 
         Returns
@@ -2879,7 +2859,7 @@ class Trace(CommonObject, PyAedtBase):
         return self._width_w_h, self._width_h_w
 
     @property
-    def position_x(self) -> "NamedVariable":
+    def position_x(self):
         """Starting Position X.
 
         Returns
@@ -2890,7 +2870,7 @@ class Trace(CommonObject, PyAedtBase):
         return self._position_x
 
     @property
-    def position_y(self) -> "NamedVariable":
+    def position_y(self):
         """Starting Position Y.
 
         Returns
@@ -2901,7 +2881,7 @@ class Trace(CommonObject, PyAedtBase):
         return self._position_y
 
     @property
-    def permittivity(self) -> "NamedVariable":
+    def permittivity(self):
         """Permittivity.
 
         Returns
@@ -2929,7 +2909,7 @@ class Trace(CommonObject, PyAedtBase):
         return self._permittivity
 
     @property
-    def added_length(self) -> "NamedVariable":
+    def added_length(self):
         """Added Length.
 
         Returns
@@ -2962,7 +2942,7 @@ class Trace(CommonObject, PyAedtBase):
         return self._added_length
 
     @property
-    def length(self) -> "NamedVariable":
+    def length(self):
         """Length.
 
         Returns
@@ -2989,7 +2969,7 @@ class Trace(CommonObject, PyAedtBase):
         return self._length
 
     @property
-    def charac_impedance(self) -> "NamedVariable":
+    def charac_impedance(self):
         """Characteristic Impedance.
 
         Returns
@@ -3028,7 +3008,7 @@ class Trace(CommonObject, PyAedtBase):
         return self._charac_impedance_w_h, self._charac_impedance_h_w
 
     @property
-    def effective_permittivity(self) -> "NamedVariable":
+    def effective_permittivity(self):
         """Effective Permittivity.
 
         Returns
@@ -3042,7 +3022,7 @@ class Trace(CommonObject, PyAedtBase):
             return self._effective_permittivity_h_w
 
     @property
-    def effective_permittivity_w_h(self) -> "NamedVariable":
+    def effective_permittivity_w_h(self):
         """Effective Permittivity when width is upper than dielectric thickness.
 
         Returns
@@ -3053,7 +3033,7 @@ class Trace(CommonObject, PyAedtBase):
         return self._effective_permittivity_w_h
 
     @property
-    def effective_permittivity_h_w(self) -> "NamedVariable":
+    def effective_permittivity_h_w(self):
         """Effective Permittivity when dielectric thickness is upper than width.
 
         Returns
@@ -3105,7 +3085,7 @@ class Trace(CommonObject, PyAedtBase):
         return self._effective_permittivity_w_h, self._effective_permittivity_h_w
 
     @property
-    def wave_length(self) -> "NamedVariable":
+    def wave_length(self):
         """Wave Length.
 
         Returns
@@ -3137,7 +3117,7 @@ class Trace(CommonObject, PyAedtBase):
         return self._wave_length
 
     @property
-    def electrical_length(self) -> "NamedVariable":
+    def electrical_length(self):
         """Electrical Length.
 
         Returns
@@ -3163,9 +3143,7 @@ class Trace(CommonObject, PyAedtBase):
         self._electrical_length = NamedVariable(self.application, self._name + "_elec_length", elec_length_formula)
         return self._electrical_length
 
-    def create_lumped_port(
-        self, reference_layer: "Layer3D", opposite_side: bool = False, port_name: str = None, axisdir: int | None = None
-    ) -> "BoundaryObject":
+    def create_lumped_port(self, reference_layer, opposite_side: bool = False, port_name=None, axisdir=None):
         """Create a parametrized lumped port.
 
         Parameters
@@ -3324,7 +3302,7 @@ class Polygon(CommonObject, PyAedtBase):
         application.modeler.set_working_coordinate_system("Global")
 
     @property
-    def points_on_layer(self) -> list:
+    def points_on_layer(self):
         """Object Bounding Box.
 
         Returns

@@ -288,6 +288,9 @@ fn make_url_safe(s: &str) -> String {
 }
 
 /// Build the appropriate RecordingSink from config.
+#[cfg(test)]
+mod tests;
+
 pub async fn build_sink(config: VideoRecordingConfig) -> Result<Box<dyn RecordingSink>> {
     let dest = config.destination.clone();
     match dest {

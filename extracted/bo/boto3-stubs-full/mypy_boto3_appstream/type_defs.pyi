@@ -43,6 +43,7 @@ from .literals import (
     ImageStateChangeReasonCodeType,
     ImageStateType,
     ImageTypeType,
+    InstanceDrainStatusType,
     LatestAppstreamAgentVersionType,
     MessageActionType,
     PackagingTypeType,
@@ -201,6 +202,7 @@ __all__ = (
     "DisassociateFleetRequestTypeDef",
     "DisassociateSoftwareFromImageBuilderRequestTypeDef",
     "DomainJoinInfoTypeDef",
+    "DrainSessionInstanceRequestTypeDef",
     "EnableUserRequestTypeDef",
     "EntitledApplicationTypeDef",
     "EntitlementAttributeTypeDef",
@@ -399,6 +401,9 @@ class ComputeCapacityStatusTypeDef(TypedDict):
     AvailableUserSessions: NotRequired[int]
     ActiveUserSessions: NotRequired[int]
     ActualUserSessions: NotRequired[int]
+    Draining: NotRequired[int]
+    DrainModeActiveUserSessions: NotRequired[int]
+    DrainModeUnusedUserSessions: NotRequired[int]
 
 class ComputeCapacityTypeDef(TypedDict):
     DesiredInstances: NotRequired[int]
@@ -676,6 +681,9 @@ class DisassociateFleetRequestTypeDef(TypedDict):
 class DisassociateSoftwareFromImageBuilderRequestTypeDef(TypedDict):
     ImageBuilderName: str
     SoftwareNames: Sequence[str]
+
+class DrainSessionInstanceRequestTypeDef(TypedDict):
+    SessionId: str
 
 class EnableUserRequestTypeDef(TypedDict):
     UserName: str
@@ -1173,6 +1181,7 @@ class SessionTypeDef(TypedDict):
     AuthenticationType: NotRequired[AuthenticationTypeType]
     NetworkAccessConfiguration: NotRequired[NetworkAccessConfigurationTypeDef]
     InstanceId: NotRequired[str]
+    InstanceDrainStatus: NotRequired[InstanceDrainStatusType]
 
 class SharedImagePermissionsTypeDef(TypedDict):
     sharedAccountId: str

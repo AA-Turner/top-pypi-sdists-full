@@ -27,7 +27,7 @@ use crate::threat::{RiskSource, ThreatLevel, ThreatResult};
 
 /// Labels for the 4-class action effect classifier.
 /// Order must match the model's output class indices.
-const LABELS: &[&str] = &["Critical", "High", "Medium", "Low"];
+pub(crate) const LABELS: &[&str] = &["Critical", "High", "Medium", "Low"];
 
 /// Protocols where the classifier is enabled (matching Python reference).
 const CLASSIFIER_ENABLED_PROTOCOLS: &[&str] = &["ssh"];
@@ -313,7 +313,7 @@ impl ActionEffectClassifier {
 }
 
 /// Numerically stable softmax over a slice of logits.
-fn softmax(logits: &[f32]) -> Vec<f32> {
+pub(crate) fn softmax(logits: &[f32]) -> Vec<f32> {
     let max = logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
     let exps: Vec<f32> = logits.iter().map(|&x| (x - max).exp()).collect();
     let sum: f32 = exps.iter().sum();
@@ -321,80 +321,11 @@ fn softmax(logits: &[f32]) -> Vec<f32> {
 }
 
 /// Return the index of the maximum value in a slice.
-fn argmax(values: &[f32]) -> usize {
+pub(crate) fn argmax(values: &[f32]) -> usize {
     values
         .iter()
         .enumerate()
         .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
         .map(|(idx, _)| idx)
         .unwrap_or(0)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_softmax_basic() {
-        let logits = vec![2.0, 1.0, 0.1];
-        let probs = softmax(&logits);
-        assert!(probs.iter().all(|&p| p > 0.0));
-        let sum: f32 = probs.iter().sum();
-        assert!((sum - 1.0).abs() < 1e-6);
-        assert!(probs[0] > probs[1]);
-        assert!(probs[1] > probs[2]);
-    }
-
-    #[test]
-    fn test_softmax_numerical_stability() {
-        // Large logits that would overflow without max subtraction.
-        let logits = vec![1000.0, 1000.0, 1000.0];
-        let probs = softmax(&logits);
-        for &p in &probs {
-            assert!((p - 1.0 / 3.0).abs() < 1e-5, "got {} expected ~0.333", p);
-        }
-    }
-
-    #[test]
-    fn test_softmax_single_element() {
-        let probs = softmax(&[5.0]);
-        assert!((probs[0] - 1.0).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_argmax() {
-        assert_eq!(argmax(&[0.1, 0.7, 0.15, 0.05]), 1);
-        assert_eq!(argmax(&[0.9, 0.05, 0.03, 0.02]), 0);
-        assert_eq!(argmax(&[0.1, 0.2, 0.3, 0.4]), 3);
-    }
-
-    #[test]
-    fn test_argmax_equal() {
-        // When values are equal, returns the first occurrence
-        let idx = argmax(&[0.5, 0.5]);
-        assert!(idx == 0 || idx == 1);
-    }
-
-    #[test]
-    fn test_is_enabled_for_protocol() {
-        assert!(ActionEffectClassifier::is_enabled_for_protocol("ssh"));
-        assert!(!ActionEffectClassifier::is_enabled_for_protocol("rdp"));
-        assert!(!ActionEffectClassifier::is_enabled_for_protocol("vnc"));
-        assert!(!ActionEffectClassifier::is_enabled_for_protocol("telnet"));
-    }
-
-    #[test]
-    fn test_labels_order() {
-        assert_eq!(LABELS.len(), 4);
-        assert_eq!(LABELS[0], "Critical");
-        assert_eq!(LABELS[1], "High");
-        assert_eq!(LABELS[2], "Medium");
-        assert_eq!(LABELS[3], "Low");
-    }
-
-    #[test]
-    fn test_new_missing_dir() {
-        let classifier = ActionEffectClassifier::new("/nonexistent/path/to/model");
-        assert!(classifier.is_none());
-    }
 }

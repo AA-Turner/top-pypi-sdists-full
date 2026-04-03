@@ -83,7 +83,7 @@ def test_get_urls_gw170104():
     # check that we can find the right URL from an event dataset for
     # a GPS time that doesn't overlap with the event, and ends before
     # the start of the 32-second files (this used to not work)
-    urls = locate.get_urls("L1", 1167558912.6, 1167559012.6)
+    urls = locate.get_urls("L1", 1167558912.6, 1167559012.6, version=2)
     assert list(map(os.path.basename, urls)) == [
         "L-L1_GWOSC_4KHZ_R1-1167557889-4096.hdf5",
     ]

@@ -835,6 +835,44 @@ def app_config_has_dependencies(config_path):
         return False
 
 
+def _should_deploy_app(app_path, app_dir):
+    """
+    Check if an app should be deployed on the current branch.
+
+    Reads deployments/<app>/obproject_deploy.toml for branch filtering:
+
+        [deploy]
+        branches = ["main", "release/*"]
+
+    If the file doesn't exist, the app deploys on all branches (backward compatible)
+    but prints a hint on non-main branches.
+    Supports glob patterns via fnmatch.
+    """
+    import fnmatch
+
+    deploy_toml = os.path.join(app_path, "obproject_deploy.toml")
+    if not os.path.exists(deploy_toml):
+        if not is_main_branch():
+            print(
+                f"ℹ️  No obproject_deploy.toml found for '{app_dir}'. Deploying on all branches.\n"
+                f"   Tip: Add {deploy_toml} to control which branches deploy this app."
+            )
+        return True
+
+    config = read_toml_config(deploy_toml)
+    deploy_branches = config.get("deploy", {}).get("branches")
+    if deploy_branches is None:
+        return True
+
+    branch_name = git_branch()
+    for pattern in deploy_branches:
+        if fnmatch.fnmatch(branch_name, pattern):
+            return True
+
+    print(f"⏭️  Skipping app '{app_dir}' (branch '{branch_name}' not in {deploy_branches})")
+    return False
+
+
 def deploy_apps():
     """Deploy apps from project root.
 
@@ -856,6 +894,10 @@ def deploy_apps():
 
         # Skip directories that start with _ or . (e.g., __pycache__, .git)
         if app_dir.startswith(('_', '.')):
+            continue
+
+        # Check per-app deploy config for branch filtering
+        if not _should_deploy_app(app_path, app_dir):
             continue
 
         # Use branch-specific deployment config
@@ -1189,6 +1231,43 @@ def get_metaflow_branch():
         return f"test.{BRANCH}"
 
 
+def _should_deploy_flow(root, flow_dir):
+    """
+    Check if a flow should be deployed on the current branch.
+
+    Reads flows/<flow>/obproject_deploy.toml for branch filtering:
+
+        [deploy]
+        branches = ["main", "develop"]
+
+    If the file doesn't exist, the flow deploys on all branches (backward compatible).
+    Supports glob patterns via fnmatch.
+    """
+    import fnmatch
+
+    deploy_toml = os.path.join(root, "obproject_deploy.toml")
+    if not os.path.exists(deploy_toml):
+        if not is_main_branch():
+            print(
+                f"ℹ️  No obproject_deploy.toml found for flow '{flow_dir}'. Deploying on all branches.\n"
+                f"   Tip: Add {deploy_toml} to control which branches deploy this flow."
+            )
+        return True
+
+    config = read_toml_config(deploy_toml)
+    deploy_branches = config.get("deploy", {}).get("branches")
+    if deploy_branches is None:
+        return True
+
+    branch_name = git_branch()
+    for pattern in deploy_branches:
+        if fnmatch.fnmatch(branch_name, pattern):
+            return True
+
+    print(f"⏭️  Skipping flow in '{flow_dir}' (branch '{branch_name}' not in {deploy_branches})")
+    return False
+
+
 def discover_flows():
     # find a flow class that subclasses from ProjectFlow (amongst other superclasses)
     FLOW_RE = re.compile(
@@ -1204,6 +1283,10 @@ def discover_flows():
 
     for flow_dir in listdir("flows"):
         root = os.path.join("flows", flow_dir)
+
+        # Check per-flow deploy config for branch filtering
+        if not _should_deploy_flow(root, flow_dir):
+            continue
         flowfile = os.path.join(root, "flow.py")
         try:
             # read flow
@@ -1350,7 +1433,7 @@ def register_spec(spec):
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL)
 
 
-def deploy_single_project(project_name=None):
+def deploy_single_project(project_name=None, skip_apps=False, skip_flows=False, skip_assets=False):
     """Deploy a single project. If project_name is provided, it's from a multi-project setup."""
     cwd = os.getcwd()
     try:
@@ -1377,11 +1460,15 @@ def deploy_single_project(project_name=None):
                 print(f"   Error: {error_msg}\n")
                 sys.exit(1)
 
-        print("🟩🟩🟩 Registering Assets")
-        models, data = register_assets()
-        print(
-            f"✅ {len(data)} data assets and {len(models)} models registered successfully"
-        )
+        if skip_assets:
+            print("⏭️  Skipping asset registration (--skip-assets)")
+            models, data = [], []
+        else:
+            print("🟩🟩🟩 Registering Assets")
+            models, data = register_assets()
+            print(
+                f"✅ {len(data)} data assets and {len(models)} models registered successfully"
+            )
 
         print("🟩🟩🟩 Discovering Flows")
         flows, evals = discover_flows()
@@ -1394,13 +1481,19 @@ def deploy_single_project(project_name=None):
         print(f"✅ project specification ok")
 
         if not os.environ.get("SPEC_ONLY"):
-            print("🟩🟩🟩 Deploying flows")
-            deploy_flows(flows)
-            print(f"✅ {len(flows)} flows deployed successfully")
+            if skip_flows:
+                print("⏭️  Skipping flow deployment (--skip-flows)")
+            else:
+                print("🟩🟩🟩 Deploying flows")
+                deploy_flows(flows)
+                print(f"✅ {len(flows)} flows deployed successfully")
 
-            print("🟩🟩🟩 Deploying apps and endpoints")
-            num_apps = deploy_apps()
-            print(f"✅ {num_apps} endpoints and apps deployed successfully")
+            if skip_apps:
+                print("⏭️  Skipping app deployment (--skip-apps)")
+            else:
+                print("🟩🟩🟩 Deploying apps and endpoints")
+                num_apps = deploy_apps()
+                print(f"✅ {num_apps} endpoints and apps deployed successfully")
 
             print("🟩🟩🟩 Pushing Project Specification")
             register_spec(spec)
@@ -1432,6 +1525,21 @@ def main():
         action="store_true",
         help="Deploy all projects in obproject_multi.toml (default if no --project specified)",
     )
+    parser.add_argument(
+        "--skip-apps",
+        action="store_true",
+        help="Skip deploying apps/endpoints (useful for feature branches)",
+    )
+    parser.add_argument(
+        "--skip-flows",
+        action="store_true",
+        help="Skip deploying flows",
+    )
+    parser.add_argument(
+        "--skip-assets",
+        action="store_true",
+        help="Skip registering assets",
+    )
     args = parser.parse_args()
 
     global REPO_ROOT
@@ -1454,7 +1562,12 @@ def main():
             project_root = project_dirs[args.project]
             os.chdir(project_root)
             init_project_globals()
-            deploy_single_project(args.project)
+            deploy_single_project(
+                args.project,
+                skip_apps=args.skip_apps,
+                skip_flows=args.skip_flows,
+                skip_assets=args.skip_assets,
+            )
         else:
             # Deploy all projects
             print(f"🌟 Found {len(project_dirs)} projects to deploy")
@@ -1464,7 +1577,12 @@ def main():
                 try:
                     os.chdir(project_root)
                     init_project_globals()
-                    deploy_single_project(project_name)
+                    deploy_single_project(
+                        project_name,
+                        skip_apps=args.skip_apps,
+                        skip_flows=args.skip_flows,
+                        skip_assets=args.skip_assets,
+                    )
                 except Exception as e:
                     failed_projects.append((project_name, str(e)))
                     if not os.environ.get("CONTINUE_ON_ERROR"):
@@ -1480,7 +1598,11 @@ def main():
     else:
         # Single project mode
         init_project_globals()
-        deploy_single_project()
+        deploy_single_project(
+            skip_apps=args.skip_apps,
+            skip_flows=args.skip_flows,
+            skip_assets=args.skip_assets,
+        )
 
 
 if __name__ == "__main__":

@@ -58,7 +58,7 @@ NAME = "netius"
 identification of both the clients and the services this
 value may be prefixed or suffixed """
 
-VERSION = "1.34.2"
+VERSION = "1.36.2"
 """ The version value that identifies the version of the
 current infra-structure, all of the services and clients
 may share this value """
@@ -1583,7 +1583,7 @@ class AbstractBase(observer.Observable):
             try:
                 signal.signal(signum, handler or base_handler)
             except Exception:
-                self.debug("Failed to register %d handler" % signum)
+                self.debug("Failed to register %d handler", signum)
 
     def unbind_signals(
         self,
@@ -1681,8 +1681,8 @@ class AbstractBase(observer.Observable):
             "Starting '%s' service main loop (%.2fs) ..."
             % (self.name, self.poll_timeout)
         )
-        self.debug("Using thread '%s' with TID '%d'" % (self.tname, self.tid))
-        self.debug("Using '%s' as polling mechanism" % poll_name)
+        self.debug("Using thread '%s' with TID '%d'", self.tname, self.tid)
+        self.debug("Using '%s' as polling mechanism", poll_name)
 
         # calls the main method to be able to start the main event
         # loop properly as defined by specification
@@ -1725,7 +1725,7 @@ class AbstractBase(observer.Observable):
         self.stop()
 
     def finish(self):
-        self.debug("Finishing '%s' service main loop" % self.name)
+        self.debug("Finishing '%s' service main loop", self.name)
         self.on_stop()
         self.cleanup()
         self.set_state(STATE_STOP)
@@ -1748,7 +1748,7 @@ class AbstractBase(observer.Observable):
         except (KeyboardInterrupt, SystemExit, errors.StopError) as exception:
             # prints a small informational message indicating that the exit of
             # the current system has been triggered by the user (signal)
-            self.info("Finishing '%s' service on user request ..." % self.name)
+            self.info("Finishing '%s' service on user request ...", self.name)
 
             # in case the current event loop is not the main one (eg:
             # external HTTP client) then this exception must be re-raised
@@ -1757,7 +1757,7 @@ class AbstractBase(observer.Observable):
             if not self == Base.get_main():
                 raise
         except errors.PauseError:
-            self.debug("Pausing '%s' service main loop" % self.name)
+            self.debug("Pausing '%s' service main loop", self.name)
             self.set_state(STATE_PAUSE)
             self.on_pause()
         except BaseException as exception:
@@ -2019,7 +2019,7 @@ class AbstractBase(observer.Observable):
 
         # prints a debug operation about the operation that is
         # going to be performed for the forking
-        self.debug("Forking the current process into '%d' children ..." % self.children)
+        self.debug("Forking the current process into '%d' children ...", self.children)
 
         # calls the on fork method indicating that a new fork
         # operation is soon going to be performed
@@ -2112,7 +2112,7 @@ class AbstractBase(observer.Observable):
 
         # prints a debug information about the sending of the term
         # signal to the child processes (triggers shutdown)
-        self.debug("Sending signal to '%d' child processes ..." % self.children)
+        self.debug("Sending signal to '%d' child processes ...", self.children)
 
         # iterates over the complete set of children to send the proper
         # terminate signal to each of them for proper termination
@@ -2121,7 +2121,7 @@ class AbstractBase(observer.Observable):
 
         # prints a debug information about the processes to be joined
         # this indicated the start of the joining process
-        self.debug("Joining '%d' child processes ..." % self.children)
+        self.debug("Joining '%d' child processes ...", self.children)
 
         # creates the catcher for the alarm signal so that a wakeup
         # can happen that kills the (possibly) stuck children
@@ -2149,7 +2149,7 @@ class AbstractBase(observer.Observable):
                 # and the process should be killed in a forced manner
                 cls.waitpid(pid)
             except errors.WakeupError:
-                self.warning("Timeout reached killing PID '%d' with SIGKILL ..." % pid)
+                self.warning("Timeout reached killing PID '%d' with SIGKILL ...", pid)
                 os.kill(pid, signal.SIGKILL)  # @UndefinedVariable
                 cls.waitpid(pid)
 
@@ -2168,7 +2168,7 @@ class AbstractBase(observer.Observable):
 
         # prints a message about the end of the child process joining
         # this is relevant to make sure everything is ok before exit
-        self.debug("Finished joining '%d' child processes" % self.children)
+        self.debug("Finished joining '%d' child processes", self.children)
 
         # runs the cleanup operation for the current process this is
         # required to avoid any leaked information
@@ -2404,13 +2404,13 @@ class AbstractBase(observer.Observable):
         # retrieves the proper string based type for the current server socket
         # and the prints a series of log message about the socket to be created
         type_s = " SSL" if ssl else ""
-        self.debug("Creating server's TCP%s socket ..." % type_s)
+        self.debug("Creating server's TCP%s socket ...", type_s)
         if ssl:
-            self.debug("Loading '%s' as key file" % key_file)
+            self.debug("Loading '%s' as key file", key_file)
         if ssl:
-            self.debug("Loading '%s' as certificate file" % cer_file)
+            self.debug("Loading '%s' as certificate file", cer_file)
         if ssl and ca_file:
-            self.debug("Loading '%s' as certificate authority file" % ca_file)
+            self.debug("Loading '%s' as certificate authority file", ca_file)
         if ssl and ssl_verify:
             self.debug("Loading with client SSL verification")
 
@@ -2722,7 +2722,7 @@ class AbstractBase(observer.Observable):
 
         # echoes a debug message indicating that a new read event
         # subscription has been created for the event fd of the pool
-        self.debug("Subscribed for read operations on event fd (%s)" % eventfd_name)
+        self.debug("Subscribed for read operations on event fd (%s)", eventfd_name)
 
     def punregister(self, pool):
         # prints a debug message notifying the user that no more
@@ -3384,7 +3384,7 @@ class AbstractBase(observer.Observable):
         if not os.path.exists(path):
             return kwargs
 
-        self.info("Applying configuration file '%s' ..." % path)
+        self.info("Applying configuration file '%s' ...", path)
 
         kwargs = copy.copy(kwargs)
         file = open(path, "rb")
@@ -4177,26 +4177,30 @@ class AbstractBase(observer.Observable):
         if count == None:
             count = self.keepalive_count
         is_inet = _socket.family in (socket.AF_INET, socket.AF_INET6)
-        is_inet and hasattr(_socket, "TCP_KEEPIDLE") and _socket.setsockopt(
-            socket.IPPROTO_TCP,
-            socket.TCP_KEEPIDLE,  # @UndefinedVariable pylint: disable=E1101
-            timeout,
-        )
-        is_inet and hasattr(_socket, "TCP_KEEPINTVL") and _socket.setsockopt(
-            socket.IPPROTO_TCP,
-            socket.TCP_KEEPINTVL,  # @UndefinedVariable pylint: disable=E1101
-            interval,
-        )
-        is_inet and hasattr(_socket, "TCP_KEEPCNT") and _socket.setsockopt(
-            socket.IPPROTO_TCP,
-            socket.TCP_KEEPCNT,  # @UndefinedVariable pylint: disable=E1101
-            count,
-        )
-        hasattr(_socket, "SO_REUSEPORT") and _socket.setsockopt(
-            socket.SOL_SOCKET,
-            socket.SO_REUSEPORT,  # @UndefinedVariable pylint: disable=E1101
-            1,
-        )
+        if is_inet and hasattr(_socket, "TCP_KEEPIDLE"):
+            _socket.setsockopt(
+                socket.IPPROTO_TCP,
+                socket.TCP_KEEPIDLE,  # @UndefinedVariable pylint: disable=E1101
+                timeout,
+            )
+        if is_inet and hasattr(_socket, "TCP_KEEPINTVL"):
+            _socket.setsockopt(
+                socket.IPPROTO_TCP,
+                socket.TCP_KEEPINTVL,  # @UndefinedVariable pylint: disable=E1101
+                interval,
+            )
+        if is_inet and hasattr(_socket, "TCP_KEEPCNT"):
+            _socket.setsockopt(
+                socket.IPPROTO_TCP,
+                socket.TCP_KEEPCNT,  # @UndefinedVariable pylint: disable=E1101
+                count,
+            )
+        if hasattr(_socket, "SO_REUSEPORT"):
+            _socket.setsockopt(
+                socket.SOL_SOCKET,
+                socket.SO_REUSEPORT,  # @UndefinedVariable pylint: disable=E1101
+                1,
+            )
 
     def _ssl_init(self, strict=True, env=True):
         # initializes the values of both the "main" context for SSL
@@ -4237,6 +4241,9 @@ class AbstractBase(observer.Observable):
         )
         self._ssl_ctx_protocols(self._ssl_context)
         self._ssl_certs(self._ssl_context)
+        self._ssl_ctx_debug(
+            self._ssl_context, secure=secure, context_options=context_options
+        )
         has_callback = hasattr(self._ssl_context, "set_servername_callback")
         if has_callback:
             self._ssl_context.set_servername_callback(self._ssl_callback)
@@ -4252,9 +4259,16 @@ class AbstractBase(observer.Observable):
             )
             self._ssl_contexts[hostname] = (context, values)
 
+        # saves the values of secure and context options of the SSL
+        # so that they can be used later for reference
+        self._ssl_secure = secure
+        self._ssl_context_options = context_options
+
     def _ssl_destroy(self):
         self._ssl_context = None
         self._ssl_contexts = dict()
+        self._ssl_secure = None
+        self._ssl_context_options = None
 
     def _ssl_callback(self, socket, hostname, context):
         context, values = self._ssl_contexts.get(hostname, (context, None))
@@ -4290,23 +4304,54 @@ class AbstractBase(observer.Observable):
             ca_root=ca_root,
             verify_mode=cert_reqs,
         )
+        self._ssl_ctx_debug(context, secure=secure, context_options=context_options)
         return context
 
     def _ssl_ctx_base(self, context, secure=1, context_options=[]):
         if secure >= 1 and hasattr(ssl, "OP_NO_SSLv2"):
             context.options |= ssl.OP_NO_SSLv2
+        elif hasattr(ssl, "OP_NO_SSLv2"):
+            context.options &= ~ssl.OP_NO_SSLv2
         if secure >= 1 and hasattr(ssl, "OP_NO_SSLv3"):
             context.options |= ssl.OP_NO_SSLv3
+        elif hasattr(ssl, "OP_NO_SSLv3"):
+            context.options &= ~ssl.OP_NO_SSLv3
         if secure >= 2 and hasattr(ssl, "OP_NO_TLSv1"):
             context.options |= ssl.OP_NO_TLSv1
+        elif hasattr(ssl, "OP_NO_TLSv1"):
+            context.options &= ~ssl.OP_NO_TLSv1
         if secure >= 2 and hasattr(ssl, "OP_NO_TLSv1_1"):
             context.options |= ssl.OP_NO_TLSv1_1
+        elif hasattr(ssl, "OP_NO_TLSv1_1"):
+            context.options &= ~ssl.OP_NO_TLSv1_1
         if secure >= 1 and hasattr(ssl, "OP_SINGLE_DH_USE"):
             context.options |= ssl.OP_SINGLE_DH_USE
         if secure >= 1 and hasattr(ssl, "OP_SINGLE_ECDH_USE"):
             context.options |= ssl.OP_SINGLE_ECDH_USE
         if secure >= 1 and hasattr(ssl, "OP_CIPHER_SERVER_PREFERENCE"):
             context.options |= ssl.OP_CIPHER_SERVER_PREFERENCE
+        if hasattr(context, "minimum_version") and hasattr(ssl, "TLSVersion"):
+            if secure >= 2 and hasattr(ssl.TLSVersion, "TLSv1_2"):
+                context.minimum_version = ssl.TLSVersion.TLSv1_2
+            elif secure >= 1 and hasattr(ssl.TLSVersion, "TLSv1"):
+                context.minimum_version = ssl.TLSVersion.TLSv1
+            elif secure >= 0 and hasattr(ssl.TLSVersion, "SSLv3"):
+                context.minimum_version = ssl.TLSVersion.SSLv3
+        if hasattr(context, "set_ciphers"):
+            try:
+                if secure >= 2:
+                    context.set_ciphers("DEFAULT:@SECLEVEL=1")
+                elif secure >= 1:
+                    context.set_ciphers("DEFAULT:@SECLEVEL=0")
+                else:
+                    context.set_ciphers("ALL:@SECLEVEL=0")
+            except ssl.SSLError:
+                if secure >= 2:
+                    context.set_ciphers("DEFAULT")
+                elif secure >= 1:
+                    context.set_ciphers("DEFAULT")
+                else:
+                    context.set_ciphers("ALL")
         for context_option in context_options:
             if not hasattr(ssl, context_option):
                 continue
@@ -4339,6 +4384,98 @@ class AbstractBase(observer.Observable):
             protocols = self.get_protocols()
             if protocols:
                 context.set_npn_protocols(protocols)
+
+    def _ssl_ctx_debug(self, context, secure=1, context_options=[]):
+        if not self.is_debug():
+            return
+
+        disabled = []
+        if context.options & getattr(ssl, "OP_NO_SSLv2", 0):
+            disabled.append("SSLv2")
+        if context.options & getattr(ssl, "OP_NO_SSLv3", 0):
+            disabled.append("SSLv3")
+        if context.options & getattr(ssl, "OP_NO_TLSv1", 0):
+            disabled.append("TLSv1.0")
+        if context.options & getattr(ssl, "OP_NO_TLSv1_1", 0):
+            disabled.append("TLSv1.1")
+        if context.options & getattr(ssl, "OP_NO_TLSv1_2", 0):
+            disabled.append("TLSv1.2")
+        if context.options & getattr(ssl, "OP_NO_TLSv1_3", 0):
+            disabled.append("TLSv1.3")
+
+        allowed = []
+        for proto in ("SSLv2", "SSLv3", "TLSv1.0", "TLSv1.1", "TLSv1.2", "TLSv1.3"):
+            if proto in disabled:
+                continue
+            allowed.append(proto)
+
+        enabled = []
+        if context.options & getattr(ssl, "OP_SINGLE_DH_USE", 0):
+            enabled.append("SINGLE_DH_USE")
+        if context.options & getattr(ssl, "OP_SINGLE_ECDH_USE", 0):
+            enabled.append("SINGLE_ECDH_USE")
+        if context.options & getattr(ssl, "OP_CIPHER_SERVER_PREFERENCE", 0):
+            enabled.append("CIPHER_SERVER_PREFERENCE")
+        if context.options & getattr(ssl, "OP_NO_COMPRESSION", 0):
+            enabled.append("NO_COMPRESSION")
+        if context.options & getattr(ssl, "OP_NO_TICKET", 0):
+            enabled.append("NO_TICKET")
+        if context.options & getattr(ssl, "OP_NO_RENEGOTIATION", 0):
+            enabled.append("NO_RENEGOTIATION")
+        if context.options & getattr(ssl, "OP_LEGACY_SERVER_CONNECT", 0):
+            enabled.append("LEGACY_SERVER_CONNECT")
+
+        min_version_v = getattr(context, "minimum_version", None)
+        max_version_v = getattr(context, "maximum_version", None)
+        min_version = getattr(min_version_v, "name", min_version_v)
+        max_version = getattr(max_version_v, "name", max_version_v)
+
+        self.debug(
+            "SSL context created: secure=%d, allowed=[%s], disabled=[%s]",
+            secure,
+            ", ".join(allowed),
+            ", ".join(disabled),
+        )
+        protocol = getattr(context, "protocol", None)
+        protocol_s = getattr(protocol, "name", protocol)
+
+        options_s = []
+        for name in dir(ssl):
+            if not name.startswith("OP_"):
+                continue
+            value = getattr(ssl, name)
+            if not value:
+                continue
+            if context.options & value:
+                options_s.append(name)
+
+        self.debug(
+            "SSL context details: protocol=%s, min_version=%s, max_version=%s, options=0x%x (%s)",
+            protocol_s,
+            min_version,
+            max_version,
+            context.options,
+            ", ".join(options_s) if options_s else "none",
+        )
+        if enabled:
+            self.debug(
+                "SSL security options: %s",
+                ", ".join(enabled),
+            )
+        if context_options:
+            self.debug(
+                "SSL custom options: %s",
+                ", ".join(context_options),
+            )
+
+        protocols = self.get_protocols()
+        if protocols:
+            if getattr(ssl, "HAS_ALPN", False) and hasattr(
+                context, "set_alpn_protocols"
+            ):
+                self.debug("SSL ALPN protocols: %s", ", ".join(protocols))
+            if getattr(ssl, "HAS_NPN", False) and hasattr(context, "set_npn_protocols"):
+                self.debug("SSL NPN protocols: %s", ", ".join(protocols))
 
     def _ssl_certs(
         self,
@@ -4373,9 +4510,10 @@ class AbstractBase(observer.Observable):
             context.load_default_certs(purpose=ssl.Purpose.SERVER_AUTH)
         if ca_root and SSL_CA_PATH:
             context.load_verify_locations(cafile=SSL_CA_PATH)
-        self.debug(
-            "SSL certs configured: verify_mode=%s, verify_flags=%s, check_hostname=%s, ca_file=%s, ca_root=%s, SSL_CA_PATH=%s, ca_certs=%d"
-            % (
+
+        if self.is_debug():
+            self.debug(
+                "SSL certs configured: verify_mode=%s, verify_flags=%s, check_hostname=%s, ca_file=%s, ca_root=%s, SSL_CA_PATH=%s, ca_certs=%d",
                 verify_mode,
                 getattr(context, "verify_flags", "N/A"),
                 check_hostname,
@@ -4384,15 +4522,12 @@ class AbstractBase(observer.Observable):
                 SSL_CA_PATH,
                 len(context.get_ca_certs()) if hasattr(context, "get_ca_certs") else -1,
             )
-        )
-        self.debug(
-            "SSL features: VERIFY_X509_PARTIAL_CHAIN=%s, VERIFY_X509_STRICT=%s, VERIFY_X509_TRUSTED_FIRST=%s"
-            % (
+            self.debug(
+                "SSL features: VERIFY_X509_PARTIAL_CHAIN=%s, VERIFY_X509_STRICT=%s, VERIFY_X509_TRUSTED_FIRST=%s",
                 hasattr(ssl, "VERIFY_X509_PARTIAL_CHAIN"),
                 hasattr(ssl, "VERIFY_X509_STRICT"),
                 hasattr(ssl, "VERIFY_X509_TRUSTED_FIRST"),
             )
-        )
 
     def _ssl_upgrade(
         self,
@@ -4464,18 +4599,17 @@ class AbstractBase(observer.Observable):
         self.debug(
             "SSL wrap: server=%s, ssl_verify=%s, cert_reqs=%s, "
             "ca_file=%s, ca_root=%s, check_hostname=%s, server_hostname=%s, "
-            "has_context=%s"
-            % (
-                server,
-                ssl_verify,
-                cert_reqs,
-                ca_file,
-                ca_root,
-                check_hostname,
-                server_hostname,
-                bool(self._ssl_context),
-            )
+            "has_context=%s",
+            server,
+            ssl_verify,
+            cert_reqs,
+            ca_file,
+            ca_root,
+            check_hostname,
+            server_hostname,
+            bool(self._ssl_context),
         )
+
         self._ssl_certs(
             self._ssl_context,
             key_file=key_file,
@@ -4484,6 +4618,12 @@ class AbstractBase(observer.Observable):
             ca_root=ca_root,
             verify_mode=cert_reqs,
             check_hostname=check_hostname,
+        )
+
+        self._ssl_ctx_debug(
+            self._ssl_context,
+            secure=self._ssl_secure,
+            context_options=self._ssl_context_options,
         )
 
         return self._ssl_context.wrap_socket(

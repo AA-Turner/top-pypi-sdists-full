@@ -65,14 +65,8 @@ class LimitLine(BinaryTreeNode, PyAedtBase):
 
     @pyaedt_function_handler()
     def set_line_properties(
-        self,
-        style: str = None,
-        width: int = None,
-        hatch_above: bool = None,
-        violation_emphasis: bool = None,
-        hatch_pixels: int = None,
-        color: tuple = None,
-    ) -> bool:
+        self, style=None, width=None, hatch_above=None, violation_emphasis=None, hatch_pixels=None, color=None
+    ):
         """Set trace properties.
 
         Parameters
@@ -134,18 +128,18 @@ class Note(BinaryTreeNode, PyAedtBase):
     @pyaedt_function_handler()
     def set_note_properties(
         self,
-        text: str = None,
-        back_color: tuple = None,
-        background_visibility: bool = None,
-        border_color: tuple = None,
-        border_visibility: bool = None,
-        border_width: int = None,
+        text=None,
+        back_color=None,
+        background_visibility=None,
+        border_color=None,
+        border_visibility=None,
+        border_width=None,
         font: str = "Arial",
         font_size: int = 12,
         italic: bool = False,
         bold: bool = False,
-        color: tuple = (0, 0, 0),
-    ) -> bool:
+        color=(0, 0, 0),
+    ):
         """Set note properties.
 
         Parameters
@@ -279,7 +273,7 @@ class Trace(BinaryTreeNode, PyAedtBase):
         return True
 
     @property
-    def curve_properties(self) -> dict:
+    def curve_properties(self):
         """All curve graphical properties. It includes colors, trace and symbol settings.
 
         Returns
@@ -293,7 +287,7 @@ class Trace(BinaryTreeNode, PyAedtBase):
         return {}
 
     @property
-    def name(self) -> str:
+    def name(self):
         """Trace name.
 
         Returns
@@ -304,7 +298,7 @@ class Trace(BinaryTreeNode, PyAedtBase):
         return self._name
 
     @name.setter
-    def name(self, value: str) -> None:
+    def name(self, value) -> None:
         report_name = self.aedt_name.split(":")[0]
         prop_name = report_name + ":" + self.name
 
@@ -335,9 +329,7 @@ class Trace(BinaryTreeNode, PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def set_trace_properties(
-        self, style: str = None, width: int = None, trace_type: str = None, color: tuple = None
-    ) -> bool:
+    def set_trace_properties(self, style=None, width=None, trace_type=None, color=None):
         """Set trace properties.
 
         Parameters
@@ -371,9 +363,7 @@ class Trace(BinaryTreeNode, PyAedtBase):
         return self._change_property(props)
 
     @pyaedt_function_handler()
-    def set_symbol_properties(
-        self, show: bool = True, style: str = None, show_arrows: bool = None, fill: bool = None, color: tuple = None
-    ) -> bool:
+    def set_symbol_properties(self, show: bool = True, style=None, show_arrows=None, fill=None, color=None):
         """Set symbol properties.
 
         Parameters
@@ -481,7 +471,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return True
 
     @property
-    def differential_pairs(self) -> bool:
+    def differential_pairs(self):
         """Differential pairs flag.
 
         Returns
@@ -492,11 +482,11 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return self._legacy_props["context"].get("differential_pairs", False)
 
     @differential_pairs.setter
-    def differential_pairs(self, value: bool) -> None:
+    def differential_pairs(self, value) -> None:
         self._legacy_props["context"]["differential_pairs"] = value
 
     @property
-    def matrix(self) -> str:
+    def matrix(self):
         """Maxwell 2D/3D or Q2D/Q3D matrix name.
 
         Returns
@@ -521,11 +511,11 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return self._legacy_props["context"].get("matrix", None)
 
     @matrix.setter
-    def matrix(self, value: str) -> None:
+    def matrix(self, value) -> None:
         self._legacy_props["context"]["matrix"] = value
 
     @property
-    def reduced_matrix(self) -> str:
+    def reduced_matrix(self):
         """Maxwell 2D/3D reduced matrix name for eddy current solvers.
 
         Returns
@@ -536,11 +526,11 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return self._legacy_props["context"].get("reduced_matrix", None)
 
     @reduced_matrix.setter
-    def reduced_matrix(self, value: str) -> None:
+    def reduced_matrix(self, value) -> None:
         self._legacy_props["context"]["reduced_matrix"] = value
 
     @property
-    def polyline(self) -> str:
+    def polyline(self):
         """Polyline name for the field report.
 
         Returns
@@ -556,11 +546,11 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return self._legacy_props["context"].get("polyline", None)
 
     @polyline.setter
-    def polyline(self, value: str) -> None:
+    def polyline(self, value) -> None:
         self._legacy_props["context"]["polyline"] = value
 
     @property
-    def expressions(self) -> list:
+    def expressions(self):
         """Expressions.
 
         Returns
@@ -576,9 +566,9 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return [k.get("name", None) for k in self._legacy_props["expressions"] if k.get("name", None) is not None]
 
     @expressions.setter
-    def expressions(self, value: list) -> None:
+    def expressions(self, value) -> None:
         if isinstance(value, dict):
-            self._legacy_props["expressions"] = [value]
+            self._legacy_props["expressions"].append(value)
         elif isinstance(value, list):
             self._legacy_props["expressions"] = []
             for el in value:
@@ -591,7 +581,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
             self._legacy_props["expressions"].append({"name": value})
 
     @property
-    def report_category(self) -> str:
+    def report_category(self):
         """Report category.
 
         Returns
@@ -607,12 +597,12 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return self._legacy_props["report_category"]
 
     @report_category.setter
-    def report_category(self, value: str) -> None:
+    def report_category(self, value) -> None:
         if not self._is_created:
             self._legacy_props["report_category"] = value
 
     @property
-    def report_type(self) -> str:
+    def report_type(self):
         """Report type. Options are ``"3D Polar Plot"``, ``"3D Spherical Plot"``,
         ``"Radiation Pattern"``, ``"Rectangular Plot"``, ``"Data Table"``,
         ``"Smith Chart"``, and ``"Rectangular Contour Plot"``.
@@ -630,7 +620,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return self._legacy_props["report_type"]
 
     @report_type.setter
-    def report_type(self, report: str) -> None:
+    def report_type(self, report) -> None:
         if not self._is_created:
             self._legacy_props["report_type"] = report
             if not self.primary_sweep:
@@ -645,7 +635,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
                     self.primary_sweep = "Time"
 
     @property
-    def traces(self) -> list:
+    def traces(self):
         """List of available traces in the report.
 
         .. note::
@@ -1016,7 +1006,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
                         )
 
     @property
-    def limit_lines(self) -> list:
+    def limit_lines(self):
         """List of available limit lines in the report.
 
         .. note::
@@ -1042,7 +1032,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return _traces
 
     @property
-    def notes(self) -> list:
+    def notes(self):
         """List of available notes in the report.
 
         .. note::
@@ -1071,7 +1061,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return _notes
 
     @property
-    def plot_name(self) -> str:
+    def plot_name(self):
         """Plot name.
 
         Returns
@@ -1089,7 +1079,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         self._legacy_props["plot_name"] = name
 
     @property
-    def variations(self) -> dict:
+    def variations(self):
         """Variations.
 
         Returns
@@ -1124,7 +1114,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return self._variations
 
     @variations.setter
-    def variations(self, value: dict) -> None:
+    def variations(self, value) -> None:
         if isinstance(value, list):
             value_dict = {}
             for i in range(0, len(value), 2):
@@ -1135,7 +1125,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         self._legacy_props["context"]["variations"] = HistoryProps(self, value)
 
     @property
-    def primary_sweep(self) -> str:
+    def primary_sweep(self):
         """Primary sweep report.
 
         Returns
@@ -1151,7 +1141,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return self._legacy_props["context"]["primary_sweep"]
 
     @primary_sweep.setter
-    def primary_sweep(self, value: str) -> None:
+    def primary_sweep(self, value) -> None:
         if value == self._legacy_props["context"].get("secondary_sweep", None):
             self._legacy_props["context"]["secondary_sweep"] = self._legacy_props["context"]["primary_sweep"]
         self._legacy_props["context"]["primary_sweep"] = value
@@ -1163,7 +1153,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
             self.variations["Freq"] = ["All"]
 
     @property
-    def secondary_sweep(self) -> str:
+    def secondary_sweep(self):
         """Secondary sweep report.
 
         Returns
@@ -1178,7 +1168,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return self._legacy_props["context"].get("secondary_sweep", None)
 
     @secondary_sweep.setter
-    def secondary_sweep(self, value: str) -> None:
+    def secondary_sweep(self, value) -> None:
         if value == self._legacy_props["context"]["primary_sweep"]:
             self._legacy_props["context"]["primary_sweep"] = self._legacy_props["context"]["secondary_sweep"]
         self._legacy_props["context"]["secondary_sweep"] = value
@@ -1190,7 +1180,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
             self.variations["Freq"] = ["All"]
 
     @property
-    def primary_sweep_range(self) -> str:
+    def primary_sweep_range(self):
         """Primary sweep range report.
 
         Returns
@@ -1201,11 +1191,11 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return self._legacy_props["context"]["primary_sweep_range"]
 
     @primary_sweep_range.setter
-    def primary_sweep_range(self, value: str) -> None:
+    def primary_sweep_range(self, value) -> None:
         self._legacy_props["context"]["primary_sweep_range"] = value
 
     @property
-    def secondary_sweep_range(self) -> str:
+    def secondary_sweep_range(self):
         """Secondary sweep range report.
 
         Returns
@@ -1216,7 +1206,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return self._legacy_props["context"]["secondary_sweep_range"]
 
     @secondary_sweep_range.setter
-    def secondary_sweep_range(self, value: str) -> None:
+    def secondary_sweep_range(self, value) -> None:
         self._legacy_props["context"]["secondary_sweep_range"] = value
 
     @property
@@ -1224,7 +1214,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return []
 
     @pyaedt_function_handler()
-    def update_expressions_with_defaults(self, quantities_category: str = None) -> bool:
+    def update_expressions_with_defaults(self, quantities_category=None) -> None:
         """Update the list of expressions by taking all quantities from a given category.
 
         Parameters
@@ -1242,16 +1232,14 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
             self.report_category, self.report_type, self.setup, quantities_category
         )
 
-    @pyaedt_function_handler()
-    def _trace_info(self, expressions=None):
-        if not expressions:
-            if not self.expressions:
-                self.update_expressions_with_defaults()
-            expressions = self.expressions[::]
-        if isinstance(expressions, list):
-            expr = expressions
+    @property
+    def _trace_info(self):
+        if not self.expressions:
+            self.update_expressions_with_defaults()
+        if isinstance(self.expressions, list):
+            expr = self.expressions
         else:
-            expr = [expressions]
+            expr = [self.expressions]
         arg = ["X Component:=", self.primary_sweep, "Y Component:=", expr]
         if self.report_type in ["3D Polar Plot", "3D Spherical Plot"]:
             arg = [
@@ -1278,7 +1266,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return arg
 
     @property
-    def domain(self) -> str:
+    def domain(self):
         """Plot domain.
 
         Returns
@@ -1294,7 +1282,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return self._legacy_props["context"]["domain"]
 
     @domain.setter
-    def domain(self, domain: str) -> None:
+    def domain(self, domain) -> None:
         self._legacy_props["context"]["domain"] = domain
         if self._app.design_type in ["Maxwell 3D", "Maxwell 2D"]:
             return
@@ -1315,7 +1303,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
                 self._legacy_props["context"]["variations"] = {"Freq": "All"}
 
     @property
-    def use_pulse_in_tdr(self) -> bool:
+    def use_pulse_in_tdr(self):
         """Defines if the TDR should use a pulse or step.
 
         Returns
@@ -1326,7 +1314,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return self._legacy_props["context"].get("use_pulse_in_tdr", False)
 
     @use_pulse_in_tdr.setter
-    def use_pulse_in_tdr(self, val: bool) -> None:
+    def use_pulse_in_tdr(self, val) -> None:
         self._legacy_props["context"]["use_pulse_in_tdr"] = val
 
     @pyaedt_function_handler()
@@ -1363,7 +1351,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return sweep_list
 
     @pyaedt_function_handler()
-    def create(self, name: str = None) -> bool:
+    def create(self, name: str | None = None) -> bool:
         """Create a report.
 
         Parameters
@@ -1396,7 +1384,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
             self.setup,
             self._context,
             self._convert_dict_to_report_sel(self.variations),
-            self._trace_info(),
+            self._trace_info,
         )
         self._post.plots.append(self)
         self._is_created = True
@@ -1404,7 +1392,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def _export_context(self, output_dict):
+    def _export_context(self, output_dict) -> None:
         from ansys.aedt.core.visualization.report.eye import AMIEyeDiagram
         from ansys.aedt.core.visualization.report.eye import EyeDiagram
         from ansys.aedt.core.visualization.report.field import AntennaParameters
@@ -1468,7 +1456,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
                 output_dict["context"]["thinning_points"] = self.thinning_points
 
     @pyaedt_function_handler()
-    def _export_expressions(self, output_dict):
+    def _export_expressions(self, output_dict) -> None:
         output_dict["expressions"] = {}
         for expr in self.traces:
             name = self.properties[expr.name].split(" ,")[-1]
@@ -1494,7 +1482,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
                 output_dict["expressions"][name].update(symbol_dict)
 
     @pyaedt_function_handler()
-    def _export_graphical_objects(self, output_dict):
+    def _export_graphical_objects(self, output_dict) -> None:
         from ansys.aedt.core.visualization.report.eye import AMIEyeDiagram
         from ansys.aedt.core.visualization.report.eye import EyeDiagram
 
@@ -1561,7 +1549,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
             }
 
     @pyaedt_function_handler()
-    def _export_general_appearance(self, output_dict):
+    def _export_general_appearance(self, output_dict) -> None:
         from ansys.aedt.core.visualization.report.eye import AMIEyeDiagram
         from ansys.aedt.core.visualization.report.eye import EyeDiagram
 
@@ -1674,7 +1662,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
             }
 
     @pyaedt_function_handler()
-    def export_config(self, output_file: str) -> bool:
+    def export_config(self, output_file):
         """Generate a configuration file from active report.
 
         Parameters
@@ -1731,7 +1719,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
 
     @pyaedt_function_handler()
     def add_limit_line_from_points(
-        self, x_list: list, y_list: list, x_units: str = "", y_units: str = "", y_axis: str = "Y1"
+        self, x_list, y_list, x_units: str = "", y_units: str = "", y_axis: str = "Y1"
     ) -> bool:  # pragma: no cover
         """Add a Cartesian limit line from point lists. This method works only in graphical mode.
 
@@ -1779,7 +1767,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
 
     @pyaedt_function_handler()
     def add_limit_line_from_equation(
-        self, start_x: float, stop_x: float, step: float, equation: str = "x", units: str = "GHz", y_axis: int = 1
+        self, start_x, stop_x, step, equation: str = "x", units: str = "GHz", y_axis: int = 1
     ) -> bool:  # pragma: no cover
         """Add a Cartesian limit line from point lists. This method works only in graphical mode.
 
@@ -1824,7 +1812,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return False
 
     @pyaedt_function_handler()
-    def add_note(self, text: str, x_position: float = 0.0, y_position: float = 0.0) -> bool:  # pragma: no cover
+    def add_note(self, text, x_position: int = 0, y_position: int = 0) -> bool:  # pragma: no cover
         """Add a note at a position.
 
         Parameters
@@ -1866,7 +1854,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return False
 
     @pyaedt_function_handler()
-    def add_cartesian_x_marker(self, value: str, name: str | None = None) -> str:  # pragma: no cover
+    def add_cartesian_x_marker(self, value, name: str | None = None):  # pragma: no cover
         """Add a cartesian X marker.
 
         .. note::
@@ -1891,7 +1879,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return ""
 
     @pyaedt_function_handler()
-    def add_cartesian_y_marker(self, value: str, name: str | None = None, y_axis: int = 1) -> str:  # pragma: no cover
+    def add_cartesian_y_marker(self, value, name: str | None = None, y_axis: int = 1):  # pragma: no cover
         """Add a cartesian Y marker.
 
         .. note::
@@ -1940,9 +1928,9 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         major_y: bool = True,
         style_minor: str = "Solid",
         style_major: str = "Solid",
-        minor_color: tuple = (0, 0, 0),
-        major_color: tuple = (0, 0, 0),
-    ) -> bool:
+        minor_color=(0, 0, 0),
+        major_color=(0, 0, 0),
+    ):
         """Edit the grid settings for the plot.
 
         Parameters
@@ -1991,10 +1979,10 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         font_size: int = 12,
         italic: bool = False,
         bold: bool = False,
-        color: tuple = (0, 0, 0),
-        label: str = None,
+        color=(0, 0, 0),
+        label=None,
         display_units: bool = True,
-    ) -> bool:
+    ):
         """Edit the X-axis settings.
 
         Parameters
@@ -2071,12 +2059,12 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
     def edit_x_axis_scaling(
         self,
         linear_scaling: bool = True,
-        min_scale: str = None,
-        max_scale: str = None,
+        min_scale=None,
+        max_scale=None,
         minor_tick_divs: int = 5,
-        min_spacing: str = None,
-        units: str = None,
-    ) -> bool:
+        min_spacing=None,
+        units=None,
+    ):
         """Edit the X-axis scaling settings.
 
         Parameters
@@ -2123,9 +2111,9 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         show_solution_name: bool = True,
         show_variation_key: bool = True,
         show_trace_name: bool = True,
-        back_color: tuple = (255, 255, 255),
-        font_color: tuple = (0, 0, 0),
-    ) -> bool:
+        back_color=(255, 255, 255),
+        font_color=(0, 0, 0),
+    ):
         """Edit the plot legend.
 
         Parameters
@@ -2200,10 +2188,10 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         font_size: int = 12,
         italic: bool = False,
         bold: bool = False,
-        color: tuple = (0, 0, 0),
-        label: str = None,
+        color=(0, 0, 0),
+        label=None,
         display_units: bool = True,
-    ) -> bool:
+    ):
         """Edit the Y-axis settings.
 
         Parameters
@@ -2282,12 +2270,12 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         self,
         name: str = "Y1",
         linear_scaling: bool = True,
-        min_scale: str = None,
-        max_scale: str = None,
+        min_scale=None,
+        max_scale=None,
         minor_tick_divs: int = 5,
-        min_spacing: str = None,
-        units: str = None,
-    ) -> bool:
+        min_spacing=None,
+        units=None,
+    ):
         """Edit the Y-axis scaling settings.
 
         Parameters
@@ -2333,13 +2321,13 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
     @pyaedt_function_handler()
     def edit_general_settings(
         self,
-        background_color: tuple = (255, 255, 255),
-        plot_color: tuple = (255, 255, 255),
+        background_color=(255, 255, 255),
+        plot_color=(255, 255, 255),
         enable_y_stripes: bool = True,
         field_width: int = 4,
         precision: int = 4,
         use_scientific_notation: bool = True,
-    ) -> bool:
+    ):
         """Edit general settings for the plot.
 
         Parameters
@@ -2395,8 +2383,8 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         subtitle_size: int = 12,
         italic: bool = False,
         bold: bool = False,
-        color: tuple = (0, 0, 0),
-    ) -> bool:
+        color=(0, 0, 0),
+    ):
         """Edit the plot header.
 
         Parameters
@@ -2506,7 +2494,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return self._change_property("Header", "Header", props)
 
     @pyaedt_function_handler()
-    def import_traces(self, input_file: str, plot_name: str) -> bool:
+    def import_traces(self, input_file: str, plot_name) -> bool:
         """Import report data from a file into a specified report.
 
         Parameters
@@ -2553,7 +2541,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
             return False
 
     @pyaedt_function_handler()
-    def delete_traces(self, plot_name: str, traces_list: list) -> bool:
+    def delete_traces(self, plot_name, traces_list) -> bool:
         """Delete an existing trace or traces.
 
         Parameters
@@ -2572,7 +2560,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
             raise ValueError("Plot does not exist in current project.")
 
         for trace in traces_list:
-            if trace not in self._trace_info()[3]:
+            if trace not in self._trace_info[3]:
                 raise ValueError("Trace does not exist in the selected plot.")
 
         props = [f"{plot_name}:=", traces_list]
@@ -2584,9 +2572,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
             return False
 
     @pyaedt_function_handler()
-    def add_trace_to_report(
-        self, traces: list, setup_name: str = None, variations: dict | None = None, context: list | None = None
-    ) -> bool:
+    def add_trace_to_report(self, traces, setup_name=None, variations: dict | None = None, context=None) -> bool:
         """Add a trace to a specific report.
 
         Parameters
@@ -2607,23 +2593,26 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         bool
             ``True`` when successful, ``False`` when failed.
         """
+        expr = copy.deepcopy(self.expressions)
+        self.expressions = traces
+
         try:
             self._post.oreportsetup.AddTraces(
                 self.plot_name,
                 setup_name if setup_name else self.setup,
                 context if context else self._context,
                 self._convert_dict_to_report_sel(variations if variations else self.variations),
-                self._trace_info(traces),
+                self._trace_info,
             )
             self._initialize_tree_node()
             return True
         except Exception:
             return False
+        finally:
+            self.expressions = expr
 
     @pyaedt_function_handler()
-    def update_trace_in_report(
-        self, traces: list, setup_name: str = None, variations: dict | None = None, context: list | None = None
-    ) -> bool:
+    def update_trace_in_report(self, traces, setup_name=None, variations: dict | None = None, context=None) -> bool:
         """Update a trace in a specific report.
 
         Parameters
@@ -2652,7 +2641,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
                 setup_name if setup_name else self.setup,
                 context if context else self._context,
                 self._convert_dict_to_report_sel(variations if variations else self.variations),
-                self._trace_info(),
+                self._trace_info,
             )
             return True
         except Exception:
@@ -2705,7 +2694,9 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def add_trace_characteristics(self, name: str, arguments: list = None, solution_range: list = None) -> bool:
+    def add_trace_characteristics(
+        self, name: str, arguments: list | None = None, solution_range: list | None = None
+    ) -> bool:
         """Add a trace characteristic to the plot.
 
         Parameters
@@ -2731,7 +2722,7 @@ class CommonReport(BinaryTreeNode, PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def export_table_to_file(self, plot_name: str, output_file: str, table_type: str = "Marker") -> bool:
+    def export_table_to_file(self, plot_name, output_file, table_type: str = "Marker") -> bool:
         """Export a marker table or a legend (with trace characteristics result) from a report to a file.
 
         Parameters

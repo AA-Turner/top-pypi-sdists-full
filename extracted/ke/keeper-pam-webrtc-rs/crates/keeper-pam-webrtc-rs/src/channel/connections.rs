@@ -555,7 +555,11 @@ pub async fn setup_outbound_task(
 
         let mut reader = backend_reader;
         let mut eof_sent = false;
-        let mut clean_disconnect_received = false; // Track if disconnect opcode was seen
+        // For Guacd, only set true when a disconnect opcode is parsed from the stream.
+        // For DatabaseProxy, TCP EOF is the normal disconnect signal (COM_QUIT causes the
+        // proxy to close the TCP connection cleanly), so start as true to avoid treating
+        // a normal client disconnect as ConnectionLost and tearing down the tube.
+        let mut clean_disconnect_received = active_protocol == ActiveProtocol::DatabaseProxy;
         let mut loop_iterations = 0;
 
         let mut drain_mode = false; // Guacd: discard data after WebRTC close, wait for guacd EOF

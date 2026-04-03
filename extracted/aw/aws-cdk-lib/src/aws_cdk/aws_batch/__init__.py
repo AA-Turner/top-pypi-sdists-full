@@ -728,6 +728,27 @@ batch.EcsJobDefinition(self, "JobDefn",
 )
 ```
 
+### Job Definition Version Management
+
+By default, when you update a Job Definition, AWS Batch automatically deregisters the previous revision.
+This means any jobs that were submitted using the old revision may fail if they haven't started yet.
+
+You can preserve previous revisions by setting `skipDeregisterOnUpdate` to `true`:
+
+```python
+job_defn = batch.EcsJobDefinition(self, "JobDefn",
+    container=batch.EcsEc2ContainerDefinition(self, "containerDefn",
+        image=ecs.ContainerImage.from_registry("public.ecr.aws/amazonlinux/amazonlinux:latest"),
+        memory=cdk.Size.mebibytes(2048),
+        cpu=256
+    ),
+    skip_deregister_on_update=True
+)
+```
+
+* This applies to all Job Definition types: ECS (EC2 and Fargate), EKS, and MultiNode
+* Default behavior (when not specified) follows AWS Batch defaults: previous revisions are deregistered
+
 ### Understanding Progressive Allocation Strategies
 
 AWS Batch uses an [allocation strategy](https://docs.aws.amazon.com/batch/latest/userguide/allocation-strategies.html) to determine what compute resource will efficiently handle incoming job requests. By default, **BEST_FIT** will pick an available compute instance based on vCPU requirements. If none exist, the job will wait until resources become available. However, with this strategy, you may have jobs waiting in the queue unnecessarily despite having more powerful instances available. Below is an example of how that situation might look like:
@@ -14153,29 +14174,25 @@ class EcsEc2ContainerDefinitionProps(EcsContainerDefinitionProps):
 
         Example::
 
-            # vpc: ec2.IVpc
+            # my_file_system: efs.IFileSystem
+            # my_job_role: iam.Role
             
+            my_file_system.grant_read(my_job_role)
             
-            ecs_job = batch.EcsJobDefinition(self, "JobDefn",
+            job_defn = batch.EcsJobDefinition(self, "JobDefn",
                 container=batch.EcsEc2ContainerDefinition(self, "containerDefn",
                     image=ecs.ContainerImage.from_registry("public.ecr.aws/amazonlinux/amazonlinux:latest"),
                     memory=cdk.Size.mebibytes(2048),
-                    cpu=256
+                    cpu=256,
+                    volumes=[batch.EcsVolume.efs(
+                        name="myVolume",
+                        file_system=my_file_system,
+                        container_path="/Volumes/myVolume",
+                        use_job_role=True
+                    )],
+                    job_role=my_job_role
                 )
             )
-            
-            queue = batch.JobQueue(self, "JobQueue",
-                compute_environments=[batch.OrderedComputeEnvironment(
-                    compute_environment=batch.ManagedEc2EcsComputeEnvironment(self, "managedEc2CE",
-                        vpc=vpc
-                    ),
-                    order=1
-                )],
-                priority=10
-            )
-            
-            user = iam.User(self, "MyUser")
-            ecs_job.grant_submit_job(user, queue)
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__397c7ba6003633e0c17fd25493d817d40262ed9fcf2688d3147876a3327e8249)
@@ -19316,6 +19333,7 @@ class ImagePullPolicy(enum.Enum):
         "retry_attempts": "retryAttempts",
         "retry_strategies": "retryStrategies",
         "scheduling_priority": "schedulingPriority",
+        "skip_deregister_on_update": "skipDeregisterOnUpdate",
         "timeout": "timeout",
     },
 )
@@ -19328,6 +19346,7 @@ class JobDefinitionProps:
         retry_attempts: typing.Optional[jsii.Number] = None,
         retry_strategies: typing.Optional[typing.Sequence["RetryStrategy"]] = None,
         scheduling_priority: typing.Optional[jsii.Number] = None,
+        skip_deregister_on_update: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''Props common to all JobDefinitions.
@@ -19337,6 +19356,7 @@ class JobDefinitionProps:
         :param retry_attempts: The number of times to retry a job. The job is retried on failure the same number of attempts as the value. Default: 1
         :param retry_strategies: Defines the retry behavior for this job. Default: - no ``RetryStrategy``
         :param scheduling_priority: The priority of this Job. Only used in Fairshare Scheduling to decide which job to run first when there are multiple jobs with the same share identifier. Default: none
+        :param skip_deregister_on_update: Specifies whether the previous revision of the job definition is retained in an active status after UPDATE events for the resource. When the property is set to false, the previous revision of the job definition is de-registered after a new revision is created. When the property is set to true, the previous revision of the job definition is not de-registered. Default: undefined - AWS Batch default is false
         :param timeout: The timeout time for jobs that are submitted with this job definition. After the amount of time you specify passes, Batch terminates your jobs if they aren't finished. Default: - no timeout
 
         :exampleMetadata: fixture=_generated
@@ -19359,6 +19379,7 @@ class JobDefinitionProps:
                 retry_attempts=123,
                 retry_strategies=[retry_strategy],
                 scheduling_priority=123,
+                skip_deregister_on_update=False,
                 timeout=cdk.Duration.minutes(30)
             )
         '''
@@ -19369,6 +19390,7 @@ class JobDefinitionProps:
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
             check_type(argname="argument retry_strategies", value=retry_strategies, expected_type=type_hints["retry_strategies"])
             check_type(argname="argument scheduling_priority", value=scheduling_priority, expected_type=type_hints["scheduling_priority"])
+            check_type(argname="argument skip_deregister_on_update", value=skip_deregister_on_update, expected_type=type_hints["skip_deregister_on_update"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if job_definition_name is not None:
@@ -19381,6 +19403,8 @@ class JobDefinitionProps:
             self._values["retry_strategies"] = retry_strategies
         if scheduling_priority is not None:
             self._values["scheduling_priority"] = scheduling_priority
+        if skip_deregister_on_update is not None:
+            self._values["skip_deregister_on_update"] = skip_deregister_on_update
         if timeout is not None:
             self._values["timeout"] = timeout
 
@@ -19436,6 +19460,18 @@ class JobDefinitionProps:
         '''
         result = self._values.get("scheduling_priority")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def skip_deregister_on_update(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether the previous revision of the job definition is retained in an active status after UPDATE events for the resource.
+
+        When the property is set to false, the previous revision of the job definition is de-registered after a new revision is created.
+        When the property is set to true, the previous revision of the job definition is not de-registered.
+
+        :default: undefined - AWS Batch default is false
+        '''
+        result = self._values.get("skip_deregister_on_update")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
@@ -22612,6 +22648,7 @@ class MultiNodeJobDefinition(
         retry_attempts: typing.Optional[jsii.Number] = None,
         retry_strategies: typing.Optional[typing.Sequence["RetryStrategy"]] = None,
         scheduling_priority: typing.Optional[jsii.Number] = None,
+        skip_deregister_on_update: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''
@@ -22626,6 +22663,7 @@ class MultiNodeJobDefinition(
         :param retry_attempts: The number of times to retry a job. The job is retried on failure the same number of attempts as the value. Default: 1
         :param retry_strategies: Defines the retry behavior for this job. Default: - no ``RetryStrategy``
         :param scheduling_priority: The priority of this Job. Only used in Fairshare Scheduling to decide which job to run first when there are multiple jobs with the same share identifier. Default: none
+        :param skip_deregister_on_update: Specifies whether the previous revision of the job definition is retained in an active status after UPDATE events for the resource. When the property is set to false, the previous revision of the job definition is de-registered after a new revision is created. When the property is set to true, the previous revision of the job definition is not de-registered. Default: undefined - AWS Batch default is false
         :param timeout: The timeout time for jobs that are submitted with this job definition. After the amount of time you specify passes, Batch terminates your jobs if they aren't finished. Default: - no timeout
         '''
         if __debug__:
@@ -22642,6 +22680,7 @@ class MultiNodeJobDefinition(
             retry_attempts=retry_attempts,
             retry_strategies=retry_strategies,
             scheduling_priority=scheduling_priority,
+            skip_deregister_on_update=skip_deregister_on_update,
             timeout=timeout,
         )
 
@@ -22783,6 +22822,15 @@ class MultiNodeJobDefinition(
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "schedulingPriority"))
 
     @builtins.property
+    @jsii.member(jsii_name="skipDeregisterOnUpdate")
+    def skip_deregister_on_update(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether the previous revision of the job definition is retained in an active status after UPDATE events for the resource.
+
+        :default: undefined - AWS Batch default is false
+        '''
+        return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "skipDeregisterOnUpdate"))
+
+    @builtins.property
     @jsii.member(jsii_name="timeout")
     def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The timeout time for jobs that are submitted with this job definition.
@@ -22802,6 +22850,7 @@ class MultiNodeJobDefinition(
         "retry_attempts": "retryAttempts",
         "retry_strategies": "retryStrategies",
         "scheduling_priority": "schedulingPriority",
+        "skip_deregister_on_update": "skipDeregisterOnUpdate",
         "timeout": "timeout",
         "containers": "containers",
         "instance_type": "instanceType",
@@ -22818,6 +22867,7 @@ class MultiNodeJobDefinitionProps(JobDefinitionProps):
         retry_attempts: typing.Optional[jsii.Number] = None,
         retry_strategies: typing.Optional[typing.Sequence["RetryStrategy"]] = None,
         scheduling_priority: typing.Optional[jsii.Number] = None,
+        skip_deregister_on_update: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
         containers: typing.Optional[typing.Sequence[typing.Union["MultiNodeContainer", typing.Dict[builtins.str, typing.Any]]]] = None,
         instance_type: typing.Optional["_InstanceType_f64915b9"] = None,
@@ -22831,6 +22881,7 @@ class MultiNodeJobDefinitionProps(JobDefinitionProps):
         :param retry_attempts: The number of times to retry a job. The job is retried on failure the same number of attempts as the value. Default: 1
         :param retry_strategies: Defines the retry behavior for this job. Default: - no ``RetryStrategy``
         :param scheduling_priority: The priority of this Job. Only used in Fairshare Scheduling to decide which job to run first when there are multiple jobs with the same share identifier. Default: none
+        :param skip_deregister_on_update: Specifies whether the previous revision of the job definition is retained in an active status after UPDATE events for the resource. When the property is set to false, the previous revision of the job definition is de-registered after a new revision is created. When the property is set to true, the previous revision of the job definition is not de-registered. Default: undefined - AWS Batch default is false
         :param timeout: The timeout time for jobs that are submitted with this job definition. After the amount of time you specify passes, Batch terminates your jobs if they aren't finished. Default: - no timeout
         :param containers: The containers that this multinode job will run. Default: none
         :param instance_type: The instance type that this job definition will run. Default: - optimal instance, selected by Batch
@@ -22871,6 +22922,7 @@ class MultiNodeJobDefinitionProps(JobDefinitionProps):
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
             check_type(argname="argument retry_strategies", value=retry_strategies, expected_type=type_hints["retry_strategies"])
             check_type(argname="argument scheduling_priority", value=scheduling_priority, expected_type=type_hints["scheduling_priority"])
+            check_type(argname="argument skip_deregister_on_update", value=skip_deregister_on_update, expected_type=type_hints["skip_deregister_on_update"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             check_type(argname="argument containers", value=containers, expected_type=type_hints["containers"])
             check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
@@ -22887,6 +22939,8 @@ class MultiNodeJobDefinitionProps(JobDefinitionProps):
             self._values["retry_strategies"] = retry_strategies
         if scheduling_priority is not None:
             self._values["scheduling_priority"] = scheduling_priority
+        if skip_deregister_on_update is not None:
+            self._values["skip_deregister_on_update"] = skip_deregister_on_update
         if timeout is not None:
             self._values["timeout"] = timeout
         if containers is not None:
@@ -22950,6 +23004,18 @@ class MultiNodeJobDefinitionProps(JobDefinitionProps):
         '''
         result = self._values.get("scheduling_priority")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def skip_deregister_on_update(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether the previous revision of the job definition is retained in an active status after UPDATE events for the resource.
+
+        When the property is set to false, the previous revision of the job definition is de-registered after a new revision is created.
+        When the property is set to true, the previous revision of the job definition is not de-registered.
+
+        :default: undefined - AWS Batch default is false
+        '''
+        result = self._values.get("skip_deregister_on_update")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
@@ -24315,29 +24381,25 @@ class EcsEc2ContainerDefinition(
 
     Example::
 
-        # vpc: ec2.IVpc
+        # my_file_system: efs.IFileSystem
+        # my_job_role: iam.Role
         
+        my_file_system.grant_read(my_job_role)
         
-        ecs_job = batch.EcsJobDefinition(self, "JobDefn",
+        job_defn = batch.EcsJobDefinition(self, "JobDefn",
             container=batch.EcsEc2ContainerDefinition(self, "containerDefn",
                 image=ecs.ContainerImage.from_registry("public.ecr.aws/amazonlinux/amazonlinux:latest"),
                 memory=cdk.Size.mebibytes(2048),
-                cpu=256
+                cpu=256,
+                volumes=[batch.EcsVolume.efs(
+                    name="myVolume",
+                    file_system=my_file_system,
+                    container_path="/Volumes/myVolume",
+                    use_job_role=True
+                )],
+                job_role=my_job_role
             )
         )
-        
-        queue = batch.JobQueue(self, "JobQueue",
-            compute_environments=[batch.OrderedComputeEnvironment(
-                compute_environment=batch.ManagedEc2EcsComputeEnvironment(self, "managedEc2CE",
-                    vpc=vpc
-                ),
-                order=1
-            )],
-            priority=10
-        )
-        
-        user = iam.User(self, "MyUser")
-        ecs_job.grant_submit_job(user, queue)
     '''
 
     def __init__(
@@ -24847,23 +24909,14 @@ class EcsJobDefinition(
 
     Example::
 
-        # my_file_system: efs.IFileSystem
-        # my_job_role: iam.Role
-        
-        my_file_system.grant_read(my_job_role)
-        
         job_defn = batch.EcsJobDefinition(self, "JobDefn",
-            container=batch.EcsEc2ContainerDefinition(self, "containerDefn",
+            container=batch.EcsFargateContainerDefinition(self, "myFargateContainer",
                 image=ecs.ContainerImage.from_registry("public.ecr.aws/amazonlinux/amazonlinux:latest"),
                 memory=cdk.Size.mebibytes(2048),
                 cpu=256,
-                volumes=[batch.EcsVolume.efs(
-                    name="myVolume",
-                    file_system=my_file_system,
-                    container_path="/Volumes/myVolume",
-                    use_job_role=True
-                )],
-                job_role=my_job_role
+                ephemeral_storage_size=cdk.Size.gibibytes(100),
+                fargate_cpu_architecture=ecs.CpuArchitecture.ARM64,
+                fargate_operating_system_family=ecs.OperatingSystemFamily.LINUX
             )
         )
     '''
@@ -24880,6 +24933,7 @@ class EcsJobDefinition(
         retry_attempts: typing.Optional[jsii.Number] = None,
         retry_strategies: typing.Optional[typing.Sequence["RetryStrategy"]] = None,
         scheduling_priority: typing.Optional[jsii.Number] = None,
+        skip_deregister_on_update: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''
@@ -24892,6 +24946,7 @@ class EcsJobDefinition(
         :param retry_attempts: The number of times to retry a job. The job is retried on failure the same number of attempts as the value. Default: 1
         :param retry_strategies: Defines the retry behavior for this job. Default: - no ``RetryStrategy``
         :param scheduling_priority: The priority of this Job. Only used in Fairshare Scheduling to decide which job to run first when there are multiple jobs with the same share identifier. Default: none
+        :param skip_deregister_on_update: Specifies whether the previous revision of the job definition is retained in an active status after UPDATE events for the resource. When the property is set to false, the previous revision of the job definition is de-registered after a new revision is created. When the property is set to true, the previous revision of the job definition is not de-registered. Default: undefined - AWS Batch default is false
         :param timeout: The timeout time for jobs that are submitted with this job definition. After the amount of time you specify passes, Batch terminates your jobs if they aren't finished. Default: - no timeout
         '''
         if __debug__:
@@ -24906,6 +24961,7 @@ class EcsJobDefinition(
             retry_attempts=retry_attempts,
             retry_strategies=retry_strategies,
             scheduling_priority=scheduling_priority,
+            skip_deregister_on_update=skip_deregister_on_update,
             timeout=timeout,
         )
 
@@ -25031,6 +25087,15 @@ class EcsJobDefinition(
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "schedulingPriority"))
 
     @builtins.property
+    @jsii.member(jsii_name="skipDeregisterOnUpdate")
+    def skip_deregister_on_update(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether the previous revision of the job definition is retained in an active status after UPDATE events for the resource.
+
+        :default: undefined - AWS Batch default is false
+        '''
+        return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "skipDeregisterOnUpdate"))
+
+    @builtins.property
     @jsii.member(jsii_name="timeout")
     def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The timeout time for jobs that are submitted with this job definition.
@@ -25050,6 +25115,7 @@ class EcsJobDefinition(
         "retry_attempts": "retryAttempts",
         "retry_strategies": "retryStrategies",
         "scheduling_priority": "schedulingPriority",
+        "skip_deregister_on_update": "skipDeregisterOnUpdate",
         "timeout": "timeout",
         "container": "container",
         "propagate_tags": "propagateTags",
@@ -25064,6 +25130,7 @@ class EcsJobDefinitionProps(JobDefinitionProps):
         retry_attempts: typing.Optional[jsii.Number] = None,
         retry_strategies: typing.Optional[typing.Sequence["RetryStrategy"]] = None,
         scheduling_priority: typing.Optional[jsii.Number] = None,
+        skip_deregister_on_update: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
         container: "IEcsContainerDefinition",
         propagate_tags: typing.Optional[builtins.bool] = None,
@@ -25075,6 +25142,7 @@ class EcsJobDefinitionProps(JobDefinitionProps):
         :param retry_attempts: The number of times to retry a job. The job is retried on failure the same number of attempts as the value. Default: 1
         :param retry_strategies: Defines the retry behavior for this job. Default: - no ``RetryStrategy``
         :param scheduling_priority: The priority of this Job. Only used in Fairshare Scheduling to decide which job to run first when there are multiple jobs with the same share identifier. Default: none
+        :param skip_deregister_on_update: Specifies whether the previous revision of the job definition is retained in an active status after UPDATE events for the resource. When the property is set to false, the previous revision of the job definition is de-registered after a new revision is created. When the property is set to true, the previous revision of the job definition is not de-registered. Default: undefined - AWS Batch default is false
         :param timeout: The timeout time for jobs that are submitted with this job definition. After the amount of time you specify passes, Batch terminates your jobs if they aren't finished. Default: - no timeout
         :param container: The container that this job will run.
         :param propagate_tags: Whether to propagate tags from the JobDefinition to the ECS task that Batch spawns. Default: false
@@ -25083,23 +25151,14 @@ class EcsJobDefinitionProps(JobDefinitionProps):
 
         Example::
 
-            # my_file_system: efs.IFileSystem
-            # my_job_role: iam.Role
-            
-            my_file_system.grant_read(my_job_role)
-            
             job_defn = batch.EcsJobDefinition(self, "JobDefn",
-                container=batch.EcsEc2ContainerDefinition(self, "containerDefn",
+                container=batch.EcsFargateContainerDefinition(self, "myFargateContainer",
                     image=ecs.ContainerImage.from_registry("public.ecr.aws/amazonlinux/amazonlinux:latest"),
                     memory=cdk.Size.mebibytes(2048),
                     cpu=256,
-                    volumes=[batch.EcsVolume.efs(
-                        name="myVolume",
-                        file_system=my_file_system,
-                        container_path="/Volumes/myVolume",
-                        use_job_role=True
-                    )],
-                    job_role=my_job_role
+                    ephemeral_storage_size=cdk.Size.gibibytes(100),
+                    fargate_cpu_architecture=ecs.CpuArchitecture.ARM64,
+                    fargate_operating_system_family=ecs.OperatingSystemFamily.LINUX
                 )
             )
         '''
@@ -25110,6 +25169,7 @@ class EcsJobDefinitionProps(JobDefinitionProps):
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
             check_type(argname="argument retry_strategies", value=retry_strategies, expected_type=type_hints["retry_strategies"])
             check_type(argname="argument scheduling_priority", value=scheduling_priority, expected_type=type_hints["scheduling_priority"])
+            check_type(argname="argument skip_deregister_on_update", value=skip_deregister_on_update, expected_type=type_hints["skip_deregister_on_update"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             check_type(argname="argument container", value=container, expected_type=type_hints["container"])
             check_type(argname="argument propagate_tags", value=propagate_tags, expected_type=type_hints["propagate_tags"])
@@ -25126,6 +25186,8 @@ class EcsJobDefinitionProps(JobDefinitionProps):
             self._values["retry_strategies"] = retry_strategies
         if scheduling_priority is not None:
             self._values["scheduling_priority"] = scheduling_priority
+        if skip_deregister_on_update is not None:
+            self._values["skip_deregister_on_update"] = skip_deregister_on_update
         if timeout is not None:
             self._values["timeout"] = timeout
         if propagate_tags is not None:
@@ -25183,6 +25245,18 @@ class EcsJobDefinitionProps(JobDefinitionProps):
         '''
         result = self._values.get("scheduling_priority")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def skip_deregister_on_update(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether the previous revision of the job definition is retained in an active status after UPDATE events for the resource.
+
+        When the property is set to false, the previous revision of the job definition is de-registered after a new revision is created.
+        When the property is set to true, the previous revision of the job definition is not de-registered.
+
+        :default: undefined - AWS Batch default is false
+        '''
+        result = self._values.get("skip_deregister_on_update")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
@@ -25565,6 +25639,7 @@ class EksContainerDefinition(
         "retry_attempts": "retryAttempts",
         "retry_strategies": "retryStrategies",
         "scheduling_priority": "schedulingPriority",
+        "skip_deregister_on_update": "skipDeregisterOnUpdate",
         "timeout": "timeout",
         "container": "container",
         "dns_policy": "dnsPolicy",
@@ -25581,6 +25656,7 @@ class EksJobDefinitionProps(JobDefinitionProps):
         retry_attempts: typing.Optional[jsii.Number] = None,
         retry_strategies: typing.Optional[typing.Sequence["RetryStrategy"]] = None,
         scheduling_priority: typing.Optional[jsii.Number] = None,
+        skip_deregister_on_update: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
         container: "EksContainerDefinition",
         dns_policy: typing.Optional["DnsPolicy"] = None,
@@ -25594,6 +25670,7 @@ class EksJobDefinitionProps(JobDefinitionProps):
         :param retry_attempts: The number of times to retry a job. The job is retried on failure the same number of attempts as the value. Default: 1
         :param retry_strategies: Defines the retry behavior for this job. Default: - no ``RetryStrategy``
         :param scheduling_priority: The priority of this Job. Only used in Fairshare Scheduling to decide which job to run first when there are multiple jobs with the same share identifier. Default: none
+        :param skip_deregister_on_update: Specifies whether the previous revision of the job definition is retained in an active status after UPDATE events for the resource. When the property is set to false, the previous revision of the job definition is de-registered after a new revision is created. When the property is set to true, the previous revision of the job definition is not de-registered. Default: undefined - AWS Batch default is false
         :param timeout: The timeout time for jobs that are submitted with this job definition. After the amount of time you specify passes, Batch terminates your jobs if they aren't finished. Default: - no timeout
         :param container: The container this Job Definition will run.
         :param dns_policy: The DNS Policy of the pod used by this Job Definition. Default: ``DnsPolicy.CLUSTER_FIRST``
@@ -25624,6 +25701,7 @@ class EksJobDefinitionProps(JobDefinitionProps):
             check_type(argname="argument retry_attempts", value=retry_attempts, expected_type=type_hints["retry_attempts"])
             check_type(argname="argument retry_strategies", value=retry_strategies, expected_type=type_hints["retry_strategies"])
             check_type(argname="argument scheduling_priority", value=scheduling_priority, expected_type=type_hints["scheduling_priority"])
+            check_type(argname="argument skip_deregister_on_update", value=skip_deregister_on_update, expected_type=type_hints["skip_deregister_on_update"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             check_type(argname="argument container", value=container, expected_type=type_hints["container"])
             check_type(argname="argument dns_policy", value=dns_policy, expected_type=type_hints["dns_policy"])
@@ -25642,6 +25720,8 @@ class EksJobDefinitionProps(JobDefinitionProps):
             self._values["retry_strategies"] = retry_strategies
         if scheduling_priority is not None:
             self._values["scheduling_priority"] = scheduling_priority
+        if skip_deregister_on_update is not None:
+            self._values["skip_deregister_on_update"] = skip_deregister_on_update
         if timeout is not None:
             self._values["timeout"] = timeout
         if dns_policy is not None:
@@ -25703,6 +25783,18 @@ class EksJobDefinitionProps(JobDefinitionProps):
         '''
         result = self._values.get("scheduling_priority")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def skip_deregister_on_update(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether the previous revision of the job definition is retained in an active status after UPDATE events for the resource.
+
+        When the property is set to false, the previous revision of the job definition is de-registered after a new revision is created.
+        When the property is set to true, the previous revision of the job definition is not de-registered.
+
+        :default: undefined - AWS Batch default is false
+        '''
+        result = self._values.get("skip_deregister_on_update")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
@@ -26350,6 +26442,7 @@ class EksJobDefinition(
         retry_attempts: typing.Optional[jsii.Number] = None,
         retry_strategies: typing.Optional[typing.Sequence["RetryStrategy"]] = None,
         scheduling_priority: typing.Optional[jsii.Number] = None,
+        skip_deregister_on_update: typing.Optional[builtins.bool] = None,
         timeout: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''
@@ -26364,6 +26457,7 @@ class EksJobDefinition(
         :param retry_attempts: The number of times to retry a job. The job is retried on failure the same number of attempts as the value. Default: 1
         :param retry_strategies: Defines the retry behavior for this job. Default: - no ``RetryStrategy``
         :param scheduling_priority: The priority of this Job. Only used in Fairshare Scheduling to decide which job to run first when there are multiple jobs with the same share identifier. Default: none
+        :param skip_deregister_on_update: Specifies whether the previous revision of the job definition is retained in an active status after UPDATE events for the resource. When the property is set to false, the previous revision of the job definition is de-registered after a new revision is created. When the property is set to true, the previous revision of the job definition is not de-registered. Default: undefined - AWS Batch default is false
         :param timeout: The timeout time for jobs that are submitted with this job definition. After the amount of time you specify passes, Batch terminates your jobs if they aren't finished. Default: - no timeout
         '''
         if __debug__:
@@ -26380,6 +26474,7 @@ class EksJobDefinition(
             retry_attempts=retry_attempts,
             retry_strategies=retry_strategies,
             scheduling_priority=scheduling_priority,
+            skip_deregister_on_update=skip_deregister_on_update,
             timeout=timeout,
         )
 
@@ -26494,6 +26589,15 @@ class EksJobDefinition(
         roughly analogous to IAM users.
         '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "serviceAccount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="skipDeregisterOnUpdate")
+    def skip_deregister_on_update(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether the previous revision of the job definition is retained in an active status after UPDATE events for the resource.
+
+        :default: undefined - AWS Batch default is false
+        '''
+        return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "skipDeregisterOnUpdate"))
 
     @builtins.property
     @jsii.member(jsii_name="timeout")
@@ -28662,6 +28766,7 @@ def _typecheckingstub__a765ea712db541bc881e5342b3e9c783fa8b3a6318b0b89f77b77258a
     retry_attempts: typing.Optional[jsii.Number] = None,
     retry_strategies: typing.Optional[typing.Sequence[RetryStrategy]] = None,
     scheduling_priority: typing.Optional[jsii.Number] = None,
+    skip_deregister_on_update: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
@@ -28950,6 +29055,7 @@ def _typecheckingstub__3e44275ef3ec7eac8d98b54e122f25ecfb095c383d00f7bf95a250298
     retry_attempts: typing.Optional[jsii.Number] = None,
     retry_strategies: typing.Optional[typing.Sequence[RetryStrategy]] = None,
     scheduling_priority: typing.Optional[jsii.Number] = None,
+    skip_deregister_on_update: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
@@ -28976,6 +29082,7 @@ def _typecheckingstub__0837feb6b3566a68641c2717be9c305543bcee305dee167736c163fa4
     retry_attempts: typing.Optional[jsii.Number] = None,
     retry_strategies: typing.Optional[typing.Sequence[RetryStrategy]] = None,
     scheduling_priority: typing.Optional[jsii.Number] = None,
+    skip_deregister_on_update: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
     containers: typing.Optional[typing.Sequence[typing.Union[MultiNodeContainer, typing.Dict[builtins.str, typing.Any]]]] = None,
     instance_type: typing.Optional[_InstanceType_f64915b9] = None,
@@ -29190,6 +29297,7 @@ def _typecheckingstub__5b7f384e9d0d8e923ac68cea0caf0e92d2e9ebf0b7b20027b109977d1
     retry_attempts: typing.Optional[jsii.Number] = None,
     retry_strategies: typing.Optional[typing.Sequence[RetryStrategy]] = None,
     scheduling_priority: typing.Optional[jsii.Number] = None,
+    skip_deregister_on_update: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29223,6 +29331,7 @@ def _typecheckingstub__b8c494afeabc17e9b4e022255720a4708371545e981a1d166b385628f
     retry_attempts: typing.Optional[jsii.Number] = None,
     retry_strategies: typing.Optional[typing.Sequence[RetryStrategy]] = None,
     scheduling_priority: typing.Optional[jsii.Number] = None,
+    skip_deregister_on_update: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
     container: IEcsContainerDefinition,
     propagate_tags: typing.Optional[builtins.bool] = None,
@@ -29269,6 +29378,7 @@ def _typecheckingstub__139921f8e70fdfd8c4683013b1b35e3e0c804af068e7df4b32f718297
     retry_attempts: typing.Optional[jsii.Number] = None,
     retry_strategies: typing.Optional[typing.Sequence[RetryStrategy]] = None,
     scheduling_priority: typing.Optional[jsii.Number] = None,
+    skip_deregister_on_update: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
     container: EksContainerDefinition,
     dns_policy: typing.Optional[DnsPolicy] = None,
@@ -29309,6 +29419,7 @@ def _typecheckingstub__1ad6d55dbd54de5d212d20ae75f1c6a20be5dc2f1a88242cac8164f8a
     retry_attempts: typing.Optional[jsii.Number] = None,
     retry_strategies: typing.Optional[typing.Sequence[RetryStrategy]] = None,
     scheduling_priority: typing.Optional[jsii.Number] = None,
+    skip_deregister_on_update: typing.Optional[builtins.bool] = None,
     timeout: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""

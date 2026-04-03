@@ -99,6 +99,8 @@ pub mod encodings {
     pub const RRE: i32 = 2;
     /// Hextile encoding
     pub const HEXTILE: i32 = 5;
+    /// Tight encoding
+    pub const TIGHT: i32 = 7;
     /// ZRLE encoding
     pub const ZRLE: i32 = 16;
     /// Cursor pseudo-encoding (cursor shape update)
@@ -111,10 +113,43 @@ pub mod encodings {
     pub const RICH_CURSOR: i32 = -239;
 }
 
+/// Pixel payload for a VNC rectangle update.
+#[derive(Debug, Clone)]
+pub enum VncPixelData {
+    Raw(Vec<u8>),       // 3-bytes/pixel RGB
+    Fill(u8, u8, u8),   // Tight FillRect — solid color
+    TightJpeg(Vec<u8>), // Tight JPEG — forward directly
+    Empty,              // Pseudo-encoding or unimplemented
+}
+
 /// VNC protocol handler
 pub struct VncProtocol;
 
 impl VncProtocol {
+    /// Decode a Tight "compact length" field (1–3 bytes, 7-bit groups).
+    pub(crate) fn parse_tight_length(data: &[u8]) -> Option<(usize, usize)> {
+        if data.is_empty() {
+            return None;
+        }
+        let b0 = data[0] as usize;
+        if b0 < 0x80 {
+            return Some((b0, 1));
+        }
+        if data.len() < 2 {
+            return None;
+        }
+        let b1 = data[1] as usize;
+        let len = (b0 & 0x7F) | ((b1 & 0x7F) << 7);
+        if b1 < 0x80 {
+            return Some((len, 2));
+        }
+        if data.len() < 3 {
+            return None;
+        }
+        let b2 = data[2] as usize;
+        Some(((b0 & 0x7F) | ((b1 & 0x7F) << 7) | (b2 << 14), 3))
+    }
+
     /// Perform VNC handshake
     ///
     /// Returns (version, security_type, pixel_format, width, height, name)
@@ -195,18 +230,22 @@ impl VncProtocol {
             }
         }
 
-        // 6. Send ClientInit (shared flag = false)
+        // 6. Send ClientInit (shared=0 = exclusive connection).
+        // shared=0 forces the server to disconnect stale connections, giving a faster ServerInit.
         stream
             .write_all(&[0u8])
             .await
             .map_err(|e| format!("Failed to send ClientInit: {}", e))?;
 
-        // 7. Read ServerInit
+        // 7. Read ServerInit with timeout
         let mut server_init = [0u8; 24];
-        stream
-            .read_exact(&mut server_init)
-            .await
-            .map_err(|e| format!("Failed to read ServerInit: {}", e))?;
+        tokio::time::timeout(
+            std::time::Duration::from_secs(15),
+            stream.read_exact(&mut server_init),
+        )
+        .await
+        .map_err(|_| "VNC ServerInit timed out (server did not respond within 15s)".to_string())?
+        .map_err(|e| format!("Failed to read ServerInit: {}", e))?;
 
         let width = u16::from_be_bytes([server_init[0], server_init[1]]);
         let height = u16::from_be_bytes([server_init[2], server_init[3]]);
@@ -273,24 +312,30 @@ impl VncProtocol {
         Ok(())
     }
 
-    /// Encrypt VNC password (DES encryption)
-    fn encrypt_vnc_password(challenge: &[u8; 16], password: &str) -> [u8; 16] {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
+    /// Encrypt VNC password using DES with bit-reversed key bytes (RFB quirk).
+    pub(crate) fn encrypt_vnc_password(challenge: &[u8; 16], password: &str) -> [u8; 16] {
+        use des::cipher::{BlockEncrypt, KeyInit};
+        use des::Des;
 
-        // VNC uses DES encryption with password key
-        // Simplified implementation - in production, use proper DES encryption
-        // For now, use a simple hash-based approach
+        let mut key = [0u8; 8];
+        let pw = password.as_bytes();
+        let len = pw.len().min(8);
+        key[..len].copy_from_slice(&pw[..len]);
 
-        let mut hasher = DefaultHasher::new();
-        password.hash(&mut hasher);
-        let key = hasher.finish();
-
-        let mut response = [0u8; 16];
-        for i in 0..16 {
-            response[i] = challenge[i] ^ ((key >> (i * 8)) as u8);
+        // VNC quirk: reverse bit order in each key byte
+        for b in key.iter_mut() {
+            *b = b.reverse_bits();
         }
 
+        let cipher = Des::new_from_slice(&key).expect("DES key is always 8 bytes");
+        let mut response = [0u8; 16];
+        let mut block = des::cipher::generic_array::GenericArray::from([0u8; 8]);
+        block.copy_from_slice(&challenge[..8]);
+        cipher.encrypt_block(&mut block);
+        response[..8].copy_from_slice(&block);
+        block.copy_from_slice(&challenge[8..]);
+        cipher.encrypt_block(&mut block);
+        response[8..].copy_from_slice(&block);
         response
     }
 
@@ -367,7 +412,6 @@ impl VncProtocol {
         // Read number of rectangles
         let num_rects = u16::from_be_bytes([data[2], data[3]]) as usize;
 
-        // Parse rectangles (simplified - full implementation would parse all encodings)
         let mut offset = 4;
         let mut rectangles = Vec::new();
 
@@ -389,23 +433,74 @@ impl VncProtocol {
 
             offset += 12;
 
-            // Read pixel data for raw encoding
-            let pixels = if encoding == 0 {
-                // Raw encoding
-                let bytes_per_pixel = 3; // RGB
-                let pixel_count = (width * height) as usize;
-                let pixel_size = pixel_count * bytes_per_pixel;
-
-                if offset + pixel_size > data.len() {
-                    break; // Not enough data
+            let (pixel_data, pixels, src_x, src_y) = match encoding {
+                1 => {
+                    // CopyRect encoding: parse 4 bytes for source coordinates
+                    if offset + 4 > data.len() {
+                        break;
+                    }
+                    let sx = u16::from_be_bytes([data[offset], data[offset + 1]]);
+                    let sy = u16::from_be_bytes([data[offset + 2], data[offset + 3]]);
+                    offset += 4;
+                    (VncPixelData::Empty, vec![], sx, sy)
                 }
+                7 => {
+                    // Tight encoding
+                    if offset >= data.len() {
+                        break;
+                    }
+                    let compression_control = data[offset];
+                    offset += 1;
+                    let subtype = compression_control & 0xF0;
+                    match subtype {
+                        0x80 => {
+                            // Fill subtype (0x08 << 4 = 0x80)
+                            if offset + 3 > data.len() {
+                                break;
+                            }
+                            let r = data[offset];
+                            let g = data[offset + 1];
+                            let b = data[offset + 2];
+                            offset += 3;
+                            (VncPixelData::Fill(r, g, b), vec![], 0, 0)
+                        }
+                        0x90 => {
+                            // JPEG subtype (0x09 << 4 = 0x90)
+                            if let Some((jpeg_len, consumed)) =
+                                Self::parse_tight_length(&data[offset..])
+                            {
+                                offset += consumed;
+                                if offset + jpeg_len > data.len() {
+                                    break;
+                                }
+                                let jpeg_bytes = data[offset..offset + jpeg_len].to_vec();
+                                offset += jpeg_len;
+                                (VncPixelData::TightJpeg(jpeg_bytes), vec![], 0, 0)
+                            } else {
+                                break;
+                            }
+                        }
+                        _ => (VncPixelData::Empty, vec![], 0, 0),
+                    }
+                }
+                0 => {
+                    // Raw encoding
+                    let bytes_per_pixel = 3; // RGB
+                    let pixel_count = (width * height) as usize;
+                    let pixel_size = pixel_count * bytes_per_pixel;
 
-                let pixel_data = data[offset..offset + pixel_size].to_vec();
-                offset += pixel_size;
-                pixel_data
-            } else {
-                // Other encodings - skip for now
-                vec![]
+                    if offset + pixel_size > data.len() {
+                        break;
+                    }
+
+                    let raw_bytes = data[offset..offset + pixel_size].to_vec();
+                    offset += pixel_size;
+                    (VncPixelData::Raw(raw_bytes.clone()), raw_bytes, 0, 0)
+                }
+                _ => {
+                    // Other encodings — emit empty rectangle, no data consumed
+                    (VncPixelData::Empty, vec![], 0, 0)
+                }
             };
 
             rectangles.push(VncRectangle {
@@ -415,6 +510,9 @@ impl VncProtocol {
                 height,
                 encoding,
                 pixels,
+                pixel_data,
+                src_x,
+                src_y,
             });
         }
 
@@ -441,37 +539,33 @@ impl VncProtocol {
         let encoding = i32::from_be_bytes([header[8], header[9], header[10], header[11]]);
 
         // Read pixel data based on encoding
-        let pixels = match encoding {
+        let (pixels, pixel_data, src_x, src_y) = match encoding {
             0 => {
                 // Raw encoding - read pixels directly
                 let bytes_per_pixel = 3; // RGB
                 let pixel_count = (width * height) as usize;
-                let mut pixels = vec![0u8; pixel_count * bytes_per_pixel];
+                let mut raw = vec![0u8; pixel_count * bytes_per_pixel];
                 stream
-                    .read_exact(&mut pixels)
+                    .read_exact(&mut raw)
                     .await
                     .map_err(|e| format!("Failed to read raw pixels: {}", e))?;
-                pixels
+                let pd = VncPixelData::Raw(raw.clone());
+                (raw, pd, 0u16, 0u16)
             }
             1 => {
-                // CopyRect encoding - just read source coordinates
+                // CopyRect encoding - read source coordinates (4 bytes)
                 let mut copyrect = [0u8; 4];
                 stream
                     .read_exact(&mut copyrect)
                     .await
                     .map_err(|e| format!("Failed to read CopyRect: {}", e))?;
-                // For CopyRect, we'll need to copy from existing framebuffer
-                // Return empty pixels - caller should handle CopyRect
-                vec![]
+                let sx = u16::from_be_bytes([copyrect[0], copyrect[1]]);
+                let sy = u16::from_be_bytes([copyrect[2], copyrect[3]]);
+                (vec![], VncPixelData::Empty, sx, sy)
             }
             _ => {
                 warn!("VNC: Unsupported encoding: {}, skipping", encoding);
-                // Skip unknown encoding
-                let bytes_per_pixel = 3;
-                let pixel_count = (width * height) as usize;
-                let mut pixels = vec![0u8; pixel_count * bytes_per_pixel];
-                let _ = stream.read_exact(&mut pixels).await;
-                vec![]
+                (vec![], VncPixelData::Empty, 0, 0)
             }
         };
 
@@ -482,6 +576,9 @@ impl VncProtocol {
             height,
             encoding,
             pixels,
+            pixel_data,
+            src_x,
+            src_y,
         })
     }
 
@@ -601,24 +698,28 @@ impl VncProtocol {
         })
     }
 
-    /// Send SetEncodings message to enable cursor support
+    /// Send SetEncodings message.
     ///
-    /// Requests the VNC server to send cursor updates using pseudo-encodings.
-    /// This enables client-side cursor rendering for smooth cursor movement.
+    /// Encoding preference order:
+    ///   1. CopyRect  — server avoids sending pixels when regions are copied
+    ///   2. Tight     — server-compressed JPEG (low bandwidth)
+    ///   3. Raw       — fallback
+    ///
+    /// Cursor pseudo-encodings are appended when `enable_cursor` is true.
     pub async fn send_set_encodings<S>(stream: &mut S, enable_cursor: bool) -> Result<(), String>
     where
         S: AsyncWrite + Unpin,
     {
-        let mut encodings = vec![
-            encodings::RAW,      // Raw encoding (always supported)
-            encodings::COPYRECT, // CopyRect for scroll optimization
-            encodings::HEXTILE,  // Hextile for better compression
+        let mut enc_list = vec![
+            encodings::COPYRECT, // first preference — server avoids sending pixels
+            encodings::TIGHT,    // second — server-compressed JPEG
+            encodings::RAW,      // fallback
         ];
 
         // Add cursor pseudo-encoding if requested (for client-side cursor)
         if enable_cursor {
-            encodings.push(encodings::CURSOR); // Rich cursor with alpha
-            encodings.push(encodings::X_CURSOR); // X11 cursor format (fallback)
+            enc_list.push(encodings::CURSOR); // Rich cursor with alpha
+            enc_list.push(encodings::X_CURSOR); // X11 cursor format (fallback)
         }
 
         let mut message = vec![
@@ -627,10 +728,10 @@ impl VncProtocol {
         ];
 
         // Number of encodings (2 bytes, big-endian)
-        message.extend_from_slice(&(encodings.len() as u16).to_be_bytes());
+        message.extend_from_slice(&(enc_list.len() as u16).to_be_bytes());
 
         // Encoding types (4 bytes each, big-endian)
-        for encoding in encodings {
+        for encoding in enc_list {
             message.extend_from_slice(&encoding.to_be_bytes());
         }
 
@@ -730,6 +831,9 @@ pub struct VncRectangle {
     pub height: u16,
     pub encoding: i32,
     pub pixels: Vec<u8>,
+    pub pixel_data: VncPixelData,
+    pub src_x: u16,
+    pub src_y: u16,
 }
 
 /// VNC cursor data (from cursor pseudo-encoding)
@@ -746,26 +850,4 @@ pub struct VncCursor {
     pub hotspot_y: u16,
     /// RGBA pixel data (4 bytes per pixel)
     pub rgba_data: Vec<u8>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_vnc_version() {
-        let v38 = VncVersion::V38;
-        assert_eq!(
-            VncVersion::from_bytes(v38.as_bytes()),
-            Some(VncVersion::V38)
-        );
-    }
-
-    #[test]
-    fn test_pixel_format_default() {
-        let pf = VncPixelFormat::default();
-        assert_eq!(pf.bits_per_pixel, 32);
-        assert_eq!(pf.depth, 24);
-        assert!(pf.true_color);
-    }
 }

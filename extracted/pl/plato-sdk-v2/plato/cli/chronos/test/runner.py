@@ -47,7 +47,8 @@ from plato.cli.chronos.settings import get_settings
 from plato.cli.chronos.test.config import TestConfig, TestPhaseConfig
 from plato.otel import get_tracer, init_tracing, shutdown_tracing
 from plato.runtime import VMRuntimeConfig
-from plato.utils.pypi_index import plato_token_simple_index, redact_pypi_token_credential
+from plato.utils.pypi_index import redact_pypi_token_credential
+from plato.utils.subprocess import VM_PATH_EXPORT
 from plato.v2 import AsyncPlato, Env
 from plato.v2.async_.session import SerializedSession, Session
 from plato.v2.types import SimConfigCompute
@@ -167,7 +168,10 @@ class TestRunner:
     ) -> tuple[str, str]:
         """Wrap a phase command in its own remote process group and PID file."""
         pid_file = f"/tmp/plato-chronos-test-phase-{uuid.uuid4().hex}.pid"
-        export_parts = [f"export {key}={shlex.quote(value)};" for key, value in sorted(env_map.items())]
+        export_parts = [
+            f"{VM_PATH_EXPORT};",
+            *[f"export {key}={shlex.quote(value)};" for key, value in sorted(env_map.items())],
+        ]
         phase_script = (
             f"echo $$ > {shlex.quote(pid_file)}; "
             f"trap 'rm -f {shlex.quote(pid_file)}' EXIT; "
@@ -610,20 +614,22 @@ class TestRunner:
         if uninstall_pkgs:
             t0 = perf_counter()
             await self.world_env.execute(
-                f"uv pip uninstall --system {' '.join(uninstall_pkgs)}",
+                f"uv pip uninstall --python /opt/plato-venv/bin/python {' '.join(uninstall_pkgs)}",
                 timeout=90,
             )
             logger.info("Uninstalled %s: %.1fs", " ".join(uninstall_pkgs), perf_counter() - t0)
 
-        store_idx = plato_token_simple_index("pypi-store", api_key=self.api_key)
-        install_cmd = (
-            f"UV_HTTP_TIMEOUT=90 uv pip install --system --default-index {shlex.quote(store_idx)} {' '.join(editables)}"
-        )
-        logger.info("Installing: %s", redact_pypi_token_credential(install_cmd))
+        # Strip "-e " prefix to get bare paths for build_editable_install_commands
+        from plato.agents.runtime.install import build_editable_install_commands
+
+        paths = [e.removeprefix("-e ") for e in editables]
+        install_cmds = build_editable_install_commands(paths)
         t0 = perf_counter()
-        result = await self.world_env.execute(install_cmd, timeout=300)
-        if result.exit_code != 0:
-            raise RuntimeError(f"Editable install failed: {result.stderr}")
+        for cmd in install_cmds:
+            logger.info("Installing: %s", redact_pypi_token_credential(cmd))
+            result = await self.world_env.execute(cmd, timeout=120)
+            if result.exit_code != 0:
+                raise RuntimeError(f"Editable install failed: {result.stderr}")
         logger.info("Editable install complete: %.1fs", perf_counter() - t0)
 
     async def _run_phases(self, phases: list[TestPhaseConfig]) -> int:

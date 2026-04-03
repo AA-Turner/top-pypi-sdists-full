@@ -54,7 +54,9 @@ class ProjectUpdateParameters(object):
         'autotranslate_mark_as_unverified': 'bool',
         'autotranslate_use_machine_translation': 'bool',
         'autotranslate_use_translation_memory': 'bool',
-        'default_encoding': 'str'
+        'autotranslate_overwrite_unverified_translations': 'bool',
+        'default_encoding': 'str',
+        'placeholder_styles': 'List[str]'
     }
 
     attribute_map = {
@@ -80,10 +82,12 @@ class ProjectUpdateParameters(object):
         'autotranslate_mark_as_unverified': 'autotranslate_mark_as_unverified',
         'autotranslate_use_machine_translation': 'autotranslate_use_machine_translation',
         'autotranslate_use_translation_memory': 'autotranslate_use_translation_memory',
-        'default_encoding': 'default_encoding'
+        'autotranslate_overwrite_unverified_translations': 'autotranslate_overwrite_unverified_translations',
+        'default_encoding': 'default_encoding',
+        'placeholder_styles': 'placeholder_styles'
     }
 
-    def __init__(self, account_id=None, name=None, point_of_contact=None, main_format=None, media=None, shares_translation_memory=None, project_image=None, remove_project_image=None, workflow=None, machine_translation_enabled=None, enable_branching=None, protect_master_branch=None, enable_all_data_type_translation_keys_for_translators=None, enable_icu_message_format=None, zero_plural_form_enabled=None, autotranslate_enabled=None, autotranslate_check_new_translation_keys=None, autotranslate_check_new_uploads=None, autotranslate_check_new_locales=None, autotranslate_mark_as_unverified=None, autotranslate_use_machine_translation=None, autotranslate_use_translation_memory=None, default_encoding=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, account_id=None, name=None, point_of_contact=None, main_format=None, media=None, shares_translation_memory=None, project_image=None, remove_project_image=None, workflow=None, machine_translation_enabled=None, enable_branching=None, protect_master_branch=None, enable_all_data_type_translation_keys_for_translators=None, enable_icu_message_format=None, zero_plural_form_enabled=None, autotranslate_enabled=None, autotranslate_check_new_translation_keys=None, autotranslate_check_new_uploads=None, autotranslate_check_new_locales=None, autotranslate_mark_as_unverified=None, autotranslate_use_machine_translation=None, autotranslate_use_translation_memory=None, autotranslate_overwrite_unverified_translations=None, default_encoding=None, placeholder_styles=None, local_vars_configuration=None):  # noqa: E501
         """ProjectUpdateParameters - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -111,7 +115,9 @@ class ProjectUpdateParameters(object):
         self._autotranslate_mark_as_unverified = None
         self._autotranslate_use_machine_translation = None
         self._autotranslate_use_translation_memory = None
+        self._autotranslate_overwrite_unverified_translations = None
         self._default_encoding = None
+        self._placeholder_styles = None
         self.discriminator = None
 
         if account_id is not None:
@@ -158,8 +164,12 @@ class ProjectUpdateParameters(object):
             self.autotranslate_use_machine_translation = autotranslate_use_machine_translation
         if autotranslate_use_translation_memory is not None:
             self.autotranslate_use_translation_memory = autotranslate_use_translation_memory
+        if autotranslate_overwrite_unverified_translations is not None:
+            self.autotranslate_overwrite_unverified_translations = autotranslate_overwrite_unverified_translations
         if default_encoding is not None:
             self.default_encoding = default_encoding
+        if placeholder_styles is not None:
+            self.placeholder_styles = placeholder_styles
 
     @property
     def account_id(self):
@@ -668,6 +678,29 @@ class ProjectUpdateParameters(object):
         self._autotranslate_use_translation_memory = autotranslate_use_translation_memory
 
     @property
+    def autotranslate_overwrite_unverified_translations(self):
+        """Gets the autotranslate_overwrite_unverified_translations of this ProjectUpdateParameters.  # noqa: E501
+
+        (Optional) Requires autotranslate_enabled to be true  # noqa: E501
+
+        :return: The autotranslate_overwrite_unverified_translations of this ProjectUpdateParameters.  # noqa: E501
+        :rtype: bool
+        """
+        return self._autotranslate_overwrite_unverified_translations
+
+    @autotranslate_overwrite_unverified_translations.setter
+    def autotranslate_overwrite_unverified_translations(self, autotranslate_overwrite_unverified_translations):
+        """Sets the autotranslate_overwrite_unverified_translations of this ProjectUpdateParameters.
+
+        (Optional) Requires autotranslate_enabled to be true  # noqa: E501
+
+        :param autotranslate_overwrite_unverified_translations: The autotranslate_overwrite_unverified_translations of this ProjectUpdateParameters.  # noqa: E501
+        :type: bool
+        """
+
+        self._autotranslate_overwrite_unverified_translations = autotranslate_overwrite_unverified_translations
+
+    @property
     def default_encoding(self):
         """Gets the default_encoding of this ProjectUpdateParameters.  # noqa: E501
 
@@ -695,6 +728,29 @@ class ProjectUpdateParameters(object):
             )
 
         self._default_encoding = default_encoding
+
+    @property
+    def placeholder_styles(self):
+        """Gets the placeholder_styles of this ProjectUpdateParameters.  # noqa: E501
+
+        (Optional) List of placeholder styles enabled for the project.  # noqa: E501
+
+        :return: The placeholder_styles of this ProjectUpdateParameters.  # noqa: E501
+        :rtype: List[str]
+        """
+        return self._placeholder_styles
+
+    @placeholder_styles.setter
+    def placeholder_styles(self, placeholder_styles):
+        """Sets the placeholder_styles of this ProjectUpdateParameters.
+
+        (Optional) List of placeholder styles enabled for the project.  # noqa: E501
+
+        :param placeholder_styles: The placeholder_styles of this ProjectUpdateParameters.  # noqa: E501
+        :type: List[str]
+        """
+
+        self._placeholder_styles = placeholder_styles
 
     def to_dict(self):
         """Returns the model properties as a dict"""

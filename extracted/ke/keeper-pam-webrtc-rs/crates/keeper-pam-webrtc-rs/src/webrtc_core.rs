@@ -1212,6 +1212,9 @@ impl WebRTCPeerConnection {
                 "ICE restart completed successfully - answer received and applied (tube_id: {})",
                 self.tube_id
             );
+            // Full restart confirmed: answer received and applied, ICE is reconnecting.
+            // Reset the circuit breaker so prior failures don't count against future restarts.
+            self.circuit_breaker.record_success_public();
         } else {
             debug!(
                 "complete_ice_restart called but no restart was in progress (tube_id: {})",
@@ -1345,7 +1348,11 @@ impl WebRTCPeerConnection {
                             )
                             .await
                         {
-                            error!(
+                            // "Tube not found" here is benign — the tube was already cleaned
+                            // up via another path (peer-connection state change, Python-side
+                            // close, or probe auto-close).  Downgrade from error to warn so
+                            // it does not surface as a false alarm in the CLI output.
+                            warn!(
                                 "Failed to close tube after ICE restart timeout: {} (tube_id: {})",
                                 e, tube_id
                             );
@@ -1946,6 +1953,15 @@ impl WebRTCPeerConnection {
                                 debug!("Connection disconnected for tube {} but already closing - skipping ICE restart", tube_id);
                                 return;
                             }
+                            // Stamp all active channels with ConnectionLost before the ICE path
+                            // drops them. Without this, the data channel closes with close_reason=None
+                            // which is treated as terminal, causing the tube to die and making ICE
+                            // restart impossible. ConnectionLost is retryable, so is_terminal_channel_close
+                            // returns false and the tube stays alive for the new channel ICE restart
+                            // will create.
+                            if let Some(tube) = crate::tube_registry::REGISTRY.get_tube_fast(&tube_id) {
+                                tube.mark_channels_ice_disconnected().await;
+                            }
                             info!("Connection disconnected for tube {}, considering ICE restart (trickle_ice enabled)", tube_id);
                             tokio::time::sleep(crate::config::ice_disconnected_wait()).await;
                             // Re-check after the wait - close_tube() may have been called
@@ -1956,29 +1972,17 @@ impl WebRTCPeerConnection {
                             }
                             network_integration.trigger_ice_restart(&tube_id, "connection disconnected");
                         } else {
-                            // Without trickle ICE, disconnected is terminal - close the tube
-                            warn!("Connection disconnected for tube {} - closing tube (trickle_ice disabled)", tube_id);
-                            send_signal("disconnected");
-                            is_closing.store(true, Ordering::Release);
-
-                            let current_status = *status.read().await;
-                            if !matches!(current_status, TubeStatus::Closing | TubeStatus::Closed | TubeStatus::Failed | TubeStatus::Disconnected) {
-                                warn!("WebRTC disconnected. Initiating tube close. (tube_id: {}, old_status: {:?})", tube_id, current_status);
-                                *status.write().await = TubeStatus::Disconnected;
-
-                                let tube_id_for_close = tube_id.clone();
-                                tokio::spawn(async move {
-                                    if let Err(e) = crate::tube_registry::REGISTRY
-                                        .close_tube(&tube_id_for_close, Some(crate::tube_protocol::CloseConnectionReason::ConnectionLost))
-                                        .await
-                                    {
-                                        error!("Error closing tube via registry (tube_id: {}, error: {})", tube_id_for_close, e);
-                                    }
-                                });
-                            } else {
-                                debug!("Peer disconnected, but tube already terminal (tube_id: {}, status: {:?})", tube_id, current_status);
-                                *status.write().await = TubeStatus::Disconnected;
+                            // Without trickle ICE we cannot restart ICE, but Disconnected is
+                            // often transient — the agent will self-recover to Connected if the
+                            // network blip clears, or transition to Failed after the disconnected
+                            // timeout (30s). The Failed handler closes the tube. Closing here on
+                            // the first Disconnected event kills sessions on brief network hiccups.
+                            if is_closing.load(Ordering::Acquire) {
+                                debug!("Connection disconnected for tube {} but already closing - skipping", tube_id);
+                                return;
                             }
+                            warn!("Connection disconnected for tube {} - waiting for recovery or Failed transition (trickle_ice disabled)", tube_id);
+                            send_signal("disconnected");
                         }
                     },
                     RTCPeerConnectionState::Failed => {
@@ -1986,6 +1990,18 @@ impl WebRTCPeerConnection {
                             // Skip ICE restart if this tube is already shutting down.
                             if is_closing.load(Ordering::Acquire) {
                                 debug!("Connection failed for tube {} but already closing - skipping ICE restart", tube_id);
+                                return;
+                            }
+                            // Stamp all channels with ConnectionLost before ICE restart.
+                            // Failed can fire directly (without a prior Disconnected) when TURN
+                            // drops hard. Without this, the channel exits with close_reason=None
+                            // → is_terminal_channel_close=true → Python cleans up the tube →
+                            // ICE restart arrives but the tube is gone.
+                            if let Some(tube) = crate::tube_registry::REGISTRY.get_tube_fast(&tube_id) {
+                                tube.mark_channels_ice_disconnected().await;
+                            } else {
+                                // Tube already gone — skip restart
+                                debug!("Connection failed for tube {} but tube not in registry - skipping ICE restart", tube_id);
                                 return;
                             }
                             warn!("Connection failed for tube {}, triggering immediate ICE restart (trickle_ice enabled)", tube_id);
@@ -2750,7 +2766,7 @@ impl WebRTCPeerConnection {
         let tube_id_clone = self.tube_id.clone();
         let pc_clone = self.peer_connection.clone();
         let keepalive_interval = self.keepalive_interval;
-        let trickle_ice_for_keepalive = self.trickle_ice;
+        let _trickle_ice_for_keepalive = self.trickle_ice;
 
         // Create a lightweight task that ensures periodic activity with quality-aware intervals
         // Quality-aware: More frequent keepalive when connection quality is degraded
@@ -2808,13 +2824,12 @@ impl WebRTCPeerConnection {
 
                 // Self-terminate if connection is in terminal state
                 // This prevents zombie keepalive tasks if explicit close somehow fails
-                // Failed/Closed are always terminal. Disconnected is also terminal when
-                // trickle ICE is disabled (no ICE restart possible).
+                // Failed/Closed are always terminal. Disconnected is transient — the ICE
+                // agent may self-recover, so keep the keepalive running in that case.
                 let is_terminal = matches!(
                     connection_state,
                     RTCPeerConnectionState::Failed | RTCPeerConnectionState::Closed
-                ) || (!trickle_ice_for_keepalive
-                    && matches!(connection_state, RTCPeerConnectionState::Disconnected));
+                );
                 if is_terminal {
                     info!(
                         "NAT timeout prevention stopping - connection {:?} is terminal (tube_id: {})",
@@ -2950,16 +2965,49 @@ impl WebRTCPeerConnection {
                 info!("Protected ICE restart successful for tube {}", tube_id);
                 Ok(sdp)
             }
-            Err(e) => {
-                error!("Protected ICE restart failed for tube {}: {}", tube_id, e);
 
-                // Get actual failure count from circuit breaker metrics
+            // Circuit is genuinely open — threshold was reached across prior attempts.
+            // The caller treats this as unrecoverable and closes the tube.
+            Err(crate::webrtc_circuit_breaker::CircuitError::CircuitOpen)
+            | Err(crate::webrtc_circuit_breaker::CircuitError::TooManyTestRequests) => {
                 let (_, _, failed_requests, _, _, _) = self.circuit_breaker.get_metrics();
-
+                error!(
+                    "Protected ICE restart blocked — circuit open after {} failures (tube_id: {})",
+                    failed_requests, tube_id
+                );
                 Err(WebRTCError::CircuitBreakerOpen {
                     tube_id,
                     breaker_type: "ICE restart".to_string(),
                     failure_count: failed_requests as u32,
+                })
+            }
+
+            // The operation failed or timed out, but the circuit is still Closed/HalfOpen
+            // and tracking the failure.  Return a retryable error so the tube stays alive.
+            // The ICE state machine will trigger another attempt on the next
+            // Disconnected/Failed state transition, or ICE may self-heal if the network
+            // recovers before the disconnected timeout expires.
+            Err(crate::webrtc_circuit_breaker::CircuitError::OperationFailed(e)) => {
+                warn!(
+                    "Protected ICE restart operation failed (retryable, tube_id: {}, error: {})",
+                    tube_id, e
+                );
+                Err(WebRTCError::IceRestartFailed {
+                    tube_id,
+                    attempts: 1,
+                    reason: format!("ICE restart operation failed: {}", e),
+                })
+            }
+
+            Err(crate::webrtc_circuit_breaker::CircuitError::Timeout) => {
+                warn!(
+                    "Protected ICE restart timed out in circuit breaker (retryable, tube_id: {})",
+                    tube_id
+                );
+                Err(WebRTCError::IceRestartFailed {
+                    tube_id,
+                    attempts: 1,
+                    reason: "ICE restart timed out (circuit breaker timeout)".to_string(),
                 })
             }
         }

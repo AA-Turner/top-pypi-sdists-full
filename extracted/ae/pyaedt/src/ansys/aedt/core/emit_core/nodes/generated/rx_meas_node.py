@@ -23,7 +23,6 @@
 # SOFTWARE.
 
 from ansys.aedt.core.emit_core.nodes.emit_node import EmitNode
-from ansys.aedt.core.internal.checks import min_aedt_version
 
 
 class RxMeasNode(EmitNode):
@@ -32,24 +31,20 @@ class RxMeasNode(EmitNode):
         self._is_component = False
 
     @property
-    @min_aedt_version("2025.2")
-    def parent(self) -> EmitNode:
+    def parent(self):
         """The parent of this emit node."""
         return self._parent
 
     @property
-    @min_aedt_version("2025.2")
     def node_type(self) -> str:
         """The type of this emit node."""
         return self._node_type
 
-    @min_aedt_version("2025.2")
     def delete(self) -> None:
         """Delete this node"""
         self._delete()
 
     @property
-    @min_aedt_version("2025.2")
     def file(self) -> str:
         """Name of the measurement source.
 
@@ -59,7 +54,6 @@ class RxMeasNode(EmitNode):
         return val
 
     @property
-    @min_aedt_version("2025.2")
     def receive_frequency(self) -> float:
         """Channel associated with the measurement file."""
         val = self._get_property("Receive Frequency")
@@ -67,7 +61,6 @@ class RxMeasNode(EmitNode):
         return float(val)
 
     @property
-    @min_aedt_version("2025.2")
     def exclude_mixer_products_below_noise(self) -> bool:
         """Include/Exclude Mixer Products below the noise.
 
@@ -77,17 +70,14 @@ class RxMeasNode(EmitNode):
         return val == "true"
 
     @exclude_mixer_products_below_noise.setter
-    @min_aedt_version("2025.2")
     def exclude_mixer_products_below_noise(self, value: bool) -> None:
         self._set_property("Exclude Mixer Products Below Noise", f"{str(value).lower()}")
 
     @property
-    @min_aedt_version("2025.2")
     def enabled(self) -> bool:
         """Enabled state for this node."""
         return self._get_property("Enabled") == "true"
 
     @enabled.setter
-    @min_aedt_version("2025.2")
     def enabled(self, value: bool) -> None:
         self._set_property("Enabled", f"{str(value).lower()}")

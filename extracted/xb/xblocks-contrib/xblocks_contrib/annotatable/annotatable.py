@@ -12,7 +12,6 @@ import uuid
 import markupsafe
 from django.utils.translation import gettext_noop as _
 from lxml import etree
-from opaque_keys.edx.keys import UsageKey
 from web_fragments.fragment import Fragment
 from xblock.core import XBlock
 from xblock.fields import Scope, String, XMLString
@@ -95,18 +94,6 @@ class AnnotatableBlock(LegacyXmlMixin, XBlock):
 
     # List of supported highlight colors for annotations
     HIGHLIGHT_COLORS = ["yellow", "orange", "purple", "blue", "green"]
-
-    @property
-    def location(self):
-        return self.scope_ids.usage_id
-
-    @location.setter
-    def location(self, value):
-        assert isinstance(value, UsageKey)
-        self.scope_ids = self.scope_ids._replace(
-            def_id=value,  # Note: assigning a UsageKey as def_id is OK in old mongo / import system but wrong in split
-            usage_id=value,
-        )
 
     def _get_annotation_class_attr(self, index, el):  # pylint: disable=unused-argument
         """Returns a dict with the CSS class attribute to set on the annotation
@@ -279,8 +266,8 @@ class AnnotatableBlock(LegacyXmlMixin, XBlock):
         if not self.data:
             log.warning(
                 "Could not serialize %s: No XBlock installed for '%s' tag.",
-                self.location,
-                self.location.block_type,
+                self.usage_key,
+                self.usage_key.block_type,
             )
             return None
 
@@ -297,6 +284,6 @@ class AnnotatableBlock(LegacyXmlMixin, XBlock):
                 "Context: '{context}'"
             ).format(
                 context=lines[line - 1][offset - 40:offset + 40],
-                loc=self.location,
+                loc=self.usage_key,
             )
-            raise SerializationError(self.location, msg) from err
+            raise SerializationError(self.usage_key, msg) from err

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: llama_stack_client
-Version: 0.7.0
+Version: 0.7.1
 Summary: The official Python library for the llama-stack-client API
 Project-URL: Homepage, https://github.com/llamastack/llama-stack-client-python
 Project-URL: Repository, https://github.com/llamastack/llama-stack-client-python
@@ -32,6 +32,7 @@ Requires-Dist: rich
 Requires-Dist: sniffio
 Requires-Dist: termcolor
 Requires-Dist: tqdm
+Requires-Dist: typing-extensions<5,>=4.14
 Requires-Dist: typing-extensions<5,>=4.7
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
@@ -293,11 +294,12 @@ from llama_stack_client import LlamaStackClient
 
 client = LlamaStackClient()
 
-client.toolgroups.register(
-    provider_id="provider_id",
-    toolgroup_id="toolgroup_id",
-    mcp_endpoint={"uri": "uri"},
+response_object = client.responses.create(
+    input="string",
+    model="model",
+    prompt={"id": "id"},
 )
+print(response_object.prompt)
 ```
 
 ## File uploads

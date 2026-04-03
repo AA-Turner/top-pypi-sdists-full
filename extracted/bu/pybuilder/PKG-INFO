@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pybuilder
-Version: 0.13.19
+Version: 0.13.20
 Summary: PyBuilder — an easy-to-use build automation tool for Python.
 Home-page: https://pybuilder.io
 Author: Arcadiy Ivanov, Alexander Metzner, Maximilien Riehl, Michael Gruber, Udo Juettner, Marcel Wolf, Valentin Haenel

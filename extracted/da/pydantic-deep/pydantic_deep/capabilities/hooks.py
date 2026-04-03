@@ -46,11 +46,25 @@ EXIT_DENY = 2
 
 
 class HookEvent(str, Enum):
-    """Hook lifecycle events, matching Claude Code conventions."""
+    """Hook lifecycle events.
 
+    Tool events follow Claude Code conventions. Run and model events
+    map to pydantic-ai's AbstractCapability lifecycle hooks.
+    """
+
+    # Tool events (Claude Code compatible)
     PRE_TOOL_USE = "pre_tool_use"
     POST_TOOL_USE = "post_tool_use"
     POST_TOOL_USE_FAILURE = "post_tool_use_failure"
+
+    # Run events
+    BEFORE_RUN = "before_run"
+    AFTER_RUN = "after_run"
+    RUN_ERROR = "run_error"
+
+    # Model request events
+    BEFORE_MODEL_REQUEST = "before_model_request"
+    AFTER_MODEL_REQUEST = "after_model_request"
 
 
 @dataclass
@@ -132,7 +146,7 @@ def _build_hook_input(
     tool_name: str,
     tool_args: dict[str, Any],
     tool_result: Any | None = None,
-    tool_error: Exception | None = None,
+    tool_error: BaseException | None = None,
 ) -> HookInput:
     """Build HookInput from hook context."""
     return HookInput(
@@ -360,6 +374,77 @@ class HooksCapability(AbstractCapability[Any]):
             await _run_hook(hook, hook_input, backend)
 
         raise error
+
+    async def before_run(self, ctx: RunContext[Any]) -> None:
+        """Run BEFORE_RUN hooks at the start of agent.run()."""
+        matched = [h for h in self.hooks if h.event == HookEvent.BEFORE_RUN]
+        if not matched:
+            return
+        backend = _get_sandbox_backend(ctx.deps)
+        hook_input = _build_hook_input(HookEvent.BEFORE_RUN, "", {})
+        for hook in matched:
+            if hook.background:
+                asyncio.create_task(_run_background_hook(hook, hook_input, backend))
+            else:
+                await _run_hook(hook, hook_input, backend)
+
+    async def after_run(self, ctx: RunContext[Any], *, result: Any) -> Any:
+        """Run AFTER_RUN hooks at the end of agent.run()."""
+        matched = [h for h in self.hooks if h.event == HookEvent.AFTER_RUN]
+        if not matched:
+            return result
+        backend = _get_sandbox_backend(ctx.deps)
+        hook_input = _build_hook_input(HookEvent.AFTER_RUN, "", {}, tool_result=result)
+        for hook in matched:
+            if hook.background:
+                asyncio.create_task(_run_background_hook(hook, hook_input, backend))
+            else:
+                await _run_hook(hook, hook_input, backend)
+        return result
+
+    async def on_run_error(self, ctx: RunContext[Any], *, error: BaseException) -> Any:
+        """Run RUN_ERROR hooks when agent.run() fails."""
+        matched = [h for h in self.hooks if h.event == HookEvent.RUN_ERROR]
+        if not matched:
+            raise error
+        backend = _get_sandbox_backend(ctx.deps)
+        hook_input = _build_hook_input(HookEvent.RUN_ERROR, "", {}, tool_error=error)
+        for hook in matched:
+            if hook.background:
+                asyncio.create_task(_run_background_hook(hook, hook_input, backend))
+            else:
+                await _run_hook(hook, hook_input, backend)
+        raise error
+
+    async def before_model_request(self, ctx: RunContext[Any], request_context: Any) -> Any:
+        """Run BEFORE_MODEL_REQUEST hooks before each LLM call."""
+        matched = [h for h in self.hooks if h.event == HookEvent.BEFORE_MODEL_REQUEST]
+        if not matched:
+            return request_context
+        backend = _get_sandbox_backend(ctx.deps)
+        hook_input = _build_hook_input(HookEvent.BEFORE_MODEL_REQUEST, "", {})
+        for hook in matched:
+            if hook.background:
+                asyncio.create_task(_run_background_hook(hook, hook_input, backend))
+            else:
+                await _run_hook(hook, hook_input, backend)
+        return request_context
+
+    async def after_model_request(
+        self, ctx: RunContext[Any], *, request_context: Any, response: Any
+    ) -> Any:
+        """Run AFTER_MODEL_REQUEST hooks after each LLM response."""
+        matched = [h for h in self.hooks if h.event == HookEvent.AFTER_MODEL_REQUEST]
+        if not matched:
+            return response
+        backend = _get_sandbox_backend(ctx.deps)
+        hook_input = _build_hook_input(HookEvent.AFTER_MODEL_REQUEST, "", {})
+        for hook in matched:
+            if hook.background:
+                asyncio.create_task(_run_background_hook(hook, hook_input, backend))
+            else:
+                await _run_hook(hook, hook_input, backend)
+        return response
 
 
 __all__ = [

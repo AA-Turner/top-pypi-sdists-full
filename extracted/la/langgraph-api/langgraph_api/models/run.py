@@ -16,7 +16,11 @@ from langgraph_api.encryption.shared import (
     using_custom_encryption,
 )
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
-from langgraph_api.graph import GRAPHS, get_assistant_id
+from langgraph_api.graph import (
+    GRAPHS,
+    get_assistant_id,
+    inject_current_dd_trace_context,
+)
 from langgraph_api.otel_context import inject_current_trace_context
 from langgraph_api.schema import (
     All,
@@ -241,6 +245,7 @@ async def create_valid_run(
         configurable.update(checkpoint)
     configurable.update(get_configurable_headers(headers))
     inject_current_trace_context(configurable)
+    inject_current_dd_trace_context(configurable)
     ctx = get_auth_ctx()
     if ctx:
         user = cast("BaseUser | None", ctx.user)

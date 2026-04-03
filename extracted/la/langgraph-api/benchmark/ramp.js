@@ -2,6 +2,7 @@ import { sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
 import { Benchmarks } from './benchmark-runners/dist/benchmarks.js';
+import { get_profile } from './benchmark-runners/dist/benchmark_profiles.js';
 
 // Custom metrics
 const runDuration = new Trend('run_duration');
@@ -30,16 +31,14 @@ const LANGSMITH_API_KEY = __ENV.LANGSMITH_API_KEY;
 const LOAD_SIZE = parseInt(__ENV.LOAD_SIZE || '500');
 const LEVELS = parseInt(__ENV.LEVELS || '2');
 const PLATEAU_DURATION = parseInt(__ENV.PLATEAU_DURATION || '300');
-const BENCHMARK_TYPE = __ENV.BENCHMARK_TYPE || 'wait_write';
-const STATEFUL = __ENV.STATEFUL === 'true'; // Should the runner be stateful if possible?
 const P95_RUN_DURATION = __ENV.P95_RUN_DURATION; // Expected P95 run duration in milliseconds
 const AVERAGE_RUN_DURATION = __ENV.AVERAGE_RUN_DURATION; // Expected average run duration in milliseconds
-
-// Params for the agent
-const DATA_SIZE = parseInt(__ENV.DATA_SIZE || '1000');
-const DELAY = parseInt(__ENV.DELAY || '0');
-const EXPAND = parseInt(__ENV.EXPAND || '50');
-const MODE = __ENV.MODE || 'single';
+const profile = get_profile(__ENV);
+const BENCHMARK_TYPE = profile.benchmarkType;
+const BENCHMARK_PROFILE = profile.name;
+const EFFECTIVE_CONTEXT = profile.context;
+const RESUMABLE = profile.resumable;
+const STATEFUL = profile.runMode === 'stateful';
 
 const stages = [];
 for (let i = 1; i <= LEVELS; i++) {
@@ -89,8 +88,8 @@ export let options = {
     },
   },
   thresholds: {
-    'run_duration': [`p(95)<${getP95RunDuration(MODE)}`],
-    'successful_runs': [`count>${getSuccessfulRunsThreshold(MODE)}`],
+    'run_duration': [`p(95)<${getP95RunDuration('single')}`],
+    'successful_runs': [`count>${getSuccessfulRunsThreshold('single')}`],
     'http_req_failed': ['rate<0.01'],   // Error rate should be less than 1%
   },
 };
@@ -99,13 +98,10 @@ const runner = Benchmarks.getRunner(BENCHMARK_TYPE);
 
 const benchmarkGraphOptions = {
   graph_id: "benchmark",
-  input: {
-    data_size: DATA_SIZE,
-    delay: DELAY,
-    expand: EXPAND,
-    mode: MODE,
-  },
+  input: {},
+  context: EFFECTIVE_CONTEXT,
   stateful: STATEFUL,
+  resumable: RESUMABLE,
 }
 
 // Main test function
@@ -153,8 +149,10 @@ export function setup() {
   console.log(`Starting ramp benchmark`);
   console.log(`Running on pod: ${__ENV.POD_NAME || 'local'}`);
   console.log(`Running with the following ramp config: load size ${LOAD_SIZE}, levels ${LEVELS}, plateau duration ${PLATEAU_DURATION}, stateful ${STATEFUL}`);
-  console.log(`Running with the following agent config: data size ${DATA_SIZE}, delay ${DELAY}, expand ${EXPAND}, mode ${MODE}`);
-  console.log(`Running with the following thresholds: p95 run duration ${getP95RunDuration(MODE)}ms, average run duration ${getAverageRunDuration(MODE)}ms, successful runs threshold ${getSuccessfulRunsThreshold(MODE)}, error rate < 1%`);
+  console.log(`Using benchmark profile: ${BENCHMARK_PROFILE}`);
+  console.log(`Running with benchmark context: ${JSON.stringify(EFFECTIVE_CONTEXT)}`);
+  console.log(`Running with resumable stream persistence: ${RESUMABLE}`);
+  console.log(`Running with the following thresholds: p95 run duration ${getP95RunDuration('single')}ms, average run duration ${getAverageRunDuration('single')}ms, successful runs threshold ${getSuccessfulRunsThreshold('single')}, error rate < 1%`);
 
   return { startTime: new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '') };
 }

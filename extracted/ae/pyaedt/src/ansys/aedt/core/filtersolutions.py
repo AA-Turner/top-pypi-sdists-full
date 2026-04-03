@@ -63,13 +63,7 @@ class FilterDesignBase(PyAedtBase):
                 UserWarning,
             )
             FilterDesignBase._active_design.close()
-
-        if version is not None:
-            # Clear global state before initialization
-            settings.aedt_version = None
-
         FilterDesignBase._active_design = self
-
         self.version = version if version else settings.aedt_version
         ansys.aedt.core.filtersolutions_core._dll_interface(version)
         self.attributes = Attributes()
@@ -149,7 +143,7 @@ class LumpedDesign(FilterDesignBase):
 
     >>> import ansys.aedt.core
     >>> import ansys.aedt.core.filtersolutions
-    >>> LumpedDesign = ansys.aedt.core.FilterSolutions.LumpedDesign(version="2026.1")
+    >>> LumpedDesign = ansys.aedt.core.FilterSolutions.LumpedDesign(version="2025.1")
     >>> LumpedDesign.attributes.filter_class = FilterClass.BAND_PASS
     >>> LumpedDesign.attributes.filter_type = FilterType.ELLIPTIC
     """
@@ -184,7 +178,7 @@ class DistributedDesign(FilterDesignBase):
 
     >>> import ansys.aedt.core
     >>> import ansys.aedt.core.filtersolutions
-    >>> DistributedDesign = ansys.aedt.core.FilterSolutions.DistributedDesign(version="2026.1")
+    >>> DistributedDesign = ansys.aedt.core.FilterSolutions.DistributedDesign(version="2025.2")
     >>> DistributedDesign.attributes.filter_class = FilterClass.BAND_PASS
     >>> DistributedDesign.topology.topology_type = TopologyType.INTERDIGITAL
     """

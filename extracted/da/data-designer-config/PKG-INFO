@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: data-designer-config
-Version: 0.5.4
+Version: 0.5.5
 Summary: Configuration layer for DataDesigner synthetic data generation
 License-Expression: Apache-2.0
 Classifier: Development Status :: 4 - Beta
@@ -19,10 +19,10 @@ Requires-Dist: pandas<3,>=2.3.3
 Requires-Dist: pillow<13,>=12.1.1
 Requires-Dist: pyarrow<20,>=19.0.1
 Requires-Dist: pydantic[email]<3,>=2.9.2
-Requires-Dist: pygments<3,>=2.19.2
+Requires-Dist: pygments<3,>=2.20
 Requires-Dist: python-json-logger<4,>=3
 Requires-Dist: pyyaml<7,>=6.0.1
-Requires-Dist: requests<3,>=2.32
+Requires-Dist: requests<3,>=2.33
 Requires-Dist: rich<15,>=13.7.1
 Description-Content-Type: text/markdown
 

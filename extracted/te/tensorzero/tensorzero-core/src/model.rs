@@ -41,6 +41,7 @@ use crate::providers::google_ai_studio_gemini::GoogleAIStudioGeminiProvider;
 use tensorzero_types::{UninitializedCostConfig, UninitializedUnifiedCostConfig};
 
 use crate::inference::WrappedProvider;
+use crate::inference::types::ProviderInferenceResponseExt;
 use crate::inference::types::batch::{
     BatchRequestRow, PollBatchInferenceResponse, StartBatchModelInferenceResponse,
     StartBatchProviderInferenceResponse,
@@ -73,6 +74,7 @@ use crate::{
         types::{ModelInferenceRequest, ModelInferenceResponse, ProviderInferenceResponse},
     },
 };
+use metrics::counter;
 use serde::{Deserialize, Serialize};
 
 use crate::providers::{
@@ -83,6 +85,15 @@ use crate::providers::{
     openrouter::OpenRouterProvider, together::TogetherProvider, vllm::VLLMProvider,
     xai::XAIProvider,
 };
+
+pub(crate) fn record_usage_metrics(usage: &Usage) {
+    if let Some(input_tokens) = usage.input_tokens {
+        counter!("tensorzero_input_tokens_total").increment(input_tokens as u64);
+    }
+    if let Some(output_tokens) = usage.output_tokens {
+        counter!("tensorzero_output_tokens_total").increment(output_tokens as u64);
+    }
+}
 
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Serialize)]
@@ -98,7 +109,7 @@ pub struct ModelConfig {
 }
 
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
 #[serde(deny_unknown_fields)]
 pub struct UninitializedModelConfig {
@@ -945,6 +956,8 @@ fn wrap_provider_stream(
                 }
             };
 
+            record_usage_metrics(&aggregated_usage);
+
             if let Err(e) = ticket_borrow.return_tickets(usage).await {
                 tracing::error!("Failed to return rate limit tickets: {}", e);
             }
@@ -982,7 +995,7 @@ fn wrap_provider_stream(
 }
 
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[cfg_attr(feature = "ts-bindings", ts(export))]
 pub struct UninitializedModelProvider {
     #[serde(flatten)]
@@ -1277,7 +1290,7 @@ impl ProviderConfig {
 /// Contains all providers which implement `SelfHostedProvider` - these providers
 /// can be used as the target provider hosted by AWS Sagemaker
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[cfg_attr(feature = "ts-bindings", ts(export))]
 #[serde(rename_all = "lowercase")]
 #[serde(deny_unknown_fields)]
@@ -1288,7 +1301,7 @@ pub enum HostedProviderKind {
 
 #[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts-bindings", ts(export, optional_fields))]
-#[derive(Clone, Debug, TensorZeroDeserialize, VariantNames, Serialize)]
+#[derive(Clone, Debug, PartialEq, TensorZeroDeserialize, VariantNames, Serialize)]
 #[strum(serialize_all = "lowercase")]
 #[serde(tag = "type")]
 #[serde(rename_all = "lowercase")]
@@ -1420,6 +1433,9 @@ pub enum UninitializedProviderConfig {
         include_encrypted_reasoning: bool,
         #[serde(default)]
         provider_tools: Vec<Value>,
+        #[serde(default)]
+        content_type_overrides:
+            std::collections::HashMap<String, crate::providers::openai::ContentBlockType>,
     },
     OpenRouter {
         model_name: String,
@@ -1565,6 +1581,7 @@ impl UninitializedProviderConfig {
                             OpenAIAPIType::ChatCompletions,
                             false,
                             Vec::new(),
+                            std::collections::HashMap::new(),
                             )?),
                         HostedProviderKind::TGI => Box::new(TGIProvider::new(
                             Url::parse("http://tensorzero-unreachable-domain-please-file-a-bug-report.invalid").map_err(|e| {
@@ -1720,6 +1737,7 @@ impl UninitializedProviderConfig {
                 api_type,
                 include_encrypted_reasoning,
                 provider_tools,
+                content_type_overrides,
             } => {
                 // Use mock API base for testing if set, otherwise defer to the API base set
                 let api_base = get_mock_provider_api_base("openai").or(api_base);
@@ -1736,6 +1754,7 @@ impl UninitializedProviderConfig {
                     api_type,
                     include_encrypted_reasoning,
                     provider_tools,
+                    content_type_overrides,
                 )?)
             }
             UninitializedProviderConfig::OpenRouter {
@@ -2087,6 +2106,7 @@ impl ModelProvider {
         };
         self.apply_otlp_span_fields_output(request.otlp_config, &span, &res);
         let provider_inference_response = res?;
+        record_usage_metrics(&provider_inference_response.usage);
         if let Ok(actual_resource_usage) = provider_inference_response.resource_usage() {
             // Make sure that we finish updating rate-limiting tickets if the gateway shuts down
             clients.deferred_tasks.spawn(
@@ -2845,6 +2865,7 @@ impl ShorthandModelConfig for ModelConfig {
                         OpenAIAPIType::Responses,
                         false,
                         Vec::new(),
+                        std::collections::HashMap::new(),
                     )?)
                 } else {
                     ProviderConfig::OpenAI(OpenAIProvider::new(
@@ -2856,6 +2877,7 @@ impl ShorthandModelConfig for ModelConfig {
                         OpenAIAPIType::ChatCompletions,
                         false,
                         Vec::new(),
+                        std::collections::HashMap::new(),
                     )?)
                 }
             }
@@ -3086,9 +3108,9 @@ mod tests {
             Usage {
                 input_tokens: Some(10),
                 output_tokens: Some(1),
-                cost: None,
                 provider_cache_read_input_tokens: None,
                 provider_cache_write_input_tokens: None,
+                cost: None,
             }
         );
         assert_eq!(&*response.model_provider_name, "good_provider");
@@ -3370,9 +3392,9 @@ mod tests {
             Usage {
                 input_tokens: Some(10),
                 output_tokens: Some(1),
-                cost: None,
                 provider_cache_read_input_tokens: None,
                 provider_cache_write_input_tokens: None,
+                cost: None,
             }
         );
         assert_eq!(&*response.model_provider_name, "good_provider");

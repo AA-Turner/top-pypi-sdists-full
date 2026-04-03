@@ -58,6 +58,7 @@ __all__ = (
     "ImageStateChangeReasonCodeType",
     "ImageStateType",
     "ImageTypeType",
+    "InstanceDrainStatusType",
     "LatestAppstreamAgentVersionType",
     "ListAssociatedFleetsPaginatorName",
     "ListAssociatedStacksPaginatorName",
@@ -199,6 +200,7 @@ ImageStateType = Literal[
     "AVAILABLE", "COPYING", "CREATING", "DELETING", "FAILED", "IMPORTING", "PENDING", "VALIDATING"
 ]
 ImageTypeType = Literal["CUSTOM", "NATIVE"]
+InstanceDrainStatusType = Literal["ACTIVE", "DRAINING", "NOT_APPLICABLE"]
 LatestAppstreamAgentVersionType = Literal["FALSE", "TRUE"]
 ListAssociatedFleetsPaginatorName = Literal["list_associated_fleets"]
 ListAssociatedStacksPaginatorName = Literal["list_associated_stacks"]
@@ -612,6 +614,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -647,6 +650,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",

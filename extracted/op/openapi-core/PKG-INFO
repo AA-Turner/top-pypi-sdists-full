@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openapi-core
-Version: 0.23.0
+Version: 0.23.1
 Summary: client-side and server-side support for the OpenAPI Specification v3
 License: BSD-3-Clause
 License-File: LICENSE
@@ -33,7 +33,7 @@ Requires-Dist: aiohttp (>=3.0) ; extra == "aiohttp"
 Requires-Dist: aioitertools (>=0.11,<0.14) ; extra == "fastapi" or extra == "starlette"
 Requires-Dist: django (>=4.0) ; extra == "django"
 Requires-Dist: falcon (>=4.0) ; extra == "falcon"
-Requires-Dist: fastapi (>=0.111,<0.130) ; extra == "fastapi"
+Requires-Dist: fastapi (>=0.111,<0.140) ; extra == "fastapi"
 Requires-Dist: flask (>=2.0) ; extra == "flask"
 Requires-Dist: isodate
 Requires-Dist: jsonschema (>=4.23.0,<5.0.0)
@@ -43,7 +43,7 @@ Requires-Dist: multidict (>=6.0.4,<7.0.0) ; extra == "aiohttp"
 Requires-Dist: openapi-schema-validator (>=0.7.0,<0.9.0)
 Requires-Dist: openapi-spec-validator (>=0.8.0,<0.9.0)
 Requires-Dist: requests ; extra == "requests"
-Requires-Dist: starlette (>=0.40.0,<0.60.0) ; extra == "starlette"
+Requires-Dist: starlette (>=0.40.0,<1.1.0) ; extra == "starlette"
 Requires-Dist: typing-extensions (>=4.8.0,<5.0.0)
 Requires-Dist: werkzeug (>=2.1.0)
 Project-URL: Documentation, https://openapi-core.readthedocs.io
@@ -100,10 +100,10 @@ Supported [Integrations](https://openapi-core.readthedocs.io/en/latest/integrati
 | [AIOHTTP](https://openapi-core.readthedocs.io/en/latest/integrations/aiohttp/) | versions 3.8+ and 3.11+ tracks | Low-level request and response classes |
 | [Django](https://openapi-core.readthedocs.io/en/latest/integrations/django/) | versions 4, 5, and 6 | Middleware, decorator and low level |
 | [Falcon](https://openapi-core.readthedocs.io/en/latest/integrations/falcon/) | version 4 | Middleware and low-level classes |
-| [FastAPI](https://openapi-core.readthedocs.io/en/latest/integrations/fastapi/) | versions 0.11x and 0.12x | Middleware (low-level via Starlette integration) |
+| [FastAPI](https://openapi-core.readthedocs.io/en/latest/integrations/fastapi/) | versions 0.11x, 0.12x, and 0.13x | Middleware (low-level via Starlette integration) |
 | [Flask](https://openapi-core.readthedocs.io/en/latest/integrations/flask/) | versions 2 and 3 | View decorator, class-based view, and low-level classes |
 | [Requests](https://openapi-core.readthedocs.io/en/latest/integrations/requests/) | default dependency set | Low-level request, webhook request, and response classes |
-| [Starlette](https://openapi-core.readthedocs.io/en/latest/integrations/starlette/) | versions 0.4x and 0.5x | Middleware and low-level classes |
+| [Starlette](https://openapi-core.readthedocs.io/en/latest/integrations/starlette/) | versions 0.4x, 0.5x, and 1.x | Middleware and low-level classes |
 | [Werkzeug](https://openapi-core.readthedocs.io/en/latest/integrations/werkzeug/) | default dependency set | Low-level request and response classes |
 
 ## Installation

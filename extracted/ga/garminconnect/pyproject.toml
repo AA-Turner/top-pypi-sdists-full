@@ -1,12 +1,14 @@
 [project]
 name = "garminconnect"
-version = "0.2.40"
+version = "0.3.0"
 description = "Python 3 API wrapper for Garmin Connect"
 authors = [
     { name = "Ron Klinkien", email = "ron@cyberjunky.nl" },
 ]
 dependencies = [
-    "garth>=0.5.17,<0.7.0",
+    "curl_cffi>=0.6",
+    "requests>=2.28",
+    "ua-generator>=1.0",
 ]
 readme = "README.md"
 classifiers = [
@@ -61,8 +63,6 @@ testing = [
     "vcrpy>=7.0.0",
 ]
 example = [
-    "garth>=0.5.17,<0.7.0",
-    "requests",
     "readchar",
 ]
 
@@ -288,6 +288,7 @@ unfixable = []
     "S110",
     "PLR0911",
     "T20",
+    "PERF203",
 ]
 
 [tool.coverage.run]

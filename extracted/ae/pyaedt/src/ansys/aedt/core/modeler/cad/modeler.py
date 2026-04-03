@@ -30,8 +30,6 @@ This modules provides functionalities for the 3D Modeler, 2D Modeler,
 3D Layout Modeler, and Circuit Modeler.
 """
 
-from __future__ import annotations
-
 from ansys.aedt.core.base import PyAedtBase
 from ansys.aedt.core.generic.data_handlers import _dict2arg
 from ansys.aedt.core.generic.file_utils import generate_unique_name
@@ -50,7 +48,7 @@ from ansys.aedt.core.modeler.geometry_operators import GeometryOperators
 class CsProps(dict):
     """AEDT Cooardinate System Internal Parameters."""
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key, value) -> None:
         value = _units_assignment(value)
         dict.__setitem__(self, key, value)
         if self._pyaedt_cs.auto_update:
@@ -68,14 +66,14 @@ class CsProps(dict):
                     dict.__setitem__(self, key, value)
         self._pyaedt_cs = cs_object
 
-    def _setitem_without_update(self, key, value):
+    def _setitem_without_update(self, key, value) -> None:
         dict.__setitem__(self, key, value)
 
 
 class ListsProps(dict):
     """AEDT Lists Internal Parameters."""
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key, value) -> None:
         value = _units_assignment(value)
         dict.__setitem__(self, key, value)
         if self._pyaedt_lists.auto_update:
@@ -93,7 +91,7 @@ class ListsProps(dict):
                     dict.__setitem__(self, key, value)
         self._pyaedt_lists = cs_object
 
-    def _setitem_without_update(self, key, value):
+    def _setitem_without_update(self, key, value) -> None:
         dict.__setitem__(self, key, value)
 
 
@@ -325,7 +323,7 @@ class BaseCoordinateSystem(PropsManager, PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def _change_property(self, name: str, arg):
+    def _change_property(self, name: str, arg) -> None:
         """Update properties of the coordinate system.
 
         Parameters
@@ -421,7 +419,7 @@ class FaceCoordinateSystem(BaseCoordinateSystem, PyAedtBase):
                 del self.props["KernelVersion"]
 
     @property
-    def props(self) -> CsProps:
+    def props(self):
         """Properties of the coordinate system.
 
         Returns
@@ -461,12 +459,12 @@ class FaceCoordinateSystem(BaseCoordinateSystem, PyAedtBase):
     @pyaedt_function_handler()
     def create(
         self,
-        assignment: int | "FacePrimitive",
-        origin: int | "FacePrimitive" | "EdgePrimitive" | "VertexPrimitive",
-        axis_position: int | "FacePrimitive" | "EdgePrimitive" | "VertexPrimitive",
+        assignment,
+        origin,
+        axis_position,
         axis: str = "X",
         name: str | None = None,
-        offset: list | None = None,
+        offset=None,
         rotation: int = 0,
         always_move_to_end: bool = True,
     ) -> bool:
@@ -706,7 +704,7 @@ class CoordinateSystem(BaseCoordinateSystem, PyAedtBase):
         self._mode = None
 
     @property
-    def mode(self) -> str:
+    def mode(self):
         """Coordinate System mode."""
         if self._mode:
             return self._mode
@@ -720,11 +718,11 @@ class CoordinateSystem(BaseCoordinateSystem, PyAedtBase):
         return self._mode
 
     @mode.setter
-    def mode(self, value: str) -> None:
+    def mode(self, value) -> None:
         self._mode = value
 
     @property
-    def props(self) -> CsProps:
+    def props(self):
         """Coordinate System Properties.
 
         Returns
@@ -737,7 +735,7 @@ class CoordinateSystem(BaseCoordinateSystem, PyAedtBase):
         return self._props
 
     @property
-    def ref_cs(self) -> str:
+    def ref_cs(self):
         """Reference coordinate system getter and setter.
 
         Returns
@@ -751,7 +749,7 @@ class CoordinateSystem(BaseCoordinateSystem, PyAedtBase):
         return self._ref_cs
 
     @ref_cs.setter
-    def ref_cs(self, value: str) -> None:
+    def ref_cs(self, value) -> None:
         if settings.aedt_version <= "2022.2":
             self._ref_cs = value
             self.update()
@@ -936,18 +934,18 @@ class CoordinateSystem(BaseCoordinateSystem, PyAedtBase):
     @pyaedt_function_handler()
     def create(
         self,
-        origin: list | None = None,
+        origin=None,
         reference_cs: str = "Global",
         name: str | None = None,
         mode: str = "axis",
         view: str = "iso",
-        x_pointing: list | None = None,
-        y_pointing: list | None = None,
+        x_pointing=None,
+        y_pointing=None,
         phi: int = 0,
         theta: int = 0,
         psi: int = 0,
-        u: list | None = None,
-    ) -> bool:
+        u=None,
+    ):
         """Create a coordinate system.
 
         Parameters
@@ -1107,7 +1105,7 @@ class CoordinateSystem(BaseCoordinateSystem, PyAedtBase):
 
     @staticmethod
     @pyaedt_function_handler()
-    def pointing_to_axis(x_pointing: list | tuple, y_pointing: list | tuple) -> tuple:
+    def pointing_to_axis(x_pointing, y_pointing):
         """Retrieve the axes from the HFSS X axis and Y pointing axis as per
         the definition of the AEDT interface coordinate system.
 
@@ -1168,7 +1166,7 @@ class CoordinateSystem(BaseCoordinateSystem, PyAedtBase):
             raise ValueError("Either set value or init or destroy must be True.")  # pragma: no cover
 
     @property
-    def quaternion(self) -> Quaternion:
+    def quaternion(self):
         """Quaternion computed based on specific axis mode.
 
         Returns
@@ -1207,7 +1205,7 @@ class CoordinateSystem(BaseCoordinateSystem, PyAedtBase):
         return self._quaternion
 
     @property
-    def origin(self) -> list:
+    def origin(self):
         """Coordinate system origin in model units.
 
         Returns
@@ -1224,7 +1222,7 @@ class CoordinateSystem(BaseCoordinateSystem, PyAedtBase):
         return [x, y, z]
 
     @origin.setter
-    def origin(self, origin: list) -> None:
+    def origin(self, origin) -> None:
         """Set the coordinate system origin in model units."""
         previous_auto_update = self.auto_update
         self.auto_update = False
@@ -1279,7 +1277,7 @@ class ObjectCoordinateSystem(BaseCoordinateSystem, PyAedtBase):
         self._ref_cs = None
 
     @property
-    def ref_cs(self) -> str:
+    def ref_cs(self):
         """Reference coordinate system.
 
         Returns
@@ -1293,7 +1291,7 @@ class ObjectCoordinateSystem(BaseCoordinateSystem, PyAedtBase):
         return self._ref_cs
 
     @ref_cs.setter
-    def ref_cs(self, value: str) -> None:
+    def ref_cs(self, value) -> None:
         if settings.aedt_version <= "2022.2":
             self._ref_cs = value
             self.update()
@@ -1305,7 +1303,7 @@ class ObjectCoordinateSystem(BaseCoordinateSystem, PyAedtBase):
             self._modeler.logger.error("Failed to set Coordinate CS Reference.")
 
     @property
-    def props(self) -> "CsProps":
+    def props(self):
         """Properties of the coordinate system.
 
         Returns
@@ -1353,10 +1351,10 @@ class ObjectCoordinateSystem(BaseCoordinateSystem, PyAedtBase):
     @pyaedt_function_handler()
     def create(
         self,
-        assignment: str | Object3d,
-        origin: int | VertexPrimitive | EdgePrimitive | FacePrimitive | list,
-        x_axis: int | VertexPrimitive | EdgePrimitive | FacePrimitive | list,
-        y_axis: int | VertexPrimitive | EdgePrimitive | FacePrimitive | list,
+        assignment,
+        origin,
+        x_axis,
+        y_axis,
         move_to_end: bool = True,
         reverse_x_axis: bool = False,
         reverse_y_axis: bool = False,
@@ -1770,7 +1768,7 @@ class Lists(PropsManager, PyAedtBase):
     @pyaedt_function_handler()
     def create(
         self,
-        assignment: list | str | None = None,
+        assignment,
         name: str | None = None,
         entity_type: str = "Object",
     ) -> bool:

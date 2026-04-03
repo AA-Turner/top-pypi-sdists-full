@@ -22,7 +22,7 @@ export class Thread extends BenchmarkRunner {
   static run(
     baseUrl: string,
     requestParams: Record<string, unknown>,
-    _benchmarkGraphOptions?: BenchmarkGraphOptions
+    _benchmarkGraphOptions: BenchmarkGraphOptions
   ): BenchmarkResult<ThreadData> {
     const responses: Record<string, import('./types.js').HttpResponse> = {};
     let metadata: Record<string, string> = {
@@ -70,7 +70,7 @@ export class Thread extends BenchmarkRunner {
   static validate(
     result: BenchmarkResult<ThreadData>,
     errorMetrics: ErrorMetrics,
-    _benchmarkGraphOptions?: BenchmarkGraphOptions
+    _benchmarkGraphOptions: BenchmarkGraphOptions
   ): boolean {
     const d = result.data;
     if (!d) {

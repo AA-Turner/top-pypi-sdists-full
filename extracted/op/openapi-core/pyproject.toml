@@ -32,7 +32,7 @@ ignore_missing_imports = true
 
 [tool.poetry]
 name = "openapi-core"
-version = "0.23.0"
+version = "0.23.1"
 description = "client-side and server-side support for the OpenAPI Specification v3"
 authors = ["Artur Maciag <maciag.artur@gmail.com>"]
 license = "BSD-3-Clause"
@@ -64,7 +64,7 @@ django = {version = ">=4.0", optional = true}
 falcon = {version = ">=4.0", optional = true}
 flask = {version = ">=2.0", optional = true}
 aiohttp = {version = ">=3.0", optional = true}
-starlette = {version = ">=0.40.0,<0.60.0", optional = true}
+starlette = {version = ">=0.40.0,<1.1.0", optional = true}
 isodate = "*"
 more-itertools = "*"
 openapi-schema-validator = ">=0.7.0,<0.9.0"
@@ -75,7 +75,7 @@ jsonschema-path = "^0.4.5"
 jsonschema = "^4.23.0"
 multidict = {version = "^6.0.4", optional = true}
 aioitertools = {version = ">=0.11,<0.14", optional = true}
-fastapi = {version = ">=0.111,<0.130", optional = true}
+fastapi = {version = ">=0.111,<0.140", optional = true}
 typing-extensions = "^4.8.0"
 
 [tool.poetry.extras]
@@ -144,7 +144,7 @@ force_single_line = true
 github_url = "https://github.com/python-openapi/openapi-core"
 
 [tool.tbump.version]
-current = "0.23.0"
+current = "0.23.1"
 regex = '''
   (?P<major>\d+)
   \.
@@ -175,11 +175,13 @@ env_list = [
     "contrib-falcon-4x",
     "contrib-fastapi-011x",
     "contrib-fastapi-012x",
+    "contrib-fastapi-013x",
     "contrib-flask-2x",
     "contrib-flask-3x",
     "contrib-requests-default",
     "contrib-starlette-04x",
     "contrib-starlette-05x",
+    "contrib-starlette-1x",
     "contrib-werkzeug-default",
 ]
 isolated_build = true
@@ -222,7 +224,10 @@ set_env = { POETRY_EXTRA = "falcon", CONTRIB_PACKAGE = "falcon", CONTRIB_SPEC = 
 set_env = { POETRY_EXTRA = "fastapi", CONTRIB_PACKAGE = "fastapi", CONTRIB_SPEC = ">=0.111,<0.120", CONTRIB_PATHS = "tests/integration/contrib/fastapi" }
 
 [tool.tox.env."contrib-fastapi-012x"]
-set_env = { POETRY_EXTRA = "fastapi", CONTRIB_PACKAGE = "fastapi", CONTRIB_SPEC = ">=0.120,<0.129", CONTRIB_PATHS = "tests/integration/contrib/fastapi" }
+set_env = { POETRY_EXTRA = "fastapi", CONTRIB_PACKAGE = "fastapi", CONTRIB_SPEC = ">=0.120,<0.130", CONTRIB_PATHS = "tests/integration/contrib/fastapi" }
+
+[tool.tox.env."contrib-fastapi-013x"]
+set_env = { POETRY_EXTRA = "fastapi", CONTRIB_PACKAGE = "fastapi", CONTRIB_SPEC = ">=0.130,<0.140", CONTRIB_PATHS = "tests/integration/contrib/fastapi" }
 
 [tool.tox.env."contrib-flask-2x"]
 set_env = { POETRY_EXTRA = "flask", CONTRIB_PACKAGE = "flask", CONTRIB_SPEC = ">=2.0,<3.0", CONTRIB_PATHS = "tests/integration/contrib/flask tests/unit/contrib/flask" }
@@ -238,6 +243,9 @@ set_env = { POETRY_EXTRA = "starlette", CONTRIB_PACKAGE = "starlette", CONTRIB_S
 
 [tool.tox.env."contrib-starlette-05x"]
 set_env = { POETRY_EXTRA = "starlette", CONTRIB_PACKAGE = "starlette", CONTRIB_SPEC = ">=0.50.0,<0.60.0", CONTRIB_PATHS = "tests/integration/contrib/starlette" }
+
+[tool.tox.env."contrib-starlette-1x"]
+set_env = { POETRY_EXTRA = "starlette", CONTRIB_PACKAGE = "starlette", CONTRIB_SPEC = ">=1.0.0,<2.0.0", CONTRIB_PATHS = "tests/integration/contrib/starlette" }
 
 [tool.tox.env."contrib-werkzeug-default"]
 set_env = { CONTRIB_PACKAGE = "werkzeug", CONTRIB_SPEC = "", CONTRIB_PATHS = "tests/integration/contrib/werkzeug" }

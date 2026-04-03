@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: throttled-py
-Version: 3.1.1
+Version: 3.2.0
 Summary: 🔧 High-performance Python rate limiting library with multiple algorithms (Fixed Window, Sliding Window, Token Bucket, Leaky Bucket & GCRA) and storage backends (Redis, In-Memory).
 Project-URL: Homepage, https://github.com/ZhuoZhuoCrayon/throttled-py
 Project-URL: Repository, https://github.com/ZhuoZhuoCrayon/throttled-py
@@ -25,6 +25,8 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Provides-Extra: memory
+Provides-Extra: otel
+Requires-Dist: opentelemetry-api>=1.30.0; extra == 'otel'
 Provides-Extra: redis
 Requires-Dist: redis!=4.5.2,!=4.5.3,<8.0.0,>3; extra == 'redis'
 Description-Content-Type: text/markdown
@@ -43,6 +45,9 @@ Description-Content-Type: text/markdown
     </a>
      <a href="https://pypi.org/project/throttled-py/">
         <img src="https://img.shields.io/pypi/v/throttled-py.svg" alt="Coverage Status">
+    </a>
+     <a href="https://pepy.tech/projects/throttled-py">
+        <img src="https://static.pepy.tech/personalized-badge/throttled-py?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GREEN&left_text=downloads" alt="Downloads">
     </a>
     <a href="https://github.com/ZhuoZhuoCrayon/throttled-py/issues">
         <img src="https://img.shields.io/badge/issue-welcome-blue.svg?logo=github" alt="Welcome Issue">

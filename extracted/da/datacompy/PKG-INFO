@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacompy
-Version: 0.19.4
+Version: 0.19.5
 Summary: Dataframe comparison in Python
 Author-email: Faisal Dosani <faisal.dosani@capitalone.com>, Raymond Haffar <raymond.haffar@capitalone.com>, Jacob Dawang <jacob.dawang@capitalone.com>
 Maintainer-email: Faisal Dosani <faisal.dosani@capitalone.com>, Jacob Dawang <jacob.dawang@capitalone.com>, Raymond Haffar <raymond.haffar@capitalone.com>
@@ -66,7 +66,7 @@ Requires-Dist: pre-commit; extra == "qa"
 Requires-Dist: ruff==0.5.7; extra == "qa"
 Provides-Extra: snowflake
 Requires-Dist: snowflake-connector-python; extra == "snowflake"
-Requires-Dist: snowflake-snowpark-python; extra == "snowflake"
+Requires-Dist: snowflake-snowpark-python<=1.47,>=1.37; extra == "snowflake"
 Provides-Extra: spark
 Requires-Dist: pyspark[connect]<=3.5.6,>=3.4; extra == "spark"
 Provides-Extra: tests

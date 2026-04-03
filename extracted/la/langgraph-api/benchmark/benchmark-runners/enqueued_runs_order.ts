@@ -3,7 +3,7 @@ import type { ErrorMetrics } from './benchmark-runner.js';
 import { check } from 'k6';
 import http from 'k6/http';
 import type { BenchmarkResult, BenchmarkGraphOptions } from './types.js';
-import { DEFAULT_GRAPH_ID, DEFAULT_INPUT, JOIN_TIMEOUT, NUM_ENQUEUED_RUNS } from './types.js';
+import { JOIN_TIMEOUT, NUM_ENQUEUED_RUNS } from './types.js';
 import { addResponse, failResult, okResult } from './types.js';
 import { logFailure } from './log-failure.js';
 
@@ -17,11 +17,13 @@ export class EnqueuedRunsOrder extends BenchmarkRunner {
   static run(
     baseUrl: string,
     requestParams: Record<string, unknown>,
-    benchmarkGraphOptions?: BenchmarkGraphOptions
+    benchmarkGraphOptions: BenchmarkGraphOptions
   ): BenchmarkResult<EnqueuedRunsOrderData> {
-    const graphId = benchmarkGraphOptions?.graph_id ?? DEFAULT_GRAPH_ID;
+    const graphId = benchmarkGraphOptions.graph_id;
     const responses: Record<string, import('./types.js').HttpResponse> = {};
     const joinParams = { ...requestParams, timeout: JOIN_TIMEOUT } as Record<string, unknown>;
+    const context = benchmarkGraphOptions.context;
+    const recursion_limit = Math.max(context.expand, context.steps) + 2;
 
     const createThreadRes = http.post(`${baseUrl}/threads`, '{}', requestParams);
     addResponse(responses, 'create_thread', createThreadRes);
@@ -34,8 +36,9 @@ export class EnqueuedRunsOrder extends BenchmarkRunner {
     for (let i = 0; i < NUM_ENQUEUED_RUNS; i++) {
       const payload = JSON.stringify({
         assistant_id: graphId,
-        input: benchmarkGraphOptions?.input ?? DEFAULT_INPUT,
-        config: { recursion_limit: 5 },
+        input: {},
+        context,
+        config: { recursion_limit },
         multitask_strategy: 'enqueue',
       });
       const createRunRes = http.post(`${baseUrl}/threads/${threadId}/runs`, payload, requestParams);
@@ -64,7 +67,7 @@ export class EnqueuedRunsOrder extends BenchmarkRunner {
   static validate(
     result: BenchmarkResult<EnqueuedRunsOrderData>,
     errorMetrics: ErrorMetrics,
-    _benchmarkGraphOptions?: BenchmarkGraphOptions
+    _benchmarkGraphOptions: BenchmarkGraphOptions
   ): boolean {
     if (!result.ok) {
       logFailure(EnqueuedRunsOrder.toString(), result);

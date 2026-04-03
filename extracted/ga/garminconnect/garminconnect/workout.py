@@ -68,11 +68,11 @@ class TargetType:
     """Common Garmin workout target type IDs."""
 
     NO_TARGET = 1
-    HEART_RATE = 2
-    CADENCE = 3
-    SPEED = 4
-    POWER = 5
-    OPEN = 6
+    POWER = 2  # power.zone
+    CADENCE = 3  # cadence
+    HEART_RATE = 4  # heart.rate.zone
+    SPEED = 5  # speed.zone
+    OPEN = 6  # open
 
 
 class SportTypeModel(BaseModel):
@@ -178,6 +178,7 @@ class BaseWorkout(BaseModel):
     estimatedDurationInSecs: int
     workoutSegments: list[WorkoutSegment]
     author: dict[str, Any] = Field(default_factory=dict)
+    description: str | None = None
 
     class Config:
         """Pydantic config."""

@@ -22,16 +22,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from __future__ import annotations
-
 import os
 import re
 import secrets
-from typing import TYPE_CHECKING
 
 from ansys.aedt.core.base import PyAedtBase
 from ansys.aedt.core.edb import Edb
-from ansys.aedt.core.generic.constants import Axis
 from ansys.aedt.core.generic.data_handlers import _dict2arg
 from ansys.aedt.core.generic.file_utils import _uname
 from ansys.aedt.core.generic.general_methods import pyaedt_function_handler
@@ -39,13 +35,9 @@ from ansys.aedt.core.generic.numbers_utils import _units_assignment
 from ansys.aedt.core.internal.desktop_sessions import _edb_sessions
 from ansys.aedt.core.modeler.cad.elements_3d import BinaryTreeNode
 
-if TYPE_CHECKING:
-    from ansys.aedt.core.hfss import Hfss
-    from ansys.aedt.core.modeler.cad.object_3d import Object3d
-
 
 class UserDefinedComponentParameters(dict):
-    def __setitem__(self, key, value):
+    def __setitem__(self, key, value) -> None:
         try:
             self._component._m_Editor.ChangeProperty(
                 [
@@ -69,7 +61,7 @@ class UserDefinedComponentParameters(dict):
 class UserDefinedComponentProps(dict):
     """User Defined Component Internal Parameters."""
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key, value) -> None:
         value = _units_assignment(value)
         dict.__setitem__(self, key, value)
         if self._pyaedt_user_defined_component.auto_update:
@@ -87,7 +79,7 @@ class UserDefinedComponentProps(dict):
                     dict.__setitem__(self, key, value)
         self._pyaedt_user_defined_component = user_defined_components
 
-    def _setitem_without_update(self, key, value):
+    def _setitem_without_update(self, key, value) -> None:
         dict.__setitem__(self, key, value)
 
 
@@ -201,7 +193,7 @@ class UserDefinedComponent(PyAedtBase):
         self._layout_component = None
 
     @property
-    def layout_component(self) -> "LayoutComponent":
+    def layout_component(self):
         """Layout component object.
 
         Returns
@@ -222,7 +214,7 @@ class UserDefinedComponent(PyAedtBase):
         return self._layout_component
 
     @pyaedt_function_handler()
-    def history(self) -> "BinaryTreeNode":
+    def history(self):
         """Component history.
 
         Returns
@@ -244,7 +236,7 @@ class UserDefinedComponent(PyAedtBase):
             return False
 
     @property
-    def group_name(self) -> str:
+    def group_name(self):
         """Group the component belongs to.
 
         Returns
@@ -266,7 +258,7 @@ class UserDefinedComponent(PyAedtBase):
         return group
 
     @group_name.setter
-    def group_name(self, name: str) -> str:
+    def group_name(self, name: str) -> None:
         """Assign component to a specific group. A new group is created if the specified group doesn't exist.
 
         Parameters
@@ -335,7 +327,7 @@ class UserDefinedComponent(PyAedtBase):
         return False
 
     @property
-    def mesh_assembly(self) -> bool | None:
+    def mesh_assembly(self):
         """Mesh assembly flag.
 
         Returns
@@ -353,7 +345,7 @@ class UserDefinedComponent(PyAedtBase):
             return None
 
     @mesh_assembly.setter
-    def mesh_assembly(self, ma: bool) -> None:
+    def mesh_assembly(self, ma) -> None:
         key = "Do Mesh Assembly"
         if (
             self.is3dcomponent
@@ -364,7 +356,7 @@ class UserDefinedComponent(PyAedtBase):
             self._mesh_assembly = ma
 
     @property
-    def name(self) -> str:
+    def name(self):
         """Name of the object.
 
         Returns
@@ -381,7 +373,7 @@ class UserDefinedComponent(PyAedtBase):
         return self._m_name
 
     @name.setter
-    def name(self, component_name: str) -> None:
+    def name(self, component_name) -> None:
         if component_name not in self._primitives.user_defined_component_names + self._primitives.object_names + list(
             self._primitives.oeditor.Get3DComponentDefinitionNames()
         ):
@@ -396,7 +388,7 @@ class UserDefinedComponent(PyAedtBase):
             self._logger.warning("Name %s already assigned in the design", component_name)
 
     @property
-    def parameters(self) -> "UserDefinedComponentParameters":
+    def parameters(self):
         """Component parameters.
 
         Returns
@@ -430,7 +422,7 @@ class UserDefinedComponent(PyAedtBase):
         return self._parameters
 
     @property
-    def parts(self) -> dict[str, "Object3d"]:
+    def parts(self):
         """Dictionary of objects that belong to the user-defined component.
 
         Returns
@@ -452,7 +444,7 @@ class UserDefinedComponent(PyAedtBase):
         return parts_dict
 
     @property
-    def target_coordinate_system(self) -> str | None:
+    def target_coordinate_system(self):
         """Target coordinate system.
 
         Returns
@@ -473,7 +465,7 @@ class UserDefinedComponent(PyAedtBase):
         return self._target_coordinate_system
 
     @target_coordinate_system.setter
-    def target_coordinate_system(self, tCS: str) -> None:
+    def target_coordinate_system(self, tCS) -> None:
         if (
             "Target Coordinate System" in self._primitives.oeditor.GetChildObject(self.name).GetPropNames()
             and "Target Coordinate System/Choices" in self._primitives.oeditor.GetChildObject(self.name).GetPropNames()
@@ -514,7 +506,7 @@ class UserDefinedComponent(PyAedtBase):
         self.__dict__ = {}
 
     @pyaedt_function_handler()
-    def duplicate_and_mirror(self, origin: list | object, vector: list | object) -> list:
+    def duplicate_and_mirror(self, origin, vector):
         """Duplicate and mirror a selection.
 
         Parameters
@@ -538,7 +530,7 @@ class UserDefinedComponent(PyAedtBase):
         return self._primitives.duplicate_and_mirror(self.name, origin=origin, vector=vector, is_3d_comp=True)
 
     @pyaedt_function_handler()
-    def mirror(self, origin: list | object, vector: list | object) -> "UserDefinedComponent" | bool:
+    def mirror(self, origin, vector):
         """Mirror a selection.
 
         Parameters
@@ -546,7 +538,7 @@ class UserDefinedComponent(PyAedtBase):
         origin : list, Position
             List of the ``[x, y, z]`` coordinates or
             the Application.Position object for the selection.
-        vector : list, Position
+        vector : float
             List of the ``[x1, y1, z1]`` coordinates or
             the Application.Position object for the vector.
 
@@ -569,7 +561,7 @@ class UserDefinedComponent(PyAedtBase):
         return False
 
     @pyaedt_function_handler()
-    def rotate(self, axis: "Axis", angle: float = 90.0, units: str = "deg") -> "UserDefinedComponent" | bool:
+    def rotate(self, axis, angle: float = 90.0, units: str = "deg"):
         """Rotate the selection.
 
         Parameters
@@ -602,7 +594,7 @@ class UserDefinedComponent(PyAedtBase):
         return False
 
     @pyaedt_function_handler()
-    def move(self, vector: list | object) -> "UserDefinedComponent" | bool:
+    def move(self, vector):
         """Move component from a list.
 
         Parameters
@@ -631,9 +623,7 @@ class UserDefinedComponent(PyAedtBase):
         return False
 
     @pyaedt_function_handler()
-    def duplicate_around_axis(
-        self, axis: "Axis", angle: int = 90, clones: int = 2, create_new_objects: bool = True
-    ) -> list | bool:
+    def duplicate_around_axis(self, axis, angle: int = 90, clones: int = 2, create_new_objects: bool = True):
         """Duplicate the component around the axis.
 
         Parameters
@@ -666,9 +656,7 @@ class UserDefinedComponent(PyAedtBase):
         return False
 
     @pyaedt_function_handler()
-    def duplicate_along_line(
-        self, vector: list | object, clones: int = 2, attach: bool = False, **kwargs
-    ) -> list | bool:
+    def duplicate_along_line(self, vector, clones: int = 2, attach: bool = False, **kwargs):
         """Duplicate the object along a line.
 
         Parameters
@@ -731,7 +719,7 @@ class UserDefinedComponent(PyAedtBase):
         return True
 
     @property
-    def bounding_box(self) -> list:
+    def bounding_box(self):
         """Get bounding dimension of a user defined model.
 
         Returns
@@ -747,7 +735,7 @@ class UserDefinedComponent(PyAedtBase):
         return bb
 
     @property
-    def center(self) -> list:
+    def center(self):
         """Get center coordinates of a user defined model.
 
         Returns
@@ -816,7 +804,7 @@ class UserDefinedComponent(PyAedtBase):
          """
 
     @pyaedt_function_handler()
-    def get_component_filepath(self) -> str:
+    def get_component_filepath(self):
         """Get 3d component file path.
 
         Returns
@@ -829,7 +817,7 @@ class UserDefinedComponent(PyAedtBase):
         )
 
     @pyaedt_function_handler()
-    def update_definition(self, password: str = None, output_file: str = "", local_update: bool = False) -> bool:
+    def update_definition(self, password=None, output_file: str = "", local_update: bool = False) -> bool:
         """Update 3d component definition.
 
         Parameters
@@ -866,7 +854,7 @@ class UserDefinedComponent(PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def edit_definition(self, password: str = None) -> "Hfss" | bool:
+    def edit_definition(self, password=None):
         """Edit 3d Definition. Open AEDT Project and return Pyaedt Object.
 
         Parameters
@@ -942,7 +930,7 @@ class LayoutComponent(PyAedtBase):
             self._get_edb_info()
 
     @property
-    def edb_path(self) -> str:
+    def edb_path(self):
         """EDB path.
 
         Returns
@@ -954,7 +942,7 @@ class LayoutComponent(PyAedtBase):
         return self._edb_path
 
     @property
-    def edb_object(self) -> Edb | bool:
+    def edb_object(self):
         """EDB object.
 
         Returns
@@ -988,7 +976,7 @@ class LayoutComponent(PyAedtBase):
         return self._edb_object
 
     @property
-    def edb_definition(self) -> str | None:
+    def edb_definition(self):
         """Edb definition.
 
         Returns
@@ -1022,7 +1010,7 @@ class LayoutComponent(PyAedtBase):
             return None
 
     @property
-    def show_layout(self) -> bool | None:
+    def show_layout(self):
         """Show layout flag.
 
         Returns
@@ -1040,7 +1028,7 @@ class LayoutComponent(PyAedtBase):
             return None
 
     @show_layout.setter
-    def show_layout(self, show_layout: bool) -> None:
+    def show_layout(self, show_layout) -> None:
         key = "Show Layout"
         if isinstance(show_layout, bool) and key in self._primitives._app.get_oo_properties(
             self._primitives.oeditor, self._name
@@ -1049,7 +1037,7 @@ class LayoutComponent(PyAedtBase):
             self._show_layout = show_layout
 
     @property
-    def fast_transformation(self) -> bool | None:
+    def fast_transformation(self):
         """Show layout flag.
 
         Returns
@@ -1067,7 +1055,7 @@ class LayoutComponent(PyAedtBase):
             return None
 
     @fast_transformation.setter
-    def fast_transformation(self, fast_transformation: bool) -> None:
+    def fast_transformation(self, fast_transformation) -> None:
         key = "Fast Transformation"
         if isinstance(fast_transformation, bool) and key in self._primitives._app.get_oo_properties(
             self._primitives.oeditor, self._name
@@ -1076,7 +1064,7 @@ class LayoutComponent(PyAedtBase):
             self._fast_transformation = fast_transformation
 
     @property
-    def show_dielectric(self) -> bool | None:
+    def show_dielectric(self):
         """Show dielectric flag.
 
         Returns
@@ -1095,7 +1083,7 @@ class LayoutComponent(PyAedtBase):
             return None
 
     @show_dielectric.setter
-    def show_dielectric(self, show_dielectric: bool) -> None:
+    def show_dielectric(self, show_dielectric) -> None:
         key = "Object Attributes/ShowDielectric"
         if isinstance(show_dielectric, bool) and key in self._primitives._app.get_oo_properties(
             self._primitives.oeditor, self._name
@@ -1104,7 +1092,7 @@ class LayoutComponent(PyAedtBase):
             self._show_dielectric = show_dielectric
 
     @property
-    def display_mode(self) -> int | None:
+    def display_mode(self):
         """Show layout flag.
 
         Returns
@@ -1126,7 +1114,7 @@ class LayoutComponent(PyAedtBase):
             return None
 
     @display_mode.setter
-    def display_mode(self, display_mode: int) -> None:
+    def display_mode(self, display_mode) -> None:
         key = "Object Attributes/DisplayMode"
         if isinstance(display_mode, int) and key in self._primitives._app.get_oo_properties(
             self._primitives.oeditor, self._name

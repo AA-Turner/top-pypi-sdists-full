@@ -161,7 +161,7 @@ class Revision:
         self.revision_loaded = True
 
     @staticmethod
-    def result_mode_error() -> str:
+    def result_mode_error():
         """
         Print the function mode error message.
 
@@ -175,7 +175,7 @@ class Revision:
         return err_msg
 
     @pyaedt_function_handler()
-    def get_interaction(self, domain: object) -> object:
+    def get_interaction(self, domain):
         """
         Create a new interaction for a domain.
 
@@ -204,7 +204,7 @@ class Revision:
         return interaction
 
     @pyaedt_function_handler()
-    def run(self, domain: object) -> object:
+    def run(self, domain):
         """
         Load the revision and then analyze along the given domain.
 
@@ -252,7 +252,7 @@ class Revision:
         return interaction
 
     @pyaedt_function_handler()
-    def is_domain_valid(self, domain: object) -> bool:
+    def is_domain_valid(self, domain):
         """
         Return ``True`` if the given domain is valid for the current revision.
 
@@ -272,7 +272,7 @@ class Revision:
         return engine.is_domain_valid(domain)
 
     @pyaedt_function_handler()
-    def get_instance_count(self, domain: object) -> int:
+    def get_instance_count(self, domain):
         """
         Return the number of instances in the domain for the current revision.
 
@@ -397,7 +397,7 @@ class Revision:
         return len(bands) > 0
 
     @pyaedt_function_handler()
-    def get_receiver_names(self) -> list[str]:
+    def get_receiver_names(self):
         """
         Get a list of all receivers in the project.
 
@@ -430,7 +430,7 @@ class Revision:
         return receivers
 
     @pyaedt_function_handler()
-    def get_interferer_names(self, interferer_type: object = None) -> list[str]:
+    def get_interferer_names(self, interferer_type=None):
         """
         Get a list of all interfering transmitters/emitters in the project.
 
@@ -530,9 +530,7 @@ class Revision:
         return band_names
 
     @pyaedt_function_handler()
-    def get_active_frequencies(
-        self, radio_name: str, band_name: str, tx_rx_mode: TxRxMode, units: str = ""
-    ) -> list[float]:
+    def get_active_frequencies(self, radio_name, band_name, tx_rx_mode, units: str = ""):
         """
         Get a list of active frequencies for a ``tx`` or ``rx`` band in a radio/emitter.
 
@@ -570,7 +568,7 @@ class Revision:
         return freqs
 
     @property
-    def notes(self) -> str:
+    def notes(self):
         """
         Add notes to the revision.
 
@@ -584,12 +582,12 @@ class Revision:
         return design.GetResultNotes(self.name)
 
     @notes.setter
-    def notes(self, notes: str) -> None:
+    def notes(self, notes) -> None:
         self.emit_project.odesign.SetResultNotes(self.name, notes)
         self.emit_project.save_project()
 
     @property
-    def n_to_1_limit(self) -> int:
+    def n_to_1_limit(self):
         """
         Maximum number of interference combinations to run per receiver for N to 1.
 
@@ -612,7 +610,7 @@ class Revision:
         return max_instances
 
     @n_to_1_limit.setter
-    def n_to_1_limit(self, max_instances: int) -> None:
+    def n_to_1_limit(self, max_instances):
         if self.emit_project._aedt_version < "2024.1":  # pragma: no cover
             raise RuntimeError("This function is only supported in AEDT version 2024.1 and later.")
         if self.revision_loaded:
@@ -622,11 +620,11 @@ class Revision:
     @pyaedt_function_handler()
     def interference_type_classification(
         self,
-        domain: object,
+        domain,
         interferer_type: InterfererType = InterfererType.TRANSMITTERS,
         use_filter: bool = False,
         filter_list: list[str] = None,
-    ) -> tuple[list, list]:  # pragma: no cover
+    ):  # pragma: no cover
         """Classify interference type as according to inband/inband,
         out of band/in band, inband/out of band, and out of band/out of band.
 
@@ -777,14 +775,14 @@ class Revision:
     @pyaedt_function_handler()
     def protection_level_classification(
         self,
-        domain: object,
+        domain,
         interferer_type: InterfererType = InterfererType.TRANSMITTERS,
         global_protection_level: bool = True,
         global_levels: list = None,
         protection_levels: dict = None,
         use_filter: bool = False,
         filter_list: list[str] = None,
-    ) -> tuple[list, list]:  # pragma: no cover
+    ):  # pragma: no cover
         """
         Classify worst-case power at each Rx radio according to interference type.
 
@@ -976,7 +974,7 @@ class Revision:
         engine.set_emi_category_filter_enabled(category, enabled)
 
     @pyaedt_function_handler
-    def get_license_session(self) -> object:
+    def get_license_session(self):
         """Get a license session.
 
         A license session can be started with checkout(), and ended with check in().
@@ -1161,7 +1159,7 @@ class Revision:
 
     @pyaedt_function_handler
     @min_aedt_version("2025.2")
-    def get_component_node(self, component_name: str) -> EmitNode:
+    def get_component_node(self, component_name) -> EmitNode:
         """Gets the component node.
 
         Parameters

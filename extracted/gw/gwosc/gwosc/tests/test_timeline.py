@@ -61,4 +61,4 @@ def test_timeline_url_local(find):
         assert timeline.timeline_url("L1_DATA", 0, 1, host="test") == (
             "test/timeline/segments/json/S6/L1_DATA/0/1/"
         )
-    find.assert_called_with(0, 1, "L1", host="test")
+    find.assert_called_with(0, 1, "L1", host="test", session=None)

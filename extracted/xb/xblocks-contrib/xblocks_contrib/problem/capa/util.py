@@ -239,7 +239,7 @@ def get_course_id_from_capa_block(capa_block):
     if not capa_block:
         return None
     try:
-        return str(capa_block.scope_ids.usage_id.course_key)
+        return str(capa_block.context_key)
     except (AttributeError, TypeError):
         # AttributeError:
         #     If the capa block lacks scope ids or has unexpected scope ids, we

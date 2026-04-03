@@ -166,31 +166,3 @@ pub fn format_evaluate_clipboard_read() -> chromiumoxide::cdp::js_protocol::runt
         .build()
         .expect("Failed to build evaluate params")
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_clipboard_state() {
-        let mut state = ClipboardState::new();
-
-        // First content
-        assert!(state.has_changed("Hello"));
-        assert_eq!(state.last_content(), "Hello");
-
-        // Same content
-        assert!(!state.has_changed("Hello"));
-
-        // New content
-        assert!(state.has_changed("World"));
-        assert_eq!(state.last_content(), "World");
-    }
-
-    #[test]
-    fn test_config_default() {
-        let config = ClipboardPollingConfig::default();
-        assert!(config.enabled);
-        assert_eq!(config.interval_ms, 500);
-    }
-}

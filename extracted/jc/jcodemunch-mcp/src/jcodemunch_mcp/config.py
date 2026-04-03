@@ -296,6 +296,7 @@ DEFAULTS = {
     "allow_remote_summarizer": False,
     "path_map": "",
     "cross_repo_default": False,
+    "discovery_hint": True,
 }
 
 CONFIG_TYPES = {
@@ -344,6 +345,7 @@ CONFIG_TYPES = {
     "allow_remote_summarizer": bool,
     "path_map": str,
     "cross_repo_default": bool,
+    "discovery_hint": bool,
     "version": str,
     "architecture": dict,
 }
@@ -646,16 +648,21 @@ def _resolve_repo_key(repo: str) -> str | None:
 
     Returns the resolved key if found, None otherwise.
     """
-    if repo in _PROJECT_CONFIGS:
-        return repo
-    if repo in _REPO_PATH_CACHE:
-        cached = _REPO_PATH_CACHE[repo]
-        # None = negative cache (unknown repo), str = resolved path
-        return cached
+    with _CONFIG_LOCK:
+        if repo in _PROJECT_CONFIGS:
+            return repo
+        if repo in _REPO_PATH_CACHE:
+            cached = _REPO_PATH_CACHE[repo]
+            # None = negative cache (unknown repo), str = resolved path
+            return cached
+
+    # Miss: query store without holding the lock (I/O)
     try:
         from .storage.index_store import IndexStore
         store = IndexStore(base_path=str(_global_storage_path()))
         repos = store.list_repos()
+        result = None
+        updates: dict[str, str] = {}
         for entry in repos:
             source_root = entry.get("source_root", "")
             if not source_root:
@@ -664,15 +671,21 @@ def _resolve_repo_key(repo: str) -> str | None:
             display_name = entry.get("display_name", "")
             repo_name = entry.get("repo", "")
             if display_name:
-                _REPO_PATH_CACHE[display_name] = resolved
+                updates[display_name] = resolved
             if repo_name:
-                _REPO_PATH_CACHE[repo_name] = resolved
+                updates[repo_name] = resolved
             if repo == display_name or repo == repo_name or repo == resolved:
-                return resolved
+                result = resolved
+        with _CONFIG_LOCK:
+            _REPO_PATH_CACHE.update(updates)
+            # Prevent unbounded growth (evict oldest entries first)
+            if len(_REPO_PATH_CACHE) > 512:
+                excess = len(_REPO_PATH_CACHE) - 512
+                for k in list(_REPO_PATH_CACHE)[:excess]:
+                    del _REPO_PATH_CACHE[k]
+        return result
     except Exception:
         pass
-    # Negative cache: avoids repeated IndexStore scans for unknown identifiers
-    _REPO_PATH_CACHE[repo] = None  # type: ignore[assignment]
     return None
 
 

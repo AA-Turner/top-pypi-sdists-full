@@ -45,6 +45,9 @@ __all__ = [
     "ItemOpenAIResponseOutputMessageMcpCall",
     "ItemOpenAIResponseOutputMessageMcpListTools",
     "ItemOpenAIResponseOutputMessageMcpListToolsTool",
+    "ItemOpenAIResponseOutputMessageReasoningItem",
+    "ItemOpenAIResponseOutputMessageReasoningItemSummary",
+    "ItemOpenAIResponseOutputMessageReasoningItemContent",
 ]
 
 
@@ -136,6 +139,8 @@ class ItemOpenAIResponseMessageInputContentListOpenAIResponseOutputMessageConten
 class ItemOpenAIResponseMessageInputContentListOpenAIResponseOutputMessageContentOutputTextInputOpenAIResponseContentPartRefusalOpenAIResponseOutputMessageContentOutputTextInputAnnotationOpenAIResponseAnnotationContainerFileCitation(
     TypedDict, total=False
 ):
+    """Container file citation annotation referencing a file within a container."""
+
     container_id: Required[str]
 
     end_index: Required[int]
@@ -152,6 +157,8 @@ class ItemOpenAIResponseMessageInputContentListOpenAIResponseOutputMessageConten
 class ItemOpenAIResponseMessageInputContentListOpenAIResponseOutputMessageContentOutputTextInputOpenAIResponseContentPartRefusalOpenAIResponseOutputMessageContentOutputTextInputAnnotationOpenAIResponseAnnotationFilePath(
     TypedDict, total=False
 ):
+    """File path annotation referencing a generated file in response content."""
+
     file_id: Required[str]
 
     index: Required[int]
@@ -211,6 +218,8 @@ class ItemOpenAIResponseMessageInputContentListOpenAIResponseOutputMessageConten
 class ItemOpenAIResponseMessageInputContentListOpenAIResponseOutputMessageContentOutputTextInputOpenAIResponseContentPartRefusalOpenAIResponseOutputMessageContentOutputTextInput(
     TypedDict, total=False
 ):
+    """Text content within an output message of an OpenAI response."""
+
     text: Required[str]
 
     annotations: Iterable[
@@ -463,6 +472,45 @@ class ItemOpenAIResponseOutputMessageMcpListTools(TypedDict, total=False):
     type: Literal["mcp_list_tools"]
 
 
+class ItemOpenAIResponseOutputMessageReasoningItemSummary(TypedDict, total=False):
+    """A summary of reasoning output from the model."""
+
+    text: Required[str]
+    """The summary text of the reasoning output."""
+
+    type: Literal["summary_text"]
+    """The type identifier, always 'summary_text'."""
+
+
+class ItemOpenAIResponseOutputMessageReasoningItemContent(TypedDict, total=False):
+    """Reasoning text from the model."""
+
+    text: Required[str]
+    """The reasoning text content from the model."""
+
+    type: Literal["reasoning_text"]
+    """The type identifier, always 'reasoning_text'."""
+
+
+class ItemOpenAIResponseOutputMessageReasoningItem(TypedDict, total=False):
+    """Reasoning output from the model, representing the model's thinking process."""
+
+    id: Required[str]
+    """Unique identifier for the reasoning output item."""
+
+    summary: Required[Iterable[ItemOpenAIResponseOutputMessageReasoningItemSummary]]
+    """Summary of the reasoning output."""
+
+    content: Optional[Iterable[ItemOpenAIResponseOutputMessageReasoningItemContent]]
+    """The reasoning content from the model."""
+
+    status: Optional[Literal["in_progress", "completed", "incomplete"]]
+    """The status of the reasoning output."""
+
+    type: Literal["reasoning"]
+    """The type identifier, always 'reasoning'."""
+
+
 Item: TypeAlias = Union[
     ItemOpenAIResponseMessageInput,
     ItemOpenAIResponseOutputMessageWebSearchToolCall,
@@ -473,4 +521,5 @@ Item: TypeAlias = Union[
     ItemOpenAIResponseMcpApprovalResponse,
     ItemOpenAIResponseOutputMessageMcpCall,
     ItemOpenAIResponseOutputMessageMcpListTools,
+    ItemOpenAIResponseOutputMessageReasoningItem,
 ]

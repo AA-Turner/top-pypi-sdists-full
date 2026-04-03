@@ -43,7 +43,7 @@ class TestProjectUpdateParameters(unittest.TestCase):
                 main_format = 'yml', 
                 media = 'Python', 
                 shares_translation_memory = True, 
-                project_image = '[B@2e7e9897', 
+                project_image = '[B@15c5c99', 
                 remove_project_image = False, 
                 workflow = 'review', 
                 machine_translation_enabled = True, 
@@ -59,7 +59,9 @@ class TestProjectUpdateParameters(unittest.TestCase):
                 autotranslate_mark_as_unverified = True, 
                 autotranslate_use_machine_translation = True, 
                 autotranslate_use_translation_memory = True, 
-                default_encoding = 'UTF-8'
+                autotranslate_overwrite_unverified_translations = True, 
+                default_encoding = 'UTF-8', 
+                placeholder_styles = ["angular","iOS"]
             )
         else :
             return ProjectUpdateParameters(

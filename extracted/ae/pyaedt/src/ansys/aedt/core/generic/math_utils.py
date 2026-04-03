@@ -130,7 +130,7 @@ class MathUtils(PyAedtBase):
 
     @staticmethod
     @pyaedt_function_handler()
-    def is_scalar_number(x: object) -> bool:
+    def is_scalar_number(x):
         """Check if a value is a scalar number (int or float).
 
         Parameters
@@ -147,7 +147,7 @@ class MathUtils(PyAedtBase):
 
     @staticmethod
     @pyaedt_function_handler()
-    def fix_negative_zero(value: object) -> object:
+    def fix_negative_zero(value):
         """Fix the negative zero.
         It supports lists (and nested lists).
 

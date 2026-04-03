@@ -3083,7 +3083,7 @@ class GitHubActionsProvider(
             project.github.actions.set("actions/checkout", "actions/checkout@aaaaaa");
             
             // But pin usage of `v4` to a different commit
-            project.github.actions.set("actions/checkout@v4", "actions/checkout@ffffff");
+            project.github.actions.set("actions/checkout@v6", "actions/checkout@ffffff");
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__20166ac47381861e1a45b550a5e9646380c52a927fca9ebf00ec36dab0f295ed)

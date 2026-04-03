@@ -30,28 +30,29 @@ export const JOIN_TIMEOUT = '90s';
 /** Number of runs to enqueue in enqueued_runs_order benchmark. */
 export const NUM_ENQUEUED_RUNS = 3;
 
-/** Default graph input for quick benchmark runs. */
-export const DEFAULT_INPUT = {
-  mode: 'single' as const,
-  delay: 0,
-  expand: 1,
-  steps: 1,
-  data_size: 100,
-};
+/** Default benchmark context for graph runs. */
+export interface BenchmarkContext {
+  delay: number;
+  delay_jitter_ratio: number;
+  expand: number;
+  steps: number;
+  checkpoint_size: number;
+  llm_enabled: boolean;
+  stream_size: number;
+  chunk_size: number;
+  burst_mode: boolean;
+  burst_probability: number;
+  burst_size: number;
+}
 
 /**
  * Options passed to run() from the ramp/capacity scripts.
  */
 export interface BenchmarkGraphOptions {
-  graph_id?: string;
-  input?: {
-    mode?: string;
-    delay?: number;
-    expand?: number;
-    steps?: number;
-    data_size?: number;
-  };
-  stateful?: boolean;
+  graph_id: string;
+  context: BenchmarkContext;
+  stateful: boolean;
+  resumable: boolean;
 }
 
 /** k6-style response (has status, error, body). */

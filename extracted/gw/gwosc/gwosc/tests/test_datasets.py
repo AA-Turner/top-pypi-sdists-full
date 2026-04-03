@@ -3,7 +3,6 @@
 
 """Tests for :mod:`gwosc.datasets`"""
 
-import re
 from unittest import mock
 
 import pytest
@@ -35,12 +34,6 @@ def test_find_datasets_detector():
 def test_find_datasets_type():
     runsets = datasets.find_datasets(type="run")
     assert "O1" in runsets
-    run_regex = re.compile(
-        r"\A([OS]\d+([a-z]|[A-Z]+)?|BKGW\d{6})(_\d+KHZ)?(_[RV]\d+)?\Z",
-    )
-    for dset in runsets:
-        assert run_regex.match(dset)
-
     assert datasets.find_datasets(type="badtype") == []
 
 

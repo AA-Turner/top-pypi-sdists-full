@@ -1119,6 +1119,14 @@ pub fn is_stub_body(body: &[Stmt]) -> bool {
         })
 }
 
+/// Returns `body` without its leading docstring statement, if present.
+pub fn body_without_leading_docstring(body: &[Stmt]) -> &[Stmt] {
+    match body.split_first() {
+        Some((first, rest)) if is_docstring_stmt(first) => rest,
+        _ => body,
+    }
+}
+
 /// Check if a node is part of a conditional branch.
 pub fn on_conditional_branch<'a>(parents: &mut impl Iterator<Item = &'a Stmt>) -> bool {
     parents.any(|parent| {
@@ -1671,6 +1679,14 @@ pub fn comment_indentation_after(
         })
         .min()
         .unwrap_or_default()
+}
+
+pub fn is_dotted_name(expr: &ast::Expr) -> bool {
+    match expr {
+        ast::Expr::Name(_) => true,
+        ast::Expr::Attribute(ast::ExprAttribute { value, .. }) => is_dotted_name(value),
+        _ => false,
+    }
 }
 
 #[cfg(test)]

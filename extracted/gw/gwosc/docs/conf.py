@@ -81,6 +81,7 @@ html_theme_options = {
         "repo": "fontawesome/brands/gitlab",
     },
     "site_url": "https://gwosc.readthedocs.io",
+    "font": False,
 }
 html_last_updated_fmt = "%Y-%m-%d"
 

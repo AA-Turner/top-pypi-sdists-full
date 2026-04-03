@@ -8,6 +8,7 @@ import shutil
 from pydantic import model_validator, TypeAdapter
 
 from .base_types import BinProviderName, PATHStr, BinName, InstallArgs
+from .semver import SemVer
 from .binprovider import BinProvider, remap_kwargs
 from .logging import format_subprocess_output, get_logger, log_subprocess_error
 
@@ -52,7 +53,10 @@ class AptProvider(BinProvider):
         self,
         bin_name: BinName,
         install_args: InstallArgs | None = None,
-        **context,
+        postinstall_scripts: bool | None = None,
+        min_release_age: float | None = None,
+        min_version: SemVer | None = None,
+        timeout: int | None = None,
     ) -> str:
         global _LAST_UPDATE_CHECK
 
@@ -70,7 +74,7 @@ class AptProvider(BinProvider):
 
         if PYINFRA_INSTALLED:
             return pyinfra_package_install(
-                [bin_name],
+                install_args,
                 installer_module="operations.apt.packages",
             )
 
@@ -79,7 +83,7 @@ class AptProvider(BinProvider):
 
         if ANSIBLE_INSTALLED:
             return ansible_package_install(
-                [bin_name],
+                install_args,
                 installer_module="ansible.builtin.apt",
             )
 
@@ -89,12 +93,17 @@ class AptProvider(BinProvider):
             or (time.time() - _LAST_UPDATE_CHECK) > UPDATE_CHECK_INTERVAL
         ):
             # only update if we haven't checked in the last day
-            self.exec(bin_name=self.INSTALLER_BIN_ABSPATH, cmd=["update", "-qq"])
+            self.exec(
+                bin_name=self.INSTALLER_BIN_ABSPATH,
+                cmd=["update", "-qq"],
+                timeout=timeout,
+            )
             _LAST_UPDATE_CHECK = time.time()
 
         proc = self.exec(
             bin_name=self.INSTALLER_BIN_ABSPATH,
             cmd=["install", "-y", "-qq", "--no-install-recommends", *install_args],
+            timeout=timeout,
         )
         if proc.returncode != 0:
             log_subprocess_error(
@@ -115,7 +124,10 @@ class AptProvider(BinProvider):
         self,
         bin_name: BinName,
         install_args: InstallArgs | None = None,
-        **context,
+        postinstall_scripts: bool | None = None,
+        min_release_age: float | None = None,
+        min_version: SemVer | None = None,
+        timeout: int | None = None,
     ) -> str:
         global _LAST_UPDATE_CHECK
 
@@ -148,7 +160,11 @@ class AptProvider(BinProvider):
             not _LAST_UPDATE_CHECK
             or (time.time() - _LAST_UPDATE_CHECK) > UPDATE_CHECK_INTERVAL
         ):
-            self.exec(bin_name=self.INSTALLER_BIN_ABSPATH, cmd=["update", "-qq"])
+            self.exec(
+                bin_name=self.INSTALLER_BIN_ABSPATH,
+                cmd=["update", "-qq"],
+                timeout=timeout,
+            )
             _LAST_UPDATE_CHECK = time.time()
 
         proc = self.exec(
@@ -161,6 +177,7 @@ class AptProvider(BinProvider):
                 "--no-install-recommends",
                 *install_args,
             ],
+            timeout=timeout,
         )
         if proc.returncode != 0:
             log_subprocess_error(
@@ -180,7 +197,10 @@ class AptProvider(BinProvider):
         self,
         bin_name: BinName,
         install_args: InstallArgs | None = None,
-        **context,
+        postinstall_scripts: bool | None = None,
+        min_release_age: float | None = None,
+        min_version: SemVer | None = None,
+        timeout: int | None = None,
     ) -> bool:
         install_args = install_args or self.get_install_args(bin_name)
 
@@ -212,6 +232,7 @@ class AptProvider(BinProvider):
         proc = self.exec(
             bin_name=self.INSTALLER_BIN_ABSPATH,
             cmd=["remove", "-y", "-qq", *install_args],
+            timeout=timeout,
         )
         if proc.returncode != 0:
             log_subprocess_error(

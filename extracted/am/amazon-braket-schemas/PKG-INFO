@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amazon-braket-schemas
-Version: 1.29.0
+Version: 1.29.1
 Summary: An open source library that contains the schemas for Amazon Braket
 Home-page: https://github.com/amazon-braket/amazon-braket-schemas-python
 Author: Amazon Web Services
@@ -19,6 +19,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: pydantic>2
+Requires-Dist: setuptools==81.0.0
 Provides-Extra: test
 Requires-Dist: jsonschema; extra == "test"
 Requires-Dist: numpy; extra == "test"

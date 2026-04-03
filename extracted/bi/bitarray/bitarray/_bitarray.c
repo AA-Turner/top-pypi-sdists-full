@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2008 - 2025, Ilan Schnell; All Rights Reserved
+   Copyright (c) 2008 - 2026, Ilan Schnell; All Rights Reserved
    bitarray is published under the PSF license.
 
    This file is the C part of the bitarray package.
@@ -96,6 +96,9 @@ resize(bitarrayobject *self, Py_ssize_t nbits)
     assert(new_allocated >= newsize);
     self->ob_item = PyMem_Realloc(self->ob_item, new_allocated);
     if (self->ob_item == NULL) {
+        Py_SET_SIZE(self, 0);
+        self->allocated = 0;
+        self->nbits = 0;
         PyErr_NoMemory();
         return -1;
     }
@@ -1028,7 +1031,7 @@ bitarray_buffer_info(bitarrayobject *self)
     readonly = PyBool_FromLong(self->readonly);
     imported = PyBool_FromLong(self->buffer ? 1 : 0);
     if (address == NULL || readonly == NULL || imported == NULL)
-        return NULL;
+        goto error;
 
     args = Py_BuildValue("OnsnnOOi",
                          address,
@@ -1039,12 +1042,21 @@ bitarray_buffer_info(bitarrayobject *self)
                          readonly,
                          imported,
                          self->ob_exports);
+    if (args == NULL)
+        goto error;
+
     Py_DECREF(address);
     Py_DECREF(readonly);
     Py_DECREF(imported);
     res = PyObject_CallObject(info, args);
     Py_DECREF(args);
     return res;
+
+ error:
+    Py_XDECREF(address);
+    Py_XDECREF(readonly);
+    Py_XDECREF(imported);
+    return NULL;
 }
 
 PyDoc_STRVAR(buffer_info_doc,
@@ -1600,7 +1612,7 @@ extend_fread(bitarrayobject *self, PyObject *f, Py_ssize_t n)
     ret = bitarray_frombytes(self, bytes);
     Py_DECREF(bytes);
     if (ret == NULL)
-        res = -1;
+        return -1;
     Py_DECREF(ret);
     return res;
 }
@@ -2844,8 +2856,9 @@ bitarray_encode(bitarrayobject *self, PyObject *args)
 
     /* extend self with the bitarrays from codedict */
     while ((symbol = PyIter_Next(iter))) {
-        value = PyDict_GetItem(codedict, symbol);
-        Py_DECREF(symbol);
+        if (PyDict_GetItemRef(codedict, symbol, &value) < 0)
+            goto error;
+
         if (value == NULL) {
             PyErr_Format(PyExc_ValueError,
                          "symbol not defined in prefix code: %A", symbol);
@@ -2854,6 +2867,9 @@ bitarray_encode(bitarrayobject *self, PyObject *args)
         if (check_value(value) < 0 ||
                 extend_bitarray(self, (bitarrayobject *) value) < 0)
             goto error;
+
+        Py_DECREF(symbol);
+        Py_DECREF(value);
     }
     Py_DECREF(iter);
     if (PyErr_Occurred())       /* from PyIter_Next() */
@@ -2862,6 +2878,8 @@ bitarray_encode(bitarrayobject *self, PyObject *args)
 
  error:
     Py_DECREF(iter);
+    Py_DECREF(symbol);
+    Py_XDECREF(value);
     return NULL;
 }
 
@@ -3023,8 +3041,10 @@ binode_to_dict(binode *nd, PyObject *dict, bitarrayobject *prefix)
 
         if ((t = bitarray_cp(prefix)) == NULL)
             return -1;
-        if (resize(t, t->nbits + 1) < 0)
+        if (resize(t, t->nbits + 1) < 0) {
+            Py_DECREF(t);
             return -1;
+        }
         setbit(t, t->nbits - 1, k);
         ret = binode_to_dict(nd->child[k], dict, t);
         Py_DECREF(t);
@@ -3321,12 +3341,12 @@ decodeiter_next(decodeiterobject *it)
 static void
 decodeiter_dealloc(decodeiterobject *it)
 {
+    PyObject_GC_UnTrack(it);
     if (it->decodetree)
         Py_DECREF(it->decodetree);
     else       /* when decodeiter was created from dict - free tree */
         binode_delete(it->tree);
 
-    PyObject_GC_UnTrack(it);
     Py_DECREF(it->self);
     PyObject_GC_Del(it);
 }
@@ -3466,6 +3486,7 @@ static int
 searchiter_traverse(searchiterobject *it, visitproc visit, void *arg)
 {
     Py_VISIT(it->self);
+    Py_VISIT(it->sub);
     return 0;
 }
 
@@ -4044,7 +4065,8 @@ bits2bytes(PyObject *module, PyObject *n)
         return PyErr_Format(PyExc_TypeError, "'int' object expected, "
                             "got '%s'", Py_TYPE(n)->tp_name);
 
-    zero = PyLong_FromLong(0);
+    if ((zero = PyLong_FromLong(0)) == NULL)
+        return NULL;
     cmp_res = PyObject_RichCompareBool(n, zero, Py_LT);
     Py_DECREF(zero);
     if (cmp_res < 0)
@@ -4054,13 +4076,17 @@ bits2bytes(PyObject *module, PyObject *n)
         return NULL;
     }
 
-    seven = PyLong_FromLong(7);
+    if ((seven = PyLong_FromLong(7)) == NULL)
+        return NULL;
     a = PyNumber_Add(n, seven);          /* a = n + 7 */
     Py_DECREF(seven);
     if (a == NULL)
         return NULL;
 
-    eight = PyLong_FromLong(8);
+    if ((eight = PyLong_FromLong(8)) == NULL) {
+        Py_DECREF(a);
+        return NULL;
+    }
     b = PyNumber_FloorDivide(a, eight);  /* b = a // 8 */
     Py_DECREF(eight);
     Py_DECREF(a);

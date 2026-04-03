@@ -66,6 +66,7 @@ from skyvern.exceptions import (
 )
 from skyvern.forge import app
 from skyvern.forge.async_operations import AgentPhase, AsyncOperationPool
+from skyvern.forge.failure_classifier import classify_from_failure_reason
 from skyvern.forge.prompts import prompt_engine
 from skyvern.forge.sdk.api.aws import get_aws_client
 from skyvern.forge.sdk.api.files import (
@@ -105,7 +106,11 @@ from skyvern.schemas.steps import AgentStepOutput
 from skyvern.services import run_service, service_utils
 from skyvern.services.action_service import get_action_history
 from skyvern.services.error_detection_service import detect_user_defined_errors_for_task
-from skyvern.services.otp_service import poll_otp_value
+from skyvern.services.otp_service import (
+    extract_totp_from_navigation_inputs,
+    poll_otp_value,
+    try_generate_totp_from_credential,
+)
 from skyvern.utils.image_resizer import Resolution
 from skyvern.utils.prompt_engine import MaxStepsReasonResponse, load_prompt_with_elements
 from skyvern.webeye.actions.action_types import ActionType
@@ -734,7 +739,7 @@ class ForgeAgent:
                 "Step cannot be executed, marking task as failed",
                 exc_info=True,
             )
-            is_task_marked_as_failed = await self.fail_task(task, step, e.message, browser_state)
+            is_task_marked_as_failed = await self.fail_task(task, step, e.message, browser_state, exception=e)
             if is_task_marked_as_failed:
                 await self.clean_up_task(
                     task=task,
@@ -760,7 +765,7 @@ class ForgeAgent:
                 url=e.url,
             )
             failure_reason = f"Failed to navigate to URL. URL:{e.url}, Error:{e.error_message}"
-            is_task_marked_as_failed = await self.fail_task(task, step, failure_reason, browser_state)
+            is_task_marked_as_failed = await self.fail_task(task, step, failure_reason, browser_state, exception=e)
             if is_task_marked_as_failed:
                 await self.clean_up_task(
                     task=task,
@@ -805,7 +810,7 @@ class ForgeAgent:
                 step_order=step.order,
                 step_retry=step.retry_index,
             )
-            await self.fail_task(task, step, e.message, browser_state)
+            await self.fail_task(task, step, e.message, browser_state, exception=e)
             await self.clean_up_task(
                 task=task,
                 last_step=step,
@@ -827,6 +832,7 @@ class ForgeAgent:
                 sfe.reason
                 or "Skyvern failed to load the website. The page may have navigated unexpectedly or become unresponsive during analysis.",
                 browser_state,
+                exception=sfe,
             )
             await self.clean_up_task(
                 task=task,
@@ -836,13 +842,14 @@ class ForgeAgent:
                 browser_session_id=browser_session_id,
             )
             return step, detailed_output, None
-        except MissingBrowserStatePage:
+        except MissingBrowserStatePage as e:
             LOG.warning("Missing browser state page, marking the task as failed")
             await self.fail_task(
                 task,
                 step,
                 "The browser does not have a valid page for skyvern to operate. This may be due to the website being empty or the browser crashing.",
                 browser_state,
+                exception=e,
             )
             await self.clean_up_task(
                 task=task,
@@ -857,7 +864,7 @@ class ForgeAgent:
 
             failure_reason = get_user_facing_exception_message(e)
 
-            is_task_marked_as_failed = await self.fail_task(task, step, failure_reason, browser_state)
+            is_task_marked_as_failed = await self.fail_task(task, step, failure_reason, browser_state, exception=e)
             if is_task_marked_as_failed:
                 await self.clean_up_task(
                     task=task,
@@ -876,7 +883,12 @@ class ForgeAgent:
             context.task_id = None
 
     async def fail_task(
-        self, task: Task, step: Step | None, reason: str | None, browser_state: BrowserState | None = None
+        self,
+        task: Task,
+        step: Step | None,
+        reason: str | None,
+        browser_state: BrowserState | None = None,
+        exception: Exception | None = None,
     ) -> bool:
         try:
             if step is not None:
@@ -886,10 +898,23 @@ class ForgeAgent:
                 )
 
             # Update task status first
+            failure_category = classify_from_failure_reason(reason, exception=exception, fallback_to_unknown=True)
+            LOG.info(
+                "Task failure classified",
+                task_id=task.task_id,
+                workflow_run_id=task.workflow_run_id,
+                organization_id=task.organization_id,
+                task_status="failed",
+                failure_category=failure_category,
+                primary_failure_category=failure_category[0].get("category") if failure_category else None,
+                failure_category_source="code_level",
+                failure_category_path="exception",
+            )
             await self.update_task(
                 task,
                 status=TaskStatus.failed,
                 failure_reason=reason,
+                failure_category=failure_category,
             )
 
             # Detect user-defined errors if error_code_mapping is provided
@@ -2297,6 +2322,7 @@ class ForgeAgent:
                 )
                 return TerminateAction(
                     reasoning=verification_result.thoughts,
+                    failure_categories=verification_result.failure_categories or [],
                 )
 
             # We don't want to return a complete action if the user goal is not achieved since we're checking at every step
@@ -3875,6 +3901,7 @@ class ForgeAgent:
         failure_reason: str | None = None,
         webhook_failure_reason: str | None = None,
         errors: list[dict[str, Any]] | None = None,
+        failure_category: list[dict[str, Any]] | None = None,
     ) -> Task:
         # refresh task from db to get the latest status
         task_from_db = await app.DATABASE.get_task(task_id=task.task_id, organization_id=task.organization_id)
@@ -3891,6 +3918,8 @@ class ForgeAgent:
             updates["failure_reason"] = failure_reason
         if errors is not None:
             updates["errors"] = errors
+        if failure_category is not None:
+            updates["failure_category"] = failure_category
         update_comparison = {
             key: {"old": getattr(task, key), "new": value}
             for key, value in updates.items()
@@ -4053,11 +4082,24 @@ class ForgeAgent:
                 failure_reason = persisted_action.reasoning
                 if persisted_action.errors:
                     failure_reason = "; ".join(error.reasoning for error in persisted_action.errors)
+                failure_category = persisted_action.failure_categories or classify_from_failure_reason(failure_reason)
+                LOG.info(
+                    "Task failure classified",
+                    task_id=task.task_id,
+                    workflow_run_id=task.workflow_run_id,
+                    organization_id=task.organization_id,
+                    task_status="terminated",
+                    failure_category=failure_category,
+                    primary_failure_category=failure_category[0].get("category") if failure_category else None,
+                    failure_category_source="llm" if persisted_action.failure_categories else "code_level",
+                    failure_category_path="terminate_check_goal",
+                )
                 await self.update_task(
                     task,
                     status=TaskStatus.terminated,
                     failure_reason=failure_reason,
                     errors=task_errors,
+                    failure_category=failure_category,
                 )
                 return True, last_step, None
 
@@ -4146,6 +4188,20 @@ class ForgeAgent:
             errors = [ReachMaxStepsError().model_dump()] + [
                 error.model_dump() for error in generated_failure_reason.errors
             ]
+            failure_category = generated_failure_reason.failure_categories or classify_from_failure_reason(
+                failure_reason, fallback_to_unknown=True
+            )
+            LOG.info(
+                "Task failure classified",
+                task_id=task.task_id,
+                workflow_run_id=task.workflow_run_id,
+                organization_id=task.organization_id,
+                task_status="failed",
+                failure_category=failure_category,
+                primary_failure_category=failure_category[0].get("category") if failure_category else None,
+                failure_category_source="llm" if generated_failure_reason.failure_categories else "code_level",
+                failure_category_path="max_steps",
+            )
 
             await self._cancel_speculative_step(next_step)
 
@@ -4154,6 +4210,7 @@ class ForgeAgent:
                 status=TaskStatus.failed,
                 failure_reason=failure_reason,
                 errors=errors,
+                failure_category=failure_category,
             )
             return False, last_step, None
 
@@ -4208,13 +4265,30 @@ class ForgeAgent:
                     error_codes=[e.error_code for e in failure_response.errors],
                 )
 
+            failure_reason = (
+                f"Max retries per step ({max_retries_per_step}) exceeded."
+                f" Possible failure reasons: {failure_response.reasoning}"
+            )
+            failure_category = failure_response.failure_categories or classify_from_failure_reason(
+                failure_reason, fallback_to_unknown=True
+            )
+            LOG.info(
+                "Task failure classified",
+                task_id=task.task_id,
+                workflow_run_id=task.workflow_run_id,
+                organization_id=task.organization_id,
+                task_status="failed",
+                failure_category=failure_category,
+                primary_failure_category=failure_category[0].get("category") if failure_category else None,
+                failure_category_source="llm" if failure_response.failure_categories else "code_level",
+                failure_category_path="max_retries",
+            )
             await self.update_task(
                 task,
                 TaskStatus.failed,
-                failure_reason=(
-                    f"Max retries per step ({max_retries_per_step}) exceeded. Possible failure reasons: {failure_response.reasoning}"
-                ),
+                failure_reason=failure_reason,
                 errors=new_errors,
+                failure_category=failure_category,
             )
             return None
         else:
@@ -4556,7 +4630,24 @@ class ForgeAgent:
             )
             last_step = await self.update_step(step, is_last=True)
             failure_reason = await self.get_failure_reason_for_task(task)
-            await self.update_task(task, status=TaskStatus.terminated, failure_reason=failure_reason)
+            failure_category = classify_from_failure_reason(failure_reason)
+            LOG.info(
+                "Task failure classified",
+                task_id=task.task_id,
+                workflow_run_id=task.workflow_run_id,
+                organization_id=task.organization_id,
+                task_status="terminated",
+                failure_category=failure_category,
+                primary_failure_category=failure_category[0].get("category") if failure_category else None,
+                failure_category_source="code_level",
+                failure_category_path="terminate_extract_action",
+            )
+            await self.update_task(
+                task,
+                status=TaskStatus.terminated,
+                failure_reason=failure_reason,
+                failure_category=failure_category,
+            )
             return False, last_step, None
         # If the max steps are exceeded, mark the current step as the last step and conclude the task
         context = skyvern_context.current()
@@ -4602,12 +4693,27 @@ class ForgeAgent:
             errors = [ReachMaxStepsError().model_dump()] + [
                 error.model_dump() for error in generated_failure_reason.errors
             ]
+            failure_category = generated_failure_reason.failure_categories or classify_from_failure_reason(
+                failure_reason, fallback_to_unknown=True
+            )
+            LOG.info(
+                "Task failure classified",
+                task_id=task.task_id,
+                workflow_run_id=task.workflow_run_id,
+                organization_id=task.organization_id,
+                task_status="failed",
+                failure_category=failure_category,
+                primary_failure_category=failure_category[0].get("category") if failure_category else None,
+                failure_category_source="llm" if generated_failure_reason.failure_categories else "code_level",
+                failure_category_path="max_steps",
+            )
 
             await self.update_task(
                 task,
                 status=TaskStatus.failed,
                 failure_reason=failure_reason,
                 errors=errors,
+                failure_category=failure_category,
             )
             return False, last_step, None
         else:
@@ -4724,13 +4830,17 @@ class ForgeAgent:
     ) -> dict[str, Any]:
         place_to_enter_verification_code = json_response.get("place_to_enter_verification_code")
         should_enter_verification_code = json_response.get("should_enter_verification_code")
-        if (
-            place_to_enter_verification_code
-            and should_enter_verification_code
-            and (task.totp_verification_url or task.totp_identifier)
-            and task.organization_id
-        ):
-            LOG.info("Need verification code")
+        if not (place_to_enter_verification_code and should_enter_verification_code):
+            return json_response
+
+        LOG.info("Need verification code")
+        # 1. Check navigation payload first for inline OTP.
+        otp_value = extract_totp_from_navigation_inputs(task.navigation_payload)
+        # 2. Then try to generate TOTP from credential if payload has no OTP.
+        if not otp_value:
+            otp_value = try_generate_totp_from_credential(task.workflow_run_id)
+        # 3. Lastly, poll for OTP if organization has config and no OTP was found yet.
+        if not otp_value and (task.totp_verification_url or task.totp_identifier) and task.organization_id:
             workflow_id = workflow_permanent_id = None
             if task.workflow_run_id:
                 workflow_run = await app.DATABASE.get_workflow_run(task.workflow_run_id)
@@ -4746,38 +4856,38 @@ class ForgeAgent:
                 totp_verification_url=task.totp_verification_url,
                 totp_identifier=task.totp_identifier,
             )
-            if not otp_value or otp_value.get_otp_type() != OTPType.TOTP:
-                return json_response
 
-            current_context = skyvern_context.ensure_context()
-            current_context.totp_codes[task.task_id] = otp_value.value
+        if not otp_value or otp_value.get_otp_type() != OTPType.TOTP:
+            return json_response
 
-            extract_action_prompt, use_caching, prompt_name = await self._build_extract_action_prompt(
-                task,
-                step,
-                browser_state,
-                scraped_page,
-                verification_code_check=False,
-            )
-            llm_key_override = task.llm_key
-            if await service_utils.is_cua_task(task=task):
-                llm_key_override = None
-            llm_api_handler = LLMAPIHandlerFactory.get_override_llm_api_handler(
-                llm_key_override, default=app.LLM_API_HANDLER
-            )
-            # Add caching flag to context for monitoring
-            if use_caching:
-                context = skyvern_context.current()
-                if context:
-                    context.use_prompt_caching = True
+        current_context = skyvern_context.ensure_context()
+        current_context.totp_codes[task.task_id] = otp_value.value
 
-            return await llm_api_handler(
-                prompt=extract_action_prompt,
-                step=step,
-                screenshots=scraped_page.screenshots,
-                prompt_name=prompt_name,
-            )
-        return json_response
+        extract_action_prompt, use_caching, prompt_name = await self._build_extract_action_prompt(
+            task,
+            step,
+            browser_state,
+            scraped_page,
+            verification_code_check=False,
+        )
+        llm_key_override = task.llm_key
+        if await service_utils.is_cua_task(task=task):
+            llm_key_override = None
+        llm_api_handler = LLMAPIHandlerFactory.get_override_llm_api_handler(
+            llm_key_override, default=app.LLM_API_HANDLER
+        )
+        # Add caching flag to context for monitoring
+        if use_caching:
+            context = skyvern_context.current()
+            if context:
+                context.use_prompt_caching = True
+
+        return await llm_api_handler(
+            prompt=extract_action_prompt,
+            step=step,
+            screenshots=scraped_page.screenshots,
+            prompt_name=prompt_name,
+        )
 
     @staticmethod
     async def get_task_errors(task: Task) -> list[UserDefinedError]:

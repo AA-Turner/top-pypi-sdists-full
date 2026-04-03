@@ -46,3 +46,6 @@ pub enum TelnetError {
 }
 
 pub type Result<T> = std::result::Result<T, TelnetError>;
+
+#[cfg(test)]
+mod tests;

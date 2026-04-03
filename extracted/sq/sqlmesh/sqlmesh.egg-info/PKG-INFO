@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.232.0
+Version: 0.233.0
 Summary: Next-generation data transformation framework
 Author: SQLMesh Contributors
 License:                                  Apache License
@@ -235,7 +235,7 @@ Requires-Dist: python-dotenv
 Requires-Dist: requests
 Requires-Dist: rich[jupyter]
 Requires-Dist: ruamel.yaml
-Requires-Dist: sqlglot~=30.0.1
+Requires-Dist: sqlglot~=30.2.1
 Requires-Dist: tenacity
 Requires-Dist: time-machine
 Requires-Dist: json-stream

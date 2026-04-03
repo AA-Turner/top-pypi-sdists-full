@@ -18,8 +18,9 @@ logger = logging.getLogger(__name__)
 
 from .. import config as _config
 from ..parser import parse_file, LANGUAGE_EXTENSIONS, get_language_for_path
-from ..parser.context import discover_providers, enrich_symbols, collect_metadata
-from ..parser.imports import extract_imports
+from ..parser.context import discover_providers, enrich_symbols, collect_metadata, collect_extra_imports
+from ..parser.context.framework_profiles import detect_framework, profile_to_meta
+from ..parser.imports import extract_imports, _alias_map_cache as _imap_cache, _LANGUAGE_EXTRACTORS as _IMPORT_EXTRACTORS
 from ..security import (
     validate_path,
     is_symlink_escape,
@@ -424,6 +425,9 @@ def index_folder(
     if not folder_path.is_dir():
         return {"success": False, "error": f"Path is not a directory: {path}"}
 
+    # Evict stale tsconfig alias map so re-indexing picks up edited tsconfig.json (C6-A)
+    _imap_cache.pop(str(folder_path), None)
+
     # Load and cache project-level config (.jcodemunch.jsonc) so subsequent
     # config.get() calls within this indexing run use project overrides.
     # This handles both first-time indexing and re-indexing of existing projects.
@@ -508,32 +512,48 @@ def index_folder(
             repo_name: str,
         ) -> None:
             """Fill in AI summaries and update the store. Checks generation counter to abandon stale work."""
-            from ..reindex_state import _get_state
+            from ..reindex_state import _get_state, get_deferred_save_lock
             from ._indexing_pipeline import deferred_summarize
 
             # Check 1: has a newer reindex started while we were parsing?
             if _get_state(repo_full).deferred_generation != gen:
+                logger.debug(
+                    "Deferred summarize gen=%d abandoned for %s (generation advanced before summarize)",
+                    gen, repo_full,
+                )
                 return
 
             summarized = deferred_summarize(symbols, file_contents, use_ai_summaries=True)
             if not summarized:
                 return
 
-            # Check 2: has another reindex started while we were summarizing?
-            if _get_state(repo_full).deferred_generation != gen:
-                return
+            # Check 2 + save are held under the deferred-save lock (T7).
+            # mark_reindex_start also acquires this lock before bumping the generation,
+            # so the check and the write are atomic with respect to new reindexes:
+            # either we write before the new gen is bumped, or we see the new gen and abort.
+            save_lock = get_deferred_save_lock(repo_full)
+            with save_lock:
+                if _get_state(repo_full).deferred_generation != gen:
+                    logger.debug(
+                        "Deferred summarize gen=%d abandoned for %s (generation advanced before save)",
+                        gen, repo_full,
+                    )
+                    return
 
-            # Update only the symbol summaries (empty change lists → INSERT OR REPLACE updates existing rows)
-            try:
-                store.incremental_save(
-                    owner=owner, name=repo_name,
-                    changed_files=[], new_files=[], deleted_files=[],
-                    new_symbols=summarized,
-                    raw_files={},
-                )
-                logger.info("Deferred AI summarization saved %d symbols for %s", len(summarized), repo_full)
-            except Exception as e:
-                logger.warning("Deferred summarization failed for %s: %s", repo_full, e)
+                # Update only the symbol summaries (empty change lists → INSERT OR REPLACE updates existing rows)
+                try:
+                    store.incremental_save(
+                        owner=owner, name=repo_name,
+                        changed_files=[], new_files=[], deleted_files=[],
+                        new_symbols=summarized,
+                        raw_files={},
+                    )
+                    logger.info(
+                        "Deferred AI summarization gen=%d saved %d symbols for %s",
+                        gen, len(summarized), repo_full,
+                    )
+                except Exception as e:
+                    logger.warning("Deferred summarization failed for %s: %s", repo_full, e)
 
         # ── Fast path: watcher-driven incremental reindex ──
         # When the watcher provides the exact change set, skip full directory
@@ -785,11 +805,24 @@ def index_folder(
                 return result
 
         # ── Standard path: full directory discovery ──
+        # Detect framework profile and merge its ignore patterns before discovery
+        _framework_profile = detect_framework(folder_path)
+        _profile_ignore: list[str] = []
+        if _framework_profile:
+            _profile_ignore = _framework_profile.ignore_patterns
+            logger.info(
+                "Framework profile '%s' active — adding %d ignore patterns",
+                _framework_profile.name,
+                len(_profile_ignore),
+            )
+
+        _merged_ignore = list(extra_ignore_patterns or []) + _profile_ignore
+
         # Discover source files (with security filtering)
         source_files, discover_warnings, skip_counts = discover_local_files(
             folder_path,
             max_files=max_files,
-            extra_ignore_patterns=extra_ignore_patterns,
+            extra_ignore_patterns=_merged_ignore or None,
             follow_symlinks=follow_symlinks,
         )
         warnings.extend(discover_warnings)
@@ -984,6 +1017,7 @@ def index_folder(
         content_dir.mkdir(parents=True, exist_ok=True)
 
         no_symbols_files: list[str] = []
+        _languages_with_symbols: set[str] = set()
         for rel_path in source_file_list:
             content = _read_file(rel_path)
             if content is None:
@@ -1009,6 +1043,7 @@ def index_folder(
                 if symbols:
                     all_symbols.extend(symbols)
                     symbols_by_file[rel_path].extend(symbols)
+                    _languages_with_symbols.add(language)
                 else:
                     no_symbols_files.append(rel_path)
                     logger.debug("NO SYMBOLS: %s", rel_path)
@@ -1032,9 +1067,44 @@ def index_folder(
         if active_providers and all_symbols:
             enrich_symbols(all_symbols, active_providers)
 
-        # Generate summaries
+        # Merge extra imports from context providers (Blade refs, facades, etc.)
+        if active_providers:
+            collect_extra_imports(active_providers, file_imports)
+
+        # Generate summaries — preserve existing summaries for unchanged files
         if all_symbols:
-            all_symbols = summarize_symbols(all_symbols, use_ai=use_ai_summaries)
+            _folder_existing_summaries: dict[tuple[str, str, str], str] | None = None
+            _folder_unchanged_files: set[str] | None = None
+            if (
+                existing_index is not None
+                and existing_index.file_hashes
+                and existing_index.symbols
+            ):
+                _folder_unchanged_files = {
+                    f for f, h in file_hashes.items()
+                    if existing_index.file_hashes.get(f) == h
+                }
+                if _folder_unchanged_files:
+                    _folder_existing_summaries = {
+                        (s["file"], s["name"], s["kind"]): s["summary"]
+                        for s in existing_index.symbols
+                        if s.get("summary") and s.get("file") in _folder_unchanged_files
+                    }
+                    logger.info(
+                        "index_folder full — %d/%d files unchanged, %d summaries preserved",
+                        len(_folder_unchanged_files), len(file_hashes),
+                        len(_folder_existing_summaries) if _folder_existing_summaries else 0,
+                    )
+
+            if _folder_existing_summaries and _folder_unchanged_files:
+                from ._indexing_pipeline import _split_for_summarization
+                _needs_summary, _already_summarized = _split_for_summarization(
+                    all_symbols, _folder_existing_summaries, _folder_unchanged_files
+                )
+                _summarized = summarize_symbols(_needs_summary, use_ai=use_ai_summaries) if _needs_summary else []
+                all_symbols = _summarized + _already_summarized
+            else:
+                all_symbols = summarize_symbols(all_symbols, use_ai=use_ai_summaries)
 
         # Generate file-level summaries (single-pass grouping) using shared helpers
         file_symbols_map = defaultdict(list)
@@ -1046,6 +1116,14 @@ def index_folder(
 
         # Collect structured metadata from providers
         full_context_metadata = collect_metadata(active_providers) if active_providers else None
+
+        # Merge framework profile metadata into context_metadata
+        if _framework_profile:
+            profile_meta = profile_to_meta(_framework_profile)
+            if full_context_metadata:
+                full_context_metadata.update(profile_meta)
+            else:
+                full_context_metadata = profile_meta
 
         # Extract package names from manifest files
         _pkg_names: list[str] = []
@@ -1075,6 +1153,12 @@ def index_folder(
             package_names=_pkg_names,
         )
 
+        # Identify languages that were indexed (symbols found) but have no import extractor
+        _missing_import_extractors = sorted(
+            lang for lang in _languages_with_symbols
+            if lang not in _IMPORT_EXTRACTORS
+        )
+
         result = {
             "success": True,
             "repo": index.repo,
@@ -1090,6 +1174,12 @@ def index_folder(
             "no_symbols_count": len(no_symbols_files),
             "no_symbols_files": no_symbols_files[:50],  # Show up to 50 for inspection
         }
+        if _missing_import_extractors:
+            result["missing_extractors"] = _missing_import_extractors
+            result.setdefault("parse_warnings", []).append(
+                f"Import graph incomplete for: {', '.join(_missing_import_extractors)}. "
+                "Dead code and dependency analysis may be less accurate for these languages."
+            )
 
         # Report context enrichment stats from all active providers
         if active_providers:
@@ -1097,6 +1187,9 @@ def index_folder(
             for provider in active_providers:
                 enrichment[provider.name] = provider.stats()
             result["context_enrichment"] = enrichment
+
+        if _framework_profile:
+            result["framework_profile"] = _framework_profile.name
 
         if warnings:
             result["warnings"] = warnings

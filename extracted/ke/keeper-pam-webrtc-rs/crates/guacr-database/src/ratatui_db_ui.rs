@@ -6,11 +6,17 @@ use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{
-        Block, Borders, Cell, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState,
-        Table, TableState,
+        Block, BorderType, Borders, Cell, Paragraph, Row, Scrollbar, ScrollbarOrientation,
+        ScrollbarState, Table, TableState,
     },
     Frame,
 };
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AppFocus {
+    Input,
+    Results,
+}
 
 pub struct DatabaseRatatuiApp {
     // Query results
@@ -35,6 +41,9 @@ pub struct DatabaseRatatuiApp {
     pub prompt: String,
     pub in_continuation: bool,
     pub continuation_prompt: String,
+
+    // Focus state
+    pub focus: AppFocus,
 }
 
 impl DatabaseRatatuiApp {
@@ -55,6 +64,7 @@ impl DatabaseRatatuiApp {
             prompt: prompt.to_string(),
             in_continuation: false,
             continuation_prompt: continuation_prompt.to_string(),
+            focus: AppFocus::Input,
         }
     }
 
@@ -118,9 +128,19 @@ impl DatabaseRatatuiApp {
     }
 
     fn render_results(&mut self, frame: &mut Frame, area: Rect) {
+        let results_focused = self.focus == AppFocus::Results;
         if self.columns.is_empty() {
+            let block = if results_focused {
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Double)
+                    .border_style(Style::default().fg(Color::Cyan))
+                    .title("Results [focused]")
+            } else {
+                Block::default().borders(Borders::ALL).title("Results")
+            };
             let para = Paragraph::new(self.status_msg.clone())
-                .block(Block::default().borders(Borders::ALL).title("Results"))
+                .block(block)
                 .style(Style::default().fg(Color::Gray));
             frame.render_widget(para, area);
             return;
@@ -153,15 +173,30 @@ impl DatabaseRatatuiApp {
             .map(|_| Constraint::Ratio(1, col_count as u32))
             .collect();
 
-        let title = if self.status_msg.is_empty() {
+        let base_title = if self.status_msg.is_empty() {
             "Results".to_string()
         } else {
             format!("Results - {}", self.status_msg)
         };
+        let title = if results_focused {
+            format!("{} [focused]", base_title)
+        } else {
+            base_title
+        };
+
+        let results_block = if results_focused {
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Double)
+                .border_style(Style::default().fg(Color::Cyan))
+                .title(title)
+        } else {
+            Block::default().borders(Borders::ALL).title(title)
+        };
 
         let table = Table::new(rows, constraints)
             .header(header)
-            .block(Block::default().borders(Borders::ALL).title(title))
+            .block(results_block)
             .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED))
             .style(Style::default().fg(Color::White));
 
@@ -224,8 +259,28 @@ impl DatabaseRatatuiApp {
         }
 
         match keysym {
+            // Tab - toggle focus between Input and Results
+            0xFF09 => {
+                match self.focus {
+                    AppFocus::Input => {
+                        self.focus = AppFocus::Results;
+                        // Select row 0 if nothing is selected and there are results
+                        if !self.results.is_empty() && self.table_state.selected().is_none() {
+                            self.table_state.select(Some(0));
+                        }
+                    }
+                    AppFocus::Results => {
+                        self.focus = AppFocus::Input;
+                    }
+                }
+                None
+            }
             // Enter
             0xFF0D => {
+                if self.focus == AppFocus::Results {
+                    self.focus = AppFocus::Input;
+                    return None;
+                }
                 let query = self.input_buffer.trim().to_string();
                 self.input_buffer.clear();
                 self.cursor_pos = 0;
@@ -237,72 +292,113 @@ impl DatabaseRatatuiApp {
             }
             // Backspace
             0xFF08 => {
+                if self.focus == AppFocus::Results {
+                    self.focus = AppFocus::Input;
+                    return None;
+                }
                 self.delete_char_before_cursor();
                 None
             }
             // Escape
             0xFF1B => {
+                if self.focus == AppFocus::Results {
+                    self.focus = AppFocus::Input;
+                    return None;
+                }
                 self.input_buffer.clear();
                 self.cursor_pos = 0;
                 None
             }
-            // Up arrow - history previous
+            // Up arrow
             0xFF52 => {
-                self.history_previous();
+                if self.focus == AppFocus::Results {
+                    if !self.results.is_empty() {
+                        let sel = self.table_state.selected().unwrap_or(0);
+                        self.table_state.select(Some(sel.saturating_sub(1)));
+                    }
+                } else {
+                    self.history_previous();
+                }
                 None
             }
-            // Down arrow - history next
+            // Down arrow
             0xFF54 => {
-                self.history_next();
+                if self.focus == AppFocus::Results {
+                    if !self.results.is_empty() {
+                        let sel = self.table_state.selected().unwrap_or(0);
+                        let new_sel = (sel + 1).min(self.results.len().saturating_sub(1));
+                        self.table_state.select(Some(new_sel));
+                    }
+                } else {
+                    self.history_next();
+                }
                 None
             }
             // Left arrow
             0xFF51 => {
-                if self.cursor_pos > 0 {
+                if self.focus == AppFocus::Input && self.cursor_pos > 0 {
                     self.cursor_pos -= 1;
                 }
                 None
             }
             // Right arrow
             0xFF53 => {
-                if self.cursor_pos < self.input_buffer.len() {
+                if self.focus == AppFocus::Input && self.cursor_pos < self.input_buffer.len() {
                     self.cursor_pos += 1;
                 }
                 None
             }
             // Home / Ctrl+A
             0xFF50 | 0x0001 => {
-                self.cursor_pos = 0;
+                if self.focus == AppFocus::Input {
+                    self.cursor_pos = 0;
+                }
                 None
             }
             // End / Ctrl+E
             0xFF57 | 0x0005 => {
-                self.cursor_pos = self.input_buffer.len();
+                if self.focus == AppFocus::Input {
+                    self.cursor_pos = self.input_buffer.len();
+                }
                 None
             }
             // Delete
             0xFFFF => {
+                if self.focus == AppFocus::Results {
+                    self.focus = AppFocus::Input;
+                    return None;
+                }
                 self.delete_char_at_cursor();
                 None
             }
             // Ctrl+K - kill to end
             0x000B => {
-                self.input_buffer.truncate(self.cursor_pos);
+                if self.focus == AppFocus::Input {
+                    self.input_buffer.truncate(self.cursor_pos);
+                }
                 None
             }
             // Ctrl+U - kill line
             0x0015 => {
-                self.input_buffer.clear();
-                self.cursor_pos = 0;
+                if self.focus == AppFocus::Input {
+                    self.input_buffer.clear();
+                    self.cursor_pos = 0;
+                }
                 None
             }
             // Ctrl+W - kill word
             0x0017 => {
-                self.kill_word();
+                if self.focus == AppFocus::Input {
+                    self.kill_word();
+                }
                 None
             }
             // Ctrl+C
             0x0003 => {
+                if self.focus == AppFocus::Results {
+                    self.focus = AppFocus::Input;
+                    return None;
+                }
                 self.input_buffer.clear();
                 self.cursor_pos = 0;
                 None
@@ -329,6 +425,8 @@ impl DatabaseRatatuiApp {
             _ => {
                 if let Some(c) = char::from_u32(keysym) {
                     if c.is_ascii() && !c.is_control() {
+                        // Switch focus back to input regardless of where focus was
+                        self.focus = AppFocus::Input;
                         self.input_buffer.insert(self.cursor_pos, c);
                         self.cursor_pos += 1;
                     }

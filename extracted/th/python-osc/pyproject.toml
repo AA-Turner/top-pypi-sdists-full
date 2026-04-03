@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["uv-build"]
+build-backend = "uv_build"
 
 [project]
 name = "python-osc"
-version = "1.9.3"
+version = "1.10.2"
 description = "Open Sound Control server and client implementations in pure Python"
 readme = "README.rst"
 requires-python = ">=3.10"
@@ -21,9 +21,23 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio",
     "Topic :: System :: Networking",
 ]
+dependencies = []
 
 [project.urls]
 Repository = "https://github.com/attwad/python-osc"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "mypy",
+    "ruff",
+    "pytest-cov",
+    "pre-commit",
+]
+
+[tool.uv.build-backend]
+module-name = "pythonosc"
+module-root = "."
 
 [tool.mypy]
 # Would be great to turn this on, however there's too many cases it would break

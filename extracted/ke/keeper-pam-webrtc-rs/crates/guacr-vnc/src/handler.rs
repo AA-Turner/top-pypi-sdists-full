@@ -17,6 +17,7 @@ use guacr_handlers::{
     CursorManager,
     // Drag detection (shared with RDP)
     DragDetector,
+    EncodedFrame,
     EventBasedHandler,
     EventCallback,
     HandlerError,
@@ -36,7 +37,9 @@ use guacr_handlers::{
     DEFAULT_KEEPALIVE_INTERVAL_SECS,
 };
 use guacr_protocol::{BinaryEncoder, GuacamoleParser};
-use guacr_terminal::{CopyDetector, FrameBuffer, ScrollDetector, ScrollDirection};
+use guacr_terminal::{
+    CopyDetector, FrameBuffer, ScrollDetector, ScrollDirection, SoftwareH264Encoder,
+};
 use image::{ImageEncoder, RgbaImage};
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
@@ -473,6 +476,10 @@ struct VncClient {
     /// Sync flow control (prevents overwhelming slow clients, shared with RDP)
     sync_control: SyncFlowControl,
     to_client: mpsc::Sender<Bytes>,
+    /// WebRTC video track for H.264 output (None = Guacamole JPEG path)
+    video_tx: Option<Arc<dyn VideoOutput>>,
+    /// Software H.264 encoder (present when video_tx is Some)
+    h264_encoder: Option<SoftwareH264Encoder>,
 }
 
 impl VncClient {
@@ -490,7 +497,7 @@ impl VncClient {
         frame_rate: u32,
         to_client: mpsc::Sender<Bytes>,
         params: &HashMap<String, String>,
-        _video_tx: Option<Arc<dyn VideoOutput>>,
+        video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> Self {
         // Initialize recording if enabled
         let recorder = if recording_config.is_enabled() {
@@ -538,6 +545,8 @@ impl VncClient {
             adaptive_quality: AdaptiveQuality::new(jpeg_quality),
             sync_control: SyncFlowControl::new(),
             to_client,
+            h264_encoder: None,
+            video_tx,
         }
     }
 
@@ -597,35 +606,33 @@ impl VncClient {
     /// Encode a framebuffer region using configured encoding (WebP, JPEG, or PNG)
     ///
     /// Uses WebP by default for 40% bandwidth savings vs JPEG, with fallback.
-    fn encode_region(&mut self, rect: guacr_terminal::FrameRect) -> Result<Vec<u8>, String> {
-        // Calculate update size for smart encoding
+    /// Returns `(bytes, format)` — format: 0=PNG, 1=JPEG, 2=WebP.
+    fn encode_region(&mut self, rect: guacr_terminal::FrameRect) -> Result<(Vec<u8>, u8), String> {
         let total_pixels = self.width * self.height;
         let rect_pixels = rect.width * rect.height;
-        let is_large_update = rect_pixels > total_pixels / 10; // >10% of screen
-
-        // Get adaptive quality based on measured throughput (bandwidth-aware)
+        let is_large_update = rect_pixels > total_pixels / 10;
         let adaptive_quality = self.adaptive_quality.calculate_quality();
 
         if self.supports_webp {
-            // WebP: Best of both worlds
             let region_pixels = self.framebuffer.get_region_pixels(rect);
-            if is_large_update {
-                // Large update: WebP lossy with adaptive quality
+            let bytes = if is_large_update {
                 let quality = adaptive_quality as f32 / 100.0;
-                Self::encode_webp_lossy(&region_pixels, rect.width, rect.height, quality)
+                Self::encode_webp_lossy(&region_pixels, rect.width, rect.height, quality)?
             } else {
-                // Small update: WebP lossless (quality doesn't matter)
-                Self::encode_webp_lossless(&region_pixels, rect.width, rect.height)
-            }
+                Self::encode_webp_lossless(&region_pixels, rect.width, rect.height)?
+            };
+            Ok((bytes, 2))
         } else if self.supports_jpeg && self.use_jpeg {
-            // Fallback: JPEG encoding with adaptive quality
             let region_pixels = self.framebuffer.get_region_pixels(rect);
-            Self::encode_jpeg(&region_pixels, rect.width, rect.height, adaptive_quality)
+            let bytes =
+                Self::encode_jpeg(&region_pixels, rect.width, rect.height, adaptive_quality)?;
+            Ok((bytes, 1))
         } else {
-            // Fallback: PNG encoding (always supported, lossless)
-            self.framebuffer
+            let bytes = self
+                .framebuffer
                 .encode_region(rect)
-                .map_err(|e| format!("PNG encoding failed: {}", e))
+                .map_err(|e| format!("PNG encoding failed: {}", e))?;
+            Ok((bytes, 0))
         }
     }
 
@@ -669,6 +676,52 @@ impl VncClient {
         Ok(())
     }
 
+    async fn maybe_encode_h264(&mut self) -> Result<(), String> {
+        if self.framebuffer.dirty_rects().is_empty() {
+            return Ok(());
+        }
+
+        let encoder = match self.h264_encoder.as_mut() {
+            Some(e) => e,
+            None => return Ok(()),
+        };
+        let video_tx = match self.video_tx.as_ref() {
+            Some(v) => v.clone(),
+            None => return Ok(()),
+        };
+
+        let force_keyframe = video_tx
+            .keyframe_requested()
+            .swap(false, std::sync::atomic::Ordering::AcqRel);
+
+        let bps = video_tx
+            .target_bitrate_bps()
+            .load(std::sync::atomic::Ordering::Relaxed);
+        if bps > 0 {
+            encoder.update_bitrate(bps);
+        }
+
+        let pixels = self.framebuffer.get_all_pixels();
+        let (data, is_keyframe) = encoder
+            .encode_rgba(&pixels, force_keyframe)
+            .map_err(|e| format!("H.264 encode failed: {}", e))?;
+
+        let pts = encoder.frame_count().saturating_sub(1) * 3000;
+
+        video_tx
+            .send_frame(EncodedFrame {
+                data,
+                is_keyframe,
+                pts,
+            })
+            .await
+            .map_err(|e| format!("H.264 send_frame failed: {}", e))?;
+
+        self.framebuffer.clear_dirty();
+
+        Ok(())
+    }
+
     async fn connect(
         &mut self,
         hostname: &str,
@@ -705,6 +758,24 @@ impl VncClient {
         self.height = server_height as u32;
         self.framebuffer = FrameBuffer::new(self.width, self.height);
         self.pixel_format = Some(pixel_format);
+
+        if self.video_tx.is_some() {
+            match SoftwareH264Encoder::new(self.width, self.height) {
+                Ok(enc) => {
+                    self.h264_encoder = Some(enc);
+                    info!(
+                        "VNC: H.264 software encoder initialized ({}x{})",
+                        self.width, self.height
+                    );
+                }
+                Err(e) => {
+                    warn!(
+                        "VNC: Failed to initialize H.264 encoder, falling back to JPEG: {}",
+                        e
+                    );
+                }
+            }
+        }
 
         // Send ready and name instructions to client
         send_ready(&self.to_client, "vnc-ready")
@@ -781,8 +852,17 @@ impl VncClient {
             tokio::time::interval(Duration::from_secs(DEFAULT_KEEPALIVE_INTERVAL_SECS));
         keepalive_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
+        let mut encode_interval = tokio::time::interval(Duration::from_millis(33));
+        encode_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         loop {
             tokio::select! {
+                _ = encode_interval.tick(), if self.h264_encoder.is_some() => {
+                    if let Err(e) = self.maybe_encode_h264().await {
+                        warn!("VNC: H.264 encode error: {}", e);
+                    }
+                }
+
                 // Keep-alive ping to detect dead connections
                 _ = keepalive_interval.tick() => {
                     if let Some(sync_instr) = keepalive.check() {
@@ -1043,9 +1123,115 @@ impl VncClient {
             return self.handle_cursor_update(rect).await;
         }
 
-        // Check for CopyRect encoding
+        // Handle CopyRect encoding: copy pixels within the framebuffer and emit a
+        // Guacamole copy instruction instead of encoding image data.
         if rect.encoding == crate::vnc_protocol::encodings::COPYRECT {
-            warn!("VNC: CopyRect encoding not yet implemented, requesting full update");
+            let src_x = rect.src_x as u32;
+            let src_y = rect.src_y as u32;
+            let dst_x = rect.x as u32;
+            let dst_y = rect.y as u32;
+            let width = rect.width as u32;
+            let height = rect.height as u32;
+
+            // Update the local framebuffer so future operations have correct pixel state
+            self.framebuffer
+                .copy_region(src_x, src_y, dst_x, dst_y, width, height);
+
+            // Notify drag detector of update size (same as other paths)
+            self.drag_detector.notify_graphics_update(width, height);
+
+            // Emit Guacamole copy instruction (no image encoding needed)
+            let copy_instr =
+                guacr_protocol::format_copy(0, src_x, src_y, width, height, 12, 0, dst_x, dst_y);
+            self.send_and_record(&copy_instr).await?;
+            self.send_sync().await?;
+
+            self.framebuffer.clear_dirty();
+            return Ok(());
+        }
+
+        // Handle Tight JPEG subtype: forward the server's JPEG bytes directly.
+        // Zero re-encoding overhead — the server already compressed the pixels.
+        if let crate::vnc_protocol::VncPixelData::TightJpeg(ref jpeg_bytes) = rect.pixel_data {
+            if !jpeg_bytes.is_empty() {
+                // Decode JPEG to update local framebuffer (for scroll/drag detection)
+                match image::load_from_memory(jpeg_bytes) {
+                    Ok(img) => {
+                        let rgba = img.to_rgba8();
+                        self.framebuffer.update_region(
+                            rect.x as u32,
+                            rect.y as u32,
+                            rect.width as u32,
+                            rect.height as u32,
+                            &rgba,
+                        );
+                    }
+                    Err(e) => warn!("VNC: Failed to decode Tight JPEG for framebuffer: {}", e),
+                }
+                self.adaptive_quality.track_frame_sent(jpeg_bytes.len());
+                self.drag_detector
+                    .notify_graphics_update(rect.width as u32, rect.height as u32);
+                let msg = self.binary_encoder.encode_image(
+                    self.stream_id,
+                    0,
+                    rect.x as i32,
+                    rect.y as i32,
+                    rect.width,
+                    rect.height,
+                    1, // JPEG
+                    Bytes::from(jpeg_bytes.clone()),
+                );
+                self.send_and_record_bytes(msg).await?;
+                self.send_sync().await?;
+                self.framebuffer.clear_dirty();
+                return Ok(());
+            }
+        }
+
+        // Handle Tight FillRect: update framebuffer and encode the solid-color region.
+        if let crate::vnc_protocol::VncPixelData::Fill(r, g, b) = rect.pixel_data {
+            let pixel_count = rect.width as usize * rect.height as usize;
+            let mut rgba_fill = vec![0u8; pixel_count * 4];
+            for i in 0..pixel_count {
+                rgba_fill[i * 4] = r;
+                rgba_fill[i * 4 + 1] = g;
+                rgba_fill[i * 4 + 2] = b;
+                rgba_fill[i * 4 + 3] = 255;
+            }
+            if let Some(img) =
+                image::RgbaImage::from_raw(rect.width as u32, rect.height as u32, rgba_fill)
+            {
+                self.framebuffer.update_region(
+                    rect.x as u32,
+                    rect.y as u32,
+                    rect.width as u32,
+                    rect.height as u32,
+                    &img,
+                );
+            }
+            self.drag_detector
+                .notify_graphics_update(rect.width as u32, rect.height as u32);
+            let frect = guacr_terminal::FrameRect {
+                x: rect.x as u32,
+                y: rect.y as u32,
+                width: rect.width as u32,
+                height: rect.height as u32,
+            };
+            let (encoded, fmt) = self.encode_region(frect)?;
+            self.adaptive_quality.track_frame_sent(encoded.len());
+            let msg = self.binary_encoder.encode_image(
+                self.stream_id,
+                0,
+                rect.x as i32,
+                rect.y as i32,
+                rect.width,
+                rect.height,
+                fmt,
+                Bytes::from(encoded),
+            );
+            self.send_and_record_bytes(msg).await?;
+            self.send_sync().await?;
+            self.framebuffer.clear_dirty();
             return Ok(());
         }
 
@@ -1087,6 +1273,12 @@ impl VncClient {
             return Ok(());
         }
 
+        // When a video track is active, leave dirty rects set so the H.264 encode
+        // timer can read them. Skip all Guacamole image instructions.
+        if self.video_tx.is_some() {
+            return Ok(());
+        }
+
         // Check for active drag (copy-based optimization, shared with RDP)
         if self.drag_detector.is_dragging() {
             let (dx, dy) = self.drag_detector.drag_delta();
@@ -1116,7 +1308,7 @@ impl VncClient {
                         0
                     };
                     let strip_w = dx.unsigned_abs().min(self.width);
-                    let strip_data = self.encode_region(guacr_terminal::FrameRect {
+                    let (strip_data, fmt) = self.encode_region(guacr_terminal::FrameRect {
                         x: strip_x,
                         y: 0,
                         width: strip_w,
@@ -1130,7 +1322,7 @@ impl VncClient {
                         0,
                         strip_w as u16,
                         self.height as u16,
-                        0,
+                        fmt,
                         Bytes::from(strip_data),
                     );
                     self.send_and_record_bytes(msg).await?;
@@ -1143,7 +1335,7 @@ impl VncClient {
                         0
                     };
                     let strip_h = dy.unsigned_abs().min(self.height);
-                    let strip_data = self.encode_region(guacr_terminal::FrameRect {
+                    let (strip_data, fmt) = self.encode_region(guacr_terminal::FrameRect {
                         x: 0,
                         y: strip_y,
                         width: self.width,
@@ -1157,7 +1349,7 @@ impl VncClient {
                         strip_y as i32,
                         self.width as u16,
                         strip_h as u16,
-                        0,
+                        fmt,
                         Bytes::from(strip_data),
                     );
                     self.send_and_record_bytes(msg).await?;
@@ -1199,7 +1391,7 @@ impl VncClient {
                     self.send_and_record(&copy_instr).await?;
 
                     let new_region_y = self.height - scroll_op.pixels;
-                    let new_region_data = self.encode_region(guacr_terminal::FrameRect {
+                    let (new_region_data, fmt) = self.encode_region(guacr_terminal::FrameRect {
                         x: 0,
                         y: new_region_y,
                         width: self.width,
@@ -1214,7 +1406,7 @@ impl VncClient {
                         new_region_y as i32,
                         self.width as u16,
                         scroll_op.pixels as u16,
-                        0,
+                        fmt,
                         Bytes::from(new_region_data),
                     );
                     self.send_and_record_bytes(msg).await?;
@@ -1234,7 +1426,7 @@ impl VncClient {
                     );
                     self.send_and_record(&copy_instr).await?;
 
-                    let new_region_data = self.encode_region(guacr_terminal::FrameRect {
+                    let (new_region_data, fmt) = self.encode_region(guacr_terminal::FrameRect {
                         x: 0,
                         y: 0,
                         width: self.width,
@@ -1249,7 +1441,7 @@ impl VncClient {
                         0,
                         self.width as u16,
                         scroll_op.pixels as u16,
-                        0,
+                        fmt,
                         Bytes::from(new_region_data),
                     );
                     self.send_and_record_bytes(msg).await?;
@@ -1267,7 +1459,7 @@ impl VncClient {
         // and overwhelming the client with instruction volume.
         let mut total_bytes = 0;
         for dirty in &dirty_rects {
-            let encoded_data = self.encode_region(*dirty)?;
+            let (encoded_data, fmt) = self.encode_region(*dirty)?;
             total_bytes += encoded_data.len();
             let msg = self.binary_encoder.encode_image(
                 self.stream_id,
@@ -1276,7 +1468,7 @@ impl VncClient {
                 dirty.y as i32,
                 dirty.width as u16,
                 dirty.height as u16,
-                0,
+                fmt,
                 Bytes::from(encoded_data),
             );
             self.send_and_record_bytes(msg).await?;
@@ -1289,44 +1481,5 @@ impl VncClient {
         self.framebuffer.clear_dirty();
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_vnc_handler_new() {
-        let handler = VncHandler::with_defaults();
-        assert_eq!(<VncHandler as ProtocolHandler>::name(&handler), "vnc");
-    }
-
-    #[test]
-    fn test_vnc_config_defaults() {
-        let config = VncConfig::default();
-        assert_eq!(config.default_port, 5900);
-        assert_eq!(config.default_width, 1920);
-        assert_eq!(config.default_height, 1080);
-    }
-
-    #[tokio::test]
-    async fn test_vnc_handler_health() {
-        let handler = VncHandler::with_defaults();
-        let health = handler.health_check().await.unwrap();
-        assert_eq!(health, HealthStatus::Healthy);
-    }
-
-    #[test]
-    fn test_vnc_settings_from_params() {
-        let mut params = HashMap::new();
-        params.insert("hostname".to_string(), "server.example.com".to_string());
-
-        let defaults = VncConfig::default();
-        let settings = VncSettings::from_params(&params, &defaults).unwrap();
-
-        assert_eq!(settings.hostname, "server.example.com");
-        assert_eq!(settings.port, 5900);
-        assert_eq!(settings.width, 1920);
     }
 }

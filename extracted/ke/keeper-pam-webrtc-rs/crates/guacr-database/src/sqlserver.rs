@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use guacr_handlers::{
     send_disconnect, EventBasedHandler, EventCallback, HandlerError, HandlerStats, HealthStatus,
-    ProtocolHandler, RecordingConfig, VideoOutput,
+    KeepAliveManager, ProtocolHandler, RecordingConfig, VideoOutput,
+    DEFAULT_KEEPALIVE_INTERVAL_SECS,
 };
 use log::{debug, info, warn};
 use std::collections::HashMap;
@@ -318,8 +319,25 @@ impl ProtocolHandler for SqlServerHandler {
         let mut debounce = tokio::time::interval(std::time::Duration::from_millis(16));
         debounce.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
+        // Keepalive to prevent ICE disconnect on idle sessions
+        let mut keepalive = KeepAliveManager::new(DEFAULT_KEEPALIVE_INTERVAL_SECS);
+        let mut keepalive_interval = tokio::time::interval(std::time::Duration::from_secs(
+            DEFAULT_KEEPALIVE_INTERVAL_SECS,
+        ));
+        keepalive_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
         'outer: loop {
             tokio::select! {
+                // Keepalive ping to prevent ICE disconnect on idle sessions
+                _ = keepalive_interval.tick() => {
+                    if let Some(sync_instr) = keepalive.check() {
+                        if send_and_record(&to_client, &mut recorder, sync_instr).await.is_err() {
+                            debug!("SQL Server: Client channel closed during keepalive, stopping");
+                            break;
+                        }
+                    }
+                }
+
                 // Debounce tick - render if terminal changed
                 _ = debounce.tick() => {
                     // Check if client is still connected before rendering
@@ -917,25 +935,5 @@ impl EventBasedHandler for SqlServerHandler {
             4096,
         )
         .await
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_sqlserver_handler_new() {
-        let handler = SqlServerHandler::with_defaults();
-        assert_eq!(
-            <SqlServerHandler as ProtocolHandler>::name(&handler),
-            "sqlserver"
-        );
-    }
-
-    #[test]
-    fn test_sqlserver_config() {
-        let config = SqlServerConfig::default();
-        assert_eq!(config.default_port, 1433);
     }
 }

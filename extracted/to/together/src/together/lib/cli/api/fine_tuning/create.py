@@ -49,6 +49,7 @@ _WARNING_MESSAGE_INSUFFICIENT_FUNDS = (
     default="",
     help="Validation file ID from Files API or local path to a file to be uploaded.",
 )
+@click.option("--packing/--no-packing", type=bool, default=True, help="Whether to use packing for training.")
 @click.option("--n-evals", type=int, default=0, help="Number of evaluation loops")
 @click.option("--n-checkpoints", "-c", type=int, default=1, help="Number of checkpoints to save")
 @click.option("--batch-size", "-b", type=INT_WITH_MAX, default="max", help="Train batch size")
@@ -215,6 +216,7 @@ def create(
     training_file: str,
     validation_file: str,
     model: str | None,
+    packing: bool,
     n_epochs: int,
     n_evals: int,
     n_checkpoints: int,
@@ -260,6 +262,7 @@ def create(
         model=model,
         n_epochs=n_epochs,
         validation_file=validation_file,
+        packing=packing,
         n_evals=n_evals,
         n_checkpoints=n_checkpoints,
         batch_size=batch_size,
@@ -319,9 +322,9 @@ def create(
         }
 
         for arg in default_values:
-            arg_source = ctx.get_parameter_source("arg")  # type: ignore[attr-defined]
+            arg_source = ctx.get_parameter_source(arg)  # type: ignore[attr-defined]
             if arg_source == ParameterSource.DEFAULT:
-                training_args[arg] = default_values[str(arg_source)]
+                training_args[arg] = default_values[arg]
 
         if ctx.get_parameter_source("lora_alpha") == ParameterSource.DEFAULT:  # type: ignore[attr-defined]
             training_args["lora_alpha"] = training_args["lora_r"] * 2
@@ -387,7 +390,7 @@ def create(
         confirm = True
 
     # If the user passes a path to a file, try to upload it to the files API first
-    # Uploads are idompotent so we can depend on this API always giving us a file ID
+    # Uploads are idempotent so we can depend on this API always giving us a file ID
     if _check_path_exists(training_args["training_file"]):
         file_upload = client.files.upload(Path(training_args["training_file"]), purpose="fine-tune")
 
@@ -395,7 +398,7 @@ def create(
         training_args["training_file"] = file_upload.id
 
     # If the user passes a path to a file, try to upload it to the files API first
-    # Uploads are idompotent so we can depend on this API always giving us a file ID
+    # Uploads are idempotent so we can depend on this API always giving us a file ID
     if _check_path_exists(training_args["validation_file"]):
         file_upload = client.files.upload(Path(training_args["validation_file"]), purpose="fine-tune")
 

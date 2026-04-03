@@ -1,4 +1,5 @@
 mod anthropic;
+mod bedrock;
 mod interface;
 mod proto;
 mod proxy;

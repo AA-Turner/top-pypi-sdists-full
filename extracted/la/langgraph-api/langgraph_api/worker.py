@@ -27,6 +27,7 @@ from langgraph_api.encryption.middleware import (
 )
 from langgraph_api.errors import UserInterrupt, UserRollback, UserTimeout
 from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
+from langgraph_api.graph import restore_dd_trace_context
 from langgraph_api.js.errors import RemoteException
 from langgraph_api.metadata import incr_runs
 from langgraph_api.metrics_datadog import (
@@ -251,8 +252,13 @@ async def worker(
                 raise RuntimeError(error_message)
             configurable = run["kwargs"].get("config", {}).get("configurable", {})
             async with set_auth_ctx_for_run(run["kwargs"]):
-                with restore_otel_trace_context(
-                    configurable, run_id=str(run_id), thread_id=str(thread_id)
+                with (
+                    restore_otel_trace_context(
+                        configurable, run_id=str(run_id), thread_id=str(thread_id)
+                    ),
+                    restore_dd_trace_context(
+                        configurable, run_id=str(run_id), thread_id=str(thread_id)
+                    ),
                 ):
                     if temporary:
                         stream = astream_state(run, attempt, done)

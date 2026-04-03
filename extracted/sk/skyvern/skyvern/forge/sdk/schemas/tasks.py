@@ -284,6 +284,7 @@ class Task(TaskBase):
     retry: int | None = None
     max_steps_per_run: int | None = None
     errors: list[dict[str, Any]] = []
+    failure_category: list[dict[str, Any]] | None = None
     model: dict[str, Any] | None = None
     queued_at: datetime | None = None
     started_at: datetime | None = None
@@ -400,6 +401,7 @@ class TaskOutput(BaseModel):
     extracted_information: list | dict[str, Any] | str | None = None
     failure_reason: str | None = None
     errors: list[dict[str, Any]] = []
+    failure_category: list[dict[str, Any]] | None = None
     downloaded_files: list[FileInfo] | None = None
     downloaded_file_urls: list[str] | None = None  # For backward compatibility
     task_screenshots: list[str] | None = None
@@ -423,6 +425,7 @@ class TaskOutput(BaseModel):
             extracted_information=task.extracted_information,
             failure_reason=task.failure_reason,
             errors=task.errors,
+            failure_category=task.failure_category,
             downloaded_files=downloaded_files,
             downloaded_file_urls=downloaded_file_urls,
             task_screenshot_artifact_ids=task_screenshot_artifact_ids,

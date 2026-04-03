@@ -5,8 +5,8 @@
 //! - Payload encoding/decoding for OpenConnection messages
 //! - All SOCKS5 protocol constants
 
-mod handshake;
-mod payload;
+pub(crate) mod handshake;
+pub(crate) mod payload;
 
 pub use handshake::{
     Socks5Address, Socks5Command, Socks5Handshake, SOCKS5_ADDR_TYPE_IPV4, SOCKS5_ATYP_DOMAIN,
@@ -14,3 +14,6 @@ pub use handshake::{
     SOCKS5_SUCCESS_RESPONSE, SOCKS5_VERSION,
 };
 pub use payload::{decode_open_connection_payload, encode_open_connection_payload, Socks5Target};
+
+#[cfg(test)]
+mod tests;

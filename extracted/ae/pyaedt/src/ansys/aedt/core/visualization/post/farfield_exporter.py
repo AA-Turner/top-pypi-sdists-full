@@ -77,7 +77,7 @@ class FfdSolutionDataExporter(PyAedtBase):
     Examples
     --------
     >>> from ansys.aedt.core
-    >>> app = ansys.aedt.core.Hfss(version="2026.1", design="Antenna")
+    >>> app = ansys.aedt.core.Hfss(version="2025.2", design="Antenna")
     >>> setup_name = "Setup1 : LastAdaptive"
     >>> frequencies = [77e9]
     >>> sphere = "3D"
@@ -128,22 +128,22 @@ class FfdSolutionDataExporter(PyAedtBase):
             self.__app.logger.warning("Set phase center in port location manually.")
 
     @property
-    def model_info(self) -> dict:
+    def model_info(self):
         """List of models."""
         return self.__model_info
 
     @property
-    def farfield_data(self) -> FfdSolutionData | None:
+    def farfield_data(self):
         """Farfield data."""
         return self.__farfield_data
 
     @property
-    def metadata_file(self) -> str:
+    def metadata_file(self):
         """Metadata file."""
         return self.__metadata_file
 
     @pyaedt_function_handler()
-    def export_farfield(self) -> bool:
+    def export_farfield(self):
         """Export far field solution data of each element."""
         # Output directory
         exported_name_map = "element.txt"

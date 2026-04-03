@@ -145,6 +145,9 @@ class CfnOrganizationCentralizationRule(
                     scope="scope",
                     source_logs_configuration=observabilityadmin.CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty(
                         encrypted_log_group_strategy="encryptedLogGroupStrategy",
+        
+                        # the properties below are optional
+                        data_source_selection_criteria="dataSourceSelectionCriteria",
                         log_group_selection_criteria="logGroupSelectionCriteria"
                     )
                 )
@@ -468,6 +471,9 @@ class CfnOrganizationCentralizationRule(
                         scope="scope",
                         source_logs_configuration=observabilityadmin.CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty(
                             encrypted_log_group_strategy="encryptedLogGroupStrategy",
+                
+                            # the properties below are optional
+                            data_source_selection_criteria="dataSourceSelectionCriteria",
                             log_group_selection_criteria="logGroupSelectionCriteria"
                         )
                     )
@@ -556,6 +562,9 @@ class CfnOrganizationCentralizationRule(
                     scope="scope",
                     source_logs_configuration=observabilityadmin.CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty(
                         encrypted_log_group_strategy="encryptedLogGroupStrategy",
+                
+                        # the properties below are optional
+                        data_source_selection_criteria="dataSourceSelectionCriteria",
                         log_group_selection_criteria="logGroupSelectionCriteria"
                     )
                 )
@@ -949,6 +958,7 @@ class CfnOrganizationCentralizationRule(
         jsii_struct_bases=[],
         name_mapping={
             "encrypted_log_group_strategy": "encryptedLogGroupStrategy",
+            "data_source_selection_criteria": "dataSourceSelectionCriteria",
             "log_group_selection_criteria": "logGroupSelectionCriteria",
         },
     )
@@ -957,11 +967,13 @@ class CfnOrganizationCentralizationRule(
             self,
             *,
             encrypted_log_group_strategy: builtins.str,
-            log_group_selection_criteria: builtins.str,
+            data_source_selection_criteria: typing.Optional[builtins.str] = None,
+            log_group_selection_criteria: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configuration for selecting and handling source log groups for centralization.
 
             :param encrypted_log_group_strategy: A strategy determining whether to centralize source log groups that are encrypted with customer managed KMS keys (CMK). ALLOW will consider CMK encrypted source log groups for centralization while SKIP will skip CMK encrypted source log groups from centralization.
+            :param data_source_selection_criteria: 
             :param log_group_selection_criteria: The selection criteria that specifies which source log groups to centralize. The selection criteria uses the same format as OAM link filters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-sourcelogsconfiguration.html
@@ -975,17 +987,24 @@ class CfnOrganizationCentralizationRule(
                 
                 source_logs_configuration_property = observabilityadmin.CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty(
                     encrypted_log_group_strategy="encryptedLogGroupStrategy",
+                
+                    # the properties below are optional
+                    data_source_selection_criteria="dataSourceSelectionCriteria",
                     log_group_selection_criteria="logGroupSelectionCriteria"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__20a12247cb1287e19ec3a764cc738d756d26c889450a5b771811f8378a2b5d6c)
                 check_type(argname="argument encrypted_log_group_strategy", value=encrypted_log_group_strategy, expected_type=type_hints["encrypted_log_group_strategy"])
+                check_type(argname="argument data_source_selection_criteria", value=data_source_selection_criteria, expected_type=type_hints["data_source_selection_criteria"])
                 check_type(argname="argument log_group_selection_criteria", value=log_group_selection_criteria, expected_type=type_hints["log_group_selection_criteria"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "encrypted_log_group_strategy": encrypted_log_group_strategy,
-                "log_group_selection_criteria": log_group_selection_criteria,
             }
+            if data_source_selection_criteria is not None:
+                self._values["data_source_selection_criteria"] = data_source_selection_criteria
+            if log_group_selection_criteria is not None:
+                self._values["log_group_selection_criteria"] = log_group_selection_criteria
 
         @builtins.property
         def encrypted_log_group_strategy(self) -> builtins.str:
@@ -1000,7 +1019,15 @@ class CfnOrganizationCentralizationRule(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def log_group_selection_criteria(self) -> builtins.str:
+        def data_source_selection_criteria(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-sourcelogsconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-sourcelogsconfiguration-datasourceselectioncriteria
+            '''
+            result = self._values.get("data_source_selection_criteria")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def log_group_selection_criteria(self) -> typing.Optional[builtins.str]:
             '''The selection criteria that specifies which source log groups to centralize.
 
             The selection criteria uses the same format as OAM link filters.
@@ -1008,8 +1035,7 @@ class CfnOrganizationCentralizationRule(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-sourcelogsconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-sourcelogsconfiguration-loggroupselectioncriteria
             '''
             result = self._values.get("log_group_selection_criteria")
-            assert result is not None, "Required property 'log_group_selection_criteria' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1085,6 +1111,9 @@ class CfnOrganizationCentralizationRuleProps:
                         scope="scope",
                         source_logs_configuration=observabilityadmin.CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty(
                             encrypted_log_group_strategy="encryptedLogGroupStrategy",
+            
+                            # the properties below are optional
+                            data_source_selection_criteria="dataSourceSelectionCriteria",
                             log_group_selection_criteria="logGroupSelectionCriteria"
                         )
                     )
@@ -6488,7 +6517,8 @@ def _typecheckingstub__9d66f88a29d04606b9d6748d2a92fb0d7bf4a500a64fceff8556e1ac2
 def _typecheckingstub__20a12247cb1287e19ec3a764cc738d756d26c889450a5b771811f8378a2b5d6c(
     *,
     encrypted_log_group_strategy: builtins.str,
-    log_group_selection_criteria: builtins.str,
+    data_source_selection_criteria: typing.Optional[builtins.str] = None,
+    log_group_selection_criteria: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

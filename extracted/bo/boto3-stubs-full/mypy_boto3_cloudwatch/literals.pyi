@@ -42,6 +42,7 @@ __all__ = (
     "ListDashboardsPaginatorName",
     "ListMetricsPaginatorName",
     "MetricStreamOutputFormatType",
+    "OTelEnrichmentStatusType",
     "PaginatorName",
     "RecentlyActiveType",
     "RegionName",
@@ -88,6 +89,7 @@ ListAlarmMuteRulesPaginatorName = Literal["list_alarm_mute_rules"]
 ListDashboardsPaginatorName = Literal["list_dashboards"]
 ListMetricsPaginatorName = Literal["list_metrics"]
 MetricStreamOutputFormatType = Literal["json", "opentelemetry0.7", "opentelemetry1.0"]
+OTelEnrichmentStatusType = Literal["Running", "Stopped"]
 RecentlyActiveType = Literal["PT3H"]
 ScanByType = Literal["TimestampAscending", "TimestampDescending"]
 StandardUnitType = Literal[

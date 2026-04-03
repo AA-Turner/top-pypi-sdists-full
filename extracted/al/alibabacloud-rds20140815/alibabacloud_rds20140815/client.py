@@ -30822,6 +30822,8 @@ class Client(OpenApiClient):
             query['DBProxyEngineType'] = request.dbproxy_engine_type
         if not DaraCore.is_null(request.db_endpoint_aliases):
             query['DbEndpointAliases'] = request.db_endpoint_aliases
+        if not DaraCore.is_null(request.db_endpoint_cost_threshold_for_duckdb):
+            query['DbEndpointCostThresholdForDuckdb'] = request.db_endpoint_cost_threshold_for_duckdb
         if not DaraCore.is_null(request.db_endpoint_min_slave_count):
             query['DbEndpointMinSlaveCount'] = request.db_endpoint_min_slave_count
         if not DaraCore.is_null(request.db_endpoint_operator):
@@ -30892,6 +30894,8 @@ class Client(OpenApiClient):
             query['DBProxyEngineType'] = request.dbproxy_engine_type
         if not DaraCore.is_null(request.db_endpoint_aliases):
             query['DbEndpointAliases'] = request.db_endpoint_aliases
+        if not DaraCore.is_null(request.db_endpoint_cost_threshold_for_duckdb):
+            query['DbEndpointCostThresholdForDuckdb'] = request.db_endpoint_cost_threshold_for_duckdb
         if not DaraCore.is_null(request.db_endpoint_min_slave_count):
             query['DbEndpointMinSlaveCount'] = request.db_endpoint_min_slave_count
         if not DaraCore.is_null(request.db_endpoint_operator):

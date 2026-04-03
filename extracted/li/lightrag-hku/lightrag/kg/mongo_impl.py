@@ -16,7 +16,7 @@ from ..base import (
     DocStatus,
     DocStatusStorage,
 )
-from ..utils import logger, compute_mdhash_id
+from ..utils import logger, compute_mdhash_id, _cooperative_yield
 from ..types import KnowledgeGraph, KnowledgeGraphNode, KnowledgeGraphEdge
 from ..constants import GRAPH_FIELD_SEP
 from .._version import __version__
@@ -190,7 +190,7 @@ class MongoKVStorage(BaseKVStorage):
         operations = []
         current_time = int(time.time())  # Get current Unix timestamp
 
-        for k, v in data.items():
+        for i, (k, v) in enumerate(data.items(), start=1):
             # For text_chunks namespace, ensure llm_cache_list field exists
             if self.namespace.endswith("text_chunks"):
                 if "llm_cache_list" not in v:
@@ -216,6 +216,7 @@ class MongoKVStorage(BaseKVStorage):
                     upsert=True,
                 )
             )
+            await _cooperative_yield(i)
 
         if operations:
             await self._data.bulk_write(operations)
@@ -406,7 +407,7 @@ class MongoDocStatusStorage(DocStatusStorage):
         if not data:
             return
         update_tasks: list[Any] = []
-        for k, v in data.items():
+        for i, (k, v) in enumerate(data.items(), start=1):
             # Ensure chunks_list field exists and is an array
             if "chunks_list" not in v:
                 v["chunks_list"] = []
@@ -414,6 +415,7 @@ class MongoDocStatusStorage(DocStatusStorage):
             update_tasks.append(
                 self._data.update_one({"_id": k}, {"$set": v}, upsert=True)
             )
+            await _cooperative_yield(i)
         await asyncio.gather(*update_tasks)
 
     async def get_status_counts(self) -> dict[str, int]:
@@ -430,19 +432,32 @@ class MongoDocStatusStorage(DocStatusStorage):
         self, status: DocStatus
     ) -> dict[str, DocProcessingStatus]:
         """Get all documents with a specific status"""
-        cursor = self._data.find({"status": status.value})
-        result = await cursor.to_list()
-        processed_result = {}
-        for doc in result:
+        return await self.get_docs_by_statuses([status])
+
+    async def get_docs_by_statuses(
+        self, statuses: list[DocStatus]
+    ) -> dict[str, DocProcessingStatus]:
+        """Get all documents matching any of the given statuses in a single query.
+
+        Uses MongoDB's $in operator to fetch all matching statuses in one
+        round-trip instead of one find() call per status.
+        """
+        if not statuses:
+            return {}
+        status_values = [s.value for s in statuses]
+        cursor = self._data.find({"status": {"$in": status_values}})
+        docs = await cursor.to_list(length=None)
+        result = {}
+        for doc in docs:
             try:
                 data = self._prepare_doc_status_data(doc)
-                processed_result[doc["_id"]] = DocProcessingStatus(**data)
+                result[doc["_id"]] = DocProcessingStatus(**data)
             except KeyError as e:
                 logger.error(
                     f"[{self.workspace}] Missing required field for document {doc['_id']}: {e}"
                 )
                 continue
-        return processed_result
+        return result
 
     async def get_docs_by_track_id(
         self, track_id: str
@@ -2202,14 +2217,16 @@ class MongoVectorDBStorage(BaseVectorStorage):
         # Add current time as Unix timestamp
         current_time = int(time.time())
 
-        list_data = [
-            {
-                "_id": k,
-                "created_at": current_time,  # Add created_at field as Unix timestamp
-                **{k1: v1 for k1, v1 in v.items() if k1 in self.meta_fields},
-            }
-            for k, v in data.items()
-        ]
+        list_data = []
+        for i, (k, v) in enumerate(data.items(), start=1):
+            list_data.append(
+                {
+                    "_id": k,
+                    "created_at": current_time,  # Add created_at field as Unix timestamp
+                    **{k1: v1 for k1, v1 in v.items() if k1 in self.meta_fields},
+                }
+            )
+            await _cooperative_yield(i)
         contents = [v["content"] for v in data.values()]
         batches = [
             contents[i : i + self._max_batch_size]
@@ -2219,14 +2236,19 @@ class MongoVectorDBStorage(BaseVectorStorage):
         embedding_tasks = [self.embedding_func(batch) for batch in batches]
         embeddings_list = await asyncio.gather(*embedding_tasks)
         embeddings = np.concatenate(embeddings_list)
-        for i, d in enumerate(list_data):
-            d["vector"] = np.array(embeddings[i], dtype=np.float32).tolist()
+        assert len(embeddings) == len(
+            list_data
+        ), f"Embedding count mismatch: expected {len(list_data)}, got {len(embeddings)}"
+        for i, d in enumerate(list_data, start=1):
+            d["vector"] = np.array(embeddings[i - 1], dtype=np.float32).tolist()
+            await _cooperative_yield(i)
 
         update_tasks = []
-        for doc in list_data:
+        for i, doc in enumerate(list_data, start=1):
             update_tasks.append(
                 self._data.update_one({"_id": doc["_id"]}, {"$set": doc}, upsert=True)
             )
+            await _cooperative_yield(i)
         await asyncio.gather(*update_tasks)
 
         return list_data

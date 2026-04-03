@@ -22,14 +22,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from typing import TYPE_CHECKING
 
 from ansys.aedt.core.base import PyAedtBase
 from ansys.aedt.core.generic.general_methods import pyaedt_function_handler
 from ansys.aedt.core.modeler.cad.primitives import GeometryModeler
-
-if TYPE_CHECKING:
-    from ansys.aedt.core.modeler.cad.object_3d import Object3d
 
 
 class Primitives2D(GeometryModeler, PyAedtBase):
@@ -49,7 +45,7 @@ class Primitives2D(GeometryModeler, PyAedtBase):
     """
 
     @property
-    def plane2d(self) -> str:
+    def plane2d(self):
         """Create a 2D plane."""
         plane = "Z"
         if self._app.design_type == "Maxwell 2D":  # Cylindrical symmetry about the z-axis.
@@ -63,15 +59,15 @@ class Primitives2D(GeometryModeler, PyAedtBase):
     @pyaedt_function_handler()
     def create_circle(
         self,
-        origin: list,
-        radius: float | str,
+        origin,
+        radius,
         num_sides: int = 0,
         is_covered: bool = True,
         name: str | None = None,
         material: str | None = None,
         non_model: bool = False,
         **kwargs,
-    ) -> "Object3d":
+    ):
         """Create a circle.
 
         Parameters
@@ -152,16 +148,16 @@ class Primitives2D(GeometryModeler, PyAedtBase):
     @pyaedt_function_handler()
     def create_ellipse(
         self,
-        origin: list,
-        major_radius: float | str,
-        ratio: float,
+        origin,
+        major_radius,
+        ratio,
         is_covered: bool=True,
         name: str | None=None,
         material: str | None=None,
         non_model: bool=False,
         segments: int=0,
         **kwargs
-    ) -> "Object3d":  # fmt: on
+    ):  # fmt: on
         """Create an ellipse.
 
         Parameters
@@ -226,14 +222,13 @@ class Primitives2D(GeometryModeler, PyAedtBase):
     @pyaedt_function_handler()
     def create_rectangle(
         self,
-        origin: list,
-        sizes: list,
+        origin,
+        sizes,
         is_covered: bool=True,
         name: str | None=None,
         material: str | None=None,
-        non_model: bool = False,
-        **kwargs
-    ) -> "Object3d":
+        non_model: bool=False,
+        **kwargs):
         """Create a rectangle.
 
         Parameters
@@ -292,14 +287,14 @@ class Primitives2D(GeometryModeler, PyAedtBase):
     @pyaedt_function_handler()
     def create_regular_polygon(
         self,
-        origin: list,
-        start_point: list,
-        num_sides: int = 6,
-        name: str | None = None,
-        material: str | None = None,
-        non_model: bool = False,
+        origin,
+        start_point,
+        num_sides: int=6,
+        name: str | None=None,
+        material: str | None=None,
+        non_model: bool=False,
         **kwargs
-    ) -> "Object3d":
+    ):
         """Create a rectangle.
 
         Parameters
@@ -363,20 +358,15 @@ class Primitives2D(GeometryModeler, PyAedtBase):
         return self._create_object(new_object_name, **kwargs)
 
     @pyaedt_function_handler()
-    def create_region(
-        self,
-        pad_value: float | str | list[float | str | int] = 300,
-        pad_type: str = "Percentage Offset",
-        name: str = "Region", **kwarg
-    ) -> "Object3d":
+    def create_region(self, pad_value: int=300, pad_type: str="Percentage Offset", name: str="Region", **kwarg):
         """Create an air region.
 
         Parameters
         ----------
-        pad_value : float, str, list of floats, list of str, or list of int, optional
+        pad_value : float, str, list of floats or list of str, optional
             Padding values to apply. If a list is not provided, the same
-            value is applied to all padding directions. If a list of floats,
-            strings, or integers is provided, the values are
+            value is applied to all padding directions. If a list of floats
+            or strings is provided, the values are
             interpreted as padding for ``["+X", "-X", "+Y", "-Y"]`` for XY geometry mode,
             and ``["+R", "+Z", "-Z"]`` for RZ geometry mode.
         pad_type : str, optional

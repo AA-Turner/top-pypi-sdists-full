@@ -68,8 +68,10 @@ def _match_dataset(targetdetector, detectors, targetsegment, segment):
         return True
 
 
-def _run_datasets(detector=None, segment=None, host=DEFAULT_URL):
-    runs = apiv2.fetch_runs(host=host)
+def _run_datasets(
+    detector=None, segment=None, host=DEFAULT_URL, session=None, pagesize=None
+):
+    runs = apiv2.fetch_runs(host=host, session=session, pagesize=pagesize)
     for run in runs:
         # Skip if detector was given and it doesn't match
         if detector is not None and detector not in run["detectors"]:
@@ -83,8 +85,8 @@ def _run_datasets(detector=None, segment=None, host=DEFAULT_URL):
         yield run["name"]
 
 
-def _catalog_datasets(host=DEFAULT_URL):
-    for catalog in apiv2.fetch_catalogs(host=host):
+def _catalog_datasets(host=DEFAULT_URL, session=None, pagesize=None):
+    for catalog in apiv2.fetch_catalogs(host=host, session=session, pagesize=pagesize):
         yield catalog["name"]
 
 
@@ -141,6 +143,8 @@ def _event_datasets(
     catalog=None,
     version=None,
     host=DEFAULT_URL,
+    session=None,
+    pagesize=None,
 ):
     # This segment expansion is needed to account for segments
     # that do not contain events, but are contained in the
@@ -152,7 +156,11 @@ def _event_datasets(
         expanded_segment = None
 
     events = apiv2.fetch_event_versions(
-        segment=expanded_segment, catalogs=catalog, host=host
+        segment=expanded_segment,
+        catalogs=catalog,
+        host=host,
+        session=session,
+        pagesize=pagesize,
     )
     if version is not None:
         # Filter by version
@@ -193,6 +201,8 @@ def _iter_datasets(
     version=None,
     match=None,
     host=DEFAULT_URL,
+    session=None,
+    pagesize=None,
 ):
     # get queries
     type = str(type).rstrip("s").lower()
@@ -225,12 +235,16 @@ def _iter_datasets(
                 detector=detector,
                 host=host,
                 segment=segment,
+                session=session,
+                pagesize=pagesize,
             ),
         ),
         (
             needcatalogs,
             _catalog_datasets(
                 host=host,
+                session=session,
+                pagesize=pagesize,
             ),
         ),
         (
@@ -241,6 +255,8 @@ def _iter_datasets(
                 host=host,
                 version=version,
                 catalog=catalog,
+                session=session,
+                pagesize=pagesize,
             ),
         ),
     ):
@@ -257,6 +273,8 @@ def find_datasets(
     catalog=None,
     version=None,
     host=DEFAULT_URL,
+    session=None,
+    pagesize=None,
 ):
     """Find datasets available on the given GW open science host
 
@@ -280,6 +298,12 @@ def find_datasets(
     host : `str`, optional
         the URL of the GWOSC host to query, defaults to
         https://gwosc.org
+
+    session : `requests.Session`, optional
+        the session to use for HTTP requests
+
+    pagesize : `int`, optional
+        the number of results per page.
 
     Returns
     -------
@@ -310,6 +334,8 @@ def find_datasets(
                 version=version,
                 match=match,
                 host=host,
+                session=session,
+                pagesize=pagesize,
             )
         )
     )
@@ -341,7 +367,7 @@ def _event_metadata(
     )[0]
 
 
-def event_gps(event, catalog=None, version=None, host=DEFAULT_URL):
+def event_gps(event, catalog=None, version=None, host=DEFAULT_URL, session=None):
     """Returns the GPS time of an open-data event
 
     Parameters
@@ -360,6 +386,10 @@ def event_gps(event, catalog=None, version=None, host=DEFAULT_URL):
         the URL of the GWOSC host to query, defaults to
         https://gwosc.org
 
+    session : `requests.Session`, optional
+        HTTP session to use for making requests, defaults to
+        using a new session for each API call
+
     Returns
     -------
     gps : `float`
@@ -374,7 +404,7 @@ def event_gps(event, catalog=None, version=None, host=DEFAULT_URL):
     ValueError: no event dataset found for 'GW123456'
     """
     event = apiv2.fetch_event_version(
-        event, catalog=catalog, version=version, host=host
+        event, catalog=catalog, version=version, host=host, session=session
     )
     return event["gps"]
 
@@ -385,6 +415,8 @@ def event_segment(
     catalog=None,
     version=None,
     host=DEFAULT_URL,
+    session=None,
+    pagesize=None,
 ):
     """Returns the GPS ``[start, stop)`` interval covered by an event dataset
 
@@ -407,6 +439,13 @@ def event_segment(
         the URL of the GWOSC host to query, defaults to
         https://gwosc.org
 
+    session : `requests.Session`, optional
+        HTTP session to use for making requests, defaults to
+        using a new session for each API call
+
+    pagesize : `int`, optional
+        the number of results per page
+
     Returns
     -------
     start, end : `int`
@@ -420,7 +459,13 @@ def event_segment(
     """
 
     strain_files = apiv2.fetch_event_strain_data(
-        event, detector=detector, version=None, catalog=None, host=host
+        event,
+        detector=detector,
+        version=None,
+        catalog=None,
+        host=host,
+        session=session,
+        pagesize=pagesize,
     )
 
     if not strain_files:  # pragma: no cover
@@ -439,7 +484,7 @@ def event_segment(
     return min(starts), max(ends)
 
 
-def event_at_gps(gps, host=DEFAULT_URL, tol=1):
+def event_at_gps(gps, host=DEFAULT_URL, tol=1, session=None, pagesize=None):
     """Returns the name of the open-data event matching the GPS time
 
     This function will return the first event for which
@@ -456,6 +501,13 @@ def event_at_gps(gps, host=DEFAULT_URL, tol=1):
 
     tol : `float`, optional
         the search window (in seconds), default: ``1``
+
+    session : `requests.Session`, optional
+        HTTP session to use for making requests, defaults to
+        using a new session for each API call
+
+    pagesize : `int`, optional
+        the number of results per page
 
     Returns
     -------
@@ -475,13 +527,17 @@ def event_at_gps(gps, host=DEFAULT_URL, tol=1):
     >>> event_at_gps(1187008882, tol=0.1)
     ValueError: no event found within 0.1 seconds of 1187008882
     """
-    events = list(apiv2.fetch_event_versions(segment=(gps - tol, gps + tol)))
+    events = list(
+        apiv2.fetch_event_versions(
+            segment=(gps - tol, gps + tol), session=session, pagesize=pagesize
+        )
+    )
     if len(events) < 1:
         raise ValueError(f"no event found within {tol} seconds of {gps}")
     return events[0]["name"]
 
 
-def event_detectors(event, catalog=None, version=None, host=DEFAULT_URL):
+def event_detectors(event, catalog=None, version=None, host=DEFAULT_URL, session=None):
     """Returns the `set` of detectors that observed an event
 
     Parameters
@@ -500,6 +556,10 @@ def event_detectors(event, catalog=None, version=None, host=DEFAULT_URL):
         the URL of the GWOSC host to query, defaults to
         https://gwosc.org
 
+    session : `requests.Session`, optional
+        HTTP session to use for making requests, defaults to
+        using a new session for each API call
+
     Returns
     -------
     detectors : `set`
@@ -513,7 +573,7 @@ def event_detectors(event, catalog=None, version=None, host=DEFAULT_URL):
     {'H1', 'L1'}
     """
     event = apiv2.fetch_event_version(
-        event, catalog=catalog, version=version, host=host
+        event, catalog=catalog, version=version, host=host, session=session
     )
     return set(event["detectors"])
 
@@ -521,7 +581,7 @@ def event_detectors(event, catalog=None, version=None, host=DEFAULT_URL):
 # -- run utilities ------------------------------------------------------------
 
 
-def run_segment(run, host=DEFAULT_URL):
+def run_segment(run, host=DEFAULT_URL, session=None):
     """Returns the GPS ``[start, stop)`` interval covered by a run dataset
 
     Parameters
@@ -532,6 +592,10 @@ def run_segment(run, host=DEFAULT_URL):
     host : `str`, optional
         the URL of the GWOSC host to query, defaults to
         https://gwosc.org
+
+    session : `requests.Session`, optional
+        HTTP session to use for making requests, defaults to
+        using a new session for each API call
 
     Returns
     -------
@@ -546,11 +610,11 @@ def run_segment(run, host=DEFAULT_URL):
     >>> run_segment("Oh dear")
     ValueError: Run 'Oh dear' not found.
     """
-    run = apiv2.fetch_run(run)
+    run = apiv2.fetch_run(run, session=session)
     return run["gps_start"], run["gps_end"]
 
 
-def run_at_gps(gps, host=DEFAULT_URL):
+def run_at_gps(gps, host=DEFAULT_URL, session=None, pagesize=None):
     """Returns the name of the open-data run dataset matching the GPS time
 
     This function will return the first event for which
@@ -564,6 +628,13 @@ def run_at_gps(gps, host=DEFAULT_URL):
     host : `str`, optional
         the URL of the GWOSC host to query, defaults to
         https://gwosc.org
+
+    session : `requests.Session`, optional
+        HTTP session to use for making requests, defaults to
+        using a new session for each API call
+
+    pagesize : `int`, optional
+        the number of results per page
 
     Returns
     -------
@@ -583,14 +654,14 @@ def run_at_gps(gps, host=DEFAULT_URL):
     >>> run_at_gps(0)
     ValueError: no run dataset found containing GPS 0
     """
-    for run in apiv2.fetch_runs(host=host):
+    for run in apiv2.fetch_runs(host=host, session=session, pagesize=pagesize):
         start, end = run["gps_start"], run["gps_end"]
         if start <= gps < end:
             return run["name"]
     raise ValueError(f"no run dataset found containing GPS {gps}")
 
 
-def dataset_type(dataset, host=DEFAULT_URL):
+def dataset_type(dataset, host=DEFAULT_URL, session=None, pagesize=None):
     """Returns the type of the named dataset
 
     Parameters
@@ -600,6 +671,13 @@ def dataset_type(dataset, host=DEFAULT_URL):
 
     host : `str`, optional
         the URL of the GWOSC host to query
+
+    session : `requests.Session`, optional
+        HTTP session to use for making requests, defaults to
+        using a new session for each API call
+
+    pagesize : `int`, optional
+        the number of results per page
 
     Returns
     -------
@@ -618,14 +696,16 @@ def dataset_type(dataset, host=DEFAULT_URL):
     'run'
     """
     for type_ in ("run", "catalog", "event"):
-        if dataset in find_datasets(type=type_, host=host):
+        if dataset in find_datasets(
+            type=type_, host=host, session=session, pagesize=pagesize
+        ):
             return type_
     raise ValueError(
         f"failed to determine type for dataset {dataset!r}",
     )
 
 
-def query_events(select, host=DEFAULT_URL):
+def query_events(select, host=DEFAULT_URL, session=None, pagesize=None):
     """Return a list of events filtered by the parameters in `select`
 
     Parameters
@@ -637,6 +717,13 @@ def query_events(select, host=DEFAULT_URL):
 
     host : `str`, optional
         the URL of the GWOSC host to query
+
+    session : `requests.Session`, optional
+        HTTP session to use for making requests, defaults to
+        using a new session for each API call
+
+    pagesize : `int`, optional
+        the number of results per page
 
     Examples
     --------
@@ -676,5 +763,7 @@ def query_events(select, host=DEFAULT_URL):
     https://www.gwosc.org/apidocs/#event5
     """
     select_query = dict(utils.select_to_query(select, host=host))
-    events = apiv2.fetch_event_versions(select=select_query, host=host)
+    events = apiv2.fetch_event_versions(
+        select=select_query, host=host, session=session, pagesize=pagesize
+    )
     return [f"{e['shortName']}" for e in events]

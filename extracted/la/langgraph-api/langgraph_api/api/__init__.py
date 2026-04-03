@@ -154,7 +154,7 @@ def _metadata_fn(app_import: str) -> dict[str, str]:
     warn_message=(
         "Import for custom app {app} exceeded the expected startup time. "
         "Slow initialization (often due to work executed at import time) can delay readiness, "
-        "reduce scale-out capacity, and may cause deployments to be marked unhealthy."
+        "slow scale-out velocity, and may cause deployments to be marked unhealthy."
     ),
     error_threshold_secs=30,
 )

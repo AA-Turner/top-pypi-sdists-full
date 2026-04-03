@@ -2,7 +2,10 @@
 
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Optional
+
+from customer_retention.core.config.experiments import get_mlflow_dfs_tmpdir
 
 try:
     import mlflow
@@ -41,6 +44,12 @@ class MLflowLogger:
         self.end_run()
         return False
 
+    def _artifact_location_from_tracking_uri(self) -> Optional[str]:
+        if not self.tracking_uri or not self.tracking_uri.startswith("sqlite:///"):
+            return None
+        db_path = Path(self.tracking_uri.replace("sqlite:///", ""))
+        return str(db_path.parent / "mlruns" / "artifacts")
+
     def start_run(self, run_name: Optional[str] = None):
         if not MLFLOW_AVAILABLE:
             return
@@ -50,12 +59,11 @@ class MLflowLogger:
 
         experiment = mlflow.get_experiment_by_name(self.experiment_name)
         if experiment is None:
-            experiment_id = mlflow.create_experiment(self.experiment_name)
-        else:
-            experiment_id = experiment.experiment_id
+            artifact_loc = self._artifact_location_from_tracking_uri()
+            mlflow.create_experiment(self.experiment_name, artifact_location=artifact_loc)
+        mlflow.set_experiment(self.experiment_name)
 
         self._run = mlflow.start_run(
-            experiment_id=experiment_id,
             run_name=run_name or self.run_name,
         )
         self._last_run_id = self._run.info.run_id
@@ -99,9 +107,12 @@ class MLflowLogger:
             mlflow.sklearn.log_model(model, artifact_path, registered_model_name=registered_model_name)
 
     def _log_spark_model(self, wrapper, artifact_path: str, registered_model_name: Optional[str] = None):
-        import mlflow.spark as mlflow_spark
         pipeline_model = wrapper.as_pipeline_model()
-        mlflow_spark.log_model(pipeline_model, artifact_path, registered_model_name=registered_model_name)
+        kwargs: dict = {"registered_model_name": registered_model_name}
+        dfs_tmp = get_mlflow_dfs_tmpdir()
+        if dfs_tmp:
+            kwargs["dfs_tmpdir"] = dfs_tmp
+        mlflow.spark.log_model(pipeline_model, artifact_path, **kwargs)
         mlflow.set_tag(f"{artifact_path}.model_flavor", "spark")
         mlflow.log_dict({
             "spark_model_class": wrapper.spark_model_class,

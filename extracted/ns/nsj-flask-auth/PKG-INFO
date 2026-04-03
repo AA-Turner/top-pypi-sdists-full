@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nsj-flask-auth
-Version: 0.11.0
+Version: 0.11.1
 Summary: Modulo básico para autenticação de aplicações Flask no contexto da Nasajon
 Author: Lucas Assis
 Author-email: lucasassis@nasajon.com.br

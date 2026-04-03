@@ -61,7 +61,7 @@ class EMIHeatmapExtensionData(ExtensionCommonData):
 class EMIHeatmapExtension(ExtensionEMITCommon):
     """Interactive EMIT extension for EMI heat map analysis."""
 
-    def __init__(self, withdraw: bool = False) -> None:
+    def __init__(self, withdraw: bool = False):
         self._widgets = {}
         self._domain = None
         self._revision = None
@@ -80,13 +80,14 @@ class EMIHeatmapExtension(ExtensionEMITCommon):
 
         super().__init__(
             EXTENSION_TITLE,
+            theme_color="light",
             withdraw=withdraw,
             add_custom_content=True,
             toggle_row=None,
             toggle_column=None,
         )
 
-    def add_extension_content(self) -> None:
+    def add_extension_content(self):
         """Build the UI for the EMI heat map extension."""
         root = self.root
 

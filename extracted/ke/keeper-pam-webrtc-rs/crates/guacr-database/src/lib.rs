@@ -70,3 +70,6 @@ pub enum DatabaseError {
 }
 
 pub type Result<T> = std::result::Result<T, DatabaseError>;
+
+#[cfg(test)]
+mod tests;

@@ -42,6 +42,7 @@ __all__ = (
     "ListDashboardsPaginatorName",
     "ListMetricsPaginatorName",
     "MetricStreamOutputFormatType",
+    "OTelEnrichmentStatusType",
     "PaginatorName",
     "RecentlyActiveType",
     "RegionName",
@@ -88,6 +89,7 @@ ListAlarmMuteRulesPaginatorName = Literal["list_alarm_mute_rules"]
 ListDashboardsPaginatorName = Literal["list_dashboards"]
 ListMetricsPaginatorName = Literal["list_metrics"]
 MetricStreamOutputFormatType = Literal["json", "opentelemetry0.7", "opentelemetry1.0"]
+OTelEnrichmentStatusType = Literal["Running", "Stopped"]
 RecentlyActiveType = Literal["PT3H"]
 ScanByType = Literal["TimestampAscending", "TimestampDescending"]
 StandardUnitType = Literal[
@@ -225,6 +227,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -240,6 +243,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -475,6 +479,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -488,6 +493,7 @@ ServiceName = Literal[
     "signer",
     "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -509,6 +515,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -521,6 +528,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

@@ -23,35 +23,63 @@ def parse_image_url(image: str) -> tuple[str, str]:
 
 
 def build_agent_install_command(package_name: str, version: str) -> str:
-    """Build the uv command to install an agent package on a VM.
+    """Build the uv commands to install an agent package on a VM.
 
-    Uses ``--default-index`` for pypi-store (SDK + public PyPI deps) and
-    ``--index`` for the agents registry (checked first so agent packages
-    take priority over any public PyPI name collision).
-    ``unsafe-best-match`` is intentionally omitted so uv uses first-match
-    strategy — each package resolves from the first index that has it.
+    The base image has plato-sdk-v2 and all dependencies pre-installed in
+    /opt/plato-venv. At runtime we:
+    1. Upgrade plato-sdk-v2 to latest from real PyPI (picks up SDK iteration).
+    2. Install the agent package with --no-deps from the agents index.
     """
-    store_url = plato_token_simple_index("pypi-store")
     agents_url = plato_token_simple_index("agents")
     return (
-        f"uv tool install plato-sdk-v2 --python 3.12 "
-        f"--with '{package_name}=={version}' "
-        f"--default-index {shlex.quote(store_url)} "
-        f"--index {shlex.quote(agents_url)} "
-        f"--prerelease allow --force"
+        f"uv pip install --python /opt/plato-venv/bin/python "
+        f"plato-sdk-v2 --upgrade && "
+        f"uv pip install --python /opt/plato-venv/bin/python --no-deps "
+        f"'{package_name}=={version}' "
+        f"--index-url {shlex.quote(agents_url)} "
+        f"--prerelease allow --force-reinstall"
     )
 
 
+VENV_PYTHON = "/opt/plato-venv/bin/python"
+
+
+def build_editable_install_commands(editable_paths: list[str]) -> list[str]:
+    """Build uv commands to install editable packages into the pre-baked venv.
+
+    SDK is installed first (other packages' build hooks import from plato).
+    Uses --no-deps (deps pre-baked) and --no-build-isolation (hatchling pre-baked).
+
+    Returns a list of shell commands to run sequentially.
+    """
+    sdk_paths = [p for p in editable_paths if "sdk" in p]
+    other_paths = [p for p in editable_paths if "sdk" not in p]
+    base = f"uv pip install --python {VENV_PYTHON} --no-deps --no-build-isolation"
+    cmds = []
+    if sdk_paths:
+        editables = " ".join(f"-e {p}" for p in sdk_paths)
+        cmds.append(f"{base} {editables}")
+    if other_paths:
+        editables = " ".join(f"-e {p}" for p in other_paths)
+        cmds.append(f"{base} {editables}")
+    return cmds
+
+
 def build_editable_sdk_install_command(package_name: str, version: str, sdk_path: str = "/sdk") -> str:
-    """Build the uv command to install editable SDK plus a published agent package."""
-    store_url = plato_token_simple_index("pypi-store")
+    """Build the uv commands to install editable SDK plus a published agent package.
+
+    Two separate installs because:
+    - The SDK editable install needs PyPI for build deps (hatchling).
+    - The agent install uses --no-deps from the agents-only index.
+    """
     agents_url = plato_token_simple_index("agents")
     return (
-        f"uv tool install -e {shlex.quote(sdk_path)} --python 3.12 "
-        f"--with '{package_name}=={version}' "
-        f"--default-index {shlex.quote(store_url)} "
-        f"--index {shlex.quote(agents_url)} "
-        f"--prerelease allow --force"
+        f"uv pip install --python /opt/plato-venv/bin/python "
+        f"-e {shlex.quote(sdk_path)} --force-reinstall && "
+        f"uv pip install --python /opt/plato-venv/bin/python --no-deps "
+        f"'{package_name}=={version}' "
+        f"--index-url {shlex.quote(agents_url)} "
+        f"--prerelease allow --force-reinstall"
     )
 
 

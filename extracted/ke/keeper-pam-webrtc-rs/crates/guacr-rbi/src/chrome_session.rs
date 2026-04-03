@@ -31,6 +31,7 @@ use tokio::time::{Duration, Instant};
 
 #[cfg(feature = "chrome")]
 use chromiumoxide::browser::{Browser, BrowserConfigBuilder};
+use chromiumoxide::handler::viewport::Viewport;
 #[cfg(feature = "chrome")]
 use chromiumoxide::page::Page;
 #[cfg(feature = "chrome")]
@@ -88,9 +89,9 @@ impl PerformanceMetrics {
 /// The profile directory is automatically cleaned up when the session ends.
 pub struct ChromeSession {
     #[cfg_attr(not(feature = "chrome"), allow(dead_code))]
-    width: u32,
+    pub(crate) width: u32,
     #[cfg_attr(not(feature = "chrome"), allow(dead_code))]
-    height: u32,
+    pub(crate) height: u32,
     #[cfg(feature = "chrome")]
     browser: Option<Browser>,
     #[cfg(feature = "chrome")]
@@ -187,8 +188,6 @@ impl ChromeSession {
             "--force-device-scale-factor=1".to_string(), // Ensure viewport matches window size
             "--headless=new".to_string(),
             "--disable-gpu".to_string(),
-            "--disable-dev-shm-usage".to_string(),
-            "--disable-software-rasterizer".to_string(),
             "--no-first-run".to_string(),
             "--no-default-browser-check".to_string(),
             "--disable-background-networking".to_string(),
@@ -220,9 +219,21 @@ impl ChromeSession {
             "--incognito".to_string(), // Extra layer: don't persist anything by default
             "--disable-features=ChromeWhatsNewUI".to_string(),
             "--disable-domain-reliability".to_string(),
-            // Required when running as root (common in Docker containers)
-            "--no-sandbox".to_string(),
+            // Avoid GPU shader disk cache writes (fails in read-only container mounts)
+            "--disable-gpu-shader-disk-cache".to_string(),
         ];
+
+        // Linux-only flags: Ozone is Chrome's display abstraction layer on Linux only;
+        // --no-sandbox is needed on Linux where kernel user namespaces may be unavailable
+        // (Docker root user, restrictive seccomp profiles). macOS/Windows have working
+        // sandboxes and do not use Ozone.
+        #[cfg(target_os = "linux")]
+        {
+            args.push("--no-sandbox".to_string());
+            args.push("--ozone-platform=headless".to_string());
+            // /dev/shm is a Linux tmpfs mount; Docker limits it to 64MB by default
+            args.push("--disable-dev-shm-usage".to_string());
+        }
 
         // SECURITY: Session Isolation via Profile Directory
         // Each session MUST have its own profile directory to prevent data leakage
@@ -289,7 +300,21 @@ impl ChromeSession {
         // Launch browser with chromiumoxide
         // Note: chromiumoxide API may vary by version - adjust as needed
         let mut config_builder = BrowserConfigBuilder::default();
-        config_builder = config_builder.args(args).chrome_executable(chromium_path);
+        // Override chromiumoxide's default 800x600 viewport — it sends
+        // Emulation.setDeviceMetricsOverride via CDP which takes precedence over
+        // --window-size, so we must set the correct dimensions here.
+        let viewport = Viewport {
+            width: self.width,
+            height: self.height,
+            device_scale_factor: Some(1.0),
+            emulating_mobile: false,
+            is_landscape: true,
+            has_touch: false,
+        };
+        config_builder = config_builder
+            .args(args)
+            .chrome_executable(chromium_path)
+            .viewport(viewport);
 
         let config = config_builder
             .build()
@@ -326,6 +351,13 @@ impl ChromeSession {
         // capturing screenshots right away. The page will render
         // progressively as content loads.
         info!("RBI: Page navigation started (async)");
+
+        // Bring page to front so it has focus. Without this, headless Chrome
+        // may not process input events and clipboard APIs fail with
+        // "Document is not focused".
+        if let Err(e) = page.bring_to_front().await {
+            warn!("RBI: Failed to bring page to front: {}", e);
+        }
 
         self.browser = Some(browser);
         self.page = Some(page);
@@ -477,10 +509,30 @@ impl ChromeSession {
         Ok(())
     }
 
+    /// Subscribe to Page.screencastFrame events
+    #[cfg(feature = "chrome")]
+    #[allow(dead_code)] // called from browser_client.rs; cdylib build can't trace cfg-gated callers
+    pub async fn screencast_event_listener(
+        &self,
+    ) -> Result<
+        chromiumoxide::listeners::EventStream<
+            chromiumoxide::cdp::browser_protocol::page::EventScreencastFrame,
+        >,
+        String,
+    > {
+        let page = self
+            .page
+            .as_ref()
+            .ok_or_else(|| "Page not initialized".to_string())?;
+        page.event_listener::<chromiumoxide::cdp::browser_protocol::page::EventScreencastFrame>()
+            .await
+            .map_err(|e| format!("Failed to subscribe to screencast frames: {:?}", e))
+    }
+
     /// Acknowledge screencast frame
     #[cfg(feature = "chrome")]
-    #[allow(dead_code)]
-    pub async fn ack_screencast_frame(&self, session_id: i32) -> Result<(), String> {
+    #[allow(dead_code)] // called from browser_client.rs; cdylib build can't trace cfg-gated callers
+    pub async fn ack_screencast_frame(&self, session_id: i64) -> Result<(), String> {
         let page = self
             .page
             .as_ref()
@@ -602,43 +654,78 @@ impl ChromeSession {
         let x = x.max(0) as f64;
         let y = y.max(0) as f64;
 
-        use chromiumoxide::layout::Point;
+        use chromiumoxide::cdp::browser_protocol::input::{
+            DispatchMouseEventParams, DispatchMouseEventType, MouseButton,
+        };
 
-        if pressed {
-            match button {
-                0 => {
-                    // Left click via chromiumoxide
-                    page.click(Point::new(x, y))
-                        .await
-                        .map_err(|e| format!("Failed to click: {}", e))?;
-                }
-                1 => {
-                    // Middle button - use JavaScript
-                    page.evaluate(format!("document.elementFromPoint({}, {}).dispatchEvent(new MouseEvent('mousedown', {{bubbles: true, cancelable: true, clientX: {}, clientY: {}, button: 1}}))", x, y, x, y))
-                        .await
-                        .map_err(|e| format!("Failed to middle click: {}", e))?;
-                }
-                2 => {
-                    // Right click - use JavaScript for context menu
-                    page.evaluate(format!("document.elementFromPoint({}, {}).dispatchEvent(new MouseEvent('contextmenu', {{bubbles: true, cancelable: true, clientX: {}, clientY: {}}}))", x, y, x, y))
-                        .await
-                        .map_err(|e| format!("Failed to right click: {}", e))?;
-                }
-                _ => {}
-            }
+        let (event_type, mouse_button) = if pressed {
+            (
+                DispatchMouseEventType::MousePressed,
+                match button {
+                    0 => MouseButton::Left,
+                    1 => MouseButton::Middle,
+                    2 => MouseButton::Right,
+                    _ => MouseButton::None,
+                },
+            )
         } else {
-            // Mouse release via JavaScript
-            let js = format!(
-                "document.elementFromPoint({}, {}).dispatchEvent(new MouseEvent('mouseup', {{bubbles: true, cancelable: true, clientX: {}, clientY: {}, button: {}}}))",
-                x, y, x, y, button
-            );
-            page.evaluate(js)
-                .await
-                .map_err(|e| format!("Failed to release mouse: {}", e))?;
-            debug!("RBI: Mouse release at ({}, {})", x, y);
-        }
+            (
+                DispatchMouseEventType::MouseReleased,
+                match button {
+                    0 => MouseButton::Left,
+                    1 => MouseButton::Middle,
+                    2 => MouseButton::Right,
+                    _ => MouseButton::None,
+                },
+            )
+        };
+
+        let mut params = DispatchMouseEventParams::new(event_type, x, y);
+        params.button = Some(mouse_button);
+        params.click_count = Some(1);
+
+        page.execute(params)
+            .await
+            .map_err(|e| format!("Failed to dispatch mouse event: {}", e))?;
+
+        debug!(
+            "RBI: Mouse {} button={} at ({}, {})",
+            if pressed { "press" } else { "release" },
+            button,
+            x,
+            y
+        );
 
         Ok(())
+    }
+
+    /// Inject mouse move — updates Chrome's cursor position so hover effects,
+    /// CSS :hover, and cursor style changes work correctly.
+    /// Returns true if the event was sent, false if throttled.
+    #[cfg(feature = "chrome")]
+    #[allow(dead_code)] // called from browser_client.rs; cdylib build can't trace cfg-gated callers
+    pub async fn inject_mouse_move(&self, x: i32, y: i32) -> Result<bool, String> {
+        let page = self
+            .page
+            .as_ref()
+            .ok_or_else(|| "Page not initialized".to_string())?;
+        use chromiumoxide::cdp::browser_protocol::input::{
+            DispatchMouseEventParams, DispatchMouseEventType,
+        };
+        let params = DispatchMouseEventParams::new(
+            DispatchMouseEventType::MouseMoved,
+            x.max(0) as f64,
+            y.max(0) as f64,
+        );
+        page.execute(params)
+            .await
+            .map_err(|e| format!("Failed to move mouse: {}", e))?;
+        Ok(true)
+    }
+
+    #[cfg(not(feature = "chrome"))]
+    pub async fn inject_mouse_move(&self, _x: i32, _y: i32) -> Result<bool, String> {
+        Ok(false)
     }
 
     /// Inject mouse (fallback)
@@ -1061,20 +1148,19 @@ impl ChromeSession {
             .as_ref()
             .ok_or_else(|| "Page not initialized".to_string())?;
 
-        // Use JavaScript to dispatch wheel event
-        let js = format!(
-            r#"document.elementFromPoint({}, {}).dispatchEvent(new WheelEvent('wheel', {{
-                bubbles: true,
-                cancelable: true,
-                clientX: {},
-                clientY: {},
-                deltaX: {},
-                deltaY: {}
-            }}))"#,
-            x, y, x, y, delta_x, delta_y
-        );
+        use chromiumoxide::cdp::browser_protocol::input::{
+            DispatchMouseEventParams, DispatchMouseEventType,
+        };
+        let params = DispatchMouseEventParams::builder()
+            .r#type(DispatchMouseEventType::MouseWheel)
+            .x(x.max(0) as f64)
+            .y(y.max(0) as f64)
+            .delta_x(delta_x as f64)
+            .delta_y(delta_y as f64)
+            .build()
+            .map_err(|e| format!("Failed to build scroll params: {}", e))?;
 
-        page.evaluate(js)
+        page.execute(params)
             .await
             .map_err(|e| format!("Failed to inject scroll: {}", e))?;
 
@@ -1696,29 +1782,40 @@ impl ChromeSession {
     ) -> Result<(), String> {
         Err("Chrome feature not enabled".to_string())
     }
+
+    /// Explicitly close the Chrome browser, freeing the process, sockets, and profile directory.
+    /// Must be called before the session is dropped to avoid resource leaks.
+    #[cfg(feature = "chrome")]
+    #[allow(dead_code)] // called from browser_client.rs; cdylib build can't trace cfg-gated callers
+    pub async fn close(&mut self) {
+        if let Some(mut browser) = self.browser.take() {
+            // Try graceful close first (sends Browser.close CDP command)
+            if let Err(e) = browser.close().await {
+                debug!("RBI: Browser graceful close failed, killing: {}", e);
+                // Force kill the Chrome subprocess
+                browser.kill().await;
+            }
+            // profile_dir (TempDir) is dropped here, cleaning up the temp directory
+        }
+    }
+
+    #[cfg(not(feature = "chrome"))]
+    pub async fn close(&mut self) {}
 }
 
 impl Drop for ChromeSession {
     fn drop(&mut self) {
         #[cfg(feature = "chrome")]
         {
-            // chromiumoxide handles browser cleanup automatically
-            if let Some(browser) = self.browser.take() {
-                // Browser will be closed when dropped
-                drop(browser);
+            if self.browser.is_some() {
+                // If close() was not called before drop, warn — this indicates a bug.
+                // The browser will be killed by chromiumoxide's background task but
+                // sockets and the profile directory may not be cleaned up promptly.
+                warn!(
+                    "RBI: ChromeSession dropped without calling close() — possible resource leak"
+                );
+                drop(self.browser.take());
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_chrome_session_new() {
-        let session = ChromeSession::new(1920, 1080, 30, "/usr/bin/chromium");
-        assert_eq!(session.width, 1920);
-        assert_eq!(session.height, 1080);
     }
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: transformers
-Version: 5.4.0
+Version: 5.5.0
 Summary: Transformers: the model-definition framework for state-of-the-art machine learning models in text, vision, audio, and multimodal models, for both inference and training.
 Home-page: https://github.com/huggingface/transformers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/transformers/graphs/contributors)
@@ -55,6 +55,8 @@ Requires-Dist: libcst; extra == "quality"
 Requires-Dist: rich; extra == "quality"
 Requires-Dist: ty==0.0.20; extra == "quality"
 Requires-Dist: tomli; extra == "quality"
+Provides-Extra: docs
+Requires-Dist: hf-doc-builder; extra == "docs"
 Provides-Extra: kernels
 Requires-Dist: kernels<0.13,>=0.12.0; extra == "kernels"
 Provides-Extra: sentencepiece
@@ -139,6 +141,7 @@ Requires-Dist: beautifulsoup4; extra == "testing"
 Requires-Dist: tensorboard; extra == "testing"
 Requires-Dist: sacrebleu<2.0.0,>=1.4.12; extra == "testing"
 Requires-Dist: filelock; extra == "testing"
+Requires-Dist: hf-doc-builder; extra == "testing"
 Requires-Dist: datasets>=2.15.0; extra == "testing"
 Requires-Dist: ruff==0.14.10; extra == "testing"
 Requires-Dist: GitPython<3.1.19; extra == "testing"
@@ -185,6 +188,7 @@ Requires-Dist: beautifulsoup4; extra == "deepspeed-testing"
 Requires-Dist: tensorboard; extra == "deepspeed-testing"
 Requires-Dist: sacrebleu<2.0.0,>=1.4.12; extra == "deepspeed-testing"
 Requires-Dist: filelock; extra == "deepspeed-testing"
+Requires-Dist: hf-doc-builder; extra == "deepspeed-testing"
 Requires-Dist: datasets>=2.15.0; extra == "deepspeed-testing"
 Requires-Dist: ruff==0.14.10; extra == "deepspeed-testing"
 Requires-Dist: GitPython<3.1.19; extra == "deepspeed-testing"
@@ -271,6 +275,7 @@ Requires-Dist: beautifulsoup4; extra == "dev"
 Requires-Dist: tensorboard; extra == "dev"
 Requires-Dist: sacrebleu<2.0.0,>=1.4.12; extra == "dev"
 Requires-Dist: filelock; extra == "dev"
+Requires-Dist: hf-doc-builder; extra == "dev"
 Requires-Dist: datasets>=2.15.0; extra == "dev"
 Requires-Dist: ruff==0.14.10; extra == "dev"
 Requires-Dist: GitPython<3.1.19; extra == "dev"

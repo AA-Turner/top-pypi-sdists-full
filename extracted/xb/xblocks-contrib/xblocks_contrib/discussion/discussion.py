@@ -104,15 +104,11 @@ class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, LegacyXmlMixin):
         return self.runtime.service(self, 'discussion_config_service')
 
     @property
-    def course_key(self):
-        return getattr(self.scope_ids.usage_id, 'course_key', None)
-
-    @property
     def is_visible(self):
         """
         Discussion Xblock does not support new OPEN_EDX provider
         """
-        return self.discussion_config.is_discussion_visible(self.course_key)
+        return self.discussion_config.is_discussion_visible(self.context_key)
 
     @property
     def django_user(self):
@@ -160,7 +156,7 @@ class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, LegacyXmlMixin):
         :rtype: bool
         """
         if self.discussion_config:
-            return self.discussion_config.has_permission(self.django_user, permission, self.course_key)
+            return self.discussion_config.has_permission(self.django_user, permission, self.context_key)
         else:
             return False
 
@@ -179,7 +175,7 @@ class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, LegacyXmlMixin):
 
         if not self.django_user.is_authenticated:
             qs = urllib.parse.urlencode({
-                'course_id': self.course_key,
+                'course_id': self.context_key,
                 'enrollment_action': 'enroll',
                 'email_opt_in': False,
             })
@@ -200,7 +196,7 @@ class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, LegacyXmlMixin):
                 'discussion_id': self.discussion_id,
                 'display_name': self.display_name if self.display_name else _("Discussion"),
                 'user': self.django_user,
-                'course_id': self.course_key,
+                'course_id': self.context_key,
                 'discussion_category': self.discussion_category,
                 'discussion_target': self.discussion_target,
                 'can_create_thread': self.has_permission("create_thread"),
@@ -276,7 +272,7 @@ class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, LegacyXmlMixin):
             return
 
         metadata = cls.load_metadata(definition_xml)
-        cls.apply_policy(metadata, runtime.get_policy(block.scope_ids.usage_id))
+        cls.apply_policy(metadata, runtime.get_policy(block.usage_key))
 
         for field_name, value in metadata.items():
             if field_name in block.fields:

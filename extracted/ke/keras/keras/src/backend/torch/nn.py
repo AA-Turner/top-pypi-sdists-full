@@ -322,6 +322,21 @@ def _transpose_conv_kernel(kernel):
     return kernel
 
 
+def _get_channels_last_memory_format(ndim):
+    if ndim == 4:
+        return torch.channels_last
+    elif ndim == 5:
+        return torch.channels_last_3d
+    return None
+
+
+def _maybe_convert_to_channels_last(tensor):
+    mem_fmt = _get_channels_last_memory_format(tensor.ndim)
+    if mem_fmt is not None and not tensor.is_contiguous(memory_format=mem_fmt):
+        return tensor.contiguous(memory_format=mem_fmt)
+    return tensor
+
+
 def max_pool(
     inputs,
     pool_size,
@@ -566,6 +581,10 @@ def conv(
 
     kernel = _transpose_conv_kernel(kernel)
 
+    if data_format == "channels_last":
+        inputs = _maybe_convert_to_channels_last(inputs)
+        kernel = _maybe_convert_to_channels_last(kernel)
+
     # calc. groups snippet
     in_channels = inputs.shape[1]
     kernel_in_channels = kernel.shape[1]
@@ -701,6 +720,11 @@ def conv_transpose(
         inputs = _transpose_spatial_inputs(inputs)
     # Transpose kernel from keras format to torch format.
     kernel = _transpose_conv_kernel(kernel)
+
+    if data_format == "channels_last":
+        inputs = _maybe_convert_to_channels_last(inputs)
+        kernel = _maybe_convert_to_channels_last(kernel)
+
     kernel_spatial_shape = kernel.shape[2:]
     if isinstance(dilation_rate, int):
         dilation_rate = [dilation_rate] * len(kernel_spatial_shape)
@@ -829,14 +853,31 @@ def sparse_categorical_crossentropy(target, output, from_logits=False, axis=-1):
             "up until the last dimension: "
             f"target.shape={target.shape}, output.shape={output.shape}"
         )
-    if from_logits:
-        log_prob = tnn.log_softmax(output, dim=axis)
+    # Use PyTorch native cross-entropy ops to avoid allocating a full
+    # one-hot matrix of shape (batch, ..., num_classes).  For large
+    # vocabularies this saves gigabytes of GPU memory per step.
+    # F.cross_entropy / F.nll_loss expect the class dim at position 1,
+    if output.dim() == 1:
+        output = output.unsqueeze(0)
+        target = target.unsqueeze(0)
+        squeeze = True
     else:
-        output = output / torch.sum(output, dim=axis, keepdim=True)
+        squeeze = False
+        class_axis = axis % output.dim()
+        if class_axis != 1:
+            output = output.movedim(class_axis, 1)
+
+    if from_logits:
+        result = tnn.cross_entropy(output, target, reduction="none")
+    else:
+        output = output / torch.sum(output, dim=1, keepdim=True)
         output = torch.clip(output, backend.epsilon(), 1.0 - backend.epsilon())
         log_prob = torch.log(output)
-    target = one_hot(target, output.shape[axis], axis=axis)
-    return -torch.sum(target * log_prob, dim=axis)
+        result = tnn.nll_loss(log_prob, target, reduction="none")
+
+    if squeeze:
+        result = result.squeeze(0)
+    return result
 
 
 def binary_crossentropy(target, output, from_logits=False):
@@ -1131,10 +1172,6 @@ def dot_product_attention(
     flash_attention=None,
     attn_logits_soft_cap=None,
 ):
-    if bias is not None:
-        raise ValueError(
-            "torch's `dot_product_attention` doesn't support `bias`."
-        )
     query = convert_to_tensor(query)
     key = convert_to_tensor(key)
     value = convert_to_tensor(value)
@@ -1143,6 +1180,10 @@ def dot_product_attention(
             "`dot_product_attention` only supports 4D inputs. "
             f"Received: query.shape={query.shape}, key.shape={key.shape}, "
             f"value.shape={value.shape}."
+        )
+    if bias is not None and mask is not None:
+        raise ValueError(
+            "Only one of `bias` and `mask` can be provided. Received both."
         )
     compute_dtype = backend.result_type(query.dtype, key.dtype, value.dtype)
     query = cast(query, compute_dtype)
@@ -1154,6 +1195,9 @@ def dot_product_attention(
         # Explicit set `is_causal` to `False` when `mask` is not `None`.
         is_causal = False
         mask = torch.where(mask, 0.0, _get_large_negative(query.dtype))
+    if bias is not None:
+        bias = convert_to_tensor(bias, dtype=compute_dtype)
+        mask = bias  # Use `bias` as `mask` for scaled_dot_product_attention.
 
     axis0, axis1 = 1, 2
     query = torch.transpose(query, axis0, axis1)
@@ -1217,3 +1261,112 @@ def unfold(input, kernel_size, dilation=1, padding=0, stride=1):
         padding=padding,
         stride=stride,
     )
+
+
+def fold(x, output_size, kernel_size, dilation=1, padding=0, stride=1):
+    """Native PyTorch implementation of Fold.
+    Combine an array of sliding local blocks into a large tensor (col2im).
+
+    Args:
+        x: 3-D tensor, shape (N, C*kH*kW, L)  **required**.
+        output_size: int or (oH, oW)
+        kernel_size: int or (kH, kW)
+        dilation: int or (dH, dW), default 1
+        padding: int or (pH, pW), default 0
+        stride: int or (sH, sW), default 1
+
+    Returns:
+        4-D tensor, shape (N, C, oH, oW)
+    """
+    return tnn.fold(
+        x,
+        output_size=output_size,
+        kernel_size=kernel_size,
+        dilation=dilation,
+        padding=padding,
+        stride=stride,
+    )
+
+
+def depth_to_space(x, block_size, data_format="channels_last"):
+    """PyTorch implementation of depth_to_space.
+
+    Rearranges data from depth into blocks of spatial data.
+    Matches TensorFlow's depth_to_space behavior.
+
+    Args:
+        x: 4-D tensor with shape (N, H, W, C) for channels_last or
+            (N, C, H, W) for channels_first.
+        block_size: An integer specifying the block size.
+        data_format: "channels_last" or "channels_first".
+
+    Returns:
+        A tensor with shape (N, H*block_size, W*block_size, C/block_size**2)
+        for channels_last or (N, C/block_size**2, H*block_size, W*block_size)
+        for channels_first.
+    """
+    x = convert_to_tensor(x)
+    if data_format == "channels_last":
+        # NHWC format
+        n, h, w, c = x.shape
+        new_c = c // (block_size**2)
+        # Reshape: (N, H, W, C) -> (N, H, W, block_size, block_size, new_C)
+        x = x.reshape(n, h, w, block_size, block_size, new_c)
+        # Permute to (N, H, bH, W, bW, new_C) to interleave spatial blocks.
+        x = x.permute(0, 1, 3, 2, 4, 5)
+        # Reshape to the final spatial dimensions.
+        x = x.reshape(n, h * block_size, w * block_size, new_c)
+    else:
+        # NCHW format
+        n, c, h, w = x.shape
+        new_c = c // (block_size**2)
+        # Reshape: (N, C, H, W) -> (N, new_C, block_size, block_size, H, W)
+        x = x.reshape(n, new_c, block_size, block_size, h, w)
+        # Permute: (N, C, bH, bW, H, W) -> (N, C, H, bH, W, bW)
+        x = x.permute(0, 1, 4, 2, 5, 3)
+        # Reshape: (N, C, H, bH, W, bW) -> (N, C, H*bH, W*bW)
+        x = x.reshape(n, new_c, h * block_size, w * block_size)
+    return x
+
+
+def space_to_depth(x, block_size, data_format="channels_last"):
+    """PyTorch implementation of space_to_depth.
+
+    Rearranges blocks of spatial data into depth.
+    Matches TensorFlow's space_to_depth behavior.
+
+    Args:
+        x: 4-D tensor with shape (N, H, W, C) for channels_last or
+            (N, C, H, W) for channels_first.
+        block_size: An integer specifying the block size.
+        data_format: "channels_last" or "channels_first".
+
+    Returns:
+        A tensor with shape (N, H/block_size, W/block_size, C*block_size**2)
+        for channels_last or (N, C*block_size**2, H/block_size, W/block_size)
+        for channels_first.
+    """
+    x = convert_to_tensor(x)
+    if data_format == "channels_last":
+        # NHWC format
+        n, h, w, c = x.shape
+        new_h = h // block_size
+        new_w = w // block_size
+        # Reshape: (N, H, W, C) -> (N, new_H, bH, new_W, bW, C)
+        x = x.reshape(n, new_h, block_size, new_w, block_size, c)
+        # Permute: (N, new_H, bH, new_W, bW, C) -> (N, new_H, new_W, bH, bW, C)
+        x = x.permute(0, 1, 3, 2, 4, 5)
+        # Reshape: (N, new_H, new_W, bH, bW, C) -> (N, new_H, new_W, C*bH*bW)
+        x = x.reshape(n, new_h, new_w, c * block_size**2)
+    else:
+        # NCHW format
+        n, c, h, w = x.shape
+        new_h = h // block_size
+        new_w = w // block_size
+        # Reshape: (N, C, H, W) -> (N, C, new_H, bH, new_W, bW)
+        x = x.reshape(n, c, new_h, block_size, new_w, block_size)
+        # Permute: (N, C, new_H, bH, new_W, bW) -> (N, C, bH, bW, new_H, new_W)
+        x = x.permute(0, 1, 3, 5, 2, 4)
+        # Reshape: (N, C, bH, bW, new_H, new_W) -> (N, C*bH*bW, new_H, new_W)
+        x = x.reshape(n, c * block_size**2, new_h, new_w)
+    return x

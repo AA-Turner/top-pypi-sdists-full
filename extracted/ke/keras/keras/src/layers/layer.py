@@ -27,6 +27,7 @@ from keras.src import backend
 from keras.src import constraints
 from keras.src import dtype_policies
 from keras.src import initializers
+from keras.src import ops
 from keras.src import regularizers
 from keras.src import tree
 from keras.src import utils
@@ -355,14 +356,16 @@ class Layer(BackendLayer, Operation):
                     trainable_variables,
                 ),
                 "non_trainable_variables": (
-                    lambda x: isinstance(x, backend.Variable)
-                    and not x.trainable,
+                    lambda x: (
+                        isinstance(x, backend.Variable) and not x.trainable
+                    ),
                     non_trainable_variables,
                 ),
                 "metrics": (lambda x: isinstance(x, Metric), metrics),
                 "layers": (
-                    lambda x: isinstance(x, Layer)
-                    and not isinstance(x, Metric),
+                    lambda x: (
+                        isinstance(x, Layer) and not isinstance(x, Metric)
+                    ),
                     layers,
                 ),
                 "seed_generators": (
@@ -516,6 +519,7 @@ class Layer(BackendLayer, Operation):
 
     def add_weight(
         self,
+        *args,
         shape=None,
         initializer=None,
         dtype=None,
@@ -562,6 +566,42 @@ class Layer(BackendLayer, Operation):
             name: String name of the variable. Useful for debugging purposes.
         """
         self._check_super_called()
+        if args:
+            # `args` is only kept to detect the legacy Keras 2 call style
+            # (`add_weight(shape, initializer, dtype, ...)`) and raise a clear
+            # error for positional `name`.
+            if len(args) > 3:
+                raise TypeError(
+                    "add_weight() takes at most 3 positional arguments "
+                    f"but {len(args)} were given."
+                )
+            shape_arg = args[0]
+            if isinstance(shape_arg, str):
+                raise ValueError(
+                    "`name` must be passed as a keyword argument. "
+                    f"Received: add_weight('{shape_arg}', ...). "
+                    f"Use: add_weight(shape=..., name='{shape_arg}')."
+                )
+            if shape is not None:
+                raise ValueError(
+                    "`shape` was passed both positionally and as "
+                    "a keyword argument."
+                )
+            shape = shape_arg
+            if len(args) > 1:
+                if initializer is not None:
+                    raise ValueError(
+                        "`initializer` was passed both positionally and "
+                        "as a keyword argument."
+                    )
+                initializer = args[1]
+            if len(args) > 2:
+                if dtype is not None:
+                    raise ValueError(
+                        "`dtype` was passed both positionally and as a "
+                        "keyword argument."
+                    )
+                dtype = args[2]
         if shape is None:
             shape = ()
         if dtype is not None:
@@ -836,9 +876,14 @@ class Layer(BackendLayer, Operation):
         #############################################################
         # 1. Convert any array arguments to tensors of correct dtype.
         def maybe_convert(x):
-            return self.dtype_policy.convert_input(
+            # Prevent _keras_mask from disappearing
+            mask = backend.get_keras_mask(x)
+            y = self.dtype_policy.convert_input(
                 x, self.autocast, self.input_dtype
             )
+            if mask is not None:
+                backend.set_keras_mask(y, mask)
+            return y
 
         # Used to avoid expensive `tree` operations in the most common case.
         if (
@@ -969,7 +1014,15 @@ class Layer(BackendLayer, Operation):
                 if self.activity_regularizer is not None:
                     for output in tree.flatten(outputs):
                         if backend.is_tensor(output):
-                            self.add_loss(self.activity_regularizer(output))
+                            loss = self.activity_regularizer(output)
+                            if output.ndim > 0:
+                                # Normalize by batch size to ensure consistent
+                                # regularization strength across batch sizes
+                                batch_size = ops.cast(
+                                    ops.shape(output)[0], dtype=loss.dtype
+                                )
+                                loss = ops.divide_no_nan(loss, batch_size)
+                            self.add_loss(loss)
 
             # Set `previous_mask` on outputs if available. It is provided only
             # for the first positional input arg and its mask.
@@ -1267,9 +1320,12 @@ class Layer(BackendLayer, Operation):
         if backend.in_stateless_scope():
             scope = backend.get_stateless_scope()
             if scope.collect_losses:
-                for x in scope.losses:
-                    if id(x) in self._loss_ids:
-                        scope.losses.remove(x)
+                # Filter by identity (id) rather than using list.remove(),
+                # which compares by value. Value comparison on JAX tracers
+                # during JIT causes TracerBoolConversionError.
+                scope.losses[:] = [
+                    x for x in scope.losses if id(x) not in self._loss_ids
+                ]
         self._losses.clear()
         self._loss_ids.clear()
         for layer in self._layers:
@@ -1332,6 +1388,8 @@ class Layer(BackendLayer, Operation):
             return self._int4_call(*args, **kwargs)
         elif self.quantization_mode == "gptq":
             return self._gptq_call(*args, **kwargs)
+        elif self.quantization_mode == "awq":
+            return self._awq_call(*args, **kwargs)
         else:
             raise self._quantization_mode_error(self.quantization_mode)
 
@@ -1346,6 +1404,9 @@ class Layer(BackendLayer, Operation):
 
     def _gptq_call(self, *args, **kwargs):
         raise self._not_implemented_error(self._gptq_call)
+
+    def _awq_call(self, *args, **kwargs):
+        raise self._not_implemented_error(self._awq_call)
 
     def _not_implemented_error(self, attr, msg=None):
         if callable(attr):
@@ -1664,13 +1725,7 @@ class Layer(BackendLayer, Operation):
         flat_masks = tree.flatten(output_masks)
         for tensor, mask in zip(flat_outputs, flat_masks):
             if backend.get_keras_mask(tensor) is None and mask is not None:
-                if backend.backend() == "numpy":
-                    warnings.warn(
-                        "The NumPy backend does not support masking at this"
-                        "time. Masks will be ignored."
-                    )
-                else:
-                    backend.set_keras_mask(tensor, mask)
+                backend.set_keras_mask(tensor, mask)
 
     @python_utils.default
     def get_config(self):
@@ -1802,7 +1857,7 @@ class Layer(BackendLayer, Operation):
 
         # Tell the Sequential model to propagate foo_mode down
         # the call-stack
-        seq.register_call_context_args("foo_mode")
+        seq._register_call_context_args("foo_mode")
 
         # foo_mode=True -> input + 1
         out_true = seq(sample_input, foo_mode=True)
@@ -1911,7 +1966,7 @@ def get_shapes_dict(call_spec):
 
     shapes_dict = {}
     for k, v in call_spec.tensor_arguments_dict.items():
-        if k == "mask" or k.endswith("_mask"):
+        if k == "mask":
             # Do not include mask tensors in shapes dict
             continue
         if k == "kwargs" or k == "args":

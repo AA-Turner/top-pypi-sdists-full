@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: async-substrate-interface
-Version: 1.6.3
+Version: 1.6.4
 Summary: Asyncio library for interacting with substrate. Mostly API-compatible with py-substrate-interface
 Author: Opentensor Foundation
 Author-email: BD Himes <b@latent.to>
@@ -60,6 +60,7 @@ Requires-Dist: pytest-xdist==3.6.1; extra == "dev"
 Requires-Dist: pytest-rerunfailures==10.2; extra == "dev"
 Requires-Dist: bittensor-wallet>=4.0.0; extra == "dev"
 Requires-Dist: pytest-forked; extra == "dev"
+Dynamic: license-file
 
 # Async Substrate Interface
 This project provides an asynchronous interface for interacting with [Substrate](https://substrate.io/)-based blockchains. It is based on the [py-substrate-interface](https://github.com/polkascan/py-substrate-interface) project.
@@ -163,6 +164,26 @@ The following environment variables are used within async-substrate-interface
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request to the `staging` branch.
+
+### Signed Commits
+All commits in pull requests must be signed. We require signed commits to verify the authenticity of contributions and ensure code integrity.
+
+To sign your commits, you must have GPG signing configured in Git:
+
+```bash
+git commit -S -m "your commit message"
+```
+
+Or configure Git to sign all commits automatically:
+
+```bash
+git config --global commit.gpgsign true
+```
+
+For instructions on setting up GPG key signing, see [GitHub's documentation on signing commits](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits).
+
+> **Note:** Pull requests containing unsigned commits will not be merged.
+
 
 ## License
 

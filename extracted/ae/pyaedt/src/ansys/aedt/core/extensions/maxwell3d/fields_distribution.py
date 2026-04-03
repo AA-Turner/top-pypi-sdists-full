@@ -84,6 +84,7 @@ class FieldsDistributionExtension(ExtensionCommon):
         # Initialize the common extension class with the title and theme color
         super().__init__(
             EXTENSION_TITLE,
+            theme_color="light",
             withdraw=withdraw,
             add_custom_content=False,
             toggle_row=6,
@@ -118,7 +119,7 @@ class FieldsDistributionExtension(ExtensionCommon):
         except Exception:
             return "Maxwell 3D"  # Default fallback
 
-    def check_design_type(self) -> None:
+    def check_design_type(self):
         """Check if the active design is a Maxwell design."""
         if self.aedt_application.design_type not in ["Maxwell 2D", "Maxwell 3D"]:
             self.release_desktop()
@@ -154,7 +155,7 @@ class FieldsDistributionExtension(ExtensionCommon):
             self.release_desktop()
             raise AEDTRuntimeError("No solved analysis sweeps found.")
 
-    def _text_size(self, path, entry):
+    def _text_size(self, path, entry) -> None:
         """Adjust text widget size based on content."""
         text_length = len(path)
         height = 1
@@ -164,7 +165,7 @@ class FieldsDistributionExtension(ExtensionCommon):
         entry.delete("1.0", tkinter.END)
         entry.insert(tkinter.END, path)
 
-    def _populate_listbox(self, frame, listbox, listbox_height, items_list):
+    def _populate_listbox(self, frame, listbox, listbox_height, items_list) -> None:
         """Populate listbox with items and add scrollbar if needed."""
         listbox.pack(expand=True, fill=tkinter.BOTH, side=tkinter.LEFT)
         if len(items_list) > 6:

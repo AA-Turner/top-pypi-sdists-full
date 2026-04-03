@@ -23,7 +23,7 @@ export class Assistant extends BenchmarkRunner {
   static run(
     baseUrl: string,
     requestParams: Record<string, unknown>,
-    _benchmarkGraphOptions?: BenchmarkGraphOptions
+    _benchmarkGraphOptions: BenchmarkGraphOptions
   ): BenchmarkResult<AssistantData> {
     const graph_id = DEFAULT_GRAPH_ID;
     let metadata: Record<string, string> = {
@@ -73,7 +73,7 @@ export class Assistant extends BenchmarkRunner {
   static validate(
     result: BenchmarkResult<AssistantData>,
     errorMetrics: ErrorMetrics,
-    _benchmarkGraphOptions?: BenchmarkGraphOptions
+    _benchmarkGraphOptions: BenchmarkGraphOptions
   ): boolean {
     const d = result.data;
     if (!d) {

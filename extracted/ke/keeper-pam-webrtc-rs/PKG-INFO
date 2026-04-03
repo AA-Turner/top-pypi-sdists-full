@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keeper-pam-webrtc-rs
-Version: 2.1.10
+Version: 2.1.12
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
@@ -18,7 +18,7 @@ License: MIT
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
-# keeper-pam-webrtc-rs
+# keeper-pam-connections
 
 Python bindings for the Keeper PAM WebRTC tunneling library.
 
@@ -31,16 +31,16 @@ Provides a secure WebRTC-based tunneling API for connecting to remote services. 
 ## Installation
 
 ```
-pip install keeper-pam-webrtc-rs
+pip install keeper-pam-connections
 ```
 
 ## Usage
 
 ```python
-import keeper_pam_webrtc_rs
+import keeper_pam_connections
 
-keeper_pam_webrtc_rs.initialize_logger()
-registry = keeper_pam_webrtc_rs.PyTubeRegistry()
+keeper_pam_connections.initialize_logger()
+registry = keeper_pam_connections.PyTubeRegistry()
 ```
 
 ## Requirements

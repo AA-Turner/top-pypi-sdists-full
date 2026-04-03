@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: requests-ratelimiter
-Version: 0.9.2
+Version: 0.9.3
 Summary: Rate-limiting for the requests library
 Project-URL: homepage, https://github.com/JWCook/requests-ratelimiter
 Project-URL: repository, https://github.com/JWCook/requests-ratelimiter
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: pyrate-limiter~=4.0
+Requires-Dist: pyrate-limiter<5,>=4.1
 Requires-Dist: requests>=2.20
 Description-Content-Type: text/markdown
 

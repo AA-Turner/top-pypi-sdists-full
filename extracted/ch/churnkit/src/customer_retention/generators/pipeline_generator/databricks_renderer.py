@@ -1508,7 +1508,8 @@ dbutils.notebook.exit(_summary)
 # MAGIC # Training: {{ config.name }}
 
 # COMMAND ----------
-
+{% set best_model_type = config.training.best_model_type if config.training else None %}
+{% set production_cv_folds = config.training.production_cv_folds if config.training else None %}
 import json
 import logging
 import tempfile
@@ -1516,7 +1517,11 @@ import csv
 from pathlib import Path
 import mlflow
 import mlflow.spark
-from pyspark.ml.classification import LogisticRegression, RandomForestClassifier, GBTClassifier
+from pyspark.ml.classification import (
+{% if best_model_type is none or best_model_type == "logistic_regression" %}    LogisticRegression,
+{% endif %}{% if best_model_type is none or best_model_type == "random_forest" %}    RandomForestClassifier,
+{% endif %}{% if best_model_type is none or best_model_type == "xgboost" %}    GBTClassifier,
+{% endif %})
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.functions import vector_to_array
 from pyspark.ml.linalg import VectorUDT
@@ -1526,6 +1531,7 @@ from pyspark.sql.types import StructType, StructField, DoubleType
 from customer_retention.stages.modeling.feature_profile import FeatureProfile, ColumnProfile, build_feature_profile, compare_feature_profiles
 from customer_retention.analysis.auto_explorer.run_namespace import RunNamespace
 from customer_retention.core.compat.timing import log_timing
+from customer_retention.core.config.experiments import get_mlflow_dfs_tmpdir
 {% if config.training and config.training.imbalance_strategy == "smote" %}
 from imblearn.over_sampling import SMOTE
 {% endif %}
@@ -1539,6 +1545,7 @@ from imblearn.over_sampling import SMOTE
 logger = logging.getLogger("training")
 
 TARGET = TARGET_COLUMN
+_DFS_TMPDIR = get_mlflow_dfs_tmpdir()
 _NUMERIC_TYPES = ("double", "float", "integer", "long", "short", "boolean", "byte", "decimal")
 _EXCLUDE_COLS = {TARGET, TIMESTAMP_COLUMN, ENTITY_KEY, "as_of_date", "feature_timestamp", "label_timestamp", "label_available_flag"}
 _vector_schema = StructType([
@@ -1679,7 +1686,7 @@ def _log_best_model(model, df, feature_cols):
         )
         print(f"[TRAINING] Model registered: {CATALOG}.{SCHEMA}.model_{COMPOSITE_NAME}")
     except ImportError:
-        mlflow.spark.log_model(model, "best_model")
+        mlflow.spark.log_model(model, "best_model", dfs_tmpdir=_DFS_TMPDIR)
 
 def train_and_evaluate():
     _results = {"models": {}, "feature_profile": {}}
@@ -1843,11 +1850,16 @@ def train_and_evaluate():
 {% endif %}
 
 {% set weight_param = ', weightCol="class_weight"' if config.training and config.training.imbalance_strategy == "class_weight" else '' %}
-    models = {
-        "LogisticRegression": LogisticRegression(maxIter=100, featuresCol="features", labelCol="label"{{ weight_param }}),
-        "RandomForest": RandomForestClassifier(numTrees=100, featuresCol="features", labelCol="label"{{ weight_param }}),
-        "GBTClassifier": GBTClassifier(maxIter=50, featuresCol="features", labelCol="label"{{ weight_param }}),
-    }
+    models = {}
+{% if best_model_type is none or best_model_type == "logistic_regression" %}
+    models["LogisticRegression"] = LogisticRegression(maxIter=100, featuresCol="features", labelCol="label"{{ weight_param }})
+{% endif %}
+{% if best_model_type is none or best_model_type == "random_forest" %}
+    models["RandomForest"] = RandomForestClassifier(numTrees=100, featuresCol="features", labelCol="label"{{ weight_param }})
+{% endif %}
+{% if best_model_type is none or best_model_type == "xgboost" %}
+    models["GBTClassifier"] = GBTClassifier(maxIter=50, featuresCol="features", labelCol="label"{{ weight_param }})
+{% endif %}
 
     best_model_name = None
     best_auc = -1.0
@@ -1876,7 +1888,7 @@ def train_and_evaluate():
                 _results["models"][name] = metrics
                 mlflow.log_param("model_type", name)
                 mlflow.log_param("num_features", len(feature_cols))
-                mlflow.spark.log_model(fitted, f"model_{name}")
+                mlflow.spark.log_model(fitted, f"model_{name}", dfs_tmpdir=_DFS_TMPDIR)
                 mlflow.log_metrics(metrics)
                 _log_feature_importance(fitted, feature_cols)
                 _mlflow_evaluate_predictions(predictions)
@@ -2113,7 +2125,11 @@ dbutils.notebook.exit(_summary)
 
 # COMMAND ----------
 
+import json
+import os
 import time
+
+os.environ["CR_BATCH_EXECUTION"] = "1"
 
 # COMMAND ----------
 
@@ -2138,11 +2154,29 @@ _ns_params = {"experiments_dir": str(_NAMESPACE.root), "run_id": _NAMESPACE.run_
 # COMMAND ----------
 
 _log = []
+_profile = []
+
+def _spark_job_id():
+    try: return spark._jsc.sc().dagScheduler().nextJobId().get()
+    except Exception: return -1
 
 def run_notebook(path, timeout=3600):
+    sj_before = _spark_job_id()
     start = time.time()
-    result = dbutils.notebook.run(path, timeout, _ns_params)
-    elapsed = time.time() - start
+    try:
+        result = dbutils.notebook.run(path, timeout, _ns_params)
+        elapsed = time.time() - start
+        sj_after = _spark_job_id()
+        _profile.append({"notebook": path, "elapsed": round(elapsed, 3),
+                         "spark_jobs": (sj_after - sj_before) if sj_before >= 0 and sj_after >= 0 else None,
+                         "status": "completed"})
+    except Exception as exc:
+        elapsed = time.time() - start
+        sj_after = _spark_job_id()
+        _profile.append({"notebook": path, "elapsed": round(elapsed, 3),
+                         "spark_jobs": (sj_after - sj_before) if sj_before >= 0 and sj_after >= 0 else None,
+                         "status": "failed"})
+        result = f"FAILED: {exc}"
     line = f"{path}: {result} ({elapsed:.1f}s)"
     print(line)
     _log.append(line)
@@ -2210,6 +2244,22 @@ run_notebook("gold/gold_features_{{ config.composite_name or config.name }}")
 run_notebook("training/ml_experiment")
 
 # COMMAND ----------
+
+if _NAMESPACE is not None and _profile:
+    _profiles_json = {
+        "version": 1, "environment": "databricks",
+        "generated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+        "notebooks": {
+            e["notebook"]: {"total_elapsed": e["elapsed"], "cells": [
+                {"cell_name": e["notebook"], "cell_id": e["notebook"],
+                 "elapsed_sec": e["elapsed"], "status": e["status"],
+                 "spark_jobs": e["spark_jobs"], "start_time": None,
+                 "end_time": None, "peak_memory_mb": None}
+            ]} for e in _profile
+        },
+    }
+    _NAMESPACE.cell_profiles_path.parent.mkdir(parents=True, exist_ok=True)
+    _NAMESPACE.cell_profiles_path.write_text(json.dumps(_profiles_json, indent=2))
 
 dbutils.notebook.exit("\\n".join(_log))
 """,

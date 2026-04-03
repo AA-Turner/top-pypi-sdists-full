@@ -24,3 +24,6 @@ pub use ses::{GuacamoleSesRecorder, RecordingDirection, RecordingError, SessionR
 pub use transport::{
     ChannelRecordingTransport, FileRecordingTransport, MultiTransportRecorder, RecordingTransport,
 };
+
+#[cfg(test)]
+mod tests;

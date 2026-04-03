@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-embedded-elt"
-version = "0.28.21"
+version = "0.28.22"
 description = "Package for performing ETL/ELT tasks with Dagster."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -22,9 +22,9 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.12.21",
-    "dagster-sling==0.28.21",
-    "dagster-dlt==0.28.21",
+    "dagster==1.12.22",
+    "dagster-sling==0.28.22",
+    "dagster-dlt==0.28.22",
 ]
 
 [project.urls]

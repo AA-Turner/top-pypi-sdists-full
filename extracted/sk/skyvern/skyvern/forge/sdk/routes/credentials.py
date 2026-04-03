@@ -33,7 +33,10 @@ import structlog
 from fastapi import BackgroundTasks, Body, Depends, HTTPException, Path, Query
 
 from skyvern.config import settings
+from skyvern.exceptions import HttpException as SkyvernHttpException
+from skyvern.exceptions import SkyvernHTTPException
 from skyvern.forge import app
+from skyvern.forge.sdk.core.aiohttp_helper import aiohttp_request
 from skyvern.forge.sdk.db.enums import OrganizationAuthTokenType
 from skyvern.forge.sdk.executor.factory import AsyncExecutorFactory
 from skyvern.forge.sdk.routes.code_samples import (
@@ -82,6 +85,7 @@ from skyvern.forge.sdk.schemas.organizations import (
     CreateOnePasswordTokenResponse,
     CustomCredentialServiceConfigResponse,
     Organization,
+    TestConnectionResponse,
 )
 from skyvern.forge.sdk.schemas.totp_codes import OTPType, TOTPCode, TOTPCodeCreate
 from skyvern.forge.sdk.services import org_auth_service
@@ -98,6 +102,7 @@ from skyvern.schemas.workflows import (
 )
 from skyvern.services.otp_service import OTPValue, parse_otp_login
 from skyvern.services.run_service import cancel_workflow_run
+from skyvern.utils.url_validators import validate_url
 
 LOG = structlog.get_logger()
 
@@ -303,7 +308,15 @@ async def create_credential(
 ) -> CredentialResponse:
     credential_service = await _get_credential_vault_service(vault_type_override=data.vault_type)
 
-    credential = await credential_service.create_credential(organization_id=current_org.organization_id, data=data)
+    try:
+        credential = await credential_service.create_credential(organization_id=current_org.organization_id, data=data)
+    except SkyvernHttpException as e:
+        detail = (
+            f"Custom credential service returned {e.error_message}"
+            if e.error_message
+            else f"Custom credential service returned HTTP {e.status_code}"
+        )
+        raise HTTPException(status_code=502, detail=detail)
 
     if credential.vault_type == CredentialVaultType.BITWARDEN:
         # Early resyncing the Bitwarden vault
@@ -1233,10 +1246,18 @@ async def update_credential(
 
     old_item_id = existing_credential.item_id
 
-    updated_credential = await credential_service.update_credential(
-        credential=existing_credential,
-        data=data,
-    )
+    try:
+        updated_credential = await credential_service.update_credential(
+            credential=existing_credential,
+            data=data,
+        )
+    except SkyvernHttpException as e:
+        detail = (
+            f"Custom credential service returned {e.error_message}"
+            if e.error_message
+            else f"Custom credential service returned HTTP {e.status_code}"
+        )
+        raise HTTPException(status_code=502, detail=detail)
 
     # Schedule background cleanup of old vault item if the item_id changed
     if old_item_id != updated_credential.item_id:
@@ -1298,7 +1319,15 @@ async def delete_credential(
     if not credential_service:
         raise HTTPException(status_code=400, detail="Unsupported credential storage type")
 
-    await credential_service.delete_credential(credential)
+    try:
+        await credential_service.delete_credential(credential)
+    except SkyvernHttpException as e:
+        detail = (
+            f"Custom credential service returned {e.error_message}"
+            if e.error_message
+            else f"Custom credential service returned HTTP {e.status_code}"
+        )
+        raise HTTPException(status_code=502, detail=detail)
 
     # Schedule background cleanup if the service implements it
     if vault_type != CredentialVaultType.CUSTOM:
@@ -1402,13 +1431,22 @@ async def get_credentials(
         examples=[10],
         openapi_extra={"x-fern-sdk-parameter-name": "page_size"},
     ),
+    vault_type: CredentialVaultType | None = Query(
+        default=None,
+        description="Filter credentials by vault type (e.g. 'custom', 'bitwarden', 'azure_vault')",
+    ),
 ) -> list[CredentialResponse]:
     """Return non-sensitive metadata for all credentials (paginated).
 
     SECURITY: Like ``get_credential``, this endpoint never returns raw secret
     material. See the module docstring for the full security invariant.
     """
-    credentials = await app.DATABASE.get_credentials(current_org.organization_id, page=page, page_size=page_size)
+    credentials = await app.DATABASE.get_credentials(
+        current_org.organization_id,
+        page=page,
+        page_size=page_size,
+        vault_type=vault_type.value if isinstance(vault_type, CredentialVaultType) else None,
+    )
     return [_convert_to_response(credential) for credential in credentials]
 
 
@@ -1599,7 +1637,7 @@ async def update_bitwarden_credential(
     """
     try:
         # Atomically invalidate old + create new in a single transaction
-        auth_token = await app.DATABASE.replace_org_auth_token(
+        auth_token = await app.DATABASE.organizations.replace_org_auth_token(
             organization_id=current_org.organization_id,
             token_type=OrganizationAuthTokenType.bitwarden_credential,
             token=request.credential,
@@ -1834,6 +1872,80 @@ async def update_custom_credential_service_config(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to create or update custom credential service configuration: {e!s}",
+        ) from e
+
+
+@base_router.post(
+    "/credentials/custom_credential/test_connection",
+    summary="Test Custom Credential Service Connection",
+    description="Tests connectivity to the custom credential service API.",
+    include_in_schema=False,
+)
+@base_router.post(
+    "/credentials/custom_credential/test_connection/",
+    include_in_schema=False,
+)
+async def test_custom_credential_service_connection(
+    request: CreateCustomCredentialServiceConfigRequest,
+    current_org: Organization = Depends(org_auth_service.get_current_org),
+) -> TestConnectionResponse:
+    """
+    Test connectivity to the custom credential service API.
+
+    Makes a GET request to the api_base_url with the provided Bearer token
+    to verify the service is reachable and the token is valid.
+    Uses the shared URL validator for scheme/host validation (respects ALLOWED_HOSTS / BLOCKED_HOSTS).
+    """
+    api_base_url = request.config.api_base_url
+    api_token = request.config.api_token
+
+    try:
+        validated_url = validate_url(api_base_url)
+    except SkyvernHTTPException as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
+
+    if not validated_url:
+        raise HTTPException(status_code=400, detail="Invalid URL")
+
+    try:
+        status_code, _, _ = await aiohttp_request(
+            method="GET",
+            url=validated_url,
+            headers={"Authorization": f"Bearer {api_token}"},
+            timeout=10,
+        )
+
+        if 200 <= status_code < 300:
+            LOG.info(
+                "Custom credential service connection test succeeded",
+                organization_id=current_org.organization_id,
+                api_base_url=api_base_url,
+                status_code=status_code,
+            )
+            return TestConnectionResponse(success=True)
+
+        LOG.warning(
+            "Custom credential service returned non-2xx status",
+            organization_id=current_org.organization_id,
+            api_base_url=api_base_url,
+            status_code=status_code,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Connection test failed: server returned HTTP {status_code}",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        LOG.warning(
+            "Custom credential service connection test failed",
+            organization_id=current_org.organization_id,
+            api_base_url=api_base_url,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Connection test failed: could not reach the specified URL",
         ) from e
 
 

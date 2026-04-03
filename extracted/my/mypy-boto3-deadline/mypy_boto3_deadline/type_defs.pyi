@@ -366,6 +366,7 @@ __all__ = (
     "ParameterSpaceTypeDef",
     "PathMappingRuleTypeDef",
     "PosixUserTypeDef",
+    "PriorityBalancedSchedulingConfigurationTypeDef",
     "PutMeteredProductRequestTypeDef",
     "QueueEnvironmentSummaryTypeDef",
     "QueueFleetAssociationSummaryTypeDef",
@@ -375,6 +376,13 @@ __all__ = (
     "ResponseBudgetActionTypeDef",
     "ResponseMetadataTypeDef",
     "S3LocationTypeDef",
+    "SchedulingConfigurationOutputTypeDef",
+    "SchedulingConfigurationTypeDef",
+    "SchedulingConfigurationUnionTypeDef",
+    "SchedulingMaxPriorityOverrideOutputTypeDef",
+    "SchedulingMaxPriorityOverrideTypeDef",
+    "SchedulingMinPriorityOverrideOutputTypeDef",
+    "SchedulingMinPriorityOverrideTypeDef",
     "SearchFilterExpressionTypeDef",
     "SearchGroupedFilterExpressionsTypeDef",
     "SearchJobsRequestTypeDef",
@@ -454,6 +462,8 @@ __all__ = (
     "VpcConfigurationOutputTypeDef",
     "VpcConfigurationTypeDef",
     "WaiterConfigTypeDef",
+    "WeightedBalancedSchedulingConfigurationOutputTypeDef",
+    "WeightedBalancedSchedulingConfigurationTypeDef",
     "WindowsUserTypeDef",
     "WorkerAmountCapabilityTypeDef",
     "WorkerAttributeCapabilityTypeDef",
@@ -1385,9 +1395,24 @@ class ParameterSortExpressionTypeDef(TypedDict):
     sortOrder: SortOrderType
     name: str
 
+class PriorityBalancedSchedulingConfigurationTypeDef(TypedDict):
+    renderingTaskBuffer: NotRequired[int]
+
 class PutMeteredProductRequestTypeDef(TypedDict):
     licenseEndpointId: str
     productId: str
+
+class SchedulingMaxPriorityOverrideOutputTypeDef(TypedDict):
+    alwaysScheduleFirst: NotRequired[dict[str, Any]]
+
+class SchedulingMaxPriorityOverrideTypeDef(TypedDict):
+    alwaysScheduleFirst: NotRequired[Mapping[str, Any]]
+
+class SchedulingMinPriorityOverrideOutputTypeDef(TypedDict):
+    alwaysScheduleLast: NotRequired[dict[str, Any]]
+
+class SchedulingMinPriorityOverrideTypeDef(TypedDict):
+    alwaysScheduleLast: NotRequired[Mapping[str, Any]]
 
 class SearchTermFilterExpressionTypeDef(TypedDict):
     searchTerm: str
@@ -2285,6 +2310,24 @@ class ListStorageProfilesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class WeightedBalancedSchedulingConfigurationOutputTypeDef(TypedDict):
+    priorityWeight: NotRequired[float]
+    errorWeight: NotRequired[float]
+    submissionTimeWeight: NotRequired[float]
+    renderingTaskWeight: NotRequired[float]
+    renderingTaskBuffer: NotRequired[int]
+    maxPriorityOverride: NotRequired[SchedulingMaxPriorityOverrideOutputTypeDef]
+    minPriorityOverride: NotRequired[SchedulingMinPriorityOverrideOutputTypeDef]
+
+class WeightedBalancedSchedulingConfigurationTypeDef(TypedDict):
+    priorityWeight: NotRequired[float]
+    errorWeight: NotRequired[float]
+    submissionTimeWeight: NotRequired[float]
+    renderingTaskWeight: NotRequired[float]
+    renderingTaskBuffer: NotRequired[int]
+    maxPriorityOverride: NotRequired[SchedulingMaxPriorityOverrideTypeDef]
+    minPriorityOverride: NotRequired[SchedulingMinPriorityOverrideTypeDef]
+
 class SearchSortExpressionTypeDef(TypedDict):
     userJobsFirst: NotRequired[UserJobsFirstTypeDef]
     fieldSort: NotRequired[FieldSortExpressionTypeDef]
@@ -2549,38 +2592,6 @@ class BatchGetJobEntityRequestTypeDef(TypedDict):
     workerId: str
     identifiers: Sequence[JobEntityIdentifiersUnionTypeDef]
 
-class CreateQueueRequestTypeDef(TypedDict):
-    farmId: str
-    displayName: str
-    clientToken: NotRequired[str]
-    description: NotRequired[str]
-    defaultBudgetAction: NotRequired[DefaultQueueBudgetActionType]
-    jobAttachmentSettings: NotRequired[JobAttachmentSettingsTypeDef]
-    roleArn: NotRequired[str]
-    jobRunAsUser: NotRequired[JobRunAsUserTypeDef]
-    requiredFileSystemLocationNames: NotRequired[Sequence[str]]
-    allowedStorageProfileIds: NotRequired[Sequence[str]]
-    tags: NotRequired[Mapping[str, str]]
-
-class GetQueueResponseTypeDef(TypedDict):
-    farmId: str
-    queueId: str
-    displayName: str
-    status: QueueStatusType
-    defaultBudgetAction: DefaultQueueBudgetActionType
-    blockedReason: QueueBlockedReasonType
-    createdAt: datetime
-    createdBy: str
-    updatedAt: datetime
-    updatedBy: str
-    description: str
-    jobAttachmentSettings: JobAttachmentSettingsTypeDef
-    roleArn: str
-    requiredFileSystemLocationNames: list[str]
-    allowedStorageProfileIds: list[str]
-    jobRunAsUser: JobRunAsUserTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class JobDetailsEntityTypeDef(TypedDict):
     jobId: str
     logGroupName: str
@@ -2591,20 +2602,15 @@ class JobDetailsEntityTypeDef(TypedDict):
     parameters: NotRequired[dict[str, JobParameterTypeDef]]
     pathMappingRules: NotRequired[list[PathMappingRuleTypeDef]]
 
-class UpdateQueueRequestTypeDef(TypedDict):
-    farmId: str
-    queueId: str
-    clientToken: NotRequired[str]
-    displayName: NotRequired[str]
-    description: NotRequired[str]
-    defaultBudgetAction: NotRequired[DefaultQueueBudgetActionType]
-    jobAttachmentSettings: NotRequired[JobAttachmentSettingsTypeDef]
-    roleArn: NotRequired[str]
-    jobRunAsUser: NotRequired[JobRunAsUserTypeDef]
-    requiredFileSystemLocationNamesToAdd: NotRequired[Sequence[str]]
-    requiredFileSystemLocationNamesToRemove: NotRequired[Sequence[str]]
-    allowedStorageProfileIdsToAdd: NotRequired[Sequence[str]]
-    allowedStorageProfileIdsToRemove: NotRequired[Sequence[str]]
+class SchedulingConfigurationOutputTypeDef(TypedDict):
+    priorityFifo: NotRequired[dict[str, Any]]
+    priorityBalanced: NotRequired[PriorityBalancedSchedulingConfigurationTypeDef]
+    weightedBalanced: NotRequired[WeightedBalancedSchedulingConfigurationOutputTypeDef]
+
+class SchedulingConfigurationTypeDef(TypedDict):
+    priorityFifo: NotRequired[Mapping[str, Any]]
+    priorityBalanced: NotRequired[PriorityBalancedSchedulingConfigurationTypeDef]
+    weightedBalanced: NotRequired[WeightedBalancedSchedulingConfigurationTypeDef]
 
 class GetSessionsStatisticsAggregationResponseTypeDef(TypedDict):
     statistics: list[StatisticsTypeDef]
@@ -2726,6 +2732,30 @@ class JobEntityTypeDef(TypedDict):
     stepDetails: NotRequired[StepDetailsEntityTypeDef]
     environmentDetails: NotRequired[EnvironmentDetailsEntityTypeDef]
 
+class GetQueueResponseTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    displayName: str
+    status: QueueStatusType
+    defaultBudgetAction: DefaultQueueBudgetActionType
+    blockedReason: QueueBlockedReasonType
+    createdAt: datetime
+    createdBy: str
+    updatedAt: datetime
+    updatedBy: str
+    description: str
+    jobAttachmentSettings: JobAttachmentSettingsTypeDef
+    roleArn: str
+    requiredFileSystemLocationNames: list[str]
+    allowedStorageProfileIds: list[str]
+    jobRunAsUser: JobRunAsUserTypeDef
+    schedulingConfiguration: SchedulingConfigurationOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+SchedulingConfigurationUnionTypeDef = Union[
+    SchedulingConfigurationTypeDef, SchedulingConfigurationOutputTypeDef
+]
+
 class GetStepResponseTypeDef(TypedDict):
     stepId: str
     name: str
@@ -2846,6 +2876,36 @@ class BatchGetJobEntityResponseTypeDef(TypedDict):
     entities: list[JobEntityTypeDef]
     errors: list[GetJobEntityErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateQueueRequestTypeDef(TypedDict):
+    farmId: str
+    displayName: str
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    defaultBudgetAction: NotRequired[DefaultQueueBudgetActionType]
+    jobAttachmentSettings: NotRequired[JobAttachmentSettingsTypeDef]
+    roleArn: NotRequired[str]
+    jobRunAsUser: NotRequired[JobRunAsUserTypeDef]
+    requiredFileSystemLocationNames: NotRequired[Sequence[str]]
+    allowedStorageProfileIds: NotRequired[Sequence[str]]
+    tags: NotRequired[Mapping[str, str]]
+    schedulingConfiguration: NotRequired[SchedulingConfigurationUnionTypeDef]
+
+class UpdateQueueRequestTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    clientToken: NotRequired[str]
+    displayName: NotRequired[str]
+    description: NotRequired[str]
+    defaultBudgetAction: NotRequired[DefaultQueueBudgetActionType]
+    jobAttachmentSettings: NotRequired[JobAttachmentSettingsTypeDef]
+    roleArn: NotRequired[str]
+    jobRunAsUser: NotRequired[JobRunAsUserTypeDef]
+    requiredFileSystemLocationNamesToAdd: NotRequired[Sequence[str]]
+    requiredFileSystemLocationNamesToRemove: NotRequired[Sequence[str]]
+    allowedStorageProfileIdsToAdd: NotRequired[Sequence[str]]
+    allowedStorageProfileIdsToRemove: NotRequired[Sequence[str]]
+    schedulingConfiguration: NotRequired[SchedulingConfigurationUnionTypeDef]
 
 class SearchStepsResponseTypeDef(TypedDict):
     steps: list[StepSearchSummaryTypeDef]

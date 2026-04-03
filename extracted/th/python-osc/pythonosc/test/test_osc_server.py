@@ -1,9 +1,10 @@
+import socket
 import unittest
 import unittest.mock
 
 from pythonosc import dispatcher, osc_server
 
-_SIMPLE_PARAM_INT_MSG = b"/SYNC\x00\x00\x00" b",i\x00\x00" b"\x00\x00\x00\x04"
+_SIMPLE_PARAM_INT_MSG = b"/SYNC\x00\x00\x00,i\x00\x00\x00\x00\x00\x04"
 
 # Regression test for a datagram that should NOT be stripped, ever...
 _SIMPLE_PARAM_INT_9 = b"/debug\x00\x00,i\x00\x00\x00\x00\x00\t"
@@ -110,6 +111,29 @@ class TestUDPHandler(unittest.TestCase):
             b"/SYNC\00\00\00,isf\x00\x00\x00\x00\x00\x00\x00\x012\x00\x00\x00@@\x00\x00",
             ("127.0.0.1", 8080),
         )
+
+
+class TestOscUdpServer(unittest.TestCase):
+    @unittest.mock.patch("socket.socket")
+    def test_init_timeout(self, mock_socket_ctor):
+        dispatcher = unittest.mock.Mock()
+        server = osc_server.OSCUDPServer(("127.0.0.1", 0), dispatcher, timeout=10.0)
+        self.assertEqual(server.timeout, 10.0)
+
+    @unittest.mock.patch("socket.socket")
+    def test_init_family_inference_ipv4(self, mock_socket_ctor):
+        dispatcher = unittest.mock.Mock()
+        server = osc_server.OSCUDPServer(("127.0.0.1", 0), dispatcher)
+        self.assertEqual(server.address_family, socket.AF_INET)
+
+    @unittest.mock.patch("socket.socket")
+    def test_init_family_inference_ipv6(self, mock_socket_ctor):
+        dispatcher = unittest.mock.Mock()
+        # Mock getaddrinfo to return IPv6 for this test to be environment-independent
+        with unittest.mock.patch("socket.getaddrinfo") as mock_getaddrinfo:
+            mock_getaddrinfo.return_value = [(socket.AF_INET6, None, None, None, None)]
+            server = osc_server.OSCUDPServer(("::1", 0), dispatcher)
+            self.assertEqual(server.address_family, socket.AF_INET6)
 
 
 if __name__ == "__main__":

@@ -12,12 +12,6 @@ use crate::{
     spans::{ResponseInfo, SpanError},
 };
 
-struct AttributeToolCall {
-    id: String,
-    name: String,
-    input: Value,
-}
-
 pub fn extract_attributes(
     input: PostMessagesRequest,
     output: ResponseInfo,
@@ -35,10 +29,9 @@ pub fn extract_attributes(
         "lmnr.span.type".to_string(),
         Value::String("LLM".to_string()),
     );
-    attributes.insert(
-        "gen_ai.request.model".to_string(),
-        Value::String(input.model),
-    );
+    if let Some(req_model) = input.model {
+        attributes.insert("gen_ai.request.model".to_string(), Value::String(req_model));
+    }
     attributes.insert(
         "gen_ai.request.max_tokens".to_string(),
         Value::Number(input.max_tokens.into()),
@@ -77,61 +70,36 @@ pub fn extract_attributes(
         );
     }
     if let Some(tools) = input.tools {
-        tools.iter().enumerate().for_each(|(i, tool)| {
-            attributes.insert(
-                format!("llm.request.functions.{}.name", i),
-                Value::String(tool.name.clone()),
-            );
-            if let Some(description) = &tool.description {
-                attributes.insert(
-                    format!("llm.request.functions.{}.description", i),
-                    Value::String(description.clone()),
-                );
-            }
-            attributes.insert(
-                format!("llm.request.functions.{}.parameters", i),
-                tool.input_schema.clone(),
-            );
-        });
-    }
-    let increment_message_index = if input.system.is_some() { 1 } else { 0 };
-    if let Some(system) = input.system {
         attributes.insert(
-            format!("gen_ai.prompt.0.role"),
-            Value::String("system".to_string()),
-        );
-        attributes.insert(
-            format!("gen_ai.prompt.0.content"),
-            Value::String(system.to_string()),
+            "gen_ai.tool.definitions".to_string(),
+            Value::Array(
+                tools
+                    .iter()
+                    .map(|t| serde_json::to_value(t).unwrap_or(Value::Null))
+                    .collect(),
+            ),
         );
     }
-    for (i, message) in input.messages.iter().enumerate() {
-        let role = match message.role {
-            MessageRole::User => "user".to_string(),
-            MessageRole::Assistant => "assistant".to_string(),
-        };
-        let msg_idx = i + increment_message_index;
-        attributes.insert(format!("gen_ai.prompt.{msg_idx}.role"), Value::String(role));
-        match &message.content {
-            MessageContent::String(text) => {
-                attributes.insert(
-                    format!("gen_ai.prompt.{msg_idx}.content"),
-                    Value::String(text.clone()),
-                );
-            }
-            MessageContent::Blocks(blocks) => match serde_json::to_string(&blocks) {
-                Ok(blocks_string) => {
-                    attributes.insert(
-                        format!("gen_ai.prompt.{msg_idx}.content"),
-                        Value::String(blocks_string),
-                    );
-                }
-                Err(e) => {
-                    eprintln!("Failed to serialize blocks: {}", e);
-                }
-            },
-        }
-    }
+
+    let mut messages = input
+        .system
+        .map(|s| {
+            serde_json::json!({
+                "role": "system",
+                "content": s
+            })
+        })
+        .map(|s| vec![s])
+        .unwrap_or(vec![]);
+
+    messages.extend(
+        input
+            .messages
+            .iter()
+            .filter_map(|m| serde_json::to_value(m).ok()),
+    );
+
+    attributes.insert("gen_ai.input.messages".to_string(), Value::Array(messages));
 
     add_response_attributes(&mut attributes, output);
 
@@ -183,105 +151,34 @@ fn add_success_attributes(attributes: &mut HashMap<String, Value>, output: Messa
         );
     }
 
+    let mut result = HashMap::from([("role".to_string(), Value::String("assistant".to_string()))]);
     if let Some(stop_reason) = output.stop_reason {
-        attributes.insert(
-            "llm.response.stop_reason".to_string(),
-            serde_json::to_value(stop_reason).unwrap(),
-        );
+        let stop_reason_val = serde_json::to_value(stop_reason);
+        if let Ok(stop_reason_val) = stop_reason_val {
+            attributes.insert(
+                "gen_ai.response.finish_reasons".to_string(),
+                Value::Array(vec![stop_reason_val.clone()]),
+            );
+            result.insert("stop_reason".to_string(), stop_reason_val);
+        }
     }
 
-    // Parsing output in legacy attributes format. Once the frontend supports
-    // the Anthropic format, and the backend passes the messages through raw,
-    // we can just send `gen_ai.output.messages` or `lmnr.span.output` directly.
-    let mut content_string = String::new();
-    let mut thinking_string = String::new();
-    let mut tool_calls = Vec::new();
-    output.content.iter().for_each(|block| match block {
-        ResponseContentBlock::Text { text, .. } => {
-            content_string.push_str(text);
-        }
-        ResponseContentBlock::ToolUse { id, name, input } => {
-            tool_calls.push(AttributeToolCall {
-                id: id.clone(),
-                name: name.clone(),
-                input: input.clone(),
-            });
-        }
-        ResponseContentBlock::ServerToolUse {
-            id, input, name, ..
-        } => {
-            tool_calls.push(AttributeToolCall {
-                id: id.clone(),
-                name: name.clone(),
-                input: input.clone(),
-            });
-        }
-        ResponseContentBlock::McpToolUse {
-            id,
-            input,
-            name,
-            server_name,
-            ..
-        } => {
-            let inputs = HashMap::from([
-                ("input".to_string(), input.clone()),
-                (
-                    "server_name".to_string(),
-                    Value::String(server_name.clone()),
-                ),
-            ]);
-            tool_calls.push(AttributeToolCall {
-                id: id.clone(),
-                name: name.clone(),
-                input: serde_json::to_value(inputs).unwrap_or_default(),
-            });
-        }
-        ResponseContentBlock::Thinking { thinking, .. } => {
-            thinking_string.push_str(thinking);
-        }
-        ResponseContentBlock::RedactedThinking { data } => {
-            thinking_string.push_str(data);
-        }
-        // Most other blocks can't be there in response, even though the
-        // anthropic API docs and SDK reuse the type `ContentBlock` for both
-        // request and response.
-        _ => {}
-    });
+    let output_blocks = output
+        .content
+        .iter()
+        .filter_map(|block| serde_json::to_value(block).ok())
+        .collect::<Vec<_>>();
 
-    let mut completion_id = 0;
-    if !thinking_string.is_empty() {
-        attributes.insert(
-            "gen_ai.completion.0.role".to_string(),
-            Value::String("thinking".to_string()),
-        );
-        attributes.insert(
-            "gen_ai.completion.0.thinking".to_string(),
-            Value::String(thinking_string),
-        );
-        completion_id += 1;
-    }
+    result.insert("content".to_string(), Value::Array(output_blocks));
+
+    let output_messages = serde_json::to_value(result)
+        .map(|v| vec![v])
+        .unwrap_or_default();
+
     attributes.insert(
-        format!("gen_ai.completion.{completion_id}.role"),
-        Value::String("assistant".to_string()),
+        "gen_ai.output.messages".to_string(),
+        Value::Array(output_messages),
     );
-    attributes.insert(
-        format!("gen_ai.completion.{completion_id}.content"),
-        Value::String(content_string),
-    );
-    for (i, tool_call) in tool_calls.into_iter().enumerate() {
-        attributes.insert(
-            format!("gen_ai.completion.{completion_id}.tool_calls.{i}.id"),
-            Value::String(tool_call.id),
-        );
-        attributes.insert(
-            format!("gen_ai.completion.{completion_id}.tool_calls.{i}.name"),
-            Value::String(tool_call.name),
-        );
-        attributes.insert(
-            format!("gen_ai.completion.{completion_id}.tool_calls.{i}.arguments"),
-            tool_call.input,
-        );
-    }
 }
 
 pub fn convert_attributes_to_proto_key_value(

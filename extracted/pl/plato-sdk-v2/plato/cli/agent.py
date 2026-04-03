@@ -922,7 +922,6 @@ def _push_single_agent(
             # pre-bake the agent package (skips ~14s install at runtime).
             docker_build_args = {
                 "AGENT_VERSION": version,
-                "PYPI_STORE_URL": plato_token_simple_index("pypi-store", api_key=api_key),
                 "PYPI_AGENTS_URL": plato_token_simple_index("agents", api_key=api_key),
             }
             _publish_agent_image(

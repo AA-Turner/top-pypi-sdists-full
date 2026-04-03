@@ -6,7 +6,8 @@ from openrouter._hooks import HookContext
 from openrouter.types import OptionalNullable, UNSET
 from openrouter.utils import get_security_from_env
 from openrouter.utils.unmarshal_json_response import unmarshal_json_response
-from typing import Any, Mapping, Optional, Union
+from typing import Any, Mapping, Optional
+from typing_extensions import deprecated
 
 
 class Credits(BaseSDK):
@@ -250,16 +251,12 @@ class Credits(BaseSDK):
 
         raise errors.OpenRouterDefaultError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     def create_coinbase_charge(
         self,
         *,
-        security: Union[
-            operations.CreateCoinbaseChargeSecurity,
-            operations.CreateCoinbaseChargeSecurityTypedDict,
-        ],
-        amount: float,
-        sender: str,
-        chain_id: components.ChainID,
         http_referer: Optional[str] = None,
         x_open_router_title: Optional[str] = None,
         x_open_router_categories: Optional[str] = None,
@@ -267,15 +264,11 @@ class Credits(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> operations.CreateCoinbaseChargeResponse:
-        r"""Create a Coinbase charge for crypto payment
+    ):
+        r"""Deprecated Coinbase Commerce charge endpoint
 
-        Create a Coinbase charge for crypto payment
+        Deprecated. The Coinbase APIs used by this endpoint have been deprecated, so Coinbase Commerce charges have been removed. Use the web credits purchase flow instead.
 
-        :param security:
-        :param amount:
-        :param sender:
-        :param chain_id:
         :param http_referer: The app identifier should be your app's URL and is used as the primary identifier for rankings.
             This is used to track API usage per application.
 
@@ -302,11 +295,6 @@ class Credits(BaseSDK):
             http_referer=http_referer,
             x_open_router_title=x_open_router_title,
             x_open_router_categories=x_open_router_categories,
-            create_charge_request=components.CreateChargeRequest(
-                amount=amount,
-                sender=sender,
-                chain_id=chain_id,
-            ),
         )
 
         req = self._build_request(
@@ -315,9 +303,9 @@ class Credits(BaseSDK):
             base_url=base_url,
             url_variables=url_variables,
             request=request,
-            request_body_required=True,
+            request_body_required=False,
             request_has_path_params=False,
-            request_has_query_params=True,
+            request_has_query_params=False,
             user_agent_header="user-agent",
             accept_header_value="application/json",
             http_headers=http_headers,
@@ -325,16 +313,6 @@ class Credits(BaseSDK):
                 http_referer=self.sdk_configuration.globals.http_referer,
                 x_open_router_title=self.sdk_configuration.globals.x_open_router_title,
                 x_open_router_categories=self.sdk_configuration.globals.x_open_router_categories,
-            ),
-            security=utils.get_pydantic_model(
-                security, operations.CreateCoinbaseChargeSecurity
-            ),
-            get_serialized_body=lambda: utils.serialize_request_body(
-                request.create_charge_request,
-                False,
-                False,
-                "json",
-                components.CreateChargeRequest,
             ),
             allow_empty_value=None,
             timeout_ms=timeout_ms,
@@ -354,38 +332,21 @@ class Credits(BaseSDK):
                 base_url=base_url or "",
                 operation_id="createCoinbaseCharge",
                 oauth2_scopes=None,
-                security_source=get_security_from_env(security, components.Security),
+                security_source=None,
             ),
             request=req,
-            error_status_codes=["400", "401", "429", "4XX", "500", "5XX"],
+            error_status_codes=["410", "4XX", "5XX"],
             retry_config=retry_config,
         )
 
         response_data: Any = None
-        if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                operations.CreateCoinbaseChargeResponse, http_res
-            )
-        if utils.match_response(http_res, "400", "application/json"):
+        if utils.match_response(http_res, "410", "application/json"):
             response_data = unmarshal_json_response(
-                errors.BadRequestResponseErrorData, http_res
+                errors.GoneResponseErrorData, http_res
             )
-            raise errors.BadRequestResponseError(response_data, http_res)
-        if utils.match_response(http_res, "401", "application/json"):
-            response_data = unmarshal_json_response(
-                errors.UnauthorizedResponseErrorData, http_res
-            )
-            raise errors.UnauthorizedResponseError(response_data, http_res)
-        if utils.match_response(http_res, "429", "application/json"):
-            response_data = unmarshal_json_response(
-                errors.TooManyRequestsResponseErrorData, http_res
-            )
-            raise errors.TooManyRequestsResponseError(response_data, http_res)
-        if utils.match_response(http_res, "500", "application/json"):
-            response_data = unmarshal_json_response(
-                errors.InternalServerResponseErrorData, http_res
-            )
-            raise errors.InternalServerResponseError(response_data, http_res)
+            raise errors.GoneResponseError(response_data, http_res)
+        if utils.match_response(http_res, "2XX", "*"):
+            return
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = utils.stream_to_text(http_res)
             raise errors.OpenRouterDefaultError(
@@ -399,16 +360,12 @@ class Credits(BaseSDK):
 
         raise errors.OpenRouterDefaultError("Unexpected response received", http_res)
 
+    @deprecated(
+        "warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+    )
     async def create_coinbase_charge_async(
         self,
         *,
-        security: Union[
-            operations.CreateCoinbaseChargeSecurity,
-            operations.CreateCoinbaseChargeSecurityTypedDict,
-        ],
-        amount: float,
-        sender: str,
-        chain_id: components.ChainID,
         http_referer: Optional[str] = None,
         x_open_router_title: Optional[str] = None,
         x_open_router_categories: Optional[str] = None,
@@ -416,15 +373,11 @@ class Credits(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> operations.CreateCoinbaseChargeResponse:
-        r"""Create a Coinbase charge for crypto payment
+    ):
+        r"""Deprecated Coinbase Commerce charge endpoint
 
-        Create a Coinbase charge for crypto payment
+        Deprecated. The Coinbase APIs used by this endpoint have been deprecated, so Coinbase Commerce charges have been removed. Use the web credits purchase flow instead.
 
-        :param security:
-        :param amount:
-        :param sender:
-        :param chain_id:
         :param http_referer: The app identifier should be your app's URL and is used as the primary identifier for rankings.
             This is used to track API usage per application.
 
@@ -451,11 +404,6 @@ class Credits(BaseSDK):
             http_referer=http_referer,
             x_open_router_title=x_open_router_title,
             x_open_router_categories=x_open_router_categories,
-            create_charge_request=components.CreateChargeRequest(
-                amount=amount,
-                sender=sender,
-                chain_id=chain_id,
-            ),
         )
 
         req = self._build_request_async(
@@ -464,9 +412,9 @@ class Credits(BaseSDK):
             base_url=base_url,
             url_variables=url_variables,
             request=request,
-            request_body_required=True,
+            request_body_required=False,
             request_has_path_params=False,
-            request_has_query_params=True,
+            request_has_query_params=False,
             user_agent_header="user-agent",
             accept_header_value="application/json",
             http_headers=http_headers,
@@ -474,16 +422,6 @@ class Credits(BaseSDK):
                 http_referer=self.sdk_configuration.globals.http_referer,
                 x_open_router_title=self.sdk_configuration.globals.x_open_router_title,
                 x_open_router_categories=self.sdk_configuration.globals.x_open_router_categories,
-            ),
-            security=utils.get_pydantic_model(
-                security, operations.CreateCoinbaseChargeSecurity
-            ),
-            get_serialized_body=lambda: utils.serialize_request_body(
-                request.create_charge_request,
-                False,
-                False,
-                "json",
-                components.CreateChargeRequest,
             ),
             allow_empty_value=None,
             timeout_ms=timeout_ms,
@@ -503,38 +441,21 @@ class Credits(BaseSDK):
                 base_url=base_url or "",
                 operation_id="createCoinbaseCharge",
                 oauth2_scopes=None,
-                security_source=get_security_from_env(security, components.Security),
+                security_source=None,
             ),
             request=req,
-            error_status_codes=["400", "401", "429", "4XX", "500", "5XX"],
+            error_status_codes=["410", "4XX", "5XX"],
             retry_config=retry_config,
         )
 
         response_data: Any = None
-        if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                operations.CreateCoinbaseChargeResponse, http_res
-            )
-        if utils.match_response(http_res, "400", "application/json"):
+        if utils.match_response(http_res, "410", "application/json"):
             response_data = unmarshal_json_response(
-                errors.BadRequestResponseErrorData, http_res
+                errors.GoneResponseErrorData, http_res
             )
-            raise errors.BadRequestResponseError(response_data, http_res)
-        if utils.match_response(http_res, "401", "application/json"):
-            response_data = unmarshal_json_response(
-                errors.UnauthorizedResponseErrorData, http_res
-            )
-            raise errors.UnauthorizedResponseError(response_data, http_res)
-        if utils.match_response(http_res, "429", "application/json"):
-            response_data = unmarshal_json_response(
-                errors.TooManyRequestsResponseErrorData, http_res
-            )
-            raise errors.TooManyRequestsResponseError(response_data, http_res)
-        if utils.match_response(http_res, "500", "application/json"):
-            response_data = unmarshal_json_response(
-                errors.InternalServerResponseErrorData, http_res
-            )
-            raise errors.InternalServerResponseError(response_data, http_res)
+            raise errors.GoneResponseError(response_data, http_res)
+        if utils.match_response(http_res, "2XX", "*"):
+            return
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
             raise errors.OpenRouterDefaultError(

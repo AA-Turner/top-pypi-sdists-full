@@ -15,7 +15,7 @@ from django.conf import settings
 from django.utils.translation import gettext_noop as _
 from fs.errors import ResourceNotFound
 from lxml import etree
-from opaque_keys.edx.keys import CourseKey, UsageKey
+from opaque_keys.edx.keys import CourseKey
 from opaque_keys.edx.locator import LibraryLocatorV2
 from path import Path as path
 from web_fragments.fragment import Fragment
@@ -188,26 +188,6 @@ class HtmlBlockMixin(LegacyXmlMixin, XBlock):
     icon_class = "other"
 
     @property
-    def category(self):
-        return self.scope_ids.block_type
-
-    @property
-    def location(self):
-        return self.scope_ids.usage_id
-
-    @location.setter
-    def location(self, value):
-        assert isinstance(value, UsageKey)
-        self.scope_ids = self.scope_ids._replace(
-            def_id=value,  # Note: assigning a UsageKey as def_id is OK in old mongo / import system but wrong in split
-            usage_id=value,
-        )
-
-    @property
-    def url_name(self):
-        return self.location.block_id
-
-    @property
     def xblock_kvs(self):
         """
         Retrieves the internal KeyValueStore for this XModule.
@@ -264,7 +244,7 @@ class HtmlBlockMixin(LegacyXmlMixin, XBlock):
                     data = data.replace("%%USER_EMAIL%%", email)
 
         # The course ID replacement is always safe to run.
-        data = data.replace("%%COURSE_ID%%", str(self.scope_ids.usage_id.context_key))
+        data = data.replace("%%COURSE_ID%%", str(self.context_key))
         return data
 
     def studio_view(self, context=None):
@@ -324,7 +304,7 @@ class HtmlBlockMixin(LegacyXmlMixin, XBlock):
             "module": self,
             "editable_metadata_fields": self.editable_metadata_fields,
             "data": self.data,
-            "base_asset_url": self.get_base_url_path_for_course_assets(self.location.course_key),
+            "base_asset_url": self.get_base_url_path_for_course_assets(self.context_key),
             "enable_latex_compiler": self.use_latex_compiler,
             "editor": self.editor,
         }
@@ -545,8 +525,8 @@ class HtmlBlockMixin(LegacyXmlMixin, XBlock):
         """
 
         # Write html to file, return an empty tag
-        pathname = name_to_pathname(self.url_name)
-        filepath = "{category}/{pathname}.html".format(category=self.category, pathname=pathname)
+        pathname = name_to_pathname(self.usage_key.block_id)
+        filepath = "{category}/{pathname}.html".format(category=self.usage_key.block_type, pathname=pathname)
 
         resource_fs.makedirs(os.path.dirname(filepath), recreate=True)
         with resource_fs.open(filepath, "wb") as filestream:

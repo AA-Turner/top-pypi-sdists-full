@@ -53,3 +53,6 @@ pub enum ThreatDetectionError {
 }
 
 pub type Result<T> = std::result::Result<T, ThreatDetectionError>;
+
+#[cfg(test)]
+mod tests;

@@ -293,6 +293,35 @@ def test_url_rejects_invalid_relative_usage():
 
 
 @pytest.mark.parametrize(
+    "valid_url",
+    [
+        "https://তৌহিদুর.বাংলা",
+        "https://münchen.de",
+        "https://例え.jp/path",
+        "http://مثال.إختبار",
+        "https://üñîçödé.com/path?q=1#frag",
+        "http://www.اختبار.com:8080/path",
+    ],
+)
+def test_url_idn_valid(valid_url):
+    validator = validate.URL()
+    assert validator(valid_url) == valid_url
+
+
+@pytest.mark.parametrize(
+    "invalid_url",
+    [
+        "münchen.de",
+        "তৌহিদুর.বাংলা",
+    ],
+)
+def test_url_idn_invalid(invalid_url):
+    validator = validate.URL()
+    with pytest.raises(ValidationError):
+        validator(invalid_url)
+
+
+@pytest.mark.parametrize(
     "valid_email",
     [
         "niceandsimple@example.com",
@@ -334,6 +363,37 @@ def test_email_valid(valid_email):
     ],
 )
 def test_email_invalid(invalid_email):
+    validator = validate.Email()
+    with pytest.raises(ValidationError):
+        validator(invalid_email)
+
+
+@pytest.mark.parametrize(
+    "valid_email",
+    [
+        "user@münchen.de",
+        "user@例え.jp",
+        "user@مثال.إختبار",
+        "user@пример.испытание",
+        "user@üñîçödé.com",
+        "δοκ.ιμή@παράδειγμα.δοκιμή",
+        "user@sub.münchen.de",
+    ],
+)
+def test_email_idn_valid(valid_email):
+    validator = validate.Email()
+    assert validator(valid_email) == valid_email
+
+
+@pytest.mark.parametrize(
+    "invalid_email",
+    [
+        "user@-münchen.de",
+        "user@münchen-.de",
+        "user@münchen",
+    ],
+)
+def test_email_idn_invalid(invalid_email):
     validator = validate.Email()
     with pytest.raises(ValidationError):
         validator(invalid_email)

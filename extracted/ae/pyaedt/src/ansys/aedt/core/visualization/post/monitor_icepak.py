@@ -22,8 +22,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from __future__ import annotations
-
 import re
 
 from ansys.aedt.core.base import PyAedtBase
@@ -224,7 +222,7 @@ class Monitor(PyAedtBase):
         return True
 
     @pyaedt_function_handler
-    def get_icepak_monitor_object(self, monitor_name: str):
+    def get_icepak_monitor_object(self, monitor_name):
         """Get Icepak monitor object.
 
         Returns
@@ -234,7 +232,7 @@ class Monitor(PyAedtBase):
         return self._app.odesign.GetChildObject("Monitor").GetChildObject(monitor_name)
 
     @property
-    def face_monitors(self) -> dict:
+    def face_monitors(self):
         """Get point monitor objects.
 
         Returns
@@ -246,7 +244,7 @@ class Monitor(PyAedtBase):
         return self._face_monitors
 
     @property
-    def point_monitors(self) -> dict:
+    def point_monitors(self):
         """Get face monitor objects.
 
         Returns
@@ -258,7 +256,7 @@ class Monitor(PyAedtBase):
         return self._point_monitors
 
     @property
-    def all_monitors(self) -> dict:
+    def all_monitors(self):
         """Get all monitor objects.
 
         Returns
@@ -273,9 +271,7 @@ class Monitor(PyAedtBase):
         return out_dict
 
     @pyaedt_function_handler()
-    def assign_point_monitor(
-        self, point_position: list | str, monitor_quantity: str = "Temperature", monitor_name: str = None
-    ) -> str | list | bool:
+    def assign_point_monitor(self, point_position, monitor_quantity: str = "Temperature", monitor_name=None):
         """Create and assign a point monitor.
 
         Parameters
@@ -355,9 +351,7 @@ class Monitor(PyAedtBase):
             return False
 
     @pyaedt_function_handler()
-    def assign_point_monitor_to_vertex(
-        self, vertex_id: int | list, monitor_quantity: str = "Temperature", monitor_name: str = None
-    ) -> str | list | bool:
+    def assign_point_monitor_to_vertex(self, vertex_id, monitor_quantity: str = "Temperature", monitor_name=None):
         """Create and assign a point monitor to a vertex.
 
         Parameters
@@ -403,9 +397,7 @@ class Monitor(PyAedtBase):
         return False
 
     @pyaedt_function_handler()
-    def assign_surface_monitor(
-        self, surface_name: str | list, monitor_quantity: str = "Temperature", monitor_name: str = None
-    ) -> str | list | bool:
+    def assign_surface_monitor(self, surface_name, monitor_quantity: str = "Temperature", monitor_name=None):
         """Assign a surface monitor.
 
         Parameters
@@ -460,9 +452,7 @@ class Monitor(PyAedtBase):
             return False
 
     @pyaedt_function_handler()
-    def assign_face_monitor(
-        self, face_id: int | list, monitor_quantity: str = "Temperature", monitor_name: str = None
-    ) -> str | list | bool:
+    def assign_face_monitor(self, face_id, monitor_quantity: str = "Temperature", monitor_name=None):
         """Assign a face monitor.
 
         Parameters
@@ -508,9 +498,7 @@ class Monitor(PyAedtBase):
             return False
 
     @pyaedt_function_handler()
-    def assign_point_monitor_in_object(
-        self, name: str | list, monitor_quantity: str = "Temperature", monitor_name: str = None
-    ) -> str | list | bool:
+    def assign_point_monitor_in_object(self, name: str, monitor_quantity: str = "Temperature", monitor_name=None):
         """Assign a point monitor in the centroid of a specific object.
 
         Parameters
@@ -575,7 +563,7 @@ class Monitor(PyAedtBase):
             return False
 
     @pyaedt_function_handler()
-    def delete_monitor(self, monitor_name: str) -> bool:
+    def delete_monitor(self, monitor_name) -> bool:
         """Delete monitor object.
 
         Parameters
@@ -604,7 +592,7 @@ class Monitor(PyAedtBase):
             return False
 
     @pyaedt_function_handler()
-    def get_monitor_object_assignment(self, monitor: str | "FaceMonitor" | "PointMonitor") -> str:
+    def get_monitor_object_assignment(self, monitor):
         """
         Get the object that the monitor is applied to.
 
@@ -639,7 +627,7 @@ class Monitor(PyAedtBase):
                     )
 
     @pyaedt_function_handler()
-    def insert_monitor_object_from_dict(self, monitor_dict: dict, mode: int = 0) -> str | bool:
+    def insert_monitor_object_from_dict(self, monitor_dict, mode: int = 0):
         """Insert a monitor.
 
         Parameters
@@ -701,7 +689,7 @@ class ObjectMonitor(PyAedtBase):
         self._app = app
 
     @property
-    def geometry_assignment(self) -> str:
+    def geometry_assignment(self):
         """
         Get the geometry assignment for the monitor object.
 
@@ -712,7 +700,7 @@ class ObjectMonitor(PyAedtBase):
         return self._app.monitor.get_monitor_object_assignment(self)
 
     @property
-    def name(self) -> str:
+    def name(self):
         """
         Get the name of the monitor object.
 
@@ -723,7 +711,7 @@ class ObjectMonitor(PyAedtBase):
         return self._name
 
     @property
-    def id(self) -> str | int:
+    def id(self):
         """
         Get the name, or id of geometry assignment.
 
@@ -734,7 +722,7 @@ class ObjectMonitor(PyAedtBase):
         return self._id
 
     @property
-    def properties(self) -> dict:
+    def properties(self):
         """
         Get a dictionary of properties.
 
@@ -766,7 +754,7 @@ class ObjectMonitor(PyAedtBase):
         return True
 
     @property
-    def quantities(self) -> list:
+    def quantities(self):
         """
         Get the quantities being monitored.
 
@@ -777,7 +765,7 @@ class ObjectMonitor(PyAedtBase):
         return self._quantities
 
     @property
-    def type(self) -> str:
+    def type(self):
         """
         Get the monitor type.
 
@@ -788,13 +776,7 @@ class ObjectMonitor(PyAedtBase):
         return self._type
 
     @pyaedt_function_handler()
-    def value(
-        self,
-        quantity: str | list | None = None,
-        setup: str | None = None,
-        design_variation_dict: dict | None = None,
-        si_out: bool = True,
-    ) -> dict:
+    def value(self, quantity=None, setup: str | None = None, design_variation_dict=None, si_out: bool = True):
         """Get a list of values obtained from the monitor object.
 
         If the simulation is steady state, the list will contain just one element.
@@ -871,7 +853,7 @@ class PointMonitor(ObjectMonitor):
         ObjectMonitor.__init__(self, monitor_name, monitor_type, point_id, quantity, app)
 
     @property
-    def location(self) -> list:
+    def location(self):
         """
         Get the monitor point location.
 
@@ -896,7 +878,7 @@ class FaceMonitor(ObjectMonitor):
         ObjectMonitor.__init__(self, monitor_name, monitor_type, face_id, quantity, app)
 
     @property
-    def location(self) -> list:
+    def location(self):
         """
         Get the monitor location in terms of face or surface center.
 

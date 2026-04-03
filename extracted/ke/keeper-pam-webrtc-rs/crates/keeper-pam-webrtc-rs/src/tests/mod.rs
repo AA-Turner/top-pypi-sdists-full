@@ -27,11 +27,15 @@ mod adaptive_pool_tests;
 #[cfg(test)]
 mod assembler_tests;
 #[cfg(test)]
+mod channel_close_semantics_tests;
+#[cfg(test)]
 mod channel_tests;
 #[cfg(test)]
 mod common_tests;
 #[cfg(test)]
 mod concurrent_close_tests;
+#[cfg(test)]
+mod drain_callback_tests;
 #[cfg(test)]
 pub mod guacd_handshake_tests;
 #[cfg(test)]
@@ -58,3 +62,5 @@ mod tube_tests;
 mod webrtc_basic_tests;
 #[cfg(test)]
 mod webrtc_core_tests;
+#[cfg(test)]
+mod webrtc_stress_tests;

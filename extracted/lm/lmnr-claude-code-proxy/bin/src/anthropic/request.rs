@@ -6,7 +6,13 @@ use super::common::{CacheControl, ImageSource};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct PostMessagesRequest {
-    pub model: String,
+    // Bedrock allows this to be empty. TODO:
+    // rewrite the entire struct as an untagged enum of
+    // AnthropicMessagesRequest and BedrockMessagesRequest,
+    // so that it's easier to track diffs like this if there are many
+    // later.
+    #[serde(default)]
+    pub model: Option<String>,
     pub max_tokens: u32,
     pub messages: Vec<Message>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -29,7 +35,7 @@ pub struct PostMessagesRequest {
     pub tool_choice: Option<ToolChoice>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(untagged)]
 pub enum SystemPrompt {
     String(String),
@@ -51,7 +57,7 @@ impl SystemPrompt {
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum SystemBlock {
@@ -68,7 +74,7 @@ pub struct Metadata {
     pub user_id: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Deserialize, Clone, Eq, PartialEq, Serialize)]
 pub enum MessageRole {
     #[serde(rename = "user")]
     User,
@@ -76,7 +82,7 @@ pub enum MessageRole {
     Assistant,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Message {
     pub role: MessageRole,
     pub content: MessageContent,
@@ -92,7 +98,7 @@ impl Message {
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(untagged)]
 pub enum MessageContent {
     String(String),
@@ -368,7 +374,7 @@ fn default_input_schema() -> serde_json::Value {
     serde_json::json!({})
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct Tool {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

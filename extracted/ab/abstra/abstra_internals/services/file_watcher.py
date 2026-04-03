@@ -109,7 +109,7 @@ class FileWatcher(FileSystemEventHandler):
                 self._debounce_timers[filepath_str].cancel()
 
             self._debounce_timers[filepath_str] = threading.Timer(
-                interval=0.5, function=execute_handlers
+                interval=1.0, function=execute_handlers
             )
             self._debounce_timers[filepath_str].start()
 

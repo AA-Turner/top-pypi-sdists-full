@@ -6,7 +6,7 @@ import asyncio
 from pathlib import Path
 
 from plato.git_ops.models import GitOpRequest, GitOpResult
-from plato.utils.subprocess import _close_subprocess, build_ssh_command
+from plato.utils.subprocess import VM_PATH_EXPORT, _close_subprocess, build_ssh_command
 
 
 class RemoteGitClient:
@@ -69,7 +69,7 @@ class RemoteGitClient:
         if self._proc is not None and self._proc.returncode is None:
             return
         self._stderr_lines.clear()
-        command = 'export PATH="/root/.local/bin:/usr/local/bin:$PATH"; exec plato-git-ops-server'
+        command = f"{VM_PATH_EXPORT}; exec plato-git-ops-server"
         ssh_cmd = build_ssh_command(self._ssh_key_path, self._hostname)
         ssh_cmd.append(command)
         self._proc = await asyncio.create_subprocess_exec(

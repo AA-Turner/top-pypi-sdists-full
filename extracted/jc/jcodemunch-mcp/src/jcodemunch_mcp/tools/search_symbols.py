@@ -9,7 +9,7 @@ from typing import Optional
 
 from ..storage import IndexStore, CodeIndex, record_savings, estimate_savings, cost_avoided
 from ..parser.imports import resolve_specifier
-from ._utils import resolve_repo
+from ._utils import resolve_repo, resolve_fqn
 
 BYTES_PER_TOKEN = 4
 
@@ -69,7 +69,10 @@ def _sym_tokens(sym: dict) -> list[str]:
     for t in tokens:
         tf[t] = tf.get(t, 0) + 1
     sym["_tf"] = tf
-    sym["_dl"] = len(tokens)
+    # T10: use unique token count for _dl so it matches df (document-frequency)
+    # which also counts unique tokens per symbol. Using len(tokens) inflates
+    # avgdl by the field-repetition weights, distorting BM25 normalisation.
+    sym["_dl"] = len(set(tokens))
     return tokens
 
 
@@ -87,8 +90,14 @@ def _compute_bm25(symbols: list[dict]) -> tuple[dict[str, float], float, dict[st
     inverted: dict[str, list[int]] = {}
     for i, sym in enumerate(symbols):
         toks = _sym_tokens(sym)
-        total_dl += len(toks)
-        for t in set(toks):
+        # T11: always rewrite _dl with the canonical unique-token count.
+        # This makes BM25 rebuilds correct even for retained symbols whose _dl
+        # was cached before T10 (i.e., with the old len(tokens) formula).
+        unique_toks = set(toks)
+        dl = len(unique_toks)
+        sym["_dl"] = dl
+        total_dl += dl
+        for t in unique_toks:
             df[t] = df.get(t, 0) + 1
             inverted.setdefault(t, []).append(i)
     avgdl = total_dl / N
@@ -97,7 +106,8 @@ def _compute_bm25(symbols: list[dict]) -> tuple[dict[str, float], float, dict[st
 
 
 def _compute_centrality(
-    symbols: list[dict], imports: Optional[dict], alias_map: Optional[dict] = None
+    symbols: list[dict], imports: Optional[dict], alias_map: Optional[dict] = None,
+    psr4_map: Optional[dict] = None,
 ) -> dict[str, float]:
     """Return {file: log-scaled centrality bonus} based on importer count."""
     if not imports:
@@ -106,7 +116,7 @@ def _compute_centrality(
     counts: dict[str, int] = {}
     for src_file, file_imports in imports.items():
         for imp in file_imports:
-            target = resolve_specifier(imp["specifier"], src_file, source_files, alias_map)
+            target = resolve_specifier(imp["specifier"], src_file, source_files, alias_map, psr4_map)
             if target:
                 counts[target] = counts.get(target, 0) + 1
     return {f: math.log(1 + c) * _CENTRALITY_WEIGHT for f, c in counts.items()}
@@ -138,7 +148,7 @@ def _bm25_score(sym: dict, query_terms: list[str], idf: dict[str, float], avgdl:
             continue
         score += idf_val * (tf * (_BM25_K1 + 1)) / (tf + K)
 
-    if centrality:
+    if centrality and score > 0:
         score += centrality.get(sym.get("file", ""), 0.0)
 
     return score
@@ -234,7 +244,8 @@ def search_symbols(
     semantic: bool = False,
     semantic_weight: float = 0.5,
     semantic_only: bool = False,
-    storage_path: Optional[str] = None
+    storage_path: Optional[str] = None,
+    fqn: Optional[str] = None,
 ) -> dict:
     """Search for symbols matching a query.
 
@@ -281,6 +292,12 @@ def search_symbols(
     if sort_by not in ("relevance", "centrality", "combined"):
         return {"error": f"Invalid sort_by '{sort_by}'. Must be 'relevance', 'centrality', or 'combined'."}
 
+    # FQN shortcut: resolve PHP FQN and use class name as query
+    if fqn:
+        _resolved, _ = resolve_fqn(repo, fqn, storage_path)
+        if _resolved:
+            query = fqn.rsplit("\\", 1)[-1].split("::")[0]
+
     _MAX_QUERY_LEN = 500
     if len(query) > _MAX_QUERY_LEN:
         return {"error": f"Query too long ({len(query)} chars, max {_MAX_QUERY_LEN})"}
@@ -322,7 +339,7 @@ def search_symbols(
     cache = index._bm25_cache
     if "idf" not in cache:
         cache["idf"], cache["avgdl"], cache["inverted"] = _compute_bm25(index.symbols)
-        cache["centrality"] = _compute_centrality(index.symbols, index.imports, index.alias_map)
+        cache["centrality"] = _compute_centrality(index.symbols, index.imports, index.alias_map, getattr(index, "psr4_map", None))
     idf = cache["idf"]
     avgdl = cache["avgdl"]
     centrality = cache["centrality"]
@@ -334,7 +351,7 @@ def search_symbols(
         if "pagerank" not in cache:
             from .pagerank import compute_pagerank
             pr_scores, _ = compute_pagerank(
-                index.imports or {}, index.source_files, index.alias_map
+                index.imports or {}, index.source_files, index.alias_map, psr4_map=getattr(index, "psr4_map", None)
             )
             cache["pagerank"] = pr_scores
         pagerank = cache["pagerank"]
@@ -458,7 +475,9 @@ def search_symbols(
 
     # Extract results sorted by score descending
     scored_results = [entry for _, _, entry in sorted(heap, key=lambda x: x[0], reverse=True)]
+    heap_count = len(scored_results)  # save before budget packing
 
+    budget_truncated = False
     if token_budget is not None:
         packed, used_bytes = [], 0
         for entry in scored_results:
@@ -466,6 +485,7 @@ def search_symbols(
             if used_bytes + b <= budget_bytes:
                 packed.append(entry)
                 used_bytes += b
+        budget_truncated = len(packed) < heap_count
         scored_results = packed
 
     # Fuzzy pass: runs when explicitly requested OR when BM25 found nothing useful
@@ -557,7 +577,7 @@ def search_symbols(
     meta = {
         "timing_ms": round(elapsed, 1),
         "total_symbols": len(index.symbols),
-        "truncated": candidates_scored > len(scored_results),
+        "truncated": candidates_scored > heap_count or budget_truncated,
         "tokens_saved": tokens_saved,
         "total_tokens_saved": total_saved,
         **cost_avoided(tokens_saved, total_saved),

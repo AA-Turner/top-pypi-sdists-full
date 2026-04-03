@@ -1,10 +1,23 @@
 Metadata-Version: 2.4
 Name: vkbottle-types
-Version: 5.199.99.17
+Version: 5.199.99.18
 Summary: VK API methods & types for vkbottle.
 Author: timoniq
+Maintainer-email: luwqz1 <howluwqz1@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
+Keywords: bottle methods,bottle objects,bottle types,framework types,types,types bottle,vk api,vk methods,vk objects,vkbottle,vkbottle methods,vkbottle objects,vkontakte
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Typing :: Typed
 Requires-Python: <4.0,>=3.10
 Requires-Dist: msgspec<0.21.0,>=0.20.0
 Requires-Dist: pydantic<3.0.0,>=2.12.5

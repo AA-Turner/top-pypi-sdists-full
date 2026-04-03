@@ -348,7 +348,9 @@ def _load_raw_datasets(
             dataset = handle_long_seq_in_dataset(dataset, cfg.eval_sequence_len, cfg)
         else:
             dataset = handle_long_seq_in_dataset(dataset, cfg.sequence_len, cfg)
-        if cfg.sample_packing:
+        if (split == "train" and cfg.sample_packing) or (
+            split == "test" and cfg.eval_sample_packing
+        ):
             dataset, _ = process_datasets_for_packing(cfg, dataset, None)
 
         # Deduplicate before saving so the saved dataset is already de-duplicated
@@ -374,10 +376,14 @@ def _load_and_process_single_dataset(
     streaming: bool = False,
 ) -> tuple[Dataset | IterableDataset, Prompter | None]:
     """Load and process a single dataset based on the passed config."""
-    # Load the dataset
-    dataset = load_dataset_with_config(
-        dataset_config, cfg.hf_use_auth_token, streaming=streaming
-    )
+    # For synthetic datasets, create a minimal placeholder instead of loading from path
+    if dataset_config.type == "_synthetic":
+        dataset = Dataset.from_dict({"text": [""]})
+    else:
+        # Load the dataset
+        dataset = load_dataset_with_config(
+            dataset_config, cfg.hf_use_auth_token, streaming=streaming
+        )
 
     # Parse dataset type
     d_base_type, d_prompt_style = _parse_dataset_type(dataset_config.type)

@@ -8,7 +8,7 @@ description = "VNC protocol handler for guacr remote desktop"
 [dependencies]
 # Local dependencies
 guacr-handlers = { path = "../guacr-handlers" }
-guacr-terminal = { path = "../guacr-terminal" }  # Reuse framebuffer
+guacr-terminal = { path = "../guacr-terminal", features = ["h264-soft"] }  # Reuse framebuffer + H.264 encoder
 
 # Workspace dependencies
 tokio.workspace = true
@@ -26,6 +26,7 @@ guacr-protocol = { path = "../guacr-protocol" }
 
 # Utilities
 base64.workspace = true
+des.workspace = true
 
 # Image encoding (JPEG compression for bandwidth optimization)
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-ndb
-Version: 2.4.1
+Version: 2.4.2
 Summary: NDB library for Google Cloud Datastore
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-ndb
 Author: Google LLC
@@ -31,7 +31,7 @@ Requires-Dist: google-cloud-datastore!=2.20.2,<3.0.0,>=2.16.0
 Requires-Dist: protobuf<8.0.0,>=4.25.8
 Requires-Dist: pymemcache<5.0.0,>=2.1.0
 Requires-Dist: pytz>=2018.3
-Requires-Dist: redis<7.0.0,>=3.0.0
+Requires-Dist: redis<8.0.0,>=3.0.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

@@ -23,7 +23,6 @@
 # SOFTWARE.
 
 from ansys.aedt.core.emit_core.nodes.emit_node import EmitNode
-from ansys.aedt.core.internal.checks import min_aedt_version
 
 
 class CustomCouplingNode(EmitNode):
@@ -32,35 +31,29 @@ class CustomCouplingNode(EmitNode):
         self._is_component = False
 
     @property
-    @min_aedt_version("2025.2")
-    def parent(self) -> EmitNode:
+    def parent(self):
         """The parent of this emit node."""
         return self._parent
 
     @property
-    @min_aedt_version("2025.2")
     def node_type(self) -> str:
         """The type of this emit node."""
         return self._node_type
 
-    @min_aedt_version("2025.2")
-    def import_csv_file(self, file_name: str) -> EmitNode:
+    def import_csv_file(self, file_name: str):
         """Import a CSV File..."""
         return self._import(file_name, "Csv")
 
-    @min_aedt_version("2025.2")
-    def duplicate(self, new_name: str = "") -> EmitNode:
+    def duplicate(self, new_name: str = ""):
         """Duplicate this node"""
         return self._duplicate(new_name)
 
-    @min_aedt_version("2025.2")
     def delete(self) -> None:
         """Delete this node"""
         self._delete()
 
     @property
-    @min_aedt_version("2025.2")
-    def table_data(self) -> list[tuple]:
+    def table_data(self):
         """Custom Coupling Values Table.
         Table consists of 2 columns.
         Frequency:
@@ -71,12 +64,10 @@ class CustomCouplingNode(EmitNode):
         return self._get_table_data()
 
     @table_data.setter
-    @min_aedt_version("2025.2")
-    def table_data(self, value: list[tuple]) -> None:
+    def table_data(self, value) -> None:
         self._set_table_data(value)
 
     @property
-    @min_aedt_version("2025.2")
     def enabled(self) -> bool:
         """Enable/Disable coupling.
 
@@ -86,30 +77,25 @@ class CustomCouplingNode(EmitNode):
         return val == "true"
 
     @enabled.setter
-    @min_aedt_version("2025.2")
     def enabled(self, value: bool) -> None:
         self._set_property("Enabled", f"{str(value).lower()}")
 
     @property
-    @min_aedt_version("2025.2")
     def antenna_a(self) -> EmitNode:
         """First antenna of the pair to apply the coupling values to."""
         val = self._get_property("Antenna A")
         return val
 
     @antenna_a.setter
-    @min_aedt_version("2025.2")
     def antenna_a(self, value: EmitNode) -> None:
         self._set_property("Antenna A", f"{value}")
 
     @property
-    @min_aedt_version("2025.2")
     def antenna_b(self) -> EmitNode:
         """Second antenna of the pair to apply the coupling values to."""
         val = self._get_property("Antenna B")
         return val
 
     @antenna_b.setter
-    @min_aedt_version("2025.2")
     def antenna_b(self, value: EmitNode) -> None:
         self._set_property("Antenna B", f"{value}")

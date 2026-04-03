@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pythainlp"
-version = "5.3.3"
+version = "5.3.4"
 description = "Thai Natural Language Processing library"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -311,9 +311,8 @@ include = [
     "README.md",
 ]
 
-# Bumpversion configuration
 [tool.bumpversion]
-current_version = "5.3.3"
+current_version = "5.3.4"
 commit = true
 tag = true
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\-(?P<release>[a-z]+)(?P<build>\\d+))?"
@@ -359,11 +358,9 @@ optional_value = "prod"
 first_value = "dev"
 values = ["dev", "beta", "prod"]
 
-# Coverage configuration
 [tool.coverage.run]
 source = ["pythainlp"]
 
-# Ruff configuration
 [tool.ruff]
 indent-width = 4
 line-length = 79
@@ -418,7 +415,6 @@ commands = [["ruff", "check", "pythainlp"], ["ruff", "format", "--check", "pytha
 deps = "ruff"
 skip_install = true
 
-# Mypy configuration
 [tool.mypy]
 check_untyped_defs = true
 disallow_incomplete_defs = true

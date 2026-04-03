@@ -23,13 +23,9 @@
 # SOFTWARE.
 
 import os
-from typing import TYPE_CHECKING
 
 from ansys.aedt.core.base import PyAedtBase
 from ansys.aedt.core.generic.general_methods import pyaedt_function_handler
-
-if TYPE_CHECKING:
-    from ansys.aedt.core.hfss import Hfss
 from ansys.aedt.core.modeler.geometry_operators import GeometryOperators
 
 
@@ -143,7 +139,7 @@ class Part(PyAedtBase):
             self._pitch = "0"
             self._roll = "0"
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key, value) -> None:
         self._compdef[key] = value
 
     def __getitem__(self, key):
@@ -156,7 +152,7 @@ class Part(PyAedtBase):
         return self._compdef[key]
 
     @pyaedt_function_handler()
-    def zero_offset(self, kw: str) -> bool:  # Returns True if cs at kw is at [0, 0, 0]
+    def zero_offset(self, kw):  # Returns True if cs at kw is at [0, 0, 0]
         """Check if the coordinate system defined by kw is [0, 0, 0].
 
         Parameters
@@ -181,7 +177,7 @@ class Part(PyAedtBase):
         return False
 
     @property
-    def file_name(self) -> str:
+    def file_name(self):
         """Antenna file name.
 
         Returns
@@ -193,7 +189,7 @@ class Part(PyAedtBase):
 
     # Create a unique coordinate system name for the part.
     @property
-    def cs_name(self) -> str:
+    def cs_name(self):
         """Coordinate system name.
 
         Returns
@@ -208,7 +204,7 @@ class Part(PyAedtBase):
 
     # Define the variable names for angles in the app:
     @property
-    def yaw_name(self) -> str:
+    def yaw_name(self):
         """Yaw variable name. Yaw is the rotation about the object's Z-axis.
 
         Returns
@@ -220,7 +216,7 @@ class Part(PyAedtBase):
         return self.name + "_yaw"
 
     @property
-    def pitch_name(self) -> str:
+    def pitch_name(self):
         """Pitch variable name. Pitch is the rotation about the object's Y-axis.
 
         Returns
@@ -231,7 +227,7 @@ class Part(PyAedtBase):
         return self.name + "_pitch"
 
     @property
-    def roll_name(self) -> str:
+    def roll_name(self):
         """Roll variable name. Roll is the rotation about the object's X-axis.
 
         Returns
@@ -243,7 +239,7 @@ class Part(PyAedtBase):
 
     # Always return the local origin as a list:
     @property
-    def local_origin(self) -> list:
+    def local_origin(self):
         """Local part offset values.
 
         Returns
@@ -266,7 +262,7 @@ class Part(PyAedtBase):
             return [0, 0, 0]
 
     @property
-    def rotate_origin(self) -> list:
+    def rotate_origin(self):
         """Origin rotation list.
 
         Returns
@@ -293,7 +289,7 @@ class Part(PyAedtBase):
     # Allow expressions should be valid angle as either string
     # or numerical value.
     @property
-    def yaw(self) -> str:
+    def yaw(self):
         """Yaw variable value.
 
         Returns
@@ -304,11 +300,11 @@ class Part(PyAedtBase):
         return self._yaw
 
     @yaw.setter
-    def yaw(self, yaw: str) -> None:
+    def yaw(self, yaw) -> None:
         self._yaw = yaw
 
     @property
-    def pitch(self) -> str:
+    def pitch(self):
         """Pitch variable value.
 
         Returns
@@ -319,11 +315,11 @@ class Part(PyAedtBase):
         return self._pitch
 
     @pitch.setter
-    def pitch(self, pitch: str) -> None:
+    def pitch(self, pitch) -> None:
         self._pitch = pitch
 
     @property
-    def roll(self) -> str:
+    def roll(self):
         """Roll variable value.
 
         Returns
@@ -334,11 +330,11 @@ class Part(PyAedtBase):
         return self._roll
 
     @roll.setter
-    def roll(self, roll: str) -> None:
+    def roll(self, roll) -> None:
         self._roll = roll
 
     @property
-    def name(self) -> str:
+    def name(self):
         """Part name.
 
         Returns
@@ -349,12 +345,12 @@ class Part(PyAedtBase):
         return self._multiparts.name + "_" + self._name
 
     @pyaedt_function_handler()
-    def set_relative_cs(self, app: "Hfss") -> bool:
+    def set_relative_cs(self, app) -> bool:
         """Create a parametric coordinate system.
 
         Parameters
         ----------
-        app : Hfss
+        app : ansys.aedt.core.Hfss
 
         Returns
         -------
@@ -377,7 +373,7 @@ class Part(PyAedtBase):
         return True
 
     @property
-    def rot_cs_name(self) -> str:
+    def rot_cs_name(self):
         """Rotation coordinate system name.
 
         Returns
@@ -388,7 +384,7 @@ class Part(PyAedtBase):
         return self.name + "_rot_cs"
 
     @pyaedt_function_handler()
-    def do_rotate(self, app: "Hfss", aedt_object: str) -> bool:
+    def do_rotate(self, app, aedt_object) -> bool:
         """Set the rotation coordinate system relative to the parent coordinate system.
 
         This method should only be called if there is rotation in the component.
@@ -396,7 +392,7 @@ class Part(PyAedtBase):
 
         Parameters
         ----------
-        app : Hfss
+        app : ansys.aedt.core.Hfss
             HFSS application instance.
         aedt_object : str
             Name of the HFSS design.
@@ -424,12 +420,12 @@ class Part(PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    def insert(self, app: "Hfss") -> list:
+    def insert(self, app):
         """Insert 3D component in AEDT.
 
         Parameters
         ----------
-        app : Hfss
+        app : ansys.aedt.core.Hfss
 
         Returns
         -------
@@ -489,7 +485,7 @@ class Antenna(Part, PyAedtBase):
             return "file"
 
     @property
-    def params(self) -> dict:
+    def params(self):
         """Multi-part component parameters.
 
         Returns
@@ -523,12 +519,12 @@ class Antenna(Part, PyAedtBase):
         return a
 
     @pyaedt_function_handler()
-    def insert(self, app: "Hfss", units=None) -> list:
+    def insert(self, app, units=None):
         """Insert antenna in HFSS SBR+.
 
         Parameters
         ----------
-        app : Hfss
+        app : ansys.aedt.core.Hfss
         units :
             The default is ``None``.
 

@@ -22,8 +22,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from __future__ import annotations
-
 from ctypes import POINTER
 from ctypes import byref
 from ctypes import c_bool
@@ -32,14 +30,8 @@ from ctypes import c_int
 from ctypes import create_string_buffer
 from enum import Enum
 import os
-from typing import TYPE_CHECKING
 
 import ansys.aedt.core
-
-if TYPE_CHECKING:
-    from ansys.aedt.core.hfss import Hfss
-    from ansys.aedt.core.hfss3dlayout import Hfss3dLayout
-    from ansys.aedt.core.rmxprt import Circuit
 
 
 class ExportFormat(Enum):
@@ -570,7 +562,7 @@ class ExportToAedt:
         return schematic_name_string
 
     @schematic_name.setter
-    def schematic_name(self, schematic_name_string: str) -> None:
+    def schematic_name(self, schematic_name_string) -> None:
         self._dll_interface.set_string(self._dll.setSchematicName, schematic_name_string)
 
     @property
@@ -864,12 +856,7 @@ class ExportToAedt:
         status = self._dll.setOptimizeAfterExport(optimize_after_export_enabled)
         self._dll_interface.raise_error(status)
 
-    def export_design(
-        self,
-        export_format: ExportFormat = None,
-        export_creation_mode: ExportCreationMode = None,
-        export_path: str = None,
-    ) -> "Circuit" | "Hfss" | "Hfss3dLayout" | None:
+    def export_design(self, export_format=None, export_creation_mode=None, export_path=None):
         """Export the design directly to ``AEDT`` or generate a ``Python`` script for exporting.
 
         When exporting to ``AEDT``, the design can either be appended to an existing project or overwrite it.
@@ -923,10 +910,10 @@ class ExportToAedt:
             )
             return design
 
-    def load_library_parts_config(self, load_library_parts_config_string: str) -> None:
+    def load_library_parts_config(self, load_library_parts_config_string) -> None:
         self._dll_interface.set_string(self._dll.loadLibraryPartsConf, load_library_parts_config_string)
 
-    def save_library_parts_config(self, save_library_parts_config_string: str) -> None:
+    def save_library_parts_config(self, save_library_parts_config_string) -> None:
         self._dll_interface.set_string(self._dll.saveLibraryPartsConf, save_library_parts_config_string)
 
     def import_tuned_variables(self):
@@ -976,7 +963,7 @@ class ExportToAedt:
         return interconnect_length_to_width_ratio_string
 
     @interconnect_length_to_width_ratio.setter
-    def interconnect_length_to_width_ratio(self, interconnect_length_to_width_ratio_string: str) -> None:
+    def interconnect_length_to_width_ratio(self, interconnect_length_to_width_ratio_string) -> None:
         self._dll_interface.set_string(self._dll.setLengthToWidthRatio, interconnect_length_to_width_ratio_string)
 
     @property
@@ -998,9 +985,7 @@ class ExportToAedt:
         return interconnect_minimum_length_to_width_ratio_string
 
     @interconnect_minimum_length_to_width_ratio.setter
-    def interconnect_minimum_length_to_width_ratio(
-        self, interconnect_minimum_length_to_width_ratio_string: str
-    ) -> None:
+    def interconnect_minimum_length_to_width_ratio(self, interconnect_minimum_length_to_width_ratio_string) -> None:
         self._dll_interface.set_string(
             self._dll.setLowerLengthGeometricLimitRatio, interconnect_minimum_length_to_width_ratio_string
         )
@@ -1024,9 +1009,7 @@ class ExportToAedt:
         return interconnect_maximum_length_to_width_ratio_string
 
     @interconnect_maximum_length_to_width_ratio.setter
-    def interconnect_maximum_length_to_width_ratio(
-        self, interconnect_maximum_length_to_width_ratio_string: str
-    ) -> None:
+    def interconnect_maximum_length_to_width_ratio(self, interconnect_maximum_length_to_width_ratio_string) -> None:
         self._dll_interface.set_string(
             self._dll.setUpperLengthGeometricLimitRatio, interconnect_maximum_length_to_width_ratio_string
         )
@@ -1051,9 +1034,7 @@ class ExportToAedt:
         return interconnect_line_to_termination_width_ratio_string
 
     @interconnect_line_to_termination_width_ratio.setter
-    def interconnect_line_to_termination_width_ratio(
-        self, interconnect_line_to_termination_width_ratio_string: str
-    ) -> None:
+    def interconnect_line_to_termination_width_ratio(self, interconnect_line_to_termination_width_ratio_string) -> None:
         self._dll_interface.set_string(
             self._dll.setLineWidthToTerminationWidthRatio, interconnect_line_to_termination_width_ratio_string
         )
@@ -1078,7 +1059,7 @@ class ExportToAedt:
 
     @interconnect_minimum_line_to_termination_width_ratio.setter
     def interconnect_minimum_line_to_termination_width_ratio(
-        self, interconnect_minimum_line_to_termination_width_ratio_string: str
+        self, interconnect_minimum_line_to_termination_width_ratio_string
     ) -> None:
         self._dll_interface.set_string(
             self._dll.setLowerWidthGeometricLimitRatio, interconnect_minimum_line_to_termination_width_ratio_string
@@ -1104,7 +1085,7 @@ class ExportToAedt:
 
     @interconnect_maximum_line_to_termination_width_ratio.setter
     def interconnect_maximum_line_to_termination_width_ratio(
-        self, interconnect_maximum_line_to_termination_width_ratio_string: str
+        self, interconnect_maximum_line_to_termination_width_ratio_string
     ) -> None:
         self._dll_interface.set_string(
             self._dll.setUpperWidthGeometricLimitRatio, interconnect_maximum_line_to_termination_width_ratio_string
@@ -1128,7 +1109,7 @@ class ExportToAedt:
         return interconnect_length_value_string
 
     @interconnect_length_value.setter
-    def interconnect_length_value(self, interconnect_length_value_string: str) -> None:
+    def interconnect_length_value(self, interconnect_length_value_string) -> None:
         self._dll_interface.set_string(self._dll.setLengthToWidthValue, interconnect_length_value_string)
 
     @property
@@ -1150,7 +1131,7 @@ class ExportToAedt:
         return interconnect_minimum_length_value_string
 
     @interconnect_minimum_length_value.setter
-    def interconnect_minimum_length_value(self, interconnect_minimum_length_value_string: str) -> None:
+    def interconnect_minimum_length_value(self, interconnect_minimum_length_value_string) -> None:
         self._dll_interface.set_string(
             self._dll.setLowerLengthGeometricLimitValue, interconnect_minimum_length_value_string
         )
@@ -1173,7 +1154,7 @@ class ExportToAedt:
         return interconnect_maximum_length_value_string
 
     @interconnect_maximum_length_value.setter
-    def interconnect_maximum_length_value(self, interconnect_maximum_length_value_string: str) -> None:
+    def interconnect_maximum_length_value(self, interconnect_maximum_length_value_string) -> None:
         self._dll_interface.set_string(
             self._dll.setUpperLengthGeometricLimitValue, interconnect_maximum_length_value_string
         )
@@ -1198,7 +1179,7 @@ class ExportToAedt:
         return interconnect_line_width_value_string
 
     @interconnect_line_width_value.setter
-    def interconnect_line_width_value(self, interconnect_line_width_value_string: str) -> None:
+    def interconnect_line_width_value(self, interconnect_line_width_value_string) -> None:
         self._dll_interface.set_string(
             self._dll.setLineWidthToTerminationWidthValue, interconnect_line_width_value_string
         )
@@ -1222,7 +1203,7 @@ class ExportToAedt:
         return interconnect_minimum_width_value_string
 
     @interconnect_minimum_width_value.setter
-    def interconnect_minimum_width_value(self, interconnect_minimum_width_value_string: str) -> None:
+    def interconnect_minimum_width_value(self, interconnect_minimum_width_value_string) -> None:
         self._dll_interface.set_string(
             self._dll.setLowerWidthGeometricLimitValue, interconnect_minimum_width_value_string
         )
@@ -1246,7 +1227,7 @@ class ExportToAedt:
         return interconnect_maximum_width_value_string
 
     @interconnect_maximum_width_value.setter
-    def interconnect_maximum_width_value(self, interconnect_maximum_width_value_string: str) -> None:
+    def interconnect_maximum_width_value(self, interconnect_maximum_width_value_string) -> None:
         self._dll_interface.set_string(
             self._dll.setUpperWidthGeometricLimitValue, interconnect_maximum_width_value_string
         )
@@ -1267,7 +1248,7 @@ class ExportToAedt:
         return interconnect_inductor_tolerance_value_string
 
     @interconnect_inductor_tolerance_value.setter
-    def interconnect_inductor_tolerance_value(self, interconnect_inductor_tolerance_value_string: str) -> None:
+    def interconnect_inductor_tolerance_value(self, interconnect_inductor_tolerance_value_string) -> None:
         self._dll_interface.set_string(
             self._dll.setInterConnectInductorTolerance, interconnect_inductor_tolerance_value_string
         )
@@ -1288,7 +1269,7 @@ class ExportToAedt:
         return interconnect_capacitor_tolerance_value_string
 
     @interconnect_capacitor_tolerance_value.setter
-    def interconnect_capacitor_tolerance_value(self, interconnect_capacitor_tolerance_value_string: str) -> None:
+    def interconnect_capacitor_tolerance_value(self, interconnect_capacitor_tolerance_value_string) -> None:
         self._dll_interface.set_string(
             self._dll.setInterConnectCapacitorTolerance, interconnect_capacitor_tolerance_value_string
         )
@@ -1377,7 +1358,7 @@ class ExportToAedt:
             return substrate_er_value_str.value.decode("ascii")
 
     @substrate_er.setter
-    def substrate_er(self, substrate_input: SubstrateEr | str) -> None:
+    def substrate_er(self, substrate_input):
         if substrate_input in list(SubstrateEr):
             substrate_er_index = SubstrateEr(substrate_input).value
             substrate_er_value = ""
@@ -1411,7 +1392,7 @@ class ExportToAedt:
             return substrate_resistivity_value_str.value.decode("ascii")
 
     @substrate_resistivity.setter
-    def substrate_resistivity(self, substrate_input: SubstrateResistivity | str) -> None:
+    def substrate_resistivity(self, substrate_input):
         if substrate_input in list(SubstrateResistivity):
             substrate_resistivity_index = SubstrateResistivity(substrate_input).value
             substrate_resistivity_value = ""
@@ -1445,7 +1426,7 @@ class ExportToAedt:
             return substrate_loss_tangent_value_str.value.decode("ascii")
 
     @substrate_loss_tangent.setter
-    def substrate_loss_tangent(self, substrate_input: SubstrateEr | str) -> None:
+    def substrate_loss_tangent(self, substrate_input):
         if substrate_input in list(SubstrateEr):
             substrate_loss_tangent_index = SubstrateEr(substrate_input).value
             substrate_loss_tangent_value = ""
@@ -1472,7 +1453,7 @@ class ExportToAedt:
         return substrate_conductor_thickness_string
 
     @substrate_conductor_thickness.setter
-    def substrate_conductor_thickness(self, substrate_conductor_thickness_string: str) -> None:
+    def substrate_conductor_thickness(self, substrate_conductor_thickness_string) -> None:
         self._dll_interface.set_string(self._dll.setConductorThickness, substrate_conductor_thickness_string)
 
     @property
@@ -1489,7 +1470,7 @@ class ExportToAedt:
         return substrate_dielectric_height_string
 
     @substrate_dielectric_height.setter
-    def substrate_dielectric_height(self, substrate_dielectric_height_string: str) -> None:
+    def substrate_dielectric_height(self, substrate_dielectric_height_string) -> None:
         self._dll_interface.set_string(self._dll.setDielectricHeight, substrate_dielectric_height_string)
 
     @property
@@ -1508,9 +1489,7 @@ class ExportToAedt:
         return substrate_unbalanced_lower_dielectric_height_string
 
     @substrate_unbalanced_lower_dielectric_height.setter
-    def substrate_unbalanced_lower_dielectric_height(
-        self, substrate_unbalanced_lower_dielectric_height_string: str
-    ) -> None:
+    def substrate_unbalanced_lower_dielectric_height(self, substrate_unbalanced_lower_dielectric_height_string) -> None:
         self._dll_interface.set_string(
             self._dll.setLowerDielectricHeight, substrate_unbalanced_lower_dielectric_height_string
         )
@@ -1531,7 +1510,7 @@ class ExportToAedt:
         return substrate_suspend_dielectric_height_string
 
     @substrate_suspend_dielectric_height.setter
-    def substrate_suspend_dielectric_height(self, substrate_suspend_dielectric_height_string: str) -> None:
+    def substrate_suspend_dielectric_height(self, substrate_suspend_dielectric_height_string) -> None:
         self._dll_interface.set_string(self._dll.setSuspendDielectricHeight, substrate_suspend_dielectric_height_string)
 
     @property
@@ -1547,7 +1526,7 @@ class ExportToAedt:
         return substrate_cover_height_string
 
     @substrate_cover_height.setter
-    def substrate_cover_height(self, substrate_cover_height_string: str) -> None:
+    def substrate_cover_height(self, substrate_cover_height_string) -> None:
         self._dll_interface.set_string(self._dll.setCoverHeight, substrate_cover_height_string)
 
     @property
@@ -1622,7 +1601,7 @@ class ExportToAedt:
         self._dll_interface.raise_error(status)
         return int(count.value)
 
-    def modelithics_inductor_list(self, row_index: int) -> str:
+    def modelithics_inductor_list(self, row_index) -> str:
         """Get the name of the ``Modelithics`` inductor family model from the loaded list based
         on the specified index.
         """
@@ -1647,7 +1626,7 @@ class ExportToAedt:
         return modelithics_inductor_selection_string
 
     @modelithics_inductor_selection.setter
-    def modelithics_inductor_selection(self, modelithics_inductor_selection_string: str) -> None:
+    def modelithics_inductor_selection(self, modelithics_inductor_selection_string) -> None:
         self._dll_interface.set_string(self._dll.setModelithicsInductors, modelithics_inductor_selection_string)
 
     @property
@@ -1663,7 +1642,7 @@ class ExportToAedt:
         self._dll_interface.raise_error(status)
         return int(count.value)
 
-    def modelithics_inductor_family_list(self, index: int) -> str:
+    def modelithics_inductor_family_list(self, index) -> str:
         """Get the name of ``Modelithics`` inductor family from the inductor family list based on the specified index.
 
         Parameters
@@ -1681,7 +1660,7 @@ class ExportToAedt:
         modelithics_inductor_family = modelithics_inductor_family_buffer.value.decode("utf-8")
         return modelithics_inductor_family
 
-    def modelithics_inductor_add_family(self, modelithics_inductor: str) -> str:
+    def modelithics_inductor_add_family(self, modelithics_inductor) -> str:
         """Add a specified ``Modelithics`` inductor family to the inductor family list.
 
         Parameters
@@ -1691,7 +1670,7 @@ class ExportToAedt:
         """
         self._dll_interface.set_string(self._dll.addModelithicsInductorsFamily, modelithics_inductor)
 
-    def modelithics_inductor_remove_family(self, modelithics_inductor: str) -> str:
+    def modelithics_inductor_remove_family(self, modelithics_inductor) -> str:
         """Remove a specified ``Modelithics`` inductor family from the inductor family list.
 
         Parameters
@@ -1714,7 +1693,7 @@ class ExportToAedt:
         self._dll_interface.raise_error(status)
         return int(count.value)
 
-    def modelithics_capacitor_list(self, row_index: int) -> str:
+    def modelithics_capacitor_list(self, row_index) -> str:
         """Get the name of the ``Modelithics`` capacitor family model from the loaded list based on
         the specified index.
         """
@@ -1739,7 +1718,7 @@ class ExportToAedt:
         return modelithics_capacitor_selection_string
 
     @modelithics_capacitor_selection.setter
-    def modelithics_capacitor_selection(self, modelithics_capacitor_selection_string: str) -> None:
+    def modelithics_capacitor_selection(self, modelithics_capacitor_selection_string) -> None:
         self._dll_interface.set_string(self._dll.setModelithicsCapacitors, modelithics_capacitor_selection_string)
 
     @property
@@ -1755,7 +1734,7 @@ class ExportToAedt:
         self._dll_interface.raise_error(status)
         return int(count.value)
 
-    def modelithics_capacitor_family_list(self, index: int) -> str:
+    def modelithics_capacitor_family_list(self, index) -> str:
         """Get the name of ``Modelithics`` capacitor family from the capacitor family list based on the specified index.
 
         Parameters
@@ -1773,7 +1752,7 @@ class ExportToAedt:
         modelithics_capacitor_family = modelithics_capacitor_family_buffer.value.decode("utf-8")
         return modelithics_capacitor_family
 
-    def modelithics_capacitor_add_family(self, modelithics_capacitor: str) -> str:
+    def modelithics_capacitor_add_family(self, modelithics_capacitor) -> str:
         """Add a specified ``Modelithics`` capacitor family to the capacitor family list.
 
         Parameters
@@ -1783,7 +1762,7 @@ class ExportToAedt:
         """
         self._dll_interface.set_string(self._dll.addModelithicsCapacitorsFamily, modelithics_capacitor)
 
-    def modelithics_capacitor_remove_family(self, modelithics_capacitor: str) -> str:
+    def modelithics_capacitor_remove_family(self, modelithics_capacitor) -> str:
         """Remove a specified ``Modelithics`` capacitor family from the capacitor family list.
 
         Parameters
@@ -1806,7 +1785,7 @@ class ExportToAedt:
         self._dll_interface.raise_error(status)
         return int(count.value)
 
-    def modelithics_resistor_list(self, row_index: int) -> str:
+    def modelithics_resistor_list(self, row_index) -> str:
         """Get the name of the ``Modelithics`` resistor family model from the loaded list based on the
         specified index.
         """
@@ -1831,7 +1810,7 @@ class ExportToAedt:
         return modelithics_resistor_selection_string
 
     @modelithics_resistor_selection.setter
-    def modelithics_resistor_selection(self, modelithics_resistor_selection_string: str) -> None:
+    def modelithics_resistor_selection(self, modelithics_resistor_selection_string) -> None:
         self._dll_interface.set_string(self._dll.setModelithicsResistors, modelithics_resistor_selection_string)
 
     @property
@@ -1847,7 +1826,7 @@ class ExportToAedt:
         self._dll_interface.raise_error(status)
         return int(count.value)
 
-    def modelithics_resistor_family_list(self, index: int) -> str:
+    def modelithics_resistor_family_list(self, index) -> str:
         """Get the name of ``Modelithics`` resistor family from the resistor family list based on
         the specified index.
 
@@ -1866,7 +1845,7 @@ class ExportToAedt:
         modelithics_resistor_family = modelithics_resistor_family_buffer.value.decode("utf-8")
         return modelithics_resistor_family
 
-    def modelithics_resistor_add_family(self, modelithics_resistor: str) -> str:
+    def modelithics_resistor_add_family(self, modelithics_resistor) -> str:
         """Add a specified ``Modelithics`` resistor family to the resistor family list.
 
         Parameters
@@ -1876,7 +1855,7 @@ class ExportToAedt:
         """
         self._dll_interface.set_string(self._dll.addModelithicsResistorsFamily, modelithics_resistor)
 
-    def modelithics_resistor_remove_family(self, modelithics_resistor: str) -> str:
+    def modelithics_resistor_remove_family(self, modelithics_resistor) -> str:
         """Remove a specified ``Modelithics`` resistor family from the resistor family list.
 
         Parameters

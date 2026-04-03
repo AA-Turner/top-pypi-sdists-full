@@ -1,6 +1,6 @@
 [project]
 name = "abx-pkg"
-version = "1.9.19"
+version = "1.9.23"
 description = "System package manager interfaces with Python type hints"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.11"
@@ -80,7 +80,11 @@ dev = [
     "prek>=0.3.6",
     "ruff>=0.15.7",
     "ty>=0.0.24",
+    "pytest-asyncio>=1.3.0",
 ]
+
+[tool.uv]
+exclude-newer = "5 days"
 
 [tool.mypy]
 mypy_path = "abx_pkg"
@@ -92,7 +96,7 @@ plugins = [
 ]
 
 [tool.pyright]
-include = ["abx_pkg", "tests.py", "django_example_project/project"]
+include = ["abx_pkg", "tests", "django_example_project/project"]
 exclude = [
     "**/node_modules",
     "**/__pycache__",
@@ -102,6 +106,9 @@ reportMissingImports = true
 reportMissingTypeStubs = false
 pythonVersion = "3.11"
 pythonPlatform = "Linux"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.ty.src]
 exclude = [

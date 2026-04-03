@@ -21,7 +21,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-from __future__ import annotations
 
 from pathlib import Path
 import re
@@ -33,7 +32,7 @@ from ansys.aedt.core.generic.general_methods import settings
 # public interface
 
 
-def load_entire_aedt_file(filename: str | Path) -> dict:
+def load_entire_aedt_file(filename):
     """Load the entire AEDT file and return the dictionary
 
     Parameters
@@ -54,7 +53,7 @@ def load_entire_aedt_file(filename: str | Path) -> dict:
     return f_d
 
 
-def load_keyword_in_aedt_file(filename: str | Path, keyword: str, design_name: str | None = None) -> dict:
+def load_keyword_in_aedt_file(filename, keyword, design_name=None):
     """Load s specific keyword in the AEDT file and return the dictionary
 
     Parameters
@@ -105,24 +104,6 @@ _recognized_subkeys = ["simple(", "IDMap(", "WireSeg(", "PC(", "Range("]
 _all_lines = []
 _len_all_lines = 0
 _count = 0
-
-
-def get_designs(filename: str | Path) -> list[str]:
-    """Get the list of designs in an AEDT file.
-
-    Parameters
-    ----------
-    filename : str or pathlib.Path
-        Path to the AEDT file.
-
-    Returns
-    -------
-    list of str
-        List of design names found in the AEDT file.
-    """
-    filename = Path(filename)
-    designs = load_keyword_in_aedt_file(str(filename), "ProjectPreview")["ProjectPreview"]
-    return [info["DesignName"] for info in designs["DesignInfo"]]
 
 
 def _parse_value(v):
@@ -473,14 +454,12 @@ def _walk_through_structure(keyword, save_dict, design_name=None):
     return _count
 
 
-def _read_aedt_file(filename: str | Path) -> None:
+def _read_aedt_file(filename) -> None:
     """Read the entire AEDT file discard binary and put ascii line in a list.
 
     Parameters
     ----------
-    filename : str | Path
-        AEDT filename with path
-
+    filename :
         AEDT filename with path
 
     Returns

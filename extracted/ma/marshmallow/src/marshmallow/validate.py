@@ -13,6 +13,7 @@ if typing.TYPE_CHECKING:
     from marshmallow import types
 
 _T = typing.TypeVar("_T")
+_UNICODE_LETTERS = "\u00a1-\uffff"
 
 
 class Validator(ABC):
@@ -104,11 +105,22 @@ class URL(Validator):
             self, *, relative: bool, absolute: bool, require_tld: bool
         ) -> typing.Pattern:
             hostname_variants = [
-                # a normal domain name, expressed in [A-Z0-9] chars with hyphens allowed only in the middle
+                # a normal domain name, expressed in [A-Z0-9] chars (plus unicode letters)
+                # with hyphens allowed only in the middle
                 # note that the regex will be compiled with IGNORECASE, so these are upper and lowercase chars
                 (
-                    r"(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+"
-                    r"(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)"
+                    r"(?:[A-Z0-9"
+                    + _UNICODE_LETTERS
+                    + r"](?:[A-Z0-9"
+                    + _UNICODE_LETTERS
+                    + r"-]{0,61}[A-Z0-9"
+                    + _UNICODE_LETTERS
+                    + r"])?\.)+"
+                    r"(?:[A-Z"
+                    + _UNICODE_LETTERS
+                    + r"]{2,6}\.?|[A-Z0-9"
+                    + _UNICODE_LETTERS
+                    + r"-]{2,}\.?)"
                 ),
                 # or the special string 'localhost'
                 r"localhost",
@@ -119,7 +131,15 @@ class URL(Validator):
             ]
             if not require_tld:
                 # allow dotless hostnames
-                hostname_variants.append(r"(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.?)")
+                hostname_variants.append(
+                    r"(?:[A-Z0-9"
+                    + _UNICODE_LETTERS
+                    + r"](?:[A-Z0-9"
+                    + _UNICODE_LETTERS
+                    + r"-]{0,61}[A-Z0-9"
+                    + _UNICODE_LETTERS
+                    + r"])?\.?)"
+                )
 
             absolute_part = "".join(
                 (
@@ -241,8 +261,11 @@ class Email(Validator):
 
     DOMAIN_REGEX = re.compile(
         # domain
-        r"(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+"
-        r"(?:[A-Z]{2,6}|[A-Z0-9-]{2,})\Z"
+        r"(?:[A-Z0-9" + _UNICODE_LETTERS + r"]"
+        r"(?:[A-Z0-9" + _UNICODE_LETTERS + r"-]{0,61}"
+        r"[A-Z0-9" + _UNICODE_LETTERS + r"])?\.)+"
+        r"(?:[A-Z" + _UNICODE_LETTERS + r"]{2,6}"
+        r"|[A-Z0-9" + _UNICODE_LETTERS + r"-]{2,})\Z"
         # literal form, ipv4 address (SMTP 4.1.3)
         r"|^\[(25[0-5]|2[0-4]\d|[0-1]?\d?\d)"
         r"(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}\]\Z",
@@ -272,13 +295,6 @@ class Email(Validator):
 
         if domain_part not in self.DOMAIN_WHITELIST:
             if not self.DOMAIN_REGEX.match(domain_part):
-                try:
-                    domain_part = domain_part.encode("idna").decode("ascii")
-                except UnicodeError:
-                    pass
-                else:
-                    if self.DOMAIN_REGEX.match(domain_part):
-                        return value
                 raise ValidationError(message)
 
         return value
