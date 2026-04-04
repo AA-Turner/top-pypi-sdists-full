@@ -84,7 +84,7 @@ class SpaceFileWatcher:
             return
 
         try:
-            content = self._path.read_text(encoding="utf-8")
+            content = self._path.read_text(encoding="utf-8-sig")
             raw = yaml.safe_load(content)
         except OSError:
             return

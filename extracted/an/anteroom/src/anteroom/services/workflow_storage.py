@@ -694,20 +694,52 @@ def list_transcript_events(
     step_id: str | None = None,
     *,
     since_id: int = 0,
+    limit: int | None = None,
+    event_types: list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Return transcript events for a run, optionally filtered by step and since_id."""
+    """Return transcript events for a run, optionally filtered by step, since_id, limit, and event types."""
+    clauses = ["run_id = ?", "event_type LIKE 'transcript_%'", "id > ?"]
+    params: list[Any] = [run_id, since_id]
+
     if step_id:
-        rows = db.execute_fetchall(
-            "SELECT * FROM workflow_events "
-            "WHERE run_id = ? AND step_id = ? AND event_type LIKE 'transcript_%' AND id > ? "
-            "ORDER BY id",
-            (run_id, step_id, since_id),
-        )
+        clauses.append("step_id = ?")
+        params.append(step_id)
+
+    if event_types:
+        placeholders = ", ".join("?" for _ in event_types)
+        clauses.append(f"event_type IN ({placeholders})")
+        params.extend(event_types)
+
+    where = " AND ".join(clauses)
+
+    if limit is not None:
+        sql = f"SELECT * FROM workflow_events WHERE {where} ORDER BY id DESC LIMIT ?"
+        params.append(limit)
+        rows = db.execute_fetchall(sql, tuple(params))
+        rows = list(reversed(rows))
     else:
-        rows = db.execute_fetchall(
-            "SELECT * FROM workflow_events WHERE run_id = ? AND event_type LIKE 'transcript_%' AND id > ? ORDER BY id",
-            (run_id, since_id),
-        )
+        sql = f"SELECT * FROM workflow_events WHERE {where} ORDER BY id"
+        rows = db.execute_fetchall(sql, tuple(params))
+
+    results = []
+    for r in rows:
+        d = dict(r)
+        raw = d.pop("payload_json", None)
+        d["payload"] = json.loads(raw) if raw else None
+        results.append(d)
+    return results
+
+
+def list_events_since(
+    db: ThreadSafeConnection,
+    run_id: str,
+    since_id: int,
+) -> list[dict[str, Any]]:
+    """Return all workflow events (not just transcript) with id > since_id for delta mode."""
+    rows = db.execute_fetchall(
+        "SELECT * FROM workflow_events WHERE run_id = ? AND id > ? ORDER BY id",
+        (run_id, since_id),
+    )
     results = []
     for r in rows:
         d = dict(r)
@@ -763,14 +795,17 @@ def get_approval_request(db: ThreadSafeConnection, request_id: str) -> dict[str,
     return _deserialize_approval(dict(row))
 
 
-def get_pending_approval(db: ThreadSafeConnection, run_id: str) -> dict[str, Any] | None:
-    row = db.execute_fetchone(
+def list_pending_approvals(db: ThreadSafeConnection, run_id: str) -> list[dict[str, Any]]:
+    rows = db.execute_fetchall(
         "SELECT * FROM workflow_approval_requests WHERE run_id = ? AND status = 'pending' ORDER BY created_at DESC",
         (run_id,),
     )
-    if not row:
-        return None
-    return _deserialize_approval(dict(row))
+    return [_deserialize_approval(dict(row)) for row in rows]
+
+
+def get_pending_approval(db: ThreadSafeConnection, run_id: str) -> dict[str, Any] | None:
+    pending = list_pending_approvals(db, run_id)
+    return pending[0] if pending else None
 
 
 def resolve_approval_request(
@@ -852,6 +887,74 @@ def release_lock_by_target(
     return cursor.rowcount > 0
 
 
+def reclaim_stale_locks(
+    db: ThreadSafeConnection,
+    threshold_seconds: int = 120,
+    *,
+    target_kind: str | None = None,
+    target_ref: str | None = None,
+) -> list[tuple[str, str, bool]]:
+    """Reclaim locks from runs with stale heartbeats.
+
+    Returns list of ``(run_id, target_ref, was_compensating)`` for each
+    reclaimed lock.  Optionally scoped to a single target when called
+    during lock contention retry.
+    """
+    from datetime import timedelta
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=threshold_seconds)).isoformat()
+
+    query = (
+        "SELECT r.id, r.status, l.target_kind, l.target_ref"
+        " FROM workflow_locks l"
+        " JOIN workflow_runs r ON l.run_id = r.id"
+        " WHERE r.status IN ('running', 'compensating')"
+        " AND (r.heartbeat_at IS NULL OR r.heartbeat_at < ?)"
+    )
+    params: list[Any] = [cutoff]
+
+    if target_kind is not None and target_ref is not None:
+        query += " AND l.target_kind = ? AND l.target_ref = ?"
+        params.extend([target_kind, target_ref])
+
+    rows = db.execute_fetchall(query, tuple(params))
+
+    reclaimed: list[tuple[str, str, bool]] = []
+    for row in rows:
+        run_id = row["id"]
+        was_compensating = row["status"] == "compensating"
+
+        # Mark in-flight steps as interrupted
+        db.execute(
+            "UPDATE workflow_steps SET status = 'interrupted',"
+            " completed_at = ? WHERE run_id = ? AND status = 'running'",
+            (_now(), run_id),
+        )
+
+        if was_compensating:
+            db.execute(
+                "UPDATE workflow_runs SET status = 'paused',"
+                " stop_reason = 'stale_heartbeat_reclaimed_during_compensation',"
+                " updated_at = ? WHERE id = ?",
+                (_now(), run_id),
+            )
+        else:
+            db.execute(
+                "UPDATE workflow_runs SET status = 'failed',"
+                " stop_reason = 'stale_heartbeat_reclaimed',"
+                " updated_at = ? WHERE id = ?",
+                (_now(), run_id),
+            )
+
+        db.execute("DELETE FROM workflow_locks WHERE run_id = ?", (run_id,))
+        reclaimed.append((run_id, row["target_ref"], was_compensating))
+
+    if reclaimed:
+        db.commit()
+
+    return reclaimed
+
+
 def get_lock(
     db: ThreadSafeConnection,
     *,
@@ -912,14 +1015,17 @@ def get_human_decision(db: ThreadSafeConnection, decision_id: str) -> dict[str, 
     return _deserialize_decision(dict(row))
 
 
-def get_pending_decision(db: ThreadSafeConnection, run_id: str) -> dict[str, Any] | None:
-    row = db.execute_fetchone(
+def list_pending_decisions(db: ThreadSafeConnection, run_id: str) -> list[dict[str, Any]]:
+    rows = db.execute_fetchall(
         "SELECT * FROM workflow_human_decisions WHERE run_id = ? AND status = 'pending' ORDER BY created_at DESC",
         (run_id,),
     )
-    if not row:
-        return None
-    return _deserialize_decision(dict(row))
+    return [_deserialize_decision(dict(row)) for row in rows]
+
+
+def get_pending_decision(db: ThreadSafeConnection, run_id: str) -> dict[str, Any] | None:
+    pending = list_pending_decisions(db, run_id)
+    return pending[0] if pending else None
 
 
 def resolve_human_decision(

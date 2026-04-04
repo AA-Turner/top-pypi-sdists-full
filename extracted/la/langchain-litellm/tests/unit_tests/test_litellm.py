@@ -1,10 +1,15 @@
 """Test chat model integration."""
 
-from typing import Type
+import logging
+from typing import Any, Type
 
+import pytest
+from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import AIMessage, AIMessageChunk
+from langchain_core.runnables import RunnableLambda
 from langchain_tests.unit_tests import ChatModelUnitTests
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, Function
+from pydantic import BaseModel
 
 from langchain_litellm.chat_models import ChatLiteLLM
 from langchain_litellm.chat_models.litellm import (
@@ -15,151 +20,128 @@ from langchain_litellm.chat_models.litellm import (
 )
 
 
-class TestChatLiteLLMUnit(ChatModelUnitTests):
-    @property
-    def chat_model_class(self) -> Type[ChatLiteLLM]:
-        return ChatLiteLLM
+def _dummy_tool(x: str) -> str:
+    """A dummy tool for testing."""
+    return x
 
-    @property
-    def chat_model_params(self) -> dict:
-        return {
-            "custom_llm_provider": "openai",
-            "model": "gpt-3.5-turbo",
-            "api_key": "<your_api_key>",
-            "max_retries": 1,
-        }
 
-    @property
-    def has_tool_calling(self) -> bool:
-        return True
+class _StructuredResponse(BaseModel):
+    value: str
 
-    @property
-    def has_tool_choice(self) -> bool:
-        return False
 
-    @property
-    def has_structured_output(self) -> bool:
-        return False
+# ── delta / message conversion ────────────────────────────────────────────────
 
-    @property
-    def supports_json_mode(self) -> bool:
-        return False
 
-    @property
-    def supports_image_inputs(self) -> bool:
-        return False
+def test_litellm_delta_to_langchain_message_chunk() -> None:
+    """Test the litellm._convert_delta_to_message_chunk method, to ensure compatibility when converting a LiteLLM delta to a LangChain message chunk."""
+    mock_content = "This is a test content"
+    mock_tool_call_id = "call_test"
+    mock_tool_call_name = "test_tool_call"
+    mock_tool_call_arguments = ""
+    mock_tool_call_index = 3
+    mock_delta = Delta(
+        content=mock_content,
+        role="assistant",
+        tool_calls=[
+            ChatCompletionDeltaToolCall(
+                id=mock_tool_call_id,
+                function=Function(
+                    arguments=mock_tool_call_arguments, name=mock_tool_call_name
+                ),
+                type="function",
+                index=mock_tool_call_index,
+            )
+        ],
+    )
+    message_chunk = _convert_delta_to_message_chunk(mock_delta, AIMessageChunk)
+    assert isinstance(message_chunk, AIMessageChunk)
+    assert message_chunk.content == mock_content
+    tool_call_chunk = message_chunk.tool_call_chunks[0]
+    assert tool_call_chunk["id"] == mock_tool_call_id
+    assert tool_call_chunk["name"] == mock_tool_call_name
+    assert tool_call_chunk["args"] == mock_tool_call_arguments
+    assert tool_call_chunk["index"] == mock_tool_call_index
 
-    @property
-    def returns_usage_metadata(self) -> bool:
-        return True
 
-    @property
-    def supports_anthropic_inputs(self) -> bool:
-        return False
+def test_convert_dict_to_tool_message() -> None:
+    """Ensure tool role dicts convert to ToolMessage."""
+    mock_dict = {"role": "tool", "content": "result", "tool_call_id": "123"}
+    message = _convert_dict_to_message(mock_dict)
+    from langchain_core.messages import ToolMessage
 
-    @property
-    def supports_image_tool_message(self) -> bool:
-        return False
+    assert isinstance(message, ToolMessage)
+    assert message.content == "result"
+    assert message.tool_call_id == "123"
 
-    def test_litellm_delta_to_langchain_message_chunk(self):
-        """Test the litellm._convert_delta_to_message_chunk method, to ensure compatibility when converting a LiteLLM delta to a LangChain message chunk."""
-        mock_content = "This is a test content"
-        mock_tool_call_id = "call_test"
-        mock_tool_call_name = "test_tool_call"
-        mock_tool_call_arguments = ""
-        mock_tool_call_index = 3
-        mock_delta = Delta(
-            content=mock_content,
-            role="assistant",
-            tool_calls=[
-                ChatCompletionDeltaToolCall(
-                    id=mock_tool_call_id,
-                    function=Function(
-                        arguments=mock_tool_call_arguments, name=mock_tool_call_name
-                    ),
-                    type="function",
-                    index=mock_tool_call_index,
-                )
-            ],
-        )
-        message_chunk = _convert_delta_to_message_chunk(mock_delta, AIMessageChunk)
-        assert isinstance(message_chunk, AIMessageChunk)
-        assert message_chunk.content == mock_content
-        tool_call_chunk = message_chunk.tool_call_chunks[0]
-        assert tool_call_chunk["id"] == mock_tool_call_id
-        assert tool_call_chunk["name"] == mock_tool_call_name
-        assert tool_call_chunk["args"] == mock_tool_call_arguments
-        assert tool_call_chunk["index"] == mock_tool_call_index
 
-    def test_convert_dict_to_tool_message(self):
-        """Ensure tool role dicts convert to ToolMessage."""
-        mock_dict = {"role": "tool", "content": "result", "tool_call_id": "123"}
-        message = _convert_dict_to_message(mock_dict)
-        from langchain_core.messages import ToolMessage
+def test_provider_specific_fields_in_delta() -> None:
+    """Test that provider_specific_fields are preserved when converting deltas."""
+    mock_delta = {
+        "role": "assistant",
+        "content": "Paris is the capital of France",
+        "provider_specific_fields": {
+            "citations": [
+                {"source": "Wikipedia", "url": "https://en.wikipedia.org/wiki/Paris"}
+            ]
+        },
+    }
 
-        assert isinstance(message, ToolMessage)
-        assert message.content == "result"
-        assert message.tool_call_id == "123"
+    chunk = _convert_delta_to_message_chunk(mock_delta, AIMessageChunk)
 
-    def test_provider_specific_fields_in_delta(self):
-        """Test that provider_specific_fields are preserved when converting deltas."""
-        mock_delta = {
-            "role": "assistant",
-            "content": "Paris is the capital of France",
-            "provider_specific_fields": {
-                "citations": [
-                    {"source": "Wikipedia", "url": "https://en.wikipedia.org/wiki/Paris"}
-                ]
+    assert isinstance(chunk, AIMessageChunk)
+    assert "provider_specific_fields" in chunk.additional_kwargs
+    assert (
+        chunk.additional_kwargs["provider_specific_fields"]["citations"][0]["source"]
+        == "Wikipedia"
+    )
+
+
+def test_provider_specific_fields_in_message() -> None:
+    """Test that provider_specific_fields are preserved when converting message dicts."""
+    mock_message_dict = {
+        "role": "assistant",
+        "content": "The Earth orbits the Sun",
+        "provider_specific_fields": {
+            "grounding_metadata": {
+                "search_queries": ["Earth orbit"],
+                "grounding_supports": [{"segment": "The Earth orbits"}],
             }
-        }
-        
-        chunk = _convert_delta_to_message_chunk(mock_delta, AIMessageChunk)
-        
-        assert isinstance(chunk, AIMessageChunk)
-        assert "provider_specific_fields" in chunk.additional_kwargs
-        assert chunk.additional_kwargs["provider_specific_fields"]["citations"][0]["source"] == "Wikipedia"
+        },
+    }
 
-    def test_provider_specific_fields_in_message(self):
-        """Test that provider_specific_fields are preserved when converting message dicts."""
-        mock_message_dict = {
-            "role": "assistant",
-            "content": "The Earth orbits the Sun",
-            "provider_specific_fields": {
-                "grounding_metadata": {
-                    "search_queries": ["Earth orbit"],
-                    "grounding_supports": [{"segment": "The Earth orbits"}]
-                }
-            }
-        }
-        
-        message = _convert_dict_to_message(mock_message_dict)
-        
-        assert isinstance(message, AIMessage)
-        assert "provider_specific_fields" in message.additional_kwargs
-        assert "grounding_metadata" in message.additional_kwargs["provider_specific_fields"]
+    message = _convert_dict_to_message(mock_message_dict)
 
-    def test_provider_specific_fields_in_chat_result(self):
-        """Test that top-level provider_specific_fields appear in llm_output."""
-        llm = ChatLiteLLM(model="gpt-3.5-turbo", api_key="fake")
-        
-        mock_response = {
-            "choices": [{
-                "message": {
-                    "role": "assistant",
-                    "content": "Test response"
-                },
-                "finish_reason": "stop"
-            }],
-            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
-            "provider_specific_fields": {
-                "citations": [{"source": "test"}]
+    assert isinstance(message, AIMessage)
+    assert "provider_specific_fields" in message.additional_kwargs
+    assert "grounding_metadata" in message.additional_kwargs["provider_specific_fields"]
+
+
+def test_provider_specific_fields_in_chat_result() -> None:
+    """Test that top-level provider_specific_fields appear in llm_output."""
+    llm = ChatLiteLLM(model="gpt-3.5-turbo", api_key="fake")
+
+    mock_response = {
+        "choices": [
+            {
+                "message": {"role": "assistant", "content": "Test response"},
+                "finish_reason": "stop",
             }
-        }
-        
-        result = llm._create_chat_result(mock_response)
-        
-        assert "provider_specific_fields" in result.llm_output
-        assert result.llm_output["provider_specific_fields"]["citations"][0]["source"] == "test"
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        "provider_specific_fields": {"citations": [{"source": "test"}]},
+    }
+
+    result = llm._create_chat_result(mock_response)
+
+    assert result.llm_output is not None
+    assert "provider_specific_fields" in result.llm_output
+    assert (
+        result.llm_output["provider_specific_fields"]["citations"][0]["source"]
+        == "test"
+    )
+
+
+# ── usage metadata ─────────────────────────────────────────────────────────────
 
 
 def test_create_usage_metadata_reads_pydantic_prompt_details() -> None:
@@ -198,6 +180,62 @@ def test_create_usage_metadata_reads_dict_prompt_details() -> None:
     assert meta["input_token_details"]["cache_creation"] == 5
 
 
+def test_create_usage_metadata_uses_total_tokens_from_response() -> None:
+    """total_tokens should be read from the response, not recomputed."""
+    usage = {
+        "prompt_tokens": 10,
+        "completion_tokens": 5,
+        "total_tokens": 20,  # deliberately != 10 + 5
+    }
+    meta = _create_usage_metadata(usage)
+    assert meta["total_tokens"] == 20
+
+
+def test_create_usage_metadata_extracts_reasoning_tokens() -> None:
+    """Reasoning tokens from completion_tokens_details should populate
+    output_token_details."""
+    usage = {
+        "prompt_tokens": 10,
+        "completion_tokens": 50,
+        "total_tokens": 60,
+        "completion_tokens_details": {"reasoning_tokens": 30},
+    }
+    meta = _create_usage_metadata(usage)
+    assert meta["output_token_details"]["reasoning"] == 30
+
+
+def test_create_usage_metadata_extracts_reasoning_tokens_pydantic() -> None:
+    """Reasoning tokens should be extracted from Pydantic Usage models too."""
+    from litellm.types.utils import CompletionTokensDetailsWrapper, Usage
+
+    usage = Usage(
+        prompt_tokens=10,
+        completion_tokens=50,
+        total_tokens=60,
+        completion_tokens_details=CompletionTokensDetailsWrapper(
+            reasoning_tokens=30,
+        ),
+    )
+    meta = _create_usage_metadata(usage)
+    assert meta["output_token_details"]["reasoning"] == 30
+
+
+def test_create_usage_metadata_handles_none_values() -> None:
+    """Explicit None values for token counts should be treated as 0."""
+    usage = {
+        "prompt_tokens": None,
+        "completion_tokens": None,
+        "total_tokens": None,
+    }
+    meta = _create_usage_metadata(usage)
+    assert meta["input_tokens"] == 0
+    assert meta["output_tokens"] == 0
+    assert meta["total_tokens"] == 0
+
+
+# ── reasoning content injection ────────────────────────────────────────────────
+
+
 def test_inject_reasoning_content_into_string_content() -> None:
     result = _inject_reasoning_content_into_content("answer", "hidden chain")
 
@@ -233,3 +271,202 @@ def test_inject_reasoning_content_does_not_duplicate_existing_thinking() -> None
     result = _inject_reasoning_content_into_content(content, "hidden chain")
 
     assert result == content
+
+
+# ── stream_options ─────────────────────────────────────────────────────────────
+
+
+def test_stream_options_set_for_non_openai_model() -> None:
+    """stream_options must be set for non-OpenAI providers too."""
+    llm = ChatLiteLLM(model="anthropic/claude-3-5-sonnet-20241022", api_key="fake")
+    _, params = llm._create_message_dicts([], None)
+    # Simulate what _stream does
+    params = {**params, "stream": True}
+    if llm.stream_options is not None:
+        params["stream_options"] = llm.stream_options
+    else:
+        params["stream_options"] = {"include_usage": True}
+    assert params.get("stream_options") == {"include_usage": True}
+
+
+def test_stream_options_respected_when_set_explicitly() -> None:
+    """User-provided stream_options must not be overwritten."""
+    custom = {"include_usage": False}
+    llm = ChatLiteLLM(
+        model="anthropic/claude-3-5-sonnet-20241022",
+        api_key="fake",
+        stream_options=custom,
+    )
+    params = {}
+    if llm.stream_options is not None:
+        params["stream_options"] = llm.stream_options
+    else:
+        params["stream_options"] = {"include_usage": True}
+    assert params["stream_options"] == custom
+
+
+# ── tool_choice mapping with thinking enabled ──────────────────────────────────
+
+_THINKING_KWARGS = {"thinking": {"type": "enabled", "budget_tokens": 5000}}
+
+
+def test_bind_tools_any_becomes_required_without_thinking() -> None:
+    """`tool_choice='any'` should map to `'required'`."""
+    llm = ChatLiteLLM(model="anthropic/claude-sonnet-4-20250514", api_key="fake")
+    bound = llm.bind_tools([_dummy_tool], tool_choice="any")
+    assert bound.kwargs["tool_choice"] == "required"  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    "tool_choice",
+    [
+        "any",
+        "required",
+        True,
+        {"type": "function", "function": {"name": "_dummy_tool"}},
+    ],
+    ids=["any", "required", "True", "dict"],
+)
+def test_bind_tools_downgraded_with_thinking(tool_choice, caplog) -> None:  # type: ignore[no-untyped-def]
+    """Forced tool_choice values should be downgraded to 'auto' when thinking
+    is enabled, so the model can produce CoT text before tool calls.
+    """
+    llm = ChatLiteLLM(
+        model="anthropic/claude-sonnet-4-20250514",
+        api_key="fake",
+        model_kwargs=_THINKING_KWARGS,
+    )
+    with caplog.at_level(
+        logging.WARNING, logger="langchain_litellm.chat_models.litellm"
+    ):
+        bound = llm.bind_tools([_dummy_tool], tool_choice=tool_choice)
+    assert bound.kwargs["tool_choice"] == "auto"  # type: ignore[attr-defined]
+    assert "incompatible with thinking" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "tool_choice",
+    [
+        "any",
+        "required",
+        True,
+        {"type": "function", "function": {"name": "_dummy_tool"}},
+    ],
+    ids=["any", "required", "True", "dict"],
+)
+def test_bind_tools_not_downgraded_with_thinking_on_non_claude_models(
+    tool_choice,
+) -> None:
+    """Forced tool choices should be preserved for non-Claude models."""
+    llm = ChatLiteLLM(
+        model="gpt-4o-mini",
+        api_key="fake",
+        model_kwargs=_THINKING_KWARGS,
+    )
+    bound = llm.bind_tools([_dummy_tool], tool_choice=tool_choice)
+    expected_tool_choice = "required" if tool_choice in ("any", True) else tool_choice
+    assert bound.kwargs["tool_choice"] == expected_tool_choice  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    "tool_choice",
+    ["auto", "none", None, False],
+    ids=["auto", "none", "None", "False"],
+)
+def test_bind_tools_non_forced_unchanged_with_thinking(tool_choice) -> None:
+    """Non-forced tool_choice values should pass through untouched."""
+    llm = ChatLiteLLM(
+        model="anthropic/claude-sonnet-4-20250514",
+        api_key="fake",
+        model_kwargs=_THINKING_KWARGS,
+    )
+    bound = llm.bind_tools([_dummy_tool], tool_choice=tool_choice)
+    assert bound.kwargs["tool_choice"] == tool_choice  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    "thinking_config",
+    [None, {}, {"type": "disabled"}],
+    ids=["None", "empty", "disabled"],
+)
+def test_bind_tools_no_downgrade_without_thinking_enabled(thinking_config) -> None:
+    """tool_choice='any' should stay 'required' when thinking is not enabled."""
+    kwargs: dict = {}
+    if thinking_config is not None:
+        kwargs["thinking"] = thinking_config
+    llm = ChatLiteLLM(
+        model="anthropic/claude-sonnet-4-20250514",
+        api_key="fake",
+        model_kwargs=kwargs,
+    )
+    bound = llm.bind_tools([_dummy_tool], tool_choice="any")
+    assert bound.kwargs["tool_choice"] == "required"  # type: ignore[attr-defined]
+
+
+def test_bind_tools_dict_validation_with_thinking() -> None:
+    """Invalid dict tool_choice should raise ValueError even with thinking."""
+    llm = ChatLiteLLM(
+        model="anthropic/claude-sonnet-4-20250514",
+        api_key="fake",
+        model_kwargs=_THINKING_KWARGS,
+    )
+    with pytest.raises(ValueError, match="nonexistent_tool"):
+        llm.bind_tools(
+            [_dummy_tool],
+            tool_choice={"type": "function", "function": {"name": "nonexistent_tool"}},
+        )
+
+
+def test_with_structured_output_function_calling_warns_and_raises_for_claude_thinking() -> (
+    None
+):
+    """Claude thinking should not silently fall back to plain-text structured output."""
+    bind_kwargs: dict[str, Any] = {}
+
+    class _FakeChatLiteLLM(ChatLiteLLM):
+        def bind_tools(self, tools, **kwargs):  # type: ignore[no-untyped-def]
+            bind_kwargs.update(kwargs)
+            return RunnableLambda(lambda _: AIMessage(content="plain text"))
+
+    llm = _FakeChatLiteLLM(
+        model="anthropic/claude-sonnet-4-20250514",
+        api_key="fake",
+        model_kwargs=_THINKING_KWARGS,
+    )
+
+    with pytest.warns(UserWarning, match="Structured output via function calling"):
+        structured = llm.with_structured_output(
+            _StructuredResponse, method="function_calling"
+        )
+
+    assert "tool_choice" not in bind_kwargs
+    with pytest.raises(OutputParserException, match="no tool call is returned"):
+        structured.invoke("Return structured output.")
+
+
+def test_with_structured_output_include_raw_preserves_raw_for_claude_thinking() -> None:
+    """`include_raw` should surface the parsing error without dropping the raw message."""
+
+    class _FakeChatLiteLLM(ChatLiteLLM):
+        def bind_tools(self, tools, **kwargs):  # type: ignore[no-untyped-def]
+            return RunnableLambda(lambda _: AIMessage(content="plain text"))
+
+    llm = _FakeChatLiteLLM(
+        model="anthropic/claude-sonnet-4-20250514",
+        api_key="fake",
+        model_kwargs=_THINKING_KWARGS,
+    )
+
+    with pytest.warns(UserWarning, match="Structured output via function calling"):
+        structured = llm.with_structured_output(
+            _StructuredResponse,
+            method="function_calling",
+            include_raw=True,
+        )
+
+    result = structured.invoke("Return structured output.")
+
+    assert isinstance(result["raw"], AIMessage)
+    assert result["raw"].content == "plain text"
+    assert result["parsed"] is None
+    assert isinstance(result["parsing_error"], OutputParserException)

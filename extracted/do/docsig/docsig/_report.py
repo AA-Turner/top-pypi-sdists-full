@@ -11,10 +11,13 @@ return the highest exit code.
 from __future__ import annotations as _
 
 import contextlib as _contextlib
+import sys as _sys
 import typing as _t
+from warnings import warn as _warn
 
 from astroid.nodes.scoped_nodes import scoped_nodes as _scoped_nodes
 
+from ._config import Config as _Config
 from ._module import Error as _Error
 from ._module import Function as _Function
 from ._stub import UNNAMED as _UNNAMED
@@ -24,9 +27,10 @@ from ._stub import Params as _Params
 from ._stub import RetType as _RetType
 from ._utils import almost_equal as _almost_equal
 from ._utils import sentence_tokenizer as _sentence_tokenizer
+from .messages import NEW as _NEW
+from .messages import TEMPLATE as _TEMPLATE
 from .messages import E as _E
 from .messages import Message as _Message
-from .messages import Messages as _Messages
 
 _MIN_MATCH = 0.8
 _MAX_MATCH = 1.0
@@ -55,21 +59,17 @@ class Failure(_t.List[Failed]):
     violation.
 
     :param func: Function under check.
-    :param target: List of errors to target.
-    :param check_property_returns: Run return checks on properties.
+    :param config: Configuration object.
     """
 
-    def __init__(
-        self,
-        func: _Function,
-        target: _Messages,
-        check_property_returns: bool,
-    ) -> None:
+    def __init__(self, func: _Function, config: _Config) -> None:
         super().__init__()
         self._retcode = 0
         self._func = func
-        if target:
-            self._func.messages.extend(i for i in _E.all if i not in target)
+        if config.target:
+            self._func.messages.extend(
+                i for i in _E.all if i not in config.target
+            )
 
         self._name = self._func.name
         if (
@@ -93,7 +93,7 @@ class Failure(_t.List[Failed]):
                     sig = self._func.signature.args.get(index)
                     self._sig4xx_parameters(doc, sig)
 
-                self._sig5xx_returns(check_property_returns)
+                self._sig5xx_returns(config.check.property_returns)
 
         self.sort()
 
@@ -161,6 +161,13 @@ class Failure(_t.List[Failed]):
                 else:
                     # unknown-inline-directive
                     self._add(_E[2], directive=comment.kind)
+            elif not comment.isvalidflag:
+                if comment.ismodule:
+                    # unknown-module-directive-flag
+                    self._add(_E[6], directive=comment.kind, flag=comment.flag)
+                else:
+                    # unknown-inline-directive-flag
+                    self._add(_E[7], directive=comment.kind, flag=comment.flag)
             else:
                 for rule in comment:
                     if not rule.isknown:
@@ -337,3 +344,50 @@ class Failure(_t.List[Failed]):
     def retcode(self) -> int:
         """Exit code (non-zero if any check failed)."""
         return self._retcode
+
+
+def report(
+    failures: Failures,
+    config: _Config,
+    file: str | None = None,
+) -> int:
+    """Print failures to stdout and return the highest exit code.
+
+    Iterates over failures, prints each with path, line header, and
+    messages, then returns the maximum retcode (0 or non-zero).
+
+    :param failures: Failures to print (one Failure per function).
+    :param config: Config for ANSI and formatting.
+    :param file: Module path when failures came from a file (optional).
+    :return: Exit code (non-zero if any check failed).
+    """
+    retcodes = [0]
+    for failure in failures:
+        retcodes.append(failure.retcode)
+        path_prefix = f"{file}:" if file is not None else ""
+        header = f"{path_prefix}{failure.lineno} in {failure.name}"
+        if not config.no_ansi and _sys.stdout.isatty():
+            header = f"\033[35m{header}\033[0m"
+
+        print(header)
+        for item in failure:
+            extra = None
+            if item.hint:
+                extra = f"hint: {item.hint}"
+
+            if item.new:
+                extra = "warning: please remember to fix this or disable it"
+                _warn(_NEW.format(ref=item.ref), FutureWarning, stacklevel=3)
+
+            print(
+                "    "
+                + _TEMPLATE.format(
+                    ref=item.ref,
+                    description=item.description,
+                    symbolic=item.symbolic,
+                ),
+            )
+            if extra is not None:
+                print(f"    {extra}")
+
+    return max(retcodes)

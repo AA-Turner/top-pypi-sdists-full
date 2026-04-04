@@ -109,6 +109,14 @@ class LangGraphAgent:
         self.active_run: Optional[RunMetadata] = None
         self.constant_schema_keys = ['messages', 'tools']
 
+    def clone(self) -> "LangGraphAgent":
+        return LangGraphAgent(
+            name=self.name,
+            graph=self.graph,
+            description=self.description,
+            config=self.config,
+        )
+
     def _dispatch_event(self, event: ProcessedEvents) -> str:
         if event.type == EventType.RAW:
             event.event = make_json_safe(event.event)
@@ -136,6 +144,7 @@ class LangGraphAgent:
             "has_function_streaming": False,
             "model_made_tool_call": False,
             "state_reliable": True,
+            "streamed_messages": [],
         }
         self.active_run = INITIAL_ACTIVE_RUN
 
@@ -316,7 +325,13 @@ class LangGraphAgent:
                 StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=self.get_state_snapshot(state_values))
             )
 
-            snapshot_messages = self._filter_orphan_tool_messages(state_values.get("messages", []))
+            checkpoint_messages = state_values.get("messages", [])
+            streamed_messages = self.active_run.get("streamed_messages", [])
+            if streamed_messages:
+                checkpoint_ids = {getattr(m, "id", None) for m in checkpoint_messages} - {None}
+                extra = [m for m in streamed_messages if getattr(m, "id", None) and getattr(m, "id", None) not in checkpoint_ids]
+                checkpoint_messages = checkpoint_messages + extra
+            snapshot_messages = self._filter_orphan_tool_messages(checkpoint_messages)
             yield self._dispatch_event(
                 MessagesSnapshotEvent(
                     type=EventType.MESSAGES_SNAPSHOT,
@@ -330,8 +345,7 @@ class LangGraphAgent:
             yield self._dispatch_event(
                 RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=self.active_run["id"])
             )
-            # Reset active run to how it was before the stream started
-            self.active_run = INITIAL_ACTIVE_RUN
+            self.active_run = None
         except Exception:
             raise
 
@@ -816,6 +830,9 @@ class LangGraphAgent:
                 return
 
         elif event_type == LangGraphEventTypes.OnChatModelEnd:
+            output_msg = event.get("data", {}).get("output")
+            if isinstance(output_msg, BaseMessage):
+                self.active_run.setdefault("streamed_messages", []).append(output_msg)
             if self.get_message_in_progress(self.active_run["id"]) and self.get_message_in_progress(self.active_run["id"]).get("tool_call_id"):
                 resolved = self._dispatch_event(
                     ToolCallEndEvent(type=EventType.TOOL_CALL_END, tool_call_id=self.get_message_in_progress(self.active_run["id"])["tool_call_id"], raw_event=event)
@@ -896,7 +913,7 @@ class LangGraphAgent:
                             ToolCallStartEvent(
                                 type=EventType.TOOL_CALL_START,
                                 tool_call_id=tool_msg.tool_call_id,
-                                tool_call_name=tool_msg.name,
+                                tool_call_name=tool_msg.name or event.get("name", ""),
                                 parent_message_id=tool_msg.id,
                                 raw_event=event,
                             )
@@ -926,6 +943,7 @@ class LangGraphAgent:
                             role="tool"
                         )
                     )
+                self.active_run["has_function_streaming"] = False
                 return
 
             if not self.active_run["has_function_streaming"]:
@@ -933,7 +951,7 @@ class LangGraphAgent:
                     ToolCallStartEvent(
                         type=EventType.TOOL_CALL_START,
                         tool_call_id=tool_call_output.tool_call_id,
-                        tool_call_name=tool_call_output.name,
+                        tool_call_name=tool_call_output.name or event.get("name", ""),
                         parent_message_id=tool_call_output.id,
                         raw_event=event,
                     )
@@ -966,6 +984,7 @@ class LangGraphAgent:
 
             self.active_run["model_made_tool_call"] = False
             self.active_run["state_reliable"] = True
+            self.active_run["has_function_streaming"] = False
 
     def handle_reasoning_event(self, reasoning_data: LangGraphReasoning) -> Generator[str, Any, str | None]:
         if not reasoning_data or "type" not in reasoning_data or "text" not in reasoning_data:

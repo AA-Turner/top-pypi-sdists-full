@@ -62,6 +62,29 @@ class TestRunnerResult:
             r.status = "failed"  # type: ignore[misc]
 
 
+class TestOpaqueRunnerStdinClosed:
+    """Regression tests for #1298: opaque runner must close stdin."""
+
+    @pytest.mark.asyncio
+    async def test_shell_mode_stdin_is_devnull(self) -> None:
+        """Shell subprocess cannot read from stdin (it is /dev/null)."""
+        import sys
+
+        check = f"{sys.executable} -c \"import sys; data=sys.stdin.read(); print(f'stdin_len={{len(data)}}')\""
+        result = await execute_opaque_runner(mode="shell", command=check, timeout=5)
+        assert result.status == "success"
+        assert "stdin_len=0" in result.summary
+
+    @pytest.mark.asyncio
+    async def test_exec_mode_stdin_is_devnull(self, tmp_path: Any) -> None:
+        """Exec subprocess cannot read from stdin (it is /dev/null)."""
+        script = tmp_path / "check_stdin.py"
+        script.write_text("import sys; data=sys.stdin.read(); print(f'stdin_len={len(data)}')")
+        result = await execute_opaque_runner(mode="exec", command=str(script), timeout=5)
+        assert result.status == "success"
+        assert "stdin_len=0" in result.summary
+
+
 class TestOpaqueRunner:
     @pytest.mark.asyncio
     async def test_shell_echo(self) -> None:

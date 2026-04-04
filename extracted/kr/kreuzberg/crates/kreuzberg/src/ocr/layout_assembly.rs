@@ -34,6 +34,8 @@ struct OcrRegion<'a> {
 pub struct RecognizedTable {
     /// Detection bbox that this table corresponds to (for matching).
     pub detection_bbox: BBox,
+    /// Table cells as a 2D vector (rows x columns).
+    pub cells: Vec<Vec<String>>,
     /// Rendered markdown table.
     pub markdown: String,
 }
@@ -136,10 +138,11 @@ pub fn recognize_page_tables(
             continue;
         }
 
-        let md = recognize_single_table(page_image, &det.bbox, elements, tatr_model);
-        if let Some(markdown) = md {
+        let result = recognize_single_table(page_image, &det.bbox, elements, tatr_model);
+        if let Some((cells, markdown)) = result {
             tables.push(RecognizedTable {
                 detection_bbox: det.bbox,
+                cells,
                 markdown,
             });
         }
@@ -149,12 +152,14 @@ pub fn recognize_page_tables(
 }
 
 /// Recognize a single table from a cropped region of the page.
+///
+/// Returns `(cells, markdown)` where cells is the 2D grid of cell text content.
 fn recognize_single_table(
     page_image: &image::RgbImage,
     table_bbox: &BBox,
     elements: &[OcrElement],
     tatr_model: &mut TatrModel,
-) -> Option<String> {
+) -> Option<(Vec<Vec<String>>, String)> {
     // Crop the table region from the page image
     let crop_x = table_bbox.x1.max(0.0) as u32;
     let crop_y = table_bbox.y1.max(0.0) as u32;
@@ -199,12 +204,8 @@ fn recognize_single_table(
         .collect();
 
     // Build markdown table by matching OCR elements to cells
-    Some(build_markdown_table(
-        &cell_grid,
-        &table_elements,
-        crop_x as f32,
-        crop_y as f32,
-    ))
+    let (cells, markdown) = build_markdown_table(&cell_grid, &table_elements, crop_x as f32, crop_y as f32);
+    Some((cells, markdown))
 }
 
 /// Build a markdown table from TATR cell grid + OCR elements.
@@ -216,15 +217,15 @@ fn build_markdown_table(
     elements: &[&OcrElement],
     offset_x: f32,
     offset_y: f32,
-) -> String {
+) -> (Vec<Vec<String>>, String) {
     if cell_grid.is_empty() {
-        return String::new();
+        return (Vec::new(), String::new());
     }
 
     let num_cols = cell_grid[0].len();
 
     if num_cols == 0 {
-        return String::new();
+        return (Vec::new(), String::new());
     }
 
     // Fill grid with cell text
@@ -276,7 +277,7 @@ fn build_markdown_table(
         md.pop();
     }
 
-    md
+    (grid, md)
 }
 
 /// Match OCR elements to a cell bbox, returning the cell's text content.
@@ -1027,6 +1028,10 @@ mod tests {
         );
         let recognized = vec![RecognizedTable {
             detection_bbox: BBox::new(40.0, 180.0, 350.0, 250.0),
+            cells: vec![
+                vec!["Header1".to_string(), "Header2".to_string()],
+                vec!["A".to_string(), "B".to_string()],
+            ],
             markdown: "| Header1 | Header2 |\n| --- | --- |\n| A | B |".to_string(),
         }];
         let result = assemble_ocr_markdown(&elements, Some(&detection), 800, 600, &recognized);

@@ -1128,6 +1128,9 @@ def _serve(
             # If a session is passed in, explicitly call config session to be consistent with sessions created
             # under the hood.
             configure_snowpark_session(session)
+
+        _register_snowpark_connect_session(session)
+
         if tcm.TCM_MODE:
             # No need to start grpc server in TCM
             return
@@ -1194,6 +1197,35 @@ def _serve(
         telemetry.shutdown()
         # End the root span when server shuts down completely
         otel_end_root_span()
+
+
+def _register_snowpark_connect_session(session: snowpark.Session) -> None:
+    """Register this Snowpark Connect session with Snowflake.
+
+    Calls the SNOWFLAKE.SPARK.REGISTER_SNOWPARK_CONNECT_SESSION system function,
+    which records the session in Snowflake's internal SCOS application registry.
+    The function uses CURRENT_SESSION() internally to identify the Snowflake session.
+
+    The system function accepts an optional app name parameter, but it is not passed here
+    because spark.app.name is not yet available -- it arrives later via Config RPC after
+    the gRPC server starts and a client connects.
+    TODO: Add an initialization variant to allow registering spark.app.name at server startup.
+
+    Silently logs a warning if the function is not available (e.g., older deployments).
+    """
+    logger.debug(
+        f"Registering Snowpark Connect session for session {session.session_id}"
+    )
+    try:
+        session.sql(
+            "SELECT SNOWFLAKE.SPARK.REGISTER_SNOWPARK_CONNECT_SESSION()"
+        ).collect_nowait()
+        logger.debug("Fired async registration for Snowpark Connect session")
+    except Exception:
+        logger.warning(
+            "Failed to register Snowpark Connect session "
+            "(SNOWFLAKE.SPARK.REGISTER_SNOWPARK_CONNECT_SESSION may not be available)"
+        )
 
 
 def config_snowpark() -> None:

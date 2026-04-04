@@ -89,7 +89,7 @@ class ConfigWatcher:
 
         # File changed — validate before accepting
         try:
-            content = path.read_text(encoding="utf-8")
+            content = path.read_text(encoding="utf-8-sig")
             raw = yaml.safe_load(content)
         except Exception:
             logger.warning("Config file %s has invalid YAML — ignoring change", path)

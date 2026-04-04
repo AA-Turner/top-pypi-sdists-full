@@ -1,0 +1,88 @@
+kind: workflow
+id: local_work_item_router
+version: 0.1.0
+
+inputs:
+  issue_number:
+    type: integer
+    required: true
+
+steps:
+  - id: gate_issue_current
+    type: gate
+    condition: issue_is_current
+    if_false: blocked_issue_not_open
+
+  - id: prepare_issue
+    type: runner
+    runner: python_script
+    command: "scripts/workflows/local_cli_issue_flow.py"
+    argv:
+      - "prepare"
+      - "--issue"
+      - "{issue_number}"
+    timeout: 300
+    retry:
+      max_attempts: 2
+      backoff: fixed
+      initial_delay: 5
+    # Router-selected child workflows inherit the clean-worktree guarantee from
+    # this shared prepare_issue step instead of duplicating cleanup logic.
+
+  - id: inspect_pr
+    type: runner
+    runner: python_script
+    command: "scripts/workflows/local_cli_issue_flow.py"
+    argv:
+      - "inspect-pr"
+      - "--issue"
+      - "{issue_number}"
+    timeout: 60
+
+  - id: route_issue_delivery
+    type: runner
+    runner: shell
+    when:
+      step: inspect_pr
+      field: result_summary
+      contains: '"lifecycle": "no_pr"'
+    command: |
+      printf '%s\n' 'Router selected local_claude_codex_issue_delivery (no PR present)'
+      uv run aroom workflow run ./examples/workflows/local_claude_codex_issue_delivery.yaml --issue {issue_number}
+    timeout: 7200
+
+  - id: route_pr_repair
+    type: runner
+    runner: shell
+    when:
+      step: inspect_pr
+      field: result_summary
+      contains: '"lifecycle": "review_repair"'
+    command: |
+      printf '%s\n' 'Router selected local_claude_codex_pr_repair (existing PR needs repair)'
+      uv run aroom workflow run ./examples/workflows/local_claude_codex_pr_repair.yaml --issue {issue_number}
+    timeout: 7200
+
+  - id: route_pr_refresh
+    type: runner
+    runner: shell
+    when:
+      step: inspect_pr
+      field: result_summary
+      contains: '"lifecycle": "refresh_needed"'
+    command: |
+      printf '%s\n' 'Router selected local_claude_pr_refresh (PR needs refresh)'
+      uv run aroom workflow run ./examples/workflows/local_claude_pr_refresh.yaml --issue {issue_number}
+    timeout: 7200
+
+  - id: route_pr_review_only
+    type: runner
+    runner: shell
+    when:
+      step: inspect_pr
+      field: result_summary
+      contains: '"lifecycle": "review_only"'
+    command: |
+      printf '%s\n' 'Router selected local_codex_pr_review_only (PR only needs senior review)'
+      uv run aroom workflow run ./examples/workflows/local_codex_pr_review_only.yaml --issue {issue_number}
+    timeout: 7200

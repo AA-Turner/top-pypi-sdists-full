@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from skylos.analyzer import analyze as run_analyze
 from skylos.baseline import load_baseline
 from skylos.constants import parse_exclude_folders
 from skylos.config import load_config
@@ -15,12 +14,10 @@ from skylos.debt.baseline import (
     annotate_hotspots as annotate_debt_hotspots,
     load_baseline as load_debt_baseline,
 )
-from skylos.debt.engine import collect_debt_signals
 from skylos.debt.scoring import (
     build_hotspots as build_debt_hotspots,
     refresh_hotspot_priority as refresh_debt_hotspot_priority,
 )
-from skylos.file_discovery import discover_source_files
 from skylos.agent_payload import (
     build_action_reason as _build_action_reason,
     build_action_subtitle as _build_action_subtitle,
@@ -38,6 +35,26 @@ from skylos.agent_payload import (
 STATE_DIR = ".skylos"
 STATE_FILE = "agent_state.json"
 SUPPORTED_EXTENSIONS = {".py", ".go", ".ts", ".tsx", ".js", ".jsx"}
+
+
+def run_analyze(*args, **kwargs):
+    from skylos.analyzer import analyze as run_analyze_impl
+
+    return run_analyze_impl(*args, **kwargs)
+
+
+def collect_debt_signals(*args, **kwargs):
+    from skylos.debt.engine import collect_debt_signals as collect_debt_signals_impl
+
+    return collect_debt_signals_impl(*args, **kwargs)
+
+
+def discover_source_files(*args, **kwargs):
+    from skylos.file_discovery import (
+        discover_source_files as discover_source_files_impl,
+    )
+
+    return discover_source_files_impl(*args, **kwargs)
 
 
 def resolve_project_root(path: str | Path) -> Path:
@@ -401,7 +418,9 @@ def refresh_agent_state(
                 fingerprint not in debt_known if debt_baseline else False
             )
         else:
-            finding["is_new_vs_baseline"] = fingerprint not in known if baseline else False
+            finding["is_new_vs_baseline"] = (
+                fingerprint not in known if baseline else False
+            )
         finding["is_new_since_last_scan"] = fingerprint not in previous_fingerprints
         finding["is_in_changed_file"] = finding["file"] in changed_files
 
@@ -633,7 +652,9 @@ def _append_debt_hotspots(
 ) -> None:
     signals = collect_debt_signals(result, project_root=project_root)
     if not include_dead_code:
-        signals = [signal for signal in signals if signal.source_category != "dead_code"]
+        signals = [
+            signal for signal in signals if signal.source_category != "dead_code"
+        ]
     if not signals:
         return
 
@@ -713,8 +734,7 @@ def debt_hotspot_message(hotspot: dict[str, Any] | Any) -> str:
         lead = str(
             getattr(first_signal, "message", None)
             if not isinstance(first_signal, dict)
-            else first_signal.get("message")
-            or ""
+            else first_signal.get("message") or ""
         ).strip()
 
     detail = (

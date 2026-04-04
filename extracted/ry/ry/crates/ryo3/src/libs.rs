@@ -10,6 +10,8 @@ pub fn pymod_add(m: &Bound<'_, PyModule>) -> PyResult<()> {
     ryo3_bzip2::pymod_add(m)?;
     #[cfg(feature = "bytes")]
     ryo3_bytes::pymod_add(m)?;
+    #[cfg(feature = "cookie")]
+    ryo3_cookie::pymod_add(m)?;
     #[cfg(feature = "flate2")]
     ryo3_flate2::pymod_add(m)?;
     #[cfg(feature = "fnv")]
@@ -34,7 +36,6 @@ pub fn pymod_add(m: &Bound<'_, PyModule>) -> PyResult<()> {
     ryo3_reqwest::pymod_add(m)?;
     #[cfg(feature = "tokio")]
     ryo3_tokio::pymod_add(m)?;
-
     #[cfg(feature = "same-file")]
     ryo3_same_file::pymod_add(m)?;
     #[cfg(feature = "shlex")]
@@ -55,8 +56,8 @@ pub fn pymod_add(m: &Bound<'_, PyModule>) -> PyResult<()> {
     ryo3_zstd::pymod_add(m)?;
 
     // -- FUTURE--
-    // #[cfg(feature = "tokio-websockets")]
-    // ryo3_tokio_websockets::pymod_add(m)?;
+    #[cfg(feature = "tokio-websockets")]
+    ryo3_tokio_websockets::pymod_add(m)?;
     // #[cfg(feature = "ignore")]
     // ryo3_ignore::pymod_add(m)?;
     Ok(())

@@ -1,10 +1,12 @@
 Metadata-Version: 2.4
 Name: pylint-per-file-ignores
-Version: 3.2.0
+Version: 3.2.1
 Summary: A pylint plugin to ignore error codes per file.
 Author-email: Christopher Pickering <christopher@going.bg>, Kai Harder <kai.harder@sap.com>
 Maintainer-email: Kai Harder <kai.harder@sap.com>
 License-Expression: MIT
+Project-URL: Changelog, https://github.com/SAP/pylint-per-file-ignores/blob/main/CHANGELOG.md
+Project-URL: Issue Tracker, https://github.com/SAP/pylint-per-file-ignores/issues
 Keywords: pylint,plugin,quality,linter
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Plugins
@@ -27,7 +29,7 @@ Requires-Dist: pylint<5,>=3.3
 Dynamic: license-file
 
 [![REUSE status](https://api.reuse.software/badge/github.com/SAP/pylint-per-file-ignores)](https://api.reuse.software/info/github.com/SAP/pylint-per-file-ignores)
-
+[![Coverage Status](https://coveralls.io/repos/github/SAP/pylint-per-file-ignores/badge.svg)](https://coveralls.io/github/SAP/pylint-per-file-ignores)
 
 # Pylint Per File Ignores
 This pylint plugin will enable per-file-ignores in your project!
@@ -118,4 +120,4 @@ We as members, contributors, and leaders pledge to make participation in our com
 
 ## Licensing
 
-Copyright 2025 SAP SE or an SAP affiliate company and pylint-per-file-ignores contributors. Please see our [LICENSE](LICENSE) for copyright and license information. Detailed information including third-party components and their licensing/copyright information is available [via the REUSE tool](https://api.reuse.software/info/github.com/SAP/pylint-per-file-ignores).
+Copyright 2026 SAP SE or an SAP affiliate company and pylint-per-file-ignores contributors. Please see our [LICENSE](LICENSE) for copyright and license information. Detailed information including third-party components and their licensing/copyright information is available [via the REUSE tool](https://api.reuse.software/info/github.com/SAP/pylint-per-file-ignores).

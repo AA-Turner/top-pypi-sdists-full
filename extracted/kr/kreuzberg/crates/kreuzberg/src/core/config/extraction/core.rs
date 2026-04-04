@@ -30,6 +30,7 @@ use super::types::{ImageExtractionConfig, LanguageDetectionConfig, TokenReductio
 /// // let config = ExtractionConfig::from_toml_file("kreuzberg.toml")?;
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExtractionConfig {
     /// Enable caching of extraction results
     #[serde(default = "default_true")]
@@ -56,6 +57,18 @@ pub struct ExtractionConfig {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub force_ocr_pages: Option<Vec<usize>>,
+
+    /// Disable OCR entirely, even for images.
+    ///
+    /// When `true`, OCR is skipped for all document types. Images return metadata
+    /// only (dimensions, format, EXIF) without text extraction. PDFs use only
+    /// native text extraction without OCR fallback.
+    ///
+    /// Cannot be `true` simultaneously with `force_ocr`.
+    ///
+    /// *Added in v4.7.0.*
+    #[serde(default)]
+    pub disable_ocr: bool,
 
     /// Text chunking configuration (None = chunking disabled)
     #[serde(default)]
@@ -210,6 +223,14 @@ pub struct ExtractionConfig {
     /// Set to 0 to disable recursive extraction (legacy behavior).
     #[serde(default = "default_archive_depth")]
     pub max_archive_depth: usize,
+
+    /// Tree-sitter language pack configuration (None = tree-sitter disabled).
+    ///
+    /// When set, enables code file extraction using tree-sitter parsers.
+    /// Controls grammar download behavior and code analysis options.
+    #[cfg(feature = "tree-sitter")]
+    #[serde(default)]
+    pub tree_sitter: Option<super::super::tree_sitter::TreeSitterConfig>,
 }
 
 impl Default for ExtractionConfig {
@@ -220,6 +241,7 @@ impl Default for ExtractionConfig {
             ocr: None,
             force_ocr: false,
             force_ocr_pages: None,
+            disable_ocr: false,
             chunking: None,
             images: None,
             #[cfg(feature = "pdf")]
@@ -247,6 +269,8 @@ impl Default for ExtractionConfig {
             email: None,
             concurrency: None,
             max_archive_depth: default_archive_depth(),
+            #[cfg(feature = "tree-sitter")]
+            tree_sitter: None,
         }
     }
 }
@@ -280,6 +304,7 @@ impl ExtractionConfig {
             ref ocr,
             ref force_ocr,
             ref force_ocr_pages,
+            ref disable_ocr,
             ref chunking,
             ref images,
             #[cfg(feature = "pdf")]
@@ -298,6 +323,8 @@ impl ExtractionConfig {
             #[cfg(feature = "layout-detection")]
             ref layout,
             ref timeout_secs,
+            #[cfg(feature = "tree-sitter")]
+            ref tree_sitter,
         } = *overrides;
 
         let mut config = self.clone();
@@ -313,6 +340,9 @@ impl ExtractionConfig {
         }
         if let Some(v) = force_ocr_pages {
             config.force_ocr_pages = Some(v.clone());
+        }
+        if let Some(v) = disable_ocr {
+            config.disable_ocr = *v;
         }
         if let Some(v) = chunking {
             config.chunking = Some(v.clone());
@@ -348,7 +378,7 @@ impl ExtractionConfig {
             config.result_format = *v;
         }
         if let Some(v) = output_format {
-            config.output_format = *v;
+            config.output_format = v.clone();
         }
         if let Some(v) = include_document_structure {
             config.include_document_structure = *v;
@@ -359,6 +389,10 @@ impl ExtractionConfig {
         }
         if let Some(v) = timeout_secs {
             config.extraction_timeout_secs = Some(*v);
+        }
+        #[cfg(feature = "tree-sitter")]
+        if let Some(v) = tree_sitter {
+            config.tree_sitter = Some(v.clone());
         }
 
         config
@@ -398,7 +432,7 @@ impl ExtractionConfig {
     /// decompression can improve CPU utilization by 5-10% by avoiding wasteful
     /// image I/O and processing when results won't be used.
     pub fn needs_image_processing(&self) -> bool {
-        let ocr_enabled = self.ocr.is_some() || self.force_ocr;
+        let ocr_enabled = !self.disable_ocr && (self.ocr.is_some() || self.force_ocr);
 
         let image_extraction_enabled = self.images.as_ref().map(|i| i.extract_images).unwrap_or(false);
 

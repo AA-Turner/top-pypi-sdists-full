@@ -85,6 +85,13 @@ pub async fn extract_file(
     let result = async {
         io::validate_file_exists(path)?;
 
+        if config.force_ocr && config.disable_ocr {
+            return Err(crate::KreuzbergError::Validation {
+                message: "force_ocr and disable_ocr cannot both be true".to_string(),
+                source: None,
+            });
+        }
+
         let detected_mime = mime::detect_or_validate(Some(path), mime_type)?;
 
         // Native DOC/PPT extractors are registered in the plugin registry.
@@ -178,8 +185,8 @@ async fn extract_file_uncached(path: &Path, mime_type: &str, config: &Extraction
     crate::extractors::ensure_initialized()?;
 
     let extractor = get_extractor(mime_type)?;
-    let mut result = extractor.extract_file(path, mime_type, config).await?;
-    result = crate::core::pipeline::run_pipeline(result, config).await?;
+    let doc = extractor.extract_file(path, mime_type, config).await?;
+    let result = crate::core::pipeline::run_pipeline(doc, config).await?;
     Ok(result)
 }
 
@@ -240,7 +247,7 @@ pub(in crate::core::extractor) async fn extract_bytes_with_extractor(
     crate::extractors::ensure_initialized()?;
 
     let extractor = get_extractor(mime_type)?;
-    let mut result = extractor.extract_bytes(content, mime_type, config).await?;
-    result = crate::core::pipeline::run_pipeline(result, config).await?;
+    let doc = extractor.extract_bytes(content, mime_type, config).await?;
+    let result = crate::core::pipeline::run_pipeline(doc, config).await?;
     Ok(result)
 }

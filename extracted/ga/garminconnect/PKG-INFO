@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: garminconnect
-Version: 0.3.0
+Version: 0.3.1
 Summary: Python 3 API wrapper for Garmin Connect
 Keywords: garmin connect,api,garmin
 Author-Email: Ron Klinkien <ron@cyberjunky.nl>

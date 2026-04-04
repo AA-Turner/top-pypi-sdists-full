@@ -12,7 +12,12 @@ from cutlass.cute.runtime import make_ptr
 from quack.cache_utils import jit_cache
 from quack.compile_utils import make_fake_tensor as fake_tensor
 from quack.cute_dsl_utils import get_device_capacity, get_max_active_clusters, torch2cute_dtype_map
-from quack.gemm_default_epi import GemmDefaultEpiMixin, GemmDefaultSm90, GemmDefaultSm100
+from quack.gemm_default_epi import (
+    GemmDefaultEpiMixin,
+    GemmDefaultSm90,
+    GemmDefaultSm100,
+    GemmDefaultSm120,
+)
 from quack.rounding import RoundingMode
 from quack.gemm_tvm_ffi_utils import (
     get_majors,
@@ -55,8 +60,15 @@ def _compile_gemm(
     device_capacity,
     rounding_mode,
     sr_seed_mode,
+    has_trace_ptr,
 ):
-    GemmCls = GemmDefaultSm100 if device_capacity[0] > 9 else GemmDefaultSm90
+    sm_to_cls = {
+        9: GemmDefaultSm90,
+        10: GemmDefaultSm100,
+        11: GemmDefaultSm100,
+        12: GemmDefaultSm120,
+    }
+    GemmCls = sm_to_cls[device_capacity[0]]
     mA, mB, mD, mC, m, n, k, l = make_fake_gemm_tensors(
         a_dtype,
         b_dtype,
@@ -118,6 +130,7 @@ def _compile_gemm(
         epi_args,
         scheduler_args,
         varlen_args,
+        has_trace_ptr=has_trace_ptr,
     )
 
 
@@ -147,6 +160,7 @@ def gemm(
     add_to_output: bool = False,
     rounding_mode: int = RoundingMode.RN,
     sr_seed: int | Tensor = 0,
+    trace_ptr=None,  # Optional Int64 from TraceSession.ptr
 ) -> None:
     varlen_m = cu_seqlens_m is not None
     varlen_k = cu_seqlens_k is not None
@@ -168,15 +182,13 @@ def gemm(
         assert B.stride(-2) == 1, "varlen_k requires B to be n-major"
 
     device_capacity = get_device_capacity(A.device)
-    assert device_capacity[0] in [9, 10, 11], "Only SM90, SM100, and SM110 are supported"
+    assert device_capacity[0] in [9, 10, 11, 12], "Only SM90, SM100, SM110, and SM120 are supported"
     if rounding_mode == RoundingMode.RS:
-        assert (
-            device_capacity[0] >= 10
-        ), "Stochastic rounding (RoundingMode.RS) requires SM100+ (Blackwell)"
+        assert device_capacity[0] == 10, "Stochastic rounding (RoundingMode.RS) requires SM100"
     if is_dynamic_persistent and device_capacity[0] == 9:
-        assert (
-            tile_count_semaphore is not None
-        ), "Dynamic persistent tile scheduler in SM90 requires a semaphore in GMEM"
+        assert tile_count_semaphore is not None, (
+            "Dynamic persistent tile scheduler in SM90 requires a semaphore in GMEM"
+        )
 
     A_p, B_p, D_p, C_p = perm3d(A, B, D, C, varlen_m=varlen_m, varlen_k=varlen_k)
     a_major, b_major, d_major, c_major = get_majors(A_p, B_p, D_p, C_p)
@@ -216,6 +228,7 @@ def gemm(
         device_capacity,
         rounding_mode,
         sr_seed_mode,
+        trace_ptr is not None,
     )
 
     from quack.cache_utils import COMPILE_ONLY
@@ -250,7 +263,9 @@ def gemm(
     )
     varlen_args = make_varlen_args(cu_seqlens_m, cu_seqlens_k, A_idx)
 
-    if device_capacity[0] > 9:
-        compiled_fn(A_p, B_p, D_p, C_p, epi_args, scheduler_args, varlen_args, None, None)
+    if device_capacity[0] in [10, 11]:
+        compiled_fn(
+            A_p, B_p, D_p, C_p, epi_args, scheduler_args, varlen_args, None, None, trace_ptr
+        )
     else:
-        compiled_fn(A_p, B_p, D_p, C_p, epi_args, scheduler_args, varlen_args)
+        compiled_fn(A_p, B_p, D_p, C_p, epi_args, scheduler_args, varlen_args, trace_ptr)

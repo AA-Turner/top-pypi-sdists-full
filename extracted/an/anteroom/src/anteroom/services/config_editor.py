@@ -421,7 +421,7 @@ def _read_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        raw = yaml.safe_load(path.read_text(encoding="utf-8-sig"))
         return raw if isinstance(raw, dict) else {}
     except (yaml.YAMLError, OSError) as exc:
         logger.warning("Cannot read config %s: %s", path, exc)

@@ -17,7 +17,7 @@ pub mod preprocessing;
 pub mod session;
 pub mod types;
 
-pub use engine::{CustomModelVariant, DetectTimings, LayoutEngine, LayoutEngineConfig, LayoutPreset, ModelBackend};
+pub use engine::{CustomModelVariant, DetectTimings, LayoutEngine, LayoutEngineConfig, ModelBackend};
 pub use error::LayoutError;
 pub use model_manager::LayoutModelManager;
 pub use models::LayoutModel;
@@ -43,20 +43,14 @@ static CACHED_TATR: ModelCache<models::tatr::TatrModel> = ModelCache::new();
 /// warning logs on every document).
 static TATR_TRIED: OnceLock<bool> = OnceLock::new();
 
-/// Convert an [`LayoutDetectionConfig`] into a [`LayoutEngineConfig`].
+/// Convert a [`LayoutDetectionConfig`] into a [`LayoutEngineConfig`].
 pub fn config_from_extraction(layout_config: &LayoutDetectionConfig) -> LayoutEngineConfig {
-    let preset: LayoutPreset = layout_config.preset.parse().unwrap_or_else(|_| {
-        tracing::warn!(
-            preset = %layout_config.preset,
-            "unrecognized layout preset, falling back to 'accurate'"
-        );
-        LayoutPreset::Accurate
-    });
-
-    let mut engine_config = LayoutEngineConfig::from_preset(preset);
-    engine_config.confidence_threshold = layout_config.confidence_threshold;
-    engine_config.apply_heuristics = layout_config.apply_heuristics;
-    engine_config
+    LayoutEngineConfig {
+        backend: ModelBackend::RtDetr,
+        confidence_threshold: layout_config.confidence_threshold,
+        apply_heuristics: layout_config.apply_heuristics,
+        cache_dir: None,
+    }
 }
 
 /// Create a [`LayoutEngine`] from a [`LayoutDetectionConfig`].
@@ -143,39 +137,6 @@ static SLANET_WIRED_TRIED: OnceLock<bool> = OnceLock::new();
 static SLANET_WIRELESS_TRIED: OnceLock<bool> = OnceLock::new();
 static SLANET_PLUS_TRIED: OnceLock<bool> = OnceLock::new();
 static TABLE_CLASSIFIER_TRIED: OnceLock<bool> = OnceLock::new();
-
-/// Which table structure model to use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TableModelBackend {
-    /// TATR (Table Transformer) — default, 30MB.
-    Tatr,
-    /// SLANeXT wired variant — 365MB, optimized for bordered tables.
-    SlanetWired,
-    /// SLANeXT wireless variant — 365MB, optimized for borderless tables.
-    SlanetWireless,
-    /// SLANet-plus — 7.78MB, lightweight general-purpose.
-    SlanetPlus,
-    /// Classifier-routed SLANeXT: auto-select wired/wireless per table.
-    /// Uses PP-LCNet classifier (6.78MB) + both SLANeXT variants (730MB total).
-    SlanetAuto,
-}
-
-impl TableModelBackend {
-    /// Parse from config string.
-    pub fn from_config(s: Option<&str>) -> Self {
-        match s {
-            Some("slanet_wired") => Self::SlanetWired,
-            Some("slanet_wireless") => Self::SlanetWireless,
-            Some("slanet_plus") => Self::SlanetPlus,
-            Some("slanet_auto") => Self::SlanetAuto,
-            Some("tatr") | None => Self::Tatr,
-            Some(unknown) => {
-                tracing::warn!(table_model = unknown, "Unknown table model, falling back to TATR");
-                Self::Tatr
-            }
-        }
-    }
-}
 
 /// Take a cached SLANeXT model for the given variant, or create a new one.
 pub fn take_or_create_slanet(variant: &str) -> Option<models::slanet::SlanetModel> {

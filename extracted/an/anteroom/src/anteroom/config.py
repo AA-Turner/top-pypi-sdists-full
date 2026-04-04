@@ -32,15 +32,6 @@ _BUILTIN_TOOL_DESCRIPTIONS: dict[str, str] = {
 }
 
 
-def _get_version() -> str:
-    try:
-        from importlib.metadata import version
-
-        return version("anteroom")
-    except Exception:
-        return "unknown"
-
-
 def build_runtime_context(
     *,
     model: str,
@@ -51,7 +42,8 @@ def build_runtime_context(
     tls_enabled: bool = False,
 ) -> str:
     """Build an XML-tagged runtime context block for the system prompt."""
-    version = _get_version()
+    from anteroom import __version__ as version
+
     iface_label = "Web UI" if interface == "web" else "CLI REPL"
 
     lines = [
@@ -856,6 +848,7 @@ class WorkflowConfig:
     scheduler_enabled: bool = True
     min_schedule_interval: int = 60
     watch_buffer_lines: int = 50
+    lock_reclaim_threshold: int = 120
     transcript: TranscriptConfig = field(default_factory=TranscriptConfig)
 
     _MIN_STEP_TIMEOUT: int = field(default=10, init=False, repr=False)
@@ -933,6 +926,8 @@ class WorkflowConfig:
             object.__setattr__(self, "watch_buffer_lines", self._MIN_WATCH_BUFFER_LINES)
         if self.watch_buffer_lines > self._MAX_WATCH_BUFFER_LINES:
             object.__setattr__(self, "watch_buffer_lines", self._MAX_WATCH_BUFFER_LINES)
+        if self.lock_reclaim_threshold < 30:
+            object.__setattr__(self, "lock_reclaim_threshold", 30)
 
 
 @dataclass
@@ -1039,7 +1034,7 @@ def load_config(
     path = config_path or _get_config_path()
 
     if path.exists():
-        with open(path) as f:
+        with open(path, encoding="utf-8-sig") as f:
             raw = yaml.safe_load(f) or {}
 
     # Validate raw config before parsing into dataclasses
@@ -2299,6 +2294,7 @@ def load_config(
         "scheduler_enabled",
         "min_schedule_interval",
         "watch_buffer_lines",
+        "lock_reclaim_threshold",
     ):
         wf_default = getattr(workflow_defaults, wf_key)
         val = workflow_raw.get(wf_key, wf_default)
@@ -2431,7 +2427,7 @@ def ensure_identity(config_path: Path | None = None) -> UserIdentity:
     path = config_path or _get_config_path()
     raw: dict[str, Any] = {}
     if path.exists():
-        with open(path) as f:
+        with open(path, encoding="utf-8-sig") as f:
             raw = yaml.safe_load(f) or {}
 
     identity_raw = raw.get("identity", {})
@@ -2516,7 +2512,7 @@ def write_allowed_tool(tool_name: str, config_path: Path | None = None) -> None:
     def _read_modify_write() -> None:
         raw: dict[str, Any] = {}
         if path.exists():
-            with open(path) as f:
+            with open(path, encoding="utf-8-sig") as f:
                 raw = yaml.safe_load(f) or {}
 
         safety_section = raw.setdefault("safety", {})

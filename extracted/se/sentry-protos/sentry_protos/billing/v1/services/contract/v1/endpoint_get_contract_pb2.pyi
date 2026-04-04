@@ -6,6 +6,7 @@ isort:skip_file
 import builtins
 import google.protobuf.descriptor
 import google.protobuf.message
+import sentry_protos.billing.v1.date_pb2
 import sentry_protos.billing.v1.services.contract.v1.contract_pb2
 import typing
 
@@ -16,13 +17,20 @@ class GetContractRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     ORGANIZATION_ID_FIELD_NUMBER: builtins.int
+    DATE_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
+    @property
+    def date(self) -> sentry_protos.billing.v1.date_pb2.Date:
+        """If provided, returns the Contract active on this date. Otherwise, returns the current Contract."""
+
     def __init__(
         self,
         *,
         organization_id: builtins.int = ...,
+        date: sentry_protos.billing.v1.date_pb2.Date | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["organization_id", b"organization_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["date", b"date"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["date", b"date", "organization_id", b"organization_id"]) -> None: ...
 
 global___GetContractRequest = GetContractRequest
 

@@ -5,6 +5,7 @@ from blackjax._version import __version__
 
 from .adaptation.adjusted_mclmc_adaptation import adjusted_mclmc_find_L_and_step_size
 from .adaptation.chees_adaptation import chees_adaptation
+from .adaptation.low_rank_adaptation import low_rank_window_adaptation
 from .adaptation.mclmc_adaptation import mclmc_find_L_and_step_size
 from .adaptation.meads_adaptation import meads_adaptation
 from .adaptation.pathfinder_adaptation import pathfinder_adaptation
@@ -14,7 +15,7 @@ from .diagnostics import effective_sample_size as ess
 from .diagnostics import potential_scale_reduction as rhat
 from .mcmc import adjusted_mclmc as _adjusted_mclmc
 from .mcmc import adjusted_mclmc_dynamic as _adjusted_mclmc_dynamic
-from .mcmc import barker
+from .mcmc import barker as _barker
 from .mcmc import dynamic_hmc as _dynamic_hmc
 from .mcmc import elliptical_slice as _elliptical_slice
 from .mcmc import ghmc as _ghmc
@@ -42,6 +43,7 @@ from .smc import partial_posteriors_path as _partial_posteriors_smc
 from .smc import persistent_sampling
 from .smc import pretuning as _pretuning
 from .smc import tempered
+from .vi import fullrank_vi as _fullrank_vi
 from .vi import meanfield_vi as _meanfield_vi
 from .vi import multipathfinder as _multipathfinder
 from .vi import pathfinder as _pathfinder
@@ -119,7 +121,8 @@ adjusted_mclmc_dynamic = generate_top_level_api_from(_adjusted_mclmc_dynamic)
 adjusted_mclmc = generate_top_level_api_from(_adjusted_mclmc)
 elliptical_slice = generate_top_level_api_from(_elliptical_slice)
 ghmc = generate_top_level_api_from(_ghmc)
-barker_proposal = generate_top_level_api_from(barker)
+barker = generate_top_level_api_from(_barker)
+barker_proposal = barker  # backwards-compatible alias
 
 hmc_family = [hmc, nuts]
 
@@ -150,6 +153,12 @@ csgld = generate_top_level_api_from(_csgld)
 svgd = generate_top_level_api_from(_svgd)
 
 # variational inference
+fullrank_vi = GenerateVariationalAPI(
+    _fullrank_vi.as_top_level_api,
+    _fullrank_vi.init,
+    _fullrank_vi.step,
+    _fullrank_vi.sample,
+)
 meanfield_vi = GenerateVariationalAPI(
     _meanfield_vi.as_top_level_api,
     _meanfield_vi.init,
@@ -175,6 +184,7 @@ __all__ = [
     "dual_averaging",  # optimizers
     "lbfgs",
     "window_adaptation",  # mcmc adaptation
+    "low_rank_window_adaptation",
     "meads_adaptation",
     "chees_adaptation",
     "pathfinder_adaptation",

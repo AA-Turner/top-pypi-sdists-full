@@ -127,7 +127,7 @@ def load_team_config(
         If False, silently skip untrusted files (web UI / non-interactive).
     """
     try:
-        content = path.read_text(encoding="utf-8")
+        content = path.read_text(encoding="utf-8-sig")
     except OSError as exc:
         logger.warning("Cannot read team config %s: %s", path, exc)
         return {}, []

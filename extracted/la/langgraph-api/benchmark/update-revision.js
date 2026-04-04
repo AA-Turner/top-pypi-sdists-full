@@ -5,8 +5,8 @@
 
 // LangSmith API endpoints and credentials
 // Prod jdr-benchmark: a23f03ff-6d4d-4efd-8149-bb5a7f3b95cf
-// Staging jdr-benchmark: 8ced7b1a-275f-48f3-88bf-ae08fdc4b414
-const DEPLOYMENT_ID = process.env.DEPLOYMENT_ID || '8ced7b1a-275f-48f3-88bf-ae08fdc4b414'; // jdr-benchmark deployment id
+// Staging daily-benchmark: 03b7336a-73dd-4ee5-8b5e-da19c48a6cdc
+const DEPLOYMENT_ID = process.env.DEPLOYMENT_ID || '03b7336a-73dd-4ee5-8b5e-da19c48a6cdc'; // daily-benchmark deployment id
 const LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
 const API_BASE = process.env.API_BASE || 'https://beta.api.host.langchain.com/v1';
 

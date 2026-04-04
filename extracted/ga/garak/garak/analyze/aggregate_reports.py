@@ -17,9 +17,6 @@ import json
 import uuid
 import sys
 
-import garak
-import garak.analyze.report_digest
-
 
 def _process_file_body(in_file, out_file, aggregate_uuid) -> dict | None:
     eof = False
@@ -66,8 +63,9 @@ def main(argv=None) -> None:
     if argv is None:
         argv = sys.argv[1:]
 
-    import garak._config
     import argparse
+    import garak._config
+    import garak.analyze.report_digest
 
     garak._config.load_config()
     print(
@@ -115,7 +113,7 @@ def main(argv=None) -> None:
 
             # write the header, completed attempts, and eval rows
 
-            out_file.write(json.dumps(setup) + "\n")
+            out_file.write(json.dumps(setup, ensure_ascii=False) + "\n")
 
             init_line = lead_file.readline()
             init = json.loads(init_line)
@@ -129,7 +127,7 @@ def main(argv=None) -> None:
             init["orig_start_time"] = init["start_time"]
             init["start_time"] = aggregate_starttime_iso
 
-            out_file.write(json.dumps(init) + "\n")
+            out_file.write(json.dumps(init, ensure_ascii=False) + "\n")
 
             _process_file_body(lead_file, out_file, aggregate_uuid)
 

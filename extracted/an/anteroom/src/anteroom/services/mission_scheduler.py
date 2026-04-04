@@ -156,7 +156,7 @@ class MissionSchedulerWorker:
                 await self._poll_item(sid, item)
 
             # Phase D — check session completion
-            self._check_session_completion(sid)
+            await self._check_session_completion(sid)
 
     # ------------------------------------------------------------------
     # Phase A helpers
@@ -215,7 +215,9 @@ class MissionSchedulerWorker:
             )
             return
 
-        execution = ms.create_execution(self._db, item_id=item_id, attempt_number=1)
+        latest = ms.get_latest_execution(self._db, item_id)
+        attempt_number = (latest["attempt_number"] + 1) if latest else 1
+        execution = ms.create_execution(self._db, item_id=item_id, attempt_number=attempt_number)
         session = ms.get_session(self._db, session_id) or {}
         adapter_config: dict[str, Any] = item.get("adapter_config") or {}
         session_context: dict[str, Any] = {
@@ -333,13 +335,35 @@ class MissionSchedulerWorker:
                     event_type=f"item_{result.state}",
                     detail={"summary": result.summary},
                 )
-        # In-flight — no action
+        elif result.state in _IN_FLIGHT_STATES:
+            self._handle_stale_recovery(session_id, item, result)
+
+    def _handle_stale_recovery(
+        self,
+        session_id: str,
+        item: dict[str, Any],
+        adapter_status: Any,
+    ) -> None:
+        """Check adapter summary/stop_reason for stale heartbeat signals and emit event."""
+        from . import mission_storage as ms
+
+        summary = getattr(adapter_status, "summary", None) or ""
+        if "stale_heartbeat" not in summary:
+            return
+
+        ms.create_event(
+            self._db,
+            session_id=session_id,
+            item_id=item["id"],
+            event_type="item_stale_recovered",
+            detail={"summary": summary},
+        )
 
     # ------------------------------------------------------------------
     # Phase D — session completion
     # ------------------------------------------------------------------
 
-    def _check_session_completion(self, session_id: str) -> None:
+    async def _check_session_completion(self, session_id: str) -> None:
         from . import mission_storage as ms
 
         items = ms.list_items_by_session(self._db, session_id)
@@ -350,6 +374,16 @@ class MissionSchedulerWorker:
         if not non_dropped:
             return
 
+        # Before finalizing as failed, check external reality for workflow-
+        # backed items whose GitHub issue may have been closed (#1306).
+        failed_items = [i for i in non_dropped if i["status"] == "failed"]
+        if failed_items:
+            reconciled_any = await self._try_external_reconciliation(session_id, failed_items)
+            if reconciled_any:
+                # Re-read items after reconciliation changed statuses.
+                items = ms.list_items_by_session(self._db, session_id)
+                non_dropped = [i for i in items if i["status"] != "dropped"]
+
         if any(i["status"] == "failed" for i in non_dropped):
             ms.update_session(self._db, session_id, status="failed")
             ms.create_event(
@@ -357,6 +391,7 @@ class MissionSchedulerWorker:
                 session_id=session_id,
                 event_type="session_failed",
             )
+            self._store_retrospective(session_id, is_draft=True)
             return
 
         if all(i["status"] == "completed" for i in non_dropped):
@@ -365,6 +400,98 @@ class MissionSchedulerWorker:
                 self._db,
                 session_id=session_id,
                 event_type="session_completed",
+            )
+            self._store_retrospective(session_id, is_draft=False)
+
+    async def _try_external_reconciliation(self, session_id: str, failed_items: list[dict[str, Any]]) -> bool:
+        """Check external GitHub reality for failed workflow items (#1306).
+
+        Returns ``True`` if any item was reconciled.  Subprocess calls are
+        offloaded to a thread to avoid blocking the event loop.
+        """
+        from . import mission_storage as ms
+        from .external_checks import check_external_completion
+
+        reconciled = False
+        for item in failed_items:
+            if item.get("adapter_type") != "workflow":
+                continue
+
+            issue_number = self._resolve_issue_number(item)
+            if issue_number is None:
+                continue
+
+            try:
+                is_complete, reason = await asyncio.to_thread(check_external_completion, issue_number)
+            except Exception:
+                logger.debug(
+                    "External check failed for item %s (issue #%d)",
+                    item["id"][:8],
+                    issue_number,
+                    exc_info=True,
+                )
+                continue
+
+            if is_complete and reason:
+                try:
+                    ms.force_reconcile_item(self._db, item["id"], reason=reason)
+                    logger.info(
+                        "Auto-reconciled item %s: %s",
+                        item["id"][:8],
+                        reason,
+                    )
+                    reconciled = True
+                except Exception:
+                    logger.warning(
+                        "Failed to auto-reconcile item %s",
+                        item["id"][:8],
+                        exc_info=True,
+                    )
+
+        return reconciled
+
+    def _resolve_issue_number(self, item: dict[str, Any]) -> int | None:
+        """Extract the issue number from the workflow run backing *item*.
+
+        Returns ``None`` if the item has no workflow execution, the workflow
+        run is not found, or the run has no ``issue_number`` in its inputs.
+        """
+        from . import mission_storage as ms
+        from . import workflow_storage as ws
+
+        latest = ms.get_latest_execution(self._db, item["id"])
+        if latest is None or not latest.get("adapter_ref"):
+            return None
+
+        run = ws.get_workflow_run(self._db, latest["adapter_ref"])
+        if run is None:
+            return None
+
+        inputs = run.get("inputs")
+        if not inputs or not isinstance(inputs, dict):
+            return None
+
+        raw = inputs.get("issue_number")
+        if raw is None:
+            return None
+
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            logger.debug("Non-integer issue_number in workflow run %s: %r", latest["adapter_ref"][:8], raw)
+            return None
+
+    def _store_retrospective(self, session_id: str, *, is_draft: bool) -> None:
+        """Generate and store a retrospective, swallowing errors."""
+        try:
+            from .mission_summary import generate_and_store_retrospective
+
+            generate_and_store_retrospective(self._db, session_id, is_draft=is_draft)
+        except Exception:
+            logger.warning(
+                "Failed to generate retrospective for session %s",
+                session_id[:8],
+                exc_info=True,
             )
 
     # ------------------------------------------------------------------
@@ -436,7 +563,8 @@ class MissionSchedulerWorker:
                 detail={"state": result.state},
             )
         elif result.state in _IN_FLIGHT_STATES:
-            # Still running — leave as active
+            # Still running — leave as active, but check for stale heartbeat
+            self._handle_stale_recovery(session_id, item, result)
             ms.create_event(
                 self._db,
                 session_id=session_id,

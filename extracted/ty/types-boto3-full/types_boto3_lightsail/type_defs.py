@@ -624,6 +624,11 @@ class ResourceLocationTypeDef(TypedDict):
     regionName: NotRequired[RegionNameType]
 
 
+class TagTypeDef(TypedDict):
+    key: NotRequired[str]
+    value: NotRequired[str]
+
+
 class AllocateStaticIpRequestTypeDef(TypedDict):
     staticIpName: str
 
@@ -740,11 +745,6 @@ class BucketStateTypeDef(TypedDict):
 class ResourceReceivingAccessTypeDef(TypedDict):
     name: NotRequired[str]
     resourceType: NotRequired[str]
-
-
-class TagTypeDef(TypedDict):
-    key: NotRequired[str]
-    value: NotRequired[str]
 
 
 class BundleTypeDef(TypedDict):
@@ -1527,20 +1527,6 @@ class PendingModifiedRelationalDatabaseValuesTypeDef(TypedDict):
     backupRetentionEnabled: NotRequired[bool]
 
 
-class PutAlarmRequestTypeDef(TypedDict):
-    alarmName: str
-    metricName: MetricNameType
-    monitoredResourceName: str
-    comparisonOperator: ComparisonOperatorType
-    threshold: float
-    evaluationPeriods: int
-    datapointsToAlarm: NotRequired[int]
-    treatMissingData: NotRequired[TreatMissingDataType]
-    contactProtocols: NotRequired[Sequence[ContactProtocolType]]
-    notificationTriggers: NotRequired[Sequence[AlarmStateType]]
-    notificationEnabled: NotRequired[bool]
-
-
 class R53HostedZoneDeletionStateTypeDef(TypedDict):
     code: NotRequired[R53HostedZoneDeletionStateCodeType]
     message: NotRequired[str]
@@ -1708,29 +1694,6 @@ class AddOnRequestTypeDef(TypedDict):
     stopInstanceOnIdleRequest: NotRequired[StopInstanceOnIdleRequestTypeDef]
 
 
-class AlarmTypeDef(TypedDict):
-    name: NotRequired[str]
-    arn: NotRequired[str]
-    createdAt: NotRequired[datetime]
-    location: NotRequired[ResourceLocationTypeDef]
-    resourceType: NotRequired[ResourceTypeType]
-    supportCode: NotRequired[str]
-    monitoredResourceInfo: NotRequired[MonitoredResourceInfoTypeDef]
-    comparisonOperator: NotRequired[ComparisonOperatorType]
-    evaluationPeriods: NotRequired[int]
-    period: NotRequired[int]
-    threshold: NotRequired[float]
-    datapointsToAlarm: NotRequired[int]
-    treatMissingData: NotRequired[TreatMissingDataType]
-    statistic: NotRequired[MetricStatisticType]
-    metricName: NotRequired[MetricNameType]
-    state: NotRequired[AlarmStateType]
-    unit: NotRequired[MetricUnitType]
-    contactProtocols: NotRequired[list[ContactProtocolType]]
-    notificationTriggers: NotRequired[list[AlarmStateType]]
-    notificationEnabled: NotRequired[bool]
-
-
 OperationTypeDef = TypedDict(
     "OperationTypeDef",
     {
@@ -1770,79 +1733,28 @@ class StaticIpTypeDef(TypedDict):
     isAttached: NotRequired[bool]
 
 
-class DownloadDefaultKeyPairResultTypeDef(TypedDict):
-    publicKeyBase64: str
-    privateKeyBase64: str
-    createdAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetActiveNamesResultTypeDef(TypedDict):
-    activeNames: list[str]
-    nextPageToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetContainerAPIMetadataResultTypeDef(TypedDict):
-    metadata: list[dict[str, str]]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetDistributionLatestCacheResetResultTypeDef(TypedDict):
-    status: str
-    createTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetRelationalDatabaseLogStreamsResultTypeDef(TypedDict):
-    logStreams: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetRelationalDatabaseMasterUserPasswordResultTypeDef(TypedDict):
-    masterUserPassword: str
-    createdAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class IsVpcPeeredResultTypeDef(TypedDict):
-    isPeered: bool
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class AutoSnapshotDetailsTypeDef(TypedDict):
-    date: NotRequired[str]
+class AlarmTypeDef(TypedDict):
+    name: NotRequired[str]
+    arn: NotRequired[str]
     createdAt: NotRequired[datetime]
-    status: NotRequired[AutoSnapshotStatusType]
-    fromAttachedDisks: NotRequired[list[AttachedDiskTypeDef]]
-
-
-class RegionTypeDef(TypedDict):
-    continentCode: NotRequired[str]
-    description: NotRequired[str]
-    displayName: NotRequired[str]
-    name: NotRequired[RegionNameType]
-    availabilityZones: NotRequired[list[AvailabilityZoneTypeDef]]
-    relationalDatabaseAvailabilityZones: NotRequired[list[AvailabilityZoneTypeDef]]
-
-
-class GetBlueprintsResultTypeDef(TypedDict):
-    blueprints: list[BlueprintTypeDef]
-    nextPageToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetBucketBundlesResultTypeDef(TypedDict):
-    bundles: list[BucketBundleTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class BucketCorsConfigOutputTypeDef(TypedDict):
-    rules: NotRequired[list[BucketCorsRuleOutputTypeDef]]
-
-
-class BucketCorsConfigTypeDef(TypedDict):
-    rules: NotRequired[Sequence[BucketCorsRuleTypeDef]]
+    location: NotRequired[ResourceLocationTypeDef]
+    resourceType: NotRequired[ResourceTypeType]
+    supportCode: NotRequired[str]
+    monitoredResourceInfo: NotRequired[MonitoredResourceInfoTypeDef]
+    comparisonOperator: NotRequired[ComparisonOperatorType]
+    evaluationPeriods: NotRequired[int]
+    period: NotRequired[int]
+    threshold: NotRequired[float]
+    datapointsToAlarm: NotRequired[int]
+    treatMissingData: NotRequired[TreatMissingDataType]
+    statistic: NotRequired[MetricStatisticType]
+    metricName: NotRequired[MetricNameType]
+    state: NotRequired[AlarmStateType]
+    unit: NotRequired[MetricUnitType]
+    contactProtocols: NotRequired[list[ContactProtocolType]]
+    notificationTriggers: NotRequired[list[AlarmStateType]]
+    notificationEnabled: NotRequired[bool]
+    tags: NotRequired[list[TagTypeDef]]
 
 
 class ContactMethodTypeDef(TypedDict):
@@ -1991,6 +1903,21 @@ class KeyPairTypeDef(TypedDict):
     fingerprint: NotRequired[str]
 
 
+class PutAlarmRequestTypeDef(TypedDict):
+    alarmName: str
+    metricName: MetricNameType
+    monitoredResourceName: str
+    comparisonOperator: ComparisonOperatorType
+    threshold: float
+    evaluationPeriods: int
+    datapointsToAlarm: NotRequired[int]
+    treatMissingData: NotRequired[TreatMissingDataType]
+    contactProtocols: NotRequired[Sequence[ContactProtocolType]]
+    notificationTriggers: NotRequired[Sequence[AlarmStateType]]
+    notificationEnabled: NotRequired[bool]
+    tags: NotRequired[Sequence[TagTypeDef]]
+
+
 class RelationalDatabaseSnapshotTypeDef(TypedDict):
     name: NotRequired[str]
     arn: NotRequired[str]
@@ -2013,6 +1940,81 @@ class TagResourceRequestTypeDef(TypedDict):
     resourceName: str
     tags: Sequence[TagTypeDef]
     resourceArn: NotRequired[str]
+
+
+class DownloadDefaultKeyPairResultTypeDef(TypedDict):
+    publicKeyBase64: str
+    privateKeyBase64: str
+    createdAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetActiveNamesResultTypeDef(TypedDict):
+    activeNames: list[str]
+    nextPageToken: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetContainerAPIMetadataResultTypeDef(TypedDict):
+    metadata: list[dict[str, str]]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetDistributionLatestCacheResetResultTypeDef(TypedDict):
+    status: str
+    createTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetRelationalDatabaseLogStreamsResultTypeDef(TypedDict):
+    logStreams: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetRelationalDatabaseMasterUserPasswordResultTypeDef(TypedDict):
+    masterUserPassword: str
+    createdAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class IsVpcPeeredResultTypeDef(TypedDict):
+    isPeered: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AutoSnapshotDetailsTypeDef(TypedDict):
+    date: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    status: NotRequired[AutoSnapshotStatusType]
+    fromAttachedDisks: NotRequired[list[AttachedDiskTypeDef]]
+
+
+class RegionTypeDef(TypedDict):
+    continentCode: NotRequired[str]
+    description: NotRequired[str]
+    displayName: NotRequired[str]
+    name: NotRequired[RegionNameType]
+    availabilityZones: NotRequired[list[AvailabilityZoneTypeDef]]
+    relationalDatabaseAvailabilityZones: NotRequired[list[AvailabilityZoneTypeDef]]
+
+
+class GetBlueprintsResultTypeDef(TypedDict):
+    blueprints: list[BlueprintTypeDef]
+    nextPageToken: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetBucketBundlesResultTypeDef(TypedDict):
+    bundles: list[BucketBundleTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class BucketCorsConfigOutputTypeDef(TypedDict):
+    rules: NotRequired[list[BucketCorsRuleOutputTypeDef]]
+
+
+class BucketCorsConfigTypeDef(TypedDict):
+    rules: NotRequired[Sequence[BucketCorsRuleTypeDef]]
 
 
 class GetBundlesResultTypeDef(TypedDict):
@@ -2588,12 +2590,6 @@ class EnableAddOnRequestTypeDef(TypedDict):
     addOnRequest: AddOnRequestTypeDef
 
 
-class GetAlarmsResultTypeDef(TypedDict):
-    alarms: list[AlarmTypeDef]
-    nextPageToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class AllocateStaticIpResultTypeDef(TypedDict):
     operations: list[OperationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3039,39 +3035,10 @@ class GetStaticIpsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class GetAutoSnapshotsResultTypeDef(TypedDict):
-    resourceName: str
-    resourceType: ResourceTypeType
-    autoSnapshots: list[AutoSnapshotDetailsTypeDef]
+class GetAlarmsResultTypeDef(TypedDict):
+    alarms: list[AlarmTypeDef]
+    nextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetRegionsResultTypeDef(TypedDict):
-    regions: list[RegionTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class BucketTypeDef(TypedDict):
-    resourceType: NotRequired[str]
-    accessRules: NotRequired[AccessRulesTypeDef]
-    arn: NotRequired[str]
-    bundleId: NotRequired[str]
-    createdAt: NotRequired[datetime]
-    url: NotRequired[str]
-    location: NotRequired[ResourceLocationTypeDef]
-    name: NotRequired[str]
-    supportCode: NotRequired[str]
-    tags: NotRequired[list[TagTypeDef]]
-    objectVersioning: NotRequired[str]
-    ableToUpdateBundle: NotRequired[bool]
-    readonlyAccessAccounts: NotRequired[list[str]]
-    resourcesReceivingAccess: NotRequired[list[ResourceReceivingAccessTypeDef]]
-    state: NotRequired[BucketStateTypeDef]
-    accessLogConfig: NotRequired[BucketAccessLogConfigTypeDef]
-    cors: NotRequired[BucketCorsConfigOutputTypeDef]
-
-
-BucketCorsConfigUnionTypeDef = Union[BucketCorsConfigTypeDef, BucketCorsConfigOutputTypeDef]
 
 
 class GetContactMethodsResultTypeDef(TypedDict):
@@ -3154,6 +3121,41 @@ class GetRelationalDatabaseSnapshotsResultTypeDef(TypedDict):
     relationalDatabaseSnapshots: list[RelationalDatabaseSnapshotTypeDef]
     nextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetAutoSnapshotsResultTypeDef(TypedDict):
+    resourceName: str
+    resourceType: ResourceTypeType
+    autoSnapshots: list[AutoSnapshotDetailsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetRegionsResultTypeDef(TypedDict):
+    regions: list[RegionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class BucketTypeDef(TypedDict):
+    resourceType: NotRequired[str]
+    accessRules: NotRequired[AccessRulesTypeDef]
+    arn: NotRequired[str]
+    bundleId: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    url: NotRequired[str]
+    location: NotRequired[ResourceLocationTypeDef]
+    name: NotRequired[str]
+    supportCode: NotRequired[str]
+    tags: NotRequired[list[TagTypeDef]]
+    objectVersioning: NotRequired[str]
+    ableToUpdateBundle: NotRequired[bool]
+    readonlyAccessAccounts: NotRequired[list[str]]
+    resourcesReceivingAccess: NotRequired[list[ResourceReceivingAccessTypeDef]]
+    state: NotRequired[BucketStateTypeDef]
+    accessLogConfig: NotRequired[BucketAccessLogConfigTypeDef]
+    cors: NotRequired[BucketCorsConfigOutputTypeDef]
+
+
+BucketCorsConfigUnionTypeDef = Union[BucketCorsConfigTypeDef, BucketCorsConfigOutputTypeDef]
 
 
 class LightsailDistributionTypeDef(TypedDict):
@@ -3330,34 +3332,6 @@ class GetSetupHistoryResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class CreateBucketResultTypeDef(TypedDict):
-    bucket: BucketTypeDef
-    operations: list[OperationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetBucketsResultTypeDef(TypedDict):
-    buckets: list[BucketTypeDef]
-    nextPageToken: str
-    accountLevelBpaSync: AccountLevelBpaSyncTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateBucketResultTypeDef(TypedDict):
-    bucket: BucketTypeDef
-    operations: list[OperationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateBucketRequestTypeDef(TypedDict):
-    bucketName: str
-    accessRules: NotRequired[AccessRulesTypeDef]
-    versioning: NotRequired[str]
-    readonlyAccessAccounts: NotRequired[Sequence[str]]
-    accessLogConfig: NotRequired[BucketAccessLogConfigTypeDef]
-    cors: NotRequired[BucketCorsConfigUnionTypeDef]
-
-
 class InstanceTypeDef(TypedDict):
     name: NotRequired[str]
     arn: NotRequired[str]
@@ -3392,6 +3366,34 @@ class GetInstanceSnapshotsResultTypeDef(TypedDict):
     instanceSnapshots: list[InstanceSnapshotTypeDef]
     nextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateBucketResultTypeDef(TypedDict):
+    bucket: BucketTypeDef
+    operations: list[OperationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetBucketsResultTypeDef(TypedDict):
+    buckets: list[BucketTypeDef]
+    nextPageToken: str
+    accountLevelBpaSync: AccountLevelBpaSyncTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateBucketResultTypeDef(TypedDict):
+    bucket: BucketTypeDef
+    operations: list[OperationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateBucketRequestTypeDef(TypedDict):
+    bucketName: str
+    accessRules: NotRequired[AccessRulesTypeDef]
+    versioning: NotRequired[str]
+    readonlyAccessAccounts: NotRequired[Sequence[str]]
+    accessLogConfig: NotRequired[BucketAccessLogConfigTypeDef]
+    cors: NotRequired[BucketCorsConfigUnionTypeDef]
 
 
 class CreateDistributionResultTypeDef(TypedDict):

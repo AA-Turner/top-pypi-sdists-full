@@ -7,6 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable
 
+import pyarrow as pa
+
 from snowflake import snowpark
 from snowflake.snowpark.types import StructField, StructType
 from snowflake.snowpark_connect.column_qualifier import ColumnQualifier
@@ -60,6 +62,7 @@ class DataFrameContainer:
         can_be_cached: bool = True,
         can_be_materialized: bool = True,
         aggregate_metadata: AggregateMetadata | None = None,
+        cached_local_relation_arrow_table: pa.Table | None = None,
     ) -> None:
         """
         Initialize a new DataFrameContainer.
@@ -73,6 +76,16 @@ class DataFrameContainer:
             partition_hint: Optional partition count from repartition() operations
             dataframe_hint: Optional hint name (e.g. "directed") from DataFrame.hint()
             aggregate_metadata: Optional metadata about aggregation for ORDER BY resolution
+            cached_local_relation_arrow_table: SNOW-3242008 — Performance optimization
+                for the DDL sql_command round-trip case. When a DDL statement (USE DATABASE,
+                ALTER SESSION SET, etc.) is executed via spark.sql(), the server returns
+                a SqlCommandResult containing a LocalRelation with the result (e.g.,
+                "Statement executed successfully."). The client then sends this LocalRelation
+                back to the server for materialization. Without this cache, the server would
+                create a Snowpark DataFrame and execute a VALUES query against Snowflake
+                just to return this static string. By carrying the already-deserialized Arrow
+                table from map_local_relation to map_execution_root, we skip the Snowflake
+                round trip entirely and return the data directly from memory.
         """
         self._dataframe = dataframe
         self._column_map = self._create_default_column_map(column_map)
@@ -83,6 +96,8 @@ class DataFrameContainer:
         self._can_be_cached = can_be_cached
         self._can_be_materialized = can_be_materialized
         self._aggregate_metadata = aggregate_metadata
+        self._cached_local_relation_arrow_table = cached_local_relation_arrow_table
+        self._known_row_count: int | None = None
 
         if cached_schema_getter is not None:
             self._apply_cached_schema_getter(cached_schema_getter)
@@ -190,6 +205,16 @@ class DataFrameContainer:
         """Prevent the DataFrame from being materialized in df_cache"""
         self._can_be_materialized = False
         return self
+
+    @property
+    def cached_local_relation_arrow_table(self) -> pa.Table | None:
+        """SNOW-3242008: Arrow table carried from map_local_relation for DDL result short-circuit."""
+        return self._cached_local_relation_arrow_table
+
+    @property
+    def known_row_count(self) -> int | None:
+        """SNOW-3242008: Pre-known row count to avoid a Snowflake count query."""
+        return self._known_row_count
 
     @property
     def dataframe(self) -> snowpark.DataFrame:

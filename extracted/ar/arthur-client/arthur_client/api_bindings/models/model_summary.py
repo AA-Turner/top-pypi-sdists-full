@@ -28,7 +28,8 @@ class ModelSummary(BaseModel):
     """ # noqa: E501
     id: StrictStr = Field(description="The ID of the model.")
     name: StrictStr = Field(description="The name of the model.")
-    __properties: ClassVar[List[str]] = ["id", "name"]
+    project_id: StrictStr = Field(description="The ID of the project the model belongs to.")
+    __properties: ClassVar[List[str]] = ["id", "name", "project_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -82,7 +83,8 @@ class ModelSummary(BaseModel):
 
         _obj = cls.model_validate({
             "id": obj.get("id"),
-            "name": obj.get("name")
+            "name": obj.get("name"),
+            "project_id": obj.get("project_id")
         })
         return _obj
 

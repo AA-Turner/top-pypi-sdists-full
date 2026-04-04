@@ -44,7 +44,10 @@ class PluginCache:
         _config.transient.cache_dir / "resources" / "plugin_cache.json"
     )
     _detector_metrics_filename = (
-        _config.transient.package_dir / "data" / "detectors-eval" / "detector_metrics_summary.json"
+        _config.transient.package_dir
+        / "data"
+        / "detectors-eval"
+        / "detector_metrics_summary.json"
     )
     _plugin_cache_dict = None
     _detector_metrics_cache = None
@@ -59,8 +62,12 @@ class PluginCache:
     def _get_detector_metrics():
         if PluginCache._detector_metrics_cache is None:
             if os.path.exists(PluginCache._detector_metrics_filename):
-                with open(PluginCache._detector_metrics_filename, "r", encoding="utf-8") as f:
-                    PluginCache._detector_metrics_cache = json.load(f).get("results", {})
+                with open(
+                    PluginCache._detector_metrics_filename, "r", encoding="utf-8"
+                ) as f:
+                    PluginCache._detector_metrics_cache = json.load(f).get(
+                        "results", {}
+                    )
             else:
                 PluginCache._detector_metrics_cache = {}
         return PluginCache._detector_metrics_cache

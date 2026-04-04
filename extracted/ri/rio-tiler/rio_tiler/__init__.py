@@ -1,6 +1,6 @@
 """rio-tiler."""
 
-__version__ = "9.0.4"
+__version__ = "9.0.5"
 
 from . import (
     colormap,

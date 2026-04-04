@@ -45,6 +45,7 @@ impl ExtractionConfig {
         enable_quality_processing=None,
         ocr=None,
         force_ocr=None,
+        disable_ocr=None,
         force_ocr_pages=None,
         chunking=None,
         images=None,
@@ -65,7 +66,8 @@ impl ExtractionConfig {
         concurrency=None,
         cache_namespace=None,
         cache_ttl_secs=None,
-        extraction_timeout_secs=None
+        extraction_timeout_secs=None,
+        tree_sitter=None
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -73,6 +75,7 @@ impl ExtractionConfig {
         enable_quality_processing: Option<bool>,
         ocr: Option<OcrConfig>,
         force_ocr: Option<bool>,
+        disable_ocr: Option<bool>,
         force_ocr_pages: Option<Vec<usize>>,
         chunking: Option<ChunkingConfig>,
         images: Option<ImageExtractionConfig>,
@@ -94,6 +97,7 @@ impl ExtractionConfig {
         cache_namespace: Option<String>,
         cache_ttl_secs: Option<u64>,
         extraction_timeout_secs: Option<u64>,
+        tree_sitter: Option<TreeSitterConfig>,
     ) -> PyResult<Self> {
         let (html_options_inner, html_options_dict) = parse_html_options_dict(html_options)?;
         Ok(Self {
@@ -102,6 +106,7 @@ impl ExtractionConfig {
                 enable_quality_processing: enable_quality_processing.unwrap_or(true),
                 ocr: ocr.map(Into::into),
                 force_ocr: force_ocr.unwrap_or(false),
+                disable_ocr: disable_ocr.unwrap_or(false),
                 force_ocr_pages,
                 chunking: chunking.map(Into::into),
                 images: images.map(Into::into),
@@ -134,10 +139,11 @@ impl ExtractionConfig {
                         "markdown" | "md" => kreuzberg::core::config::formats::OutputFormat::Markdown,
                         "djot" => kreuzberg::core::config::formats::OutputFormat::Djot,
                         "html" => kreuzberg::core::config::formats::OutputFormat::Html,
-                        "structured" | "json" => kreuzberg::core::config::formats::OutputFormat::Structured,
+                        "json" => kreuzberg::core::config::formats::OutputFormat::Json,
+                        "structured" => kreuzberg::core::config::formats::OutputFormat::Structured,
                         other => {
                             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                                "Invalid output_format: {}. Must be 'plain', 'markdown', 'djot', 'html', or 'structured'",
+                                "Invalid output_format: {}. Must be 'plain', 'markdown', 'djot', 'html', 'json', or 'structured'",
                                 other
                             )));
                         }
@@ -154,6 +160,7 @@ impl ExtractionConfig {
                 email: email.map(Into::into),
                 concurrency: concurrency.map(Into::into),
                 max_archive_depth: 3,
+                tree_sitter: tree_sitter.map(Into::into),
             },
             html_options_dict,
         })
@@ -197,6 +204,16 @@ impl ExtractionConfig {
     #[setter]
     fn set_force_ocr(&mut self, value: bool) {
         self.inner.force_ocr = value;
+    }
+
+    #[getter]
+    fn disable_ocr(&self) -> bool {
+        self.inner.disable_ocr
+    }
+
+    #[setter]
+    fn set_disable_ocr(&mut self, value: bool) {
+        self.inner.disable_ocr = value;
     }
 
     #[getter]
@@ -346,7 +363,9 @@ impl ExtractionConfig {
             kreuzberg::core::config::formats::OutputFormat::Markdown => "markdown".to_string(),
             kreuzberg::core::config::formats::OutputFormat::Djot => "djot".to_string(),
             kreuzberg::core::config::formats::OutputFormat::Html => "html".to_string(),
+            kreuzberg::core::config::formats::OutputFormat::Json => "json".to_string(),
             kreuzberg::core::config::formats::OutputFormat::Structured => "structured".to_string(),
+            kreuzberg::core::config::formats::OutputFormat::Custom(ref name) => name.clone(),
         }
     }
 
@@ -357,7 +376,8 @@ impl ExtractionConfig {
             "markdown" => kreuzberg::core::config::formats::OutputFormat::Markdown,
             "djot" => kreuzberg::core::config::formats::OutputFormat::Djot,
             "html" => kreuzberg::core::config::formats::OutputFormat::Html,
-            "structured" | "json" => kreuzberg::core::config::formats::OutputFormat::Structured,
+            "json" => kreuzberg::core::config::formats::OutputFormat::Json,
+            "structured" => kreuzberg::core::config::formats::OutputFormat::Structured,
             _ => kreuzberg::core::config::formats::OutputFormat::Plain, // Default on invalid
         };
     }
@@ -403,6 +423,16 @@ impl ExtractionConfig {
     }
 
     #[getter]
+    fn tree_sitter(&self) -> Option<TreeSitterConfig> {
+        self.inner.tree_sitter.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_tree_sitter(&mut self, value: Option<TreeSitterConfig>) {
+        self.inner.tree_sitter = value.map(Into::into);
+    }
+
+    #[getter]
     fn cache_namespace(&self) -> Option<String> {
         self.inner.cache_namespace.clone()
     }
@@ -430,6 +460,77 @@ impl ExtractionConfig {
     #[setter]
     fn set_extraction_timeout_secs(&mut self, value: Option<u64>) {
         self.inner.extraction_timeout_secs = value;
+    }
+
+    #[getter]
+    fn max_archive_depth(&self) -> usize {
+        self.inner.max_archive_depth
+    }
+
+    #[setter]
+    fn set_max_archive_depth(&mut self, value: usize) {
+        self.inner.max_archive_depth = value;
+    }
+
+    /// Get the security limits for archive extraction.
+    ///
+    /// Returns:
+    ///     Optional dict with keys: max_archive_size, max_compression_ratio,
+    ///     max_files_in_archive, max_nesting_depth, max_entity_length,
+    ///     max_content_size, max_iterations
+    #[getter]
+    fn security_limits(&self, py: Python<'_>) -> PyResult<Option<Py<PyDict>>> {
+        match &self.inner.security_limits {
+            Some(limits) => {
+                let dict = PyDict::new(py);
+                dict.set_item("max_archive_size", limits.max_archive_size)?;
+                dict.set_item("max_compression_ratio", limits.max_compression_ratio)?;
+                dict.set_item("max_files_in_archive", limits.max_files_in_archive)?;
+                dict.set_item("max_nesting_depth", limits.max_nesting_depth)?;
+                dict.set_item("max_entity_length", limits.max_entity_length)?;
+                dict.set_item("max_content_size", limits.max_content_size)?;
+                dict.set_item("max_iterations", limits.max_iterations)?;
+                Ok(Some(dict.unbind()))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Set the security limits for archive extraction.
+    ///
+    /// Args:
+    ///     value: Optional dict with security limit keys, or None to use defaults.
+    #[setter]
+    fn set_security_limits(&mut self, value: Option<Bound<'_, PyDict>>) -> PyResult<()> {
+        self.inner.security_limits = match value {
+            Some(dict) => {
+                let mut limits = kreuzberg::extractors::security::SecurityLimits::default();
+                if let Some(v) = dict.get_item("max_archive_size")? {
+                    limits.max_archive_size = v.extract()?;
+                }
+                if let Some(v) = dict.get_item("max_compression_ratio")? {
+                    limits.max_compression_ratio = v.extract()?;
+                }
+                if let Some(v) = dict.get_item("max_files_in_archive")? {
+                    limits.max_files_in_archive = v.extract()?;
+                }
+                if let Some(v) = dict.get_item("max_nesting_depth")? {
+                    limits.max_nesting_depth = v.extract()?;
+                }
+                if let Some(v) = dict.get_item("max_entity_length")? {
+                    limits.max_entity_length = v.extract()?;
+                }
+                if let Some(v) = dict.get_item("max_content_size")? {
+                    limits.max_content_size = v.extract()?;
+                }
+                if let Some(v) = dict.get_item("max_iterations")? {
+                    limits.max_iterations = v.extract()?;
+                }
+                Some(limits)
+            }
+            None => None,
+        };
+        Ok(())
     }
 
     fn __repr__(&self) -> String {
@@ -1365,45 +1466,42 @@ impl PostProcessorConfig {
 /// Layout detection configuration.
 ///
 /// Controls layout detection behavior for PDF extraction using ONNX-based
-/// document layout models (YOLO or RT-DETR).
+/// document layout models.
 ///
 /// Example:
 ///     >>> from kreuzberg import LayoutDetectionConfig
-///     >>> config = LayoutDetectionConfig(preset="fast", apply_heuristics=True)
+///     >>> config = LayoutDetectionConfig(apply_heuristics=True, table_model="tatr")
 #[pyclass(name = "LayoutDetectionConfig", module = "kreuzberg", from_py_object)]
 #[derive(Clone)]
 pub struct LayoutDetectionConfig {
     pub inner: kreuzberg::core::config::layout::LayoutDetectionConfig,
 }
 
+/// Parse a table model string into a TableModel enum.
+fn parse_table_model(s: &str) -> kreuzberg::core::config::layout::TableModel {
+    match s {
+        "tatr" => kreuzberg::core::config::layout::TableModel::Tatr,
+        "slanet_wired" => kreuzberg::core::config::layout::TableModel::SlanetWired,
+        "slanet_wireless" => kreuzberg::core::config::layout::TableModel::SlanetWireless,
+        "slanet_plus" => kreuzberg::core::config::layout::TableModel::SlanetPlus,
+        "slanet_auto" => kreuzberg::core::config::layout::TableModel::SlanetAuto,
+        "disabled" => kreuzberg::core::config::layout::TableModel::Disabled,
+        _ => kreuzberg::core::config::layout::TableModel::default(),
+    }
+}
+
 #[pymethods]
 impl LayoutDetectionConfig {
     #[new]
-    #[pyo3(signature = (preset=None, confidence_threshold=None, apply_heuristics=None, table_model=None))]
-    fn new(
-        preset: Option<String>,
-        confidence_threshold: Option<f32>,
-        apply_heuristics: Option<bool>,
-        table_model: Option<String>,
-    ) -> Self {
+    #[pyo3(signature = (confidence_threshold=None, apply_heuristics=None, table_model=None))]
+    fn new(confidence_threshold: Option<f32>, apply_heuristics: Option<bool>, table_model: Option<String>) -> Self {
         Self {
             inner: kreuzberg::core::config::layout::LayoutDetectionConfig {
-                preset: preset.unwrap_or_else(|| "fast".to_string()),
                 confidence_threshold,
                 apply_heuristics: apply_heuristics.unwrap_or(true),
-                table_model,
+                table_model: table_model.as_deref().map(parse_table_model).unwrap_or_default(),
             },
         }
-    }
-
-    #[getter]
-    fn preset(&self) -> String {
-        self.inner.preset.clone()
-    }
-
-    #[setter]
-    fn set_preset(&mut self, value: String) {
-        self.inner.preset = value;
     }
 
     #[getter]
@@ -1427,29 +1525,24 @@ impl LayoutDetectionConfig {
     }
 
     #[getter]
-    fn table_model(&self) -> Option<String> {
-        self.inner.table_model.clone()
+    fn table_model(&self) -> String {
+        self.inner.table_model.to_string()
     }
 
     #[setter]
-    fn set_table_model(&mut self, value: Option<String>) {
-        self.inner.table_model = value;
+    fn set_table_model(&mut self, value: String) {
+        self.inner.table_model = parse_table_model(&value);
     }
 
     fn __repr__(&self) -> String {
         format!(
-            "LayoutDetectionConfig(preset='{}', confidence_threshold={}, apply_heuristics={}, table_model={})",
-            self.inner.preset,
+            "LayoutDetectionConfig(confidence_threshold={}, apply_heuristics={}, table_model='{}')",
             self.inner
                 .confidence_threshold
                 .map(|v| v.to_string())
                 .unwrap_or_else(|| "None".to_string()),
             self.inner.apply_heuristics,
-            self.inner
-                .table_model
-                .as_deref()
-                .map(|v| format!("'{v}'"))
-                .unwrap_or_else(|| "None".to_string()),
+            self.inner.table_model,
         )
     }
 }
@@ -2267,6 +2360,281 @@ impl HierarchyConfig {
     }
 }
 
+/// Processing options for tree-sitter code analysis.
+///
+/// Controls which analysis features are enabled when extracting code files.
+///
+/// Example:
+///     >>> from kreuzberg import TreeSitterProcessConfig
+///     >>> config = TreeSitterProcessConfig(structure=True, comments=True, docstrings=True)
+#[pyclass(name = "TreeSitterProcessConfig", module = "kreuzberg", from_py_object)]
+#[derive(Clone)]
+pub struct TreeSitterProcessConfig {
+    pub inner: kreuzberg::core::config::TreeSitterProcessConfig,
+}
+
+#[pymethods]
+impl TreeSitterProcessConfig {
+    #[new]
+    #[pyo3(signature = (
+        structure=None,
+        imports=None,
+        exports=None,
+        comments=None,
+        docstrings=None,
+        symbols=None,
+        diagnostics=None,
+        chunk_max_size=None,
+        content_mode=None
+    ))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        structure: Option<bool>,
+        imports: Option<bool>,
+        exports: Option<bool>,
+        comments: Option<bool>,
+        docstrings: Option<bool>,
+        symbols: Option<bool>,
+        diagnostics: Option<bool>,
+        chunk_max_size: Option<usize>,
+        content_mode: Option<String>,
+    ) -> Self {
+        let content_mode = content_mode
+            .and_then(|s| match s.as_str() {
+                "chunks" => Some(kreuzberg::core::config::CodeContentMode::Chunks),
+                "raw" => Some(kreuzberg::core::config::CodeContentMode::Raw),
+                "structure" => Some(kreuzberg::core::config::CodeContentMode::Structure),
+                _ => None,
+            })
+            .unwrap_or_default();
+        Self {
+            inner: kreuzberg::core::config::TreeSitterProcessConfig {
+                structure: structure.unwrap_or(true),
+                imports: imports.unwrap_or(true),
+                exports: exports.unwrap_or(true),
+                comments: comments.unwrap_or(false),
+                docstrings: docstrings.unwrap_or(false),
+                symbols: symbols.unwrap_or(false),
+                diagnostics: diagnostics.unwrap_or(false),
+                chunk_max_size,
+                content_mode,
+            },
+        }
+    }
+
+    #[getter]
+    fn structure(&self) -> bool {
+        self.inner.structure
+    }
+
+    #[setter]
+    fn set_structure(&mut self, value: bool) {
+        self.inner.structure = value;
+    }
+
+    #[getter]
+    fn imports(&self) -> bool {
+        self.inner.imports
+    }
+
+    #[setter]
+    fn set_imports(&mut self, value: bool) {
+        self.inner.imports = value;
+    }
+
+    #[getter]
+    fn exports(&self) -> bool {
+        self.inner.exports
+    }
+
+    #[setter]
+    fn set_exports(&mut self, value: bool) {
+        self.inner.exports = value;
+    }
+
+    #[getter]
+    fn comments(&self) -> bool {
+        self.inner.comments
+    }
+
+    #[setter]
+    fn set_comments(&mut self, value: bool) {
+        self.inner.comments = value;
+    }
+
+    #[getter]
+    fn docstrings(&self) -> bool {
+        self.inner.docstrings
+    }
+
+    #[setter]
+    fn set_docstrings(&mut self, value: bool) {
+        self.inner.docstrings = value;
+    }
+
+    #[getter]
+    fn symbols(&self) -> bool {
+        self.inner.symbols
+    }
+
+    #[setter]
+    fn set_symbols(&mut self, value: bool) {
+        self.inner.symbols = value;
+    }
+
+    #[getter]
+    fn diagnostics(&self) -> bool {
+        self.inner.diagnostics
+    }
+
+    #[setter]
+    fn set_diagnostics(&mut self, value: bool) {
+        self.inner.diagnostics = value;
+    }
+
+    #[getter]
+    fn chunk_max_size(&self) -> Option<usize> {
+        self.inner.chunk_max_size
+    }
+
+    #[setter]
+    fn set_chunk_max_size(&mut self, value: Option<usize>) {
+        self.inner.chunk_max_size = value;
+    }
+
+    #[getter]
+    fn content_mode(&self) -> String {
+        match self.inner.content_mode {
+            kreuzberg::core::config::CodeContentMode::Chunks => "chunks".to_string(),
+            kreuzberg::core::config::CodeContentMode::Raw => "raw".to_string(),
+            kreuzberg::core::config::CodeContentMode::Structure => "structure".to_string(),
+        }
+    }
+
+    #[setter]
+    fn set_content_mode(&mut self, value: String) {
+        self.inner.content_mode = match value.as_str() {
+            "raw" => kreuzberg::core::config::CodeContentMode::Raw,
+            "structure" => kreuzberg::core::config::CodeContentMode::Structure,
+            _ => kreuzberg::core::config::CodeContentMode::Chunks,
+        };
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "TreeSitterProcessConfig(structure={}, imports={}, exports={}, comments={}, docstrings={}, symbols={}, diagnostics={}, chunk_max_size={:?}, content_mode={:?})",
+            self.inner.structure,
+            self.inner.imports,
+            self.inner.exports,
+            self.inner.comments,
+            self.inner.docstrings,
+            self.inner.symbols,
+            self.inner.diagnostics,
+            self.inner.chunk_max_size,
+            self.inner.content_mode
+        )
+    }
+}
+
+/// Configuration for tree-sitter language pack integration.
+///
+/// Controls grammar download behavior and code analysis options.
+///
+/// Example:
+///     >>> from kreuzberg import TreeSitterConfig, TreeSitterProcessConfig
+///     >>> config = TreeSitterConfig(
+///     ...     languages=["python", "rust"],
+///     ...     groups=["web"],
+///     ...     process=TreeSitterProcessConfig(comments=True)
+///     ... )
+#[pyclass(name = "TreeSitterConfig", module = "kreuzberg", from_py_object)]
+#[derive(Clone)]
+pub struct TreeSitterConfig {
+    pub inner: kreuzberg::core::config::TreeSitterConfig,
+}
+
+#[pymethods]
+impl TreeSitterConfig {
+    #[new]
+    #[pyo3(signature = (cache_dir=None, languages=None, groups=None, process=None, enabled=None))]
+    fn new(
+        cache_dir: Option<String>,
+        languages: Option<Vec<String>>,
+        groups: Option<Vec<String>>,
+        process: Option<TreeSitterProcessConfig>,
+        enabled: Option<bool>,
+    ) -> Self {
+        Self {
+            inner: kreuzberg::core::config::TreeSitterConfig {
+                enabled: enabled.unwrap_or(true),
+                cache_dir: cache_dir.map(std::path::PathBuf::from),
+                languages,
+                groups,
+                process: process.map(Into::into).unwrap_or_default(),
+            },
+        }
+    }
+
+    #[getter]
+    fn enabled(&self) -> bool {
+        self.inner.enabled
+    }
+
+    #[setter]
+    fn set_enabled(&mut self, value: bool) {
+        self.inner.enabled = value;
+    }
+
+    #[getter]
+    fn cache_dir(&self) -> Option<String> {
+        self.inner.cache_dir.as_ref().map(|p| p.display().to_string())
+    }
+
+    #[setter]
+    fn set_cache_dir(&mut self, value: Option<String>) {
+        self.inner.cache_dir = value.map(std::path::PathBuf::from);
+    }
+
+    #[getter]
+    fn languages(&self) -> Option<Vec<String>> {
+        self.inner.languages.clone()
+    }
+
+    #[setter]
+    fn set_languages(&mut self, value: Option<Vec<String>>) {
+        self.inner.languages = value;
+    }
+
+    #[getter]
+    fn groups(&self) -> Option<Vec<String>> {
+        self.inner.groups.clone()
+    }
+
+    #[setter]
+    fn set_groups(&mut self, value: Option<Vec<String>>) {
+        self.inner.groups = value;
+    }
+
+    #[getter]
+    fn process(&self) -> TreeSitterProcessConfig {
+        TreeSitterProcessConfig {
+            inner: self.inner.process.clone(),
+        }
+    }
+
+    #[setter]
+    fn set_process(&mut self, value: TreeSitterProcessConfig) {
+        self.inner.process = value.inner;
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "TreeSitterConfig(cache_dir={:?}, languages={:?}, groups={:?}, process=...)",
+            self.inner.cache_dir, self.inner.languages, self.inner.groups
+        )
+    }
+}
+
 /// Per-file extraction configuration overrides for batch processing.
 ///
 /// All fields are optional — `None` means "use the batch-level default."
@@ -2300,6 +2668,7 @@ impl FileExtractionConfig {
         enable_quality_processing=None,
         ocr=None,
         force_ocr=None,
+        disable_ocr=None,
         force_ocr_pages=None,
         chunking=None,
         images=None,
@@ -2314,13 +2683,15 @@ impl FileExtractionConfig {
         output_format=None,
         include_document_structure=None,
         layout=None,
-        timeout_secs=None
+        timeout_secs=None,
+        tree_sitter=None
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         enable_quality_processing: Option<bool>,
         ocr: Option<OcrConfig>,
         force_ocr: Option<bool>,
+        disable_ocr: Option<bool>,
         force_ocr_pages: Option<Vec<usize>>,
         chunking: Option<ChunkingConfig>,
         images: Option<ImageExtractionConfig>,
@@ -2336,6 +2707,7 @@ impl FileExtractionConfig {
         include_document_structure: Option<bool>,
         layout: Option<LayoutDetectionConfig>,
         timeout_secs: Option<u64>,
+        tree_sitter: Option<TreeSitterConfig>,
     ) -> PyResult<Self> {
         let (html_options_inner, html_options_dict) = parse_html_options_dict(html_options)?;
         Ok(Self {
@@ -2343,6 +2715,7 @@ impl FileExtractionConfig {
                 enable_quality_processing,
                 ocr: ocr.map(Into::into),
                 force_ocr,
+                disable_ocr,
                 force_ocr_pages,
                 chunking: chunking.map(Into::into),
                 images: images.map(Into::into),
@@ -2373,10 +2746,11 @@ impl FileExtractionConfig {
                         "markdown" | "md" => kreuzberg::core::config::formats::OutputFormat::Markdown,
                         "djot" => kreuzberg::core::config::formats::OutputFormat::Djot,
                         "html" => kreuzberg::core::config::formats::OutputFormat::Html,
-                        "structured" | "json" => kreuzberg::core::config::formats::OutputFormat::Structured,
+                        "json" => kreuzberg::core::config::formats::OutputFormat::Json,
+                        "structured" => kreuzberg::core::config::formats::OutputFormat::Structured,
                         other => {
                             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                                "Invalid output_format: {}. Must be 'plain', 'markdown', 'djot', 'html', or 'structured'",
+                                "Invalid output_format: {}. Must be 'plain', 'markdown', 'djot', 'html', 'json', or 'structured'",
                                 other
                             )));
                         }
@@ -2387,6 +2761,7 @@ impl FileExtractionConfig {
                 include_document_structure,
                 layout: layout.map(Into::into),
                 timeout_secs,
+                tree_sitter: tree_sitter.map(Into::into),
             },
             html_options_dict,
         })
@@ -2420,6 +2795,16 @@ impl FileExtractionConfig {
     #[setter]
     fn set_force_ocr(&mut self, value: Option<bool>) {
         self.inner.force_ocr = value;
+    }
+
+    #[getter]
+    fn disable_ocr(&self) -> Option<bool> {
+        self.inner.disable_ocr
+    }
+
+    #[setter]
+    fn set_disable_ocr(&mut self, value: Option<bool>) {
+        self.inner.disable_ocr = value;
     }
 
     #[getter]
@@ -2559,7 +2944,9 @@ impl FileExtractionConfig {
             kreuzberg::core::config::formats::OutputFormat::Markdown => "markdown".to_string(),
             kreuzberg::core::config::formats::OutputFormat::Djot => "djot".to_string(),
             kreuzberg::core::config::formats::OutputFormat::Html => "html".to_string(),
+            kreuzberg::core::config::formats::OutputFormat::Json => "json".to_string(),
             kreuzberg::core::config::formats::OutputFormat::Structured => "structured".to_string(),
+            kreuzberg::core::config::formats::OutputFormat::Custom(name) => name.clone(),
         })
     }
 
@@ -2571,10 +2958,11 @@ impl FileExtractionConfig {
                 "markdown" | "md" => kreuzberg::core::config::formats::OutputFormat::Markdown,
                 "djot" => kreuzberg::core::config::formats::OutputFormat::Djot,
                 "html" => kreuzberg::core::config::formats::OutputFormat::Html,
-                "structured" | "json" => kreuzberg::core::config::formats::OutputFormat::Structured,
+                "json" => kreuzberg::core::config::formats::OutputFormat::Json,
+                "structured" => kreuzberg::core::config::formats::OutputFormat::Structured,
                 other => {
                     return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                        "Invalid output_format: {}. Must be 'plain', 'markdown', 'djot', 'html', or 'structured'",
+                        "Invalid output_format: {}. Must be 'plain', 'markdown', 'djot', 'html', 'json', or 'structured'",
                         other
                     )));
                 }
@@ -2613,6 +3001,16 @@ impl FileExtractionConfig {
     #[setter]
     fn set_timeout_secs(&mut self, value: Option<u64>) {
         self.inner.timeout_secs = value;
+    }
+
+    #[getter]
+    fn tree_sitter(&self) -> Option<TreeSitterConfig> {
+        self.inner.tree_sitter.clone().map(Into::into)
+    }
+
+    #[setter]
+    fn set_tree_sitter(&mut self, value: Option<TreeSitterConfig>) {
+        self.inner.tree_sitter = value.map(Into::into);
     }
 
     fn __repr__(&self) -> String {

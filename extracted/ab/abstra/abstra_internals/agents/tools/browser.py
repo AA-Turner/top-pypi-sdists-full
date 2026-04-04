@@ -336,14 +336,28 @@ class BrowserTools(AgentTools):
                 print("[DEBUG][BrowserTools.__init__] No running event loop found")
         self._playwright_context = playwright.sync_api.sync_playwright()
         pw = self._playwright_context.start()
-        if self.debug_mode:
-            print(
-                f"[DEBUG][BrowserTools.__init__] Playwright started, launching chromium (headless={self.headless})"
-            )
-        self.browser = pw.chromium.launch(headless=self.headless)
+
+        import os
+
+        selenium_remote_url = os.environ.get("SELENIUM_REMOTE_URL")
+        self._is_remote = bool(selenium_remote_url)
+        if selenium_remote_url:
+            cdp_url = f"{selenium_remote_url}/cdp"
+            if self.debug_mode:
+                print(
+                    f"[DEBUG][BrowserTools.__init__] Connecting to remote browser via CDP: {cdp_url}"
+                )
+            self.browser = pw.chromium.connect_over_cdp(cdp_url)
+            self._browser_context = self._build_browser_context(client_certificate)
+        else:
+            if self.debug_mode:
+                print(
+                    f"[DEBUG][BrowserTools.__init__] Playwright started, launching chromium (headless={self.headless})"
+                )
+            self.browser = pw.chromium.launch(headless=self.headless)
+            self._browser_context = self._build_browser_context(client_certificate)
         if self.debug_mode:
             print("[DEBUG][BrowserTools.__init__] Browser launched successfully")
-        self._browser_context = self._build_browser_context(client_certificate)
         self.pages = {}
         self.listen_network = listen_network
         self.listen_console = listen_console
@@ -401,13 +415,16 @@ class BrowserTools(AgentTools):
             if self.debug_mode:
                 print(f"[DEBUG][BrowserTools.close] Error closing browser context: {e}")
 
-        try:
-            if self.debug_mode:
-                print("[DEBUG][BrowserTools.close] Closing browser")
-            self.browser.close()
-        except Exception as e:
-            if self.debug_mode:
-                print(f"[DEBUG][BrowserTools.close] Error closing browser: {e}")
+        if not self._is_remote:
+            # Only close the browser for local launches;
+            # remote CDP connections share the browser with other clients
+            try:
+                if self.debug_mode:
+                    print("[DEBUG][BrowserTools.close] Closing browser")
+                self.browser.close()
+            except Exception as e:
+                if self.debug_mode:
+                    print(f"[DEBUG][BrowserTools.close] Error closing browser: {e}")
 
         try:
             if self.debug_mode:
@@ -531,7 +548,7 @@ class BrowserTools(AgentTools):
             print(
                 f"[DEBUG][BrowserTools.navigate_to_url] Navigation complete. page.url={page.url}, title={page.title()}"
             )
-        return dict(page_id=page_id, url=page.url, title=page.title())
+        return dict(tab_id=page_id, url=page.url, title=page.title())
 
     def click(
         self,
@@ -885,7 +902,7 @@ class BrowserTools(AgentTools):
                 )
         return [
             {
-                "page_id": page_id,
+                "tab_id": page_id,
                 "url": page.url,
                 "title": page.title(),
             }

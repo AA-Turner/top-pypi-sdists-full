@@ -22,9 +22,12 @@ from anteroom.services.workflow_storage import (
     get_pending_approval,
     get_workflow_run,
     get_workflow_step,
+    list_events_since,
+    list_transcript_events,
     list_workflow_events,
     list_workflow_runs,
     list_workflow_steps,
+    reclaim_stale_locks,
     release_lock,
     release_lock_by_target,
     resolve_approval_request,
@@ -463,3 +466,186 @@ class TestWorkflowLocks:
         acquire_lock(db, target_kind="issue", target_ref="123", run_id=run["id"])
         delete_workflow_run(db, run["id"])
         assert get_lock(db, target_kind="issue", target_ref="123") is None
+
+
+# ---------------------------------------------------------------------------
+# reclaim_stale_locks (#1257)
+# ---------------------------------------------------------------------------
+
+
+class TestReclaimStaleLocks:
+    def test_normal_run_becomes_failed(self, db: Any) -> None:
+        run = _make_run(db)
+        update_workflow_run(db, run["id"], status="running", heartbeat_at="2000-01-01T00:00:00+00:00")
+        acquire_lock(db, target_kind="issue", target_ref="123", run_id=run["id"])
+
+        reclaimed = reclaim_stale_locks(db, threshold_seconds=10)
+        assert len(reclaimed) == 1
+        assert reclaimed[0][0] == run["id"]
+        assert reclaimed[0][2] is False  # was_compensating
+
+        updated = get_workflow_run(db, run["id"])
+        assert updated is not None
+        assert updated["status"] == "failed"
+        assert updated["stop_reason"] == "stale_heartbeat_reclaimed"
+        assert get_lock(db, target_kind="issue", target_ref="123") is None
+
+    def test_compensating_run_becomes_paused(self, db: Any) -> None:
+        run = _make_run(db)
+        update_workflow_run(db, run["id"], status="compensating", heartbeat_at="2000-01-01T00:00:00+00:00")
+        acquire_lock(db, target_kind="issue", target_ref="123", run_id=run["id"])
+
+        reclaimed = reclaim_stale_locks(db, threshold_seconds=10)
+        assert len(reclaimed) == 1
+        assert reclaimed[0][2] is True  # was_compensating
+
+        updated = get_workflow_run(db, run["id"])
+        assert updated is not None
+        assert updated["status"] == "paused"
+        assert updated["stop_reason"] == "stale_heartbeat_reclaimed_during_compensation"
+
+    def test_step_repair(self, db: Any) -> None:
+        run = _make_run(db)
+        update_workflow_run(db, run["id"], status="running", heartbeat_at="2000-01-01T00:00:00+00:00")
+        acquire_lock(db, target_kind="issue", target_ref="123", run_id=run["id"])
+        step = create_workflow_step(db, run_id=run["id"], step_id="build", step_type="runner")
+        update_workflow_step(db, step["id"], status="running")
+
+        reclaim_stale_locks(db, threshold_seconds=10)
+
+        updated_step = get_workflow_step(db, step["id"])
+        assert updated_step is not None
+        assert updated_step["status"] == "interrupted"
+
+    def test_fresh_run_preserved(self, db: Any) -> None:
+        run = _make_run(db)
+        from datetime import datetime, timezone
+
+        now_ts = datetime.now(timezone.utc).isoformat()
+        update_workflow_run(db, run["id"], status="running", heartbeat_at=now_ts)
+        acquire_lock(db, target_kind="issue", target_ref="123", run_id=run["id"])
+
+        reclaimed = reclaim_stale_locks(db, threshold_seconds=9999)
+        assert len(reclaimed) == 0
+
+        updated = get_workflow_run(db, run["id"])
+        assert updated is not None
+        assert updated["status"] == "running"
+        assert get_lock(db, target_kind="issue", target_ref="123") is not None
+
+    def test_null_heartbeat_reclaimed(self, db: Any) -> None:
+        run = _make_run(db)
+        update_workflow_run(db, run["id"], status="running")
+        acquire_lock(db, target_kind="issue", target_ref="123", run_id=run["id"])
+
+        reclaimed = reclaim_stale_locks(db, threshold_seconds=10)
+        assert len(reclaimed) == 1
+        assert get_lock(db, target_kind="issue", target_ref="123") is None
+
+    def test_scoped_to_target(self, db: Any) -> None:
+        run_a = _make_run(db, target_ref="A")
+        run_b = _make_run(db, target_ref="B")
+        update_workflow_run(db, run_a["id"], status="running", heartbeat_at="2000-01-01T00:00:00+00:00")
+        update_workflow_run(db, run_b["id"], status="running", heartbeat_at="2000-01-01T00:00:00+00:00")
+        acquire_lock(db, target_kind="issue", target_ref="A", run_id=run_a["id"])
+        acquire_lock(db, target_kind="issue", target_ref="B", run_id=run_b["id"])
+
+        reclaimed = reclaim_stale_locks(db, threshold_seconds=10, target_kind="issue", target_ref="A")
+        assert len(reclaimed) == 1
+        assert reclaimed[0][1] == "A"
+        # B's lock should still exist
+        assert get_lock(db, target_kind="issue", target_ref="B") is not None
+
+
+# ---------------------------------------------------------------------------
+# Transcript events — limit, event_types, list_events_since (#1236)
+# ---------------------------------------------------------------------------
+
+
+class TestListTranscriptEvents:
+    def _seed_events(self, db: Any, run_id: str) -> list[dict[str, Any]]:
+        """Create a set of transcript events for testing."""
+        events = []
+        for i in range(5):
+            ev = create_workflow_event(
+                db,
+                run_id=run_id,
+                event_type="transcript_stdout",
+                step_id="step-a",
+                payload={"content": f"line {i}"},
+            )
+            events.append(ev)
+        for i in range(3):
+            ev = create_workflow_event(
+                db,
+                run_id=run_id,
+                event_type="transcript_stderr",
+                step_id="step-a",
+                payload={"content": f"err {i}"},
+            )
+            events.append(ev)
+        return events
+
+    def test_basic_list(self, db: Any) -> None:
+        run = _make_run(db)
+        self._seed_events(db, run["id"])
+        events = list_transcript_events(db, run["id"])
+        assert len(events) == 8
+
+    def test_limit(self, db: Any) -> None:
+        run = _make_run(db)
+        self._seed_events(db, run["id"])
+        events = list_transcript_events(db, run["id"], limit=3)
+        assert len(events) == 3
+        # Should be the last 3 events (stderr ones)
+        assert events[0]["payload"]["content"] == "err 0"
+
+    def test_event_types_filter(self, db: Any) -> None:
+        run = _make_run(db)
+        self._seed_events(db, run["id"])
+        events = list_transcript_events(db, run["id"], event_types=["transcript_stderr"])
+        assert len(events) == 3
+        assert all(e["event_type"] == "transcript_stderr" for e in events)
+
+    def test_limit_with_event_types(self, db: Any) -> None:
+        run = _make_run(db)
+        self._seed_events(db, run["id"])
+        events = list_transcript_events(db, run["id"], limit=2, event_types=["transcript_stdout"])
+        assert len(events) == 2
+        assert all(e["event_type"] == "transcript_stdout" for e in events)
+
+    def test_step_filter(self, db: Any) -> None:
+        run = _make_run(db)
+        self._seed_events(db, run["id"])
+        create_workflow_event(
+            db, run_id=run["id"], event_type="transcript_stdout", step_id="step-b", payload={"content": "other"}
+        )
+        events = list_transcript_events(db, run["id"], step_id="step-b")
+        assert len(events) == 1
+        assert events[0]["payload"]["content"] == "other"
+
+
+class TestListEventsSince:
+    def test_returns_events_after_id(self, db: Any) -> None:
+        run = _make_run(db)
+        ev1 = create_workflow_event(db, run_id=run["id"], event_type="step_started", payload={"step": "a"})
+        ev2 = create_workflow_event(db, run_id=run["id"], event_type="transcript_stdout", payload={"content": "hi"})
+        ev3 = create_workflow_event(db, run_id=run["id"], event_type="step_finished", payload={"step": "a"})
+
+        events = list_events_since(db, run["id"], ev1["id"])
+        assert len(events) == 2
+        assert events[0]["id"] == ev2["id"]
+        assert events[1]["id"] == ev3["id"]
+
+    def test_returns_empty_when_no_new_events(self, db: Any) -> None:
+        run = _make_run(db)
+        ev = create_workflow_event(db, run_id=run["id"], event_type="step_started", payload={"step": "a"})
+        events = list_events_since(db, run["id"], ev["id"])
+        assert events == []
+
+    def test_since_zero_returns_all(self, db: Any) -> None:
+        run = _make_run(db)
+        create_workflow_event(db, run_id=run["id"], event_type="step_started", payload={"step": "a"})
+        create_workflow_event(db, run_id=run["id"], event_type="step_finished", payload={"step": "a"})
+        events = list_events_since(db, run["id"], 0)
+        assert len(events) == 2

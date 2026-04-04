@@ -10,10 +10,11 @@ import shlex
 import shutil
 import subprocess
 import sys
-import tempfile
+import zipfile
 from collections.abc import Generator, Iterator
 from datetime import datetime, timezone
 from typing import Annotated, Any, Optional, Union
+from urllib.parse import urlparse
 
 # Note: BaseExceptionGroup handling removed for Python 3.9 compatibility
 import anyio
@@ -42,10 +43,7 @@ VENV_NO_DATAHUB = "NO_ACRYL_DATAHUB"
 
 BUNDLED_VENV_PATH_ENV = "DATAHUB_BUNDLED_VENV_PATH"
 
-_CONSTRAINTS_CACHE_DIR = pathlib.Path("/tmp/datahub/ingest/constraints")
-_GITHUB_CONSTRAINTS_URL = "https://raw.githubusercontent.com/acryldata/datahub/v{version}/metadata-ingestion/constraints.txt"
-_PYPI_ACRYL_DATAHUB_VERSION_URL = "https://pypi.org/pypi/acryl-datahub/json"
-_FETCH_TIMEOUT_SECONDS = 10
+_DOWNLOAD_TIMEOUT_SECONDS = 60
 
 
 @functools.cache
@@ -56,80 +54,119 @@ def _get_http() -> urllib3.PoolManager:
             backoff_factor=1,
             status_forcelist=[429, 500, 502, 503, 504],
         ),
-        timeout=urllib3.Timeout(total=_FETCH_TIMEOUT_SECONDS),
+        timeout=urllib3.Timeout(total=_DOWNLOAD_TIMEOUT_SECONDS),
     )
 
 
-def _resolve_latest_version() -> Optional[str]:
-    """Query PyPI for the latest acryl-datahub version."""
-    try:
-        resp = _get_http().request("GET", _PYPI_ACRYL_DATAHUB_VERSION_URL)
-        if resp.status != 200:
-            logger.warning(
-                f"PyPI returned {resp.status} for {_PYPI_ACRYL_DATAHUB_VERSION_URL}"
-            )
-            return None
-        data = json.loads(resp.data)
-        return data["info"]["version"]
-    except (urllib3.exceptions.HTTPError, json.JSONDecodeError, KeyError) as e:
-        logger.warning(
-            f"Failed to resolve latest version from PyPI: {type(e).__name__}: {e}"
-        )
-        return None
-    except Exception as e:
-        logger.warning(
-            f"Unexpected error resolving latest version: {type(e).__name__}: {e}"
-        )
-        return None
+def _pages_wheel_url(base_url: str) -> str:
+    """Build the wheel download URL for a DataHub Pages dev build, with cache-busting timestamp."""
+    now = datetime.now(tz=timezone.utc)
+    return f"{base_url}/artifacts/wheels/acryl_datahub-0.0.0.dev1-py3-none-any.whl?ts={now.timestamp()}"
 
 
-def _fetch_constraints_for_version(version: str) -> Optional[pathlib.Path]:
-    """Fetch version-matched constraints.txt from GitHub, with local caching."""
+def _validate_wheel_url(url: str) -> bool:
+    """Validate that a wheel URL is from an allowed domain."""
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        logger.error(f"Invalid URL format: {url}")
+        return False
+    if not parsed.netloc.endswith(".datahub-wheels.pages.dev"):
+        logger.error(f"URL domain not allowed: {parsed.netloc}")
+        return False
+    return True
+
+
+def _download_wheel(
+    version: str,
+    tmp_dir: pathlib.Path,
+) -> Optional[pathlib.Path]:
+    """Download the acryl-datahub wheel. Returns path to .whl file."""
+    wheels_dir = tmp_dir / "wheels"
+    wheels_dir.mkdir(parents=True, exist_ok=True)
+
     if version.startswith(("http://", "https://")):
-        return None
-    version = version.removeprefix("v")
-    if not version:
-        return None
-
-    cache_dir = _CONSTRAINTS_CACHE_DIR / f"v{version}"
-    cached_file = cache_dir / "constraints.txt"
-    if cached_file.exists():
-        logger.info(f"Using cached constraints for v{version}: {cached_file}")
-        return cached_file
-
-    url = _GITHUB_CONSTRAINTS_URL.format(version=version)
-    try:
-        resp = _get_http().request("GET", url)
-        if resp.status != 200:
-            logger.warning(
-                f"No constraints found for v{version} (HTTP {resp.status}). "
-                "This is expected for versions released before constraints.txt was added."
+        if not _validate_wheel_url(version):
+            logger.error(
+                f"Invalid wheel URL: {version}. Non-.whl URLs must be from *.datahub-wheels.pages.dev."
             )
             return None
-        cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-        # Atomic write: temp file + rename to avoid partial reads from concurrent processes.
-        fd, tmp = tempfile.mkstemp(dir=str(cache_dir))
+        url = version if version.endswith(".whl") else _pages_wheel_url(version)
         try:
-            os.write(fd, resp.data)
-        finally:
-            os.close(fd)
+            resp = _get_http().request("GET", url)
+            if resp.status != 200:
+                logger.error(
+                    f"Failed to download wheel from {url} (HTTP {resp.status})"
+                )
+                return None
+            filename = url.split("/")[-1].split("?")[0]
+            whl_path = wheels_dir / filename
+            whl_path.write_bytes(resp.data)
+            return whl_path
+        except Exception as e:
+            logger.error(f"Failed to download wheel: {type(e).__name__}: {e}")
+            return None
+    else:
+        pkg = (
+            "acryl-datahub"
+            if version == VENV_VERSION_LATEST
+            else f"acryl-datahub=={version}"
+        )
+        # Some deployed uv versions lack 'uv pip download' support.
+        # Using pip directly as a portable fallback.
+        cmd = [
+            sys.executable,
+            "-m",
+            "pip",
+            "download",
+            "--no-deps",
+            "-d",
+            str(wheels_dir),
+            pkg,
+        ]
         try:
-            os.rename(tmp, str(cached_file))
-        except OSError:
-            pathlib.Path(tmp).unlink(missing_ok=True)
-            raise
-        logger.info(
-            f"Fetched constraints for v{version} from GitHub ({len(resp.data)} bytes)"
-        )
-        return cached_file
-    except (urllib3.exceptions.HTTPError, OSError) as e:
-        logger.warning(
-            f"Failed to fetch constraints for v{version}: {type(e).__name__}: {e}"
-        )
-        return None
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=_DOWNLOAD_TIMEOUT_SECONDS
+            )
+            if result.returncode != 0:
+                logger.error(f"pip download failed: {result.stderr}")
+                return None
+            whl_files = list(wheels_dir.glob("acryl_datahub-*.whl"))
+            if not whl_files:
+                logger.error("No wheel file found after download")
+                return None
+            if len(whl_files) > 1:
+                logger.error(
+                    f"Expected 1 wheel file, found {len(whl_files)}: {whl_files}"
+                )
+                return None
+            return whl_files[0]
+        except Exception as e:
+            logger.error(f"Failed to download wheel: {type(e).__name__}: {e}")
+            return None
+
+
+def _extract_constraints_from_wheel(
+    whl_path: pathlib.Path,
+) -> Optional[pathlib.Path]:
+    """Extract datahub/constraints.txt from a wheel file. Returns path to extracted file."""
+    try:
+        with zipfile.ZipFile(whl_path) as zf:
+            if "datahub/constraints.txt" not in zf.namelist():
+                logger.warning(
+                    f"No constraints.txt in {whl_path.name}. "
+                    "Normal for versions released before constraint bundling."
+                )
+                return None
+            constraints_data = zf.read("datahub/constraints.txt")
+            constraints_path = whl_path.parent / "constraints.txt"
+            constraints_path.write_bytes(constraints_data)
+            logger.info(
+                f"Extracted constraints from wheel ({len(constraints_data)} bytes)"
+            )
+            return constraints_path
     except Exception as e:
         logger.warning(
-            f"Unexpected error fetching constraints for v{version}: {type(e).__name__}: {e}"
+            f"Failed to extract constraints from wheel: {type(e).__name__}: {e}"
         )
         return None
 
@@ -298,12 +335,12 @@ class VenvConfig(pydantic.BaseModel):
         elif self.version == VENV_NO_DATAHUB:
             return "# acryl-datahub is explicitly not requested."
         elif self.version.startswith("http"):
-            if self.version.endswith(".whl"):
-                return f"acryl-datahub{plugins} @ {self.version}"
-            else:
-                # Adding a timestamp to the URL to force cache busting.
-                now = datetime.now(tz=timezone.utc)
-                return f"acryl-datahub{plugins} @ {self.version}/artifacts/wheels/acryl_datahub-0.0.0.dev1-py3-none-any.whl?ts={now.timestamp()}"
+            url = (
+                self.version
+                if self.version.endswith(".whl")
+                else _pages_wheel_url(self.version)
+            )
+            return f"acryl-datahub{plugins} @ {url}"
         else:
             return f"acryl-datahub{plugins}=={self.version}"
 
@@ -551,46 +588,50 @@ async def setup_venv(
         [_find_uv(), "venv", "--python", sys.executable, str(venv_loc)]
     )
 
-    # Assemble the requirements file.
-    if venv_config.requirements_file is None:
-        requirements = "\n".join(
-            [
-                f"# Generated at {datetime.now(tz=timezone.utc).isoformat()}",
-                venv_config.get_acryl_datahub_requirement_line(),
-            ]
-        )
-        requirements_file = venv_loc / "requirements.txt"
-        requirements_file.write_text(requirements)
-    else:
-        requirements_file = venv_config.requirements_file
-
-    # Pass 1: Install datahub with constraints to pin transitive deps.
-    runner._logs.append(f"Installing requirements from: {requirements_file}\n")
-    await runner.execute(["cat", str(requirements_file)])
-
     venv_env = {
         **os.environ,
         **venv_config.extra_env_vars,
         "VIRTUAL_ENV": str(venv_loc),
     }
 
-    install_cmd = [_find_uv(), "pip", "install", "-r", str(requirements_file)]
-
     version = venv_config.version
-    constraints_path: Optional[pathlib.Path] = None
-    if version == VENV_VERSION_LATEST:
-        resolved = _resolve_latest_version()
-        if resolved:
-            logger.info(f"Resolved 'latest' to v{resolved}")
-            constraints_path = _fetch_constraints_for_version(resolved)
+
+    if venv_config.requirements_file is not None:
+        # Case 2: Caller owns the requirements file (e.g., datahub-integrations-service).
+        runner._logs.append(
+            f"Installing requirements from: {venv_config.requirements_file}\n"
+        )
+        await runner.execute(["cat", str(venv_config.requirements_file)])
+        install_cmd = [
+            _find_uv(),
+            "pip",
+            "install",
+            "-r",
+            str(venv_config.requirements_file),
+        ]
+        runner._logs.append(f"Installing datahub: {' '.join(install_cmd)}\n")
+        await runner.execute(install_cmd, env=venv_env)
+    elif version == VENV_NO_DATAHUB:
+        pass
     else:
-        constraints_path = _fetch_constraints_for_version(version)
+        # Case 1: Download wheel, extract constraints, install from wheel.
+        whl_path = _download_wheel(version, tmp_dir)
+        if not whl_path:
+            raise RuntimeError(
+                f"Failed to download acryl-datahub wheel for version '{version}'"
+            )
+        constraints_path = _extract_constraints_from_wheel(whl_path)
 
-    if constraints_path:
-        install_cmd.extend(["--constraint", str(constraints_path)])
+        plugins_list = list(
+            filter(None, [venv_config.main_plugin, *venv_config.extra_pip_plugins])
+        )
+        plugins = f"[{','.join(plugins_list)}]" if plugins_list else ""
+        install_cmd = [_find_uv(), "pip", "install", f"{whl_path}{plugins}"]
+        if constraints_path:
+            install_cmd.extend(["--constraint", str(constraints_path)])
 
-    runner._logs.append(f"Installing datahub: {' '.join(install_cmd)}\n")
-    await runner.execute(install_cmd, env=venv_env)
+        runner._logs.append(f"Installing datahub: {' '.join(install_cmd)}\n")
+        await runner.execute(install_cmd, env=venv_env)
 
     # Pass 2: Install extra_pip_requirements without constraints.
     if venv_config.requirements_file is None and venv_config.extra_pip_requirements:

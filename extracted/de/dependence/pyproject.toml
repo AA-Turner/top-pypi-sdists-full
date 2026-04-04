@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dependence"
-version = "1.3.0"
+version = "1.4.0"
 description = "A dependency management tool for python projects"
 readme = "README.md"
 license = "MIT"
@@ -51,6 +51,7 @@ packages = [
 src = ""
 
 [tool.hatch.envs.default]
+path = ".venv"
 python = "3.10"
 dependencies = [
     "mypy",
@@ -85,8 +86,10 @@ extra-dependencies = [
     "tox",
     "black",
 ]
-extra-arguments = [
+extra-args = [
     "--cache-clear",
+    "-s",
+    "-vv",
 ]
 
 [[tool.hatch.envs.hatch-test.matrix]]

@@ -16,20 +16,27 @@ jobs:
   ci-pre-commit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version-file: .python-version
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           version-file: pyproject.toml
       - name: Install project
         run: uv sync --all-groups
       - name: run pre-commit
         run: uv run pre-commit run --all
+      - name: Check for uncommitted changes
+        run: |
+          if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
+            echo "Changed files after pre-commit!"
+            git status --porcelain --untracked-files=all
+            exit 1
+          fi
   ci-test:
     strategy:
       fail-fast: false
@@ -38,14 +45,14 @@ jobs:
         pylint-version: [3.3.*, 3.*, 4.0.*, 4.*]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           version-file: pyproject.toml
       - name: Install project
@@ -53,6 +60,58 @@ jobs:
       - name: Install pylint
         run: uv pip install -U pylint==${{ matrix.pylint-version }}
       - name: run tests (with coverage)
-        run: uv run pytest --cov --cov-report xml --cov-config pyproject.toml test/
+        run: uv run --no-sync pytest --cov --cov-report xml --cov-config pyproject.toml --cov-fail-under 0 test/
+      - name: Rename coverage file
+        run: |
+          UUID=$(uuidgen)
+          echo "UUID=${UUID}" >> $GITHUB_ENV
+          mv .coverage .coverage.${UUID}
+      - name: upload coverage file
+        uses: actions/upload-artifact@v7
+        with:
+          name: .coverage.${{ env.UUID }}
+          path: .coverage.${{ env.UUID }}
+          if-no-files-found: error
+          include-hidden-files: true
+  ci-coverage-reporting:
+    needs: ci-test
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Fail if predecessor jobs failed
+        if: ${{ needs.ci-test.result != 'success' }}
+        run: |
+          echo "Predecessor job(s) failed:"
+          echo "  ci-test: ${{ needs.ci-test.result }}"
+          exit 1
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version-file: pyproject.toml
+      - name: Download coverage files
+        uses: actions/download-artifact@v8
+        with:
+          merge-multiple: true
+          path: coverage_files
+      - name: Install project
+        run: uv sync --all-groups
+      - name: Prepare coverage files
+        run: |
+          cd coverage_files
+          uv run coverage combine
+          mv .coverage ../.coverage
+          cd ..
+          uv run coverage xml
       - name: run diff-cover
-        run: uv run diff-cover --config-file pyproject.toml coverage.xml
+        run: uv run  diff-cover --config-file pyproject.toml coverage.xml
+      - name: Upload to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: coverage.xml

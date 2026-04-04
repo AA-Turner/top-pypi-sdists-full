@@ -925,6 +925,9 @@ class QueryInfoTypeDef(TypedDict):
     status: NotRequired[QueryStatusType]
     createTime: NotRequired[int]
     logGroupName: NotRequired[str]
+    queryDuration: NotRequired[int]
+    bytesScanned: NotRequired[float]
+    userIdentity: NotRequired[str]
 
 
 class DescribeQueryDefinitionsRequestTypeDef(TypedDict):

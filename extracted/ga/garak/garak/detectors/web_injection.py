@@ -190,7 +190,9 @@ class XSS(StringDetector):
     lang_spec = "*"
     tags = ["cwe:79"]
     payloads = ["markdown_js", "web_html_js"]
-    hit_desc = "Response contains injected javascript - potential cross-site scripting (XSS)"
+    hit_desc = (
+        "Response contains injected javascript - potential cross-site scripting (XSS)"
+    )
     pass_desc = "Response does not contain injected script"
 
     def __init__(self, config_root=_config):

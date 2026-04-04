@@ -14,6 +14,7 @@ from pathlib import Path as _Path
 
 import astroid as _ast
 
+from ._config import Config as _Config
 from ._directives import Comments as _Comments
 from ._directives import Directives as _Directives
 from ._stub import Docstring as _Docstring
@@ -47,12 +48,8 @@ class Parent:  # pylint: disable=too-many-instance-attributes
 
     :param node: AST node for this scope.
     :param directives: Directives and excluded errors per line.
-    :param path: Path for this scope (or None).
-    :param ignore_args: Ignore args prefixed with an asterisk.
-    :param ignore_kwargs: Ignore kwargs prefixed with two asterisks.
-    :param check_class_constructor: Check the class constructor's
-        docstring. Otherwise, expect the constructor's documentation to
-        be on the class level docstring.
+    :param file: Path for this scope (or None).
+    :param config: Configuration object.
     :param imports: Imports in this scope.
     :param error: Unrecoverable error for this scope, if any.
     """
@@ -68,29 +65,25 @@ class Parent:  # pylint: disable=too-many-instance-attributes
             | None
         ) = None,
         directives: _Directives | None = None,
-        path: _Path | None = None,
-        ignore_args: bool = False,
-        ignore_kwargs: bool = False,
-        check_class_constructor: bool = False,
+        file: _Path | None = None,
+        config: _Config | None = None,
         imports: _Imports | None = None,
         error: Error | None = None,
     ) -> None:
         super().__init__()
         self._error = error
         self._directives = directives or _Directives()
-        self._ignore_args = ignore_args
-        self._ignore_kwargs = ignore_kwargs
-        self._check_class_constructor = check_class_constructor
+        self._config = config or _Config()
         self._children = _Children()
         self._imports = imports or _Imports()
         self._overloads = _Overloads()
         if node is None:
             self._name = "module"
             if not isinstance(self, Function) and error is not None:
-                self._children.append(Function(path, error=error))
+                self._children.append(Function(file, error=error))
         else:
             self._name = node.name
-            self._parse_ast(node, path)
+            self._parse_ast(node, file)
 
     def _parse_ast(
         self,
@@ -100,7 +93,7 @@ class Parent:  # pylint: disable=too-many-instance-attributes
             | _ast.nodes.FunctionDef
             | _ast.nodes.NodeNG
         ),
-        path: _Path | None = None,
+        file: _Path | None = None,
     ) -> None:
         # need to keep track of `comments` as, even though they are
         # resolved in the directive object, they are needed to notify
@@ -130,10 +123,8 @@ class Parent:  # pylint: disable=too-many-instance-attributes
                         comments,
                         self._directives,
                         disabled,
-                        path,
-                        self._ignore_args,
-                        self._ignore_kwargs,
-                        self._check_class_constructor,
+                        file,
+                        self._config,
                         self._imports,
                     )
                     if func.isoverloaded:
@@ -155,15 +146,13 @@ class Parent:  # pylint: disable=too-many-instance-attributes
                         Parent(
                             subnode,
                             self._directives,
-                            path,
-                            self._ignore_args,
-                            self._ignore_kwargs,
-                            self._check_class_constructor,
+                            file,
+                            self._config,
                             self._imports,
                         ),
                     )
                 else:
-                    self._parse_ast(subnode, path)
+                    self._parse_ast(subnode, file)
 
     @property
     def isprotected(self) -> bool:
@@ -188,12 +177,8 @@ class Function(Parent):  # pylint: disable=too-many-instance-attributes
     :param comments: Comment directives for this function.
     :param directives: Directives keyed by line.
     :param messages: Disabled checks for this function.
-    :param path: Path for this function (or None).
-    :param ignore_args: Ignore args prefixed with an asterisk.
-    :param ignore_kwargs: Ignore kwargs prefixed with two asterisks.
-    :param check_class_constructor: If the function is the class
-        constructor, use its own docstring. Otherwise, use the class
-        level docstring for the constructor function.
+    :param file: Path for this function (or None).
+    :param config: Configuration object.
     :param imports: Imports in this scope.
     :param error: Unrecoverable error for this function, if any.
     """
@@ -205,20 +190,16 @@ class Function(Parent):  # pylint: disable=too-many-instance-attributes
         comments: _Comments | None = None,
         directives: _Directives | None = None,
         messages: _Messages | None = None,
-        path: _Path | None = None,
-        ignore_args: bool = False,
-        ignore_kwargs: bool = False,
-        check_class_constructor: bool = False,
+        file: _Path | None = None,
+        config: _Config | None = None,
         imports: _Imports | None = None,
         error: Error | None = None,
     ) -> None:
         super().__init__(
             node,
             directives or _Directives(),
-            path,
-            ignore_args,
-            ignore_kwargs,
-            check_class_constructor,
+            file,
+            config,
             imports,
         )
         self._comments = comments or _Comments()
@@ -241,10 +222,9 @@ class Function(Parent):  # pylint: disable=too-many-instance-attributes
 
             self._signature = self._signature.from_ast(
                 node,
-                ignore_args,
-                ignore_kwargs,
+                self._config.ignore,
             )
-            if self.isinit and not check_class_constructor:
+            if self.isinit and not self._config.check.class_constructor:
                 # docstring for __init__ is expected on the class
                 # docstring
                 relevant_doc_node = self._parent.doc_node

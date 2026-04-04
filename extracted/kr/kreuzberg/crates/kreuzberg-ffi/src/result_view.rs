@@ -423,6 +423,7 @@ mod tests {
             chunks: Some(vec![
                 kreuzberg::types::Chunk {
                     content: "Chunk 1".to_string(),
+                    chunk_type: Default::default(),
                     embedding: None,
                     metadata: kreuzberg::types::ChunkMetadata {
                         byte_start: 0,
@@ -437,6 +438,7 @@ mod tests {
                 },
                 kreuzberg::types::Chunk {
                     content: "Chunk 2".to_string(),
+                    chunk_type: Default::default(),
                     embedding: None,
                     metadata: kreuzberg::types::ChunkMetadata {
                         byte_start: 8,
@@ -461,6 +463,10 @@ mod tests {
             processing_warnings: vec![],
             annotations: None,
             children: None,
+            uris: None,
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         }
     }
 
@@ -734,6 +740,10 @@ mod tests {
             processing_warnings: vec![],
             annotations: None,
             children: None,
+            uris: None,
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         let result_ptr = &result as *const ExtractionResult;

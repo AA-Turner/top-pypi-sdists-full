@@ -187,7 +187,10 @@ def initialize_resources() -> None:
         _ = session.catalog
 
     def warm_up_sf_connection() -> None:
-        df = session.create_dataframe([["a", 3], ["b", 2], ["a", 1]], schema=["x", "y"])
+        df = session.create_dataframe(
+            [["a", 3], ["_snowpark_connect_warmup_internal", 2], ["a", 1]],
+            schema=["x", "y"],
+        )
         df = df.select(snowpark_fn.upper(df.x).alias("x"), df.y.alias("y2"))
         df = df.group_by(df.x).agg(snowpark_fn.sum("y2"))
         df.collect()

@@ -31,17 +31,31 @@ def map_show_string(rel: relation_proto.Relation) -> pandas.DataFrame:
     input_df_container: DataFrameContainer = map_relation(rel.show_string.input)
 
     if input_df_container.has_zero_columns():
-        # special case for 0-column dataframes
-        num_rows = min(rel.show_string.num_rows, input_df_container.dataframe.count())
+        # SNOW-3242008: Use known_row_count when available to avoid a Snowflake query.
+        row_count = (
+            input_df_container.known_row_count
+            if input_df_container.known_row_count is not None
+            else input_df_container.dataframe.count()
+        )
+        num_rows = min(rel.show_string.num_rows, row_count)
         show_string = _generate_empty_show_string(num_rows, rel.show_string.vertical)
         return pandas.DataFrame({"show_string": [show_string]})
 
     filtered_container = without_internal_columns(input_df_container)
-    display_df = filtered_container.dataframe
     display_spark_columns = filtered_container.column_map.get_spark_columns()
 
-    input_df = _handle_datetype_columns(display_df)
+    # SNOW-3242008: For cached DDL results (e.g., "Statement executed successfully.")
+    # generate the show string directly from the Arrow table instead of executing
+    # a VALUES query against Snowflake.
+    cached_table = input_df_container.cached_local_relation_arrow_table
+    if cached_table is not None:
+        show_string = _format_cached_ddl_result(
+            cached_table, display_spark_columns, rel.show_string
+        )
+        return pandas.DataFrame({"show_string": [show_string]})
 
+    display_df = filtered_container.dataframe
+    input_df = _handle_datetype_columns(display_df)
     show_string = input_df._show_string_spark(
         num_rows=rel.show_string.num_rows,
         truncate=rel.show_string.truncate,
@@ -101,6 +115,38 @@ def _handle_datetype_columns(input_df: snowpark.DataFrame) -> snowpark.DataFrame
     transformed_df._column_map = copy.deepcopy(input_df._column_map)
 
     return transformed_df
+
+
+def _format_cached_ddl_result(
+    cached_table, spark_columns: list[str], show_params
+) -> str:
+    """SNOW-3242008: Format show string for a cached DDL result (1 row, 1 col, string).
+
+    Replicates the formatting logic from Snowpark's _show_string_spark for this
+    specific case to avoid an unnecessary Snowflake round trip.
+    """
+    col_name = spark_columns[0]
+    raw = cached_table.column(0)[0].as_py()
+    value = "NULL" if raw is None else str(raw)
+
+    truncate = show_params.truncate
+    if truncate > 0 and len(value) > truncate:
+        value = value[: truncate - 3] + "..." if truncate >= 4 else value[:truncate]
+
+    minimum_col_width = 3
+    col_width = max(minimum_col_width, len(col_name), len(value))
+
+    if not show_params.vertical:
+        pad = str.rjust if truncate > 0 else str.ljust
+        sep = f"+{'-' * col_width}+\n"
+        return (
+            f"{sep}|{pad(col_name, col_width)}|\n{sep}|{pad(value, col_width)}|\n{sep}"
+        )
+    else:
+        field_width = max(minimum_col_width, len(col_name))
+        data_width = max(minimum_col_width, len(value))
+        row_header = "-RECORD 0".ljust(field_width + data_width + 5, "-")
+        return f"{row_header}\n {col_name.ljust(field_width)} | {value.ljust(data_width)}\n"
 
 
 def _generate_empty_show_string(

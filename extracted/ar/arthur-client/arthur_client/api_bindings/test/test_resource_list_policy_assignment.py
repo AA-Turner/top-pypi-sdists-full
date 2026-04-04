@@ -46,7 +46,8 @@ class TestResourceListPolicyAssignment(unittest.TestCase):
                             description = '', ), 
                         model = arthur_client.api_bindings.models.model_summary.ModelSummary(
                             id = '', 
-                            name = '', ), 
+                            name = '', 
+                            project_id = '', ), 
                         applied_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         applied_by_user_id = '', 
                         enforcement_starts_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
@@ -121,7 +122,8 @@ class TestResourceListPolicyAssignment(unittest.TestCase):
                             description = '', ), 
                         model = arthur_client.api_bindings.models.model_summary.ModelSummary(
                             id = '', 
-                            name = '', ), 
+                            name = '', 
+                            project_id = '', ), 
                         applied_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         applied_by_user_id = '', 
                         enforcement_starts_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 

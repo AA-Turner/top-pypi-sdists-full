@@ -6,6 +6,7 @@
 use std::cell::RefCell;
 use std::time::Instant;
 
+#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 
 use crate::layout::{DetectionResult, LayoutClass, LayoutEngine};
@@ -340,8 +341,55 @@ where
         };
 
         // Run inference in parallel for this batch
+        #[cfg(not(target_arch = "wasm32"))]
         let mut parallel_results: Vec<std::result::Result<(PageLayoutResult, PageTiming), String>> = batch_images
             .par_iter()
+            .enumerate()
+            .map(|(offset, img)| {
+                let page_idx = batch_start + offset;
+                let rgb = match img {
+                    image::DynamicImage::ImageRgb8(r) => std::borrow::Cow::Borrowed(r),
+                    other => std::borrow::Cow::Owned(other.to_rgb8()),
+                };
+
+                TL_ENGINE.with(|cell| {
+                    let mut engine_ref = cell.borrow_mut();
+                    if engine_ref.is_none() {
+                        let engine = LayoutEngine::from_config(engine_config.clone())
+                            .map_err(|e| format!("thread-local LayoutEngine init failed: {e}"))?;
+                        *engine_ref = Some(engine);
+                    }
+                    let tl_engine = engine_ref
+                        .as_mut()
+                        .ok_or_else(|| "thread-local LayoutEngine missing after init".to_string())?;
+
+                    let inference_start = Instant::now();
+                    let (detection, detect_timings) = tl_engine
+                        .detect_timed(&rgb)
+                        .map_err(|e| format!("Layout detection failed on page {page_idx}: {e}"))?;
+                    let inference_ms = inference_start.elapsed().as_secs_f64() * 1000.0;
+
+                    let mapping_start = Instant::now();
+                    let (page_w, page_h) = batch_dimensions[offset];
+                    let page_result = detection_to_page_result(page_idx, &detection, page_w, page_h);
+                    let mapping_ms = mapping_start.elapsed().as_secs_f64() * 1000.0;
+
+                    let timing = PageTiming {
+                        render_ms: render_ms_per_page,
+                        preprocess_ms: detect_timings.preprocess_ms,
+                        onnx_ms: detect_timings.onnx_ms,
+                        inference_ms,
+                        postprocess_ms: detect_timings.postprocess_ms,
+                        mapping_ms,
+                    };
+
+                    Ok((page_result, timing))
+                })
+            })
+            .collect();
+        #[cfg(target_arch = "wasm32")]
+        let mut parallel_results: Vec<std::result::Result<(PageLayoutResult, PageTiming), String>> = batch_images
+            .iter()
             .enumerate()
             .map(|(offset, img)| {
                 let page_idx = batch_start + offset;

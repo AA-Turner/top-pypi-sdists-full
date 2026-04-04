@@ -1436,11 +1436,6 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
             updated_at TEXT NOT NULL
         )"""
     )
-    # Migrate spaces column renames: source_file→file_path, source_hash→file_hash (v1.94.5)
-    space_cols = {row[1] for row in conn.execute("PRAGMA table_info(spaces)").fetchall()}
-    if "source_file" in space_cols and "file_path" not in space_cols:
-        conn.execute("ALTER TABLE spaces RENAME COLUMN source_file TO file_path")
-        conn.execute("ALTER TABLE spaces RENAME COLUMN source_hash TO file_hash")
     # Repair broken FK references from v1.94.4 table-rebuild migration (v1.94.5)
     # The table-rebuild approach with foreign_keys=ON caused SQLite to rewrite FK targets in
     # messages, conversation_tags, and canvases to point to "_conversations_old" instead of

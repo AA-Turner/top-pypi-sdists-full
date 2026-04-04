@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: garak
-Version: 0.14.0
+Version: 0.14.1
 Summary: LLM vulnerability scanner
-Author: nv052193, Mads Kongsbak, Tianhao Li, Phyllis Poh, Razvan Dinu, Zander Mackie, Greg Stephens, Ahsan Ayub, Jonathan Liberman, Gustav Fredrikson, Oh Tien Cheng, Brain John, Naman Mishra, Soumili Nandi, Arjun Krishna, Mihailo Milenkovic, Kai Greshake, Martin Borup-Larsen, Emmanuel Ferdman, Eric Therond, Zoe Nolan, Harsh Raj, Shine-afk, Rafael Sandroni, Eric Hacker, Blessed Uyo, Ikko Eltociear Ashimine, iamnotcj, Dwight Temple, Shane Rosse, Masaya Ogushi, Viktor T. Zetterberg, Erwan Roussel, Matthew Rowe, Aishwarya Padmakumar, Marco Rosa, Ian Chu, Mike McKiernan, Divya Chitimalla, Katherine Luna, Dave Baker, Jack Kelly, Amrit Prakash, Cássia Sampaio, Nakul Rajpal, Noah Oeksuez, Dhruv Malik, Patricia Pampanelli, Joseph Davis Chamdani, Rob Geada, Ashish RajAnand, Paulina Kalicka, Gal Moshkovitz, Jack Smith, Paul A. Parkanzky, Leif Hancox-Li, Fabrizio Rocco, Sai Chandra Pandraju, Harish Kolla, Snehal Vartak, Abhiraj Sinha, Harsh Motla, Otavio Padovani
+Author: nv052193, Mads Kongsbak, Tianhao Li, Phyllis Poh, Razvan Dinu, Zander Mackie, Greg Stephens, Ahsan Ayub, Jonathan Liberman, Gustav Fredrikson, Oh Tien Cheng, Brain John, Naman Mishra, Soumili Nandi, Arjun Krishna, Mihailo Milenkovic, Kai Greshake, Martin Borup-Larsen, Emmanuel Ferdman, Eric Therond, Zoe Nolan, Harsh Raj, Shine-afk, Rafael Sandroni, Eric Hacker, Blessed Uyo, Ikko Eltociear Ashimine, iamnotcj, Dwight Temple, Shane Rosse, Masaya Ogushi, Viktor T. Zetterberg, Erwan Roussel, Matthew Rowe, Aishwarya Padmakumar, Marco Rosa, Ian Chu, Mike McKiernan, Divya Chitimalla, Katherine Luna, Dave Baker, Jack Kelly, Amrit Prakash, Cássia Sampaio, Nakul Rajpal, Noah Oeksuez, Dhruv Malik, Patricia Pampanelli, Joseph Davis Chamdani, Rob Geada, Ashish RajAnand, Paulina Kalicka, Gal Moshkovitz, Jack Smith, Paul A. Parkanzky, Leif Hancox-Li, Fabrizio Rocco, Sai Chandra Pandraju, Harish Kolla, Snehal Vartak, Abhiraj Sinha, Harsh Motla, Otavio Padovani, Siddhant Mishra, dyrtyData, Leone Lage Perdigão, Lucas Wang
 Author-email: Leon Derczynski <lderczynski@nvidia.com>, Subho Majumdar <subho@vijil.ai>, Erick Galinkin <egalinkin@nvidia.com>, Jeffrey Martin <jemartin@nvidia.com>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -29,7 +29,6 @@ Requires-Dist: accelerate>=0.23.0
 Requires-Dist: avidtools==0.1.2
 Requires-Dist: stdlibs>=2022.10.9
 Requires-Dist: langchain>=1.2.1
-Requires-Dist: nemollm>=0.3.0
 Requires-Dist: cmd2==2.4.3
 Requires-Dist: torch>=2.6.0
 Requires-Dist: sentencepiece>=0.1.99
@@ -38,7 +37,7 @@ Requires-Dist: numpy>=2.0.0
 Requires-Dist: zalgolib>=0.2.2
 Requires-Dist: ecoji>=0.1.1
 Requires-Dist: deepl==1.17.0
-Requires-Dist: litellm>=1.68.1
+Requires-Dist: litellm==1.82.6
 Requires-Dist: jsonpath-ng>=1.6.1
 Requires-Dist: huggingface_hub>=1.0
 Requires-Dist: python-magic-bin>=0.4.14; sys_platform == "win32"
@@ -55,12 +54,14 @@ Requires-Dist: tiktoken>=0.7.0
 Requires-Dist: mistralai==1.5.2
 Requires-Dist: pillow>=10.4.0
 Requires-Dist: ftfy>=6.3.1
+Requires-Dist: websockets>=13.0
 Requires-Dist: boto3>=1.28.0
+Requires-Dist: py-markdown-table>=1.2.0
 Requires-Dist: soundfile>=0.13.1 ; extra == "audio"
 Requires-Dist: librosa>=0.10.2 ; extra == "audio"
 Requires-Dist: scipy>=1.14.0 ; extra == "calibration"
 Requires-Dist: detoxify>=0.5.0 ; extra == "dra"
-Requires-Dist: black==24.4.2 ; extra == "lint"
+Requires-Dist: black>=26.1.0 ; extra == "lint"
 Requires-Dist: pylint>=3.1.0 ; extra == "lint"
 Requires-Dist: pytest>=8.0 ; extra == "tests"
 Requires-Dist: pytest-mock>=3.14.0 ; extra == "tests"
@@ -68,6 +69,7 @@ Requires-Dist: requests-mock==1.12.1 ; extra == "tests"
 Requires-Dist: respx>=0.21.1 ; extra == "tests"
 Requires-Dist: pytest-cov>=5.0.0 ; extra == "tests"
 Requires-Dist: pytest_httpserver>=1.1.0 ; extra == "tests"
+Requires-Dist: pytest-asyncio>=0.21.0 ; extra == "tests"
 Requires-Dist: langcodes>=3.4.0 ; extra == "tests"
 Project-URL: Bug Tracker, https://github.com/NVIDIA/garak/issues
 Project-URL: Homepage, https://github.com/NVIDIA/garak

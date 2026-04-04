@@ -86,6 +86,32 @@ fn parse_group(node: &Node) -> Result<Vec<SlideElement>> {
     Ok(elements)
 }
 
+/// Check whether a shape node contains a title placeholder.
+///
+/// OOXML placeholder types for titles:
+/// - `type="title"` (general title, idx 0 in most slide layouts)
+/// - `type="ctrTitle"` (centered title, used on title slides)
+fn is_title_placeholder(sp_node: &Node) -> bool {
+    // Path: p:sp / p:nvSpPr / p:nvPr / p:ph[@type]
+    let nv_sp_pr = sp_node
+        .children()
+        .find(|n| n.tag_name().name() == "nvSpPr" && n.tag_name().namespace() == Some(PRESENTATIONML_NAMESPACE));
+    if let Some(nv_sp_pr) = nv_sp_pr {
+        let nv_pr = nv_sp_pr
+            .children()
+            .find(|n| n.tag_name().name() == "nvPr" && n.tag_name().namespace() == Some(PRESENTATIONML_NAMESPACE));
+        if let Some(nv_pr) = nv_pr {
+            let ph = nv_pr
+                .children()
+                .find(|n| n.tag_name().name() == "ph" && n.tag_name().namespace() == Some(PRESENTATIONML_NAMESPACE));
+            if let Some(ph) = ph {
+                return matches!(ph.attribute("type"), Some("title") | Some("ctrTitle"));
+            }
+        }
+    }
+    false
+}
+
 fn parse_sp(sp_node: &Node) -> Result<Option<ParsedContent>> {
     // Some shapes like image placeholders (<p:ph type="pic"/>) don't have txBody.
     // These should be skipped gracefully - they contain no text to extract.
@@ -98,21 +124,28 @@ fn parse_sp(sp_node: &Node) -> Result<Option<ParsedContent>> {
         None => return Ok(None), // Skip shapes without txBody
     };
 
-    let is_list = tx_body_node.descendants().any(|n| {
-        n.is_element()
-            && n.tag_name().name() == "pPr"
-            && n.tag_name().namespace() == Some(DRAWINGML_NAMESPACE)
-            && (n.attribute("lvl").is_some()
-                || n.children().any(|child| {
-                    child.is_element()
-                        && (child.tag_name().name() == "buAutoNum" || child.tag_name().name() == "buChar")
-                }))
-    });
+    let is_title = is_title_placeholder(sp_node);
+
+    // Title placeholders should not be treated as lists even if they have
+    // paragraph-level properties that look like bullet markers.
+    let is_list = !is_title
+        && tx_body_node.descendants().any(|n| {
+            n.is_element()
+                && n.tag_name().name() == "pPr"
+                && n.tag_name().namespace() == Some(DRAWINGML_NAMESPACE)
+                && (n.attribute("lvl").is_some()
+                    || n.children().any(|child| {
+                        child.is_element()
+                            && (child.tag_name().name() == "buAutoNum" || child.tag_name().name() == "buChar")
+                    }))
+        });
 
     if is_list {
         Ok(Some(ParsedContent::List(parse_list(&tx_body_node)?)))
     } else {
-        Ok(Some(ParsedContent::Text(parse_text(&tx_body_node)?)))
+        let mut text_el = parse_text(&tx_body_node)?;
+        text_el.is_title = is_title;
+        Ok(Some(ParsedContent::Text(text_el)))
     }
 }
 
@@ -126,7 +159,7 @@ pub(super) fn parse_text(tx_body_node: &Node) -> Result<TextElement> {
         runs.append(&mut paragraph_runs);
     }
 
-    Ok(TextElement { runs })
+    Ok(TextElement { runs, is_title: false })
 }
 
 fn parse_graphic_frame(node: &Node) -> Result<Option<TableElement>> {
@@ -240,7 +273,7 @@ fn parse_list(tx_body_node: &Node) -> Result<ListElement> {
     for p_node in tx_body_node.children().filter(|n| {
         n.is_element() && n.tag_name().name() == "p" && n.tag_name().namespace() == Some(DRAWINGML_NAMESPACE)
     }) {
-        let (level, is_ordered) = parse_list_properties(&p_node)?;
+        let (level, is_ordered, has_bullet) = parse_list_properties(&p_node)?;
 
         let runs = parse_paragraph(&p_node, true)?;
 
@@ -248,15 +281,18 @@ fn parse_list(tx_body_node: &Node) -> Result<ListElement> {
             level,
             is_ordered,
             runs,
+            has_bullet,
         });
     }
 
     Ok(ListElement { items })
 }
 
-fn parse_list_properties(p_node: &Node) -> Result<(u32, bool)> {
+/// Returns (level, is_ordered, has_bullet).
+fn parse_list_properties(p_node: &Node) -> Result<(u32, bool, bool)> {
     let mut level = 1;
     let mut is_ordered = false;
+    let mut has_bullet = false;
 
     if let Some(p_pr_node) = p_node.children().find(|n| {
         n.is_element() && n.tag_name().name() == "pPr" && n.tag_name().namespace() == Some(DRAWINGML_NAMESPACE)
@@ -270,9 +306,23 @@ fn parse_list_properties(p_node: &Node) -> Result<(u32, bool)> {
                 && n.tag_name().namespace() == Some(DRAWINGML_NAMESPACE)
                 && n.tag_name().name() == "buAutoNum"
         });
+
+        // Check for any bullet marker: buAutoNum, buChar, or lvl attribute
+        // (but NOT buNone which explicitly disables bullets)
+        let has_bu_none = p_pr_node.children().any(|n| {
+            n.is_element() && n.tag_name().namespace() == Some(DRAWINGML_NAMESPACE) && n.tag_name().name() == "buNone"
+        });
+        has_bullet = !has_bu_none
+            && (is_ordered
+                || p_pr_node.children().any(|n| {
+                    n.is_element()
+                        && n.tag_name().namespace() == Some(DRAWINGML_NAMESPACE)
+                        && n.tag_name().name() == "buChar"
+                })
+                || p_pr_node.attribute("lvl").is_some());
     }
 
-    Ok((level, is_ordered))
+    Ok((level, is_ordered, has_bullet))
 }
 
 fn parse_paragraph(p_node: &Node, add_new_line: bool) -> Result<Vec<Run>> {
@@ -301,6 +351,7 @@ fn parse_paragraph(p_node: &Node, add_new_line: bool) -> Result<Vec<Run>> {
 fn parse_run(r_node: &Node) -> Result<Run> {
     let mut text = String::new();
     let mut formatting = Formatting::default();
+    let mut hyperlink_id = None;
 
     if let Some(r_pr_node) = r_node.children().find(|n| {
         n.is_element() && n.tag_name().name() == "rPr" && n.tag_name().namespace() == Some(DRAWINGML_NAMESPACE)
@@ -323,6 +374,18 @@ fn parse_run(r_node: &Node) -> Result<Run> {
         if let Some(lang_attr) = r_pr_node.attribute("lang") {
             formatting.lang = lang_attr.to_string();
         }
+
+        // Capture hyperlink reference: <a:hlinkClick r:id="rIdN"/>
+        if let Some(hlink_node) = r_pr_node.children().find(|n| {
+            n.is_element()
+                && n.tag_name().name() == "hlinkClick"
+                && n.tag_name().namespace() == Some(DRAWINGML_NAMESPACE)
+        }) {
+            hyperlink_id = hlink_node
+                .attribute((RELATIONSHIPS_NAMESPACE, "id"))
+                .or_else(|| hlink_node.attribute("r:id"))
+                .map(|s| s.to_string());
+        }
     }
 
     if let Some(t_node) = r_node
@@ -332,7 +395,11 @@ fn parse_run(r_node: &Node) -> Result<Run> {
     {
         text.push_str(t);
     }
-    Ok(Run { text, formatting })
+    Ok(Run {
+        text,
+        formatting,
+        hyperlink_id,
+    })
 }
 
 pub(super) fn extract_position(node: &Node) -> ElementPosition {
@@ -367,7 +434,13 @@ pub(super) fn extract_position(node: &Node) -> ElementPosition {
         .unwrap_or(default)
 }
 
-pub(super) fn parse_slide_rels(rels_data: &[u8]) -> Result<Vec<ImageReference>> {
+/// Parsed relationships from a slide rels file.
+pub(super) struct SlideRels {
+    pub(super) images: Vec<ImageReference>,
+    pub(super) hyperlinks: Vec<super::elements::HyperlinkReference>,
+}
+
+pub(super) fn parse_slide_rels(rels_data: &[u8]) -> Result<SlideRels> {
     let xml_str = utf8_validation::from_utf8(rels_data)
         .map_err(|e| KreuzbergError::parsing(format!("Invalid UTF-8 in rels XML: {}", e)))?;
 
@@ -375,22 +448,29 @@ pub(super) fn parse_slide_rels(rels_data: &[u8]) -> Result<Vec<ImageReference>> 
         Document::parse(xml_str).map_err(|e| KreuzbergError::parsing(format!("Failed to parse rels XML: {}", e)))?;
 
     let mut images = Vec::new();
+    let mut hyperlinks = Vec::new();
 
     for node in doc.descendants() {
         if node.has_tag_name("Relationship")
             && let Some(rel_type) = node.attribute("Type")
-            && rel_type.contains("image")
             && let (Some(id), Some(target)) = (node.attribute("Id"), node.attribute("Target"))
         {
-            images.push(ImageReference {
-                id: id.to_string(),
-                target: target.to_string(),
-                description: None,
-            });
+            if rel_type.contains("image") {
+                images.push(ImageReference {
+                    id: id.to_string(),
+                    target: target.to_string(),
+                    description: None,
+                });
+            } else if rel_type.contains("hyperlink") {
+                hyperlinks.push(super::elements::HyperlinkReference {
+                    id: id.to_string(),
+                    url: target.to_string(),
+                });
+            }
         }
     }
 
-    Ok(images)
+    Ok(SlideRels { images, hyperlinks })
 }
 
 pub(super) fn parse_presentation_rels(rels_data: &[u8]) -> Result<Vec<String>> {

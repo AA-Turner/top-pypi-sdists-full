@@ -5,9 +5,14 @@ from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from skylos.analyzer import analyze as run_analyze
 from skylos.config import load_config
 from skylos.constants import parse_exclude_folders
+
+
+def run_analyze(*args, **kwargs):
+    from skylos.analyzer import analyze as run_analyze_impl
+
+    return run_analyze_impl(*args, **kwargs)
 
 
 def run_city_command(argv: list[str]) -> int:
@@ -17,7 +22,10 @@ def run_city_command(argv: list[str]) -> int:
     )
     city_parser.add_argument("path", nargs="?", default=".", help="Path to scan")
     city_parser.add_argument(
-        "--json", action="store_true", dest="output_json", help="Output raw topology JSON"
+        "--json",
+        action="store_true",
+        dest="output_json",
+        help="Output raw topology JSON",
     )
     city_parser.add_argument(
         "--quality", action="store_true", help="Include complexity data in output"

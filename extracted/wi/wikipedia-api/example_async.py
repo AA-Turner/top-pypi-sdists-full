@@ -22,8 +22,8 @@ import asyncio
 import logging
 
 import wikipediaapi
-from wikipediaapi import coordinates_prop2str
 from wikipediaapi import CoordinatesProp
+from wikipediaapi import coordinates_prop2str
 
 # Set to INFO to see the actual API request URLs being made
 logging.basicConfig(level=logging.WARNING)
@@ -380,9 +380,9 @@ async def main():
     )
     print(f"London with GLOBE+NAME+TYPE properties: {len(coords_enum_multi)} coordinates")
     for c in coords_enum_multi:
-        print(
-            f"  lat={c.lat}, lon={c.lon}, name={getattr(c, 'name', 'N/A')}, type={getattr(c, 'type', 'N/A')}"
-        )
+        name = getattr(c, "name", "N/A")
+        ctype = getattr(c, "type", "N/A")
+        print(f"  lat={c.lat}, lon={c.lon}, name={name}, type={ctype}")
 
     # Mixed enum and string values (backward compatible)
     coords_mixed = await wiki.coordinates(london, prop=[CoordinatesProp.GLOBE, "name", "type"])
@@ -390,9 +390,8 @@ async def main():
 
     # Using the converter function directly
     print("\n--- Converter Function Examples ---")
-    print(
-        f"coordinates_prop2str(CoordinatesProp.GLOBE) = {coordinates_prop2str(CoordinatesProp.GLOBE)}"
-    )
+    globe_str = coordinates_prop2str(CoordinatesProp.GLOBE)
+    print(f"coordinates_prop2str(CoordinatesProp.GLOBE) = {globe_str}")
     print(f"coordinates_prop2str('globe') = {coordinates_prop2str('globe')}")
     print(f"coordinates_prop2str('custom') = {coordinates_prop2str('custom')}")
 
@@ -410,16 +409,16 @@ async def main():
     for page, coord_list in batch_coords_enum.items():
         print(f"  {page.title}: {len(coord_list)} coordinate(s) with GLOBE+NAME+DIM")
         for c in coord_list[:2]:  # Show first 2 coordinates
-            print(
-                f"    lat={c.lat}, lon={c.lon}, name={getattr(c, 'name', 'N/A')}, dim={getattr(c, 'dim', 'N/A')}"
-            )
+            name = getattr(c, "name", "N/A")
+            dim = getattr(c, "dim", "N/A")
+            print(f"    lat={c.lat}, lon={c.lon}, name={name}, dim={dim}")
 
     # Backward-compatible string usage still works
     batch_coords_strings = await pages.coordinates(prop=["globe", "name", "dim"])
     print(f"Batch coordinates with strings: {len(batch_coords_strings)} pages")
 
     # ──────────────────────────────────────────────────────────────────────────
-    # 13. Images (prop=images)
+    # 13. Images (prop=images) and Image Metadata (prop=imageinfo)
     # ──────────────────────────────────────────────────────────────────────────
 
     # Fetch images/files used on a page (using direction as string)
@@ -431,6 +430,27 @@ async def main():
     # Page-level awaitable property
     imgs_prop = await london.images
     print(f"London images via property: {len(imgs_prop)}")
+
+    # Fetch detailed metadata for images (URL, dimensions, MIME type, uploader, etc.)
+    # Each image's convenience properties are awaitable and trigger lazy imageinfo
+    # fetches on first access.  Subsequent accesses use the cached value.
+    python_page = wiki.page("Python_(programming_language)")
+    print("Python page images with metadata:")
+    for title, img in sorted((await python_page.images).items())[:3]:
+        # These properties are awaitable and trigger individual imageinfo API calls:
+        print(f"  {title}:")
+        print(f"    URL: {await img.url}")
+        print(f"    Dimensions: {await img.width}x{await img.height}")
+        print(f"    MIME: {await img.mime}")
+        print(f"    User: {await img.user}")
+
+    # Batch-fetch imageinfo for all images at once (more efficient):
+    infos = await (await python_page.images).imageinfo()
+    print(f"Batch imageinfo: {len(infos)} images")
+    for title, info_list in sorted(infos.items())[:3]:
+        if info_list:
+            info = info_list[0]
+            print(f"  {title}: {info.url}, {info.width}x{info.height}")
 
     # ──────────────────────────────────────────────────────────────────────────
     # 14. Geosearch (list=geosearch)

@@ -12,7 +12,9 @@ import pytest
 
 from anteroom.config import WorkflowConfig
 from anteroom.db import init_db
+from anteroom.services.workflow_engine import WorkflowEngine
 from anteroom.services.workflow_executor import WorkflowExecutorWorker
+from anteroom.services.workflow_runners import create_default_registry
 from anteroom.services.workflow_storage import (
     claim_pending_runs,
     create_workflow_run,
@@ -43,6 +45,22 @@ def _make_pending_run(db: Any, workflow_id: str = "test-wf", **kwargs: Any) -> d
     }
     defaults.update(kwargs)
     return create_workflow_run(db, **defaults)
+
+
+GATED_WORKFLOW = """\
+kind: workflow
+id: gated_pipeline
+version: 0.1.0
+inputs:
+  issue_number:
+    type: integer
+    required: true
+steps:
+  - id: gate_issue_current
+    type: gate
+    condition: issue_is_current
+    if_false: blocked_issue_not_open
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -281,10 +299,11 @@ class TestExecutorWorker:
 
     @pytest.mark.asyncio
     async def test_stale_heartbeat_recovery(self, db: Any, config: WorkflowConfig) -> None:
-        from anteroom.services.workflow_storage import create_workflow_run, update_workflow_run
+        from anteroom.services.workflow_storage import acquire_lock, create_workflow_run, update_workflow_run
 
         run = create_workflow_run(db, workflow_id="w", workflow_version="1", target_kind="g", target_ref="t")
         update_workflow_run(db, run["id"], status="running")
+        acquire_lock(db, target_kind="g", target_ref="t", run_id=run["id"])
         # Set heartbeat to the past
         db.execute(
             "UPDATE workflow_runs SET heartbeat_at='2020-01-01T00:00:00' WHERE id=?",
@@ -298,8 +317,8 @@ class TestExecutorWorker:
         from anteroom.services.workflow_storage import get_workflow_run
 
         recovered = get_workflow_run(db, run["id"])
-        assert recovered["status"] == "paused"
-        assert recovered["stop_reason"] == "stale_heartbeat_recovery"
+        assert recovered["status"] == "failed"
+        assert recovered["stop_reason"] == "stale_heartbeat_reclaimed"
 
     @pytest.mark.asyncio
     async def test_run_forever_stops_after_max_failures(self, db: Any, config: WorkflowConfig) -> None:
@@ -345,6 +364,38 @@ class TestExecutorWorker:
 
         updated = get_workflow_run(db, run["id"])
         assert updated["status"] == "failed"
+
+    @pytest.mark.asyncio
+    async def test_dispatch_run_registers_builtin_gates(self, db: Any, config: WorkflowConfig) -> None:
+        from anteroom.services.workflow_storage import create_workflow_run, get_workflow_run
+
+        run = create_workflow_run(
+            db,
+            workflow_id="gated_pipeline",
+            workflow_version="0.1.0",
+            target_kind="issue",
+            target_ref="42",
+            inputs={"issue_number": 42},
+            definition_content=GATED_WORKFLOW,
+        )
+        db.execute("UPDATE workflow_runs SET status='claimed', claimed_by='w1' WHERE id=?", (run["id"],))
+        db.commit()
+
+        worker = WorkflowExecutorWorker(
+            config,
+            lambda: WorkflowEngine(db, config, create_default_registry()),
+            db,
+        )
+
+        proc = AsyncMock()
+        proc.communicate = AsyncMock(return_value=(b"OPEN\n", b""))
+        proc.returncode = 0
+
+        with patch("asyncio.create_subprocess_exec", return_value=proc):
+            await worker._dispatch_run(dict(run))
+
+        updated = get_workflow_run(db, run["id"])
+        assert updated["status"] == "completed"
 
     @pytest.mark.asyncio
     async def test_start_stop(self, db: Any, config: WorkflowConfig) -> None:

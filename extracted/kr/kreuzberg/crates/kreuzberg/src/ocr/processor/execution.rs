@@ -12,11 +12,12 @@ use crate::image::normalize_image_dpi;
 use crate::ocr::cache::OcrCache;
 use crate::ocr::conversion::{TsvRow, iterator_word_to_element, tsv_row_to_element};
 use crate::ocr::error::OcrError;
-use crate::ocr::hocr::convert_hocr_to_markdown;
+use crate::ocr::hocr_parser::parse_hocr_to_internal_document;
 #[cfg(feature = "pdf")]
 use crate::ocr::table::post_process_table;
 use crate::ocr::table::{extract_words_from_tsv, reconstruct_table, table_to_markdown};
 use crate::ocr::types::{BatchItemResult, TesseractConfig};
+use crate::types::internal::{ElementKind, InternalDocument};
 use crate::types::{OcrExtractionResult, OcrTable, OcrTableBoundingBox};
 use kreuzberg_tesseract::{TessPageSegMode, TessPolyBlockType, TesseractAPI};
 use std::cell::RefCell;
@@ -925,6 +926,8 @@ pub(super) fn perform_ocr(
         None
     };
 
+    let mut hocr_document: Option<InternalDocument> = None;
+
     let (raw_content, mime_type) = match config.output_format.as_str() {
         "text" => {
             let text = api
@@ -937,9 +940,23 @@ pub(super) fn perform_ocr(
                 .get_hocr_text(0)
                 .map_err(|e| OcrError::ProcessingFailed(format!("Failed to extract hOCR: {}", e)))?;
 
-            // Pass output format from extraction config
-            let output_format = extraction_config.map(|c| c.output_format);
-            let content = convert_hocr_to_markdown(&hocr, None, output_format)?;
+            // Parse hOCR into structured InternalDocument and flatten to text.
+            // The InternalDocument is preserved for downstream layout classification.
+            let internal_doc = parse_hocr_to_internal_document(&hocr);
+            let content = internal_doc
+                .elements
+                .iter()
+                .filter_map(|e| match e.kind {
+                    // Skip PageBreak: each page is OCR'd independently, so any
+                    // PageBreak elements within a single-page hOCR doc are
+                    // artefacts and should not produce thematic breaks.
+                    ElementKind::PageBreak => None,
+                    _ if !e.text.is_empty() => Some(e.text.clone()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            hocr_document = Some(internal_doc);
 
             // Set mime_type based on actual output format
             let mime_type = extraction_config
@@ -1170,6 +1187,7 @@ pub(super) fn perform_ocr(
         metadata,
         tables,
         ocr_elements,
+        internal_document: hocr_document,
     })
 }
 
@@ -1303,6 +1321,7 @@ pub(super) fn process_image_files_batch(
     config: &TesseractConfig,
     cache: &OcrCache,
 ) -> Vec<BatchItemResult> {
+    #[cfg(not(target_arch = "wasm32"))]
     use rayon::prelude::*;
 
     // Validate once for the entire batch.
@@ -1335,36 +1354,76 @@ pub(super) fn process_image_files_batch(
     };
     let config = resolved.as_ref().unwrap_or(config);
 
-    file_paths
-        .par_iter()
-        .map(|path| {
-            let image_bytes = match std::fs::read(path) {
-                Ok(b) => b,
-                Err(e) => {
-                    return BatchItemResult {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        file_paths
+            .par_iter()
+            .map(|path| {
+                let image_bytes = match std::fs::read(path) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        return BatchItemResult {
+                            file_path: path.clone(),
+                            success: false,
+                            result: None,
+                            error: Some(
+                                OcrError::IOError(format!("Failed to read file '{}': {}", path, e)).to_string(),
+                            ),
+                        };
+                    }
+                };
+                match process_image_resolved(&image_bytes, config, cache, None) {
+                    Ok(result) => BatchItemResult {
+                        file_path: path.clone(),
+                        success: true,
+                        result: Some(result),
+                        error: None,
+                    },
+                    Err(e) => BatchItemResult {
                         file_path: path.clone(),
                         success: false,
                         result: None,
-                        error: Some(OcrError::IOError(format!("Failed to read file '{}': {}", path, e)).to_string()),
-                    };
+                        error: Some(e.to_string()),
+                    },
                 }
-            };
-            match process_image_resolved(&image_bytes, config, cache, None) {
-                Ok(result) => BatchItemResult {
-                    file_path: path.clone(),
-                    success: true,
-                    result: Some(result),
-                    error: None,
-                },
-                Err(e) => BatchItemResult {
-                    file_path: path.clone(),
-                    success: false,
-                    result: None,
-                    error: Some(e.to_string()),
-                },
-            }
-        })
-        .collect()
+            })
+            .collect()
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        file_paths
+            .iter()
+            .map(|path| {
+                let image_bytes = match std::fs::read(path) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        return BatchItemResult {
+                            file_path: path.clone(),
+                            success: false,
+                            result: None,
+                            error: Some(
+                                OcrError::IOError(format!("Failed to read file '{}': {}", path, e)).to_string(),
+                            ),
+                        };
+                    }
+                };
+                match process_image_resolved(&image_bytes, config, cache, None) {
+                    Ok(result) => BatchItemResult {
+                        file_path: path.clone(),
+                        success: true,
+                        result: Some(result),
+                        error: None,
+                    },
+                    Err(e) => BatchItemResult {
+                        file_path: path.clone(),
+                        success: false,
+                        result: None,
+                        error: Some(e.to_string()),
+                    },
+                }
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]

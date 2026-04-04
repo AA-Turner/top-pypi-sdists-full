@@ -1318,11 +1318,14 @@ def run_pending_daemon(kp) -> None:
         _daemon_logger.info("Deferred startup maintenance running in background")
 
     _release_stale_daemon_leases(kp, flow_worker_id, _daemon_logger)
+    _enable_work_queue_auto_vacuum(kp, _daemon_logger)
     _log_daemon_startup_state(kp, _daemon_logger)
 
     _last_cleanup_ts = 0.0
     _CLEANUP_INTERVAL = 86400
     _CLEANUP_MAX_AGE = 86400
+    _last_prune_ts = 0.0  # force immediate prune on first tick
+    _PRUNE_INTERVAL = 86400
     _REPLENISH_INTERVAL = 1800
     _last_replenish_ts = _load_daemon_replenish_timestamp(kp._store_path)
 
@@ -1365,6 +1368,11 @@ def run_pending_daemon(kp) -> None:
                 last_cleanup_ts=_last_cleanup_ts,
                 cleanup_interval=_CLEANUP_INTERVAL,
                 cleanup_max_age=_CLEANUP_MAX_AGE,
+            )
+            _last_prune_ts = _prune_work_if_due(
+                kp,
+                last_prune_ts=_last_prune_ts,
+                prune_interval=_PRUNE_INTERVAL,
             )
             _last_replenish_ts = _replenish_supernodes_if_due(
                 kp,
@@ -1489,6 +1497,31 @@ def _release_stale_daemon_leases(kp, flow_worker_id: str, daemon_logger) -> None
     released = wq.release_stale_leases(flow_worker_id) if wq is not None else 0
     if released:
         daemon_logger.info("Released %d stale leases from previous daemon", released)
+
+
+def _enable_work_queue_auto_vacuum(kp, daemon_logger) -> None:
+    """Enable auto_vacuum on continuation.db if not already set."""
+    wq = kp._get_work_queue()
+    if wq is None:
+        return
+    if wq.enable_auto_vacuum():
+        daemon_logger.info("Enabled auto_vacuum on continuation.db (one-time VACUUM)")
+
+
+def _prune_work_if_due(kp, *, last_prune_ts: float, prune_interval: float) -> float:
+    """Run periodic work queue pruning."""
+    now = time.time()
+    if now - last_prune_ts < prune_interval:
+        return last_prune_ts
+    try:
+        wq = kp._get_work_queue()
+        if wq is not None:
+            wq.prune()
+    except Exception:
+        logging.getLogger("keep.cli.daemon").warning(
+            "Work queue prune failed", exc_info=True,
+        )
+    return now
 
 
 def _log_daemon_startup_state(kp, daemon_logger) -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -1041,3 +1042,37 @@ class TestPlanningConfig:
         )
         config, _ = load_config(cfg_file)
         assert config.cli.planning.auto_threshold_tools == 0
+
+
+class TestUtf8Bom:
+    def test_load_config_with_utf8_bom(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        cfg_bytes = yaml.dump({"ai": {"base_url": "http://test", "api_key": "sk-test", "model": "gpt-4"}}).encode(
+            "utf-8"
+        )
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_bytes(b"\xef\xbb\xbf" + cfg_bytes)
+
+        with caplog.at_level(logging.WARNING, logger="anteroom.config"):
+            config, _ = load_config(cfg_file)
+
+        assert config.ai.base_url == "http://test"
+        assert config.ai.model == "gpt-4"
+        assert "unknown config key" not in caplog.text
+
+    def test_ensure_identity_with_utf8_bom(self, tmp_path: Path) -> None:
+        from anteroom.config import ensure_identity
+
+        cfg_bytes = yaml.dump({"ai": {"base_url": "http://test", "api_key": "sk-test"}}).encode("utf-8")
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_bytes(b"\xef\xbb\xbf" + cfg_bytes)
+
+        identity = ensure_identity(cfg_file)
+        assert identity.user_id
+        assert identity.private_key
+
+    def test_load_config_bom_only_empty_content(self, tmp_path: Path) -> None:
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_bytes(b"\xef\xbb\xbf")
+
+        with pytest.raises(ValueError, match="base_url is required"):
+            load_config(cfg_file)

@@ -111,6 +111,7 @@ __all__ = (
     "RetrieveAndGenerateTypeType",
     "S3InputFormatType",
     "SearchTypeType",
+    "SelectiveGuardingModeType",
     "ServiceName",
     "SortByProvisionedModelsType",
     "SortJobsByType",
@@ -300,6 +301,7 @@ RerankingMetadataSelectionModeType = Literal["ALL", "SELECTIVE"]
 RetrieveAndGenerateTypeType = Literal["EXTERNAL_SOURCES", "KNOWLEDGE_BASE"]
 S3InputFormatType = Literal["JSONL"]
 SearchTypeType = Literal["HYBRID", "SEMANTIC"]
+SelectiveGuardingModeType = Literal["COMPREHENSIVE", "SELECTIVE"]
 SortByProvisionedModelsType = Literal["CreationTime"]
 SortJobsByType = Literal["CreationTime"]
 SortModelsByType = Literal["CreationTime"]

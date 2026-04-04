@@ -18,6 +18,7 @@ mod rendering;
 mod result;
 mod result_pool;
 mod result_view;
+
 mod string_intern;
 mod types;
 mod util;
@@ -86,6 +87,7 @@ pub use result_pool::{
 pub use result_view::{
     CExtractionResultView, kreuzberg_get_result_view, kreuzberg_view_get_content, kreuzberg_view_get_mime_type,
 };
+
 pub use string_intern::{
     CStringInternStats, kreuzberg_free_interned_string, kreuzberg_intern_string, kreuzberg_string_intern_reset,
     kreuzberg_string_intern_stats,
@@ -148,8 +150,8 @@ mod tests {
         // Test size
         assert_eq!(
             std::mem::size_of::<CExtractionResult>(),
-            168,
-            "CExtractionResult must be exactly 168 bytes"
+            184,
+            "CExtractionResult must be exactly 184 bytes"
         );
 
         // Test alignment
@@ -208,6 +210,7 @@ mod tests {
             detected_languages_json: ptr::null_mut(),
             metadata_json: ptr::null_mut(),
             chunks_json: ptr::null_mut(),
+            children_json: ptr::null_mut(),
             images_json: ptr::null_mut(),
             page_structure_json: ptr::null_mut(),
             pages_json: ptr::null_mut(),
@@ -219,6 +222,8 @@ mod tests {
             quality_score_json: ptr::null_mut(),
             processing_warnings_json: ptr::null_mut(),
             annotations_json: ptr::null_mut(),
+            uris_json: ptr::null_mut(),
+            code_intelligence_json: ptr::null_mut(),
             success: true,
             _padding1: [0u8; 7],
         }))
@@ -533,6 +538,7 @@ mod tests {
                 djot_content_json: ptr::null_mut(),
                 metadata_json: ptr::null_mut(),
                 chunks_json: ptr::null_mut(),
+                children_json: ptr::null_mut(),
                 images_json: ptr::null_mut(),
                 page_structure_json: ptr::null_mut(),
                 pages_json: ptr::null_mut(),
@@ -543,6 +549,8 @@ mod tests {
                 quality_score_json: ptr::null_mut(),
                 processing_warnings_json: ptr::null_mut(),
                 annotations_json: ptr::null_mut(),
+                uris_json: ptr::null_mut(),
+                code_intelligence_json: ptr::null_mut(),
                 success: true,
                 _padding1: [0u8; 7],
             }));
@@ -555,7 +563,7 @@ mod tests {
     #[test]
     fn test_extraction_result_free_all_fields_allocated() {
         unsafe {
-            // Test freeing a result where ALL 18 string fields are allocated
+            // Test freeing a result where ALL 21 string fields are allocated
             // This verifies that kreuzberg_free_result properly frees all fields
             let result = Box::into_raw(Box::new(CExtractionResult {
                 content: CString::new("test content").unwrap().into_raw(),
@@ -568,6 +576,7 @@ mod tests {
                 djot_content_json: ptr::null_mut(),
                 metadata_json: CString::new("{}").unwrap().into_raw(),
                 chunks_json: CString::new("[{\"text\":\"chunk1\"}]").unwrap().into_raw(),
+                children_json: ptr::null_mut(),
                 images_json: CString::new("[{\"data\":\"base64\"}]").unwrap().into_raw(),
                 page_structure_json: CString::new("{\"pages\":1}").unwrap().into_raw(),
                 pages_json: CString::new("[{\"page\":1,\"content\":\"test\"}]").unwrap().into_raw(),
@@ -580,11 +589,13 @@ mod tests {
                     .unwrap()
                     .into_raw(),
                 annotations_json: ptr::null_mut(),
+                uris_json: ptr::null_mut(),
+                code_intelligence_json: ptr::null_mut(),
                 success: true,
                 _padding1: [0u8; 7],
             }));
 
-            // Should properly free all 19 allocated string fields without leaking memory
+            // Should properly free all 20 allocated string fields without leaking memory
             kreuzberg_free_result(result);
         }
     }
@@ -664,7 +675,7 @@ mod tests {
     /// Test CExtractionResult size exactly matches FFI contract
     #[test]
     fn test_c_extraction_result_size() {
-        assert_eq!(std::mem::size_of::<CExtractionResult>(), 168);
+        assert_eq!(std::mem::size_of::<CExtractionResult>(), 184);
         assert_eq!(std::mem::align_of::<CExtractionResult>(), 8);
     }
 

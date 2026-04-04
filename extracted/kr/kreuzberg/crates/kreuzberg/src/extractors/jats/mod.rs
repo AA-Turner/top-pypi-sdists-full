@@ -21,7 +21,11 @@ use crate::Result;
 use crate::core::config::ExtractionConfig;
 use crate::plugins::{DocumentExtractor, Plugin};
 use crate::text::utf8_validation;
-use crate::types::{ExtractionResult, Metadata};
+use crate::types::Metadata;
+use crate::types::internal::InternalDocument;
+use crate::types::internal_builder::InternalDocumentBuilder;
+use crate::types::metadata::{ContributorRole, FormatMetadata, JatsMetadata};
+use crate::types::uri::Uri;
 use async_trait::async_trait;
 use quick_xml::Reader;
 use quick_xml::events::Event;
@@ -29,6 +33,7 @@ use quick_xml::events::Event;
 use std::path::Path;
 
 use elements::extract_jats_all_in_one;
+use parser::extract_citation_text as jats_extract_citation;
 use parser::extract_text_content as jats_extract_text;
 
 /// Extract text and inline annotations from a JATS `<p>` element.
@@ -160,15 +165,15 @@ fn extract_para_with_annotations_jats(
     Ok((text.trim().to_string(), annotations))
 }
 
-/// Build a `DocumentStructure` from JATS XML content.
-fn build_jats_document_structure(content: &str) -> crate::Result<crate::types::document_structure::DocumentStructure> {
-    use crate::types::builder::DocumentStructureBuilder;
-
+/// Build an `InternalDocument` from JATS XML content.
+fn build_jats_internal_document(content: &str) -> crate::Result<InternalDocument> {
     let mut reader = Reader::from_str(content);
-    let mut builder = DocumentStructureBuilder::new().source_format("jats");
+    let mut builder = InternalDocumentBuilder::new("jats");
 
     let mut in_article_meta = false;
+    let mut in_abstract = false;
     let mut in_body = false;
+    let mut in_back = false;
     let mut in_ref_list = false;
     let mut in_table = false;
     let mut in_thead = false;
@@ -176,6 +181,11 @@ fn build_jats_document_structure(content: &str) -> crate::Result<crate::types::d
     let mut in_row = false;
     let mut current_table: Vec<Vec<String>> = Vec::new();
     let mut current_row: Vec<String> = Vec::new();
+    // Track section nesting depth for heading levels.
+    // Top-level <sec> in body -> level 2, nested <sec> -> level 3, etc.
+    let mut sec_depth: u32 = 0;
+    // Track whether the ordered list container for references has been opened.
+    let mut ref_list_opened = false;
 
     loop {
         match reader.read_event() {
@@ -187,56 +197,108 @@ fn build_jats_document_structure(content: &str) -> crate::Result<crate::types::d
                     "article-meta" => {
                         in_article_meta = true;
                     }
-                    "article-title" if in_article_meta => {
+                    "article-title" if in_article_meta && !in_abstract => {
                         let text = jats_extract_text(&mut reader)?;
                         if !text.is_empty() {
                             builder.push_heading(1, &text, None, None);
                         }
                         continue;
                     }
-                    "body" => {
-                        in_body = true;
+                    // --- Abstract handling ---
+                    "abstract" if in_article_meta => {
+                        in_abstract = true;
+                        builder.push_heading(2, "Abstract", None, None);
                     }
-                    "sec" if in_body => {
-                        // sections are handled via their title children
+                    "sec" if in_abstract => {
+                        // Nested sections inside abstract
                     }
-                    "title" if in_body && !in_article_meta => {
+                    "title" if in_abstract => {
                         let text = jats_extract_text(&mut reader)?;
                         if !text.is_empty() {
-                            builder.push_heading(2, &text, None, None);
+                            // Abstract sub-sections are rendered at level 3
+                            builder.push_heading(3, &text, None, None);
                         }
                         continue;
                     }
-                    "p" if in_body => {
+                    "p" if in_abstract => {
                         let (text, annotations) = extract_para_with_annotations_jats(&mut reader)?;
                         if !text.is_empty() {
                             builder.push_paragraph(&text, annotations, None, None);
                         }
                         continue;
                     }
+                    // --- Body handling ---
+                    "body" => {
+                        in_body = true;
+                        sec_depth = 0;
+                    }
+                    "sec" if in_body => {
+                        sec_depth += 1;
+                    }
+                    "title" if in_body && !in_article_meta && !in_ref_list => {
+                        let text = jats_extract_text(&mut reader)?;
+                        if !text.is_empty() {
+                            // Heading level: top-level sections = 2, nested = 3, etc.
+                            let level = (sec_depth + 1).min(6) as u8;
+                            builder.push_heading(level, &text, None, None);
+                        }
+                        continue;
+                    }
+                    "p" if in_body => {
+                        let (text, annotations) = extract_para_with_annotations_jats(&mut reader)?;
+                        if !text.is_empty() {
+                            // Extract URIs from link annotations
+                            for ann in &annotations {
+                                if let crate::types::document_structure::AnnotationKind::Link { url, .. } = &ann.kind
+                                    && !url.is_empty()
+                                {
+                                    let label = text.get(ann.start as usize..ann.end as usize).map(|s| s.to_string());
+                                    builder.push_uri(Uri::hyperlink(url, label));
+                                }
+                            }
+                            builder.push_paragraph(&text, annotations, None, None);
+                        }
+                        continue;
+                    }
                     "fig" if in_body => {
-                        let text = jats_extract_text(&mut reader)?;
-                        let desc = if text.is_empty() { None } else { Some(text.as_str()) };
-                        builder.push_image(desc, None, None, None);
+                        // Skip figures in internal representation (no image data available)
+                        let _ = jats_extract_text(&mut reader)?;
                         continue;
                     }
-                    "disp-formula" if in_body => {
+                    "disp-formula" | "inline-formula" if in_body => {
                         let text = jats_extract_text(&mut reader)?;
                         if !text.is_empty() {
-                            builder.push_formula(&text, None);
+                            builder.push_formula(&text, None, None);
                         }
                         continue;
                     }
-                    "inline-formula" if in_body => {
+                    // --- Back matter handling ---
+                    "back" => {
+                        in_back = true;
+                    }
+                    "ack" if in_back => {
+                        // Acknowledgments section -- treat like a body section
+                    }
+                    "supplementary-material" if in_back => {
+                        // Skip supplementary material content
+                        let _ = jats_extract_text(&mut reader)?;
+                        continue;
+                    }
+                    "title" if in_back && !in_ref_list => {
                         let text = jats_extract_text(&mut reader)?;
                         if !text.is_empty() {
-                            builder.push_formula(&text, None);
+                            builder.push_heading(2, &text, None, None);
                         }
                         continue;
                     }
-                    "table-wrap" if in_body => {
-                        // table-wrap contains <table>; let inner table handling deal with it
+                    "p" if in_back && !in_ref_list => {
+                        let (text, annotations) = extract_para_with_annotations_jats(&mut reader)?;
+                        if !text.is_empty() {
+                            builder.push_paragraph(&text, annotations, None, None);
+                        }
+                        continue;
                     }
+                    // --- Table handling ---
                     "table" => {
                         in_table = true;
                         current_table.clear();
@@ -256,23 +318,25 @@ fn build_jats_document_structure(content: &str) -> crate::Result<crate::types::d
                         current_row.push(text);
                         continue;
                     }
+                    // --- Reference list handling ---
                     "ref-list" => {
                         in_ref_list = true;
                     }
-                    "ref" if in_ref_list => {
-                        // Extract citation key from id attribute
-                        let mut ref_id = String::new();
-                        for attr in e.attributes() {
-                            if let Ok(attr) = attr
-                                && String::from_utf8_lossy(attr.key.as_ref()) == "id"
-                            {
-                                ref_id = String::from_utf8_lossy(attr.value.as_ref()).to_string();
-                            }
-                        }
+                    "title" if in_ref_list => {
                         let text = jats_extract_text(&mut reader)?;
                         if !text.is_empty() {
-                            let key = if ref_id.is_empty() { "ref" } else { &ref_id };
-                            builder.push_citation(key, &text, None);
+                            builder.push_heading(2, &text, None, None);
+                        }
+                        continue;
+                    }
+                    "ref" if in_ref_list => {
+                        let text = jats_extract_citation(&mut reader)?;
+                        if !text.is_empty() {
+                            if !ref_list_opened {
+                                builder.push_list(true);
+                                ref_list_opened = true;
+                            }
+                            builder.push_list_item(&text, true, Vec::new(), None, None);
                         }
                         continue;
                     }
@@ -287,15 +351,28 @@ fn build_jats_document_structure(content: &str) -> crate::Result<crate::types::d
                     "article-meta" => {
                         in_article_meta = false;
                     }
+                    "abstract" if in_abstract => {
+                        in_abstract = false;
+                    }
                     "body" => {
                         in_body = false;
                     }
+                    "sec" if in_body && sec_depth > 0 => {
+                        sec_depth -= 1;
+                    }
+                    "back" => {
+                        in_back = false;
+                    }
                     "ref-list" => {
+                        if ref_list_opened {
+                            builder.end_list();
+                            ref_list_opened = false;
+                        }
                         in_ref_list = false;
                     }
                     "table" if in_table => {
                         if !current_table.is_empty() {
-                            builder.push_table_from_cells(&current_table, None);
+                            builder.push_table_from_cells(&current_table, None, None);
                             current_table.clear();
                         }
                         in_table = false;
@@ -371,7 +448,7 @@ impl DocumentExtractor for JatsExtractor {
     #[cfg_attr(
         feature = "otel",
         tracing::instrument(
-            skip(self, content, config),
+            skip(self, content, _config),
             fields(
                 extractor.name = self.name(),
                 content.size_bytes = content.len(),
@@ -382,18 +459,20 @@ impl DocumentExtractor for JatsExtractor {
         &self,
         content: &[u8],
         mime_type: &str,
-        config: &ExtractionConfig,
-    ) -> Result<ExtractionResult> {
+        _config: &ExtractionConfig,
+    ) -> Result<InternalDocument> {
+        tracing::debug!(format = "jats", size_bytes = content.len(), "extraction starting");
         let jats_content = utf8_validation::from_utf8(content)
             .map(|s| s.to_string())
             .unwrap_or_else(|_| String::from_utf8_lossy(content).to_string());
 
-        let (jats_metadata, extracted_content, _title, tables) = extract_jats_all_in_one(&jats_content)?;
+        let (jats_metadata, _extracted_content, _title, _tables) = extract_jats_all_in_one(&jats_content)?;
 
         let mut metadata = Metadata::default();
         let mut subject_parts = Vec::new();
 
         if !jats_metadata.title.is_empty() {
+            metadata.title = Some(jats_metadata.title.clone());
             metadata.subject = Some(jats_metadata.title.clone());
             subject_parts.push(format!("Title: {}", jats_metadata.title));
         }
@@ -403,6 +482,7 @@ impl DocumentExtractor for JatsExtractor {
         }
 
         if !jats_metadata.authors.is_empty() {
+            metadata.authors = Some(jats_metadata.authors.clone());
             subject_parts.push(format!("Authors: {}", jats_metadata.authors.join("; ")));
         }
 
@@ -419,6 +499,7 @@ impl DocumentExtractor for JatsExtractor {
         }
 
         if !jats_metadata.keywords.is_empty() {
+            metadata.keywords = Some(jats_metadata.keywords.clone());
             subject_parts.push(format!("Keywords: {}", jats_metadata.keywords.join("; ")));
         }
 
@@ -456,6 +537,7 @@ impl DocumentExtractor for JatsExtractor {
         }
 
         // History dates
+        let mut history_dates = std::collections::BTreeMap::new();
         if !jats_metadata.history_dates.is_empty() {
             for (date_type, date_val) in &jats_metadata.history_dates {
                 subject_parts.push(format!(
@@ -463,70 +545,60 @@ impl DocumentExtractor for JatsExtractor {
                     date_type[..1].to_uppercase() + &date_type[1..],
                     date_val
                 ));
-                metadata.additional.insert(
-                    std::borrow::Cow::Owned(format!("date_{}", date_type)),
-                    serde_json::json!(date_val),
-                );
+                history_dates.insert(date_type.clone(), date_val.clone());
             }
         }
 
         // Permissions
-        if let Some(copyright) = &jats_metadata.copyright_statement {
+        let copyright = if let Some(copyright) = &jats_metadata.copyright_statement {
             subject_parts.push(format!("Copyright: {}", copyright));
-            metadata
-                .additional
-                .insert(std::borrow::Cow::Borrowed("copyright"), serde_json::json!(copyright));
-        }
+            Some(copyright.clone())
+        } else {
+            None
+        };
 
-        if let Some(license) = &jats_metadata.license {
-            metadata
-                .additional
-                .insert(std::borrow::Cow::Borrowed("license"), serde_json::json!(license));
-        }
+        let license = jats_metadata.license.clone();
 
         // Contributor roles
-        if !jats_metadata.contributor_roles.is_empty() {
-            let roles: Vec<serde_json::Value> = jats_metadata
-                .contributor_roles
-                .iter()
-                .map(|(name, role)| serde_json::json!({"name": name, "role": role}))
-                .collect();
-            metadata.additional.insert(
-                std::borrow::Cow::Borrowed("contributor_roles"),
-                serde_json::json!(roles),
-            );
-        }
+        let contributor_roles: Vec<ContributorRole> = jats_metadata
+            .contributor_roles
+            .iter()
+            .map(|(name, role)| ContributorRole {
+                name: name.clone(),
+                role: if role.is_empty() { None } else { Some(role.clone()) },
+            })
+            .collect();
+
+        let jats_typed_metadata = JatsMetadata {
+            copyright,
+            license,
+            history_dates,
+            contributor_roles,
+        };
+        metadata.format = Some(FormatMetadata::Jats(jats_typed_metadata));
 
         if !subject_parts.is_empty() {
             metadata.subject = Some(subject_parts.join(" | "));
         }
 
-        let document = if config.include_document_structure {
-            Some(build_jats_document_structure(&jats_content)?)
-        } else {
-            None
-        };
+        let mut doc = build_jats_internal_document(&jats_content)?;
+        doc.mime_type = std::borrow::Cow::Owned(mime_type.to_string());
+        doc.metadata = metadata;
 
-        Ok(ExtractionResult {
-            content: extracted_content,
-            mime_type: mime_type.to_string().into(),
-            metadata,
-            tables,
-            detected_languages: None,
-            chunks: None,
-            images: None,
-            pages: None,
-            djot_content: None,
-            elements: None,
-            ocr_elements: None,
-            document,
-            #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
-            extracted_keywords: None,
-            quality_score: None,
-            processing_warnings: Vec::new(),
-            annotations: None,
-            children: None,
-        })
+        // Add DOI as a citation URI
+        if let Some(doi) = &jats_metadata.doi {
+            doc.push_uri(Uri::citation(
+                format!("https://doi.org/{}", doi),
+                Some(format!("DOI: {}", doi)),
+            ));
+        }
+
+        tracing::debug!(
+            element_count = doc.elements.len(),
+            format = "jats",
+            "extraction complete"
+        );
+        Ok(doc)
     }
 
     #[cfg(feature = "tokio-runtime")]
@@ -539,7 +611,7 @@ impl DocumentExtractor for JatsExtractor {
             )
         )
     )]
-    async fn extract_file(&self, path: &Path, mime_type: &str, config: &ExtractionConfig) -> Result<ExtractionResult> {
+    async fn extract_file(&self, path: &Path, mime_type: &str, config: &ExtractionConfig) -> Result<InternalDocument> {
         let bytes = tokio::fs::read(path).await?;
         self.extract_bytes(&bytes, mime_type, config).await
     }

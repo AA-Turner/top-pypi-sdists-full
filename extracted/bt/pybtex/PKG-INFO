@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pybtex
-Version: 0.26.0
+Version: 0.26.1
 Summary: A BibTeX-compatible bibliography processor in Python
 Project-URL: Homepage, https://pybtex.org/
 Project-URL: Changelog, https://docs.pybtex.org/history.html

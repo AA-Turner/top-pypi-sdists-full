@@ -115,6 +115,7 @@ class OpenaiChat(AsyncAuthedProvider, ProviderModelMixin):
     model_aliases = model_aliases
     synthesize_content_type = "audio/aac"
     request_config = RequestConfig()
+    quota_url = "https://chatgpt.com/backend-api/me"
 
     _api_key: str = None
     _headers: dict = None
@@ -122,8 +123,24 @@ class OpenaiChat(AsyncAuthedProvider, ProviderModelMixin):
     _expires: int = None
 
     @classmethod
+    async def get_quota(cls, **kwargs):
+        auth = cls.get_auth_result()
+        async with StreamSession(cookies=auth.cookies, headers=auth.headers, impersonate="chrome") as session:
+            async with session.get(cls.quota_url) as response:
+                user = await response.json()
+                return {"id": user.get("id"), "name": user.get("name")}
+
+    @classmethod
+    async def login(cls, **kwargs):
+        cache_file = cls.get_cache_file()
+        async for chunk in cls.on_auth_async(**kwargs):
+            if isinstance(chunk, AuthResult):
+                cls.write_cache_file(cache_file, chunk)
+                return
+
+    @classmethod
     async def on_auth_async(cls, proxy: str = None, **kwargs) -> AsyncIterator:
-        async for chunk in cls.login(proxy=proxy):
+        async for chunk in cls.login_generator(proxy=proxy):
             yield chunk
         yield AuthResult(
             api_key=cls._api_key,
@@ -136,10 +153,10 @@ class OpenaiChat(AsyncAuthedProvider, ProviderModelMixin):
 
     @classmethod
     async def upload_files(
-            cls,
-            session: StreamSession,
-            auth_result: AuthResult,
-            media: MediaListType,
+        cls,
+        session: StreamSession,
+        auth_result: AuthResult,
+        media: MediaListType,
     ) -> List[ImageRequest]:
         """
         Upload an image to the service and get the download URL
@@ -1028,14 +1045,14 @@ class OpenaiChat(AsyncAuthedProvider, ProviderModelMixin):
                     yield chunk
 
     @classmethod
-    async def login(
-            cls,
-            proxy: str = None,
-            api_key: str = None,
-            proof_token: str = None,
-            cookies: Cookies = None,
-            headers: dict = None,
-            **kwargs
+    async def login_generator(
+        cls,
+        proxy: str = None,
+        api_key: str = None,
+        proof_token: str = None,
+        cookies: Cookies = None,
+        headers: dict = None,
+        **kwargs
     ) -> AsyncIterator:
         if cls._expires is not None and (cls._expires - 60 * 10) < time.time():
             cls._headers = cls._api_key = None

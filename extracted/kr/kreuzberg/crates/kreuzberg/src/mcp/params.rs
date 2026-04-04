@@ -18,6 +18,9 @@ pub struct ExtractFileParams {
     /// Password for encrypted PDFs
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pdf_password: Option<String>,
+    /// Wire format for the response: "json" (default) or "toon"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_format: Option<String>,
 }
 
 /// Request parameters for bytes extraction.
@@ -34,6 +37,9 @@ pub struct ExtractBytesParams {
     /// Password for encrypted PDFs
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pdf_password: Option<String>,
+    /// Wire format for the response: "json" (default) or "toon"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_format: Option<String>,
 }
 
 /// Request parameters for batch file extraction.
@@ -51,6 +57,9 @@ pub struct BatchExtractFilesParams {
     /// Each entry is either null (use default) or a FileExtractionConfig JSON object.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub file_configs: Option<Vec<Option<serde_json::Value>>>,
+    /// Wire format for the response: "json" (default) or "toon"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_format: Option<String>,
 }
 
 /// Request parameters for MIME type detection.
@@ -109,6 +118,37 @@ pub struct ChunkTextParams {
     /// Chunker type: "text" or "markdown" (default: "text")
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chunker_type: Option<String>,
+}
+
+// These param structs are constructed by the rmcp framework via serde deserialization,
+// not directly in Rust code, so clippy's dead_code lint is a false positive.
+#[allow(dead_code)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+pub struct DownloadGrammarsParams {
+    /// Specific languages to download (e.g., ["python", "rust", "javascript"]).
+    /// If not provided, must specify groups or all.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub languages: Option<Vec<String>>,
+
+    /// Language groups to download (e.g., ["web", "systems", "scripting"]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub groups: Option<Vec<String>>,
+
+    /// Download all available languages.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub all: Option<bool>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+pub struct ListGrammarsParams {
+    /// Only show downloaded/cached languages (default: false, shows all available).
+    #[serde(default)]
+    pub downloaded_only: bool,
+
+    /// Filter languages by name substring.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter: Option<String>,
 }
 
 #[cfg(test)]
@@ -177,6 +217,7 @@ mod tests {
             mime_type: Some("application/pdf".to_string()),
             config: Some(serde_json::json!({"use_cache": false})),
             pdf_password: None,
+            response_format: None,
         };
 
         let json = serde_json::to_string(&params).unwrap();
@@ -194,6 +235,7 @@ mod tests {
             mime_type: None,
             config: None,
             pdf_password: None,
+            response_format: None,
         };
 
         let json = serde_json::to_string(&params).unwrap();
@@ -209,6 +251,7 @@ mod tests {
             config: Some(serde_json::json!({"use_cache": true})),
             pdf_password: None,
             file_configs: None,
+            response_format: None,
         };
 
         let json = serde_json::to_string(&params).unwrap();

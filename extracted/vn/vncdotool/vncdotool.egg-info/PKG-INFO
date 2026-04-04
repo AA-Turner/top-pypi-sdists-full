@@ -1,13 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: vncdotool
-Version: 1.2.0
+Version: 1.3.0
 Summary: Command line VNC client
 Home-page: http://github.com/sibson/vncdotool
 Author: Marc Sibson
 Author-email: sibson+vncdotool@gmail.com
 License: MIT License
 Keywords: VNC,RFB
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Framework :: Twisted
 Classifier: Intended Audience :: Developers
@@ -17,14 +17,18 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Multimedia :: Graphics :: Viewers
 Classifier: Topic :: Software Development :: Testing
 License-File: LICENSE.txt
+Requires-Dist: Twisted
+Requires-Dist: Pillow
+Requires-Dist: cryptography
+Dynamic: license-file
 
 .. image:: https://img.shields.io/pypi/pyversions/vncdotool.svg
    :target: https://pypi.python.org/pypi/vncdotool
@@ -97,9 +101,9 @@ More documentation can be found on `Read the Docs`_.
 
 Feedback
 --------------------------------
-If you need help getting VNCDoTool working try the community at `_Stackoverflow`
+If you need help getting VNCDoTool working try the community at Stackoverflow_\ .
 
-Patches, and ideas for improvements are welcome and appreciated, via `_GitHub` issues.
+Patches, and ideas for improvements are welcome and appreciated, via GitHub_ issues.
 If you are reporting a bug or issue please include the version of both vncdotool
 and the VNC server you are using it with.
 
@@ -115,8 +119,22 @@ Also, to the TigerVNC_ project for creating a community focus RFB specification 
 .. _Read The Docs: http://vncdotool.readthedocs.org
 .. _GitHub: http://github.com/sibson/vncdotool
 .. _TigerVNC: http://sourceforge.net/apps/mediawiki/tigervnc/index.php?title=Main_Page
-.. _python-vnc-viewer: http://code.google.com/p/python-vnc-viewer
 .. _Stackoverflow: https://stackoverflow.com/questions/ask?tags=vncdotool
+
+1.3.0 (2026-04-03)
+----------------------
+  - Fix functional test suite (@phahn)
+  - Python 3.12 is supported, Python 3.7 support removed (@phahn)
+  - Improve documentation (@phahn)
+  - Improve PEP-484 type hinting (@phahn)
+  - Fix mouse dragging (@phahn)
+  - Improve special key handling, fix key-down/key-up discrepancy with force_caps (@phahn, #270)
+  - Allow specifying a format with captureScreen (@erjiang, #293)
+  - Allow input literal ``-`` via ``client.keyPress`` with ``minus`` keyword (#302)
+  - Fix: typefile and pastefile now accept ``-`` as filename for stdin (#307)
+  - Switch from pycryptodomex to cryptography.io (@geofft, #278)
+  - Remove transitive dependency zope.interface (#298)
+  - Bump minimum Pillow version to 10.0.1 (#312)
 
 1.2.0 (2023-06-06)
 ----------------------

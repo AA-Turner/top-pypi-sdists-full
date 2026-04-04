@@ -66,12 +66,13 @@ dev = [
   "ruff>=0.11.12",
   "tzdata>=2025.2",
   "uvicorn>=0.34",
+  "websockets>=16.0",
 ]
 misc = [ "griffe>=1.12.1" ]
 
 [tool.maturin]
 python-source = "python"
-strip = true
+# strip = true
 features = [ "pyo3/extension-module" ]
 module-name = "ry.ryo3"
 bindings = "pyo3"
@@ -155,3 +156,14 @@ check_untyped_defs = true
 [tool.pyright]
 include = [ 'ry', 'tests' ]
 reportUnnecessaryTypeIgnoreComment = true
+
+[tool.rumdl]
+disable = [ "MD033" ]
+exclude = [  ]
+
+[tool.rumdl.per-file-ignores]
+"README.md" = [ "MD036" ]
+"docs/src/index.md" = [ "MD041" ]
+
+[tool.rumdl.MD013]
+code_blocks = false

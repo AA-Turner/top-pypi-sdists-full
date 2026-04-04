@@ -10,7 +10,6 @@
 use ahash::AHashMap;
 use async_trait::async_trait;
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::panic::catch_unwind;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -19,8 +18,8 @@ use crate::Result;
 use crate::core::config::OcrConfig;
 use crate::ocr::conversion::{elements_to_hocr_words, text_block_to_element};
 use crate::plugins::{OcrBackend, OcrBackendType, Plugin};
+use crate::table_core::{reconstruct_table, table_to_markdown};
 use crate::types::{ExtractionResult, FormatMetadata, Metadata, OcrElement, OcrMetadata, Table};
-use html_to_markdown_rs::hocr::{reconstruct_table, table_to_markdown};
 
 use super::config::PaddleOcrConfig;
 use super::model_manager::{ModelManager, SharedModelPaths};
@@ -46,7 +45,7 @@ pub struct PaddleOcrBackend {
     /// Per-model OCR engines, lazily initialized. Keyed by "{tier}/{model_key}".
     /// Multiple script families may share the same engine (e.g. chinese+japanese use unified_server).
     /// OcrLite inference methods take `&self`, enabling lock-free concurrent page OCR.
-    engine_pool: Mutex<HashMap<String, Arc<OcrLite>>>,
+    engine_pool: Mutex<AHashMap<String, Arc<OcrLite>>>,
     /// Document orientation detector, lazily initialized.
     doc_ori_detector: once_cell::sync::OnceCell<crate::doc_orientation::DocOrientationDetector>,
 }
@@ -64,7 +63,7 @@ impl PaddleOcrBackend {
             config: Arc::new(config),
             model_manager: ModelManager::new(cache_dir),
             shared_paths: Mutex::new(None),
-            engine_pool: Mutex::new(HashMap::new()),
+            engine_pool: Mutex::new(AHashMap::new()),
             doc_ori_detector: once_cell::sync::OnceCell::new(),
         })
     }
@@ -120,7 +119,10 @@ impl PaddleOcrBackend {
         let cls_model_path = Self::find_onnx_model(&shared.cls_model)?;
         let rec_model_path = Self::find_onnx_model(&resolved.model_dir)?;
 
-        let num_threads = crate::core::config::concurrency::resolve_thread_budget(None).min(4);
+        // Use 1 ONNX thread per engine since multiple pages run concurrently
+        // via JoinSet. Page-level parallelism is more efficient than per-engine
+        // multi-threading for OCR workloads.
+        let num_threads = 1;
 
         let dict_path = resolved.dict_file.to_str().ok_or_else(|| crate::KreuzbergError::Ocr {
             message: "Invalid dictionary file path".to_string(),
@@ -386,6 +388,38 @@ impl OcrBackend for PaddleOcrBackend {
             .do_ocr(&ocr_image_bytes, paddle_lang, Arc::clone(&effective_config))
             .await?;
 
+        // Build structured InternalDocument from OCR elements for the layout
+        // classification pipeline (same path as tesseract hOCR).
+        let ocr_doc = {
+            use crate::types::extraction::BoundingBox;
+            use crate::types::internal::{ElementKind, InternalDocument, InternalElement};
+            use crate::types::ocr_elements::OcrElementLevel;
+
+            let mut doc = InternalDocument::new("pdf");
+            for elem in &ocr_elements {
+                let (left, top, width, height) = elem.geometry.to_aabb();
+                let bbox = BoundingBox {
+                    x0: left as f64,
+                    y0: top as f64,
+                    x1: (left + width) as f64,
+                    y1: (top + height) as f64,
+                };
+                let mut ie = InternalElement::text(
+                    ElementKind::OcrText {
+                        level: OcrElementLevel::Line,
+                    },
+                    &elem.text,
+                    0,
+                )
+                .with_page(elem.page_number as u32);
+                ie.bbox = Some(bbox);
+                ie.ocr_confidence = Some(elem.confidence.clone());
+                ie.ocr_geometry = Some(elem.geometry.clone());
+                doc.push_element(ie);
+            }
+            doc
+        };
+
         // Table detection
         let mut tables: Vec<Table> = vec![];
         let mut table_count = 0;
@@ -415,9 +449,6 @@ impl OcrBackend for PaddleOcrBackend {
             }
         }
 
-        let mut additional = AHashMap::new();
-        additional.insert(Cow::Borrowed("backend"), serde_json::json!("paddle-ocr"));
-
         let metadata = Metadata {
             format: Some(FormatMetadata::Ocr(OcrMetadata {
                 language: config.language.clone(),
@@ -427,7 +458,6 @@ impl OcrBackend for PaddleOcrBackend {
                 table_rows,
                 table_cols,
             })),
-            additional,
             ..Default::default()
         };
 
@@ -458,6 +488,11 @@ impl OcrBackend for PaddleOcrBackend {
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: Some(ocr_doc),
         })
     }
 

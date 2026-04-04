@@ -212,7 +212,7 @@ static char copyright[] =
     " RE 2.3.0 Copyright (c) 1997-2002 by Secret Labs AB ";
 
 /* The exception to raise on error. */
-static PyObject* error_exception;
+static PyObject* error_exception = NULL;
 
 /* The dictionary of Unicode properties. */
 static PyObject* property_dict = NULL;
@@ -2064,6 +2064,31 @@ static RE_EncodingTable unicode_encoding = {
 
 Py_LOCAL_INLINE(PyObject*) get_object(char* module_name, char* object_name);
 
+/* Ensures that the error_exception object is initialised.
+ *
+ * Unfortunately, because it's imported from the Python code, it can't be
+ * imported when the extension starts.
+ */
+Py_LOCAL_INLINE(BOOL) ensure_error_exception(void) {
+    if (error_exception)
+        return TRUE;
+
+    #if defined(Py_GIL_DISABLED)
+    static PyMutex init_mutex = {0};
+    PyMutex_Lock(&init_mutex);
+    #endif
+
+    if (!error_exception) {
+        error_exception = get_object("regex._regex_core", "error");
+    }
+
+    #if defined(Py_GIL_DISABLED)
+    PyMutex_Unlock(&init_mutex);
+    #endif
+
+    return error_exception != NULL;
+}
+
 /* Sets the error message. */
 Py_LOCAL_INLINE(void) set_error(int status, PyObject* object) {
     TRACE(("<<set_error>>\n"))
@@ -2096,14 +2121,7 @@ Py_LOCAL_INLINE(void) set_error(int status, PyObject* object) {
         PyErr_SetString(PyExc_TypeError, "string indices must be integers");
         break;
     case RE_ERROR_INVALID_GROUP_REF:
-        if (!error_exception) {
-            error_exception = get_object("regex._regex_core", "error");
-            if (!error_exception) {
-                PyErr_SetString(PyExc_RuntimeError, "cannot import regex._regex_core.error");
-                break;
-            }
-        }
-
+        ensure_error_exception();
         PyErr_SetString(error_exception, "invalid group reference");
         break;
     case RE_ERROR_MEMORY:
@@ -2126,14 +2144,7 @@ Py_LOCAL_INLINE(void) set_error(int status, PyObject* object) {
         PyErr_SetString(PyExc_IndexError, "no such group");
         break;
     case RE_ERROR_REPLACEMENT:
-        if (!error_exception) {
-            error_exception = get_object("regex._regex_core", "error");
-            if (!error_exception) {
-                PyErr_SetString(PyExc_RuntimeError, "cannot import regex._regex_core.error");
-                break;
-            }
-        }
-
+        ensure_error_exception();
         PyErr_SetString(error_exception, "invalid replacement");
         break;
     case RE_ERROR_TIMED_OUT:
@@ -6547,6 +6558,40 @@ Py_LOCAL_INLINE(BOOL) build_fast_tables_rev(RE_State* state, RE_Node* node,
     return TRUE;
 }
 
+/* Gets the status of a node in a thread-safe way. */
+Py_LOCAL_INLINE(RE_STATUS_T) safe_get_status(RE_Node* node) {
+    #if defined(Py_GIL_DISABLED)
+    return _Py_atomic_load_uint32_relaxed(&node->status);
+    #else
+    return node->status;
+    #endif
+}
+
+/* Sets the status of a node in a thread-safe way. */
+Py_LOCAL_INLINE(void) safe_set_status(RE_Node* node, RE_STATUS_T status) {
+    #if defined(Py_GIL_DISABLED)
+    _Py_atomic_or_uint32(&node->status, status);
+    #else
+    node->status |= status;
+    #endif
+}
+
+/* Locks a pattern in a thread-safe way. */
+Py_LOCAL_INLINE(void) lock_pattern(RE_State* state) {
+    acquire_GIL(state);
+    #if defined(Py_GIL_DISABLED)
+    PyMutex_Lock(&state->pattern->mutex);
+    #endif
+}
+
+/* Unlocks a pattern in a thread-safe way. */
+Py_LOCAL_INLINE(void) unlock_pattern(RE_State* state) {
+    #if defined(Py_GIL_DISABLED)
+    PyMutex_Unlock(&state->pattern->mutex);
+    #endif
+    release_GIL(state);
+}
+
 /* Performs a string search. */
 Py_LOCAL_INLINE(Py_ssize_t) string_search(RE_State* state, RE_Node* node,
   Py_ssize_t text_pos, Py_ssize_t limit, BOOL try_fast, BOOL* is_partial) {
@@ -6555,25 +6600,19 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search(RE_State* state, RE_Node* node,
     *is_partial = FALSE;
 
     /* Has the node been initialised for fast searching, if necessary? */
-    if (try_fast && !(node->status & RE_STATUS_FAST_INIT)) {
+    if (try_fast && !(safe_get_status(node) & RE_STATUS_FAST_INIT)) {
         /* Ideally the pattern should immutable and shareable across threads.
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
-        acquire_GIL(state);
-        #if defined(Py_GIL_DISABLED)
-        PyMutex_Lock(&state->pattern->mutex);
-        #endif
+        lock_pattern(state);
 
         /* Double-check because of multithreading. */
         if (!(node->status & RE_STATUS_FAST_INIT)) {
             build_fast_tables(state, node, FALSE);
-            node->status |= RE_STATUS_FAST_INIT;
+            safe_set_status(node, RE_STATUS_FAST_INIT);
         }
 
-        #if defined(Py_GIL_DISABLED)
-        PyMutex_Unlock(&state->pattern->mutex);
-        #endif
-        release_GIL(state);
+        unlock_pattern(state);
     }
 
     if (try_fast && node->string.bad_character_offset) {
@@ -6749,25 +6788,19 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_ign(RE_State* state, RE_Node* node,
     *is_partial = FALSE;
 
     /* Has the node been initialised for fast searching, if necessary? */
-    if (try_fast && !(node->status & RE_STATUS_FAST_INIT)) {
+    if (try_fast && !(safe_get_status(node) & RE_STATUS_FAST_INIT)) {
         /* Ideally the pattern should immutable and shareable across threads.
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
-        acquire_GIL(state);
-        #if defined(Py_GIL_DISABLED)
-        PyMutex_Lock(&state->pattern->mutex);
-        #endif
+        lock_pattern(state);
 
         /* Double-check because of multithreading. */
         if (!(node->status & RE_STATUS_FAST_INIT)) {
             build_fast_tables(state, node, TRUE);
-            node->status |= RE_STATUS_FAST_INIT;
+            safe_set_status(node, RE_STATUS_FAST_INIT);
         }
 
-        #if defined(Py_GIL_DISABLED)
-        PyMutex_Unlock(&state->pattern->mutex);
-        #endif
-        release_GIL(state);
+        unlock_pattern(state);
     }
 
     if (try_fast && node->string.bad_character_offset) {
@@ -6797,25 +6830,19 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_ign_rev(RE_State* state, RE_Node*
     *is_partial = FALSE;
 
     /* Has the node been initialised for fast searching, if necessary? */
-    if (try_fast && !(node->status & RE_STATUS_FAST_INIT)) {
+    if (try_fast && !(safe_get_status(node) & RE_STATUS_FAST_INIT)) {
         /* Ideally the pattern should immutable and shareable across threads.
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
-        acquire_GIL(state);
-        #if defined(Py_GIL_DISABLED)
-        PyMutex_Lock(&state->pattern->mutex);
-        #endif
+        lock_pattern(state);
 
         /* Double-check because of multithreading. */
         if (!(node->status & RE_STATUS_FAST_INIT)) {
             build_fast_tables_rev(state, node, TRUE);
-            node->status |= RE_STATUS_FAST_INIT;
+            safe_set_status(node, RE_STATUS_FAST_INIT);
         }
 
-        #if defined(Py_GIL_DISABLED)
-        PyMutex_Unlock(&state->pattern->mutex);
-        #endif
-        release_GIL(state);
+        unlock_pattern(state);
     }
 
     if (try_fast && node->string.bad_character_offset) {
@@ -6844,25 +6871,19 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_rev(RE_State* state, RE_Node* node,
     *is_partial = FALSE;
 
     /* Has the node been initialised for fast searching, if necessary? */
-    if (try_fast && !(node->status & RE_STATUS_FAST_INIT)) {
+    if (try_fast && !(safe_get_status(node) & RE_STATUS_FAST_INIT)) {
         /* Ideally the pattern should immutable and shareable across threads.
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
-        acquire_GIL(state);
-        #if defined(Py_GIL_DISABLED)
-        PyMutex_Lock(&state->pattern->mutex);
-        #endif
+        lock_pattern(state);
 
         /* Double-check because of multithreading. */
         if (!(node->status & RE_STATUS_FAST_INIT)) {
             build_fast_tables_rev(state, node, FALSE);
-            node->status |= RE_STATUS_FAST_INIT;
+            safe_set_status(node, RE_STATUS_FAST_INIT);
         }
 
-        release_GIL(state);
-        #if defined(Py_GIL_DISABLED)
-        PyMutex_Unlock(&state->pattern->mutex);
-        #endif
+        unlock_pattern(state);
     }
 
     if (try_fast && node->string.bad_character_offset) {
@@ -20415,6 +20436,9 @@ static PyObject* match_lastindex(PyObject* self_, void* unused) {
 /* MatchObject's 'lastgroup' attribute. */
 static PyObject* match_lastgroup(PyObject* self_, void* unused) {
     MatchObject* self;
+#if Py_VERSION_HEX >= 0x030D0000
+    int status;
+#endif
 
     self = (MatchObject*)self_;
 
@@ -20426,6 +20450,15 @@ static PyObject* match_lastgroup(PyObject* self_, void* unused) {
         if (!index)
             return NULL;
 
+#if Py_VERSION_HEX >= 0x030D0000
+        /* PyDict_GetItemRef returns a new reference or NULL for 'result'. */
+        status = PyDict_GetItemRef(self->pattern->indexgroup, index, &result);
+        Py_DECREF(index);
+        if (status < 0)
+            return NULL;
+        if (result)
+            return result;
+#else
         /* PyDict_GetItem returns borrows a reference. */
         result = PyDict_GetItem(self->pattern->indexgroup, index);
         Py_DECREF(index);
@@ -20433,6 +20466,7 @@ static PyObject* match_lastgroup(PyObject* self_, void* unused) {
             Py_INCREF(result);
             return result;
         }
+#endif
     }
 
     Py_RETURN_NONE;

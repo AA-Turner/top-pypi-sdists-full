@@ -12,6 +12,7 @@ import pytest
 
 from anteroom.cli.repl import (
     _build_introspect_instructions_info,
+    _build_system_prompt,
     _check_for_update,
     _cleanup_after_turn,
     _detect_project_context,
@@ -20,6 +21,7 @@ from anteroom.cli.repl import (
     _identity_kwargs,
     _load_conversation_messages,
     _parse_bang_command,
+    _replace_file_instructions,
     _route_cancel_signal,
     _run_bang_command,
     _run_mcp_startup_live,
@@ -455,3 +457,103 @@ async def test_run_mcp_startup_live_tracks_connected_and_failed_servers() -> Non
     assert "alpha" in printed
     assert "beta" in printed
     assert "MCP:" in printed
+
+
+class TestReplaceFileInstructions:
+    """Tests for _replace_file_instructions (#1302)."""
+
+    def test_in_place_replacement(self) -> None:
+        prompt = "before\n<file_instructions>\nold content\n</file_instructions>\nafter"
+        result = _replace_file_instructions(prompt, "new content")
+        assert "<file_instructions>\nnew content\n</file_instructions>" in result
+        assert "before" in result
+        assert "after" in result
+        assert "old content" not in result
+
+    def test_preserves_boundary(self) -> None:
+        prompt = (
+            "trusted section\n<file_instructions>\nold\n</file_instructions>\nmore trusted\n--- UNTRUSTED SECTION ---"
+        )
+        result = _replace_file_instructions(prompt, "new instructions")
+        # Untrusted marker stays after the file_instructions block
+        fi_pos = result.index("<file_instructions>")
+        untrusted_pos = result.index("--- UNTRUSTED SECTION ---")
+        assert fi_pos < untrusted_pos
+
+    def test_inserts_when_absent_after_project_context(self) -> None:
+        prompt = "<project_context>\nWorking directory: /tmp\n</project_context>\nother stuff"
+        result = _replace_file_instructions(prompt, "new instructions")
+        assert "<file_instructions>\nnew instructions\n</file_instructions>" in result
+        # Inserted after </project_context>
+        pc_pos = result.index("</project_context>")
+        fi_pos = result.index("<file_instructions>")
+        assert fi_pos > pc_pos
+
+    def test_inserts_when_absent_after_space_instructions(self) -> None:
+        prompt = (
+            "<project_context>\nctx\n</project_context>\n"
+            '<space_instructions space="s">\ninstr\n</space_instructions>\n'
+            "other"
+        )
+        result = _replace_file_instructions(prompt, "new")
+        assert "<file_instructions>\nnew\n</file_instructions>" in result
+        # Prefers space_instructions anchor
+        si_pos = result.index("</space_instructions>")
+        fi_pos = result.index("<file_instructions>")
+        assert fi_pos > si_pos
+
+    def test_removes_when_none(self) -> None:
+        prompt = "before\n<file_instructions>\nold\n</file_instructions>\nafter"
+        result = _replace_file_instructions(prompt, None)
+        assert "file_instructions" not in result
+        assert "before" in result
+        assert "after" in result
+
+    def test_no_op_when_none_and_absent(self) -> None:
+        prompt = "no instructions here"
+        result = _replace_file_instructions(prompt, None)
+        assert result == prompt
+
+    def test_preserves_other_sections(self) -> None:
+        prompt = (
+            "<project_context>\nctx\n</project_context>\n"
+            '<space_instructions space="s">\nspace\n</space_instructions>\n'
+            "<file_instructions>\nold\n</file_instructions>\n"
+            '<artifact type="rule" fqn="test">\nrule\n</artifact>'
+        )
+        result = _replace_file_instructions(prompt, "new")
+        assert "space_instructions" in result
+        assert "space" in result
+        assert "project_context" in result
+        assert "artifact" in result
+        assert "rule" in result
+
+
+class TestBuildSystemPromptInstructionsTags:
+    """Verify _build_system_prompt wraps instructions in <file_instructions> tags (#1302)."""
+
+    def test_instructions_wrapped_in_tags(self) -> None:
+        from anteroom.config import AIConfig, AppConfig, AppSettings, CliConfig, SafetyConfig
+
+        config = AppConfig(
+            ai=AIConfig(base_url="http://localhost:1/v1", api_key="k", model="m"),
+            app=AppSettings(data_dir=Path("/tmp"), tls=False),
+            safety=SafetyConfig(),
+            cli=CliConfig(),
+        )
+        result = _build_system_prompt(config, "/tmp", "# Test Instructions\nHello")
+        assert "<file_instructions>" in result
+        assert "# Test Instructions\nHello" in result
+        assert "</file_instructions>" in result
+
+    def test_no_tags_when_no_instructions(self) -> None:
+        from anteroom.config import AIConfig, AppConfig, AppSettings, CliConfig, SafetyConfig
+
+        config = AppConfig(
+            ai=AIConfig(base_url="http://localhost:1/v1", api_key="k", model="m"),
+            app=AppSettings(data_dir=Path("/tmp"), tls=False),
+            safety=SafetyConfig(),
+            cli=CliConfig(),
+        )
+        result = _build_system_prompt(config, "/tmp", None)
+        assert "file_instructions" not in result

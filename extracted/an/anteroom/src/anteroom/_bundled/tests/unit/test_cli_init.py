@@ -21,6 +21,18 @@ class TestVersion:
         assert result.returncode == 0
         assert "aroom" in result.stdout.lower()
 
+    def test_version_flag_matches_package_version(self) -> None:
+        from anteroom import __version__
+
+        result = subprocess.run(
+            [sys.executable, "-m", "anteroom", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        assert __version__ in result.stdout
+
 
 class TestInit:
     def test_init_creates_config(self, tmp_path) -> None:

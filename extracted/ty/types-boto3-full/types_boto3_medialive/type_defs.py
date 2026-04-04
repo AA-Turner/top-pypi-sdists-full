@@ -3009,6 +3009,7 @@ class Av1ColorSpaceSettingsOutputTypeDef(TypedDict):
     Hdr10Settings: NotRequired[Hdr10SettingsTypeDef]
     Rec601Settings: NotRequired[dict[str, Any]]
     Rec709Settings: NotRequired[dict[str, Any]]
+    Hlg2020Settings: NotRequired[dict[str, Any]]
 
 
 class Av1ColorSpaceSettingsTypeDef(TypedDict):
@@ -3016,6 +3017,7 @@ class Av1ColorSpaceSettingsTypeDef(TypedDict):
     Hdr10Settings: NotRequired[Hdr10SettingsTypeDef]
     Rec601Settings: NotRequired[Mapping[str, Any]]
     Rec709Settings: NotRequired[Mapping[str, Any]]
+    Hlg2020Settings: NotRequired[Mapping[str, Any]]
 
 
 class H265ColorSpaceSettingsOutputTypeDef(TypedDict):

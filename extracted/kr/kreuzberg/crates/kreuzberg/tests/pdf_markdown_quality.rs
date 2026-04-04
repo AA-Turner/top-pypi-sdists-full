@@ -34,10 +34,7 @@ fn extract_markdown_with_layout(pdf_path: &std::path::Path) -> String {
 
     let config = ExtractionConfig {
         output_format: OutputFormat::Markdown,
-        layout: Some(LayoutDetectionConfig {
-            preset: "fast".to_string(),
-            ..Default::default()
-        }),
+        layout: Some(LayoutDetectionConfig::default()),
         ..Default::default()
     };
     extract_file_sync(pdf_path, None, &config)

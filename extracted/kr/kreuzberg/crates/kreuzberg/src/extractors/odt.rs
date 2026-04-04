@@ -4,12 +4,16 @@
 
 use crate::Result;
 use crate::core::config::ExtractionConfig;
-use crate::extraction::{cells_to_markdown, office_metadata};
+use crate::extraction::office_metadata;
 use crate::plugins::{DocumentExtractor, Plugin};
-use crate::types::{ExtractionResult, Metadata, Table};
+use crate::types::ExtractedImage;
+use crate::types::Metadata;
+use crate::types::internal::InternalDocument;
+use crate::types::internal_builder::InternalDocumentBuilder;
+use crate::types::uri::{Uri, UriKind};
 use ahash::AHashMap;
 use async_trait::async_trait;
-use memchr::memmem;
+use bytes::Bytes;
 use roxmltree::Document;
 use std::borrow::Cow;
 use std::io::Cursor;
@@ -60,255 +64,6 @@ impl Plugin for OdtExtractor {
 
     fn author(&self) -> &str {
         "Kreuzberg Team"
-    }
-}
-
-/// Replace a word in a string only if it appears as a whole word
-/// (not as a substring of a larger word).
-///
-/// Uses `memmem::Finder` for a single-pass search across all occurrences,
-/// avoiding repeated `find()` calls that restart from the current position.
-fn replace_whole_word(input: &str, word: &str, replacement: &str) -> String {
-    let finder = memmem::Finder::new(word.as_bytes());
-    let mut result = String::with_capacity(input.len());
-    // Byte offset of the last character emitted into `result`.
-    let mut last_end = 0;
-
-    for start in finder.find_iter(input.as_bytes()) {
-        let after_pos = start + word.len();
-
-        // Check the Unicode character immediately before the match (whole-word boundary).
-        let before_ok = if start == 0 {
-            true
-        } else {
-            // SAFETY: start > 0 guarantees input[..start] is non-empty and contains
-            // at least one UTF-8 character (memchr matched ASCII bytes, so the slice
-            // boundary is always at a valid UTF-8 char boundary).
-            let prev_char = input[..start].chars().next_back().unwrap_or(' ');
-            !prev_char.is_alphanumeric()
-        };
-
-        // Check the Unicode character immediately after the match (whole-word boundary).
-        let after_ok = if after_pos >= input.len() {
-            true
-        } else {
-            // SAFETY: after_pos < input.len() guarantees input[after_pos..] is non-empty
-            // and starts on a valid UTF-8 char boundary (word ends on ASCII bytes).
-            let next_char = input[after_pos..].chars().next().unwrap_or(' ');
-            !next_char.is_alphanumeric()
-        };
-
-        if before_ok && after_ok {
-            // Emit everything from the last replacement end up to this match, then the replacement.
-            result.push_str(&input[last_end..start]);
-            result.push_str(replacement);
-            last_end = after_pos;
-        }
-        // Non-whole-word matches: leave `last_end` unchanged; the bytes will be
-        // included in the next emit or in the final trailing push below.
-    }
-
-    result.push_str(&input[last_end..]);
-    result
-}
-
-/// Convert StarMath notation to Unicode text.
-///
-/// Handles common StarMath operators and superscript/subscript notation,
-/// converting them to their Unicode equivalents.
-fn starmath_to_unicode(formula: &str) -> String {
-    let mut result = formula.to_string();
-
-    // Replace StarMath operators with Unicode equivalents
-    let replacements = [
-        ("cdot", "\u{22C5}"),    // ⋅
-        ("times", "\u{00D7}"),   // ×
-        ("div", "\u{00F7}"),     // ÷
-        ("pm", "\u{00B1}"),      // ±
-        ("mp", "\u{2213}"),      // ∓
-        ("le", "\u{2264}"),      // ≤
-        ("ge", "\u{2265}"),      // ≥
-        ("ne", "\u{2260}"),      // ≠
-        ("approx", "\u{2248}"),  // ≈
-        ("equiv", "\u{2261}"),   // ≡
-        ("inf", "\u{221E}"),     // ∞
-        ("partial", "\u{2202}"), // ∂
-        ("nabla", "\u{2207}"),   // ∇
-        ("sum", "\u{2211}"),     // ∑
-        ("prod", "\u{220F}"),    // ∏
-        ("int", "\u{222B}"),     // ∫
-        ("sqrt", "\u{221A}"),    // √
-        ("alpha", "\u{03B1}"),   // α
-        ("beta", "\u{03B2}"),    // β
-        ("gamma", "\u{03B3}"),   // γ
-        ("delta", "\u{03B4}"),   // δ
-        ("pi", "\u{03C0}"),      // π
-        ("sigma", "\u{03C3}"),   // σ
-        ("theta", "\u{03B8}"),   // θ
-        ("lambda", "\u{03BB}"),  // λ
-        ("mu", "\u{03BC}"),      // μ
-        ("omega", "\u{03C9}"),   // ω
-    ];
-
-    for (from, to) in &replacements {
-        // Replace only whole words (not substrings within words)
-        result = replace_whole_word(&result, from, to);
-    }
-
-    // Handle superscripts: ^{...} or ^N (single digit)
-    result = convert_superscripts(&result);
-    // Handle subscripts: _{...} or _N (single digit)
-    result = convert_subscripts(&result);
-
-    result
-}
-
-/// Convert superscript notation (^2, ^{10}, etc.) to Unicode superscript characters.
-fn convert_superscripts(input: &str) -> String {
-    let mut result = String::new();
-    let mut chars = input.chars().peekable();
-
-    while let Some(ch) = chars.next() {
-        if ch == '^' {
-            if chars.peek() == Some(&'{') {
-                chars.next(); // consume '{'
-                let mut content = String::new();
-                for c in chars.by_ref() {
-                    if c == '}' {
-                        break;
-                    }
-                    content.push(c);
-                }
-                for c in content.chars() {
-                    result.push(char_to_superscript(c));
-                }
-            } else if let Some(&next) = chars.peek() {
-                chars.next();
-                result.push(char_to_superscript(next));
-            } else {
-                result.push(ch);
-            }
-        } else {
-            result.push(ch);
-        }
-    }
-
-    result
-}
-
-/// Convert subscript notation (_2, _{10}, etc.) to Unicode subscript characters.
-fn convert_subscripts(input: &str) -> String {
-    let mut result = String::new();
-    let mut chars = input.chars().peekable();
-
-    while let Some(ch) = chars.next() {
-        if ch == '_' {
-            if chars.peek() == Some(&'{') {
-                chars.next(); // consume '{'
-                let mut content = String::new();
-                for c in chars.by_ref() {
-                    if c == '}' {
-                        break;
-                    }
-                    content.push(c);
-                }
-                for c in content.chars() {
-                    result.push(char_to_subscript(c));
-                }
-            } else if let Some(&next) = chars.peek() {
-                chars.next();
-                result.push(char_to_subscript(next));
-            } else {
-                result.push(ch);
-            }
-        } else {
-            result.push(ch);
-        }
-    }
-
-    result
-}
-
-/// Convert a single character to its Unicode superscript equivalent.
-fn char_to_superscript(c: char) -> char {
-    match c {
-        '0' => '\u{2070}',
-        '1' => '\u{00B9}',
-        '2' => '\u{00B2}',
-        '3' => '\u{00B3}',
-        '4' => '\u{2074}',
-        '5' => '\u{2075}',
-        '6' => '\u{2076}',
-        '7' => '\u{2077}',
-        '8' => '\u{2078}',
-        '9' => '\u{2079}',
-        '+' => '\u{207A}',
-        '-' => '\u{207B}',
-        '=' => '\u{207C}',
-        '(' => '\u{207D}',
-        ')' => '\u{207E}',
-        'n' => '\u{207F}',
-        'i' => '\u{2071}',
-        _ => c,
-    }
-}
-
-/// Convert a single character to its Unicode subscript equivalent.
-fn char_to_subscript(c: char) -> char {
-    match c {
-        '0' => '\u{2080}',
-        '1' => '\u{2081}',
-        '2' => '\u{2082}',
-        '3' => '\u{2083}',
-        '4' => '\u{2084}',
-        '5' => '\u{2085}',
-        '6' => '\u{2086}',
-        '7' => '\u{2087}',
-        '8' => '\u{2088}',
-        '9' => '\u{2089}',
-        '+' => '\u{208A}',
-        '-' => '\u{208B}',
-        '=' => '\u{208C}',
-        '(' => '\u{208D}',
-        ')' => '\u{208E}',
-        _ => c,
-    }
-}
-
-/// Extract text from MathML formula element
-///
-/// # Arguments
-/// * `math_node` - The math XML node
-///
-/// # Returns
-/// * `Option<String>` - The extracted formula text
-fn extract_mathml_text(math_node: roxmltree::Node) -> Option<String> {
-    for node in math_node.descendants() {
-        if node.tag_name().name() == "annotation"
-            && let Some(encoding) = node.attribute("encoding")
-            && encoding.contains("StarMath")
-            && let Some(text) = node.text()
-        {
-            return Some(starmath_to_unicode(text));
-        }
-    }
-
-    let mut formula_parts = Vec::new();
-    for node in math_node.descendants() {
-        match node.tag_name().name() {
-            "mi" | "mo" | "mn" | "ms" | "mtext" => {
-                if let Some(text) = node.text() {
-                    formula_parts.push(text.to_string());
-                }
-            }
-            _ => {}
-        }
-    }
-
-    if !formula_parts.is_empty() {
-        Some(formula_parts.join(" "))
-    } else {
-        None
     }
 }
 
@@ -408,15 +163,218 @@ fn build_style_map(root: roxmltree::Node) -> AHashMap<String, OdtStyleProps> {
     styles
 }
 
-/// Build a `DocumentStructure` from ODT content.xml.
+/// Pre-extract all images from the ODT ZIP archive into a map keyed by href path.
 ///
-/// Walks the same XML tree as `process_document_elements` but emits structured
-/// nodes through the `DocumentStructureBuilder`. Resolves styles to produce
-/// text annotations (bold, italic, underline, color, font-size).
-fn build_odt_document_structure(
-    archive: &mut zip::ZipArchive<Cursor<Vec<u8>>>,
-) -> crate::error::Result<crate::types::document_structure::DocumentStructure> {
-    use crate::types::builder::DocumentStructureBuilder;
+/// Scans the archive for files under `Pictures/` (the standard ODT image directory)
+/// and builds a lookup map so that image references in content.xml can be resolved
+/// to binary data without re-borrowing the archive during XML walking.
+fn pre_extract_images(archive: &mut zip::ZipArchive<Cursor<Vec<u8>>>) -> AHashMap<String, (Vec<u8>, String)> {
+    use std::io::Read;
+
+    let mut images = AHashMap::new();
+    let names: Vec<String> = (0..archive.len())
+        .filter_map(|i| archive.by_index(i).ok().map(|f| f.name().to_string()))
+        .collect();
+
+    for name in names {
+        if !name.starts_with("Pictures/") {
+            continue;
+        }
+        let ext = name.rsplit('.').next().map(|e| e.to_lowercase()).unwrap_or_default();
+        let format = match ext.as_str() {
+            "jpg" | "jpeg" => "jpeg",
+            "png" => "png",
+            "gif" => "gif",
+            "webp" => "webp",
+            "svg" => "svg",
+            "bmp" => "bmp",
+            "tiff" | "tif" => "tiff",
+            _ => "png",
+        };
+        if let Ok(mut file) = archive.by_name(&name) {
+            let mut buf = Vec::new();
+            if file.read_to_end(&mut buf).is_ok() && !buf.is_empty() {
+                images.insert(name, (buf, format.to_string()));
+            }
+        }
+    }
+    images
+}
+
+/// Pre-extract embedded formula objects (MathML) from the ODT archive.
+///
+/// ODT stores formulas in subdirectories like `Object 1/content.xml` containing
+/// MathML markup. This function scans for those and converts them to text.
+fn pre_extract_formulas(archive: &mut zip::ZipArchive<Cursor<Vec<u8>>>) -> AHashMap<String, String> {
+    use std::io::Read;
+
+    let mut formulas = AHashMap::new();
+    let names: Vec<String> = (0..archive.len())
+        .filter_map(|i| archive.by_index(i).ok().map(|f| f.name().to_string()))
+        .collect();
+
+    for name in &names {
+        // Formula objects live in e.g. "Object 1/content.xml"
+        if !name.ends_with("/content.xml") || name == "content.xml" {
+            continue;
+        }
+        if let Ok(mut file) = archive.by_name(name) {
+            let mut xml = String::new();
+            if file.read_to_string(&mut xml).is_ok() && xml.contains("math") {
+                let text = extract_mathml_text(&xml);
+                if !text.is_empty() {
+                    // Key is the object directory path without trailing /content.xml
+                    let dir = name.trim_end_matches("/content.xml");
+                    // Also store with trailing slash variant for flexible lookup
+                    formulas.insert(dir.to_string(), text.clone());
+                    formulas.insert(format!("{}/", dir), text);
+                }
+            }
+        }
+    }
+
+    formulas
+}
+
+/// Convert MathML XML content to a plain-text representation.
+fn extract_mathml_text(xml: &str) -> String {
+    let Ok(doc) = Document::parse(xml) else {
+        return String::new();
+    };
+
+    let root = doc.root_element();
+    let mut tokens = Vec::new();
+    collect_mathml_tokens(root, &mut tokens);
+    tokens.join(" ")
+}
+
+/// Recursively collect text tokens from MathML elements.
+fn collect_mathml_tokens(node: roxmltree::Node, tokens: &mut Vec<String>) {
+    let tag = node.tag_name().name();
+    match tag {
+        // Token elements that contain displayable text
+        "mi" | "mn" | "mo" | "ms" | "mtext" => {
+            if let Some(t) = node.text() {
+                let trimmed = t.trim();
+                if !trimmed.is_empty() {
+                    tokens.push(trimmed.to_string());
+                }
+            }
+        }
+        // Fraction: a/b
+        "mfrac" => {
+            let children: Vec<_> = node.children().filter(|c| c.is_element()).collect();
+            if children.len() == 2 {
+                let mut num = Vec::new();
+                collect_mathml_tokens(children[0], &mut num);
+                let mut den = Vec::new();
+                collect_mathml_tokens(children[1], &mut den);
+                if !num.is_empty() || !den.is_empty() {
+                    tokens.push(format!("({})/({})", num.join(" "), den.join(" ")));
+                    return;
+                }
+            }
+            for child in node.children() {
+                collect_mathml_tokens(child, tokens);
+            }
+        }
+        // Superscript: base^exp
+        "msup" => {
+            let children: Vec<_> = node.children().filter(|c| c.is_element()).collect();
+            if children.len() == 2 {
+                let mut base = Vec::new();
+                collect_mathml_tokens(children[0], &mut base);
+                let mut exp = Vec::new();
+                collect_mathml_tokens(children[1], &mut exp);
+                tokens.push(format!("{}^{}", base.join(" "), exp.join(" ")));
+                return;
+            }
+            for child in node.children() {
+                collect_mathml_tokens(child, tokens);
+            }
+        }
+        // Subscript: base_sub
+        "msub" => {
+            let children: Vec<_> = node.children().filter(|c| c.is_element()).collect();
+            if children.len() == 2 {
+                let mut base = Vec::new();
+                collect_mathml_tokens(children[0], &mut base);
+                let mut sub = Vec::new();
+                collect_mathml_tokens(children[1], &mut sub);
+                tokens.push(format!("{}_{}", base.join(" "), sub.join(" ")));
+                return;
+            }
+            for child in node.children() {
+                collect_mathml_tokens(child, tokens);
+            }
+        }
+        // Square root
+        "msqrt" => {
+            let mut inner = Vec::new();
+            for child in node.children() {
+                collect_mathml_tokens(child, &mut inner);
+            }
+            tokens.push(format!("sqrt({})", inner.join(" ")));
+        }
+        // All other elements: recurse
+        _ => {
+            for child in node.children() {
+                collect_mathml_tokens(child, tokens);
+            }
+        }
+    }
+}
+
+/// Extract description text from a `draw:frame` element by looking at
+/// `svg:title`, `svg:desc`, and `text:p` children of the frame.
+fn extract_frame_description(frame: roxmltree::Node) -> Option<String> {
+    // Try svg:title first
+    for child in frame.children() {
+        let name = child.tag_name().name();
+        if name == "title"
+            && let Some(text) = child.text()
+        {
+            let trimmed = text.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+    // Try svg:desc
+    for child in frame.children() {
+        let name = child.tag_name().name();
+        if name == "desc"
+            && let Some(text) = child.text()
+        {
+            let trimmed = text.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+    // Try text:p children (used for captions inside the frame)
+    for child in frame.children() {
+        if child.tag_name().name() == "p"
+            && let Some(text) = extract_node_text(child)
+        {
+            let trimmed = text.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Build an `InternalDocument` from ODT content.xml.
+///
+/// Walks the XML tree and emits flat elements through `InternalDocumentBuilder`.
+/// Captures headings, paragraphs, lists, tables, images, formulas, footnotes
+/// (with inline markers), and headers/footers with appropriate content layers.
+fn build_internal_document(archive: &mut zip::ZipArchive<Cursor<Vec<u8>>>) -> crate::error::Result<InternalDocument> {
+    // Pre-extract images so we don't need the archive borrow during XML walking
+    let image_data = pre_extract_images(archive);
+    let formula_data = pre_extract_formulas(archive);
 
     let mut xml_content = String::new();
 
@@ -427,7 +385,7 @@ fn build_odt_document_structure(
                 .map_err(|e| crate::error::KreuzbergError::parsing(format!("Failed to read content.xml: {}", e)))?;
         }
         Err(_) => {
-            return Ok(DocumentStructureBuilder::new().source_format("odt").build());
+            return Ok(InternalDocumentBuilder::new("odt").build());
         }
     }
 
@@ -436,29 +394,273 @@ fn build_odt_document_structure(
 
     let root = doc.root_element();
     let style_map = build_style_map(root);
-    let mut builder = DocumentStructureBuilder::new().source_format("odt");
+    let mut builder = InternalDocumentBuilder::new("odt");
 
     for body_child in root.children() {
         if body_child.tag_name().name() == "body" {
             for text_elem in body_child.children() {
                 if text_elem.tag_name().name() == "text" {
-                    build_structure_from_elements(text_elem, &mut builder, &style_map);
+                    build_internal_elements(text_elem, &mut builder, &style_map, &image_data, &formula_data);
                 }
             }
         }
     }
 
-    // Extract headers/footers from styles.xml (master pages)
-    extract_odt_headers_footers(archive, &mut builder);
+    // Extract headers/footers from styles.xml
+    extract_odt_internal_headers_footers(archive, &mut builder);
 
     Ok(builder.build())
 }
 
-/// Extract headers and footers from styles.xml master-page elements.
-fn extract_odt_headers_footers(
-    archive: &mut zip::ZipArchive<Cursor<Vec<u8>>>,
-    builder: &mut crate::types::builder::DocumentStructureBuilder,
+/// Recursively walk ODT XML elements and populate the `InternalDocumentBuilder`.
+fn build_internal_elements(
+    parent: roxmltree::Node,
+    builder: &mut InternalDocumentBuilder,
+    style_map: &AHashMap<String, OdtStyleProps>,
+    image_data: &AHashMap<String, (Vec<u8>, String)>,
+    formula_data: &AHashMap<String, String>,
 ) {
+    use crate::types::document_structure::ContentLayer;
+    use crate::types::internal::{ElementKind, InternalElement};
+
+    let mut footnote_counter = 0u32;
+
+    for node in parent.children() {
+        match node.tag_name().name() {
+            "h" => {
+                let (text, _annotations, uris) = collect_odt_annotations(node, style_map);
+                for uri in uris {
+                    builder.push_uri(uri);
+                }
+                let trimmed = text.trim();
+                if !trimmed.is_empty() {
+                    let level = node
+                        .attribute(("urn:oasis:names:tc:opendocument:xmlns:text:1.0", "outline-level"))
+                        .and_then(|v| v.parse::<u8>().ok())
+                        .unwrap_or(1);
+                    builder.push_heading(level, trimmed, None, None);
+                }
+            }
+            "p" => {
+                // Collect footnote markers for inline injection
+                let mut footnote_markers: Vec<(String, String)> = Vec::new();
+
+                // Check for draw:frame children — may contain images or embedded formulas
+                for desc in node.descendants() {
+                    if desc.tag_name().name() == "frame" {
+                        // Check if this frame contains a draw:object referencing a formula
+                        let mut is_formula = false;
+                        for frame_child in desc.children() {
+                            if frame_child.tag_name().name() == "object" {
+                                let obj_href = frame_child
+                                    .attribute(("http://www.w3.org/1999/xlink", "href"))
+                                    .or_else(|| frame_child.attribute("xlink:href"));
+                                if let Some(href) = obj_href {
+                                    // Normalize: remove leading "./" if present
+                                    let normalized = href.trim_start_matches("./");
+                                    if let Some(formula_text) = formula_data.get(normalized) {
+                                        builder.push_formula(formula_text, None, None);
+                                        is_formula = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if !is_formula {
+                            // Look for image inside this frame
+                            for frame_child in desc.descendants() {
+                                if frame_child.tag_name().name() == "image" {
+                                    let href = frame_child
+                                        .attribute(("http://www.w3.org/1999/xlink", "href"))
+                                        .or_else(|| frame_child.attribute("xlink:href"));
+
+                                    // Use extract_frame_description for richer alt text
+                                    let description = extract_frame_description(desc).or_else(|| {
+                                        desc.attribute((
+                                            "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0",
+                                            "title",
+                                        ))
+                                        .or_else(|| desc.attribute("svg:title"))
+                                        .map(|s| s.to_string())
+                                    });
+
+                                    let extracted = href.and_then(|h| {
+                                        image_data.get(h).map(|(data, format)| (data.clone(), format.clone()))
+                                    });
+
+                                    if let Some((data, format)) = extracted {
+                                        let image = ExtractedImage {
+                                            data: Bytes::from(data),
+                                            format: Cow::Owned(format),
+                                            image_index: 0,
+                                            page_number: None,
+                                            width: None,
+                                            height: None,
+                                            colorspace: None,
+                                            bits_per_component: None,
+                                            is_mask: false,
+                                            description: description.clone(),
+                                            ocr_result: None,
+                                            bounding_box: None,
+                                            source_path: None,
+                                        };
+                                        let idx = builder.push_image(description.as_deref(), image, None, None);
+                                        if let Some(h) = href {
+                                            let mut attrs = AHashMap::with_capacity(1);
+                                            attrs.insert("src".to_string(), h.to_string());
+                                            builder.set_attributes(idx, attrs);
+                                        }
+                                    } else {
+                                        let text_val = description.as_deref().or(href).unwrap_or("");
+                                        let elem =
+                                            InternalElement::text(ElementKind::Image { image_index: 0 }, text_val, 0);
+                                        let idx = builder.push_element(elem);
+                                        if let Some(h) = href {
+                                            let mut attrs = AHashMap::with_capacity(1);
+                                            attrs.insert("src".to_string(), h.to_string());
+                                            builder.set_attributes(idx, attrs);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Extract footnotes from this paragraph and collect markers for inline injection
+                for child in node.descendants() {
+                    if child.tag_name().name() == "note" {
+                        let _ = child
+                            .attribute(("urn:oasis:names:tc:opendocument:xmlns:text:1.0", "note-class"))
+                            .or_else(|| child.attribute("text:note-class"))
+                            .unwrap_or("footnote");
+                        let note_id = child
+                            .attribute(("urn:oasis:names:tc:opendocument:xmlns:text:1.0", "id"))
+                            .or_else(|| child.attribute("text:id"));
+
+                        for note_child in child.children() {
+                            if note_child.tag_name().name() == "note-citation" {
+                                let citation_text = extract_node_text(note_child).unwrap_or_default();
+                                let citation_trimmed = citation_text.trim();
+                                if !citation_trimmed.is_empty() {
+                                    footnote_counter += 1;
+                                    let key = note_id
+                                        .map(|id| id.to_string())
+                                        .unwrap_or_else(|| format!("fn{}", footnote_counter));
+                                    footnote_markers.push((citation_trimmed.to_string(), key.clone()));
+                                    builder.push_footnote_ref(citation_trimmed, &key, None);
+                                }
+                            }
+                            if note_child.tag_name().name() == "note-body"
+                                && let Some(note_text) = extract_node_text(note_child)
+                            {
+                                let trimmed = note_text.trim();
+                                if !trimmed.is_empty() {
+                                    let key = note_id.map(|id| id.to_string()).unwrap_or_else(|| {
+                                        if footnote_counter == 0 {
+                                            footnote_counter += 1;
+                                        }
+                                        format!("fn{}", footnote_counter)
+                                    });
+                                    let def_idx = builder.push_footnote_definition(trimmed, &key, None);
+                                    builder.set_layer(def_idx, ContentLayer::Footnote);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                let (mut text, annotations, uris) = collect_odt_annotations(node, style_map);
+                for uri in uris {
+                    builder.push_uri(uri);
+                }
+
+                // Also extract text from caption paragraphs nested inside
+                // draw:frame > draw:text-box, which collect_odt_annotations misses
+                // because it only walks direct children.
+                for frame in node.children().filter(|n| n.tag_name().name() == "frame") {
+                    for text_box in frame.children().filter(|n| n.tag_name().name() == "text-box") {
+                        for nested_p in text_box.children().filter(|n| n.tag_name().name() == "p") {
+                            let (caption, _, caption_uris) = collect_odt_annotations(nested_p, style_map);
+                            for uri in caption_uris {
+                                builder.push_uri(uri);
+                            }
+                            let caption_trimmed = caption.trim();
+                            if !caption_trimmed.is_empty() {
+                                if !text.is_empty() {
+                                    text.push('\n');
+                                }
+                                text.push_str(caption_trimmed);
+                            }
+                        }
+                    }
+                }
+
+                // Inject inline footnote markers [^N] into the paragraph text
+                for (citation, _key) in &footnote_markers {
+                    let marker = format!("[^{}]", citation);
+                    // Append marker if not already present in text
+                    if !text.contains(&marker) {
+                        text.push_str(&marker);
+                    }
+                }
+
+                let trimmed = text.trim();
+                if !trimmed.is_empty() {
+                    builder.push_paragraph(trimmed, annotations, None, None);
+                }
+            }
+            "table" => {
+                let cells = extract_table_cells(node);
+                if !cells.is_empty() {
+                    builder.push_table_from_cells(&cells, None, None);
+                }
+            }
+            "list" => {
+                build_internal_list(node, builder);
+            }
+            "section" => {
+                build_internal_elements(node, builder, style_map, image_data, formula_data);
+            }
+            _ => {}
+        }
+    }
+}
+
+/// Build list structure from an ODT `text:list` element for InternalDocumentBuilder.
+fn build_internal_list(list_node: roxmltree::Node, builder: &mut InternalDocumentBuilder) {
+    builder.push_list(false);
+    for item in list_node.children() {
+        if item.tag_name().name() == "list-item" {
+            for child in item.children() {
+                match child.tag_name().name() {
+                    "p" | "h" => {
+                        if let Some(text) = extract_node_text(child) {
+                            let trimmed = text.trim();
+                            if !trimmed.is_empty() {
+                                builder.push_list_item(trimmed, false, vec![], None, None);
+                            }
+                        }
+                    }
+                    "list" => {
+                        build_internal_list(child, builder);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    builder.end_list();
+}
+
+/// Extract headers and footers from styles.xml for InternalDocumentBuilder.
+fn extract_odt_internal_headers_footers(
+    archive: &mut zip::ZipArchive<Cursor<Vec<u8>>>,
+    builder: &mut InternalDocumentBuilder,
+) {
+    use crate::types::document_structure::ContentLayer;
+
     let mut styles_xml = String::new();
     if let Ok(mut file) = archive.by_name("styles.xml") {
         use std::io::Read;
@@ -479,7 +681,8 @@ fn extract_odt_headers_footers(
                 if let Some(text) = extract_node_text(node) {
                     let trimmed = text.trim();
                     if !trimmed.is_empty() {
-                        builder.push_header(trimmed, None);
+                        let idx = builder.push_paragraph(trimmed, vec![], None, None);
+                        builder.set_layer(idx, ContentLayer::Header);
                     }
                 }
             }
@@ -487,7 +690,8 @@ fn extract_odt_headers_footers(
                 if let Some(text) = extract_node_text(node) {
                     let trimmed = text.trim();
                     if !trimmed.is_empty() {
-                        builder.push_footer(trimmed, None);
+                        let idx = builder.push_paragraph(trimmed, vec![], None, None);
+                        builder.set_layer(idx, ContentLayer::Footer);
                     }
                 }
             }
@@ -503,12 +707,13 @@ fn extract_odt_headers_footers(
 fn collect_odt_annotations(
     node: roxmltree::Node,
     style_map: &AHashMap<String, OdtStyleProps>,
-) -> (String, Vec<crate::types::TextAnnotation>) {
+) -> (String, Vec<crate::types::TextAnnotation>, Vec<Uri>) {
     use crate::types::builder;
     use crate::types::document_structure::{AnnotationKind, TextAnnotation};
 
     let mut text = String::new();
     let mut annotations = Vec::new();
+    let mut uris = Vec::new();
 
     for child in node.children() {
         match child.tag_name().name() {
@@ -578,6 +783,19 @@ fn collect_odt_annotations(
                         .unwrap_or("");
                     if !url.is_empty() {
                         annotations.push(builder::link(start, end, url, None));
+                        let kind = if url.starts_with('#') {
+                            UriKind::Anchor
+                        } else if url.starts_with("mailto:") {
+                            UriKind::Email
+                        } else {
+                            UriKind::Hyperlink
+                        };
+                        uris.push(Uri {
+                            url: url.to_string(),
+                            label: Some(link_text.to_string()),
+                            page: None,
+                            kind,
+                        });
                     }
                 }
             }
@@ -596,345 +814,48 @@ fn collect_odt_annotations(
         text = t.to_string();
     }
 
-    (text, annotations)
-}
-
-/// Recursively walk ODT XML elements and populate the `DocumentStructureBuilder`.
-fn build_structure_from_elements(
-    parent: roxmltree::Node,
-    builder: &mut crate::types::builder::DocumentStructureBuilder,
-    style_map: &AHashMap<String, OdtStyleProps>,
-) {
-    for node in parent.children() {
-        match node.tag_name().name() {
-            "h" => {
-                let (text, _annotations) = collect_odt_annotations(node, style_map);
-                let trimmed = text.trim();
-                if !trimmed.is_empty() {
-                    let level = node
-                        .attribute(("urn:oasis:names:tc:opendocument:xmlns:text:1.0", "outline-level"))
-                        .and_then(|v| v.parse::<u8>().ok())
-                        .unwrap_or(1);
-                    builder.push_heading(level, trimmed, None, None);
-                }
-            }
-            "p" => {
-                // Check for draw:frame images inside paragraphs (including nested frames,
-                // e.g. frame > text-box > text:p > frame > image as used in captioned images)
-                let mut has_image = false;
-                for desc in node.descendants() {
-                    if desc.tag_name().name() == "image" {
-                        let href = desc
-                            .attribute(("http://www.w3.org/1999/xlink", "href"))
-                            .or_else(|| desc.attribute("xlink:href"));
-                        // Walk up to the nearest draw:frame ancestor for the title attribute
-                        let description = desc
-                            .parent()
-                            .filter(|p| p.tag_name().name() == "frame")
-                            .and_then(|frame| {
-                                frame
-                                    .attribute(("urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0", "title"))
-                                    .or_else(|| frame.attribute("svg:title"))
-                            });
-                        builder.push_image(description.or(href), None, None, None);
-                        has_image = true;
-                    }
-                }
-
-                // Extract footnotes from this paragraph
-                for child in node.descendants() {
-                    if child.tag_name().name() == "note" {
-                        // Find the note-body
-                        for note_child in child.children() {
-                            if note_child.tag_name().name() == "note-body"
-                                && let Some(note_text) = extract_node_text(note_child)
-                            {
-                                let trimmed = note_text.trim();
-                                if !trimmed.is_empty() {
-                                    builder.push_footnote(trimmed, None);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Extract office:annotation comments
-                for child in node.descendants() {
-                    if child.tag_name().name() == "annotation" {
-                        let mut annotation_text = String::new();
-                        let mut annotation_author = None;
-                        let mut annotation_date = None;
-                        for ann_child in child.children() {
-                            match ann_child.tag_name().name() {
-                                "p" => {
-                                    if let Some(t) = ann_child.text() {
-                                        if !annotation_text.is_empty() {
-                                            annotation_text.push(' ');
-                                        }
-                                        annotation_text.push_str(t);
-                                    }
-                                }
-                                "creator" => {
-                                    annotation_author = ann_child.text().map(|s| s.to_string());
-                                }
-                                "date" => {
-                                    annotation_date = ann_child.text().map(|s| s.to_string());
-                                }
-                                _ => {}
-                            }
-                        }
-                        if !annotation_text.is_empty() {
-                            let mut attrs = AHashMap::new();
-                            attrs.insert("type".to_string(), "comment".to_string());
-                            attrs.insert("text".to_string(), annotation_text);
-                            if let Some(author) = annotation_author {
-                                attrs.insert("author".to_string(), author);
-                            }
-                            if let Some(date) = annotation_date {
-                                attrs.insert("date".to_string(), date);
-                            }
-                            let idx = builder.push_paragraph("", vec![], None, None);
-                            builder.set_attributes(idx, attrs);
-                        }
-                    }
-                }
-
-                let (text, annotations) = collect_odt_annotations(node, style_map);
-                let trimmed = text.trim();
-                if !trimmed.is_empty() {
-                    builder.push_paragraph(trimmed, annotations, None, None);
-                } else if !has_image {
-                    // Only skip empty paragraphs if no image was emitted
-                }
-            }
-            "table" => {
-                let cells = extract_table_cells(node);
-                if !cells.is_empty() {
-                    builder.push_table_from_cells(&cells, None);
-                }
-            }
-            "list" => {
-                build_list_structure(node, builder);
-            }
-            "section" => {
-                build_structure_from_elements(node, builder, style_map);
-            }
-            _ => {}
-        }
-    }
+    (text, annotations, uris)
 }
 
 /// Extract table cells as `Vec<Vec<String>>` from an ODT table element.
+///
+/// Handles both direct `table:table-row` children and rows nested inside
+/// `table:table-header-rows` containers, which ODT uses for header rows.
 fn extract_table_cells(table_node: roxmltree::Node) -> Vec<Vec<String>> {
     let mut rows = Vec::new();
-    for row_node in table_node.children() {
-        if row_node.tag_name().name() == "table-row" {
-            let mut row_cells = Vec::new();
-            for cell_node in row_node.children() {
-                if cell_node.tag_name().name() == "table-cell" {
-                    let cell_text = extract_node_text(cell_node).unwrap_or_default();
-                    row_cells.push(cell_text.trim().to_string());
+    for child in table_node.children() {
+        match child.tag_name().name() {
+            "table-row" => {
+                if let Some(row) = extract_row_cells(child) {
+                    rows.push(row);
                 }
             }
-            if !row_cells.is_empty() {
-                rows.push(row_cells);
+            "table-header-rows" => {
+                // Header rows are wrapped in a container element
+                for row_node in child.children() {
+                    if row_node.tag_name().name() == "table-row"
+                        && let Some(row) = extract_row_cells(row_node)
+                    {
+                        rows.push(row);
+                    }
+                }
             }
+            _ => {}
         }
     }
     rows
 }
 
-/// Build list structure from an ODT `text:list` element.
-fn build_list_structure(list_node: roxmltree::Node, builder: &mut crate::types::builder::DocumentStructureBuilder) {
-    let list_idx = builder.push_list(false, None);
-    for item in list_node.children() {
-        if item.tag_name().name() == "list-item" {
-            for child in item.children() {
-                match child.tag_name().name() {
-                    "p" | "h" => {
-                        if let Some(text) = extract_node_text(child) {
-                            let trimmed = text.trim();
-                            if !trimmed.is_empty() {
-                                builder.push_list_item(list_idx, trimmed, None);
-                            }
-                        }
-                    }
-                    "list" => {
-                        // Nested lists: add as separate list (builder doesn't support nested lists as children of list items)
-                        build_list_structure(child, builder);
-                    }
-                    _ => {}
-                }
-            }
+/// Extract cell text values from a single table row node.
+fn extract_row_cells(row_node: roxmltree::Node) -> Option<Vec<String>> {
+    let mut row_cells = Vec::new();
+    for cell_node in row_node.children() {
+        if cell_node.tag_name().name() == "table-cell" {
+            let cell_text = extract_node_text(cell_node).unwrap_or_default();
+            row_cells.push(cell_text.trim().to_string());
         }
     }
-}
-
-/// Extract text from embedded formula objects
-///
-/// # Arguments
-/// * `archive` - ZIP archive containing the ODT document
-///
-/// # Returns
-/// * `String` - Extracted formula content from embedded objects
-fn extract_embedded_formulas(archive: &mut zip::ZipArchive<Cursor<Vec<u8>>>) -> crate::error::Result<String> {
-    use std::io::Read;
-    let mut formula_parts = Vec::new();
-
-    let file_names: Vec<String> = archive.file_names().map(|s| s.to_string()).collect();
-
-    for file_name in file_names {
-        if file_name.contains("Object")
-            && file_name.ends_with("content.xml")
-            && let Ok(mut file) = archive.by_name(&file_name)
-        {
-            let mut xml_content = String::new();
-            if file.read_to_string(&mut xml_content).is_ok()
-                && let Ok(doc) = Document::parse(&xml_content)
-            {
-                let root = doc.root_element();
-
-                if root.tag_name().name() == "math" {
-                    if let Some(formula_text) = extract_mathml_text(root) {
-                        formula_parts.push(formula_text);
-                    }
-                } else {
-                    for node in root.descendants() {
-                        if node.tag_name().name() == "math"
-                            && let Some(formula_text) = extract_mathml_text(node)
-                        {
-                            formula_parts.push(formula_text);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(formula_parts.join("\n"))
-}
-
-/// Extract text content from ODT content.xml
-///
-/// # Arguments
-/// * `archive` - ZIP archive containing the ODT document
-///
-/// # Returns
-/// * `String` - Extracted text content
-fn extract_content_text(archive: &mut zip::ZipArchive<Cursor<Vec<u8>>>, plain: bool) -> crate::error::Result<String> {
-    let mut xml_content = String::new();
-
-    match archive.by_name("content.xml") {
-        Ok(mut file) => {
-            use std::io::Read;
-            file.read_to_string(&mut xml_content)
-                .map_err(|e| crate::error::KreuzbergError::parsing(format!("Failed to read content.xml: {}", e)))?;
-        }
-        Err(_) => {
-            return Ok(String::new());
-        }
-    }
-
-    let doc = Document::parse(&xml_content)
-        .map_err(|e| crate::error::KreuzbergError::parsing(format!("Failed to parse content.xml: {}", e)))?;
-
-    let root = doc.root_element();
-
-    let mut text_parts: Vec<String> = Vec::new();
-
-    for body_child in root.children() {
-        if body_child.tag_name().name() == "body" {
-            for text_elem in body_child.children() {
-                if text_elem.tag_name().name() == "text" {
-                    process_document_elements(text_elem, &mut text_parts, plain);
-                }
-            }
-        }
-    }
-
-    Ok(text_parts.join("\n").trim().to_string())
-}
-
-/// Helper function to process document elements (paragraphs, headings, tables, lists)
-/// Only processes direct children, avoiding nested content like table cells
-fn process_document_elements(parent: roxmltree::Node, text_parts: &mut Vec<String>, plain: bool) {
-    for node in parent.children() {
-        match node.tag_name().name() {
-            "h" => {
-                if let Some(text) = extract_node_text(node)
-                    && !text.trim().is_empty()
-                {
-                    if plain {
-                        text_parts.push(text.trim().to_string());
-                    } else {
-                        text_parts.push(format!("# {}", text.trim()));
-                    }
-                    text_parts.push(String::new());
-                }
-            }
-            "p" => {
-                if let Some(text) = extract_node_text(node)
-                    && !text.trim().is_empty()
-                {
-                    text_parts.push(text.trim().to_string());
-                    text_parts.push(String::new());
-                }
-            }
-            "table" => {
-                if let Some(table_text) = extract_table_text(node, plain) {
-                    text_parts.push(table_text);
-                    text_parts.push(String::new());
-                }
-            }
-            "list" => {
-                process_list_elements(node, text_parts, 0, plain);
-                text_parts.push(String::new());
-            }
-            "section" => {
-                process_document_elements(node, text_parts, plain);
-            }
-            _ => {}
-        }
-    }
-}
-
-/// Process list elements recursively, handling nested lists with indentation
-fn process_list_elements(list_node: roxmltree::Node, text_parts: &mut Vec<String>, depth: usize, plain: bool) {
-    let indent = "  ".repeat(depth);
-    for item in list_node.children() {
-        if item.tag_name().name() == "list-item" {
-            for child in item.children() {
-                match child.tag_name().name() {
-                    "p" => {
-                        if let Some(text) = extract_node_text(child)
-                            && !text.trim().is_empty()
-                        {
-                            if plain {
-                                text_parts.push(text.trim().to_string());
-                            } else {
-                                text_parts.push(format!("{indent}- {}", text.trim()));
-                            }
-                        }
-                    }
-                    "h" => {
-                        if let Some(text) = extract_node_text(child)
-                            && !text.trim().is_empty()
-                        {
-                            if plain {
-                                text_parts.push(text.trim().to_string());
-                            } else {
-                                text_parts.push(format!("{indent}- # {}", text.trim()));
-                            }
-                        }
-                    }
-                    "list" => {
-                        process_list_elements(child, text_parts, depth + 1, plain);
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
+    if row_cells.is_empty() { None } else { Some(row_cells) }
 }
 
 /// Extract text from a single XML node, handling spans and formatting
@@ -975,162 +896,6 @@ fn extract_node_text(node: roxmltree::Node) -> Option<String> {
     }
 }
 
-/// Extract table content as text with markdown formatting
-///
-/// # Arguments
-/// * `table_node` - The table XML node
-///
-/// # Returns
-/// * `Option<String>` - Markdown formatted table
-fn extract_table_text(table_node: roxmltree::Node, plain: bool) -> Option<String> {
-    let mut rows = Vec::new();
-    let mut max_cols = 0;
-
-    for row_node in table_node.children() {
-        if row_node.tag_name().name() == "table-row" {
-            let mut row_cells = Vec::new();
-
-            for cell_node in row_node.children() {
-                if cell_node.tag_name().name() == "table-cell" {
-                    let cell_text = extract_node_text(cell_node).unwrap_or_default();
-                    row_cells.push(cell_text.trim().to_string());
-                }
-            }
-
-            if !row_cells.is_empty() {
-                max_cols = max_cols.max(row_cells.len());
-                rows.push(row_cells);
-            }
-        }
-    }
-
-    if rows.is_empty() {
-        return None;
-    }
-
-    for row in &mut rows {
-        while row.len() < max_cols {
-            row.push(String::new());
-        }
-    }
-
-    if plain {
-        Some(crate::extraction::cells_to_text(&rows))
-    } else {
-        let mut markdown = String::new();
-
-        if !rows.is_empty() {
-            markdown.push('|');
-            for cell in &rows[0] {
-                markdown.push(' ');
-                markdown.push_str(cell);
-                markdown.push_str(" |");
-            }
-            markdown.push('\n');
-
-            markdown.push('|');
-            for _ in 0..rows[0].len() {
-                markdown.push_str(" --- |");
-            }
-            markdown.push('\n');
-
-            for row in rows.iter().skip(1) {
-                markdown.push('|');
-                for cell in row {
-                    markdown.push(' ');
-                    markdown.push_str(cell);
-                    markdown.push_str(" |");
-                }
-                markdown.push('\n');
-            }
-        }
-
-        Some(markdown)
-    }
-}
-
-/// Extract tables from ODT content.xml
-///
-/// # Arguments
-/// * `archive` - ZIP archive containing the ODT document
-///
-/// # Returns
-/// * `Result<Vec<Table>>` - Extracted tables
-fn extract_tables(archive: &mut zip::ZipArchive<Cursor<Vec<u8>>>) -> crate::error::Result<Vec<Table>> {
-    let mut xml_content = String::new();
-
-    match archive.by_name("content.xml") {
-        Ok(mut file) => {
-            use std::io::Read;
-            file.read_to_string(&mut xml_content)
-                .map_err(|e| crate::error::KreuzbergError::parsing(format!("Failed to read content.xml: {}", e)))?;
-        }
-        Err(_) => {
-            return Ok(Vec::new());
-        }
-    }
-
-    let doc = Document::parse(&xml_content)
-        .map_err(|e| crate::error::KreuzbergError::parsing(format!("Failed to parse content.xml: {}", e)))?;
-
-    let root = doc.root_element();
-    let mut tables = Vec::new();
-    let mut table_index = 0;
-
-    for node in root.descendants() {
-        if node.tag_name().name() == "table"
-            && let Some(table) = parse_odt_table(node, table_index)
-        {
-            tables.push(table);
-            table_index += 1;
-        }
-    }
-
-    Ok(tables)
-}
-
-/// Parse a single ODT table element into a Table struct
-///
-/// # Arguments
-/// * `table_node` - The table XML node
-/// * `table_index` - Index of the table in the document
-///
-/// # Returns
-/// * `Option<Table>` - Parsed table
-fn parse_odt_table(table_node: roxmltree::Node, table_index: usize) -> Option<Table> {
-    let mut cells: Vec<Vec<String>> = Vec::new();
-
-    for row_node in table_node.children() {
-        if row_node.tag_name().name() == "table-row" {
-            let mut row_cells = Vec::new();
-
-            for cell_node in row_node.children() {
-                if cell_node.tag_name().name() == "table-cell" {
-                    let cell_text = extract_node_text(cell_node).unwrap_or_default();
-                    row_cells.push(cell_text.trim().to_string());
-                }
-            }
-
-            if !row_cells.is_empty() {
-                cells.push(row_cells);
-            }
-        }
-    }
-
-    if cells.is_empty() {
-        return None;
-    }
-
-    let markdown = cells_to_markdown(&cells);
-
-    Some(Table {
-        cells,
-        markdown,
-        page_number: table_index + 1,
-        bounding_box: None,
-    })
-}
-
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl DocumentExtractor for OdtExtractor {
@@ -1149,98 +914,27 @@ impl DocumentExtractor for OdtExtractor {
         content: &[u8],
         mime_type: &str,
         config: &ExtractionConfig,
-    ) -> Result<ExtractionResult> {
+    ) -> Result<InternalDocument> {
+        tracing::debug!(format = "odt", size_bytes = content.len(), "extraction starting");
+        let _ = config; // conditionally used by ocr feature
         let content_owned = content.to_vec();
-        let plain = matches!(
-            config.output_format,
-            crate::core::config::OutputFormat::Plain | crate::core::config::OutputFormat::Structured
-        );
-
-        let (text, tables) = {
-            #[cfg(feature = "tokio-runtime")]
-            if crate::core::batch_mode::is_batch_mode() {
-                let content_for_task = content_owned.clone();
-                let span = tracing::Span::current();
-                tokio::task::spawn_blocking(move || -> crate::error::Result<(String, Vec<Table>)> {
-                    let _guard = span.entered();
-
-                    let cursor = Cursor::new(content_for_task);
-                    let mut archive = zip::ZipArchive::new(cursor).map_err(|e| {
-                        crate::error::KreuzbergError::parsing(format!("Failed to open ZIP archive: {}", e))
-                    })?;
-
-                    let text = extract_content_text(&mut archive, plain)?;
-                    let tables = extract_tables(&mut archive)?;
-                    let embedded_formulas = extract_embedded_formulas(&mut archive)?;
-
-                    let combined_text = if !embedded_formulas.is_empty() {
-                        if !text.is_empty() {
-                            format!("{}\n{}", text, embedded_formulas)
-                        } else {
-                            embedded_formulas
-                        }
-                    } else {
-                        text
-                    };
-
-                    Ok((combined_text, tables))
-                })
-                .await
-                .map_err(|e| crate::error::KreuzbergError::parsing(format!("ODT extraction task failed: {}", e)))??
-            } else {
-                let cursor = Cursor::new(content_owned.clone());
-                let mut archive = zip::ZipArchive::new(cursor)
-                    .map_err(|e| crate::error::KreuzbergError::parsing(format!("Failed to open ZIP archive: {}", e)))?;
-
-                let text = extract_content_text(&mut archive, plain)?;
-                let tables = extract_tables(&mut archive)?;
-                let embedded_formulas = extract_embedded_formulas(&mut archive)?;
-
-                let combined_text = if !embedded_formulas.is_empty() {
-                    if !text.is_empty() {
-                        format!("{}\n{}", text, embedded_formulas)
-                    } else {
-                        embedded_formulas
-                    }
-                } else {
-                    text
-                };
-
-                (combined_text, tables)
-            }
-
-            #[cfg(not(feature = "tokio-runtime"))]
-            {
-                let cursor = Cursor::new(content_owned.clone());
-                let mut archive = zip::ZipArchive::new(cursor)
-                    .map_err(|e| crate::error::KreuzbergError::parsing(format!("Failed to open ZIP archive: {}", e)))?;
-
-                let text = extract_content_text(&mut archive, plain)?;
-                let tables = extract_tables(&mut archive)?;
-                let embedded_formulas = extract_embedded_formulas(&mut archive)?;
-
-                let combined_text = if !embedded_formulas.is_empty() {
-                    if !text.is_empty() {
-                        format!("{}\n{}", text, embedded_formulas)
-                    } else {
-                        embedded_formulas
-                    }
-                } else {
-                    text
-                };
-
-                (combined_text, tables)
-            }
-        };
-
-        let mut metadata_map = AHashMap::new();
 
         let cursor = Cursor::new(content_owned.clone());
-        let mut archive = zip::ZipArchive::new(cursor).map_err(|e| {
+        let mut archive = zip::ZipArchive::new(cursor)
+            .map_err(|e| crate::error::KreuzbergError::parsing(format!("Failed to open ZIP archive: {}", e)))?;
+
+        let mut doc = build_internal_document(&mut archive)?;
+        doc.mime_type = Cow::Owned(mime_type.to_string());
+
+        // Extract metadata from meta.xml
+        let mut metadata_map = AHashMap::new();
+
+        let meta_cursor = Cursor::new(content_owned);
+        let mut meta_archive = zip::ZipArchive::new(meta_cursor).map_err(|e| {
             crate::error::KreuzbergError::parsing(format!("Failed to open ZIP archive for metadata: {}", e))
         })?;
 
-        if let Ok(odt_props) = office_metadata::extract_odt_properties(&mut archive) {
+        if let Ok(odt_props) = office_metadata::extract_odt_properties(&mut meta_archive) {
             if let Some(title) = odt_props.title {
                 metadata_map.insert(Cow::Borrowed("title"), serde_json::Value::String(title));
             }
@@ -1328,42 +1022,57 @@ impl DocumentExtractor for OdtExtractor {
             }
         }
 
-        let document = if config.include_document_structure {
-            let cursor = Cursor::new(content_owned.clone());
-            let mut doc_archive = zip::ZipArchive::new(cursor).map_err(|e| {
-                crate::error::KreuzbergError::parsing(format!(
-                    "Failed to open ZIP archive for document structure: {}",
-                    e
-                ))
-            })?;
-            Some(build_odt_document_structure(&mut doc_archive)?)
-        } else {
-            None
+        // Map standard fields from metadata_map to typed Metadata fields
+        let title = metadata_map
+            .remove(&Cow::Borrowed("title"))
+            .and_then(|v| v.as_str().map(|s| s.to_string()));
+        let subject = metadata_map
+            .remove(&Cow::Borrowed("subject"))
+            .and_then(|v| v.as_str().map(|s| s.to_string()));
+        let authors = metadata_map.remove(&Cow::Borrowed("authors")).and_then(|v| {
+            v.as_array()
+                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+        });
+        let created_by = metadata_map
+            .remove(&Cow::Borrowed("created_by"))
+            .and_then(|v| v.as_str().map(|s| s.to_string()));
+        let created_at = metadata_map
+            .remove(&Cow::Borrowed("created_at"))
+            .and_then(|v| v.as_str().map(|s| s.to_string()));
+        let modified_at = metadata_map
+            .remove(&Cow::Borrowed("modified_at"))
+            .and_then(|v| v.as_str().map(|s| s.to_string()));
+        let language = metadata_map
+            .remove(&Cow::Borrowed("language"))
+            .and_then(|v| v.as_str().map(|s| s.to_string()));
+        let keywords = metadata_map.remove(&Cow::Borrowed("keywords")).and_then(|v| {
+            v.as_str().map(|s| {
+                s.split(',')
+                    .map(|k| k.trim().to_string())
+                    .filter(|k| !k.is_empty())
+                    .collect()
+            })
+        });
+
+        doc.metadata = Metadata {
+            title,
+            subject,
+            authors,
+            keywords,
+            language,
+            created_at,
+            modified_at,
+            created_by,
+            additional: metadata_map,
+            ..Default::default()
         };
 
-        Ok(ExtractionResult {
-            content: text,
-            mime_type: mime_type.to_string().into(),
-            metadata: Metadata {
-                additional: metadata_map,
-                ..Default::default()
-            },
-            pages: None,
-            tables,
-            detected_languages: None,
-            chunks: None,
-            images: None,
-            djot_content: None,
-            elements: None,
-            ocr_elements: None,
-            document,
-            #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
-            extracted_keywords: None,
-            quality_score: None,
-            processing_warnings: Vec::new(),
-            annotations: None,
-            children: None,
-        })
+        tracing::debug!(
+            element_count = doc.elements.len(),
+            format = "odt",
+            "extraction complete"
+        );
+        Ok(doc)
     }
 
     fn supported_mime_types(&self) -> &[&str] {
@@ -1440,6 +1149,8 @@ mod tests {
             .extract_bytes(&content, "application/vnd.oasis.opendocument.text", &config)
             .await
             .expect("ODT extraction failed");
+        let result =
+            crate::extraction::derive::derive_extraction_result(result, true, crate::core::config::OutputFormat::Plain);
         result.document
     }
 

@@ -212,6 +212,24 @@ def arrow_table_to_arrow_bytes(
     return arrow_bytes
 
 
+def _safe_cast_timestamp_columns(table: Table, target_pa_schema: pa.Schema) -> None:
+    """Validate that columns being cast to a timestamp type don't overflow int64.
+
+    The Snowflake connector may return numeric types (decimal128, int64) for
+    timestamp results. The main cast uses safe=False to allow Spark-style integer
+    overflow wrapping, but timestamp overflows should raise — matching Spark's
+    ArithmeticException behavior. We do this by attempting a safe=True cast on
+    just the timestamp columns and letting ArrowInvalid propagate.
+    """
+    for i, target_field in enumerate(target_pa_schema):
+        if not pa.types.is_timestamp(target_field.type):
+            continue
+        src_type = table.schema.field(i).type
+        if pa.types.is_timestamp(src_type):
+            continue
+        table.column(i).cast(target_field.type, safe=True)
+
+
 def _cast_arrow_table(
     table: Table,
     target_pa_schema: pa.Schema,
@@ -226,6 +244,12 @@ def _cast_arrow_table(
         # cast to temp_pa_schema is necessary for cases when i.e. the pyarrow table has int64,
         # but the snowpark schema is Decimal128(p, s) with p <= 18.
         table = table.cast(temp_pa_schema, safe=False)
+
+    # Cast non-timestamp columns with safe=False (Spark allows integer overflow
+    # wrapping, so we must not reject decimal128 → int64 overflows here).
+    # For timestamp columns, use safe=True to catch values that overflow int64
+    # microseconds — matching Spark's ArithmeticException on timestamp overflow.
+    _safe_cast_timestamp_columns(table, target_pa_schema)
     table = table.cast(target_pa_schema, safe=False)
     table = table.rename_columns(spark_columns)
     return table

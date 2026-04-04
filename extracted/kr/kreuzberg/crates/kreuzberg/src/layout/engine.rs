@@ -1,16 +1,12 @@
 //! High-level layout detection engine.
 //!
 //! Provides [`LayoutEngine`] as the main entry point for layout detection,
-//! with [`LayoutPreset`] for simple configuration and [`LayoutEngineConfig`]
-//! for full programmatic control.
+//! with [`LayoutEngineConfig`] for full programmatic control.
 
-use std::fmt;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::time::Instant;
 
 use image::RgbImage;
-use serde::{Deserialize, Serialize};
 
 use crate::layout::error::LayoutError;
 use crate::layout::model_manager::LayoutModelManager;
@@ -19,41 +15,6 @@ use crate::layout::models::rtdetr::RtDetrModel;
 use crate::layout::models::yolo::{YoloModel, YoloVariant};
 use crate::layout::postprocessing::heuristics;
 use crate::layout::types::DetectionResult;
-
-/// Preset for layout detection model selection.
-///
-/// Used by language bindings (Python, Node.js, etc.) for simple configuration.
-/// Rust users who need fine-grained control should use [`LayoutEngineConfig`] instead.
-///
-/// Currently both presets use the Docling Heron RT-DETR v2 model (17 document
-/// layout classes). Additional model backends may be added in future releases.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum LayoutPreset {
-    /// Accurate detection using RT-DETR v2 (Docling Heron, 17 classes, NMS-free).
-    #[default]
-    Accurate,
-}
-
-impl fmt::Display for LayoutPreset {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            LayoutPreset::Accurate => write!(f, "accurate"),
-        }
-    }
-}
-
-impl FromStr for LayoutPreset {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            // Accept "fast" as alias for backwards compatibility — both map to RT-DETR.
-            "fast" | "accurate" | "rtdetr" | "rt-detr" | "heron" => Ok(LayoutPreset::Accurate),
-            _ => Err(format!("Invalid layout preset: '{s}'. Valid presets: accurate")),
-        }
-    }
-}
 
 /// Which underlying model architecture to use.
 #[derive(Debug, Clone)]
@@ -78,7 +39,7 @@ pub enum CustomModelVariant {
 /// Full configuration for the layout engine.
 ///
 /// Provides fine-grained control over model selection, thresholds, and
-/// postprocessing. For simple use cases, prefer [`LayoutPreset`].
+/// postprocessing.
 #[derive(Debug, Clone)]
 pub struct LayoutEngineConfig {
     /// Which model backend to use.
@@ -93,20 +54,8 @@ pub struct LayoutEngineConfig {
 
 impl Default for LayoutEngineConfig {
     fn default() -> Self {
-        Self::from_preset(LayoutPreset::default())
-    }
-}
-
-impl LayoutEngineConfig {
-    /// Create a config from a preset.
-    pub fn from_preset(preset: LayoutPreset) -> Self {
-        let backend = match preset {
-            // Both presets currently use RT-DETR (Docling Heron).
-            // A dedicated fast model may be added in future releases.
-            LayoutPreset::Accurate => ModelBackend::RtDetr,
-        };
         Self {
-            backend,
+            backend: ModelBackend::RtDetr,
             confidence_threshold: None,
             apply_heuristics: true,
             cache_dir: None,
@@ -137,14 +86,6 @@ pub struct LayoutEngine {
 }
 
 impl LayoutEngine {
-    /// Create a layout engine from a preset.
-    ///
-    /// Downloads the model from HuggingFace on first use, caching it locally.
-    pub fn from_preset(preset: LayoutPreset) -> Result<Self, LayoutError> {
-        let config = LayoutEngineConfig::from_preset(preset);
-        Self::from_config(config)
-    }
-
     /// Create a layout engine from a full config.
     pub fn from_config(config: LayoutEngineConfig) -> Result<Self, LayoutError> {
         crate::ort_discovery::ensure_ort_available();

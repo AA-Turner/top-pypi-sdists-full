@@ -14,6 +14,7 @@ from sphinx.locale import _ as SL
 from sphinx.util.display import status_iterator
 from sphinxcontrib.confluencebuilder.assets import ConfluenceAssetManager
 from sphinxcontrib.confluencebuilder.compat import docutils_findall as findall
+from sphinxcontrib.confluencebuilder.confcloud78192 import find_risked_delayed_anchor_pages
 from sphinxcontrib.confluencebuilder.config import process_ask_configs
 from sphinxcontrib.confluencebuilder.config.checks import validate_configuration
 from sphinxcontrib.confluencebuilder.config.defaults import apply_defaults
@@ -31,6 +32,7 @@ from sphinxcontrib.confluencebuilder.nodes import confluence_source_link
 from sphinxcontrib.confluencebuilder.nodes import confluence_parameters_fetch as PARAMS
 from sphinxcontrib.confluencebuilder.publisher import ConfluencePublisher
 from sphinxcontrib.confluencebuilder.state import ConfluenceState
+from sphinxcontrib.confluencebuilder.std.confluence import API_CLOUD_ENDPOINT
 from sphinxcontrib.confluencebuilder.std.confluence import CONFLUENCE_MAX_WIDTH
 from sphinxcontrib.confluencebuilder.std.confluence import SUPPORTED_IMAGE_TYPES
 from sphinxcontrib.confluencebuilder.storage.index import generate_storage_format_domainindex
@@ -517,7 +519,7 @@ class ConfluenceBuilder(Builder):
 
         self._cache_info.track_page_hash(docname)
 
-    def publish_doc(self, docname, output):
+    def publish_doc(self, docname, output, *, force: bool = False):
         conf = self.config
         title = self.state.title(docname)
         is_root_doc = self.config.root_doc == docname
@@ -553,6 +555,7 @@ class ConfluenceBuilder(Builder):
             },
         )
 
+        is_new_page = False
         if forced_page_id:
             uploaded_id = self.publisher.store_page_by_id(title,
                 forced_page_id, data)
@@ -566,7 +569,8 @@ class ConfluenceBuilder(Builder):
                 if new_parent_id:
                     parent_id = new_parent_id
 
-            uploaded_id = self.publisher.store_page(title, data, parent_id)
+            uploaded_id, is_new_page = \
+                self.publisher.store_page(title, data, parent_id, force=force)
 
         # TMP: interim cast logic until we can cleanup all the ids to be int
         uploaded_id_int = int(uploaded_id) if uploaded_id else uploaded_id
@@ -654,9 +658,12 @@ class ConfluenceBuilder(Builder):
                 uploaded_id,
                 {
                     'guid': docguid,
+                    'new': is_new_page,
                     'title': title,
                 },
             )
+
+        return is_new_page
 
     def _prepare_page_data(self, docname, output):
         data = {
@@ -759,8 +766,18 @@ class ConfluenceBuilder(Builder):
             else:
                 point_url_fmt = '{0}pages/viewpage.action?pageId={2}'
 
+            # if we have an explicit api cloud endpoint, the configured
+            # server base url is not a user-target url; in such a scenario,
+            # check to see if we have detected a user base url to use; if so,
+            # use it instead
+            server_base_url = self.config.confluence_server_url
+            if server_base_url.startswith(API_CLOUD_ENDPOINT):
+                last_base_url = ConfluenceState.last_base_url()
+                if last_base_url:
+                    server_base_url = last_base_url
+
             point_url = point_url_fmt.format(
-                self.config.confluence_server_url,
+                server_base_url,
                 self.config.confluence_space_key,
                 self.root_doc_page_id)
 
@@ -821,6 +838,16 @@ class ConfluenceBuilder(Builder):
                     self.publisher.remove_attachment(attachment_id)
 
     def finish(self):
+        # try to find documents that may have a risk of CONFCLOUD-78192
+        docs_to_force_update = set()
+        anchor_risk_db = {}
+        if self.config.confluence_cloud and \
+                not self.config.confluence_adv_disable_anchor_fix:
+            for docname in self.publish_docnames:
+                doctree = self.env.get_doctree(docname)
+                find_risked_delayed_anchor_pages(
+                    docname, doctree, anchor_risk_db)
+
         # restore environment's get_doctree if it was temporarily replaced
         if self._original_get_doctree:
             self.env.get_doctree = self._original_get_doctree
@@ -873,9 +900,37 @@ class ConfluenceBuilder(Builder):
                 try:
                     with docfile.open(encoding='utf-8') as file:
                         output = file.read()
-                        self.publish_doc(docname, output)
+                        is_new_page = self.publish_doc(docname, output)
+
+                        # if we are publishing a new page, check to see if
+                        # there are any delayed anchor risks for pages that
+                        # reference this page; if so, register these pages
+                        # to be re-published
+                        if is_new_page and docname in anchor_risk_db:
+                            docs_to_force_update |= anchor_risk_db[docname]
+
                 except OSError as err:
                     self.warn(f'error reading file {docfile}: {err}')
+
+            # re-publish pages that have a risk of a broken anchor link
+            if docs_to_force_update:
+                for docname in status_iterator(
+                        sorted(docs_to_force_update),
+                        're-publish documents (cloud anchor updates)... ',
+                        length=len(docs_to_force_update),
+                        verbosity=self._verbose):
+                    if self._check_publish_skip(docname):
+                        self.verbose(docname + ' skipped due to configuration')
+                        continue
+                    docfile = self.out_dir / self.file_transform(docname)
+
+                    try:
+                        with docfile.open(encoding='utf-8') as file:
+                            output = file.read()
+                            self.publish_doc(docname, output, force=True)
+
+                    except OSError as err:
+                        self.warn(f'error reading file {docfile}: {err}')
 
             self.info('building intersphinx... ', nonl=(not self._verbose))
             build_intersphinx(self)

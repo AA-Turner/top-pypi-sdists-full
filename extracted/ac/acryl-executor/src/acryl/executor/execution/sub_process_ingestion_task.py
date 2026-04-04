@@ -415,7 +415,7 @@ class SubProcessIngestionTask(Task):
         # Create shared LogHolder for both venv setup and subprocess monitoring
         shared_logs = LogHolder(
             max_log_lines=self.config.max_log_lines,
-            echo_to_stdout_prefix=f"[{exec_id} logs] ",
+            echo_to_stdout_prefix=None,
         )
         full_log_file = open(
             f"{artifact_output_dir}/executor-logs/ingestion-logs.log", "w"

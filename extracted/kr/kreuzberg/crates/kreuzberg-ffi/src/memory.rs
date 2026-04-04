@@ -146,7 +146,7 @@ pub unsafe extern "C" fn kreuzberg_clone_string(s: *const c_char) -> *mut c_char
 ///
 /// # Memory Layout
 ///
-/// This function frees all 19 string fields in CExtractionResult:
+/// This function frees all 21 string fields in CExtractionResult:
 /// 1. content
 /// 2. mime_type
 /// 3. language
@@ -207,6 +207,9 @@ pub unsafe extern "C" fn kreuzberg_free_result(result: *mut CExtractionResult) {
         if !result_box.chunks_json.is_null() {
             unsafe { drop(CString::from_raw(result_box.chunks_json)) };
         }
+        if !result_box.children_json.is_null() {
+            unsafe { drop(CString::from_raw(result_box.children_json)) };
+        }
         if !result_box.images_json.is_null() {
             unsafe { drop(CString::from_raw(result_box.images_json)) };
         }
@@ -237,6 +240,12 @@ pub unsafe extern "C" fn kreuzberg_free_result(result: *mut CExtractionResult) {
         if !result_box.annotations_json.is_null() {
             unsafe { drop(CString::from_raw(result_box.annotations_json)) };
         }
+        if !result_box.uris_json.is_null() {
+            unsafe { drop(CString::from_raw(result_box.uris_json)) };
+        }
+        if !result_box.code_intelligence_json.is_null() {
+            unsafe { drop(CString::from_raw(result_box.code_intelligence_json)) };
+        }
     }
 }
 
@@ -257,6 +266,7 @@ mod tests {
             detected_languages_json: CString::new("[\"en\"]").unwrap().into_raw(),
             metadata_json: CString::new("{}").unwrap().into_raw(),
             chunks_json: CString::new("[]").unwrap().into_raw(),
+            children_json: ptr::null_mut(),
             images_json: CString::new("[]").unwrap().into_raw(),
             page_structure_json: CString::new("{}").unwrap().into_raw(),
             pages_json: CString::new("[]").unwrap().into_raw(),
@@ -268,6 +278,8 @@ mod tests {
             quality_score_json: CString::new("0.85").unwrap().into_raw(),
             processing_warnings_json: ptr::null_mut(),
             annotations_json: ptr::null_mut(),
+            uris_json: ptr::null_mut(),
+            code_intelligence_json: ptr::null_mut(),
             success: true,
             _padding1: [0u8; 7],
         }))
@@ -285,6 +297,7 @@ mod tests {
             detected_languages_json: ptr::null_mut(),
             metadata_json: CString::new("{}").unwrap().into_raw(),
             chunks_json: ptr::null_mut(),
+            children_json: ptr::null_mut(),
             images_json: ptr::null_mut(),
             page_structure_json: ptr::null_mut(),
             pages_json: ptr::null_mut(),
@@ -296,6 +309,8 @@ mod tests {
             quality_score_json: ptr::null_mut(),
             processing_warnings_json: ptr::null_mut(),
             annotations_json: ptr::null_mut(),
+            uris_json: ptr::null_mut(),
+            code_intelligence_json: ptr::null_mut(),
             success: true,
             _padding1: [0u8; 7],
         }))
@@ -384,6 +399,7 @@ mod tests {
             detected_languages_json: ptr::null_mut(),
             metadata_json: ptr::null_mut(),
             chunks_json: ptr::null_mut(),
+            children_json: ptr::null_mut(),
             images_json: ptr::null_mut(),
             page_structure_json: CString::new("{\"pages\": []}").unwrap().into_raw(),
             pages_json: CString::new("[{\"content\": \"page 1\"}]").unwrap().into_raw(),
@@ -395,6 +411,8 @@ mod tests {
             quality_score_json: ptr::null_mut(),
             processing_warnings_json: ptr::null_mut(),
             annotations_json: ptr::null_mut(),
+            uris_json: ptr::null_mut(),
+            code_intelligence_json: ptr::null_mut(),
             success: true,
             _padding1: [0u8; 7],
         }));
@@ -416,6 +434,7 @@ mod tests {
             detected_languages_json: ptr::null_mut(),
             metadata_json: ptr::null_mut(),
             chunks_json: ptr::null_mut(),
+            children_json: ptr::null_mut(),
             images_json: ptr::null_mut(),
             page_structure_json: ptr::null_mut(),
             pages_json: ptr::null_mut(),
@@ -429,6 +448,8 @@ mod tests {
             quality_score_json: ptr::null_mut(),
             processing_warnings_json: ptr::null_mut(),
             annotations_json: ptr::null_mut(),
+            uris_json: ptr::null_mut(),
+            code_intelligence_json: ptr::null_mut(),
             success: true,
             _padding1: [0u8; 7],
         }));

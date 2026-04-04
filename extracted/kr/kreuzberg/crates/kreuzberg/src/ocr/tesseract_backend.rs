@@ -192,7 +192,7 @@ impl OcrBackend for TesseractBackend {
     async fn process_image(&self, image_bytes: &[u8], config: &OcrConfig) -> Result<ExtractionResult> {
         let tess_config = self.config_to_tesseract(config);
         let tess_config_clone = tess_config.clone();
-        let output_format = config.output_format;
+        let output_format = config.output_format.clone();
 
         let processor = Arc::clone(&self.processor);
         let image_bytes = image_bytes.to_vec();
@@ -286,13 +286,18 @@ impl OcrBackend for TesseractBackend {
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: ocr_result.internal_document,
         })
     }
 
     async fn process_image_file(&self, path: &Path, config: &OcrConfig) -> Result<ExtractionResult> {
         let tess_config = self.config_to_tesseract(config);
         let tess_config_clone = tess_config.clone();
-        let output_format = config.output_format;
+        let output_format = config.output_format.clone();
 
         let processor = Arc::clone(&self.processor);
         let path_str = path.to_string_lossy().to_string();
@@ -386,6 +391,11 @@ impl OcrBackend for TesseractBackend {
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: ocr_result.internal_document,
         })
     }
 

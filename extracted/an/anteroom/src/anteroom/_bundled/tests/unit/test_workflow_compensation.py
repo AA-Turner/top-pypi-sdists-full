@@ -890,23 +890,18 @@ class TestStaleRecovery:
     async def test_recover_compensating_transitions_to_paused(self) -> None:
         engine = _make_engine()
 
-        with patch(f"{WS_MOD}.find_stale_runs", return_value=[{"id": "run-1", "status": "compensating"}]):
-            with patch(f"{WS_MOD}.find_running_steps", return_value=[]):
-                with patch(f"{WS_MOD}.update_workflow_run") as mock_update:
-                    with patch(f"{WS_MOD}.release_lock"):
-                        with patch(f"{WS_MOD}.create_workflow_event"):
-                            recovered = await engine.recover_interrupted_runs()
+        fake_run = {"id": "run-1", "status": "paused", "stop_reason": "stale_heartbeat_reclaimed_during_compensation"}
+        with patch(
+            f"{WS_MOD}.reclaim_stale_locks",
+            return_value=[("run-1", "target-ref", True)],
+        ):
+            with patch(f"{WS_MOD}.get_workflow_run", return_value=fake_run):
+                with patch(f"{WS_MOD}.create_workflow_event"):
+                    recovered = await engine.recover_interrupted_runs()
 
         assert len(recovered) == 1
-        # Compensating runs transition to paused with distinctive stop_reason
-        # so find_stale_runs won't re-recover them, but resume detects the
-        # compensation context via stop_reason.
-        update_calls = mock_update.call_args_list
-        assert any(
-            call.kwargs.get("status") == "paused"
-            and call.kwargs.get("stop_reason") == "process_interrupted_during_compensation"
-            for call in update_calls
-        )
+        assert recovered[0]["status"] == "paused"
+        assert "during_compensation" in recovered[0]["stop_reason"]
 
 
 # ---------------------------------------------------------------------------

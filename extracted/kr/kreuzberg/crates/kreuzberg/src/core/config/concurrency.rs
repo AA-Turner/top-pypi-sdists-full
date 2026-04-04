@@ -68,7 +68,10 @@ pub fn resolve_thread_budget(config: Option<&ConcurrencyConfig>) -> usize {
 /// ```
 pub fn init_thread_pools(budget: usize) {
     POOL_INIT.call_once(|| {
+        #[cfg(not(target_arch = "wasm32"))]
         rayon::ThreadPoolBuilder::new().num_threads(budget).build_global().ok();
+        #[cfg(target_arch = "wasm32")]
+        let _ = budget;
     });
 }
 

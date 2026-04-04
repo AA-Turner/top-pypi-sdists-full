@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import grpc
 import pytest
 from isolate.backends.local import LocalPythonEnvironment
 from isolate.connections import LocalPythonGRPC
@@ -195,3 +196,101 @@ def test_create_server_raises_on_bind_failure() -> None:
 
         with pytest.raises(RuntimeError, match="Failed to bind"):
             create_server("localhost:50051")
+
+
+class TestEstablishBridge:
+    """Tests for the polling loop in GRPCExecutionBase._establish_bridge."""
+
+    def _make_grpc_connection(self, tmp_path: Path) -> LocalPythonGRPC:
+        environment = LocalPythonEnvironment()
+        return LocalPythonGRPC(environment, tmp_path)
+
+    @patch("isolate.connections.grpc._base.get_default_options", return_value=[])
+    @patch("isolate.connections.grpc._base.grpc")
+    def test_yields_stub_when_channel_ready_immediately(
+        self, mock_grpc: Mock, _mock_opts: Mock, tmp_path: Path
+    ) -> None:
+        connection = self._make_grpc_connection(tmp_path)
+        mock_channel = Mock()
+        mock_grpc.secure_channel.return_value.__enter__ = Mock(
+            return_value=mock_channel
+        )
+        mock_grpc.secure_channel.return_value.__exit__ = Mock(return_value=False)
+
+        mock_future = Mock()
+        mock_future.result.return_value = None
+        mock_grpc.channel_ready_future.return_value = mock_future
+        mock_grpc.FutureTimeoutError = grpc.FutureTimeoutError
+
+        mock_creds = Mock()
+        mock_start_agent = Mock()
+        mock_start_agent.__enter__ = Mock(return_value=("localhost:50051", mock_creds))
+        mock_start_agent.__exit__ = Mock(return_value=False)
+        connection.start_agent = Mock(return_value=mock_start_agent)
+
+        with connection._establish_bridge(max_wait_timeout=5.0) as stub:
+            assert stub is not None
+
+        mock_future.result.assert_called_once()
+
+    @patch("isolate.connections.grpc._base.get_default_options", return_value=[])
+    @patch("isolate.connections.grpc._base.grpc")
+    def test_raises_agent_error_on_timeout(
+        self, mock_grpc: Mock, _mock_opts: Mock, tmp_path: Path
+    ) -> None:
+        connection = self._make_grpc_connection(tmp_path)
+        mock_channel = Mock()
+        mock_grpc.secure_channel.return_value.__enter__ = Mock(
+            return_value=mock_channel
+        )
+        mock_grpc.secure_channel.return_value.__exit__ = Mock(return_value=False)
+
+        mock_future = Mock()
+        mock_future.result.side_effect = grpc.FutureTimeoutError()
+        mock_grpc.channel_ready_future.return_value = mock_future
+        mock_grpc.FutureTimeoutError = grpc.FutureTimeoutError
+
+        mock_creds = Mock()
+        mock_start_agent = Mock()
+        mock_start_agent.__enter__ = Mock(return_value=("localhost:50051", mock_creds))
+        mock_start_agent.__exit__ = Mock(return_value=False)
+        connection.start_agent = Mock(return_value=mock_start_agent)
+        connection.is_alive = Mock(return_value=True)
+
+        from isolate.connections.grpc._base import AgentError
+
+        with pytest.raises(AgentError, match="Couldn't connect to the gRPC server"):
+            with connection._establish_bridge(max_wait_timeout=0.0):
+                pass
+
+    @patch("isolate.connections.grpc._base.get_default_options", return_value=[])
+    @patch("isolate.connections.grpc._base.grpc")
+    def test_raises_agent_error_when_agent_dies(
+        self, mock_grpc: Mock, _mock_opts: Mock, tmp_path: Path
+    ) -> None:
+        connection = self._make_grpc_connection(tmp_path)
+        mock_channel = Mock()
+        mock_grpc.secure_channel.return_value.__enter__ = Mock(
+            return_value=mock_channel
+        )
+        mock_grpc.secure_channel.return_value.__exit__ = Mock(return_value=False)
+
+        mock_future = Mock()
+        mock_future.result.side_effect = grpc.FutureTimeoutError()
+        mock_grpc.channel_ready_future.return_value = mock_future
+        mock_grpc.FutureTimeoutError = grpc.FutureTimeoutError
+
+        mock_creds = Mock()
+        mock_start_agent = Mock()
+        mock_start_agent.__enter__ = Mock(return_value=("localhost:50051", mock_creds))
+        mock_start_agent.__exit__ = Mock(return_value=False)
+        connection.start_agent = Mock(return_value=mock_start_agent)
+        connection.is_alive = Mock(return_value=False)
+
+        from isolate.connections.grpc._base import AgentError
+
+        with pytest.raises(
+            AgentError, match="process crashed before the gRPC server was ready"
+        ):
+            with connection._establish_bridge(max_wait_timeout=20.0):
+                pass

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-reportportal
-Version: 5.6.1
+Version: 5.6.2
 Summary: Agent for Reporting results of tests to the Report Portal
 Home-page: https://github.com/reportportal/agent-python-pytest
 Author: Report Portal Team
@@ -16,10 +16,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: dill>=0.3.6
-Requires-Dist: pytest>=4.6.10
-Requires-Dist: reportportal-client~=5.7.0
-Requires-Dist: aenum>=3.1.0
+Requires-Dist: reportportal-client==5.7.1
+Requires-Dist: aenum==3.1.17
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

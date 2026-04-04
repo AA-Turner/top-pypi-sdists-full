@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import os
+import re
 import shlex
 import time
 import uuid
@@ -198,6 +200,66 @@ def resolve_template(template: str, variables: dict[str, Any], *, shell_quote: b
         str_val = str(val)
         resolved[key] = shlex.quote(str_val) if shell_quote else str_val
     return template.format(**resolved)
+
+
+_DOTTED_REF_RE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\.([^}]+)\}")
+
+
+_RESULT_ALIASES: dict[str, str] = {
+    "artifacts": "result_artifacts",
+    "summary": "result_summary",
+    "status": "result_status",
+}
+
+
+def _resolve_dotted_refs(
+    template: str,
+    step_results: dict[str, dict[str, Any]],
+    process_env: dict[str, str] | None = None,
+) -> str:
+    """Resolve ``{step_id.artifacts.key}`` and ``{env.VAR}`` references.
+
+    *step_results* maps step-id to its result dict (as returned by
+    ``_rebuild_step_results``).  For ``{env.VAR}`` references the value
+    is looked up in *process_env* (defaults to ``os.environ``).
+
+    Workflow YAMLs use short field names (``artifacts``, ``summary``,
+    ``status``) while the internal result dicts use ``result_``-prefixed
+    keys.  The first path segment after the step-id is translated via
+    ``_RESULT_ALIASES`` so both forms resolve correctly.
+
+    Unresolvable references are left as-is so downstream callers can
+    still attempt normal ``str.format()`` expansion.
+    """
+    if process_env is None:
+        process_env = dict(os.environ)
+
+    def _replace(match: re.Match[str]) -> str:
+        root = match.group(1)
+        rest = match.group(2)
+
+        # {env.VAR} — process environment lookup
+        if root == "env":
+            return process_env.get(rest, match.group(0))
+
+        # {step_id.field.subfield...} — step result dict traversal
+        data: Any = step_results.get(root)
+        if data is None:
+            return match.group(0)
+        parts = rest.split(".")
+        # Translate YAML short names to internal result_ keys
+        if parts and parts[0] in _RESULT_ALIASES:
+            parts[0] = _RESULT_ALIASES[parts[0]]
+        for part in parts:
+            if isinstance(data, dict):
+                data = data.get(part)
+            else:
+                return match.group(0)
+            if data is None:
+                return match.group(0)
+        return str(data)
+
+    return _DOTTED_REF_RE.sub(_replace, template)
 
 
 def _xml_escape(text: str) -> str:
@@ -1453,10 +1515,18 @@ class WorkflowEngine:
         if definition and definition.notifications:
             hooks = definition.notifications.get("hooks", [])
             if hooks:
-                from .workflow_hooks import deliver_hooks
+                from . import workflow_hooks
 
                 try:
-                    tasks = await deliver_hooks(hooks, event_data["data"])
+                    from . import workflow_storage as ws
+
+                    run = ws.get_workflow_run(self._db, run_id)
+                    attempt = 1
+                    if run is not None:
+                        attempt = int(run.get("attempt_count") or 0) + 1
+                    hook_payload = dict(event_data["data"])
+                    hook_payload["attempt"] = attempt
+                    tasks = await workflow_hooks.deliver_hooks(hooks, hook_payload, attempt=attempt)
                     self._pending_hook_tasks.extend(tasks)
                 except Exception:
                     logger.warning("Failed to deliver hooks", exc_info=True)
@@ -1716,15 +1786,23 @@ class WorkflowEngine:
         )
         resolved_params = run.get("params") or {}
 
-        # Acquire concurrency lock
+        # Acquire concurrency lock (reclaim stale if contended, then retry once)
         if not ws.acquire_lock(
             self._db,
             target_kind=target_kind,
             target_ref=target_ref,
             run_id=run["id"],
         ):
-            ws.update_workflow_run(self._db, run["id"], status="failed", stop_reason="target_locked")
-            raise RuntimeError(f"Target {target_kind}:{target_ref} is already locked by another run")
+            threshold = getattr(self._config, "lock_reclaim_threshold", 120)
+            ws.reclaim_stale_locks(self._db, threshold, target_kind=target_kind, target_ref=target_ref)
+            if not ws.acquire_lock(
+                self._db,
+                target_kind=target_kind,
+                target_ref=target_ref,
+                run_id=run["id"],
+            ):
+                ws.update_workflow_run(self._db, run["id"], status="failed", stop_reason="target_locked")
+                raise RuntimeError(f"Target {target_kind}:{target_ref} is already locked by another run")
 
         # Mark running
         run = ws.update_workflow_run(
@@ -1945,8 +2023,16 @@ class WorkflowEngine:
             target_ref=run["target_ref"],
             run_id=run["id"],
         ):
-            ws.update_workflow_run(self._db, run["id"], status="failed", stop_reason="target_locked")
-            raise RuntimeError(f"Target {run['target_kind']}:{run['target_ref']} is already locked by another run")
+            threshold = getattr(self._config, "lock_reclaim_threshold", 120)
+            ws.reclaim_stale_locks(self._db, threshold, target_kind=run["target_kind"], target_ref=run["target_ref"])
+            if not ws.acquire_lock(
+                self._db,
+                target_kind=run["target_kind"],
+                target_ref=run["target_ref"],
+                run_id=run["id"],
+            ):
+                ws.update_workflow_run(self._db, run["id"], status="failed", stop_reason="target_locked")
+                raise RuntimeError(f"Target {run['target_kind']}:{run['target_ref']} is already locked by another run")
 
         updated = ws.update_workflow_run(
             self._db,
@@ -2020,52 +2106,29 @@ class WorkflowEngine:
             pass
 
     async def recover_interrupted_runs(self) -> list[dict[str, Any]]:
-        """Find stale running/compensating runs, repair step state, release locks.
+        """Reclaim stale locks and mark affected runs for resume.
 
         Called on-demand by list/resume CLI commands, not on generic startup.
-        Runs stuck in 'compensating' stay in 'compensating' (not paused) so
-        resume knows to continue compensation (#978).
+        Delegates to ``reclaim_stale_locks`` which handles step repair, run
+        status transitions, and lock release (#1257).
         """
         from . import workflow_storage as ws
 
-        stale = ws.find_stale_runs(self._db, self._config.stale_threshold)
+        threshold = getattr(self._config, "lock_reclaim_threshold", self._config.stale_threshold)
+        reclaimed = ws.reclaim_stale_locks(self._db, threshold)
         recovered: list[dict[str, Any]] = []
-        for run in stale:
-            running_steps = ws.find_running_steps(self._db, run["id"])
-            for step in running_steps:
-                ws.update_workflow_step(
-                    self._db,
-                    step["id"],
-                    status="interrupted",
-                    completed_at=datetime.now(timezone.utc).isoformat(),
-                )
-
-            if run["status"] == "compensating":
-                # Keep in compensating so resume continues compensation.
-                # Transition to paused to prevent re-recovery on next stale pass (#978).
-                ws.update_workflow_run(
-                    self._db,
-                    run["id"],
-                    status="paused",
-                    stop_reason="process_interrupted_during_compensation",
-                )
-            else:
-                ws.update_workflow_run(
-                    self._db,
-                    run["id"],
-                    status="paused",
-                    stop_reason="process_interrupted",
-                )
-            ws.release_lock(self._db, run_id=run["id"])
-            await self._emit_event(
-                run_id=run["id"],
-                event_type="run_paused",
-                payload={
-                    "reason": "process_interrupted",
-                    "interrupted_steps": [s["step_id"] for s in running_steps],
-                },
+        for run_id, target_ref, was_compensating in reclaimed:
+            reason = (
+                "stale_heartbeat_reclaimed_during_compensation" if was_compensating else "stale_heartbeat_reclaimed"
             )
-            recovered.append(run)
+            await self._emit_event(
+                run_id=run_id,
+                event_type="run_paused" if was_compensating else "run_failed",
+                payload={"reason": reason, "target_ref": target_ref},
+            )
+            run = ws.get_workflow_run(self._db, run_id)
+            if run:
+                recovered.append(run)
         return recovered
 
     async def repair_run(
@@ -2315,7 +2378,9 @@ class WorkflowEngine:
         # Recovered compensating runs are transitioned to paused with a distinctive
         # stop_reason so resume can route back to the compensation path.
         _resume_compensation = run["status"] == "compensating" or (
-            run["status"] == "paused" and run.get("stop_reason") == "process_interrupted_during_compensation"
+            run["status"] == "paused"
+            and run.get("stop_reason")
+            in ("process_interrupted_during_compensation", "stale_heartbeat_reclaimed_during_compensation")
         )
         if _resume_compensation:
             ws.update_workflow_run(self._db, run_id, status="compensating", heartbeat_at=_now())
@@ -2324,6 +2389,7 @@ class WorkflowEngine:
                 run_id=run_id,
                 event_type="run_resumed",
                 payload={"resume_phase": "compensation", "prior_status": prior_status},
+                definition=definition,
             )
             try:
                 inputs_for_comp = {**(run.get("params") or {}), **(run.get("inputs") or {})}
@@ -2375,7 +2441,9 @@ class WorkflowEngine:
             run_id=run_id,
             event_type="run_resumed",
             payload={"skip_completed": list(completed), "prior_status": prior_status},
+            definition=definition,
         )
+        run = ws.get_workflow_run(self._db, run_id) or run
 
         try:
             inputs = {**(run.get("params") or {}), **(run.get("inputs") or {})}
@@ -3585,6 +3653,22 @@ class WorkflowEngine:
                     except Exception:
                         logger.warning("Progress callback error for transcript event", exc_info=True)
 
+        # Resolve dotted refs ({step.artifacts.x}, {env.VAR}) in working_dir
+        # and env values.  Security: only applied to working_dir/env, NOT to
+        # prompt or command fields which go through resolve_template. (#1228)
+        def _resolve_field(val: str | None) -> str | None:
+            if not val or "{" not in val:
+                return val
+            val = _resolve_dotted_refs(val, step_results)
+            if "{" in val:
+                try:
+                    val = resolve_template(val, inputs)
+                except (KeyError, ValueError):
+                    pass
+            return val
+
+        resolved_working_dir = _resolve_field(step_def.working_dir)
+
         if self._runner_registry.is_agent_runner(step_def.runner):
             # Skill prompt expansion (#957)
             if step_def.skill_name:
@@ -3670,7 +3754,7 @@ class WorkflowEngine:
             )
         else:
             # Merge credential env into step env for opaque runners (#970)
-            step_env = dict(step_def.env or {})
+            step_env = {k: (_resolve_field(v) or v) for k, v in (step_def.env or {}).items()}
             if resolved_creds:
                 step_env.update(resolved_creds)
 
@@ -3682,7 +3766,7 @@ class WorkflowEngine:
                     mode="shell",
                     command=command,
                     env=step_env or None,
-                    working_dir=step_def.working_dir,
+                    working_dir=resolved_working_dir,
                     timeout=timeout,
                     transcript_cb=transcript_cb,
                     transcript_max_stdout_chars=transcript_cfg.max_stdout_chars if transcript_cfg else 4000,
@@ -3698,7 +3782,7 @@ class WorkflowEngine:
                     command=step_def.command,
                     argv=argv,
                     env=step_env or None,
-                    working_dir=step_def.working_dir,
+                    working_dir=resolved_working_dir,
                     timeout=timeout,
                     transcript_cb=transcript_cb,
                     transcript_max_stdout_chars=transcript_cfg.max_stdout_chars if transcript_cfg else 4000,

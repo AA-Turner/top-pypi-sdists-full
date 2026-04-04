@@ -677,7 +677,7 @@ def map_read_parquet(
     paths: list[str],
     options: ReaderWriterConfig,
 ) -> DataFrameContainer:
-    """Read a Parquet file into a Snowpark DataFrame."""
+    """Read Parquet file into a Snowpark DataFrame."""
 
     if rel.read.is_streaming is True:
         exception = SnowparkConnectNotImplementedError(

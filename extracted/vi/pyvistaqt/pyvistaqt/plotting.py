@@ -50,9 +50,6 @@ import platform
 import time
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Callable
-from typing import Optional
-from typing import Union
 import warnings
 
 import numpy as np  # type: ignore  # noqa: PGH003
@@ -100,6 +97,7 @@ from .utils import _setup_off_screen
 from .window import MainWindow
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from collections.abc import Generator
 
 LOG = logging.getLogger("pyvistaqt")
@@ -202,13 +200,13 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
     def __init__(  # noqa: C901, PLR0912, PLR0913
         self,
         parent: MainWindow = None,
-        title: Optional[str] = None,
-        off_screen: Optional[bool] = None,
-        multi_samples: Optional[int] = None,
+        title: str | None = None,
+        off_screen: bool | None = None,  # noqa: FBT001
+        multi_samples: int | None = None,
         line_smoothing: bool = False,  # noqa: FBT001, FBT002
         point_smoothing: bool = False,  # noqa: FBT001, FBT002
         polygon_smoothing: bool = False,  # noqa: FBT001, FBT002
-        auto_update: Union[float, bool] = 5.0,
+        auto_update: float | bool = 5.0,  # noqa: FBT001
         **kwargs: Any,  # noqa: ANN401
     ) -> None:
         # pylint: disable=too-many-branches
@@ -411,7 +409,9 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
             return
         if hasattr(self, "render_timer"):
             self.render_timer.stop()
+        LOG.debug("QtInteractor.close BasePlotter.close")
         BasePlotter.close(self)
+        LOG.debug("QtInteractor.close QtRenderWindowInteractor.close")
         QVTKRenderWindowInteractor.close(self)
         # Qt LeaveEvent requires _Iren so we use _FakeIren instead of None
         # to resolve the ref to vtkGenericRenderWindowInteractor
@@ -421,6 +421,7 @@ class QtInteractor(QVTKRenderWindowInteractor, BasePlotter):
         for key in ("_RenderWindow", "renderer"):
             with contextlib.suppress(AttributeError):
                 setattr(self, key, None)
+        LOG.debug("QtInteractor.close done")
 
 
 class BackgroundPlotter(QtInteractor):
@@ -511,15 +512,15 @@ class BackgroundPlotter(QtInteractor):
     def __init__(  # noqa: PLR0913, PLR0915
         self,
         show: bool = True,  # noqa: FBT001, FBT002
-        app: Optional[QApplication] = None,
-        window_size: Optional[tuple[int, int]] = None,
-        off_screen: Optional[bool] = None,
+        app: QApplication | None = None,
+        window_size: tuple[int, int] | None = None,
+        off_screen: bool | None = None,  # noqa: FBT001
         allow_quit_keypress: bool = True,  # noqa: FBT001, FBT002
         toolbar: bool = True,  # noqa: FBT001, FBT002
         menu_bar: bool = True,  # noqa: FBT001, FBT002
         editor: bool = True,  # noqa: FBT001, FBT002
-        update_app_icon: Optional[bool] = None,
-        app_window_class: Optional[type[MainWindow]] = None,
+        update_app_icon: bool | None = None,  # noqa: FBT001
+        app_window_class: type[MainWindow] | None = None,
         **kwargs: Any,  # noqa: ANN401
     ) -> None:
         # pylint: disable=too-many-branches
@@ -540,17 +541,19 @@ class BackgroundPlotter(QtInteractor):
         _check_type(update_app_icon, "update_app_icon", [bool, type(None)])
 
         # toolbar
+        LOG.debug("BackgroundPlotter init toolbar")
         self._view_action: QAction = None
         self.default_camera_tool_bar: QToolBar = None
-        self.saved_camera_positions: Optional[list] = None
+        self.saved_camera_positions: list | None = None
         self.saved_cameras_tool_bar: QToolBar = None
         # menu bar
+        LOG.debug("BackgroundPlotter init menubar")
         self.main_menu: QMenuBar = None
         self._edl_action: QAction = None
         self._menu_close_action: QAction = None
         self._parallel_projection_action: QAction = None
         # editor
-        self.editor: Optional[Editor] = None
+        self.editor: Editor | None = None
         self._editor_action: QAction = None
 
         self.active = True
@@ -563,15 +566,20 @@ class BackgroundPlotter(QtInteractor):
         # Remove notebook argument in case user passed it
         kwargs.pop("notebook", None)
 
+        LOG.debug("BackgroundPlotter init setup ipython")
         self.ipython = _setup_ipython()
+        LOG.debug("BackgroundPlotter init setup app")
         self.app = _setup_application(app)
+        LOG.debug("BackgroundPlotter init setup offscreen")
         self.off_screen = _setup_off_screen(off_screen)
         if app_window_class is None:
             app_window_class = MainWindow
+        LOG.debug("BackgroundPlotter init app window class %s", app_window_class)
         self.app_window = app_window_class(title=kwargs.get("title", global_theme.title))
         self.frame = QFrame(parent=self.app_window)
         self.frame.setFrameStyle(QFrame.NoFrame)
         vlayout = QVBoxLayout()
+        LOG.debug("BackgroundPlotter init super")
         super().__init__(parent=self.frame, off_screen=off_screen, **kwargs)
         assert not self._closed  # noqa: S101
         vlayout.addWidget(self)
@@ -616,8 +624,7 @@ class BackgroundPlotter(QtInteractor):
         """
         super().reset_key_events()
         if self.allow_quit_keypress:
-            # pylint: disable=unnecessary-lambda
-            self.add_key_event("q", lambda: self.close())
+            self.add_key_event("q", self.close)
 
     def scale_axes_dialog(self, show: bool = True) -> ScaleAxesDialog:  # noqa: FBT001, FBT002
         """Open scale axes dialog."""
@@ -638,10 +645,10 @@ class BackgroundPlotter(QtInteractor):
             #     been deleted
             #
             # So let's be safe and try/except this in case of a problem.
-            try:  # noqa: SIM105
+            LOG.debug("BackgroundPlotter.close app_window.close()")
+            with contextlib.suppress(Exception):  # pragma: no cover
                 self.app_window.close()
-            except Exception:  # pragma: no cover # pylint: disable=broad-except  # noqa: S110, BLE001
-                pass
+            LOG.debug("BackgroundPlotter.close done")
 
     def _close(self) -> None:
         super().close()
@@ -669,7 +676,7 @@ class BackgroundPlotter(QtInteractor):
         # Update trackers
         self._last_window_size = self.window_size
 
-    def set_icon(self, img: Union[np.ndarray, str]) -> None:
+    def set_icon(self, img: np.ndarray | str) -> None:
         """
         Set the icon image.
 
@@ -761,7 +768,7 @@ class BackgroundPlotter(QtInteractor):
         """Delete the qt plotter."""
         self.close()
 
-    def add_callback(self, func: Callable, interval: int = 1000, count: Optional[int] = None) -> None:
+    def add_callback(self, func: Callable, interval: int = 1000, count: int | None = None) -> None:
         """
         Add a function that can update the scene in the background.
 
@@ -840,8 +847,7 @@ class BackgroundPlotter(QtInteractor):
         }
         for key, method in cvec_setters.items():
             self._view_action = self._add_action(self.default_camera_tool_bar, key, method)
-        # pylint: disable=unnecessary-lambda
-        self._add_action(self.default_camera_tool_bar, "Reset", lambda: self.reset_camera())
+        self._add_action(self.default_camera_tool_bar, "Reset", self.reset_camera)
 
         # Saved camera locations toolbar
         self.saved_camera_positions = []
@@ -944,13 +950,13 @@ class MultiPlotter:
 
     def __init__(  # noqa: PLR0913
         self,
-        app: Optional[QApplication] = None,
+        app: QApplication | None = None,
         nrows: int = 1,
         ncols: int = 1,
         show: bool = True,  # noqa: FBT001, FBT002
-        window_size: Optional[tuple[int, int]] = None,
-        title: Optional[str] = None,
-        off_screen: Optional[bool] = None,
+        window_size: tuple[int, int] | None = None,
+        title: str | None = None,
+        off_screen: bool | None = None,  # noqa: FBT001
         **kwargs: Any,  # noqa: ANN401
     ) -> None:
         """Initialize the multi plotter."""
@@ -1009,7 +1015,7 @@ class MultiPlotter:
         row, col = idx
         self._plotters[row * self._ncols + col] = plotter
 
-    def __getitem__(self, idx: tuple[int, int]) -> Optional[BackgroundPlotter]:
+    def __getitem__(self, idx: tuple[int, int]) -> BackgroundPlotter | None:
         """
         Get a valid plotter in the grid.
 

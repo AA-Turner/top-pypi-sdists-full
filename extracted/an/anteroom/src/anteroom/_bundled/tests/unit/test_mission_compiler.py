@@ -11,6 +11,8 @@ import pytest
 
 from anteroom.db import init_db
 from anteroom.services.mission_compiler import (
+    _PLAN_SYSTEM_PROMPT,
+    ITEM_TYPE_DEFAULTS,
     AdapterDefaults,
     CompiledItem,
     CompiledPatch,
@@ -107,6 +109,33 @@ def test_compile_from_spec_with_adapter_defaults(mock_get: Any) -> None:
         assert item.adapter_config["model"] == "gpt-4"
         assert item.adapter_config["spec_fqn"] == "test/spec/myspec"
         assert "task_id" in item.adapter_config
+
+
+@patch("anteroom.services.mission_compiler.artifact_storage.get_artifact_by_fqn")
+def test_compile_from_spec_carries_item_type(mock_get: Any) -> None:
+    spec_yaml = """\
+requirements: |
+  Build it.
+design: |
+  Modular.
+tasks:
+  - id: t1
+    summary: Write code
+  - id: t2
+    summary: Write docs
+    item_type: docs
+    depends_on: [t1]
+  - id: t3
+    summary: Review
+    item_type: review
+    depends_on: [t2]
+"""
+    mock_get.return_value = _make_artifact(content=spec_yaml)
+    plan = compile_from_spec(None, "test/spec/myspec")  # type: ignore[arg-type]
+
+    assert plan.items[0].item_type == "task"
+    assert plan.items[1].item_type == "docs"
+    assert plan.items[2].item_type == "review"
 
 
 @patch("anteroom.services.mission_compiler.artifact_storage.get_artifact_by_fqn")
@@ -677,3 +706,131 @@ def test_apply_plan_hold_on_create(db: Any) -> None:
     items = list_items_by_session(db, session["id"])
     review = [i for i in items if i["summary"] == "Review: Work"][0]
     assert review["hold_requested"] == 1  # SQLite stores bool as int
+
+
+# ---------------------------------------------------------------------------
+# ITEM_TYPE_DEFAULTS — type-aware adapter routing
+# ---------------------------------------------------------------------------
+
+
+def test_item_type_defaults_task_uses_caller_adapter() -> None:
+    plan = CompiledPlan(
+        items=[CompiledItem(summary="Build feature", temp_id="t1", item_type="task", adapter_type="noop")]
+    )
+    defaults = AdapterDefaults(adapter_type="agent", adapter_config={"key": "val"})
+    result = apply_adapter_defaults(plan, defaults)
+    assert result.items[0].adapter_type == "agent"
+    assert result.items[0].adapter_config["key"] == "val"
+
+
+def test_item_type_defaults_docs_stays_noop() -> None:
+    plan = CompiledPlan(items=[CompiledItem(summary="Write docs", temp_id="t1", item_type="docs", adapter_type="noop")])
+    defaults = AdapterDefaults(adapter_type="workflow", adapter_config={"base": "cfg"})
+    result = apply_adapter_defaults(plan, defaults)
+    assert result.items[0].adapter_type == "noop"
+
+
+def test_item_type_defaults_research_stays_noop() -> None:
+    plan = CompiledPlan(
+        items=[CompiledItem(summary="Research options", temp_id="t1", item_type="research", adapter_type="noop")]
+    )
+    defaults = AdapterDefaults(adapter_type="workflow", adapter_config={"key": "val"})
+    result = apply_adapter_defaults(plan, defaults)
+    assert result.items[0].adapter_type == "noop"
+
+
+def test_item_type_defaults_manual_stays_noop() -> None:
+    plan = CompiledPlan(
+        items=[CompiledItem(summary="Manual step", temp_id="t1", item_type="manual", adapter_type="noop")]
+    )
+    defaults = AdapterDefaults(adapter_type="workflow")
+    result = apply_adapter_defaults(plan, defaults)
+    assert result.items[0].adapter_type == "noop"
+
+
+def test_item_type_defaults_verification_stays_noop() -> None:
+    plan = CompiledPlan(
+        items=[CompiledItem(summary="Verify deploy", temp_id="t1", item_type="verification", adapter_type="noop")]
+    )
+    defaults = AdapterDefaults(adapter_type="workflow")
+    result = apply_adapter_defaults(plan, defaults)
+    assert result.items[0].adapter_type == "noop"
+
+
+def test_item_type_defaults_review_stays_noop() -> None:
+    plan = CompiledPlan(
+        items=[CompiledItem(summary="Code review", temp_id="t1", item_type="review", adapter_type="noop")]
+    )
+    defaults = AdapterDefaults(adapter_type="workflow", adapter_config={"base": "cfg"})
+    result = apply_adapter_defaults(plan, defaults)
+    assert result.items[0].adapter_type == "noop"
+
+
+def test_item_type_defaults_explicit_adapter_preserved() -> None:
+    plan = CompiledPlan(
+        items=[
+            CompiledItem(summary="Custom", temp_id="t1", item_type="research", adapter_type="agent"),
+        ]
+    )
+    defaults = AdapterDefaults(adapter_type="workflow")
+    result = apply_adapter_defaults(plan, defaults)
+    assert result.items[0].adapter_type == "agent"
+
+
+def test_item_type_defaults_unknown_type_falls_back_to_noop() -> None:
+    plan = CompiledPlan(items=[CompiledItem(summary="Mystery", temp_id="t1", item_type="alien", adapter_type="noop")])
+    defaults = AdapterDefaults(adapter_type="workflow")
+    result = apply_adapter_defaults(plan, defaults)
+    assert result.items[0].adapter_type == "noop"
+
+
+def test_item_type_defaults_mixed_types() -> None:
+    plan = CompiledPlan(
+        items=[
+            CompiledItem(summary="Code it", temp_id="t1", item_type="task", adapter_type="noop"),
+            CompiledItem(summary="Research it", temp_id="t2", item_type="research", adapter_type="noop"),
+            CompiledItem(summary="Review it", temp_id="t3", item_type="review", adapter_type="noop"),
+            CompiledItem(summary="Custom", temp_id="t4", item_type="task", adapter_type="agent"),
+        ]
+    )
+    defaults = AdapterDefaults(adapter_type="workflow")
+    result = apply_adapter_defaults(plan, defaults)
+    assert result.items[0].adapter_type == "workflow"  # task -> caller default (workflow)
+    assert result.items[1].adapter_type == "noop"  # research -> noop (type override)
+    assert result.items[2].adapter_type == "noop"  # review -> noop (non-coding type)
+    assert result.items[3].adapter_type == "agent"  # explicit -> preserved
+
+
+@pytest.mark.asyncio
+async def test_compile_from_prompt_parses_item_type() -> None:
+    ai = AsyncMock()
+    ai.complete.return_value = json.dumps(
+        {
+            "title": "Mixed Plan",
+            "items": [
+                {"summary": "Build it", "temp_id": "t1", "item_type": "task"},
+                {"summary": "Write docs", "temp_id": "t2", "item_type": "docs"},
+                {"summary": "Check it", "temp_id": "t3"},
+            ],
+        }
+    )
+    plan = await compile_from_prompt("do stuff", ai)
+    assert plan.items[0].item_type == "task"
+    assert plan.items[1].item_type == "docs"
+    assert plan.items[2].item_type == "task"  # default
+
+
+def test_plan_system_prompt_documents_item_type() -> None:
+    for allowed in ("task", "docs", "research", "review", "manual", "verification"):
+        assert allowed in _PLAN_SYSTEM_PROMPT, f"{allowed!r} missing from _PLAN_SYSTEM_PROMPT"
+    assert "milestone" not in _PLAN_SYSTEM_PROMPT
+
+
+def test_item_type_defaults_has_exactly_six_types() -> None:
+    assert set(ITEM_TYPE_DEFAULTS.keys()) == {"task", "docs", "research", "review", "manual", "verification"}
+
+
+def test_item_type_defaults_non_coding_all_noop() -> None:
+    for item_type in ("docs", "research", "review", "manual", "verification"):
+        adapter, _ = ITEM_TYPE_DEFAULTS[item_type]
+        assert adapter == "noop", f"{item_type!r} should default to noop, got {adapter!r}"

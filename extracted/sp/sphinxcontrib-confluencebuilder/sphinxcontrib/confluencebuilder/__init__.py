@@ -76,7 +76,7 @@ try:
 except ImportError:
     has_imgmath = False
 
-__version__ = '3.0.0'
+__version__ = '3.1.0'
 
 
 def setup(app):
@@ -107,6 +107,8 @@ def setup(app):
     cm.add_conf('confluence_api_token')
     # Whether the API token is a scoped token
     cm.add_conf_bool('confluence_api_token_scoped')
+    # Force override for detected Cloud state.
+    cm.add_conf_bool('confluence_cloud')
     # PAT to authenticate to Confluence API with.
     cm.add_conf('confluence_publish_token')
     # Password to login to Confluence API with.
@@ -173,8 +175,6 @@ def setup(app):
     cm.add_conf_bool('confluence_cleanup_from_root')
     # Enablement of purging legacy child pages.
     cm.add_conf_bool('confluence_cleanup_purge')
-    # Force override for detected Cloud state.
-    cm.add_conf_bool('confluence_cloud')
     # Explicitly prevent page notifications on update.
     cm.add_conf_bool('confluence_disable_notifications')
     # Whether to utilize the full width of a Confluence page.
@@ -211,8 +211,6 @@ def setup(app):
     cm.add_conf('confluence_client_cert')
     # Password for client certificate to use for publishing
     cm.add_conf('confluence_client_cert_pass')
-    # Force Cloud v2 page migration/conversion.
-    cm.add_conf_bool('confluence_cloud_v2_migration')
     # Explicitly prevent auto-generation of titles for titleless documents.
     cm.add_conf_bool('confluence_disable_autogen_title')
     # Disable SSL validation with Confluence server.
@@ -256,7 +254,7 @@ def setup(app):
     # Publish only new/updates content within the root document's hierarchy.
     cm.add_conf_bool('confluence_publish_trample')
     # Whether to skip page updates for pages that have inlined comments
-    cm.add_conf_bool('confluence_publish_skip_commented_pages')
+    cm.add_conf('confluence_publish_skip_commented_pages')
     # Manipulate a requests instance.
     cm.add_conf('confluence_request_session_override')
     # Authentication passthrough for Confluence REST interaction.
@@ -301,8 +299,12 @@ def setup(app):
     cm.add_conf_bool('confluence_mermaid_html_macro', 'confluence')
 
     # (configuration - undocumented)
+    # Allow overriding which admonition type is used
+    cm.add_conf('confluence_adv_admonition_overrides', 'confluence')
     # Enablement for bulk archiving of packages (for premium environments).
     cm.add_conf_bool('confluence_adv_bulk_archiving')
+    # Avoid re-publishing pages for anchor corrections (CONFCLOUD-78192)
+    cm.add_conf_bool('confluence_adv_disable_anchor_fix')
     # Disable any delays when publishing property updates on Cloud
     cm.add_conf_bool('confluence_adv_disable_cloud_prop_delay')
     # Disable any attempts to initialize this extension's custom entities.
@@ -317,10 +319,10 @@ def setup(app):
     cm.add_conf('confluence_adv_node_handler')
     # Permit any string value to be provided as the editor.
     cm.add_conf('confluence_adv_permit_editor', 'confluence')
-    # Flag to tweak code-block CDATA EOFs to prevent publishing issues.
-    cm.add_conf_bool('confluence_adv_quirk_cdata')
     # List of optional features/macros/etc. restricted for use.
     cm.add_conf('confluence_adv_restricted', 'confluence')
+    # Enable a Windows imgmath hack to address possible dvisvgm invoke issues
+    cm.add_conf_bool('confluence_adv_win32_imgmath_hack')
 
     # (configuration - deprecated)
     # replaced by confluence_cloud

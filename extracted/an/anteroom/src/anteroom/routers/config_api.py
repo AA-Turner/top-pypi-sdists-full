@@ -123,7 +123,7 @@ def _persist_config(config: Any) -> None:
         return
 
     try:
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8-sig") as f:
             raw: dict[str, Any] = yaml.safe_load(f) or {}
 
         if "ai" not in raw:
@@ -644,7 +644,7 @@ def _persist_database(name: str, path: str) -> None:
     try:
         raw: dict[str, Any] = {}
         if config_path.exists():
-            with open(config_path) as f:
+            with open(config_path, encoding="utf-8-sig") as f:
                 raw = yaml.safe_load(f) or {}
 
         if "shared_databases" not in raw:
@@ -697,7 +697,7 @@ def _remove_database_from_config(name: str) -> None:
     try:
         if not config_path.exists():
             return
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8-sig") as f:
             raw = yaml.safe_load(f) or {}
         dbs = raw.get("shared_databases", [])
         raw["shared_databases"] = [d for d in dbs if d.get("name") != name]

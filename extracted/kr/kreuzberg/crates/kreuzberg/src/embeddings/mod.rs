@@ -61,7 +61,7 @@
 
 pub mod engine;
 
-use std::collections::HashMap;
+use ahash::AHashMap;
 use std::sync::{Arc, RwLock};
 
 use once_cell::sync::Lazy;
@@ -70,7 +70,7 @@ use engine::EmbeddingEngine;
 
 type CachedEngine = Arc<EmbeddingEngine>;
 
-static ENGINE_CACHE: Lazy<RwLock<HashMap<String, CachedEngine>>> = Lazy::new(|| RwLock::new(HashMap::new()));
+static ENGINE_CACHE: Lazy<RwLock<AHashMap<String, CachedEngine>>> = Lazy::new(|| RwLock::new(AHashMap::new()));
 
 /// Preset configurations for common RAG use cases.
 ///
@@ -309,7 +309,7 @@ fn download_model_files(
     std::path::PathBuf,
     std::path::PathBuf,
 )> {
-    let api = hf_hub::api::sync::ApiBuilder::new()
+    let api = hf_hub::api::sync::ApiBuilder::from_env()
         .with_cache_dir(cache_directory.to_path_buf())
         .with_progress(true)
         .build()
@@ -513,7 +513,7 @@ pub fn download_model(
 
     tracing::info!(repo = %repo_name, "Downloading embedding model files (no ONNX init)");
 
-    let api = hf_hub::api::sync::ApiBuilder::new()
+    let api = hf_hub::api::sync::ApiBuilder::from_env()
         .with_cache_dir(cache_directory)
         .with_progress(true)
         .build()
@@ -577,14 +577,27 @@ pub fn generate_embeddings_for_chunks(
     if config.normalize {
         const PARALLEL_THRESHOLD: usize = 64;
         if embeddings_result.len() >= PARALLEL_THRESHOLD {
-            use rayon::prelude::*;
-            embeddings_result.par_iter_mut().for_each(|embedding| {
-                let magnitude: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-                if magnitude > f32::EPSILON {
-                    let inv_mag = 1.0 / magnitude;
-                    embedding.iter_mut().for_each(|x| *x *= inv_mag);
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                use rayon::prelude::*;
+                embeddings_result.par_iter_mut().for_each(|embedding| {
+                    let magnitude: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+                    if magnitude > f32::EPSILON {
+                        let inv_mag = 1.0 / magnitude;
+                        embedding.iter_mut().for_each(|x| *x *= inv_mag);
+                    }
+                });
+            }
+            #[cfg(target_arch = "wasm32")]
+            {
+                for embedding in &mut embeddings_result {
+                    let magnitude: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+                    if magnitude > f32::EPSILON {
+                        let inv_mag = 1.0 / magnitude;
+                        embedding.iter_mut().for_each(|x| *x *= inv_mag);
+                    }
                 }
-            });
+            }
         } else {
             for embedding in &mut embeddings_result {
                 let magnitude: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();

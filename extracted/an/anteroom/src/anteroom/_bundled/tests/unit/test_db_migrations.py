@@ -201,3 +201,96 @@ class TestInitDb:
         assert "conversations_fts" in tables
         assert "messages_fts" in tables
         ts.close()
+
+
+# ---------------------------------------------------------------------------
+# Spaces column migration — regression tests for #1258
+# ---------------------------------------------------------------------------
+
+
+class TestSpacesColumnMigration:
+    """Verify spaces table always ends with canonical source_file/source_hash columns."""
+
+    def _get_space_cols(self, ts: "ThreadSafeConnection") -> set[str]:
+        return {row[1] for row in ts.execute_fetchall("PRAGMA table_info(spaces)")}
+
+    def test_fresh_db_has_source_file(self, tmp_path: Path) -> None:
+        """Fresh install: CREATE TABLE uses source_file — no rename needed."""
+        db_path = tmp_path / "fresh.db"
+        ts = init_db(db_path)
+        cols = self._get_space_cols(ts)
+        assert "source_file" in cols
+        assert "file_path" not in cols
+        assert "source_hash" in cols
+        assert "file_hash" not in cols
+        ts.close()
+
+    def test_v1945_schema_migrated_to_source_file(self, tmp_path: Path) -> None:
+        """DB stuck on v1.94.5 schema (file_path) is renamed to source_file."""
+        db_path = tmp_path / "v1945.db"
+        raw = sqlite3.connect(str(db_path))
+        raw.execute(
+            """CREATE TABLE spaces (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                file_path TEXT NOT NULL DEFAULT '',
+                file_hash TEXT NOT NULL DEFAULT '',
+                instructions TEXT NOT NULL DEFAULT '',
+                model TEXT DEFAULT NULL,
+                last_loaded_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )"""
+        )
+        raw.commit()
+        raw.close()
+
+        ts = init_db(db_path)
+        cols = self._get_space_cols(ts)
+        assert "source_file" in cols
+        assert "file_path" not in cols
+        assert "source_hash" in cols
+        assert "file_hash" not in cols
+        ts.close()
+
+    def test_migration_idempotent(self, tmp_path: Path) -> None:
+        """Running init_db twice on the same DB keeps source_file without error."""
+        db_path = tmp_path / "idem.db"
+        ts1 = init_db(db_path)
+        ts1.close()
+        ts2 = init_db(db_path)
+        cols = self._get_space_cols(ts2)
+        assert "source_file" in cols
+        assert "file_path" not in cols
+        ts2.close()
+
+    def test_migration_preserves_data(self, tmp_path: Path) -> None:
+        """Row data survives the file_path → source_file rename."""
+        db_path = tmp_path / "data.db"
+        raw = sqlite3.connect(str(db_path))
+        raw.execute(
+            """CREATE TABLE spaces (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                file_path TEXT NOT NULL DEFAULT '',
+                file_hash TEXT NOT NULL DEFAULT '',
+                instructions TEXT NOT NULL DEFAULT '',
+                model TEXT DEFAULT NULL,
+                last_loaded_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )"""
+        )
+        raw.execute(
+            "INSERT INTO spaces (id, name, file_path, file_hash, created_at, updated_at) "
+            "VALUES ('s1', 'myspace', '/tmp/space.yaml', 'abc123', '2025-01-01', '2025-01-01')"
+        )
+        raw.commit()
+        raw.close()
+
+        ts = init_db(db_path)
+        row = ts.execute_fetchone("SELECT source_file, source_hash FROM spaces WHERE id = 's1'")
+        assert row is not None
+        assert row[0] == "/tmp/space.yaml"
+        assert row[1] == "abc123"
+        ts.close()

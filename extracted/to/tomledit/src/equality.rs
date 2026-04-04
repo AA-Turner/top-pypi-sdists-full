@@ -1,10 +1,13 @@
 use pyo3::prelude::*;
 use pyo3::types::{
-    PyBool, PyDate, PyDateAccess, PyDateTime, PyDict, PyList, PyString, PyTime, PyTimeAccess,
+    PyBool, PyDate, PyDateAccess, PyDateTime, PyList, PyString, PyTime, PyTimeAccess,
+    PyTzInfoAccess,
 };
 use toml_edit::Item as ItemRs;
 
-use crate::value::Datetime;
+use crate::dict_ops;
+use crate::item_ops::datetime_to_py;
+use crate::item_proxy::ItemProxy;
 
 /// Semantically compare two toml_edit Datetimes, treating Offset::Z and
 /// Offset::Custom { minutes: 0 } as equivalent, and normalizing optional
@@ -68,6 +71,38 @@ fn tables_structural_eq(a: &toml_edit::Table, b: &toml_edit::Table) -> bool {
             .all(|(k, v)| b.get(k).is_some_and(|bv| items_structural_eq(v, bv)))
 }
 
+/// Compare a Table with an InlineTable by walking their entries directly.
+fn table_inline_eq(table: &toml_edit::Table, it: &toml_edit::InlineTable) -> bool {
+    table.len() == it.len()
+        && table
+            .iter()
+            .all(|(k, item)| it.get(k).is_some_and(|v| item_value_eq(item, v)))
+}
+
+/// Compare an Item with a Value across the Table/InlineTable and AoT/Array
+/// boundaries without cloning.
+fn item_value_eq(item: &ItemRs, value: &toml_edit::Value) -> bool {
+    match item {
+        ItemRs::Value(v) => values_structural_eq(v, value),
+        ItemRs::Table(t) => {
+            matches!(value, toml_edit::Value::InlineTable(it) if table_inline_eq(t, it))
+        }
+        ItemRs::ArrayOfTables(aot) => {
+            matches!(value, toml_edit::Value::Array(arr) if aot_array_eq(aot, arr))
+        }
+        _ => false,
+    }
+}
+
+/// Compare an AoT with an Array of inline tables directly.
+fn aot_array_eq(aot: &toml_edit::ArrayOfTables, arr: &toml_edit::Array) -> bool {
+    aot.len() == arr.len()
+        && aot
+            .iter()
+            .zip(arr.iter())
+            .all(|(t, v)| matches!(v, toml_edit::Value::InlineTable(it) if table_inline_eq(t, it)))
+}
+
 pub(crate) fn items_structural_eq(a: &ItemRs, b: &ItemRs) -> bool {
     match (a, b) {
         (ItemRs::Value(va), ItemRs::Value(vb)) => values_structural_eq(va, vb),
@@ -79,12 +114,37 @@ pub(crate) fn items_structural_eq(a: &ItemRs, b: &ItemRs) -> bool {
                     .zip(ab.iter())
                     .all(|(ta, tb)| tables_structural_eq(ta, tb))
         }
+        // Cross-type: Table ↔ InlineTable
+        (ItemRs::Table(t), ItemRs::Value(toml_edit::Value::InlineTable(it)))
+        | (ItemRs::Value(toml_edit::Value::InlineTable(it)), ItemRs::Table(t)) => {
+            table_inline_eq(t, it)
+        }
+        // Cross-type: AoT ↔ Array
+        (ItemRs::ArrayOfTables(aot), ItemRs::Value(toml_edit::Value::Array(arr)))
+        | (ItemRs::Value(toml_edit::Value::Array(arr)), ItemRs::ArrayOfTables(aot)) => {
+            aot_array_eq(aot, arr)
+        }
         _ => false,
     }
 }
 
-/// Compare a toml_edit Value to a Python object for equality.
+/// Compare a toml_edit Value to a Python object that may be an [`ItemProxy`].
+///
+/// Proxy fast path stays in Rust via [`values_structural_eq`]; plain Python
+/// objects are compared by extracting the appropriate Python type.
 pub(crate) fn value_eq(value: &toml_edit::Value, other: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if let Ok(proxy) = other.cast::<ItemProxy>() {
+        let py = other.py();
+        let proxy = proxy.borrow();
+        let doc = proxy.document.bind(py).borrow();
+        proxy.check_fresh(&doc)?;
+        let other_item = proxy.navigate(&doc.inner)?;
+        return Ok(match other_item {
+            ItemRs::Value(v) => values_structural_eq(value, v),
+            // Cross-type: proxy is a Table or AoT.
+            other => item_value_eq(other, value),
+        });
+    }
     match value {
         toml_edit::Value::Boolean(b) => {
             if let Ok(other_b) = other.extract::<bool>() {
@@ -96,16 +156,14 @@ pub(crate) fn value_eq(value: &toml_edit::Value, other: &Bound<'_, PyAny>) -> Py
                 if let Ok(other_i) = other.extract::<i64>() {
                     return Ok(*i.value() == other_i);
                 }
-                if let Ok(other_f) = other.extract::<f64>() {
-                    return Ok((*i.value() as f64) == other_f);
-                }
+                let py_int = i.value().into_pyobject(other.py())?;
+                return py_int.into_any().eq(other);
             }
         }
         toml_edit::Value::Float(f) => {
-            if other.cast::<PyBool>().is_err()
-                && let Ok(other_f) = other.extract::<f64>()
-            {
-                return Ok(*f.value() == other_f);
+            if other.cast::<PyBool>().is_err() {
+                let py_float = f.value().into_pyobject(other.py())?;
+                return py_float.into_any().eq(other);
             }
         }
         toml_edit::Value::String(s) => {
@@ -115,8 +173,8 @@ pub(crate) fn value_eq(value: &toml_edit::Value, other: &Bound<'_, PyAny>) -> Py
         }
         toml_edit::Value::Datetime(dt) => {
             if let Ok(py_dt) = other.cast::<PyDateTime>() {
-                let other_dt: Datetime = py_dt.extract()?;
-                return Ok(datetime_eq(dt.value(), &other_dt.0));
+                let toml_py = datetime_to_py(dt.value(), other.py())?;
+                return toml_py.bind(other.py()).eq(py_dt);
             }
             if let Ok(py_date) = other.cast::<PyDate>() {
                 if let (Some(d), None, None) =
@@ -132,6 +190,9 @@ pub(crate) fn value_eq(value: &toml_edit::Value, other: &Bound<'_, PyAny>) -> Py
                 if let (None, Some(t), None) =
                     (&dt.value().date, &dt.value().time, &dt.value().offset)
                 {
+                    if py_time.get_tzinfo().is_some() {
+                        return Ok(false);
+                    }
                     return Ok(t.hour == py_time.get_hour()
                         && t.minute == py_time.get_minute()
                         && t.second.unwrap_or(0) == py_time.get_second()
@@ -155,55 +216,75 @@ pub(crate) fn value_eq(value: &toml_edit::Value, other: &Bound<'_, PyAny>) -> Py
             }
         }
         toml_edit::Value::InlineTable(it) => {
-            if let Ok(other_dict) = other.cast::<PyDict>() {
-                if it.len() != other_dict.len() {
-                    return Ok(false);
-                }
-                for (k, v) in it.iter() {
-                    let Some(other_v) = other_dict.get_item(k)? else {
-                        return Ok(false);
-                    };
-                    if !value_eq(v, &other_v)? {
-                        return Ok(false);
-                    }
-                }
-                return Ok(true);
-            }
+            return mapping_eq(it.iter(), it.len(), other, value_eq);
         }
     }
     Ok(false)
 }
 
-/// Compare a toml_edit Table's entries to a Python dict for equality.
-pub(crate) fn table_entries_eq<'a>(
-    iter: impl Iterator<Item = (&'a str, &'a ItemRs)>,
+/// Compare a TOML mapping (inline table or regular table) entry-by-entry
+/// against a Python Mapping.
+fn mapping_eq<'a, V>(
+    entries: impl Iterator<Item = (&'a str, V)>,
     len: usize,
-    other_dict: &Bound<'_, PyDict>,
+    other: &Bound<'_, PyAny>,
+    eq: impl Fn(V, &Bound<'_, PyAny>) -> PyResult<bool>,
 ) -> PyResult<bool> {
-    if len != other_dict.len() {
+    if !dict_ops::is_mapping_like(other) {
         return Ok(false);
     }
-    for (k, v) in iter {
-        let Some(other_v) = other_dict.get_item(k)? else {
+    let other_len: usize = other.len()?;
+    if len != other_len {
+        return Ok(false);
+    }
+    for (k, v) in entries {
+        let Ok(other_v) = other.get_item(k) else {
             return Ok(false);
         };
-        if !item_eq(v, &other_v)? {
+        if !eq(v, &other_v)? {
             return Ok(false);
         }
     }
     Ok(true)
 }
 
-/// Compare a toml_edit Item to a Python object for equality.
+/// Compare a toml_edit Table to a Python object that may be an [`ItemProxy`].
+///
+/// Proxy fast path stays in Rust via [`tables_structural_eq`]; plain Python
+/// dicts and other Mappings are compared entry-by-entry.
+pub(crate) fn table_eq(table: &toml_edit::Table, other: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if let Ok(proxy) = other.cast::<ItemProxy>() {
+        let py = other.py();
+        let proxy = proxy.borrow();
+        let doc = proxy.document.bind(py).borrow();
+        proxy.check_fresh(&doc)?;
+        let other_item = proxy.navigate(&doc.inner)?;
+        return Ok(match other_item {
+            ItemRs::Table(t) => tables_structural_eq(table, t),
+            // Cross-type: proxy is an InlineTable value.
+            ItemRs::Value(toml_edit::Value::InlineTable(it)) => table_inline_eq(table, it),
+            _ => false,
+        });
+    }
+    mapping_eq(table.iter(), table.len(), other, item_eq)
+}
+
+/// Compare a toml_edit Item to a Python object that may be an [`ItemProxy`].
+///
+/// Proxy fast path stays in Rust; plain Python objects are compared
+/// element-wise.
 pub(crate) fn item_eq(item: &ItemRs, other: &Bound<'_, PyAny>) -> PyResult<bool> {
+    if let Ok(proxy) = other.cast::<ItemProxy>() {
+        let py = other.py();
+        let proxy = proxy.borrow();
+        let doc = proxy.document.bind(py).borrow();
+        proxy.check_fresh(&doc)?;
+        let other_item = proxy.navigate(&doc.inner)?;
+        return Ok(items_structural_eq(item, other_item));
+    }
     match item {
         ItemRs::Value(value) => value_eq(value, other),
-        ItemRs::Table(table) => {
-            let Ok(other_dict) = other.cast::<PyDict>() else {
-                return Ok(false);
-            };
-            table_entries_eq(table.iter(), table.len(), other_dict)
-        }
+        ItemRs::Table(table) => table_eq(table, other),
         ItemRs::ArrayOfTables(aot) => {
             let Ok(other_list) = other.cast::<PyList>() else {
                 return Ok(false);
@@ -213,10 +294,7 @@ pub(crate) fn item_eq(item: &ItemRs, other: &Bound<'_, PyAny>) -> PyResult<bool>
             }
             for (i, table) in aot.iter().enumerate() {
                 let other_elem = other_list.get_item(i)?;
-                let Ok(other_dict) = other_elem.cast::<PyDict>() else {
-                    return Ok(false);
-                };
-                if !table_entries_eq(table.iter(), table.len(), other_dict)? {
+                if !table_eq(table, &other_elem)? {
                     return Ok(false);
                 }
             }

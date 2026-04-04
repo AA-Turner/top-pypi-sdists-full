@@ -14,6 +14,8 @@ pub mod ocr;
 pub mod page;
 pub mod pdf;
 pub mod processing;
+#[cfg(feature = "tree-sitter")]
+pub mod tree_sitter;
 
 // Re-export main types for backward compatibility
 pub use acceleration::{AccelerationConfig, ExecutionProviderType};
@@ -24,7 +26,7 @@ pub use extraction::{
 };
 pub use formats::OutputFormat;
 #[cfg(feature = "layout-detection")]
-pub use layout::LayoutDetectionConfig;
+pub use layout::{LayoutDetectionConfig, TableModel};
 pub use ocr::{OcrConfig, OcrPipelineConfig, OcrPipelineStage, OcrQualityThresholds};
 pub use page::PageConfig;
 #[cfg(feature = "pdf")]
@@ -32,3 +34,5 @@ pub use pdf::{HierarchyConfig, PdfConfig};
 pub use processing::{
     ChunkSizing, ChunkerType, ChunkingConfig, EmbeddingConfig, EmbeddingModelType, PostProcessorConfig,
 };
+#[cfg(feature = "tree-sitter")]
+pub use tree_sitter::{CodeContentMode, TreeSitterConfig, TreeSitterProcessConfig};

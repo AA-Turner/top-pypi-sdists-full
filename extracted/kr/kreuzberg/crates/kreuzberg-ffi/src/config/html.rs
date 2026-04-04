@@ -3,8 +3,7 @@
 //! Handles the complex nested structure of HTML conversion options.
 
 use html_to_markdown_rs::options::{
-    CodeBlockStyle, ConversionOptions, HeadingStyle, HighlightStyle, ListIndentType, NewlineStyle, PreprocessingPreset,
-    WhitespaceMode,
+    CodeBlockStyle, ConversionOptions, HeadingStyle, HighlightStyle, ListIndentType, NewlineStyle, WhitespaceMode,
 };
 
 type FfiResult<T> = std::result::Result<T, String>;
@@ -99,20 +98,6 @@ fn parse_code_block_style(value: &str) -> FfiResult<CodeBlockStyle> {
     }
 }
 
-/// Parse PreprocessingPreset from string
-#[allow(dead_code)]
-fn parse_preprocessing_preset(value: &str) -> FfiResult<PreprocessingPreset> {
-    match value.to_lowercase().as_str() {
-        "minimal" => Ok(PreprocessingPreset::Minimal),
-        "standard" => Ok(PreprocessingPreset::Standard),
-        "aggressive" => Ok(PreprocessingPreset::Aggressive),
-        other => Err(format!(
-            "Invalid preprocessing.preset '{}'. Expected one of: minimal, standard, aggressive",
-            other
-        )),
-    }
-}
-
 /// Parse HTML conversion options from JSON value
 pub fn parse_html_options(value: &serde_json::Value) -> FfiResult<ConversionOptions> {
     let mut opts = ConversionOptions::default();
@@ -199,11 +184,7 @@ pub fn parse_html_options(value: &serde_json::Value) -> FfiResult<ConversionOpti
             .ok_or_else(|| "br_in_tables must be a boolean".to_string())?;
     }
 
-    if let Some(val) = obj.get("hocr_spatial_tables") {
-        opts.hocr_spatial_tables = val
-            .as_bool()
-            .ok_or_else(|| "hocr_spatial_tables must be a boolean".to_string())?;
-    }
+    // hocr_spatial_tables removed in html-to-markdown v3
 
     if let Some(val) = obj.get("highlight_style") {
         opts.highlight_style = parse_enum(Some(val), parse_highlight_style)?.unwrap_or(opts.highlight_style);

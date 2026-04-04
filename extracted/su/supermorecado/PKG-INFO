@@ -1,32 +1,45 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: supermorecado
-Version: 0.1.2
+Version: 0.2.0
 Summary: Extend the functionality of morecantile with additional commands.
-Keywords: GIS,TMS,TileMatrixSet,Map Tile
+Project-URL: Source, https://github.com/developmentseed/supermorecado
+Project-URL: Documentation, https://developmentseed.org/supermorecado/
 Author-email: Vincent Sarago <vincent@developmentseed.com>
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
+License: MIT License
+        
+        Copyright (c) 2023 Development Seed
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Keywords: GIS,Map Tile,TMS,TileMatrixSet
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.11
 Requires-Dist: morecantile
 Requires-Dist: rasterio
-Requires-Dist: pre-commit ; extra == "dev"
-Requires-Dist: mkdocs ; extra == "docs"
-Requires-Dist: mkdocs-material ; extra == "docs"
-Requires-Dist: pygments ; extra == "docs"
-Requires-Dist: pytest ; extra == "test"
-Requires-Dist: pytest-cov ; extra == "test"
-Project-URL: Documentation, https://developmentseed.org/supermorecado/
-Project-URL: Source, https://github.com/developmentseed/supermorecado
-Provides-Extra: dev
-Provides-Extra: docs
-Provides-Extra: test
+Description-Content-Type: text/markdown
 
 # Supermorecado
 
@@ -239,4 +252,3 @@ See [LICENSE](https://github.com/developmentseed/supermorecado/blob/main/LICENSE
 ## Authors
 
 Created by [Development Seed](<http://developmentseed.org>)
-

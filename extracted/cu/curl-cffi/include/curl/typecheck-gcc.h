@@ -345,8 +345,15 @@ CURLWARNING(_curl_easy_getinfo_err_curl_off_t,
    (option) == CURLOPT_FTP_ACCOUNT ||                                   \
    (option) == CURLOPT_FTP_ALTERNATIVE_TO_USER ||                       \
    (option) == CURLOPT_FTPPORT ||                                       \
+   (option) == CURLOPT_FORM_BOUNDARY ||                                 \
    (option) == CURLOPT_HAPROXY_CLIENT_IP ||                             \
    (option) == CURLOPT_HSTS ||                                          \
+   (option) == CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER ||                    \
+   (option) == CURLOPT_HTTP2_SETTINGS ||                                \
+   (option) == CURLOPT_HTTP2_STREAMS ||                                 \
+   (option) == CURLOPT_HTTP3_PSEUDO_HEADERS_ORDER ||                    \
+   (option) == CURLOPT_HTTP3_SETTINGS ||                                \
+   (option) == CURLOPT_QUIC_TRANSPORT_PARAMETERS ||                     \
    (option) == CURLOPT_INTERFACE ||                                     \
    (option) == CURLOPT_ISSUERCERT ||                                    \
    (option) == CURLOPT_KEYPASSWD ||                                     \

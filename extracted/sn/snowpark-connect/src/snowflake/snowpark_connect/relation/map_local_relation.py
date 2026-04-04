@@ -450,13 +450,30 @@ def map_local_relation(
                 snowpark_schema,
             )
 
-        return DataFrameContainer.create_with_column_mapping(
+        container = DataFrameContainer.create_with_column_mapping(
             dataframe=snowpark_df,
             spark_column_names=spark_column_names,
             snowpark_column_names=new_columns,
             column_metadata=column_metadata,
             snowpark_column_types=[f.datatype for f in snowpark_schema.fields],
         )
+
+        # SNOW-3242008: Cache the Arrow table for DDL/DML sql_command results so
+        # that map_execution_root can return it directly without executing a VALUES
+        # query against Snowflake. These results are always a single row with a
+        # single column, e.g.:
+        #   - DDL: "Statement executed successfully." (string)
+        #   - DML: number of rows inserted = 1 (integer)
+        if (
+            table.num_rows == 1
+            and table.num_columns == 1
+            and (
+                pa.types.is_string(table.schema.field(0).type)
+                or pa.types.is_integer(table.schema.field(0).type)
+            )
+        ):
+            container._cached_local_relation_arrow_table = table
+        return container
     elif has_schema:
         (
             snowpark_schema,
@@ -499,12 +516,15 @@ def _create_zero_column_relation(rows: int = 0) -> DataFrameContainer:
         [(None,) for _ in range(rows)],
         StructType([StructField("__DUMMY", StringType())]),
     )
-    return DataFrameContainer.create_with_column_mapping(
+    container = DataFrameContainer.create_with_column_mapping(
         dataframe=snowpark_df,
         spark_column_names=["__DUMMY"],
         snowpark_column_names=["__DUMMY"],
         column_is_hidden=[True],
     )
+    # SNOW-3242008: Row count is known at creation time; avoid a Snowflake query later.
+    container._known_row_count = rows
+    return container
 
 
 def map_range(

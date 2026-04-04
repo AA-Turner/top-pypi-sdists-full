@@ -1,6 +1,7 @@
 """Visual Jailbreak Detectors
 
-Detectors for guessing whether a jailbreak with both image and text prompt has been successful """
+Detectors for guessing whether a jailbreak with both image and text prompt has been successful
+"""
 
 from garak import _config
 from garak.detectors.base import StringDetector

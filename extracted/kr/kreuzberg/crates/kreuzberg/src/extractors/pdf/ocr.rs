@@ -377,16 +377,11 @@ pub(crate) async fn extract_mixed_ocr_native(
         registry.get(&ocr_config.backend)?
     };
 
-    let batch_size = config
-        .concurrency
-        .as_ref()
-        .and_then(|c| c.max_threads)
-        .unwrap_or_else(|| num_cpus::get().min(4))
-        .max(1);
+    let batch_size = crate::core::config::concurrency::resolve_thread_budget(config.concurrency.as_ref());
 
     let ocr_config_owned = ocr_config.clone();
     let total = page_images.len();
-    let mut ocr_results: std::collections::HashMap<usize, String> = std::collections::HashMap::with_capacity(total);
+    let mut ocr_results: ahash::AHashMap<usize, String> = ahash::AHashMap::with_capacity(total);
 
     // Process in batches to bound peak memory (PNG buffers freed between batches)
     for batch_start in (0..total).step_by(batch_size) {
@@ -481,6 +476,7 @@ pub(crate) async fn extract_with_ocr(
     Option<f64>,
     Vec<crate::types::Table>,
     Vec<crate::types::OcrElement>,
+    Option<crate::types::internal::InternalDocument>,
 )> {
     use crate::plugins::registry::get_ocr_backend_registry;
     use image::ImageEncoder;
@@ -537,7 +533,7 @@ pub(crate) async fn extract_with_ocr(
             .and_then(|v| v.as_f64())
             .map(|v| v / 100.0);
         let ocr_elements = result.ocr_elements.unwrap_or_default();
-        return Ok((result.content, mean_conf, Vec::new(), ocr_elements));
+        return Ok((result.content, mean_conf, Vec::new(), ocr_elements, None));
     }
     let mut lazy_pdf_page_count = 0;
 
@@ -567,12 +563,7 @@ pub(crate) async fn extract_with_ocr(
     use std::sync::Arc;
     use tokio::task::JoinSet;
 
-    let configured_batch_size = config
-        .concurrency
-        .as_ref()
-        .and_then(|c| c.max_threads)
-        .unwrap_or_else(|| num_cpus::get().min(4))
-        .max(1);
+    let configured_batch_size = crate::core::config::concurrency::resolve_thread_budget(config.concurrency.as_ref());
 
     // Estimate per-page memory cost and adapt batch size to available system memory.
     // A rendered page at 300 DPI (A4) is ~26MB RGB + ~5MB PNG + ~100MB OCR working set.
@@ -599,6 +590,8 @@ pub(crate) async fn extract_with_ocr(
     };
 
     let mut page_texts = vec![String::new(); total_pages];
+    #[cfg(feature = "layout-detection")]
+    let mut all_page_paragraphs: Vec<Option<Vec<crate::pdf::structure::types::PdfParagraph>>> = vec![None; total_pages];
     #[allow(unused_mut)]
     let mut collected_tables: Vec<crate::types::Table> = Vec::new();
     let mut all_ocr_elements: Vec<crate::types::OcrElement> = Vec::new();
@@ -718,7 +711,7 @@ pub(crate) async fn extract_with_ocr(
             let page_idx = batch_start + offset;
             let mut ocr_result = batch_ocr_results[offset].take().expect("OCR result missing for page");
             #[cfg(feature = "layout-detection")]
-            let height = encoded_batch[offset].3;
+            let _height = encoded_batch[offset].3;
 
             if let Some(conf_val) = ocr_result
                 .metadata
@@ -747,9 +740,8 @@ pub(crate) async fn extract_with_ocr(
 
                 // Scale layout detection bounding boxes from layout-model resolution
                 // (e.g. 640×640) to OCR render resolution so that coordinates are
-                // consistent when passed to recognize_page_tables and detection_to_layout_hints.
-                // `width` and `height` come from the encoded PNG dimensions, i.e. they are
-                // the actual pixel dimensions of the OCR-rendered page image.
+                // consistent when passed to recognize_page_tables and
+                // detection_to_layout_hints (both use pixel-space coordinates).
                 let ocr_render_width = encoded_batch[offset].2;
                 let ocr_render_height = encoded_batch[offset].3;
                 let scaled_detection: Option<crate::layout::DetectionResult> = detection.map(|det| {
@@ -791,31 +783,8 @@ pub(crate) async fn extract_with_ocr(
                 // Collect recognized tables as Table structs for ExtractionResult.tables
                 for rt in &recognized_tables {
                     if !rt.markdown.is_empty() {
-                        let cells: Vec<Vec<String>> = rt
-                            .markdown
-                            .lines()
-                            .filter(|line| {
-                                let trimmed = line.trim();
-                                if trimmed.is_empty() || !trimmed.contains('|') {
-                                    return false;
-                                }
-                                let inner = trimmed.trim_matches('|');
-                                !inner.split('|').all(|seg| {
-                                    let s = seg.trim();
-                                    !s.is_empty() && s.chars().all(|c| c == '-' || c == ':')
-                                })
-                            })
-                            .map(|line| {
-                                line.trim()
-                                    .trim_matches('|')
-                                    .split('|')
-                                    .map(|cell| cell.trim().to_string())
-                                    .collect()
-                            })
-                            .collect();
-
                         collected_tables.push(crate::types::Table {
-                            cells,
+                            cells: rt.cells.clone(),
                             markdown: rt.markdown.clone(),
                             page_number: page_idx + 1,
                             bounding_box: None,
@@ -823,65 +792,49 @@ pub(crate) async fn extract_with_ocr(
                     }
                 }
 
-                let mut page_content = crate::pdf::markdown::adapters::from_ocr_elements(elements, height as f32);
-                crate::pdf::markdown::reorder_elements_reading_order(&mut page_content.elements);
-                let mut paragraphs = crate::pdf::markdown::content_to_paragraphs(&page_content);
-
-                if let Some(ref scaled_det) = scaled_detection {
-                    let hints = detection_to_layout_hints(scaled_det, height as f32);
-                    crate::pdf::markdown::layout_classify::apply_layout_overrides(
-                        &mut paragraphs,
-                        &hints,
-                        0.5,
-                        0.2,
-                        None,
+                // Convert hOCR structure to PdfParagraphs, then apply layout overrides.
+                // This mirrors the pdfium path: structure → layout classify → assemble.
+                if let Some(ref ocr_doc) = ocr_result.ocr_internal_document {
+                    let ocr_text_count = ocr_doc
+                        .elements
+                        .iter()
+                        .filter(|e| matches!(e.kind, crate::types::internal::ElementKind::OcrText { .. }))
+                        .count();
+                    tracing::debug!(
+                        page = page_idx + 1,
+                        total_elements = ocr_doc.elements.len(),
+                        ocr_text_elements = ocr_text_count,
+                        "hOCR InternalDocument for page"
                     );
+                    let mut paragraphs =
+                        crate::pdf::structure::adapters::ocr_doc_to_paragraphs(ocr_doc, ocr_render_height);
+                    tracing::debug!(
+                        page = page_idx + 1,
+                        paragraph_count = paragraphs.len(),
+                        "hOCR → PdfParagraph conversion"
+                    );
+
+                    if let Some(ref scaled_det) = scaled_detection {
+                        let hints = detection_to_layout_hints(scaled_det, ocr_render_height as f32);
+                        // Trust the layout model for OCR — no body-font-size guard
+                        // since OCR text lacks reliable font size information.
+                        crate::pdf::structure::layout_classify::apply_layout_overrides(
+                            &mut paragraphs,
+                            &hints,
+                            0.5,
+                            0.2,
+                            None,
+                        );
+                    }
+
+                    // Don't filter page furniture for OCR — the layout model's
+                    // header/footer detection is less reliable on OCR-rendered pages,
+                    // and falsely filtering content is worse than keeping it.
+                    all_page_paragraphs[page_idx] = Some(paragraphs);
                 }
 
-                let paragraphs: Vec<_> = paragraphs.into_iter().filter(|p| !p.is_page_furniture).collect();
-
-                let page_md = {
-                    struct Block {
-                        y_pos: f32,
-                        text: String,
-                    }
-
-                    let mut blocks: Vec<Block> = paragraphs
-                        .iter()
-                        .filter_map(|p| {
-                            let text = crate::pdf::markdown::render_paragraphs_to_string(std::slice::from_ref(p));
-                            if text.trim().is_empty() {
-                                return None;
-                            }
-                            let y_pos = p.lines.first().map(|l| l.baseline_y).unwrap_or(0.0);
-                            Some(Block { y_pos, text })
-                        })
-                        .collect();
-
-                    for rt in &recognized_tables {
-                        if rt.markdown.is_empty() {
-                            continue;
-                        }
-                        let y_pos = height as f32 - rt.detection_bbox.y1;
-                        blocks.push(Block {
-                            y_pos,
-                            text: rt.markdown.clone(),
-                        });
-                    }
-
-                    blocks.sort_by(|a, b| b.y_pos.total_cmp(&a.y_pos));
-
-                    let mut output = String::new();
-                    for block in &blocks {
-                        if !output.is_empty() {
-                            output.push_str("\n\n");
-                        }
-                        output.push_str(block.text.trim());
-                    }
-                    output
-                };
-
-                page_texts[page_idx] = page_md;
+                // Use tesseract's own text output (preserves reading order).
+                page_texts[page_idx] = ocr_result.content;
                 continue;
             }
 
@@ -912,7 +865,42 @@ pub(crate) async fn extract_with_ocr(
         }
         result.push_str(text);
     }
-    Ok((result, mean_text_conf, collected_tables, all_ocr_elements))
+
+    #[cfg(feature = "layout-detection")]
+    let ocr_doc = {
+        let has_structured = all_page_paragraphs.iter().any(|p| p.is_some());
+        if has_structured {
+            let pages: Vec<Vec<crate::pdf::structure::types::PdfParagraph>> = all_page_paragraphs
+                .into_iter()
+                .map(|opt| opt.unwrap_or_default())
+                .collect();
+            Some(crate::pdf::structure::assemble_internal_document(
+                pages,
+                &collected_tables,
+                &[],
+            ))
+        } else {
+            None
+        }
+    };
+    #[cfg(not(feature = "layout-detection"))]
+    let ocr_doc: Option<crate::types::internal::InternalDocument> = {
+        let mut doc = crate::types::internal::InternalDocument::new("pdf");
+        for paragraph in result.split("\n\n") {
+            let trimmed = paragraph.trim();
+            if !trimmed.is_empty() {
+                doc.push_element(crate::types::internal::InternalElement::text(
+                    crate::types::internal::ElementKind::Paragraph,
+                    trimmed,
+                    0,
+                ));
+            }
+        }
+        doc.tables = collected_tables.clone();
+        Some(doc)
+    };
+
+    Ok((result, mean_text_conf, collected_tables, all_ocr_elements, ocr_doc))
 }
 
 /// Adapt batch size to available system memory.
@@ -1013,7 +1001,12 @@ pub(crate) async fn run_ocr_pipeline(
     config: &ExtractionConfig,
     pipeline: &crate::core::config::OcrPipelineConfig,
     path: Option<&std::path::Path>,
-) -> crate::Result<(String, Vec<crate::types::Table>, Vec<crate::types::OcrElement>)> {
+) -> crate::Result<(
+    String,
+    Vec<crate::types::Table>,
+    Vec<crate::types::OcrElement>,
+    Option<crate::types::internal::InternalDocument>,
+)> {
     use crate::plugins::registry::get_ocr_backend_registry;
 
     let default_ocr_config = crate::core::config::OcrConfig::default();
@@ -1044,7 +1037,14 @@ pub(crate) async fn run_ocr_pipeline(
         });
     }
 
-    let mut best_result: Option<(String, f64, Vec<crate::types::Table>, Vec<crate::types::OcrElement>)> = None;
+    #[allow(clippy::type_complexity)]
+    let mut best_result: Option<(
+        String,
+        f64,
+        Vec<crate::types::Table>,
+        Vec<crate::types::OcrElement>,
+        Option<crate::types::internal::InternalDocument>,
+    )> = None;
 
     for stage in &available_stages {
         // Build a modified config for this stage
@@ -1082,7 +1082,7 @@ pub(crate) async fn run_ocr_pipeline(
         .await;
 
         match result {
-            Ok((text, mean_conf, stage_tables, stage_ocr_elements)) => {
+            Ok((text, mean_conf, stage_tables, stage_ocr_elements, stage_doc)) => {
                 let text_score = compute_quality_score(&text, &pipeline.quality_thresholds);
 
                 let score = match mean_conf {
@@ -1100,16 +1100,16 @@ pub(crate) async fn run_ocr_pipeline(
                 );
 
                 if score >= pipeline.quality_thresholds.pipeline_min_quality {
-                    return Ok((text, stage_tables, stage_ocr_elements));
+                    return Ok((text, stage_tables, stage_ocr_elements, stage_doc));
                 }
 
                 // Track best-so-far
                 match best_result {
-                    Some((_, best_score, _, _)) if score > best_score => {
-                        best_result = Some((text, score, stage_tables, stage_ocr_elements));
+                    Some((_, best_score, _, _, _)) if score > best_score => {
+                        best_result = Some((text, score, stage_tables, stage_ocr_elements, stage_doc));
                     }
                     None => {
-                        best_result = Some((text, score, stage_tables, stage_ocr_elements));
+                        best_result = Some((text, score, stage_tables, stage_ocr_elements, stage_doc));
                     }
                     _ => {}
                 }
@@ -1126,13 +1126,13 @@ pub(crate) async fn run_ocr_pipeline(
 
     // Return best result (with warning) or error if all backends failed entirely
     match best_result {
-        Some((text, score, tables, elements)) => {
+        Some((text, score, tables, elements, doc)) => {
             tracing::warn!(
                 score,
                 threshold = pipeline.quality_thresholds.pipeline_min_quality,
                 "All OCR pipeline backends produced suboptimal quality, using best result"
             );
-            Ok((text, tables, elements))
+            Ok((text, tables, elements, doc))
         }
         None => Err(crate::KreuzbergError::Parsing {
             message: "All OCR pipeline backends failed".to_string(),
@@ -1160,28 +1160,17 @@ fn ensure_elements_enabled(config: &crate::core::config::ocr::OcrConfig) -> crat
     config
 }
 
-/// Convert pixel-space layout detections to `LayoutHint`s in the pseudo-PDF
-/// coordinate space used by the OCR markdown pipeline.
+/// Convert pixel-space layout detections to PDF-space `LayoutHint`s.
 ///
-/// The OCR path uses `from_ocr_elements(elements, page_height)` which flips
-/// image y-coordinates to PDF convention (y=0 at bottom, y increases upward)
-/// by computing `pdf_y = page_height - pixel_y`. Layout hints must use the
-/// same coordinate space so `apply_layout_overrides` can spatially match
-/// paragraphs to layout regions.
-///
-/// This bridges the gap between the raw layout detection output (pixel space,
-/// y=0 at top) and the markdown pipeline's expectation (PDF space, y=0 at bottom).
-/// The same LayoutClass→LayoutHintClass mapping used by the native PDF path
-/// (`extractors/pdf/extraction.rs:convert_results_to_hints`) is replicated here
-/// because that function operates on `PageLayoutResult` (already in PDF coords),
-/// while we have raw `DetectionResult` (pixel coords).
+/// Flips y-coordinates from image space (y=0 at top) to PDF space (y=0 at bottom)
+/// to match the coordinate system used by `apply_layout_overrides`.
 #[cfg(all(feature = "ocr", feature = "layout-detection"))]
 fn detection_to_layout_hints(
     detection: &crate::layout::DetectionResult,
     page_height: f32,
-) -> Vec<crate::pdf::markdown::types::LayoutHint> {
+) -> Vec<crate::pdf::structure::types::LayoutHint> {
     use crate::layout::LayoutClass;
-    use crate::pdf::markdown::types::{LayoutHint, LayoutHintClass};
+    use crate::pdf::structure::types::{LayoutHint, LayoutHintClass};
 
     detection
         .detections
@@ -1202,8 +1191,6 @@ fn detection_to_layout_hints(
                 LayoutClass::Text => LayoutHintClass::Text,
                 _ => LayoutHintClass::Other,
             };
-            // Flip y: pixel y1 (top of bbox, small value) → PDF top (large value)
-            // pixel y2 (bottom of bbox, large value) → PDF bottom (small value)
             LayoutHint {
                 class,
                 confidence: det.confidence,

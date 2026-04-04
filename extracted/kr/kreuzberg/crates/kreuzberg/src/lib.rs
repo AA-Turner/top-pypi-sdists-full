@@ -48,6 +48,8 @@ pub mod text;
 pub mod types;
 pub mod utils;
 
+pub mod table_core;
+
 #[cfg(feature = "tower-service")]
 pub mod service;
 
@@ -133,10 +135,16 @@ pub use core::config::{HierarchyConfig, PdfConfig};
 pub use paddle_ocr::{CacheStats, ModelManager, ModelPaths, PaddleLanguage, PaddleOcrBackend, PaddleOcrConfig};
 
 #[cfg(feature = "layout-detection")]
-pub use core::config::LayoutDetectionConfig;
+pub use core::config::{LayoutDetectionConfig, TableModel};
 
-#[cfg(feature = "layout-detection")]
-pub use layout::LayoutPreset;
+#[cfg(feature = "tree-sitter")]
+pub use core::config::{CodeContentMode, TreeSitterConfig, TreeSitterProcessConfig};
+#[cfg(feature = "tree-sitter")]
+pub use tree_sitter_language_pack::{
+    ChunkContext, CodeChunk, CommentInfo, CommentKind, Diagnostic, DiagnosticSeverity, DocstringFormat, DocstringInfo,
+    ExportInfo, ExportKind, FileMetrics, ImportInfo, ProcessConfig, ProcessResult, Span, StructureItem, StructureKind,
+    SymbolInfo, SymbolKind, process as process_code,
+};
 
 pub use core::mime::{
     DOCX_MIME_TYPE, EXCEL_MIME_TYPE, HTML_MIME_TYPE, JSON_MIME_TYPE, MARKDOWN_MIME_TYPE, PDF_MIME_TYPE,
@@ -148,8 +156,23 @@ pub use core::mime::{
 pub use core::formats::{KNOWN_FORMATS, is_valid_format_field};
 
 pub use plugins::registry::{
-    get_document_extractor_registry, get_ocr_backend_registry, get_post_processor_registry, get_validator_registry,
+    get_document_extractor_registry, get_ocr_backend_registry, get_post_processor_registry, get_renderer_registry,
+    get_validator_registry,
 };
 
 #[cfg(feature = "embeddings")]
 pub use embeddings::{EMBEDDING_PRESETS, EmbeddingPreset, download_model, get_preset, list_presets, warm_model};
+
+/// Serialize an [`ExtractionResult`] to TOON (Token-Oriented Object Notation).
+///
+/// TOON is a token-efficient alternative to JSON for LLM prompts.
+/// Losslessly convertible to/from JSON but uses fewer tokens.
+pub fn serialize_to_toon(result: &ExtractionResult) -> Result<String> {
+    serde_toon::to_string(result).map_err(|e| KreuzbergError::serialization(format!("TOON serialization failed: {e}")))
+}
+
+/// Serialize an [`ExtractionResult`] to pretty-printed JSON.
+pub fn serialize_to_json(result: &ExtractionResult) -> Result<String> {
+    serde_json::to_string_pretty(result)
+        .map_err(|e| KreuzbergError::serialization(format!("JSON serialization failed: {e}")))
+}

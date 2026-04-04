@@ -23,6 +23,7 @@ impl ExtractionConfig {
     /// - `KREUZBERG_CACHE_ENABLED`: Cache enabled flag ("true" or "false")
     /// - `KREUZBERG_TOKEN_REDUCTION_MODE`: Token reduction mode ("off", "light", "moderate", "aggressive", or "maximum")
     /// - `KREUZBERG_CHUNKING_TOKENIZER`: HuggingFace tokenizer model ID for token-based chunk sizing (requires `chunking-tokenizers` feature)
+    /// - `KREUZBERG_DISABLE_OCR`: Disable OCR entirely ("true" or "false")
     /// - `KREUZBERG_MSG_FALLBACK_CODEPAGE`: (deferred) Windows codepage for MSG PT_STRING8 fallback
     ///
     /// # Behavior
@@ -185,7 +186,8 @@ impl ExtractionConfig {
             }
         }
 
-        // KREUZBERG_LAYOUT_PRESET override
+        // KREUZBERG_LAYOUT_PRESET override (backward compat: enables layout detection).
+        // Only one model (RT-DETR) exists, so the specific preset value is ignored.
         #[cfg(feature = "layout-detection")]
         if let Ok(preset) = std::env::var("KREUZBERG_LAYOUT_PRESET") {
             let lower = preset.to_lowercase();
@@ -201,9 +203,8 @@ impl ExtractionConfig {
             if self.layout.is_none() {
                 self.layout = Some(super::super::layout::LayoutDetectionConfig::default());
             }
-            if let Some(ref mut layout) = self.layout {
-                layout.preset = lower;
-            }
+            // preset value is accepted but ignored -- only RT-DETR is available
+            let _ = lower;
         }
 
         // KREUZBERG_CHUNKING_TOKENIZER override
@@ -225,7 +226,8 @@ impl ExtractionConfig {
             }
         }
 
-        // KREUZBERG_LAYOUT_PRESET override
+        // KREUZBERG_LAYOUT_PRESET override (backward compat: enables layout detection).
+        // Only one model (RT-DETR) exists, so the specific preset value is ignored.
         #[cfg(feature = "layout-detection")]
         if let Ok(preset) = std::env::var("KREUZBERG_LAYOUT_PRESET") {
             let lower = preset.to_lowercase();
@@ -241,9 +243,25 @@ impl ExtractionConfig {
             if self.layout.is_none() {
                 self.layout = Some(super::super::layout::LayoutDetectionConfig::default());
             }
-            if let Some(ref mut layout) = self.layout {
-                layout.preset = lower;
-            }
+            // preset value is accepted but ignored -- only RT-DETR is available
+            let _ = lower;
+        }
+
+        // KREUZBERG_DISABLE_OCR override
+        if let Ok(val) = std::env::var("KREUZBERG_DISABLE_OCR") {
+            self.disable_ocr = match val.to_lowercase().as_str() {
+                "true" | "1" => true,
+                "false" | "0" => false,
+                _ => {
+                    return Err(KreuzbergError::Validation {
+                        message: format!(
+                            "Invalid value for KREUZBERG_DISABLE_OCR: '{}'. Must be 'true' or 'false'.",
+                            val
+                        ),
+                        source: None,
+                    });
+                }
+            };
         }
 
         Ok(())

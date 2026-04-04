@@ -1,38 +1,51 @@
 //! Live dictionary views (KeysView, ValuesView, ItemsView) for Document and
-//! Item proxies.  Each view holds a `Py<Document>` and a key path, just like
-//! `ItemProxy`, so it re-navigates on every access and always reflects the
-//! current state of the document.
+//! Item proxies.  Each view holds a `Py<Document>`, a key path, and a
+//! creation revision — just like `ItemProxy`.  It re-navigates on every
+//! access so it always reflects the current state of the document, but goes
+//! stale (raises `RuntimeError`) when the path itself has been invalidated
+//! by a mutation.
 
 use std::collections::HashSet;
 
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyIterator, PySet, PyTuple};
+use pyo3::types::{PyIterator, PyList, PySet, PyTuple};
 
+use crate::dict_ops;
 use crate::document::Document;
+use crate::equality;
 use crate::item_ops::{self, Key};
 use crate::item_proxy::ItemProxy;
 
 use toml_edit::DocumentMut as DocumentRs;
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 fn get_key_set(doc: &DocumentRs, path: &[Key]) -> PyResult<HashSet<String>> {
     Ok(get_keys(doc, path)?.into_iter().collect())
 }
 
-/// Collect elements from `other` that are strings into a HashSet.
-/// Non-string elements are silently ignored (they can never match a key).
+/// Collect elements from `other` that are strings (or string-valued proxies)
+/// into a HashSet.  Non-string elements are silently ignored.
 fn other_to_string_set(other: &Bound<'_, PyAny>) -> PyResult<HashSet<String>> {
     let mut set = HashSet::new();
     for item in other.try_iter()? {
-        if let Ok(s) = item?.extract::<String>() {
+        if let Some(s) = item_ops::extract_key_str(&item?)? {
             set.insert(s);
         }
     }
     Ok(set)
+}
+
+/// Convert any Python iterable to a `set`.  If `other` is already a set,
+/// this is a no-op; otherwise it calls `set(other)`.
+fn iterable_to_pyset<'py>(
+    py: Python<'py>,
+    other: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PySet>> {
+    if let Ok(s) = other.cast::<PySet>() {
+        return Ok(s.clone());
+    }
+    let set_type = py.get_type::<PySet>();
+    set_type.call1((other,))?.cast_into().map_err(Into::into)
 }
 
 /// Build a Python set from our string keys.
@@ -46,30 +59,53 @@ fn keys_to_pyset<'py>(
 }
 
 fn get_keys(doc: &DocumentRs, path: &[Key]) -> PyResult<Vec<String>> {
-    if path.is_empty() {
-        Ok(doc.iter().map(|(k, _)| k.to_owned()).collect())
-    } else {
-        let item = item_ops::navigate_path(doc, path)?;
-        item_ops::item_keys(item)
-    }
+    let item = item_ops::navigate_path(doc, path)?;
+    dict_ops::item_keys(item)
+}
+
+/// Build a Python list of key strings directly from the TOML iterator,
+/// without an intermediate Rust Vec.
+fn keys_to_pylist<'py>(
+    doc: &DocumentRs,
+    path: &[Key],
+    py: Python<'py>,
+) -> PyResult<Bound<'py, PyList>> {
+    let item = item_ops::navigate_path(doc, path)?;
+    let list = PyList::empty(py);
+    dict_ops::for_each_key(item, |k| list.append(k))?;
+    Ok(list)
 }
 
 fn get_len(doc: &DocumentRs, path: &[Key]) -> PyResult<usize> {
-    if path.is_empty() {
-        Ok(doc.len())
-    } else {
-        let item = item_ops::navigate_path(doc, path)?;
-        item_ops::item_len(item).ok_or_else(|| PyTypeError::new_err("TOML item has no len()"))
-    }
+    let item = item_ops::navigate_path(doc, path)?;
+    item_ops::item_len(item).ok_or_else(|| PyTypeError::new_err("TOML item has no len()"))
 }
 
 fn contains_key(doc: &DocumentRs, path: &[Key], key: &str) -> PyResult<bool> {
-    if path.is_empty() {
-        Ok(doc.contains_key(key))
-    } else {
-        let item = item_ops::navigate_path(doc, path)?;
-        item_ops::item_has_key(item, key)
-    }
+    let item = item_ops::navigate_path(doc, path)?;
+    dict_ops::item_has_key(item, key)
+}
+
+/// Invoke `f(key, child_proxy)` for every entry in the table at `path`.
+///
+/// Shared by `ValuesView` and `ItemsView` for both `__iter__` and
+/// `__reversed__`.
+fn with_child_proxies(
+    document: &Py<Document>,
+    path: &[Key],
+    view_revision: u64,
+    py: Python<'_>,
+    mut f: impl FnMut(&str, Py<PyAny>) -> PyResult<()>,
+) -> PyResult<()> {
+    let doc = document.bind(py).borrow();
+    doc.check_fresh(path, view_revision)?;
+    let revision = doc.revision;
+    let item = item_ops::navigate_path(&doc.inner, path)?;
+    dict_ops::for_each_key(item, |k| {
+        let proxy =
+            ItemProxy::make_child_typed(document, path, revision, py, Key::Str(k.to_owned()))?;
+        f(k, proxy)
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -81,11 +117,16 @@ fn contains_key(doc: &DocumentRs, path: &[Key], key: &str) -> PyResult<bool> {
 pub(crate) struct KeysView {
     document: Py<Document>,
     path: Vec<Key>,
+    revision: u64,
 }
 
 impl KeysView {
-    pub(crate) fn new(document: Py<Document>, path: Vec<Key>) -> Self {
-        Self { document, path }
+    pub(crate) fn new(document: Py<Document>, path: Vec<Key>, revision: u64) -> Self {
+        Self {
+            document,
+            path,
+            revision,
+        }
     }
 }
 
@@ -93,23 +134,29 @@ impl KeysView {
 impl KeysView {
     fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
         let doc = self.document.bind(py).borrow();
+        doc.check_fresh(&self.path, self.revision)?;
         get_len(&doc.inner, &self.path)
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyIterator>> {
         let doc = self.document.bind(py).borrow();
-        let keys = get_keys(&doc.inner, &self.path)?;
-        let list = keys.into_pyobject(py)?;
+        doc.check_fresh(&self.path, self.revision)?;
+        let list = keys_to_pylist(&doc.inner, &self.path, py)?;
         Ok(list.try_iter()?.unbind())
     }
 
-    fn __contains__(&self, py: Python<'_>, key: &str) -> PyResult<bool> {
+    fn __contains__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let Some(key) = crate::item_ops::extract_key_str(key)? else {
+            return Ok(false);
+        };
         let doc = self.document.bind(py).borrow();
-        contains_key(&doc.inner, &self.path, key)
+        doc.check_fresh(&self.path, self.revision)?;
+        contains_key(&doc.inner, &self.path, &key)
     }
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
         let doc = self.document.bind(py).borrow();
+        doc.check_fresh(&self.path, self.revision)?;
         let keys = get_keys(&doc.inner, &self.path)?;
         let inner: Vec<String> = keys.iter().map(|k| format!("'{k}'")).collect();
         Ok(format!("KeysView([{}])", inner.join(", ")))
@@ -117,6 +164,7 @@ impl KeysView {
 
     fn __reversed__(&self, py: Python<'_>) -> PyResult<Py<PyIterator>> {
         let doc = self.document.bind(py).borrow();
+        doc.check_fresh(&self.path, self.revision)?;
         let mut keys = get_keys(&doc.inner, &self.path)?;
         keys.reverse();
         let list = keys.into_pyobject(py)?;
@@ -134,6 +182,7 @@ impl KeysView {
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PySet>> {
         let doc = self.document.bind(py).borrow();
+        doc.check_fresh(&self.path, self.revision)?;
         let ours = get_key_set(&doc.inner, &self.path)?;
         let theirs = other_to_string_set(other)?;
         let result = &ours & &theirs;
@@ -146,8 +195,10 @@ impl KeysView {
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let doc = self.document.bind(py).borrow();
+        doc.check_fresh(&self.path, self.revision)?;
         let ours = keys_to_pyset(&doc.inner, &self.path, py)?;
-        ours.call_method1("__or__", (other,))
+        let theirs = iterable_to_pyset(py, other)?;
+        ours.call_method1("__or__", (theirs,))
     }
 
     fn __sub__<'py>(
@@ -156,6 +207,7 @@ impl KeysView {
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PySet>> {
         let doc = self.document.bind(py).borrow();
+        doc.check_fresh(&self.path, self.revision)?;
         let ours = get_key_set(&doc.inner, &self.path)?;
         let theirs = other_to_string_set(other)?;
         let result = &ours - &theirs;
@@ -168,12 +220,15 @@ impl KeysView {
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let doc = self.document.bind(py).borrow();
+        doc.check_fresh(&self.path, self.revision)?;
         let ours = keys_to_pyset(&doc.inner, &self.path, py)?;
-        ours.call_method1("__xor__", (other,))
+        let theirs = iterable_to_pyset(py, other)?;
+        ours.call_method1("__xor__", (theirs,))
     }
 
     fn __eq__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<bool> {
         let doc = self.document.bind(py).borrow();
+        doc.check_fresh(&self.path, self.revision)?;
         let ours = keys_to_pyset(&doc.inner, &self.path, py)?;
         ours.eq(other)
     }
@@ -188,11 +243,16 @@ impl KeysView {
 pub(crate) struct ValuesView {
     document: Py<Document>,
     path: Vec<Key>,
+    revision: u64,
 }
 
 impl ValuesView {
-    pub(crate) fn new(document: Py<Document>, path: Vec<Key>) -> Self {
-        Self { document, path }
+    pub(crate) fn new(document: Py<Document>, path: Vec<Key>, revision: u64) -> Self {
+        Self {
+            document,
+            path,
+            revision,
+        }
     }
 }
 
@@ -200,35 +260,25 @@ impl ValuesView {
 impl ValuesView {
     fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
         let doc = self.document.bind(py).borrow();
+        doc.check_fresh(&self.path, self.revision)?;
         get_len(&doc.inner, &self.path)
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyIterator>> {
-        let doc = self.document.bind(py).borrow();
-        let keys = get_keys(&doc.inner, &self.path)?;
-        let generation = doc.trie.clock;
-        let proxies: Vec<Py<PyAny>> = keys
-            .into_iter()
-            .map(|k| {
-                ItemProxy::make_child_typed(&self.document, &self.path, generation, py, Key::Str(k))
-            })
-            .collect::<PyResult<_>>()?;
-        let list = proxies.into_pyobject(py)?;
+        let list = PyList::empty(py);
+        with_child_proxies(&self.document, &self.path, self.revision, py, |_, proxy| {
+            list.append(proxy)
+        })?;
         Ok(list.try_iter()?.unbind())
     }
 
     fn __contains__(&self, py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<bool> {
         let doc = self.document.bind(py).borrow();
-        let keys = get_keys(&doc.inner, &self.path)?;
-        for key in &keys {
-            let item = if self.path.is_empty() {
-                doc.inner.as_item().get(key.as_str())
-            } else {
-                item_ops::navigate_path(&doc.inner, &self.path)?.get(key.as_str())
-            };
-            if let Some(item) = item
-                && crate::equality::item_eq(item, value)?
-            {
+        doc.check_fresh(&self.path, self.revision)?;
+        let parent = item_ops::navigate_path(&doc.inner, &self.path)?;
+        let tbl = dict_ops::as_dict_like(parent, "__contains__")?;
+        for (_, item) in tbl.iter() {
+            if equality::item_eq(item, value)? {
                 return Ok(true);
             }
         }
@@ -237,30 +287,28 @@ impl ValuesView {
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
         let doc = self.document.bind(py).borrow();
+        doc.check_fresh(&self.path, self.revision)?;
         let len = get_len(&doc.inner, &self.path)?;
         Ok(format!("ValuesView(<{len} values>)"))
     }
 
-    fn __eq__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let our_iter = self.__iter__(py)?;
-        let mut our_iter = our_iter.into_bound(py);
-        let other_iter = match other.try_iter() {
-            Ok(it) => it,
-            Err(_) => return Ok(false),
-        };
-        for other_val in other_iter {
-            let other_val = other_val?;
-            match our_iter.next() {
-                Some(our_val) => {
-                    if !our_val?.eq(&other_val)? {
-                        return Ok(false);
-                    }
-                }
-                None => return Ok(false),
-            }
+    fn __reversed__(&self, py: Python<'_>) -> PyResult<Py<PyIterator>> {
+        let mut proxies = Vec::new();
+        with_child_proxies(&self.document, &self.path, self.revision, py, |_, proxy| {
+            proxies.push(proxy);
+            Ok(())
+        })?;
+        proxies.reverse();
+        let list = PyList::empty(py);
+        for proxy in proxies {
+            list.append(proxy)?;
         }
-        Ok(our_iter.next().is_none())
+        Ok(list.try_iter()?.unbind())
     }
+
+    // No __eq__: Python's dict_values has no equality support (returns
+    // NotImplemented), falling back to identity comparison.  We match that
+    // by simply not defining __eq__.
 }
 
 // ---------------------------------------------------------------------------
@@ -272,11 +320,16 @@ impl ValuesView {
 pub(crate) struct ItemsView {
     document: Py<Document>,
     path: Vec<Key>,
+    revision: u64,
 }
 
 impl ItemsView {
-    pub(crate) fn new(document: Py<Document>, path: Vec<Key>) -> Self {
-        Self { document, path }
+    pub(crate) fn new(document: Py<Document>, path: Vec<Key>, revision: u64) -> Self {
+        Self {
+            document,
+            path,
+            revision,
+        }
     }
 }
 
@@ -284,77 +337,97 @@ impl ItemsView {
 impl ItemsView {
     fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
         let doc = self.document.bind(py).borrow();
+        doc.check_fresh(&self.path, self.revision)?;
         get_len(&doc.inner, &self.path)
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyIterator>> {
-        let doc = self.document.bind(py).borrow();
-        let keys = get_keys(&doc.inner, &self.path)?;
-        let generation = doc.trie.clock;
-        let pairs: Vec<(String, Py<PyAny>)> = keys
-            .into_iter()
-            .map(|k| {
-                let obj = ItemProxy::make_child_typed(
-                    &self.document,
-                    &self.path,
-                    generation,
-                    py,
-                    Key::Str(k.clone()),
-                )?;
-                Ok((k, obj))
-            })
-            .collect::<PyResult<_>>()?;
-        let list = pairs.into_pyobject(py)?;
+        let list = PyList::empty(py);
+        with_child_proxies(&self.document, &self.path, self.revision, py, |k, proxy| {
+            list.append((k, proxy.into_bound(py)).into_pyobject(py)?)
+        })?;
         Ok(list.try_iter()?.unbind())
     }
 
     fn __contains__(&self, py: Python<'_>, item: &Bound<'_, PyAny>) -> PyResult<bool> {
-        // ItemsView.__contains__ expects a (key, value) tuple
-        let tuple = item
-            .cast::<PyTuple>()
-            .map_err(|_| PyTypeError::new_err("ItemsView.__contains__ requires a tuple"))?;
+        // ItemsView.__contains__ expects a (key, value) tuple.
+        // Return False (not TypeError) for non-tuples or wrong shapes,
+        // matching Python's dict_items behavior.
+        let Ok(tuple) = item.cast::<PyTuple>() else {
+            return Ok(false);
+        };
         if tuple.len() != 2 {
             return Ok(false);
         }
-        let key: String = tuple.get_item(0)?.extract()?;
+        let key_obj = tuple.get_item(0)?;
+        let Some(key) = item_ops::extract_key_str(&key_obj)? else {
+            return Ok(false);
+        };
         let value = tuple.get_item(1)?;
 
         let doc = self.document.bind(py).borrow();
-        let target = if self.path.is_empty() {
-            doc.inner.as_item().get(key.as_str())
-        } else {
-            item_ops::navigate_path(&doc.inner, &self.path)?.get(key.as_str())
-        };
+        doc.check_fresh(&self.path, self.revision)?;
+        let target = item_ops::navigate_path(&doc.inner, &self.path)?.get(key);
         match target {
-            Some(item_rs) => crate::equality::item_eq(item_rs, &value),
+            Some(item_rs) => equality::item_eq(item_rs, &value),
             None => Ok(false),
         }
     }
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
         let doc = self.document.bind(py).borrow();
+        doc.check_fresh(&self.path, self.revision)?;
         let len = get_len(&doc.inner, &self.path)?;
         Ok(format!("ItemsView(<{len} items>)"))
     }
 
+    fn __reversed__(&self, py: Python<'_>) -> PyResult<Py<PyIterator>> {
+        let mut pairs = Vec::new();
+        with_child_proxies(&self.document, &self.path, self.revision, py, |k, proxy| {
+            pairs.push((k.to_owned(), proxy));
+            Ok(())
+        })?;
+        pairs.reverse();
+        let list = PyList::empty(py);
+        for (k, proxy) in pairs {
+            list.append((k, proxy.into_bound(py)).into_pyobject(py)?)?;
+        }
+        Ok(list.try_iter()?.unbind())
+    }
+
     fn __eq__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let our_iter = self.__iter__(py)?;
-        let mut our_iter = our_iter.into_bound(py);
-        let other_iter = match other.try_iter() {
-            Ok(it) => it,
-            Err(_) => return Ok(false),
-        };
-        for other_val in other_iter {
-            let other_val = other_val?;
-            match our_iter.next() {
-                Some(our_val) => {
-                    if !our_val?.eq(&other_val)? {
-                        return Ok(false);
-                    }
+        // ItemsView uses set semantics: only equal to Set-like objects
+        // (sets, frozensets, other views registered as Set ABCs).
+        let set_abc = py.import("collections.abc")?.getattr("Set")?;
+        if !other.is_instance(&set_abc)? {
+            return Ok(false);
+        }
+
+        let doc = self.document.bind(py).borrow();
+        doc.check_fresh(&self.path, self.revision)?;
+        let our_len = get_len(&doc.inner, &self.path)?;
+        let other_len = other.len()?;
+        if our_len != other_len {
+            return Ok(false);
+        }
+
+        // Build plain Python (key, value) tuples and check containment
+        // in `other`.  Using plain values (not proxies) avoids hashing
+        // issues and lets the other side's __contains__ compare correctly.
+        let keys = get_keys(&doc.inner, &self.path)?;
+        let parent = item_ops::navigate_path(&doc.inner, &self.path)?;
+        for key in &keys {
+            if let Some(item) = parent.get(key.as_str()) {
+                let py_val = item_ops::item_to_py(item, py)?;
+                let pair = PyTuple::new(
+                    py,
+                    [key.into_pyobject(py)?.into_any(), py_val.into_bound(py)],
+                )?;
+                if !other.contains(&pair)? {
+                    return Ok(false);
                 }
-                None => return Ok(false),
             }
         }
-        Ok(our_iter.next().is_none())
+        Ok(true)
     }
 }

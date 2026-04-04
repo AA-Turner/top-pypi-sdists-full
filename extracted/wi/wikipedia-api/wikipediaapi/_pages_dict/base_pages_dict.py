@@ -6,7 +6,8 @@ Provides the foundation for both sync and async page dictionaries.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Protocol, TYPE_CHECKING
+from typing import TYPE_CHECKING
+from typing import Protocol
 
 from .._enums import CoordinatesProp
 from .._enums import CoordinateType
@@ -16,13 +17,17 @@ from .._enums import WikiCoordinateType
 from .._enums import WikiDirection
 
 if TYPE_CHECKING:
-    from typing import Any, cast  # noqa: F401
+    from typing import Any  # noqa: F401
+    from typing import cast  # noqa: F401
 
     from .._base_wikipedia_page import BaseWikipediaPage  # noqa: F401
     from .._resources import BaseWikipediaResource  # noqa: F401
     from .._types import Coordinate  # noqa: F401
     from .._types import GeoPoint  # noqa: F401
+    from .._types import ImageInfo  # noqa: F401
+    from ..async_wikipedia_image import AsyncWikipediaImage  # noqa: F401
     from ..async_wikipedia_page import AsyncWikipediaPage  # noqa: F401
+    from ..wikipedia_image import WikipediaImage  # noqa: F401
     from ..wikipedia_page import WikipediaPage  # noqa: F401
     from .async_pages_dict import AsyncPagesDict  # noqa: F401
     from .pages_dict import PagesDict  # noqa: F401
@@ -70,3 +75,23 @@ class _AsyncBatchWiki(Protocol):
         images: Iterable[str] | None = None,
         direction: WikiDirection = Direction.ASCENDING,
     ) -> dict[str, PagesDict]: ...
+
+
+class _SyncImageWiki(Protocol):
+    def batch_imageinfo(
+        self,
+        images: list[WikipediaImage],
+        *,
+        prop: tuple[str, ...] = ...,
+        limit: int = 1,
+    ) -> dict[str, list[ImageInfo]]: ...
+
+
+class _AsyncImageWiki(Protocol):
+    async def batch_imageinfo(
+        self,
+        images: list[AsyncWikipediaImage],
+        *,
+        prop: tuple[str, ...] = ...,
+        limit: int = 1,
+    ) -> dict[str, list[ImageInfo]]: ...

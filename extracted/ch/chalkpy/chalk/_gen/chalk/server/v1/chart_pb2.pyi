@@ -388,6 +388,18 @@ class DeleteChartResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class GetChartRequest(_message.Message):
+    __slots__ = ("chart_id",)
+    CHART_ID_FIELD_NUMBER: _ClassVar[int]
+    chart_id: str
+    def __init__(self, chart_id: _Optional[str] = ...) -> None: ...
+
+class GetChartResponse(_message.Message):
+    __slots__ = ("chart",)
+    CHART_FIELD_NUMBER: _ClassVar[int]
+    chart: _chart_pb2.Chart
+    def __init__(self, chart: _Optional[_Union[_chart_pb2.Chart, _Mapping]] = ...) -> None: ...
+
 class GetChartOptionsRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...

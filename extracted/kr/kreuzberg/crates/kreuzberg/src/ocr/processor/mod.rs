@@ -242,6 +242,7 @@ mod tests {
                 metadata: HashMap::new(),
                 tables: vec![],
                 ocr_elements: None,
+                internal_document: None,
             }),
             error: None,
         };

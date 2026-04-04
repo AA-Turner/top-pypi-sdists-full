@@ -17,7 +17,7 @@ from sphinx.errors import ExtensionError
 from . import edit_this_page, logo, pygments, short_link, toctree, translator, utils
 
 
-__version__ = "0.16.1"
+__version__ = "0.17.0"
 
 
 def update_config(app):
@@ -44,6 +44,8 @@ def update_config(app):
         raise ExtensionError(
             "`icon_links` must be a list of dictionaries, you provided "
             f"type {type(theme_options.get('icon_links'))}."
+            "If you wish to disable this feature, either do not provide "
+            "a value (leave undefined), or set to an empty list."
         )
 
     # Set the anchor link default to be # if the user hasn't provided their own
@@ -117,6 +119,12 @@ def update_config(app):
             gid_script = f"""
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){{ dataLayer.push(arguments); }}
+                gtag('consent', 'default', {{
+                    'ad_storage': 'denied',
+                    'ad_user_data': 'denied',
+                    'ad_personalization': 'denied',
+                    'analytics_storage': 'denied'
+                }});
                 gtag('js', new Date());
                 gtag('config', '{gid}');
             """
@@ -241,6 +249,12 @@ def update_and_remove_templates(
         """
         app.add_js_file(None, body=js)
 
+    # Specify whether search-as-you-type should be used or not.
+    search_as_you_type = str(context["theme_search_as_you_type"]).lower()
+    app.add_js_file(
+        None, body=f"DOCUMENTATION_OPTIONS.search_as_you_type = {search_as_you_type};"
+    )
+
     # Update version number for the "made with version..." component
     context["theme_version"] = __version__
 
@@ -276,7 +290,9 @@ def setup(app: Sphinx) -> Dict[str, str]:
 
     app.add_html_theme("pydata_sphinx_theme", str(theme_path))
 
-    app.add_post_transform(short_link.ShortenLinkTransform)
+    theme_options = utils.get_theme_options_dict(app)
+    if theme_options.get("shorten_urls"):
+        app.add_post_transform(short_link.ShortenLinkTransform)
 
     app.connect("builder-inited", translator.setup_translators)
     app.connect("builder-inited", update_config)

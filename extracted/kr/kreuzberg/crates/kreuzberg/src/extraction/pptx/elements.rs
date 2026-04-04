@@ -28,6 +28,8 @@ pub(super) struct Formatting {
 pub(super) struct Run {
     pub(super) text: String,
     pub(super) formatting: Formatting,
+    /// Relationship ID for a hyperlink attached to this run (`a:hlinkClick r:id`).
+    pub(super) hyperlink_id: Option<String>,
 }
 
 impl Run {
@@ -58,6 +60,8 @@ impl Run {
 #[derive(Debug, Clone)]
 pub(super) struct TextElement {
     pub(super) runs: Vec<Run>,
+    /// Whether this text element comes from a title placeholder shape.
+    pub(super) is_title: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +69,9 @@ pub(super) struct ListItem {
     pub(super) level: u32,
     pub(super) is_ordered: bool,
     pub(super) runs: Vec<Run>,
+    /// Whether this paragraph has an explicit bullet marker (`buAutoNum` or `buChar`).
+    /// When false, the paragraph is a plain text preamble within a list shape.
+    pub(super) has_bullet: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -95,6 +102,13 @@ pub(super) struct ImageReference {
     pub(super) description: Option<String>,
 }
 
+/// A hyperlink relationship resolved from a slide rels file.
+#[derive(Debug, Clone)]
+pub(super) struct HyperlinkReference {
+    pub(super) id: String,
+    pub(super) url: String,
+}
+
 #[derive(Debug, Clone)]
 pub(super) enum SlideElement {
     Text(TextElement, ElementPosition),
@@ -121,6 +135,8 @@ pub(super) struct Slide {
     pub(super) slide_number: u32,
     pub(super) elements: Vec<SlideElement>,
     pub(super) images: Vec<ImageReference>,
+    /// Hyperlink relationships resolved from the slide rels file.
+    pub(super) hyperlinks: Vec<HyperlinkReference>,
 }
 
 #[derive(Debug, Clone)]

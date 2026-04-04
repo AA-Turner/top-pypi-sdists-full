@@ -2,12 +2,10 @@
 
 #[cfg(feature = "fs")]
 pub mod fs;
-mod rt;
 #[cfg(feature = "time")]
 pub mod time;
 
 use pyo3::prelude::*;
-use pyo3::types::PyModule;
 
 #[cfg_attr(not(any(feature = "fs", feature = "time")), expect(unused_variables))]
 pub fn pymod_add(m: &Bound<'_, PyModule>) -> PyResult<()> {

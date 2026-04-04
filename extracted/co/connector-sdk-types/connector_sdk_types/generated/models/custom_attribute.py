@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from connector_sdk_types.generated.models.custom_attribute_customized_type import CustomAttributeCustomizedType
 from typing import Optional, Set
 from typing_extensions import Self
@@ -29,7 +29,7 @@ class CustomAttribute(BaseModel):
     """ # noqa: E501
     record_id: StrictStr = Field(description="The id of the record this custom attribute is for")
     label: StrictStr = Field(description="The custom attribute label. This should match the input parameter label")
-    value: StrictStr = Field(description="The custom attribute value")
+    value: Optional[Any] = Field(description="The custom attribute value")
     type: CustomAttributeCustomizedType = Field(description="The custom attribute model type. This determines which model the record_id will be matched against.")
     __properties: ClassVar[List[str]] = ["record_id", "label", "value", "type"]
 
@@ -72,6 +72,11 @@ class CustomAttribute(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if value (nullable) is None
+        # and model_fields_set contains the field
+        if self.value is None and "value" in self.model_fields_set:
+            _dict['value'] = None
+
         return _dict
 
     @classmethod

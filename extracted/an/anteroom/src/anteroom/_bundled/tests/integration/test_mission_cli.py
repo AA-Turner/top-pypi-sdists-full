@@ -164,10 +164,17 @@ class TestMissionCLIHelp:
         assert "create" in result.stdout
         assert "list" in result.stdout
         assert "status" in result.stdout
+        assert "scheduler" in result.stdout
         assert "talk" in result.stdout
         assert "update" in result.stdout
         assert "revisions" in result.stdout
         assert "cancel" in result.stdout
+
+    def test_mission_scheduler_help(self) -> None:
+        result = _run_aroom("mission", "scheduler", "--help")
+        assert result.returncode == 0
+        assert "--once" in result.stdout
+        assert "--poll-interval" in result.stdout
 
     def test_mission_create_help(self) -> None:
         result = _run_aroom("mission", "create", "--help")
@@ -257,6 +264,45 @@ class TestMissionCLIStatus:
         result = _run_aroom("mission", "status", "nonexistent-id")
         output = result.stdout + result.stderr
         assert "not found" in output.lower() or "Mission not found" in output
+
+
+def _seed_scheduler_ready_mission(tmp_path: Path) -> dict[str, Any]:
+    """Create a launchable mission for scheduler integration tests."""
+    from anteroom.db import get_db, init_db
+    from anteroom.services.mission_storage import create_item, create_session
+
+    db_path = tmp_path / ".anteroom" / "chat.db"
+    db = init_db(db_path) if not db_path.exists() else get_db(db_path)
+    session = create_session(db, title="Scheduler Test", status="active")
+    item = create_item(
+        db,
+        session_id=session["id"],
+        summary="Immediate noop task",
+        priority=10,
+        adapter_type="noop",
+    )
+    return {"db": db, "session": session, "item": item}
+
+
+class TestMissionCLIScheduler:
+    def test_scheduler_once_advances_launched_mission(self, tmp_path: Path) -> None:
+        from anteroom.db import get_db
+        from anteroom.services.mission_storage import get_item, get_session
+
+        seeded = _seed_scheduler_ready_mission(tmp_path)
+
+        result = _run_aroom("mission", "scheduler", "--once")
+        output = result.stdout + result.stderr
+        assert result.returncode == 0
+        assert "Mission scheduler cycle completed" in output
+
+        db = get_db(tmp_path / ".anteroom" / "chat.db")
+        item = get_item(db, seeded["item"]["id"])
+        session = get_session(db, seeded["session"]["id"])
+        assert item is not None
+        assert session is not None
+        assert item["status"] == "completed"
+        assert session["status"] == "completed"
 
     def test_status_shows_session_and_items(self, tmp_path: Path) -> None:
         data = _seed_mission(tmp_path)
@@ -670,6 +716,7 @@ class TestMissionCLITalkHappyPath:
         mock_run = MagicMock(side_effect=capture_asyncio_run)
 
         with (
+            patch.dict(sys.modules, {"filetype": MagicMock()}),
             patch.object(mission_cli, "console", console),
             patch.object(mission_cli.asyncio, "run", mock_run),
         ):
@@ -707,9 +754,16 @@ class TestMissionCLITalkHappyPath:
 
         from anteroom.cli import mission_cli
 
+        captured_coro: list[Any] = []
+
+        def capture_asyncio_run(coro: Any, **kwargs: Any) -> None:
+            captured_coro.append(coro)
+            coro.close()
+
         with (
+            patch.dict(sys.modules, {"filetype": MagicMock()}),
             patch.object(mission_cli, "console", console),
-            patch.object(mission_cli.asyncio, "run"),
+            patch.object(mission_cli.asyncio, "run", side_effect=capture_asyncio_run),
         ):
             mission_cli._handle_talk(config, db, args)
 

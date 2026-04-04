@@ -13,6 +13,9 @@ use toml_edit::{
     Value as ValueRs,
 };
 
+use crate::item_ops;
+use crate::py_pairs::extract_pair;
+
 // ---------------------------------------------------------------------------
 // Datetime
 // ---------------------------------------------------------------------------
@@ -140,9 +143,10 @@ where
     let len = py_mapping.len()?;
     let mut pairs = Vec::with_capacity(len);
     for pair in py_mapping.items()? {
-        let py_tuple = pair.cast::<PyTuple>()?;
-        let key: String = py_tuple.get_item(0)?.extract()?;
-        let value: V = py_tuple.get_item(1)?.extract()?;
+        let (key, value) = extract_pair(&pair)?;
+        let key = item_ops::extract_key_str(&key)?
+            .ok_or_else(|| PyTypeError::new_err("keys must be strings"))?;
+        let value: V = value.extract()?;
         pairs.push((key, value));
     }
     Ok(pairs)
@@ -170,10 +174,7 @@ impl<'py> FromPyObject<'_, 'py> for Table {
     fn extract(obj: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
         let py_mapping = obj.cast::<PyMapping>()?;
         let pairs: Vec<(String, Item)> = extract_mapping_pairs(&py_mapping)?;
-        let mut table = TableRs::from_iter(pairs.into_iter().map(|(k, v)| (k, v.0)));
-        if !table.is_empty() {
-            table.set_implicit(true);
-        }
+        let table = TableRs::from_iter(pairs.into_iter().map(|(k, v)| (k, v.0)));
         Ok(Self(table))
     }
 }

@@ -11,7 +11,7 @@ year = datetime.datetime.utcfromtimestamp(
 project = "tibs"
 copyright = f"2025 - {year}, Scott Griffiths"
 author = "Scott Griffiths"
-release = "0.5"
+release = "0.6"
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -28,14 +28,14 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 root_doc = "index"
 
-add_function_parentheses = False
+add_function_parentheses = True
 
 html_show_sphinx = False
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
 
 html_sidebars = {
-    "intro": []
+    "**": ["sidebar-nav-bs-root.html"],
 }
 
 html_theme = "pydata_sphinx_theme"
@@ -43,6 +43,10 @@ html_logo = "tibs.png"
 html_theme_options = {
     "content_footer_items": ["last-updated"],
     "show_toc_level": 2,
+    "show_nav_level": 1,
+    "sidebar_includehidden": True,
+    "navigation_depth": 3,
+    "collapse_navigation": False,
     "logo": {
         # "text": "My awesome documentation",
         "image_light": "tibs.png",

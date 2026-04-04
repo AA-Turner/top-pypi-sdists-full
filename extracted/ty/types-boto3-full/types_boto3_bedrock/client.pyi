@@ -97,6 +97,7 @@ from .type_defs import (
     DeleteMarketplaceModelEndpointRequestTypeDef,
     DeletePromptRouterRequestTypeDef,
     DeleteProvisionedModelThroughputRequestTypeDef,
+    DeleteResourcePolicyRequestTypeDef,
     DeregisterMarketplaceModelEndpointRequestTypeDef,
     ExportAutomatedReasoningPolicyVersionRequestTypeDef,
     ExportAutomatedReasoningPolicyVersionResponseTypeDef,
@@ -145,6 +146,8 @@ from .type_defs import (
     GetPromptRouterResponseTypeDef,
     GetProvisionedModelThroughputRequestTypeDef,
     GetProvisionedModelThroughputResponseTypeDef,
+    GetResourcePolicyRequestTypeDef,
+    GetResourcePolicyResponseTypeDef,
     GetUseCaseForModelAccessResponseTypeDef,
     ListAutomatedReasoningPoliciesRequestTypeDef,
     ListAutomatedReasoningPoliciesResponseTypeDef,
@@ -191,6 +194,8 @@ from .type_defs import (
     PutEnforcedGuardrailConfigurationRequestTypeDef,
     PutEnforcedGuardrailConfigurationResponseTypeDef,
     PutModelInvocationLoggingConfigurationRequestTypeDef,
+    PutResourcePolicyRequestTypeDef,
+    PutResourcePolicyResponseTypeDef,
     PutUseCaseForModelAccessRequestTypeDef,
     RegisterMarketplaceModelEndpointRequestTypeDef,
     RegisterMarketplaceModelEndpointResponseTypeDef,
@@ -605,6 +610,16 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#delete_provisioned_model_throughput)
         """
 
+    def delete_resource_policy(
+        self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a previously created Bedrock resource policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/delete_resource_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#delete_resource_policy)
+        """
+
     def deregister_marketplace_model_endpoint(
         self, **kwargs: Unpack[DeregisterMarketplaceModelEndpointRequestTypeDef]
     ) -> dict[str, Any]:
@@ -864,6 +879,16 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_provisioned_model_throughput)
         """
 
+    def get_resource_policy(
+        self, **kwargs: Unpack[GetResourcePolicyRequestTypeDef]
+    ) -> GetResourcePolicyResponseTypeDef:
+        """
+        Gets the resource policy document for a Bedrock resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_resource_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_resource_policy)
+        """
+
     def get_use_case_for_model_access(self) -> GetUseCaseForModelAccessResponseTypeDef:
         """
         Get usecase for model access.
@@ -1105,6 +1130,16 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_model_invocation_logging_configuration.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#put_model_invocation_logging_configuration)
+        """
+
+    def put_resource_policy(
+        self, **kwargs: Unpack[PutResourcePolicyRequestTypeDef]
+    ) -> PutResourcePolicyResponseTypeDef:
+        """
+        Adds a resource policy for a Bedrock resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_resource_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#put_resource_policy)
         """
 
     def put_use_case_for_model_access(

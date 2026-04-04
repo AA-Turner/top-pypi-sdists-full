@@ -325,3 +325,18 @@ class TestWriteAllowedToolConcurrency:
             allowed = raw["safety"]["allowed_tools"]
             assert "bash" in allowed
             assert "write_file" in allowed
+
+    def test_write_allowed_tool_with_utf8_bom(self) -> None:
+        from anteroom.config import write_allowed_tool
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "config.yaml"
+            cfg_bytes = yaml.dump({"ai": {"base_url": "http://localhost", "api_key": "test"}}).encode("utf-8")
+            config_path.write_bytes(b"\xef\xbb\xbf" + cfg_bytes)
+
+            write_allowed_tool("bash", config_path)
+
+            with open(config_path) as f:
+                raw = yaml.safe_load(f)
+            assert "bash" in raw["safety"]["allowed_tools"]
+            assert raw["ai"]["base_url"] == "http://localhost"

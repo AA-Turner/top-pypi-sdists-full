@@ -58,7 +58,7 @@ NAME = "netius"
 identification of both the clients and the services this
 value may be prefixed or suffixed """
 
-VERSION = "1.36.2"
+VERSION = "1.37.0"
 """ The version value that identifies the version of the
 current infra-structure, all of the services and clients
 may share this value """
@@ -274,6 +274,13 @@ LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
 """ The format that is going to be used by the logger of the
 netius infra-structure for debugging purposes it should allow
 and end developer to dig into the details of the execution """
+
+TRACE_FORMAT = (
+    "%(asctime)s [%(name)s] [%(levelname)s] %(pathname)s:%(lineno)d | %(message)s"
+)
+""" The format to be used when the logging level is set to TRACE,
+includes file path and line number to allow for fine-grained debugging
+of low-level protocol operations """
 
 # initializes the various paths that are going to be used for
 # the base files configuration in the complete service infra
@@ -1272,17 +1279,24 @@ class AbstractBase(observer.Observable):
     def welcome(self):
         pass
 
-    def load_logging(self, level=logging.DEBUG, format=LOG_FORMAT, unique=False):
+    def load_logging(self, level=logging.DEBUG, format=None, unique=False):
         # verifies if there's a logger already set in the current service
         # if that's the case ignores the call no double reloading allowed
         if self.logger:
             return
 
+        # patches the logging infra-structure so that the TRACE level
+        # is properly registered and available for usage, this call
+        # is idempotent and safe to be called multiple times
+        log.patch_logging()
+
         # normalizes the provided level value so that it represents
-        # a proper and understandable value, then starts the formatter
-        # that is going to be used and retrieves the (possibly unique)
-        # identifier to be used in the logger retrieval/identification
+        # a proper and understandable value, then selects the appropriate
+        # format for the level and starts the formatter that is going to
+        # be used, retrieving the (possibly unique) identifier to be
+        # used in the logger retrieval/identification
         level = self._level(level)
+        format = format or (LOG_FORMAT if level > log.TRACE else TRACE_FORMAT)
         formatter = logging.Formatter(format)
         identifier = self.get_id(unique=unique)
 
@@ -3440,6 +3454,11 @@ class AbstractBase(observer.Observable):
 
         return self.is_debug()
 
+    def is_trace(self):
+        if not self.logger:
+            return False
+        return self.logger.isEnabledFor(log.TRACE)
+
     def is_debug(self):
         if not self.logger:
             return False
@@ -3464,6 +3483,11 @@ class AbstractBase(observer.Observable):
         if not self.logger:
             return False
         return self.logger.isEnabledFor(logging.CRITICAL)
+
+    def trace(self, object, *args, **kwargs):
+        if not logging:
+            return
+        self.log(object, *args, level=log.TRACE, **kwargs)
 
     def debug(self, object, *args, **kwargs):
         if not logging:
@@ -4468,6 +4492,27 @@ class AbstractBase(observer.Observable):
                 ", ".join(context_options),
             )
 
+        self.debug(
+            "SSL library: %s, seclevel=%s",
+            getattr(ssl, "OPENSSL_VERSION", "N/A"),
+            getattr(context, "security_level", "N/A"),
+        )
+
+        ciphers = context.get_ciphers() if hasattr(context, "get_ciphers") else []
+        if ciphers:
+            cipher_protos = {}
+            for cipher in ciphers:
+                proto = cipher.get("protocol", "unknown")
+                cipher_protos[proto] = cipher_protos.get(proto, 0) + 1
+            cipher_summary = ", ".join(
+                "%s: %d" % (p, n) for p, n in sorted(cipher_protos.items())
+            )
+            self.debug(
+                "SSL ciphers: %d total (%s)",
+                len(ciphers),
+                cipher_summary,
+            )
+
         protocols = self.get_protocols()
         if protocols:
             if getattr(ssl, "HAS_ALPN", False) and hasattr(
@@ -4807,6 +4852,8 @@ class AbstractBase(observer.Observable):
             return level
         if level == "SILENT":
             return log.SILENT
+        if level == "TRACE":
+            return log.TRACE
         if hasattr(logging, "_checkLevel"):
             return logging._checkLevel(level)
         return logging.getLevelName(level)

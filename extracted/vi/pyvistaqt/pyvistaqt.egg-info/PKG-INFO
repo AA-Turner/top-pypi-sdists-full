@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: pyvistaqt
-Version: 0.11.3
+Version: 0.11.4
 Summary: pyvista qt plotter
-Home-page: https://github.com/pyvista/pyvistaqt
-Author: PyVista Developers
-Author-email: info@pyvista.org
+Author-email: PyVista Developers <info@pyvista.org>
 License: MIT
-Keywords: vtk numpy plotting mesh qt
+Project-URL: homepage, https://github.com/pyvista/pyvistaqt
+Keywords: vtk,numpy,plotting,mesh,qt
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
@@ -14,27 +13,19 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: MacOS
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.rst
-Requires-Dist: pyvista>=0.32.0
+Requires-Dist: pyvista>=0.39.0
 Requires-Dist: QtPy>=1.9.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == "dev"
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 #########
 PyVistaQt

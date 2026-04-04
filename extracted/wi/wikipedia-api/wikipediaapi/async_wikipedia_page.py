@@ -6,11 +6,12 @@ awaitable properties for accessing page content, metadata, and related informati
 """
 
 from typing import Any
+from typing import cast
 
-from ._base_wikipedia_page import BaseWikipediaPage
 from ._base_wikipedia_page import NOT_CACHED
+from ._base_wikipedia_page import BaseWikipediaPage
+from ._pages_dict import AsyncImagesDict
 from ._pages_dict import AsyncPagesDict
-from ._pages_dict import PagesDict
 from ._params.coordinates_params import CoordinatesParams
 from ._params.images_params import ImagesParams
 from ._types import Coordinate
@@ -195,7 +196,7 @@ class AsyncWikipediaPage(BaseWikipediaPage["AsyncWikipediaPage"]):
         async def _get() -> AsyncPagesDict:
             if not self._called["langlinks"]:
                 await self._fetch("langlinks")
-            return self._langlinks  # type: ignore[return-value]
+            return cast(AsyncPagesDict, self._langlinks)
 
         return _get()
 
@@ -206,7 +207,7 @@ class AsyncWikipediaPage(BaseWikipediaPage["AsyncWikipediaPage"]):
         async def _get() -> AsyncPagesDict:
             if not self._called["links"]:
                 await self._fetch("links")
-            return self._links  # type: ignore[return-value]
+            return cast(AsyncPagesDict, self._links)
 
         return _get()
 
@@ -217,7 +218,7 @@ class AsyncWikipediaPage(BaseWikipediaPage["AsyncWikipediaPage"]):
         async def _get() -> AsyncPagesDict:
             if not self._called["backlinks"]:
                 await self._fetch("backlinks")
-            return self._backlinks  # type: ignore[return-value]
+            return cast(AsyncPagesDict, self._backlinks)
 
         return _get()
 
@@ -228,7 +229,7 @@ class AsyncWikipediaPage(BaseWikipediaPage["AsyncWikipediaPage"]):
         async def _get() -> AsyncPagesDict:
             if not self._called["categories"]:
                 await self._fetch("categories")
-            return self._categories  # type: ignore[return-value]
+            return cast(AsyncPagesDict, self._categories)
 
         return _get()
 
@@ -239,7 +240,7 @@ class AsyncWikipediaPage(BaseWikipediaPage["AsyncWikipediaPage"]):
         async def _get() -> AsyncPagesDict:
             if not self._called["categorymembers"]:
                 await self._fetch("categorymembers")
-            return self._categorymembers  # type: ignore[return-value]
+            return cast(AsyncPagesDict, self._categorymembers)
 
         return _get()
 
@@ -301,17 +302,17 @@ class AsyncWikipediaPage(BaseWikipediaPage["AsyncWikipediaPage"]):
         Use ``await wiki.images(page, limit=50)`` for non-default params.
 
         Returns:
-            Coroutine resolving to a :class:`PagesDict` keyed by image title.
+            Coroutine resolving to an :class:`AsyncImagesDict` keyed by image title.
         """
 
-        async def _get() -> PagesDict:
+        async def _get() -> AsyncImagesDict:
             default_params = ImagesParams()
             cached = self._get_cached("images", default_params.cache_key())
             if isinstance(cached, type(NOT_CACHED)):
                 await self.wiki.images(self)
                 cached = self._get_cached("images", default_params.cache_key())
                 if isinstance(cached, type(NOT_CACHED)):
-                    return PagesDict()
+                    return AsyncImagesDict()
             return cached  # type: ignore[no-any-return]
 
         return _get()
@@ -367,8 +368,10 @@ class AsyncWikipediaPage(BaseWikipediaPage["AsyncWikipediaPage"]):
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
         try:
             object.__getattribute__(self, "_attributes")
-        except AttributeError:
-            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        except AttributeError as err:
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'"
+            ) from err
         return self._info_attr(name)
 
     async def _fetch(self, call: str) -> "AsyncWikipediaPage":

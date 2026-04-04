@@ -5,6 +5,7 @@
 
 use crate::Result;
 use crate::text::utf8_validation;
+use crate::types::uri::Uri;
 use ahash::AHashMap;
 use std::borrow::Cow;
 
@@ -162,35 +163,6 @@ fn collect_feed_urls(node: Node, urls: &mut Vec<serde_json::Value>) {
     }
 }
 
-/// Build a `DocumentStructure` from OPML content.
-///
-/// Maps the outline hierarchy to heading-driven groups:
-/// - Top-level outlines become h1 headings
-/// - Nested outlines increase heading level (up to h6)
-/// - Leaf outlines with text become paragraphs
-#[cfg(feature = "office")]
-pub(crate) fn build_document_structure(content: &[u8]) -> Result<crate::types::document_structure::DocumentStructure> {
-    use crate::types::builder::DocumentStructureBuilder;
-
-    let doc = roxmltree::Document::parse(
-        utf8_validation::from_utf8(content)
-            .map_err(|e| crate::KreuzbergError::Other(format!("Invalid UTF-8 in OPML: {}", e)))?,
-    )
-    .map_err(|e| crate::KreuzbergError::Other(format!("Failed to parse OPML: {}", e)))?;
-
-    let mut builder = DocumentStructureBuilder::new().source_format("opml");
-
-    if let Some(opml) = doc.root().children().find(|n| n.tag_name().name() == "opml")
-        && let Some(body) = opml.children().find(|n| n.tag_name().name() == "body")
-    {
-        for outline in body.children().filter(|n| n.tag_name().name() == "outline") {
-            build_outline_structure(outline, 1, &mut builder);
-        }
-    }
-
-    Ok(builder.build())
-}
-
 /// Extract OPML outline attributes (xmlUrl, htmlUrl, type, description) into a HashMap.
 #[cfg(feature = "office")]
 fn extract_outline_attributes(node: Node) -> AHashMap<String, String> {
@@ -206,42 +178,107 @@ fn extract_outline_attributes(node: Node) -> AHashMap<String, String> {
     attrs
 }
 
-/// Recursively build document structure from outline nodes.
+/// Convert inline HTML tags in OPML text attributes to Markdown equivalents.
 ///
-/// Outlines with children become heading groups; leaf outlines become paragraphs.
-/// Extracts xmlUrl, htmlUrl, type, and description as node attributes.
+/// Handles:
+/// - `<strong>text</strong>` / `<b>text</b>` -> `**text**`
+/// - `<em>text</em>` / `<i>text</i>` -> `*text*`
+/// - `<a href="url">text</a>` -> `[text](url)`
+/// - Unescapes `\<` and `\>`
 #[cfg(feature = "office")]
-fn build_outline_structure(node: Node, depth: u8, builder: &mut crate::types::builder::DocumentStructureBuilder) {
+fn convert_inline_html(text: &str) -> String {
+    use regex::Regex;
+
+    let mut result = text.to_string();
+
+    // Convert <strong>text</strong> and <b>text</b> to **text**
+    let strong_re = Regex::new(r"<(?:strong|b)>(.*?)</(?:strong|b)>").expect("valid regex");
+    result = strong_re.replace_all(&result, "**$1**").into_owned();
+
+    // Convert <em>text</em> and <i>text</i> to *text*
+    let em_re = Regex::new(r"<(?:em|i)>(.*?)</(?:em|i)>").expect("valid regex");
+    result = em_re.replace_all(&result, "*$1*").into_owned();
+
+    // Convert <a href="url">text</a> to [text](url)
+    let link_re = Regex::new(r#"<a\s+href="([^"]*)"[^>]*>(.*?)</a>"#).expect("valid regex");
+    result = link_re.replace_all(&result, "[$2]($1)").into_owned();
+
+    // Unescape \< and \>
+    result = result.replace(r"\<", "<").replace(r"\>", ">");
+
+    result
+}
+
+/// Build an `InternalDocument` from OPML content.
+///
+/// Maps the outline hierarchy to headings and paragraphs, mirroring
+/// `build_document_structure`.
+#[cfg(feature = "office")]
+pub(crate) fn build_internal_document(content: &[u8]) -> Result<crate::types::internal::InternalDocument> {
+    use crate::types::internal_builder::InternalDocumentBuilder;
+
+    let doc = roxmltree::Document::parse(
+        utf8_validation::from_utf8(content)
+            .map_err(|e| crate::KreuzbergError::Other(format!("Invalid UTF-8 in OPML: {}", e)))?,
+    )
+    .map_err(|e| crate::KreuzbergError::Other(format!("Failed to parse OPML: {}", e)))?;
+
+    let mut builder = InternalDocumentBuilder::new("opml");
+
+    if let Some(opml) = doc.root().children().find(|n| n.tag_name().name() == "opml")
+        && let Some(body) = opml.children().find(|n| n.tag_name().name() == "body")
+    {
+        for outline in body.children().filter(|n| n.tag_name().name() == "outline") {
+            build_outline_internal(outline, 1, &mut builder);
+        }
+    }
+
+    Ok(builder.build())
+}
+
+/// Recursively build internal document from outline nodes.
+#[cfg(feature = "office")]
+fn build_outline_internal(
+    node: Node,
+    depth: u8,
+    builder: &mut crate::types::internal_builder::InternalDocumentBuilder,
+) {
     let text = node.attribute("text").unwrap_or("").trim();
 
     let child_outlines: Vec<Node> = node.children().filter(|n| n.tag_name().name() == "outline").collect();
 
     if text.is_empty() {
-        // Skip empty nodes but process children
         for child in child_outlines {
-            build_outline_structure(child, depth, builder);
+            build_outline_internal(child, depth, builder);
         }
         return;
     }
 
     let attrs = extract_outline_attributes(node);
 
-    if child_outlines.is_empty() {
-        // Leaf node: push as paragraph
-        let node_idx = builder.push_paragraph(text, vec![], None, None);
-        if !attrs.is_empty() {
-            builder.set_attributes(node_idx, attrs);
+    // Extract URIs from xmlUrl and htmlUrl attributes
+    let label = if text.is_empty() { None } else { Some(text.to_string()) };
+    if let Some(xml_url) = node.attribute("xmlUrl") {
+        let trimmed = xml_url.trim();
+        if !trimmed.is_empty() {
+            builder.push_uri(Uri::hyperlink(trimmed, label.clone()));
         }
-    } else {
-        // Branch node: push as heading group, recurse children
-        let level = depth.min(6);
-        let node_idx = builder.push_heading(level, text, None, None);
-        if !attrs.is_empty() {
-            builder.set_attributes(node_idx, attrs);
+    }
+    if let Some(html_url) = node.attribute("htmlUrl") {
+        let trimmed = html_url.trim();
+        if !trimmed.is_empty() {
+            builder.push_uri(Uri::hyperlink(trimmed, label));
         }
-        for child in child_outlines {
-            build_outline_structure(child, depth + 1, builder);
-        }
+    }
+
+    let level = depth.min(6);
+    let converted_text = convert_inline_html(text);
+    let idx = builder.push_heading(level, &converted_text, None, None);
+    if !attrs.is_empty() {
+        builder.set_attributes(idx, attrs);
+    }
+    for child in child_outlines {
+        build_outline_internal(child, depth + 1, builder);
     }
 }
 

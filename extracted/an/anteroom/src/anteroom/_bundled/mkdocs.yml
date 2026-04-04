@@ -193,10 +193,13 @@ nav:
         - workflows/commands.md
         - workflows/monitoring.md
         - workflows/scheduling.md
+      - Examples:
+        - workflows/local-cli-issue-flow.md
       - Reference:
         - workflows/api-reference.md
     - Missions:
       - missions/index.md
+      - Best Practices: missions/best-practices.md
     - Specs:
       - specs/index.md
       - Getting Started:
@@ -239,6 +242,4 @@ nav:
     - advanced/testing.md
     - advanced/developer-workflow.md
     - advanced/workflows.md
-    - Handoffs:
-      - handoffs/index.md
     - advanced/contributing.md

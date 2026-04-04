@@ -108,6 +108,32 @@ class ThreadsResource(SyncAPIResource):
         Forward the entire thread as a readable transcript.
 
         Args:
+          thread_id: The ID of the thread to forward
+
+          to: Recipient email address or list of addresses
+
+          attachments: Optional additional attachments to include alongside any originals (if
+              included).
+
+          bcc: Optional BCC recipients
+
+          cc: Optional CC recipients
+
+          from_: Optional sender address; auto-resolved if omitted
+
+          from_name: Optional display name for the sender
+
+          include_attachments: Include original attachments as real file attachments (inline images embedded
+              when referenced by CID)
+
+          is_draft: If true, the forward is created as a draft
+
+          note: Optional short context shown above the transcript
+
+          track_clicks: Enable click tracking for this email. Overrides API key and org defaults.
+
+          track_opens: Enable open tracking for this email. Overrides API key and org defaults.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -185,6 +211,38 @@ class ThreadsResource(SyncAPIResource):
         Search threads with various filtering options optimized for AI agents
 
         Args:
+          conversation_state: Filter threads by conversation state
+
+          created_after: Filter threads created after this date
+
+          created_before: Filter threads created before this date
+
+          has_email_from_address: Filter threads with emails from this address
+
+          has_email_to_address: Filter threads with emails to this address
+
+          has_participant_emails: Filter threads that include all of these email addresses as participants
+
+          last_email_after: Filter threads with last email after this date
+
+          last_email_before: Filter threads with last email before this date
+
+          limit: Number of threads to return (1-100)
+
+          offset: Number of threads to skip
+
+          some_email_has_direction: Filter threads containing emails with this direction
+
+          some_email_has_status: Filter threads containing emails with this status
+
+          sort_by: Field to sort by
+
+          sort_order: Sort order
+
+          stale_threshold_days: Days to consider a thread stale (used with conversationState=stale)
+
+          subject_contains: Filter threads where subject contains this text
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -305,6 +363,32 @@ class AsyncThreadsResource(AsyncAPIResource):
         Forward the entire thread as a readable transcript.
 
         Args:
+          thread_id: The ID of the thread to forward
+
+          to: Recipient email address or list of addresses
+
+          attachments: Optional additional attachments to include alongside any originals (if
+              included).
+
+          bcc: Optional BCC recipients
+
+          cc: Optional CC recipients
+
+          from_: Optional sender address; auto-resolved if omitted
+
+          from_name: Optional display name for the sender
+
+          include_attachments: Include original attachments as real file attachments (inline images embedded
+              when referenced by CID)
+
+          is_draft: If true, the forward is created as a draft
+
+          note: Optional short context shown above the transcript
+
+          track_clicks: Enable click tracking for this email. Overrides API key and org defaults.
+
+          track_opens: Enable open tracking for this email. Overrides API key and org defaults.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -382,6 +466,38 @@ class AsyncThreadsResource(AsyncAPIResource):
         Search threads with various filtering options optimized for AI agents
 
         Args:
+          conversation_state: Filter threads by conversation state
+
+          created_after: Filter threads created after this date
+
+          created_before: Filter threads created before this date
+
+          has_email_from_address: Filter threads with emails from this address
+
+          has_email_to_address: Filter threads with emails to this address
+
+          has_participant_emails: Filter threads that include all of these email addresses as participants
+
+          last_email_after: Filter threads with last email after this date
+
+          last_email_before: Filter threads with last email before this date
+
+          limit: Number of threads to return (1-100)
+
+          offset: Number of threads to skip
+
+          some_email_has_direction: Filter threads containing emails with this direction
+
+          some_email_has_status: Filter threads containing emails with this status
+
+          sort_by: Field to sort by
+
+          sort_order: Sort order
+
+          stale_threshold_days: Days to consider a thread stale (used with conversationState=stale)
+
+          subject_contains: Filter threads where subject contains this text
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-litellm
-Version: 0.6.3
+Version: 0.6.4
 Summary: An integration package connecting LiteLLM and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/litellm
 Project-URL: Documentation, https://docs.langchain.com/oss/python/integrations/chat/litellm

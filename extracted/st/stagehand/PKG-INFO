@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: stagehand
-Version: 3.19.1
+Version: 3.19.5
 Summary: The official Python library for the stagehand API
 Project-URL: Homepage, https://github.com/browserbase/stagehand-python
 Project-URL: Repository, https://github.com/browserbase/stagehand-python
@@ -25,7 +25,7 @@ Requires-Python: >=3.9
 Requires-Dist: anyio<5,>=3.5.0
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
-Requires-Dist: pydantic<3,>=1.9.0
+Requires-Dist: pydantic<3,>=2.0.0
 Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp

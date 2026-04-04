@@ -1,21 +1,33 @@
 import os.path
+import shlex
 import sys
-from shutil import which
-from unittest import TestCase, skipUnless
+from unittest import TestCase
 
 import pexpect
+
+from .cli import spawn_command
+from .libvncserver import example_command
 
 DATADIR = os.path.join(os.path.dirname(__file__), 'data')
 KEYA_VDO = os.path.join(DATADIR, 'samplea.vdo')
 KEYB_VDO = os.path.join(DATADIR, 'sampleb.vdo')
 
 
-@skipUnless(which("vncev"), reason="requires https://github.com/LibVNC/libvncserver")
 class TestSendEvents(TestCase):
 
     def setUp(self) -> None:
-        cmd = 'vncev -rfbport 5933 -rfbwait 1000'
-        self.server = pexpect.spawn(cmd, logfile=sys.stdout.buffer, timeout=2)
+        server_cmd, server_args, server_env = example_command(
+            'vncev', '-rfbport', '5933', '-rfbwait', '1000'
+        )
+        self.server = pexpect.spawn(
+            server_cmd,
+            list(server_args),
+            logfile=sys.stdout.buffer,
+            env=server_env,
+            timeout=5,
+        )
+        self.server.logfile_read = sys.stdout.buffer
+        self.server.expect('Listening for VNC connections on TCP port')
 
     def tearDown(self) -> None:
         self.server.terminate(force=True)
@@ -37,8 +49,10 @@ class TestSendEvents(TestCase):
         self.server.expect(disco)
 
     def run_vncdo(self, commands: str) -> None:
-        cmd = 'vncdo -v -s :33 ' + commands
-        vnc = pexpect.spawn(cmd, logfile=sys.stdout.buffer, timeout=5)
+        args = shlex.split(commands)
+        vnc = spawn_command(
+            'vncdo', '-v', '-s', ':33', *args, logfile=sys.stdout.buffer, timeout=5
+        )
         retval = vnc.wait()
         assert retval == 0, retval
 
@@ -52,8 +66,8 @@ class TestSendEvents(TestCase):
         self.run_vncdo('key ctrl-a')
         self.assertKeyDown(int(0xffe3))
         self.assertKeyDown(ord('a'))
-        self.assertKeyUp(int(0xffe3))
         self.assertKeyUp(ord('a'))
+        self.assertKeyUp(int(0xffe3))
         self.assertDisconnect()
 
     def test_type(self) -> None:
@@ -65,9 +79,15 @@ class TestSendEvents(TestCase):
         self.assertDisconnect()
 
     def test_mouse_move(self) -> None:
-        # vncev only prints click events, but will include the position
         self.run_vncdo('move 10 20 click 1')
         self.assertMouse(10, 20, 0x1)
+        self.assertDisconnect()
+
+    def test_mouse_drag(self) -> None:
+        self.run_vncdo('move 10 20 drag 30 30 click 1')
+        self.assertMouse(10, 20, 0x0)
+        self.assertMouse(20, 25, 0x0)
+        self.assertMouse(30, 30, 0x1)
         self.assertDisconnect()
 
     def test_mouse_click_button_two(self) -> None:

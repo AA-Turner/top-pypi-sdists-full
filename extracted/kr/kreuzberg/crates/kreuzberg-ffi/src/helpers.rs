@@ -100,7 +100,11 @@ pub fn to_c_extraction_result(result: ExtractionResult) -> std::result::Result<*
         quality_score,
         processing_warnings,
         annotations,
-        children: _,
+        formatted_content: _,
+        children,
+        uris,
+        code_intelligence: _,
+        ocr_internal_document: _,
     } = result;
 
     let sanitized_content = if content.contains('\0') {
@@ -175,6 +179,17 @@ pub fn to_c_extraction_result(result: ExtractionResult) -> std::result::Result<*
                 serde_json::to_string(&chunks).map_err(|e| format!("Failed to serialize chunks to JSON: {}", e))?;
             Some(CStringGuard::new(CString::new(json).map_err(|e| {
                 format!("Failed to convert chunks JSON to C string: {}", e)
+            })?))
+        }
+        _ => None,
+    };
+
+    let children_json_guard = match children {
+        Some(ref children) if !children.is_empty() => {
+            let json =
+                serde_json::to_string(&children).map_err(|e| format!("Failed to serialize children to JSON: {}", e))?;
+            Some(CStringGuard::new(CString::new(json).map_err(|e| {
+                format!("Failed to convert children JSON to C string: {}", e)
             })?))
         }
         _ => None,
@@ -300,9 +315,20 @@ pub fn to_c_extraction_result(result: ExtractionResult) -> std::result::Result<*
         _ => None,
     };
 
+    let uris_json_guard = match uris {
+        Some(u) if !u.is_empty() => {
+            let json = serde_json::to_string(&u).map_err(|e| format!("Failed to serialize uris to JSON: {}", e))?;
+            Some(CStringGuard::new(CString::new(json).map_err(|e| {
+                format!("Failed to convert uris JSON to C string: {}", e)
+            })?))
+        }
+        _ => None,
+    };
+
     Ok(Box::into_raw(Box::new(CExtractionResult {
         annotations_json: annotations_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
         chunks_json: chunks_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
+        children_json: children_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
         content: content_guard.into_raw(),
         date: date_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
         detected_languages_json: detected_languages_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
@@ -321,6 +347,10 @@ pub fn to_c_extraction_result(result: ExtractionResult) -> std::result::Result<*
         quality_score_json: quality_score_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
         subject: subject_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
         tables_json: tables_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
+        uris_json: uris_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
+        // code_intelligence will be populated once the core ExtractionResult
+        // adds the field; for now, always null.
+        code_intelligence_json: ptr::null_mut(),
         success: true,
         _padding1: [0u8; 7],
     })))
@@ -486,6 +516,10 @@ mod tests {
             processing_warnings: vec![],
             annotations: None,
             children: None,
+            uris: None,
+            formatted_content: None,
+            code_intelligence: None,
+            ocr_internal_document: None,
         };
 
         let c_result = to_c_extraction_result(result);
@@ -532,6 +566,10 @@ mod tests {
             processing_warnings: vec![],
             annotations: None,
             children: None,
+            uris: None,
+            formatted_content: None,
+            code_intelligence: None,
+            ocr_internal_document: None,
         };
 
         let c_result = to_c_extraction_result(result);
@@ -588,6 +626,10 @@ mod tests {
             processing_warnings: vec![],
             annotations: None,
             children: None,
+            uris: None,
+            formatted_content: None,
+            code_intelligence: None,
+            ocr_internal_document: None,
         };
 
         let c_result = to_c_extraction_result(result);
@@ -648,6 +690,7 @@ mod tests {
 
         let chunk = Chunk {
             content: "Chunk content".to_string(),
+            chunk_type: Default::default(),
             embedding: None,
             metadata: ChunkMetadata {
                 byte_start: 0,
@@ -679,6 +722,10 @@ mod tests {
             processing_warnings: vec![],
             annotations: None,
             children: None,
+            uris: None,
+            formatted_content: None,
+            code_intelligence: None,
+            ocr_internal_document: None,
         };
 
         let c_result = to_c_extraction_result(result);

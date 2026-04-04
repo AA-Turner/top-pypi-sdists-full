@@ -594,6 +594,87 @@ class TestSchedulerQueries:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# retry_item and prepare_replace
+# ---------------------------------------------------------------------------
+
+
+class TestRetryItem:
+    def _make_failed_item(self, db: Any) -> tuple[dict[str, Any], dict[str, Any]]:
+        s = ms.create_session(db, title="S", status="active")
+        item = ms.create_item(db, session_id=s["id"], summary="Fail task")
+        ms.update_item(db, item["id"], status="failed")
+        return s, ms.get_item(db, item["id"])  # type: ignore[return-value]
+
+    def test_retry_resets_to_pending(self, db: Any) -> None:
+        s, item = self._make_failed_item(db)
+        result = ms.retry_item(db, item["id"])
+        assert result["status"] == "pending"
+
+    def test_retry_emits_event(self, db: Any) -> None:
+        s, item = self._make_failed_item(db)
+        ms.retry_item(db, item["id"])
+        events = ms.list_events(db, s["id"], item_id=item["id"])
+        assert any(e["event_type"] == "item_retried" for e in events)
+
+    def test_retry_non_failed_raises(self, db: Any) -> None:
+        s = ms.create_session(db, title="S", status="active")
+        item = ms.create_item(db, session_id=s["id"], summary="X")
+        with pytest.raises(ValueError, match="must be in 'failed' status"):
+            ms.retry_item(db, item["id"])
+
+    def test_retry_not_found_raises(self, db: Any) -> None:
+        with pytest.raises(ValueError, match="Item not found"):
+            ms.retry_item(db, "nonexistent")
+
+
+class TestPrepareReplace:
+    def _make_active_item_with_execution(self, db: Any) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+        s = ms.create_session(db, title="S", status="active")
+        item = ms.create_item(db, session_id=s["id"], summary="Replace task", status="active")
+        exc = ms.create_execution(db, item_id=item["id"], attempt_number=1, status="running", adapter_ref="ref-1")
+        return s, item, exc
+
+    def test_prepare_replace_resets_item(self, db: Any) -> None:
+        s, item, exc = self._make_active_item_with_execution(db)
+        result = ms.prepare_replace(db, item["id"], exc["id"])
+        assert result["status"] == "pending"
+
+    def test_prepare_replace_cancels_execution(self, db: Any) -> None:
+        s, item, exc = self._make_active_item_with_execution(db)
+        ms.prepare_replace(db, item["id"], exc["id"])
+        updated_exc = ms.get_execution(db, exc["id"])
+        assert updated_exc is not None
+        assert updated_exc["status"] == "cancelled"
+        assert updated_exc["finished_at"] is not None
+
+    def test_prepare_replace_emits_event(self, db: Any) -> None:
+        s, item, exc = self._make_active_item_with_execution(db)
+        ms.prepare_replace(db, item["id"], exc["id"])
+        events = ms.list_events(db, s["id"], item_id=item["id"])
+        assert any(e["event_type"] == "item_replaced" for e in events)
+        replaced_event = [e for e in events if e["event_type"] == "item_replaced"][0]
+        assert replaced_event["detail"]["cancelled_execution_id"] == exc["id"]
+
+    def test_prepare_replace_item_not_found_raises(self, db: Any) -> None:
+        with pytest.raises(ValueError, match="Item not found"):
+            ms.prepare_replace(db, "nonexistent", "some-exec")
+
+    def test_prepare_replace_execution_not_found_raises(self, db: Any) -> None:
+        s = ms.create_session(db, title="S", status="active")
+        item = ms.create_item(db, session_id=s["id"], summary="X")
+        with pytest.raises(ValueError, match="Execution not found"):
+            ms.prepare_replace(db, item["id"], "nonexistent")
+
+    def test_prepare_replace_execution_mismatch_raises(self, db: Any) -> None:
+        s = ms.create_session(db, title="S", status="active")
+        item_a = ms.create_item(db, session_id=s["id"], summary="A")
+        item_b = ms.create_item(db, session_id=s["id"], summary="B")
+        exc = ms.create_execution(db, item_id=item_a["id"], attempt_number=1)
+        with pytest.raises(ValueError, match="does not belong"):
+            ms.prepare_replace(db, item_b["id"], exc["id"])
+
+
 class TestCascadeDeletes:
     def test_delete_session_cascades(self, db: Any) -> None:
         s = ms.create_session(db, title="S", status="active")
@@ -648,3 +729,232 @@ class TestPlanSnapshot:
         snap = ms.build_plan_snapshot(db, s["id"])
         assert snap["items"] == []
         assert snap["dependencies"] == {}
+
+
+# ---------------------------------------------------------------------------
+# Reconcile
+# ---------------------------------------------------------------------------
+
+
+class TestReconcileItem:
+    def _setup(self, db: Any) -> tuple[dict[str, Any], dict[str, Any]]:
+        s = ms.create_session(db, title="S", status="active")
+        item = ms.create_item(db, session_id=s["id"], summary="Task", status="active")
+        return s, item
+
+    def test_reconcile_active_to_completed(self, db: Any) -> None:
+        s, item = self._setup(db)
+        result = ms.reconcile_item(db, item["id"], reason="Done manually")
+        assert result["status"] == "completed"
+
+    def test_reconcile_failed_to_completed(self, db: Any) -> None:
+        s = ms.create_session(db, title="S", status="active")
+        item = ms.create_item(db, session_id=s["id"], summary="Task", status="failed")
+        result = ms.reconcile_item(db, item["id"], reason="Fixed externally")
+        assert result["status"] == "completed"
+
+    def test_reconcile_blocked_to_completed(self, db: Any) -> None:
+        s = ms.create_session(db, title="S", status="active")
+        item = ms.create_item(db, session_id=s["id"], summary="Task", status="blocked")
+        result = ms.reconcile_item(db, item["id"], reason="Unblocked and done")
+        assert result["status"] == "completed"
+
+    def test_reconcile_already_completed_raises(self, db: Any) -> None:
+        s = ms.create_session(db, title="S", status="active")
+        item = ms.create_item(db, session_id=s["id"], summary="Task", status="completed")
+        with pytest.raises(ValueError, match="Cannot reconcile item in status 'completed'"):
+            ms.reconcile_item(db, item["id"], reason="Nope")
+
+    def test_reconcile_dropped_raises(self, db: Any) -> None:
+        s = ms.create_session(db, title="S", status="active")
+        item = ms.create_item(db, session_id=s["id"], summary="Task", status="dropped")
+        with pytest.raises(ValueError, match="Cannot reconcile item in status 'dropped'"):
+            ms.reconcile_item(db, item["id"], reason="Nope")
+
+    def test_reconcile_pending_raises(self, db: Any) -> None:
+        s = ms.create_session(db, title="S", status="active")
+        item = ms.create_item(db, session_id=s["id"], summary="Task", status="pending")
+        with pytest.raises(ValueError, match="Cannot reconcile item in status 'pending'"):
+            ms.reconcile_item(db, item["id"], reason="Nope")
+
+    def test_reconcile_not_found_raises(self, db: Any) -> None:
+        with pytest.raises(ValueError, match="Item not found"):
+            ms.reconcile_item(db, "nonexistent", reason="Nope")
+
+    def test_reconcile_emits_event(self, db: Any) -> None:
+        s, item = self._setup(db)
+        ms.reconcile_item(db, item["id"], reason="CI finished")
+        events = ms.list_events(db, s["id"], event_type="item_reconciled")
+        assert len(events) == 1
+        assert events[0]["item_id"] == item["id"]
+        assert events[0]["detail"]["reason"] == "CI finished"
+        assert events[0]["detail"]["from_status"] == "active"
+        assert events[0]["detail"]["to_status"] == "completed"
+
+    def test_reconcile_rejects_running_execution(self, db: Any) -> None:
+        s, item = self._setup(db)
+        ms.create_execution(db, item_id=item["id"], attempt_number=1, status="running")
+        with pytest.raises(ValueError, match="live execution"):
+            ms.reconcile_item(db, item["id"], reason="Done outside")
+
+    def test_reconcile_rejects_pending_execution(self, db: Any) -> None:
+        s, item = self._setup(db)
+        ms.create_execution(db, item_id=item["id"], attempt_number=1, status="pending")
+        with pytest.raises(ValueError, match="live execution"):
+            ms.reconcile_item(db, item["id"], reason="Done outside")
+
+    def test_reconcile_skips_already_finished_execution(self, db: Any) -> None:
+        s, item = self._setup(db)
+        exc = ms.create_execution(db, item_id=item["id"], attempt_number=1, status="failed")
+        ms.update_execution(db, exc["id"], finished_at="2025-01-01T00:00:00Z")
+        ms.reconcile_item(db, item["id"], reason="Fixed")
+        updated_exc = ms.get_execution(db, exc["id"])
+        assert updated_exc is not None
+        assert updated_exc["status"] == "failed"  # not changed
+
+    def test_reconcile_custom_status(self, db: Any) -> None:
+        s, item = self._setup(db)
+        result = ms.reconcile_item(db, item["id"], status="dropped", reason="No longer needed")
+        assert result["status"] == "dropped"
+
+    def test_reconcile_event_persists_atomically_with_status(self, db: Any) -> None:
+        """Event and status update are in the same transaction (#1306)."""
+        s, item = self._setup(db)
+        ms.reconcile_item(db, item["id"], reason="Atomic check")
+        updated = ms.get_item(db, item["id"])
+        assert updated is not None
+        assert updated["status"] == "completed"
+        events = ms.list_events(db, s["id"], event_type="item_reconciled")
+        assert len(events) == 1
+        assert events[0]["detail"]["reason"] == "Atomic check"
+
+
+class TestForceReconcileItem:
+    """Tests for force_reconcile_item (#1306)."""
+
+    def _setup(self, db: Any) -> tuple[dict[str, Any], dict[str, Any]]:
+        s = ms.create_session(db, title="S", status="active")
+        item = ms.create_item(db, session_id=s["id"], summary="Task", status="failed")
+        return s, item
+
+    def test_force_reconcile_cancels_live_execution_then_reconciles(self, db: Any) -> None:
+        s = ms.create_session(db, title="S", status="active")
+        item = ms.create_item(db, session_id=s["id"], summary="Task", status="active")
+        exc = ms.create_execution(db, item_id=item["id"], attempt_number=1, status="running")
+        result = ms.force_reconcile_item(db, item["id"], reason="PR merged externally")
+        assert result["status"] == "completed"
+        updated_exc = ms.get_execution(db, exc["id"])
+        assert updated_exc is not None
+        assert updated_exc["status"] == "cancelled"
+        assert updated_exc["summary"] == "superseded_by_external_completion"
+
+    def test_force_reconcile_works_when_no_live_execution(self, db: Any) -> None:
+        s, item = self._setup(db)
+        exc = ms.create_execution(db, item_id=item["id"], attempt_number=1, status="failed")
+        result = ms.force_reconcile_item(db, item["id"], reason="Issue closed")
+        assert result["status"] == "completed"
+        updated_exc = ms.get_execution(db, exc["id"])
+        assert updated_exc is not None
+        assert updated_exc["status"] == "failed"  # not changed
+
+    def test_force_reconcile_fails_for_terminal_item(self, db: Any) -> None:
+        s = ms.create_session(db, title="S", status="active")
+        item = ms.create_item(db, session_id=s["id"], summary="Task", status="completed")
+        with pytest.raises(ValueError, match="Cannot reconcile"):
+            ms.force_reconcile_item(db, item["id"], reason="Nope")
+
+    def test_force_reconcile_reason_preserved_in_event(self, db: Any) -> None:
+        s, item = self._setup(db)
+        ms.force_reconcile_item(db, item["id"], reason="Issue #42 closed externally")
+        events = ms.list_events(db, s["id"], event_type="item_reconciled")
+        assert len(events) == 1
+        assert events[0]["detail"]["reason"] == "Issue #42 closed externally"
+        assert events[0]["detail"]["from_status"] == "failed"
+        assert events[0]["detail"]["to_status"] == "completed"
+
+    def test_force_reconcile_cancels_pending_execution(self, db: Any) -> None:
+        s = ms.create_session(db, title="S", status="active")
+        item = ms.create_item(db, session_id=s["id"], summary="Task", status="active")
+        exc = ms.create_execution(db, item_id=item["id"], attempt_number=1, status="pending")
+        result = ms.force_reconcile_item(db, item["id"], reason="Superseded")
+        assert result["status"] == "completed"
+        updated_exc = ms.get_execution(db, exc["id"])
+        assert updated_exc is not None
+        assert updated_exc["status"] == "cancelled"
+
+
+class TestSessionResolution:
+    def test_resolve_session_id_exact(self, db: Any) -> None:
+        session = ms.create_session(db, title="Exact")
+        assert ms.resolve_session_id(db, session["id"]) == session["id"]
+
+    def test_resolve_session_id_unique_prefix(self, db: Any) -> None:
+        session = ms.create_session(db, title="Prefix")
+        prefix = session["id"][:12]
+        assert ms.resolve_session_id(db, prefix) == session["id"]
+
+    def test_resolve_session_id_not_found(self, db: Any) -> None:
+        with pytest.raises(ValueError, match="Mission not found"):
+            ms.resolve_session_id(db, "does-not-exist")
+
+    def test_resolve_session_id_ambiguous_prefix(self, db: Any) -> None:
+        s1 = ms.create_session(db, title="One")
+        s2 = ms.create_session(db, title="Two")
+        shared = s1["id"][:4]
+        while not s2["id"].startswith(shared):
+            db.execute("DELETE FROM mission_sessions WHERE id = ?", (s2["id"],))
+            db.commit()
+            s2 = ms.create_session(db, title="Two")
+        with pytest.raises(ValueError, match="Ambiguous mission ID prefix"):
+            ms.resolve_session_id(db, shared)
+
+
+# ---------------------------------------------------------------------------
+# Item resolution
+# ---------------------------------------------------------------------------
+
+
+class TestItemResolution:
+    def test_resolve_item_id_exact(self, db: Any) -> None:
+        s = ms.create_session(db, title="Test")
+        item = ms.create_item(db, session_id=s["id"], summary="Do stuff")
+        assert ms.resolve_item_id(db, item["id"]) == item["id"]
+
+    def test_resolve_item_id_unique_prefix(self, db: Any) -> None:
+        s = ms.create_session(db, title="Test")
+        item = ms.create_item(db, session_id=s["id"], summary="Do stuff")
+        prefix = item["id"][:8]
+        assert ms.resolve_item_id(db, prefix) == item["id"]
+
+    def test_resolve_item_id_not_found(self, db: Any) -> None:
+        with pytest.raises(ValueError, match="Item not found"):
+            ms.resolve_item_id(db, "does-not-exist")
+
+    def test_resolve_item_id_ambiguous(self, db: Any) -> None:
+        s = ms.create_session(db, title="Test")
+        i1 = ms.create_item(db, session_id=s["id"], summary="First")
+        i2 = ms.create_item(db, session_id=s["id"], summary="Second")
+        shared = i1["id"][:4]
+        while not i2["id"].startswith(shared):
+            db.execute("DELETE FROM mission_items WHERE id = ?", (i2["id"],))
+            db.commit()
+            i2 = ms.create_item(db, session_id=s["id"], summary="Second")
+        with pytest.raises(ValueError, match="Ambiguous item ID prefix"):
+            ms.resolve_item_id(db, shared)
+
+    def test_resolve_item_id_session_scoped(self, db: Any) -> None:
+        s1 = ms.create_session(db, title="Session A")
+        s2 = ms.create_session(db, title="Session B")
+        i1 = ms.create_item(db, session_id=s1["id"], summary="Item A")
+        i2 = ms.create_item(db, session_id=s2["id"], summary="Item B")
+        shared = i1["id"][:4]
+        while not i2["id"].startswith(shared):
+            db.execute("DELETE FROM mission_items WHERE id = ?", (i2["id"],))
+            db.commit()
+            i2 = ms.create_item(db, session_id=s2["id"], summary="Item B")
+        # Without session_id, both match — ambiguous
+        with pytest.raises(ValueError, match="Ambiguous item ID prefix"):
+            ms.resolve_item_id(db, shared)
+        # With session_id, only one matches — resolves
+        assert ms.resolve_item_id(db, shared, session_id=s1["id"]) == i1["id"]
+        assert ms.resolve_item_id(db, shared, session_id=s2["id"]) == i2["id"]

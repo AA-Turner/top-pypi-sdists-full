@@ -36,12 +36,14 @@ class TestModelSummary(unittest.TestCase):
         if include_optional:
             return ModelSummary(
                 id = '',
-                name = ''
+                name = '',
+                project_id = ''
             )
         else:
             return ModelSummary(
                 id = '',
                 name = '',
+                project_id = '',
         )
         """
 

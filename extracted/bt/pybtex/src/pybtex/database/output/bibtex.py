@@ -22,6 +22,8 @@
 
 import codecs
 
+import latexcodec  # noqa: F401
+
 from pybtex.bibtex.exceptions import BibTeXError
 from pybtex.bibtex.utils import scan_bibtex_string
 from pybtex.database.output import BaseWriter

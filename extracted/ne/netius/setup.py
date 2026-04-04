@@ -57,7 +57,7 @@ if not os.environ.get("SKIP_SETUP", "0") == "1":
 
 setuptools.setup(
     name="netius",
-    version="1.36.2",
+    version="1.37.0",
     author="Hive Solutions Lda.",
     author_email="development@hive.pt",
     description="Netius System",
@@ -108,6 +108,8 @@ setuptools.setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
     long_description=read_file("README.rst"),
 )

@@ -111,6 +111,36 @@ class EmailsResource(SyncAPIResource):
         domain belonging to the organization.
 
         Args:
+          email_id: The ID of the email being replied to
+
+          from_: Sender email address (must use a verified domain)
+
+          html: HTML body of the reply
+
+          attachments: Optional list of attachments to include with this reply (e.g., inline images via
+              cid).
+
+          bcc: Optional BCC recipients
+
+          cc: Optional CC recipients
+
+          from_name: Optional display name for the sender
+
+          is_draft: If true, the email is a draft
+
+          reply_all: If true, includes all original recipients (to/cc) in the reply
+
+          subject: Email subject. If not provided, uses "Re: " + original subject
+
+          text: Optional plain-text body of the reply
+
+          to: Override recipient addresses. If not provided, replies to the original sender
+              and any reply-to addresses.
+
+          track_clicks: Enable click tracking for this email. Overrides API key and org defaults.
+
+          track_opens: Enable open tracking for this email. Overrides API key and org defaults.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -180,6 +210,38 @@ class EmailsResource(SyncAPIResource):
         for further queries.
 
         Args:
+          from_: Sender email address (must use a verified domain)
+
+          html: HTML body of the email
+
+          subject: Email subject
+
+          to: Recipient email address or list of addresses
+
+          attachments: Optional list of attachments. Supports base64 or data URL; use cid for inline.
+
+          bcc: Optional BCC recipients
+
+          cc: Optional CC recipients
+
+          from_name: Optional display name for the sender
+
+          in_reply_to: Optional Message-ID of the email being replied to
+
+          is_draft: If true, the email is a draft
+
+          references: Optional list of Message-ID references
+
+          reply_to: Optional Reply-To addresses
+
+          text: Optional plain-text body of the email
+
+          thread_id: Optional existing thread ID to attach this email to
+
+          track_clicks: Enable click tracking for this email. Overrides API key and org defaults.
+
+          track_opens: Enable open tracking for this email. Overrides API key and org defaults.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -304,6 +366,36 @@ class AsyncEmailsResource(AsyncAPIResource):
         domain belonging to the organization.
 
         Args:
+          email_id: The ID of the email being replied to
+
+          from_: Sender email address (must use a verified domain)
+
+          html: HTML body of the reply
+
+          attachments: Optional list of attachments to include with this reply (e.g., inline images via
+              cid).
+
+          bcc: Optional BCC recipients
+
+          cc: Optional CC recipients
+
+          from_name: Optional display name for the sender
+
+          is_draft: If true, the email is a draft
+
+          reply_all: If true, includes all original recipients (to/cc) in the reply
+
+          subject: Email subject. If not provided, uses "Re: " + original subject
+
+          text: Optional plain-text body of the reply
+
+          to: Override recipient addresses. If not provided, replies to the original sender
+              and any reply-to addresses.
+
+          track_clicks: Enable click tracking for this email. Overrides API key and org defaults.
+
+          track_opens: Enable open tracking for this email. Overrides API key and org defaults.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -373,6 +465,38 @@ class AsyncEmailsResource(AsyncAPIResource):
         for further queries.
 
         Args:
+          from_: Sender email address (must use a verified domain)
+
+          html: HTML body of the email
+
+          subject: Email subject
+
+          to: Recipient email address or list of addresses
+
+          attachments: Optional list of attachments. Supports base64 or data URL; use cid for inline.
+
+          bcc: Optional BCC recipients
+
+          cc: Optional CC recipients
+
+          from_name: Optional display name for the sender
+
+          in_reply_to: Optional Message-ID of the email being replied to
+
+          is_draft: If true, the email is a draft
+
+          references: Optional list of Message-ID references
+
+          reply_to: Optional Reply-To addresses
+
+          text: Optional plain-text body of the email
+
+          thread_id: Optional existing thread ID to attach this email to
+
+          track_clicks: Enable click tracking for this email. Overrides API key and org defaults.
+
+          track_opens: Enable open tracking for this email. Overrides API key and org defaults.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request

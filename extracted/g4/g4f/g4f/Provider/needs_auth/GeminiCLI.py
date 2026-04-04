@@ -29,6 +29,32 @@ from ..helper import get_connector, get_system_prompt, format_media_prompt
 from ... import debug
 
 
+# JSON Schema keywords not supported by the Gemini API
+_UNSUPPORTED_SCHEMA_KEYS = {
+    "patternProperties", "$schema", "$id", "$defs", "definitions",
+    "if", "then", "else", "not", "allOf", "anyOf", "oneOf",
+    "default", "examples", "readOnly", "writeOnly",
+    "contentEncoding", "contentMediaType", "additionalProperties",
+}
+
+
+def _sanitize_schema(schema: dict) -> dict:
+    """Recursively remove JSON Schema keywords unsupported by the Gemini API."""
+    if not isinstance(schema, dict):
+        return schema
+    result = {}
+    for k, v in schema.items():
+        if k in _UNSUPPORTED_SCHEMA_KEYS:
+            continue
+        if isinstance(v, dict):
+            result[k] = _sanitize_schema(v)
+        elif isinstance(v, list):
+            result[k] = [_sanitize_schema(i) if isinstance(i, dict) else i for i in v]
+        else:
+            result[k] = v
+    return result
+
+
 def get_oauth_creds_path():
     return Path.home() / ".gemini" / "oauth_creds.json"
 
@@ -545,37 +571,44 @@ class GeminiCLIProvider():
             role = "model" if msg["role"] == "assistant" else "user"
 
             # Handle tool role (OpenAI style)
+            # Group consecutive tool responses into a single user turn so that
+            # the number of functionResponse parts equals the number of functionCall parts.
             if msg["role"] == "tool":
-                parts = [
-                    {
-                        "functionResponse": {
-                            "name": msg.get("tool_call_id", "unknown_function"),
-                            "response": {
-                                "result": (
-                                    msg["content"]
-                                    if isinstance(msg["content"], str)
-                                    else json.dumps(msg["content"])
-                                )
-                            },
-                        }
+                tool_result = msg.get("content", "")
+                func_response_part = {
+                    "functionResponse": {
+                        "name": msg.get("tool_call_id", "unknown_function"),
+                        "response": {
+                            "result": (
+                                tool_result
+                                if isinstance(tool_result, str)
+                                else json.dumps(tool_result)
+                            )
+                        },
                     }
-                ],
+                }
+                if (format_messages and format_messages[-1]["role"] == "user"
+                        and any("functionResponse" in p for p in format_messages[-1]["parts"])):
+                    format_messages[-1]["parts"].append(func_response_part)
+                else:
+                    format_messages.append({"role": "user", "parts": [func_response_part]})
+                continue
 
             # Handle assistant messages with tool calls
             elif msg["role"] == "assistant" and msg.get("tool_calls"):
                 parts = []
-                if isinstance(msg["content"], str) and msg["content"].strip():
-                    parts.append({"text": msg["content"]})
+                content = msg.get("content")
+                if isinstance(content, str) and content.strip():
+                    parts.append({"text": content})
                 for tool_call in msg["tool_calls"]:
                     if tool_call.get("type") == "function":
-                        parts.append(
-                            {
-                                "functionCall": {
-                                    "name": tool_call["function"]["name"],
-                                    "args": json.loads(tool_call["function"]["arguments"]),
-                                }
-                            }
-                        )
+                        func_call = {
+                            "name": tool_call["function"]["name"],
+                            "args": json.loads(tool_call["function"]["arguments"]),
+                        }
+                        # Restore thought_signature for Gemini thinking models when available
+                        thought_sig = tool_call.get("extra_content", {}).get("google", {}).get("thought_signature", "skip_thought_signature_validator")
+                        parts.append({"functionCall": func_call, "thoughtSignature": thought_sig})
 
             # Handle string content
             elif isinstance(msg["content"], str):
@@ -583,6 +616,7 @@ class GeminiCLIProvider():
 
             # Handle array content (possibly multimodal)
             elif isinstance(msg["content"], list):
+                parts = []
                 for content in msg["content"]:
                     ctype = content.get("type")
                     if ctype == "text":
@@ -674,7 +708,7 @@ class GeminiCLIProvider():
                     function_declarations.append({
                         "name": func.get("name"),
                         "description": func.get("description", ""),
-                        "parameters": func.get("parameters", {})
+                        "parameters": _sanitize_schema(func.get("parameters", {}))
                     })
             if function_declarations:
                 gemini_tools = [{"functionDeclarations": function_declarations}]
@@ -796,7 +830,7 @@ class GeminiCLIProvider():
 
                         # Function calls from Gemini
                         elif "functionCall" in part:
-                            tool_calls.append(part["functionCall"])
+                            tool_calls.append(part)
 
                         # Text content
                         elif "text" in part:
@@ -817,15 +851,24 @@ class GeminiCLIProvider():
                     if tool_calls:
                         # Convert Gemini tool calls to OpenAI format
                         openai_tool_calls = []
-                        for i, tc in enumerate(tool_calls):
-                            openai_tool_calls.append({
+                        for i, part in enumerate(tool_calls):
+                            tc = part["functionCall"]
+                            tool_call_obj = {
                                 "id": f"call_{i}_{tc.get('name', 'unknown')}",
                                 "type": "function",
                                 "function": {
                                     "name": tc.get("name"),
                                     "arguments": json.dumps(tc.get("args", {}))
                                 }
-                            })
+                            }
+                            # Preserve thought_signature for thinking models (Gemini 2.5+)
+                            if "thoughtSignature" in part:
+                                tool_call_obj["extra_content"] = {
+                                    "google": {
+                                        "thought_signature": part["thoughtSignature"]
+                                    }
+                                }
+                            openai_tool_calls.append(tool_call_obj)
                         yield ToolCalls(openai_tool_calls)
                 if usage_metadata:
                     yield Usage(**usage_metadata)

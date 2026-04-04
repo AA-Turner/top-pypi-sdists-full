@@ -350,6 +350,46 @@ async def _reactivate_existing_contact(
     # Save the prospect message
     await run_db(save_message, outreach_id, role="prospect", text=text, sentiment=sentiment)
 
+    # Don't auto-reply to positive/calendar — these prospects want meetings,
+    # so the user should decide which ones to take (avoid committing to
+    # unwanted meetings autonomously).
+    if sentiment in ("positive", "calendar"):
+        logger.info(
+            "Skipping auto-reply for outreach %s — %s sentiment requires user decision",
+            outreach_id[:8], sentiment,
+        )
+        await run_db(
+            log_action,
+            "auto_reply_skipped_meeting_intent",
+            outreach_id=outreach_id,
+            result="skipped",
+            details={
+                "contact_name": contact.get("name", ""),
+                "sentiment": sentiment,
+                "reason": "prospect wants a meeting — user should decide",
+            },
+        )
+        # Still log the reactivation below, just skip the auto-reply
+        await run_db(
+            log_action,
+            "outreach_reactivated_inbound",
+            outreach_id=outreach_id,
+            result="success",
+            details={
+                "contact_name": contact.get("name", ""),
+                "previous_status": old_status,
+                "new_status": new_status,
+                "sentiment": sentiment,
+                "text_preview": text[:100],
+                "auto_reply": False,
+            },
+        )
+        logger.info(
+            "Re-activated outreach %s for contact %s (%s -> %s, sentiment=%s, no auto-reply)",
+            outreach_id[:8], contact.get("name", ""), old_status, new_status, sentiment,
+        )
+        return
+
     # Queue auto-reply job immediately (don't wait for planner to discover it)
     has_pending = await run_db(get_pending_outreach_job, outreach_id, JOB_AUTO_REPLY)
     if not has_pending:

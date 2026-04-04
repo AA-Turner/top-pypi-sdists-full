@@ -37,6 +37,7 @@ SCRIPTS: Dict[str, str] = {
     "navigator_platform": from_file("evasions/navigator.platform.js"),
     "navigator_plugins": from_file("evasions/navigator.plugins.js"),
     "navigator_user_agent": from_file("evasions/navigator.userAgent.js"),
+    "navigator_user_agent_data": from_file("evasions/navigator.userAgentData.js"),
     "navigator_vendor": from_file("evasions/navigator.vendor.js"),
     "navigator_webdriver": from_file("evasions/navigator.webdriver.js"),
     "error_prototype": from_file("evasions/error.prototype.js"),
@@ -67,35 +68,36 @@ class Stealth:
     _STEALTH_APPLIED_KEY = "_playwright_stealth_applied"
 
     def __init__(
-            self,
-            *,
-            chrome_app: bool = True,
-            chrome_csi: bool = True,
-            chrome_load_times: bool = True,
-            chrome_runtime: bool = False,
-            hairline: bool = True,
-            iframe_content_window: bool = True,
-            media_codecs: bool = True,
-            navigator_hardware_concurrency: bool = True,
-            navigator_languages: bool = True,
-            navigator_permissions: bool = True,
-            navigator_platform: bool = True,
-            navigator_plugins: bool = True,
-            navigator_user_agent: bool = True,
-            navigator_vendor: bool = True,
-            navigator_webdriver: bool = True,
-            error_prototype: bool = True,
-            sec_ch_ua: bool = True,
-            webgl_vendor: bool = True,
-            navigator_languages_override: Tuple[str, str] = ("en-US", "en"),
-            navigator_platform_override: str = "Win32",
-            navigator_user_agent_override: Optional[str] = None,
-            navigator_vendor_override: str = None,
-            sec_ch_ua_override: Optional[str] = None,
-            webgl_renderer_override: str = None,
-            webgl_vendor_override: str = None,
-            init_scripts_only: bool = False,
-            script_logging: bool = False,
+        self,
+        *,
+        chrome_app: bool = True,
+        chrome_csi: bool = True,
+        chrome_load_times: bool = True,
+        chrome_runtime: bool = False,
+        hairline: bool = True,
+        iframe_content_window: bool = True,
+        media_codecs: bool = True,
+        navigator_hardware_concurrency: bool = True,
+        navigator_languages: bool = True,
+        navigator_permissions: bool = True,
+        navigator_platform: bool = True,
+        navigator_plugins: bool = True,
+        navigator_user_agent: bool = True,
+        navigator_user_agent_data: bool = True,
+        navigator_vendor: bool = True,
+        navigator_webdriver: bool = True,
+        error_prototype: bool = True,
+        sec_ch_ua: bool = True,
+        webgl_vendor: bool = True,
+        navigator_languages_override: Tuple[str, str] = ("en-US", "en"),
+        navigator_platform_override: str = "Win32",
+        navigator_user_agent_override: Optional[str] = None,
+        navigator_vendor_override: str = None,
+        sec_ch_ua_override: Optional[str] = None,
+        webgl_renderer_override: str = None,
+        webgl_vendor_override: str = None,
+        init_scripts_only: bool = False,
+        script_logging: bool = False,
     ):
         # scripts to load
         self.chrome_app: bool = chrome_app
@@ -111,6 +113,7 @@ class Stealth:
         self.navigator_platform: bool = navigator_platform
         self.navigator_plugins: bool = navigator_plugins
         self.navigator_user_agent: bool = navigator_user_agent
+        self.navigator_user_agent_data: bool = navigator_user_agent_data
         self.navigator_vendor: bool = navigator_vendor
         self.navigator_webdriver: bool = navigator_webdriver
         self.error_prototype: bool = error_prototype
@@ -197,6 +200,8 @@ class Stealth:
             yield SCRIPTS["navigator_plugins"]
         if self.navigator_user_agent:
             yield SCRIPTS["navigator_user_agent"]
+        if self.navigator_user_agent_data:
+            yield SCRIPTS["navigator_user_agent_data"]
         if self.navigator_vendor:
             yield SCRIPTS["navigator_vendor"]
         if self.navigator_webdriver:
@@ -210,6 +215,7 @@ class Stealth:
         if hasattr(obj, self._STEALTH_APPLIED_KEY):
             warnings.warn(
                 "Stealth has already been applied to this page or context. Skipping duplicate application.",
+                category=UserWarning,
             )
             return True
         return False
@@ -261,7 +267,7 @@ class Stealth:
                     setattr(browser_type, name, hooked_method)
 
     def _kwargs_with_patched_cli_arg(
-            self, method: Callable, packed_kwargs: Dict[str, Any], chromium_mode: bool
+        self, method: Callable, packed_kwargs: Dict[str, Any], chromium_mode: bool
     ) -> Dict[str, Any]:
         signature = inspect.signature(method).parameters
         args_parameter = signature.get("args")
@@ -354,7 +360,7 @@ class Stealth:
         return hooked_new_page_sync
 
     async def _kwargs_new_page_context_with_patches_async(
-            self, unpatched_new_page: Callable, packed_kwargs: Dict[str, Any]
+        self, unpatched_new_page: Callable, packed_kwargs: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         This returns kwargs with arguments added based on enabled evasions, while respecting any kwargs the caller
@@ -399,13 +405,19 @@ class Stealth:
         if self.navigator_user_agent and packed_kwargs.get("user_agent") is None:
             resolved_user_agent_override = self.navigator_user_agent_override
             if resolved_user_agent_override is None and is_chromium:
-                resolved_user_agent_override, _ = await get_user_agent_and_sec_ch_ua_async()
+                (
+                    resolved_user_agent_override,
+                    _,
+                ) = await get_user_agent_and_sec_ch_ua_async()
             new_kwargs["user_agent"] = resolved_user_agent_override
         extra_http_headers = packed_kwargs.get("extra_http_headers", {})
         if self.sec_ch_ua and CaseInsensitiveDict(extra_http_headers).get("sec-ch-ua") is None:
             resolved_sec_ch_ua_override = self.sec_ch_ua_override
             if resolved_sec_ch_ua_override is None and is_chromium:
-                _, resolved_sec_ch_ua_override = await get_user_agent_and_sec_ch_ua_async()
+                (
+                    _,
+                    resolved_sec_ch_ua_override,
+                ) = await get_user_agent_and_sec_ch_ua_async()
             if resolved_sec_ch_ua_override is not None:
                 extra_http_headers["sec-ch-ua"] = resolved_sec_ch_ua_override
                 new_kwargs["extra_http_headers"] = extra_http_headers
@@ -413,7 +425,7 @@ class Stealth:
         return new_kwargs
 
     def _kwargs_new_page_context_with_patches_sync(
-            self, unpatched_new_page: Callable, packed_kwargs: Dict[str, Any]
+        self, unpatched_new_page: Callable, packed_kwargs: Dict[str, Any]
     ) -> Dict[str, Any]:
         """see self._kwargs_new_page_context_with_patches_async for docs."""
         browser_or_context = unpatched_new_page.__self__
@@ -528,7 +540,8 @@ class Stealth:
                 warnings.warn(
                     "playwright-stealth is trying to modify a flag you have set yourself already."
                     f"Either disable the mitigation or don't specify this flag manually {flag=}"
-                    f"to avoid this warning. playwright-stealth has overridden your flag"
+                    f"to avoid this warning. playwright-stealth has overridden your flag",
+                    category=UserWarning,
                 )
                 new_args.append(flag)
                 break
@@ -547,6 +560,7 @@ class Stealth:
                     f"{key} is False, but an override ({key}_override) was provided, "
                     f"which is probably not what you intended to do",
                     stacklevel=3,
+                    category=UserWarning,
                 )
 
 
@@ -564,6 +578,7 @@ ALL_EVASIONS_DISABLED_KWARGS = {
     "navigator_platform": False,
     "navigator_plugins": False,
     "navigator_user_agent": False,
+    "navigator_user_agent_data": False,
     "navigator_vendor": False,
     "navigator_webdriver": False,
     "error_prototype": False,

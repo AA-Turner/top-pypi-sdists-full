@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 from typing import TYPE_CHECKING, Any
 
 if sys.version_info >= (3, 10):
@@ -17,22 +18,26 @@ _ENTRY_POINT = "isolate.backends"
 
 _ENTRY_POINTS: dict[str, importlib_metadata.EntryPoint] = {}
 _ENVIRONMENTS: dict[str, type[BaseEnvironment]] = {}
+_REGISTRY_LOADED = False
+_REGISTRY_LOAD_LOCK = threading.Lock()
 
 
-def _reload_registry() -> None:
-    entry_points = importlib_metadata.entry_points()
-    _ENTRY_POINTS.update(
-        {
-            # We are not immediately loading the backend class here
-            # since it might cause importing modules that we won't be
-            # using at all.
-            entry_point.name: entry_point
-            for entry_point in entry_points.select(group=_ENTRY_POINT)
-        }
-    )
+def _ensure_registry(force: bool = False) -> None:
+    global _REGISTRY_LOADED  # noqa: PLW0603
 
+    with _REGISTRY_LOAD_LOCK:
+        if _REGISTRY_LOADED and not force:
+            return
 
-_reload_registry()
+        entry_points = importlib_metadata.entry_points()
+        _ENTRY_POINTS.update(
+            {
+                entry_point.name: entry_point
+                for entry_point in entry_points.select(group=_ENTRY_POINT)
+            }
+        )
+
+        _REGISTRY_LOADED = True
 
 
 def prepare_environment(
@@ -41,6 +46,8 @@ def prepare_environment(
 ) -> BaseEnvironment:
     """Get the environment for the given `kind` with the given `config`."""
     from isolate.backends.settings import DEFAULT_SETTINGS
+
+    _ensure_registry()
 
     if kind not in _ENVIRONMENTS:
         entry_point = _ENTRY_POINTS.get(kind)

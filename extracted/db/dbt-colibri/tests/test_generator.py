@@ -1,6 +1,7 @@
 from dbt_colibri.report.generator import DbtColibriReportGenerator
 from dbt_colibri.lineage_extractor.extractor import DbtColumnLineageExtractor
 from test_utils import count_manifest_objects, count_edges_with_double_colon
+from unittest.mock import MagicMock
 import pytest
 import json
 
@@ -36,9 +37,11 @@ def test_build_manifest_node_data_node_not_found(dbt_valid_test_data_dir):
         "description": None,
         "contractEnforced": None,
         "refs": [],
+        "tags": [],
         "columns": {},
+        "relationName": None,
     }
-    
+
     assert node_data == expected_structure
     assert node_data["nodeType"] == "unknown"
     assert node_data["rawCode"] is None
@@ -48,6 +51,43 @@ def test_build_manifest_node_data_node_not_found(dbt_valid_test_data_dir):
     assert node_data["contractEnforced"] is None
     assert node_data["refs"] == []
     assert node_data["columns"] == {}
+
+
+def test_build_manifest_node_data_contract_is_none():
+    """Test build_manifest_node_data when config.contract is explicitly None.
+
+    dbt Cloud starter projects produce manifests where contract is None rather
+    than a dict.  Previously this caused:
+        AttributeError: 'NoneType' object has no attribute 'get'
+    """
+    extractor = MagicMock()
+    extractor.manifest = {
+        "nodes": {
+            "model.my_project.my_model": {
+                "resource_type": "model",
+                "config": {"materialized": "view", "contract": None},
+                "raw_code": "select 1",
+                "compiled_code": "select 1",
+                "schema": "main",
+                "original_file_path": "models/my_model.sql",
+                "description": "A model",
+                "refs": [],
+                "columns": {},
+                "database": "dev",
+                "relation_name": "dev.main.my_model",
+            }
+        },
+        "sources": {},
+        "exposures": {},
+    }
+    extractor.catalog = {"nodes": {}, "sources": {}}
+
+    generator = DbtColibriReportGenerator(extractor)
+    node_data = generator.build_manifest_node_data("model.my_project.my_model")
+
+    assert node_data["contractEnforced"] is None
+    assert node_data["nodeType"] == "model"
+    assert node_data["materialized"] == "view"
 
 
 def test_detect_model_type_with_non_existent_node(dbt_valid_test_data_dir):
@@ -342,3 +382,479 @@ def test_exposures_included_in_output(dbt_valid_test_data_dir):
             f"Expected {len(expected_deps)} edges to exposure {exposure_id}, "
             f"found {len(exposure_edges)}"
         )
+
+
+def test_column_level_tests_included_in_output(dbt_valid_test_data_dir):
+    """Test that column-level tests are properly attached to columns in the output."""
+    if dbt_valid_test_data_dir is None:
+        pytest.skip("No valid versioned test data present")
+
+    manifest_path = f"{dbt_valid_test_data_dir}/manifest.json"
+    catalog_path = f"{dbt_valid_test_data_dir}/catalog.json"
+
+    # Load manifest to find tests
+    with open(manifest_path, 'r') as f:
+        manifest = json.load(f)
+
+    # Find column-level tests (tests with column_name set)
+    column_tests = {}
+    for node_id, node_data in manifest.get("nodes", {}).items():
+        if node_data.get("resource_type") == "test":
+            attached_node = node_data.get("attached_node")
+            column_name = node_data.get("column_name")
+            if attached_node and column_name:
+                key = (attached_node, column_name.lower())
+                if key not in column_tests:
+                    column_tests[key] = []
+                column_tests[key].append(node_id)
+
+    if not column_tests:
+        pytest.skip(f"Test data {dbt_valid_test_data_dir} has no column-level tests")
+
+    extractor = DbtColumnLineageExtractor(
+        manifest_path=manifest_path,
+        catalog_path=catalog_path
+    )
+    report_generator = DbtColibriReportGenerator(extractor)
+    result = report_generator.build_full_lineage()
+
+    nodes = result.get("nodes", {})
+
+    # Verify that column-level tests are attached to the correct columns
+    tests_found = 0
+    for (model_id, col_name), test_ids in column_tests.items():
+        if model_id not in nodes:
+            continue
+
+        model_node = nodes[model_id]
+        columns = model_node.get("columns", {})
+
+        if col_name not in columns:
+            continue
+
+        column_data = columns[col_name]
+        column_tests_in_output = column_data.get("tests", [])
+
+        # Verify each expected test is present
+        for test_id in test_ids:
+            test_found = any(
+                t.get("unique_id") == test_id
+                for t in column_tests_in_output
+            )
+            if test_found:
+                tests_found += 1
+
+    # At least some column-level tests should be found
+    assert tests_found > 0, "No column-level tests were found in the output"
+    print(f"\n✓ Found {tests_found} column-level tests attached to columns")
+
+
+def test_model_level_tests_included_in_output(dbt_valid_test_data_dir):
+    """Test that model-level tests (without column_name) are attached to nodes."""
+    if dbt_valid_test_data_dir is None:
+        pytest.skip("No valid versioned test data present")
+
+    manifest_path = f"{dbt_valid_test_data_dir}/manifest.json"
+    catalog_path = f"{dbt_valid_test_data_dir}/catalog.json"
+
+    # Load manifest to find model-level tests
+    with open(manifest_path, 'r') as f:
+        manifest = json.load(f)
+
+    # Find model-level tests (tests without column_name)
+    model_tests = {}
+    for node_id, node_data in manifest.get("nodes", {}).items():
+        if node_data.get("resource_type") == "test":
+            attached_node = node_data.get("attached_node")
+            column_name = node_data.get("column_name")
+            if attached_node and column_name is None:
+                if attached_node not in model_tests:
+                    model_tests[attached_node] = []
+                model_tests[attached_node].append(node_id)
+
+    if not model_tests:
+        pytest.skip(f"Test data {dbt_valid_test_data_dir} has no model-level tests")
+
+    extractor = DbtColumnLineageExtractor(
+        manifest_path=manifest_path,
+        catalog_path=catalog_path
+    )
+    report_generator = DbtColibriReportGenerator(extractor)
+    result = report_generator.build_full_lineage()
+
+    nodes = result.get("nodes", {})
+
+    # Verify that model-level tests are attached to nodes
+    tests_found = 0
+    for model_id, test_ids in model_tests.items():
+        if model_id not in nodes:
+            continue
+
+        model_node = nodes[model_id]
+        node_tests = model_node.get("tests", [])
+
+        # Verify each expected test is present
+        for test_id in test_ids:
+            test_found = any(
+                t.get("unique_id") == test_id
+                for t in node_tests
+            )
+            if test_found:
+                tests_found += 1
+
+    # At least some model-level tests should be found
+    assert tests_found > 0, "No model-level tests were found in the output"
+    print(f"\n✓ Found {tests_found} model-level tests attached to nodes")
+
+
+def test_test_metadata_structure(dbt_valid_test_data_dir):
+    """Test that test metadata has the correct structure with all expected fields."""
+    if dbt_valid_test_data_dir is None:
+        pytest.skip("No valid versioned test data present")
+
+    manifest_path = f"{dbt_valid_test_data_dir}/manifest.json"
+    catalog_path = f"{dbt_valid_test_data_dir}/catalog.json"
+
+    extractor = DbtColumnLineageExtractor(
+        manifest_path=manifest_path,
+        catalog_path=catalog_path
+    )
+    report_generator = DbtColibriReportGenerator(extractor)
+    result = report_generator.build_full_lineage()
+
+    nodes = result.get("nodes", {})
+
+    # Find any test in the output (column-level or model-level)
+    test_sample = None
+    for node_id, node_data in nodes.items():
+        # Check model-level tests
+        if "tests" in node_data:
+            test_sample = node_data["tests"][0]
+            break
+        # Check column-level tests
+        for col_name, col_data in node_data.get("columns", {}).items():
+            if "tests" in col_data:
+                test_sample = col_data["tests"][0]
+                break
+        if test_sample:
+            break
+
+    if test_sample is None:
+        pytest.skip(f"No tests found in {dbt_valid_test_data_dir}")
+
+    # Verify the test structure has all expected fields
+    assert "unique_id" in test_sample, "Test should have unique_id"
+    assert "name" in test_sample, "Test should have name"
+    assert "namespace" in test_sample, "Test should have namespace"
+    assert "config" in test_sample, "Test should have config"
+    assert "kwargs" in test_sample, "Test should have kwargs"
+
+    # Verify config structure
+    config = test_sample["config"]
+    assert "severity" in config, "Test config should have severity"
+    assert "warn_if" in config, "Test config should have warn_if"
+    assert "error_if" in config, "Test config should have error_if"
+
+    print("\\n✓ Test metadata structure is correct")
+    print(f"  Sample test: {test_sample['name']} ({test_sample['unique_id']})")
+
+
+def test_bypath_tree_contains_all_model_nodes(dbt_valid_test_data_dir):
+    """Regression test: byPath tree must include ALL model/seed nodes, including those in subfolders.
+
+    Previously, a variable scoping bug in sort_path_tree caused subfolders (e.g. models/staging/)
+    to be silently dropped when the last dict key iterated in the parent folder was '__items__'.
+    This meant models like stg_customers and stg_orders disappeared from the byPath tree even
+    though they appeared correctly in the byDatabase tree.
+    """
+    if dbt_valid_test_data_dir is None:
+        pytest.skip("No valid versioned test data present")
+
+    manifest_path = f"{dbt_valid_test_data_dir}/manifest.json"
+    catalog_path = f"{dbt_valid_test_data_dir}/catalog.json"
+
+    extractor = DbtColumnLineageExtractor(
+        manifest_path=manifest_path,
+        catalog_path=catalog_path
+    )
+    report_generator = DbtColibriReportGenerator(extractor)
+    result = report_generator.build_full_lineage()
+
+    tree = result.get("tree", {})
+    by_database = tree.get("byDatabase", {})
+    by_path = tree.get("byPath", {})
+
+    # Collect all node IDs from byDatabase tree
+    db_node_ids = set()
+    for database, schemas in by_database.items():
+        for schema, node_ids in schemas.items():
+            db_node_ids.update(node_ids)
+
+    # Collect all node IDs from byPath tree (recursively walk)
+    def collect_path_items(folder: dict) -> set:
+        items = set()
+        for key, val in folder.items():
+            if key == "__items__":
+                items.update(val)
+            elif isinstance(val, dict):
+                items.update(collect_path_items(val))
+        return items
+
+    path_node_ids = set()
+    for project_name, project_tree in by_path.items():
+        path_node_ids.update(collect_path_items(project_tree))
+
+    # byDatabase does not include exposures, so filter them out from path nodes for comparison
+    path_non_exposure_ids = {
+        nid for nid in path_node_ids
+        if not nid.startswith("exposure.")
+    }
+
+    # Every node in byDatabase must also appear in byPath
+    missing_from_path = db_node_ids - path_non_exposure_ids
+    assert not missing_from_path, (
+        f"Nodes present in byDatabase but missing from byPath tree: {missing_from_path}. "
+        f"This typically indicates that subfolders were dropped during tree sorting."
+    )
+
+    # Every non-exposure node in byPath must also appear in byDatabase
+    missing_from_db = path_non_exposure_ids - db_node_ids
+    # Some nodes (like those without a database) might only be in byPath, so just warn
+    if missing_from_db:
+        print(f"\n⚠ Nodes in byPath but not in byDatabase (may be expected): {missing_from_db}")
+
+    print(f"\n✓ byPath tree contains all {len(db_node_ids)} nodes from byDatabase")
+    print(f"  byPath total (incl. exposures): {len(path_node_ids)}")
+
+
+def test_sort_path_tree_preserves_subfolders():
+    """Unit test: sort_path_tree must not drop subfolders when __items__ is present.
+
+    This directly tests the fix for the variable scoping bug where 'key' from an outer
+    loop was used instead of 'k' in a generator filter, causing subfolders to be dropped.
+    """
+    from unittest.mock import MagicMock
+
+    extractor = MagicMock()
+    extractor.manifest = {
+        "metadata": {"project_name": "test_project"},
+        "nodes": {
+            "model.test.parent_model": {
+                "resource_type": "model",
+                "config": {"materialized": "table"},
+                "raw_code": "select 1",
+                "compiled_code": "select 1",
+                "schema": "main",
+                "original_file_path": "models/parent_model.sql",
+                "description": "",
+                "refs": [],
+                "columns": {},
+                "database": "db",
+                "relation_name": "db.main.parent_model",
+            },
+            "model.test.child_model": {
+                "resource_type": "model",
+                "config": {"materialized": "view"},
+                "raw_code": "select 1",
+                "compiled_code": "select 1",
+                "schema": "main",
+                "original_file_path": "models/staging/child_model.sql",
+                "description": "",
+                "refs": [],
+                "columns": {},
+                "database": "db",
+                "relation_name": "db.main.child_model",
+            },
+        },
+        "sources": {},
+        "exposures": {},
+    }
+    extractor.catalog = {"nodes": {}, "sources": {}}
+    extractor.colibri_version = "test"
+    extractor.dialect = "duckdb"
+    extractor.logger = MagicMock()
+
+    # Mock extract_project_lineage to return empty lineage
+    extractor.extract_project_lineage.return_value = {
+        "lineage": {"parents": {}, "children": {}}
+    }
+
+    generator = DbtColibriReportGenerator(extractor)
+    result = generator.build_full_lineage()
+
+    by_path = result["tree"]["byPath"]
+    project_tree = by_path["test_project"]
+
+    # The models folder must have BOTH __items__ and a staging subfolder
+    models_folder = project_tree.get("models", {})
+    assert "__items__" in models_folder, (
+        f"models folder should have __items__, got keys: {list(models_folder.keys())}"
+    )
+    assert "staging" in models_folder, (
+        f"models folder should have 'staging' subfolder, got keys: {list(models_folder.keys())}. "
+        f"This indicates the sort_path_tree function is dropping subfolders."
+    )
+
+    # Verify the items are in the correct locations
+    assert "model.test.parent_model" in models_folder["__items__"]
+    assert "model.test.child_model" in models_folder["staging"]["__items__"]
+
+
+def test_tags_extracted_from_manifest():
+    """Test that model-level tags are extracted from the dbt manifest into the colibri output."""
+    extractor = MagicMock()
+    extractor.manifest = {
+        "metadata": {"project_name": "test_project"},
+        "nodes": {
+            "model.test.tagged_model": {
+                "resource_type": "model",
+                "config": {"materialized": "table"},
+                "raw_code": "select 1",
+                "compiled_code": "select 1",
+                "schema": "main",
+                "original_file_path": "models/tagged_model.sql",
+                "description": "A tagged model",
+                "refs": [],
+                "columns": {},
+                "database": "dev",
+                "relation_name": "dev.main.tagged_model",
+                "tags": ["finance", "critical", "pii"],
+            },
+            "model.test.untagged_model": {
+                "resource_type": "model",
+                "config": {"materialized": "view"},
+                "raw_code": "select 1",
+                "compiled_code": "select 1",
+                "schema": "main",
+                "original_file_path": "models/untagged_model.sql",
+                "description": "A model without tags",
+                "refs": [],
+                "columns": {},
+                "database": "dev",
+                "relation_name": "dev.main.untagged_model",
+            },
+        },
+        "sources": {},
+        "exposures": {},
+    }
+    extractor.catalog = {"nodes": {}, "sources": {}}
+
+    generator = DbtColibriReportGenerator(extractor)
+
+    # Test tagged model
+    tagged = generator.build_manifest_node_data("model.test.tagged_model")
+    assert tagged["tags"] == ["finance", "critical", "pii"]
+
+    # Test untagged model (should default to empty list)
+    untagged = generator.build_manifest_node_data("model.test.untagged_model")
+    assert untagged["tags"] == []
+
+    # Test non-existent node (should default to empty list)
+    missing = generator.build_manifest_node_data("model.does_not_exist.fake")
+    assert missing["tags"] == []
+
+
+def test_tags_included_in_full_lineage_output():
+    """Test that tags flow through build_full_lineage into the final node dicts."""
+    extractor = MagicMock()
+    extractor.manifest = {
+        "metadata": {"project_name": "test_project"},
+        "nodes": {
+            "model.test.tagged_model": {
+                "resource_type": "model",
+                "config": {"materialized": "table"},
+                "raw_code": "select 1",
+                "compiled_code": "select 1",
+                "schema": "main",
+                "original_file_path": "models/tagged_model.sql",
+                "description": "Tagged",
+                "refs": [],
+                "columns": {},
+                "database": "dev",
+                "relation_name": "dev.main.tagged_model",
+                "tags": ["finance", "critical"],
+            },
+        },
+        "sources": {},
+        "exposures": {},
+    }
+    extractor.catalog = {"nodes": {}, "sources": {}}
+    extractor.colibri_version = "test"
+    extractor.dialect = "duckdb"
+    extractor.logger = MagicMock()
+
+    extractor.extract_project_lineage.return_value = {
+        "lineage": {"parents": {}, "children": {}}
+    }
+
+    generator = DbtColibriReportGenerator(extractor)
+    result = generator.build_full_lineage()
+
+    node = result["nodes"]["model.test.tagged_model"]
+    assert node["tags"] == ["finance", "critical"]
+
+
+def test_column_tags_extracted_from_manifest():
+    """Test that column-level tags from dbt manifest v12+ are extracted."""
+    extractor = MagicMock()
+    extractor.manifest = {
+        "metadata": {"project_name": "test_project"},
+        "nodes": {
+            "model.test.col_tags_model": {
+                "resource_type": "model",
+                "config": {"materialized": "table"},
+                "raw_code": "select 1",
+                "compiled_code": "select 1",
+                "schema": "main",
+                "original_file_path": "models/col_tags_model.sql",
+                "description": "Model with column tags",
+                "refs": [],
+                "columns": {
+                    "user_id": {
+                        "data_type": "integer",
+                        "description": "Primary key",
+                        "tags": ["identifier", "pii"],
+                    },
+                    "email": {
+                        "data_type": "varchar",
+                        "description": "Email address",
+                        "tags": [],
+                    },
+                    "name": {
+                        "data_type": "varchar",
+                        "description": "User name",
+                    },
+                },
+                "database": "dev",
+                "relation_name": "dev.main.col_tags_model",
+                "tags": [],
+            },
+        },
+        "sources": {},
+        "exposures": {},
+    }
+    extractor.catalog = {
+        "nodes": {
+            "model.test.col_tags_model": {
+                "columns": {
+                    "user_id": {"type": "integer"},
+                    "email": {"type": "varchar"},
+                    "name": {"type": "varchar"},
+                },
+            }
+        },
+        "sources": {},
+    }
+
+    generator = DbtColibriReportGenerator(extractor)
+    node_data = generator.build_manifest_node_data("model.test.col_tags_model")
+
+    # Column with tags should have them
+    assert node_data["columns"]["user_id"]["tags"] == ["identifier", "pii"]
+
+    # Column with empty tags should not have the key (only set when non-empty)
+    assert "tags" not in node_data["columns"]["email"]
+
+    # Column without tags key should not have it
+    assert "tags" not in node_data["columns"]["name"]
+

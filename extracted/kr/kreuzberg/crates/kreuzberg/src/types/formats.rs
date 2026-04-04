@@ -109,6 +109,15 @@ pub struct PptxExtractionResult {
     /// Structured document representation
     #[serde(skip_serializing_if = "Option::is_none")]
     pub document: Option<DocumentStructure>,
+    /// Hyperlinks discovered in slides as (url, optional_label) pairs.
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub hyperlinks: Vec<(String, Option<String>)>,
+    /// Office metadata extracted from docProps/core.xml and docProps/app.xml.
+    ///
+    /// Contains keys like "title", "author", "created_by", "subject", "keywords",
+    /// "modified_by", "created_at", "modified_at", etc.
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
+    pub office_metadata: HashMap<String, String>,
 }
 
 /// Email extraction result.
@@ -181,6 +190,11 @@ pub struct OcrExtractionResult {
     /// Available when TSV output is requested or table detection is enabled.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ocr_elements: Option<Vec<super::OcrElement>>,
+    /// Structured document produced from hOCR parsing.
+    /// Carries paragraph structure, bounding boxes, and confidence scores
+    /// that the flattened `content` string discards.
+    #[serde(skip)]
+    pub internal_document: Option<super::internal::InternalDocument>,
 }
 
 /// Table detected via OCR.

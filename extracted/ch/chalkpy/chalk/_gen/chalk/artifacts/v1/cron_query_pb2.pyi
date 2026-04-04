@@ -1,3 +1,4 @@
+from chalk._gen.chalk.common.v1 import offline_query_pb2 as _offline_query_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -42,6 +43,7 @@ class CronQuery(_message.Message):
         "num_shards",
         "num_workers",
         "input_sql",
+        "unload_resolvers",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -70,6 +72,7 @@ class CronQuery(_message.Message):
     NUM_SHARDS_FIELD_NUMBER: _ClassVar[int]
     NUM_WORKERS_FIELD_NUMBER: _ClassVar[int]
     INPUT_SQL_FIELD_NUMBER: _ClassVar[int]
+    UNLOAD_RESOLVERS_FIELD_NUMBER: _ClassVar[int]
     name: str
     cron: str
     file_name: str
@@ -89,6 +92,7 @@ class CronQuery(_message.Message):
     num_shards: int
     num_workers: int
     input_sql: str
+    unload_resolvers: _containers.RepeatedCompositeFieldContainer[_offline_query_pb2.UnloadResolverSpec]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -110,4 +114,5 @@ class CronQuery(_message.Message):
         num_shards: _Optional[int] = ...,
         num_workers: _Optional[int] = ...,
         input_sql: _Optional[str] = ...,
+        unload_resolvers: _Optional[_Iterable[_Union[_offline_query_pb2.UnloadResolverSpec, _Mapping]]] = ...,
     ) -> None: ...

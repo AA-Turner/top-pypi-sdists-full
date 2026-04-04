@@ -2597,19 +2597,23 @@ class MainController:
         return value
 
     def browser_open_page(self, id: str):
-        """Open a project Page stage in the headless browser by its stage ID.
+        """Open a project Page stage in a new browser tab by its stage ID.
 
-        Returns page_id, final url, and title. Use the page_id in ALL subsequent
+        Each call opens a NEW tab and returns a unique tab_id. You can have
+        multiple tabs open at once — use tab_id to target the right one.
+
+        Returns tab_id, final url, and title. Use the tab_id in ALL subsequent
         browser_* tool calls.
 
         Typical workflow:
-        1. browser_open_page(id) → get page_id
-        2. browser_get_page_summary(page_id) → see interactive elements
+        1. browser_open_page(id) → get tab_id (new tab)
+        2. browser_get_page_summary(tab_id) → see interactive elements
         3. browser_click/browser_fill → interact with elements by index
         4. browser_get_page_summary again → see updated state
         5. browser_get_console_logs → check for errors
+        6. browser_close(tab_id) → close the tab when done
 
-        If the page requires auth, use any email/token in dev mode.
+        Use browser_list_tabs to see all open tabs.
 
         Copywritings:
             Open page in browser
@@ -2629,7 +2633,7 @@ class MainController:
         return self._browser_call("navigate_to_url", url)
 
     def browser_navigate(self, url: str):
-        """Navigate to any URL in the headless browser. Returns page_id, final url, and title. Use the page_id in subsequent browser tool calls. Prefer browser_open_page to open project pages by ID.
+        """Navigate to any URL in a new browser tab. Each call opens a NEW tab. Returns tab_id, final url, and title. Use the tab_id in subsequent browser tool calls. Prefer browser_open_page to open project pages by ID. Close tabs with browser_close when done.
 
         Copywritings:
             Navigate browser to URL
@@ -2637,102 +2641,102 @@ class MainController:
         """
         return self._browser_call("navigate_to_url", url)
 
-    def browser_get_page_summary(self, page_id: str):
-        """List interactive elements visible on the page (buttons, links, inputs). Each element has an index — use it with browser_click or browser_fill. Call this after any action that changes the page.
+    def browser_get_page_summary(self, tab_id: str):
+        """List interactive elements visible on the tab (buttons, links, inputs). Each element has an index — use it with browser_click or browser_fill. Call this after any action that changes the page.
 
         Copywritings:
             Get page summary
             Getting page summary...
         """
-        return self._browser_call("get_page_summary", page_id)
+        return self._browser_call("get_page_summary", tab_id)
 
-    def browser_click(self, page_id: str, index: int):
+    def browser_click(self, tab_id: str, index: int):
         """Click an interactive element by its index from browser_get_page_summary.
 
         Copywritings:
             Click element
             Clicking element...
         """
-        return self._browser_call("click_element", page_id, index)
+        return self._browser_call("click_element", tab_id, index)
 
-    def browser_fill(self, page_id: str, index: int, value: str):
+    def browser_fill(self, tab_id: str, index: int, value: str):
         """Fill a form field by its index from browser_get_page_summary.
 
         Copywritings:
             Fill form field
             Filling form field...
         """
-        return self._browser_call("fill_element", page_id, index, value)
+        return self._browser_call("fill_element", tab_id, index, value)
 
-    def browser_get_text(self, page_id: str, selector: str):
+    def browser_get_text(self, tab_id: str, selector: str):
         """Get the inner text content of an element by CSS selector.
 
         Copywritings:
             Get element text
             Getting element text...
         """
-        return self._browser_call("get_text", page_id, selector)
+        return self._browser_call("get_text", tab_id, selector)
 
-    def browser_get_html(self, page_id: str):
-        """Get the full HTML content of the page. Prefer browser_get_page_summary for interactive elements.
+    def browser_get_html(self, tab_id: str):
+        """Get the full HTML content of the tab. Prefer browser_get_page_summary for interactive elements.
 
         Copywritings:
             Get page HTML
             Getting page HTML...
         """
-        return self._browser_call("get_html", page_id)
+        return self._browser_call("get_html", tab_id)
 
-    def browser_execute_javascript(self, page_id: str, script: str):
-        """Execute JavaScript on the page and return the result. After this, call browser_get_page_summary again as the DOM may have changed.
+    def browser_execute_javascript(self, tab_id: str, script: str):
+        """Execute JavaScript on the tab and return the result. After this, call browser_get_page_summary again as the DOM may have changed.
 
         Copywritings:
             Execute JavaScript
             Executing JavaScript...
         """
-        return self._browser_call("execute_javascript", page_id, script)
+        return self._browser_call("execute_javascript", tab_id, script)
 
-    def browser_wait(self, page_id: str, milliseconds: int = 1000):
+    def browser_wait(self, tab_id: str, milliseconds: int = 1000):
         """Wait for a specified number of milliseconds. Useful after clicks or form submissions before reading page state.
 
         Copywritings:
             Wait
             Waiting...
         """
-        return self._browser_call("wait", page_id, milliseconds)
+        return self._browser_call("wait", tab_id, milliseconds)
 
-    def browser_get_console_logs(self, page_id: str):
-        """Get captured browser console log messages for a page.
+    def browser_get_console_logs(self, tab_id: str):
+        """Get captured browser console log messages for a tab.
 
         Copywritings:
             Get console logs
             Getting console logs...
         """
-        return self._browser_call("get_console_logs", page_id)
+        return self._browser_call("get_console_logs", tab_id)
 
-    def browser_get_network_requests(self, page_id: str):
-        """Get captured network requests for a page.
+    def browser_get_network_requests(self, tab_id: str):
+        """Get captured network requests for a tab.
 
         Copywritings:
             Get network requests
             Getting network requests...
         """
-        return self._browser_call("get_network_requests", page_id)
+        return self._browser_call("get_network_requests", tab_id)
 
-    def browser_close(self, page_id: str):
-        """Close a browser page by its page_id.
+    def browser_close(self, tab_id: str):
+        """Close a browser tab. Always close tabs you no longer need to free resources.
 
         Copywritings:
-            Close browser page
-            Closing browser page...
+            Close browser tab
+            Closing browser tab...
         """
-        return self._browser_call("close_page", page_id)
+        return self._browser_call("close_page", tab_id)
 
-    def browser_list_pages(self):
-        """List all open browser pages with their page_id, URL, and title.
+    def browser_list_tabs(self):
+        """List all open browser tabs with their tab_id, URL, and title. Use this to see which tabs are open before opening new ones.
 
         Copywritings:
-            List browser pages
-            Listing browser pages...
+            List browser tabs
+            Listing browser tabs...
         """
         return self._browser_call("list_pages")
 

@@ -1515,8 +1515,10 @@ import logging
 import tempfile
 import csv
 from pathlib import Path
+import pyspark
 import mlflow
 import mlflow.spark
+from mlflow.models import infer_signature
 from pyspark.ml.classification import (
 {% if best_model_type is none or best_model_type == "logistic_regression" %}    LogisticRegression,
 {% endif %}{% if best_model_type is none or best_model_type == "random_forest" %}    RandomForestClassifier,
@@ -1546,6 +1548,7 @@ logger = logging.getLogger("training")
 
 TARGET = TARGET_COLUMN
 _DFS_TMPDIR = get_mlflow_dfs_tmpdir()
+_PIP_REQS = [f"pyspark=={pyspark.__version__}"]
 _NUMERIC_TYPES = ("double", "float", "integer", "long", "short", "boolean", "byte", "decimal")
 _EXCLUDE_COLS = {TARGET, TIMESTAMP_COLUMN, ENTITY_KEY, "as_of_date", "feature_timestamp", "label_timestamp", "label_available_flag"}
 _vector_schema = StructType([
@@ -1652,11 +1655,12 @@ def _evaluate_model(predictions):
     }
 
 def _mlflow_evaluate_predictions(predictions):
+    _MAX_EVAL_ROWS = 100_000
     eval_pdf = predictions.select(
         F.col("label"),
         vector_to_array(F.col("probability"))[1].alias("prob_1"),
         F.col("prediction"),
-    ).toPandas()
+    ).limit(_MAX_EVAL_ROWS).toPandas()
     mlflow.evaluate(
         data=eval_pdf,
         model_type="classifier",
@@ -1665,7 +1669,7 @@ def _mlflow_evaluate_predictions(predictions):
         extra_metrics=None,
     )
 
-def _log_best_model(model, df, feature_cols):
+def _log_best_model(model, df, feature_cols, test_df):
     try:
         from databricks.feature_engineering import FeatureEngineeringClient, FeatureLookup
         fe = FeatureEngineeringClient()
@@ -1686,7 +1690,8 @@ def _log_best_model(model, df, feature_cols):
         )
         print(f"[TRAINING] Model registered: {CATALOG}.{SCHEMA}.model_{COMPOSITE_NAME}")
     except ImportError:
-        mlflow.spark.log_model(model, "best_model", dfs_tmpdir=_DFS_TMPDIR)
+        _sig = infer_signature(test_df, model.transform(test_df))
+        mlflow.spark.log_model(model, "best_model", dfs_tmpdir=_DFS_TMPDIR, pip_requirements=_PIP_REQS, signature=_sig)
 
 def train_and_evaluate():
     _results = {"models": {}, "feature_profile": {}}
@@ -1746,9 +1751,9 @@ def train_and_evaluate():
                     _drop_recs = RecommendationRegistry.from_dict(_rec_yaml.safe_load(_rf))
                 _runtime_drops = set()
                 for _rec in getattr(getattr(_drop_recs, 'gold', None), 'feature_selection', []):
-                    if _rec.action in ('drop_multicollinear', 'drop_weak', 'drop_l1_zero', 'drop_availability', 'drop_zero_variance'):
+                    if _rec.action in ('drop_multicollinear', 'drop_weak', 'drop_l1_zero', 'drop_chi_squared', 'drop_lgbm_importance', 'drop_availability', 'drop_zero_variance'):
                         excluded_cols[_rec.target_column] = _rec.action
-                    if _rec.action in ('drop_l1_zero', 'drop_zero_variance'):
+                    if _rec.action in ('drop_l1_zero', 'drop_chi_squared', 'drop_lgbm_importance', 'drop_zero_variance'):
                         _runtime_drops.add(_rec.target_column)
                 _actual_runtime = [c for c in _runtime_drops if c in feature_cols]
                 if _actual_runtime:
@@ -1882,31 +1887,43 @@ def train_and_evaluate():
                 with log_timing(f"fit_{name}", logger, train_rows=train_count):
                     fitted = model.fit(train_df)
                 _log_training_progress(fitted, name)
+                mlflow.log_param("model_type", name)
+                mlflow.log_param("num_features", len(feature_cols))
                 predictions = fitted.transform(test_df)
+                _sig = infer_signature(test_df, predictions)
+                try:
+                    mlflow.spark.log_model(fitted, f"model_{name}", dfs_tmpdir=_DFS_TMPDIR, pip_requirements=_PIP_REQS, signature=_sig)
+                except Exception as _save_err:
+                    print(f"[TRAINING] WARNING: Model save failed for {name}: {_save_err}")
                 metrics = _evaluate_model(predictions)
                 print(f"[TRAINING] {name}: AUC={metrics['roc_auc']:.4f}, PR-AUC={metrics['pr_auc']:.4f}, F1={metrics['f1']:.4f}")
                 _results["models"][name] = metrics
-                mlflow.log_param("model_type", name)
-                mlflow.log_param("num_features", len(feature_cols))
-                mlflow.spark.log_model(fitted, f"model_{name}", dfs_tmpdir=_DFS_TMPDIR)
                 mlflow.log_metrics(metrics)
                 _log_feature_importance(fitted, feature_cols)
-                _mlflow_evaluate_predictions(predictions)
+                try:
+                    _mlflow_evaluate_predictions(predictions)
+                except Exception as _eval_err:
+                    print(f"[TRAINING] WARNING: MLflow evaluate failed for {name}: {_eval_err}")
                 if metrics["roc_auc"] > best_auc:
                     best_auc = metrics["roc_auc"]
                     best_model_name = name
                     best_model = fitted
                     best_metrics = metrics
 
-        mlflow.set_tag("best_model", best_model_name)
-        mlflow.log_metric("best_roc_auc", best_auc)
-        mlflow.log_metrics({f"best_{k}": v for k, v in best_metrics.items()})
+        if best_model_name is not None:
+            mlflow.set_tag("best_model", best_model_name)
+            mlflow.log_metric("best_roc_auc", best_auc)
+            mlflow.log_metrics({f"best_{k}": v for k, v in best_metrics.items()})
         with tempfile.TemporaryDirectory() as _tmp_dir:
             _features_path = str(Path(_tmp_dir) / "features.json")
             with open(_features_path, "w") as f:
                 json.dump({"feature_columns": feature_cols, "count": len(feature_cols)}, f)
             mlflow.log_artifact(_features_path)
-        _log_best_model(best_model, df, feature_cols)
+        if best_model is not None:
+            try:
+                _log_best_model(best_model, df, feature_cols, test_df)
+            except Exception as _best_err:
+                print(f"[TRAINING] WARNING: Best model registration failed: {_best_err}")
 
     _results["best_model"] = best_model_name
     _results["best_roc_auc"] = best_auc

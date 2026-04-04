@@ -2351,17 +2351,36 @@ def map_logical_plan_relation(
                 )
             )
         case "LocalLimit":
+            limit_expr = rel.limitExpr()
+            limit_expr_class = str(limit_expr.getClass().getSimpleName())
 
-            if rel.limitExpr().getClass().getSimpleName() == "Literal":
-                limit_val = rel.limitExpr().value()
+            if limit_expr_class == "Literal":
+                limit_dtype = str(limit_expr.dataType().getClass().getSimpleName())
+                if limit_dtype not in ("IntegerType$", "ShortType$", "LongType$"):
+                    limit_expr_sql = limit_expr.sql()
+                    spark_type = limit_dtype.replace("Type$", "").upper()
+                    exception = AnalysisException(
+                        f'[INVALID_LIMIT_LIKE_EXPRESSION.DATA_TYPE] The limit like expression "{limit_expr_sql}" is invalid. The expression has a "{spark_type}" type, which is not allowed. Please use a value of "INT" type.'
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+                    raise exception
+                limit_val = limit_expr.value()
             else:
-                expr_proto = map_logical_plan_expression(rel.limitExpr())
+                expr_proto = map_logical_plan_expression(limit_expr)
                 session = snowpark.Session.get_active_session()
-                m = ColumnNameMap([], [], None)
+                m = ColumnNameMap([], [])
                 expr = map_single_column_expression(
                     expr_proto, m, ExpressionTyper.dummy_typer(session)
                 )
                 limit_val = session.range(1).select(expr[1].col).collect()[0][0]
+
+            if limit_val is None:
+                limit_expr_sql = limit_expr.sql()
+                exception = AnalysisException(
+                    f'[INVALID_LIMIT_LIKE_EXPRESSION.IS_NULL] The limit like expression "{limit_expr_sql}" is invalid. The expression is a NULL value, which is not allowed. Please use a non-null value.'
+                )
+                attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+                raise exception
 
             proto = relation_proto.Relation(
                 limit=relation_proto.Limit(

@@ -3,7 +3,7 @@ Type annotations for payment-cryptography service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -205,10 +205,12 @@ class GetKeyInputTypeDef(TypedDict):
 class GetParametersForExportInputTypeDef(TypedDict):
     KeyMaterialType: KeyMaterialTypeType
     SigningKeyAlgorithm: KeyAlgorithmType
+    ReuseLastGeneratedToken: NotRequired[bool]
 
 class GetParametersForImportInputTypeDef(TypedDict):
     KeyMaterialType: KeyMaterialTypeType
     WrappingKeyAlgorithm: KeyAlgorithmType
+    ReuseLastGeneratedToken: NotRequired[bool]
 
 class GetPublicKeyCertificateInputTypeDef(TypedDict):
     KeyIdentifier: str

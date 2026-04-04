@@ -18,7 +18,6 @@ from sphinxcontrib.confluencebuilder.exceptions import ConfluencePermissionError
 from sphinxcontrib.confluencebuilder.exceptions import ConfluencePublishAncestorError
 from sphinxcontrib.confluencebuilder.exceptions import ConfluencePublishSelfAncestorError
 from sphinxcontrib.confluencebuilder.exceptions import ConfluencePublishTrampleError
-from sphinxcontrib.confluencebuilder.exceptions import ConfluenceUnexpectedCdataError
 from sphinxcontrib.confluencebuilder.exceptions import ConfluenceUnknownInstanceError
 from sphinxcontrib.confluencebuilder.exceptions import ConfluenceUnreconciledPageError
 from sphinxcontrib.confluencebuilder.logger import ConfluenceLogger as logger
@@ -115,6 +114,7 @@ class ConfluencePublisher:
         # Example space fetch points:
         # https://sphinxcontrib-confluencebuilder.atlassian.net/wiki/rest/api/space/STABLE
         # https://sphinxcontrib-confluencebuilder.atlassian.net/wiki/api/v2/spaces?keys=STABLE
+        # https://api.atlassian.com/ex/confluence/GUID/api/v2/spaces?keys=STABLE
 
         api_token_set = bool(self.config.confluence_api_token)
         pw_set = bool(self.config.confluence_server_pass)
@@ -645,6 +645,7 @@ class ConfluencePublisher:
                 prop_entry = self.get_page_property(page_id, prop_key)
                 meta_props[prop_key] = prop_entry
 
+        self._crude_publish_point_track(page)
         return page_id, page
 
     def get_page_by_id(self, page_id, expand='version'):
@@ -912,7 +913,7 @@ class ConfluencePublisher:
 
         return uploaded_attachment_id
 
-    def store_page(self, page_name, data, parent_id=None):
+    def store_page(self, page_name, data, parent_id=None, *, force: bool = False):
         """
         request to store page information to a confluence instance
 
@@ -926,6 +927,9 @@ class ConfluencePublisher:
             page_name: the page title to use on the updated page
             data: the page data to apply
             parent_id (optional): the id of the ancestor to use
+
+        Returns:
+            tuple of the page id and whether this is a new page
         """
         uploaded_page_id = None
 
@@ -934,7 +938,7 @@ class ConfluencePublisher:
 
             if not page:
                 self._dryrun('adding new page ' + page_name)
-                return None
+                return None, True
 
             misc = ''
             if parent_id and 'ancestors' in page:
@@ -945,7 +949,7 @@ class ConfluencePublisher:
                     misc += f'[new parent page{desc}]'
 
             self._dryrun('updating existing page', page['id'], misc)
-            return page['id']
+            return page['id'], False
 
         # fetch the page data
         # (expand on certain fields that may be required)
@@ -960,16 +964,6 @@ class ConfluencePublisher:
             expand += ',metadata.properties.editor'
 
         _, page = self.get_page(page_name, expand=expand)
-
-        # if we have a page and a user has requested a forced migration from
-        # legacy to cloud, force convert the page
-        if self.config.confluence_cloud_v2_migration:
-            if page and self.api_mode == 'v2':
-                page_id = page['id']
-                self.rest.put(f'{self.APIV1}content', f'{page_id}/convert')
-
-                # re-fetch page for latest version
-                _, page = self.get_page(page_name, expand=expand)
 
         # if the page is not found, but is determined to be an archived page,
         # Confluence Cloud does not appear to support moving/updating an
@@ -986,7 +980,7 @@ class ConfluencePublisher:
 
         # if a page was found, verify we are allowed to publish
         if page and not self._check_allowed_page_update(page, parent_id):
-            return page['id']
+            return page['id'], False
 
         # fetch known properties (associated with this extension) from the page
         page_id = page['id'] if page else None
@@ -998,7 +992,7 @@ class ConfluencePublisher:
         new_page_hash = ConfluenceUtil.hash(data['content'])
 
         # check if we have to force a page update
-        force_publish = self.config.confluence_publish_force
+        force_publish = force or self.config.confluence_publish_force
         if page and not force_publish:
             metadata = page.get('metadata', {})
             meta_props = metadata.get('properties', {})
@@ -1050,14 +1044,12 @@ class ConfluencePublisher:
             remote_hash = cb_props['value'].get('hash')
             if new_page_hash == remote_hash:
                 logger.verbose(f'no changes in page: {page_name}')
-                return page['id']
+                return page['id'], False
 
         # check for inlined comments
-        if page:
-            icdrop = self._manage_inlined_comments(page, page_name, data)
-            if icdrop and self.config.confluence_publish_skip_commented_pages:
-                logger.verbose(f'skipping publish due to comments: {page_name}')
-                return page['id']
+        if self.config.confluence_cloud and page and \
+                not self._manage_inlined_comments(page, page_name, data):
+            return page['id'], False
 
         try:
             # new page
@@ -1101,10 +1093,8 @@ class ConfluencePublisher:
                         build_path = f'{self.APIV1}content'
 
                     rsp = self.rest.post(build_path, new_page)
+                    self._crude_publish_point_track(rsp)
                 except ConfluenceBadApiError as ex:
-                    if str(ex).find('CDATA block has embedded') != -1:
-                        raise ConfluenceUnexpectedCdataError from ex
-
                     # Check if Confluence reports that the new page request
                     # fails, indicating it already exists. This is usually
                     # (outside of possible permission use cases) that the page
@@ -1132,7 +1122,7 @@ class ConfluencePublisher:
 
                     # if a page was found, verify we are allowed to publish
                     if not self._check_allowed_page_update(page, parent_id):
-                        return page['id']
+                        return page['id'], False
                 else:
                     if 'id' not in rsp:
                         api_err = (
@@ -1196,7 +1186,7 @@ class ConfluencePublisher:
         # perform any required post-page update actions
         self._post_page_actions(uploaded_page_id, cb_props)
 
-        return uploaded_page_id
+        return uploaded_page_id, not bool(page)
 
     def store_page_by_id(self, page_name, page_id, data):
         """
@@ -1254,11 +1244,9 @@ class ConfluencePublisher:
                 return page_id
 
         # check for inlined comments
-        if page:
-            icdrop = self._manage_inlined_comments(page, page_name, data)
-            if icdrop and self.config.confluence_publish_skip_commented_pages:
-                logger.verbose(f'skipping publish due to comments: {page_name}')
-                return page_id
+        if self.config.confluence_cloud and page and \
+                not self._manage_inlined_comments(page, page_name, data):
+            return page_id
 
         try:
             self._update_page(page, page_name, data)
@@ -1640,25 +1628,60 @@ class ConfluencePublisher:
             data: the new page data to be applied
 
         Returns:
-            whether at least one inlined comment will be dropped
+            whether a page update should be allowed top continue; ``False`` to
+            indicate the update should stop due to an inlined comment issue
         """
 
         try:
             existing_data = page['body']['storage']['value']
         except KeyError:
-            return False
-
-        # At this time, we only have this crude check for inlined comments.
-        # We check if the original page has any inlined comment markers. If
-        # so, we generate a warning. A publish even will still go through,
-        # but it generates a warning to inform users and allows a publish
-        # even to stop if `--fail-on-warning` is set.
-        if '<ac:inline-comment-marker' in existing_data:
-            logger.warn(f'inline comment detected (page "{page_name}"); '
-                         'page not published', subtype='inline-comment')
             return True
 
-        return False
+        # if we have no comments in the page, continue as normal
+        if '<ac:inline-comment-marker' not in existing_data:
+            return True
+
+        do_no_update = False
+        match self.config.confluence_publish_skip_commented_pages:
+            # Users have indicated to skip any commented pages. We will
+            # generate a warning. A publish event will still go through,
+            # but it generates a warning to inform users and allows a publish
+            # even to stop if `--fail-on-warning` is set.
+            case True:
+                logger.warn(f'inline comment detected (page "{page_name}"); '
+                             'page not updated', subtype='inline-comment')
+                do_no_update = True
+
+            # Users have indicating that they do not care if page updates
+            # override comments if all comments are in a resolved-like state.
+            # Check if a page has any opened comments. If so, continue as if
+            # nothing as happened.
+            case 'ignored-resolved':
+                page_id = page['id']
+                endpoint_path = f'{self.APIV2}pages/{page_id}/inline-comments'
+                rsp = self.rest.get(endpoint_path, {
+                    'resolution-status': [
+                        'open',
+                        'reopened',
+                    ],
+                    # note; originally tried to include "limit=1", but the
+                    # API appears to provide no results where without a limit,
+                    # results appear
+                })
+
+                if rsp['results']:
+                    logger.warn('unresolved (open/unresolved-deleted) inline '
+                               f'comment detected (page "{page_name}"); '
+                                'page not updated', subtype='inline-comment')
+                    do_no_update = True
+
+        # if any scenario above indicated we should not update this page,
+        # log and return to hint not to update
+        if do_no_update:
+            logger.verbose(f'skipping publish due to comments: {page_name}')
+            return False
+
+        return True
 
     def _next_page_fields(self, rsp, fields, offset):
         """
@@ -1839,20 +1862,33 @@ class ConfluencePublisher:
             update_path = f'{self.APIV1}content'
 
         update_page['status'] = 'current'
-        try:
-            self.rest.put(update_path, page['id'], update_page)
-        except ConfluenceBadApiError as ex:
-            if str(ex).find('CDATA block has embedded') != -1:
-                raise ConfluenceUnexpectedCdataError from ex
 
-            if str(ex).find('title already exists') != -1:
-                raise ConfluencePagePermissionError(page_name) from ex
+        MAX_ATTEMPTS_TO_UPDATE_PAGE = 3
+        for attempt in range(MAX_ATTEMPTS_TO_UPDATE_PAGE):
+            try:
+                self.rest.put(update_path, page['id'], update_page)
+            except ConfluenceBadApiError as ex:  # noqa: PERF203
+                if ex.status_code == 409:
+                    if attempt >= MAX_ATTEMPTS_TO_UPDATE_PAGE - 1:
+                        raise
 
-            if 'unreconciled' in str(ex):
-                raise ConfluenceUnreconciledPageError(
-                    page_name, page['id'], self.server_url, ex) from ex
+                    logger.info('page update conflict (409); retrying...')
+                    time.sleep(0.5)
+                    _, active_page = self.get_page(page_name)
+                    neW_last_version = int(active_page['version']['number'])
+                    update_page['version']['number'] = neW_last_version + 1
+                    continue
 
-            raise
+                if str(ex).find('title already exists') != -1:
+                    raise ConfluencePagePermissionError(page_name) from ex
+
+                if 'unreconciled' in str(ex):
+                    raise ConfluenceUnreconciledPageError(
+                        page_name, page['id'], self.server_url, ex) from ex
+
+                raise
+            else:
+                break
 
         # post-update requests (api v2 mode)
         update_page_id = update_page['id']
@@ -1920,3 +1956,21 @@ class ConfluencePublisher:
         """
         metadata = page.setdefault('metadata', {})
         metadata['labels'] = [{'name': v} for v in set(labels)]
+
+    def _crude_publish_point_track(self, page):
+        """
+        crude publish point detection for scoped api mode
+        #
+        If we detect a base URL, cache it for now. We might use it later
+        to report a publish point hint for cases where confluence_server_url
+        is not a user-end URL.
+
+        Args:
+            page: the page
+        """
+        root_node = page or {}
+        container = root_node.get('metadata', {}).get('labels', root_node)
+        detected_base_url = container.get('_links', {}).get('base')
+        if detected_base_url:
+            detected_base_url = detected_base_url.removesuffix('/')
+            ConfluenceState.register_base_url(f'{detected_base_url}/')

@@ -37,6 +37,17 @@ _VALID_PATCH_OPS = frozenset(
 
 _ACTIVE_STATUSES = frozenset({"active", "running"})
 
+# Item type → (default adapter_type, default adapter_config path).
+# Used by apply_adapter_defaults to route non-coding items appropriately.
+ITEM_TYPE_DEFAULTS: dict[str, tuple[str, str]] = {
+    "task": ("workflow", ""),
+    "docs": ("noop", ""),
+    "research": ("noop", ""),
+    "review": ("noop", ""),
+    "manual": ("noop", ""),
+    "verification": ("noop", ""),
+}
+
 
 # ---------------------------------------------------------------------------
 # Graph validation
@@ -158,6 +169,7 @@ def compile_from_spec(
                 summary=task.summary,
                 temp_id=task.id,
                 depends_on=list(task.depends_on),
+                item_type=task.item_type,
                 adapter_type=adapter_type,
                 adapter_config=adapter_config,
             )
@@ -190,20 +202,35 @@ def apply_adapter_defaults(plan: CompiledPlan, defaults: AdapterDefaults) -> Com
     new_items: list[CompiledItem] = []
     for item in plan.items:
         if item.adapter_type == "noop":
-            new_items.append(
-                CompiledItem(
-                    summary=item.summary,
-                    temp_id=item.temp_id,
-                    description=item.description,
-                    priority=item.priority,
-                    item_type=item.item_type,
-                    adapter_type=defaults.adapter_type,
-                    adapter_config={**defaults.adapter_config, **item.adapter_config},
-                    concurrency_group=item.concurrency_group,
-                    lane=item.lane,
-                    depends_on=list(item.depends_on),
+            type_defaults = ITEM_TYPE_DEFAULTS.get(item.item_type)
+            if type_defaults is not None:
+                type_adapter, type_path = type_defaults
+                if type_adapter == "noop":
+                    # Type explicitly wants noop (research, manual, etc.)
+                    new_items.append(item)
+                    continue
+                # Type is routable — use caller-supplied defaults for adapter
+                # type, but add type-specific config (e.g. workflow_path).
+                resolved_config = {**defaults.adapter_config, **item.adapter_config}
+                if type_path:
+                    resolved_config.setdefault("workflow_path", type_path)
+                new_items.append(
+                    CompiledItem(
+                        summary=item.summary,
+                        temp_id=item.temp_id,
+                        description=item.description,
+                        priority=item.priority,
+                        item_type=item.item_type,
+                        adapter_type=defaults.adapter_type,
+                        adapter_config=resolved_config,
+                        concurrency_group=item.concurrency_group,
+                        lane=item.lane,
+                        depends_on=list(item.depends_on),
+                    )
                 )
-            )
+            else:
+                # Unknown type — fall back to noop (fail safe)
+                new_items.append(item)
         else:
             new_items.append(item)
     return CompiledPlan(
@@ -241,6 +268,13 @@ Rules:
 - Each item must have a unique temp_id (short, snake_case).
 - depends_on references other items' temp_id values.
 - priority is 1-100 (lower = higher priority).
+- item_type classifies the work. Allowed values:
+  - "task" — coding or implementation work (default).
+  - "docs" — documentation writing or updates.
+  - "research" — investigation, spikes, or analysis.
+  - "review" — code review, design review, or approval.
+  - "manual" — manual steps requiring human action.
+  - "verification" — testing, validation, or sign-off.
 - Output ONLY valid JSON, no markdown fences, no commentary.
 """
 

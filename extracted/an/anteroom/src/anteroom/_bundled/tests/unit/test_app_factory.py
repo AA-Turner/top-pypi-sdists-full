@@ -433,6 +433,15 @@ class TestCreateApp:
             app = create_app(config)
         assert isinstance(app, FastAPI)
 
+    def test_create_app_version_matches_package(self) -> None:
+        config = _make_config()
+        with patch("anteroom.app.lifespan", new=_noop_lifespan):
+            from anteroom import __version__
+            from anteroom.app import create_app
+
+            app = create_app(config)
+        assert app.version == __version__
+
     def test_create_app_stores_config_on_state(self) -> None:
         config = _make_config()
         with patch("anteroom.app.lifespan", new=_noop_lifespan):
@@ -1105,6 +1114,97 @@ class TestLifespanStartup:
                 assert app.state.mcp_manager is mock_mcp
 
         mock_mcp.shutdown.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_lifespan_starts_mission_scheduler(self, tmp_path: Path) -> None:
+        from anteroom.app import lifespan
+
+        app = FastAPI()
+        config = _make_config(data_dir=tmp_path)
+        config.workflow.enabled = False
+        config.workflow.executor_enabled = False
+        app.state.config = config
+
+        mock_db = MagicMock()
+        mock_db._conn = MagicMock()
+        mock_scheduler = MagicMock()
+
+        with (
+            patch("anteroom.app.init_db", return_value=mock_db),
+            patch("anteroom.app.get_effective_dimensions", return_value=384),
+            patch("anteroom.app.EventBus") as mock_event_bus_cls,
+            patch("anteroom.app.ToolRegistry"),
+            patch("anteroom.app.register_default_tools"),
+            patch("anteroom.app.create_embedding_service", return_value=None),
+            patch("anteroom.services.vector_index.VectorIndexManager", return_value=MagicMock(enabled=False)),
+            patch("anteroom.services.storage.register_user"),
+            patch("anteroom.services.storage.delete_empty_conversations"),
+            patch("anteroom.services.audit.create_audit_writer") as mock_audit,
+            patch("anteroom.services.starter_packs.install_starter_packs", return_value=[]),
+            patch("anteroom.services.artifact_registry.ArtifactRegistry") as mock_reg_cls,
+            patch("anteroom.services.mission_runtime.create_mission_adapter_registry", return_value=MagicMock()),
+            patch("anteroom.services.mission_scheduler.MissionSchedulerWorker", return_value=mock_scheduler),
+        ):
+            mock_audit.return_value = MagicMock(enabled=False)
+            mock_reg = MagicMock()
+            mock_reg.count = 0
+            mock_reg_cls.return_value = mock_reg
+            mock_event_bus = MagicMock()
+            mock_event_bus_cls.return_value = mock_event_bus
+
+            async with lifespan(app):
+                assert app.state.mission_scheduler is mock_scheduler
+                mock_scheduler.start.assert_called_once()
+
+        mock_scheduler.stop.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_lifespan_warns_when_workflow_enabled_but_executor_disabled(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        from anteroom.app import lifespan
+
+        app = FastAPI()
+        config = _make_config(data_dir=tmp_path)
+        config.workflow.enabled = True
+        config.workflow.executor_enabled = False
+        app.state.config = config
+
+        mock_db = MagicMock()
+        mock_db._conn = MagicMock()
+        mock_scheduler = MagicMock()
+
+        with (
+            patch("anteroom.app.init_db", return_value=mock_db),
+            patch("anteroom.app.get_effective_dimensions", return_value=384),
+            patch("anteroom.app.EventBus") as mock_event_bus_cls,
+            patch("anteroom.app.ToolRegistry"),
+            patch("anteroom.app.register_default_tools"),
+            patch("anteroom.app.create_embedding_service", return_value=None),
+            patch("anteroom.services.vector_index.VectorIndexManager", return_value=MagicMock(enabled=False)),
+            patch("anteroom.services.storage.register_user"),
+            patch("anteroom.services.storage.delete_empty_conversations"),
+            patch("anteroom.services.audit.create_audit_writer") as mock_audit,
+            patch("anteroom.services.starter_packs.install_starter_packs", return_value=[]),
+            patch("anteroom.services.artifact_registry.ArtifactRegistry") as mock_reg_cls,
+            patch("anteroom.services.mission_runtime.create_mission_adapter_registry", return_value=MagicMock()),
+            patch("anteroom.services.mission_scheduler.MissionSchedulerWorker", return_value=mock_scheduler),
+        ):
+            mock_audit.return_value = MagicMock(enabled=False)
+            mock_reg = MagicMock()
+            mock_reg.count = 0
+            mock_reg_cls.return_value = mock_reg
+            mock_event_bus = MagicMock()
+            mock_event_bus_cls.return_value = mock_event_bus
+
+            import logging
+
+            with caplog.at_level(logging.WARNING, logger="anteroom.app"):
+                async with lifespan(app):
+                    assert app.state.mission_scheduler is mock_scheduler
+                    assert app.state.workflow_executor is None
+
+            assert any("executor_enabled" in msg for msg in caplog.messages)
 
     @pytest.mark.asyncio
     async def test_lifespan_no_retention_worker_when_zero_days(self, tmp_path: Path) -> None:

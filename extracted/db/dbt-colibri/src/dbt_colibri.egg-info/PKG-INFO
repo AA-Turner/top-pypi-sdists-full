@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-colibri
-Version: 0.2.8
+Version: 0.3.0
 Summary: A column lineage parser and dashboarding tool
 Author: bned
 License: MIT
@@ -13,7 +13,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: click>=8.1.7
-Requires-Dist: sqlglot[rs]>=26.33.0
+Requires-Dist: sqlglot[c]>=30.0.0
 Dynamic: license-file
 
 
@@ -84,8 +84,8 @@ colibri generate [OPTIONS]
 ```
 
 **Options:**
-- `--manifest-path`: Path to dbt manifest.json (default: `target/manifest.json`)
-- `--catalog-path`: Path to dbt catalog.json (default: `target/catalog.json`)
+- `--manifest`: Path to dbt manifest.json (default: `target/manifest.json`)
+- `--catalog`: Path to dbt catalog.json (default: `target/catalog.json`)
 - `--output-dir`: Output directory (default: `dist/`)
 - `--help`: Show help message
 - `--light`: For very big dbt projects, excludes attributes like compiled SQL and returns smaller HTML file.
@@ -143,6 +143,7 @@ Gitlab has similar functionality. Other options are writing the file to a bucket
    - Trino
    - SQL Server (TSQL)
    - ClickHouse
+   - Oracle
 
 ### dbt Compatibility
 

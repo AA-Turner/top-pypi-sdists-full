@@ -1,6 +1,7 @@
 #![cfg(feature = "office")]
 
 use kreuzberg::core::config::{ExtractionConfig, OutputFormat};
+use kreuzberg::extraction::derive::derive_extraction_result;
 use kreuzberg::plugins::DocumentExtractor;
 use std::path::PathBuf;
 
@@ -22,10 +23,11 @@ async fn test_fictionbook_extract_metadata_title() {
     let extractor = kreuzberg::extractors::FictionBookExtractor::new();
     let path = test_file_path("meta.fb2");
 
-    let result = extractor
+    let doc = extractor
         .extract_file(&path, "application/x-fictionbook+xml", &ExtractionConfig::default())
         .await
         .expect("Failed to extract FB2 file");
+    let result = derive_extraction_result(doc, false, kreuzberg::OutputFormat::Plain);
 
     assert!(
         result.content.contains("Book title"),
@@ -38,10 +40,11 @@ async fn test_fictionbook_extract_metadata_genre() {
     let extractor = kreuzberg::extractors::FictionBookExtractor::new();
     let path = test_file_path("meta.fb2");
 
-    let result = extractor
+    let doc = extractor
         .extract_file(&path, "application/x-fictionbook+xml", &ExtractionConfig::default())
         .await
         .expect("Failed to extract FB2 file");
+    let result = derive_extraction_result(doc, false, kreuzberg::OutputFormat::Plain);
 
     assert!(result.metadata.subject.is_none());
 }
@@ -51,10 +54,11 @@ async fn test_fictionbook_extract_content_sections() {
     let extractor = kreuzberg::extractors::FictionBookExtractor::new();
     let path = test_file_path("titles.fb2");
 
-    let result = extractor
+    let doc = extractor
         .extract_file(&path, "application/x-fictionbook+xml", &ExtractionConfig::default())
         .await
         .expect("Failed to extract FB2 file");
+    let result = derive_extraction_result(doc, false, kreuzberg::OutputFormat::Plain);
 
     assert!(
         result.content.contains("Simple title"),
@@ -71,10 +75,11 @@ async fn test_fictionbook_extract_section_hierarchy() {
     let extractor = kreuzberg::extractors::FictionBookExtractor::new();
     let path = test_file_path("basic.fb2");
 
-    let result = extractor
+    let doc = extractor
         .extract_file(&path, "application/x-fictionbook+xml", &ExtractionConfig::default())
         .await
         .expect("Failed to extract FB2 file");
+    let result = derive_extraction_result(doc, false, kreuzberg::OutputFormat::Plain);
 
     assert!(
         result.content.contains("Top-level title"),
@@ -92,10 +97,11 @@ async fn test_fictionbook_extract_inline_markup() {
     let extractor = kreuzberg::extractors::FictionBookExtractor::new();
     let path = test_file_path("emphasis.fb2");
 
-    let result = extractor
+    let doc = extractor
         .extract_file(&path, "application/x-fictionbook+xml", &ExtractionConfig::default())
         .await
         .expect("Failed to extract FB2 file");
+    let result = derive_extraction_result(doc, false, kreuzberg::OutputFormat::Plain);
 
     let content = result.content.to_lowercase();
     assert!(content.contains("plain"), "Plain text should be extracted");
@@ -109,10 +115,11 @@ async fn test_fictionbook_extract_emphasis() {
     let extractor = kreuzberg::extractors::FictionBookExtractor::new();
     let path = test_file_path("basic.fb2");
 
-    let result = extractor
+    let doc = extractor
         .extract_file(&path, "application/x-fictionbook+xml", &ExtractionConfig::default())
         .await
         .expect("Failed to extract FB2 file");
+    let result = derive_extraction_result(doc, false, kreuzberg::OutputFormat::Plain);
 
     assert!(
         result.content.contains("emphasized"),
@@ -125,10 +132,11 @@ async fn test_fictionbook_extract_strong() {
     let extractor = kreuzberg::extractors::FictionBookExtractor::new();
     let path = test_file_path("basic.fb2");
 
-    let result = extractor
+    let doc = extractor
         .extract_file(&path, "application/x-fictionbook+xml", &ExtractionConfig::default())
         .await
         .expect("Failed to extract FB2 file");
+    let result = derive_extraction_result(doc, false, kreuzberg::OutputFormat::Plain);
 
     assert!(result.content.contains("strong"), "Strong text should be extracted");
 }
@@ -138,10 +146,11 @@ async fn test_fictionbook_extract_code() {
     let extractor = kreuzberg::extractors::FictionBookExtractor::new();
     let path = test_file_path("basic.fb2");
 
-    let result = extractor
+    let doc = extractor
         .extract_file(&path, "application/x-fictionbook+xml", &ExtractionConfig::default())
         .await
         .expect("Failed to extract FB2 file");
+    let result = derive_extraction_result(doc, false, kreuzberg::OutputFormat::Plain);
 
     assert!(result.content.contains("verbatim"), "Code content should be extracted");
 }
@@ -151,10 +160,11 @@ async fn test_fictionbook_extract_blockquote() {
     let extractor = kreuzberg::extractors::FictionBookExtractor::new();
     let path = test_file_path("basic.fb2");
 
-    let result = extractor
+    let doc = extractor
         .extract_file(&path, "application/x-fictionbook+xml", &ExtractionConfig::default())
         .await
         .expect("Failed to extract FB2 file");
+    let result = derive_extraction_result(doc, false, kreuzberg::OutputFormat::Plain);
 
     assert!(result.content.contains("Blockquote"), "Blockquote should be extracted");
 }
@@ -164,10 +174,11 @@ async fn test_fictionbook_extract_tables() {
     let extractor = kreuzberg::extractors::FictionBookExtractor::new();
     let path = test_file_path("tables.fb2");
 
-    let result = extractor
+    let doc = extractor
         .extract_file(&path, "application/x-fictionbook+xml", &ExtractionConfig::default())
         .await
         .expect("Failed to extract FB2 file");
+    let result = derive_extraction_result(doc, false, kreuzberg::OutputFormat::Plain);
 
     assert!(
         !result.content.is_empty(),
@@ -184,25 +195,30 @@ async fn test_fictionbook_markdown_formatting_preservation() {
         output_format: OutputFormat::Markdown,
         ..Default::default()
     };
-    let result = extractor
+    let doc = extractor
         .extract_file(&path, "application/x-fictionbook+xml", &config)
         .await
         .expect("Failed to extract FB2 file");
+    let result = derive_extraction_result(doc, false, kreuzberg::OutputFormat::Markdown);
 
+    let md = result
+        .formatted_content
+        .as_deref()
+        .expect("formatted_content should be set for Markdown output");
     assert!(
-        result.content.contains("**strong**"),
+        md.contains("**strong**"),
         "Strong text should be formatted as **bold** in markdown"
     );
     assert!(
-        result.content.contains("*emphasis*"),
+        md.contains("*emphasis*"),
         "Emphasis text should be formatted as *italic* in markdown"
     );
     assert!(
-        result.content.contains("~~deleted~~"),
+        md.contains("~~deleted~~"),
         "Strikethrough text should be formatted as ~~strikethrough~~ in markdown"
     );
     assert!(
-        result.content.contains("`code`"),
+        md.contains("`code`"),
         "Code text should be wrapped in backticks in markdown"
     );
 }
@@ -216,21 +232,26 @@ async fn test_fictionbook_formatting_in_body_paragraphs() {
         output_format: OutputFormat::Markdown,
         ..Default::default()
     };
-    let result = extractor
+    let doc = extractor
         .extract_file(&path, "application/x-fictionbook+xml", &config)
         .await
         .expect("Failed to extract FB2 file");
+    let result = derive_extraction_result(doc, false, kreuzberg::OutputFormat::Markdown);
 
+    let md = result
+        .formatted_content
+        .as_deref()
+        .expect("formatted_content should be set for Markdown output");
     assert!(
-        result.content.contains("*emphasized*"),
+        md.contains("*emphasized*"),
         "Emphasis formatting should be preserved in body content"
     );
     assert!(
-        result.content.contains("**strong**"),
+        md.contains("**strong**"),
         "Strong formatting should be preserved in body content"
     );
     assert!(
-        result.content.contains("`verbatim`"),
+        md.contains("`verbatim`"),
         "Code formatting should be preserved in body content"
     );
 }

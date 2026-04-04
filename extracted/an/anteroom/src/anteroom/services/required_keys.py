@@ -92,7 +92,7 @@ def prompt_for_missing_keys(
     # Load current config
     raw: dict[str, Any] = {}
     if config_path.exists():
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8-sig") as f:
             raw = yaml.safe_load(f) or {}
 
     values_set = 0

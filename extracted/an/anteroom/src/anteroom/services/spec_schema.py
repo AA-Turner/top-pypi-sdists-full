@@ -84,6 +84,9 @@ def is_pending_content(phase: str, content: SpecContent) -> bool:
 # ---------------------------------------------------------------------------
 
 
+VALID_ITEM_TYPES: frozenset[str] = frozenset({"task", "docs", "research", "review", "manual", "verification"})
+
+
 @dataclass(frozen=True)
 class SpecTask:
     """A single task inside a spec."""
@@ -91,6 +94,7 @@ class SpecTask:
     id: str
     summary: str
     depends_on: list[str] = field(default_factory=list)
+    item_type: str = "task"
 
 
 @dataclass(frozen=True)
@@ -449,7 +453,13 @@ def _parse_tasks(raw_tasks: list[Any]) -> list[SpecTask]:
         if not isinstance(depends_on, list) or not all(isinstance(d, str) for d in depends_on):
             raise SpecValidationError(f"Task '{task_id}' depends_on must be a list of strings")
 
-        tasks.append(SpecTask(id=task_id, summary=summary, depends_on=list(depends_on)))
+        raw_item_type = item.get("item_type", "task")
+        if not isinstance(raw_item_type, str) or raw_item_type not in VALID_ITEM_TYPES:
+            raise SpecValidationError(
+                f"Task '{task_id}' item_type must be one of {sorted(VALID_ITEM_TYPES)}, got {raw_item_type!r}"
+            )
+
+        tasks.append(SpecTask(id=task_id, summary=summary, depends_on=list(depends_on), item_type=raw_item_type))
 
     return tasks
 
@@ -499,4 +509,6 @@ def _task_to_dict(task: SpecTask) -> dict[str, Any]:
     d: dict[str, Any] = {"id": task.id, "summary": task.summary}
     if task.depends_on:
         d["depends_on"] = task.depends_on
+    if task.item_type != "task":
+        d["item_type"] = task.item_type
     return d

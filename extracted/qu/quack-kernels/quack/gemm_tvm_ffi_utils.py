@@ -5,7 +5,7 @@ from functools import partial
 
 
 import cutlass.cute as cute
-from cutlass import Int32, Float32
+from cutlass import Int32, Int64, Float32
 from cutlass.cute.runtime import make_ptr
 
 from quack.compile_utils import make_fake_tensor as fake_tensor
@@ -185,11 +185,12 @@ def compile_gemm_kernel(
     post_init=None,
     mSFA=None,
     mSFB=None,
+    has_trace_ptr=False,
 ):
     """Build GemmCls instance, apply SM90 partial, and cute.compile with TVM-FFI."""
-    if device_capacity[0] == 9:
+    if device_capacity[0] in [9, 12]:
         GemmCls = partial(GemmCls, pingpong=pingpong, is_persistent=persistent)
-    elif device_capacity[0] == 10:
+    elif device_capacity[0] in [10, 11]:
         GemmCls = partial(GemmCls, use_clc_persistence=is_dynamic_persistent)
     gemm_obj = GemmCls(
         Float32,
@@ -201,7 +202,10 @@ def compile_gemm_kernel(
     if post_init:
         post_init(gemm_obj)
     stream = cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True)
-    sf_args = () if device_capacity[0] == 9 else (mSFA, mSFB)
+    sf_args = () if device_capacity[0] in (9, 12) else (mSFA, mSFB)
+    # Trace pointer: Optional[Int64]. Compile with Int64(0) when tracing is
+    # requested, None otherwise. TVM-FFI caches each variant separately.
+    trace_ptr = Int64(0) if has_trace_ptr else None
     return cute.compile(
         gemm_obj,
         mA,
@@ -213,5 +217,6 @@ def compile_gemm_kernel(
         varlen_args,
         stream,
         *sf_args,
+        trace_ptr,
         options="--enable-tvm-ffi",
     )

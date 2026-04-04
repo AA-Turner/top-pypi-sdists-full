@@ -198,8 +198,8 @@ class TestBrowserDeferral:
 
 
 class TestPortFlag:
-    def test_port_flag_overrides_config(self) -> None:
-        """--port flag must override config.app.port before _run_web is called."""
+    def test_port_global_flag_overrides_config_for_web(self) -> None:
+        """--port global flag must override config.app.port before _run_web is called."""
         from anteroom.__main__ import main
 
         with (
@@ -208,7 +208,23 @@ class TestPortFlag:
         ):
             config = _make_config(port=8080)
             mock_load.return_value = (Path("/tmp/config.yaml"), config, [])
-            with patch("sys.argv", ["aroom", "--port", "9999"]):
+            with patch("sys.argv", ["aroom", "--port", "9999", "web"]):
+                main()
+
+        assert config.app.port == 9999
+        mock_run_web.assert_called_once()
+
+    def test_port_web_subparser_flag_overrides_config(self) -> None:
+        """'aroom web --port 9999' must override config.app.port."""
+        from anteroom.__main__ import main
+
+        with (
+            patch("anteroom.__main__._load_config_or_exit") as mock_load,
+            patch("anteroom.__main__._run_web") as mock_run_web,
+        ):
+            config = _make_config(port=8080)
+            mock_load.return_value = (Path("/tmp/config.yaml"), config, [])
+            with patch("sys.argv", ["aroom", "web", "--port", "9999"]):
                 main()
 
         assert config.app.port == 9999
@@ -220,7 +236,7 @@ class TestPortFlag:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
             pytest.raises(SystemExit) as exc_info,
         ):
             config = _make_config()
@@ -238,7 +254,7 @@ class TestPortFlag:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
             pytest.raises(SystemExit) as exc_info,
         ):
             config = _make_config()
@@ -258,7 +274,7 @@ class TestPortFlag:
         ):
             config = _make_config(port=8080)
             mock_load.return_value = (Path("/tmp/config.yaml"), config, [])
-            with patch("sys.argv", ["aroom"]):
+            with patch("sys.argv", ["aroom", "web"]):
                 main()
 
         assert config.app.port == 8080
@@ -406,7 +422,7 @@ class TestDebugFlag:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
             patch("anteroom.__main__.logging.basicConfig") as mock_basic,
         ):
             config = _make_config()
@@ -425,7 +441,7 @@ class TestDebugFlag:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
             patch("anteroom.__main__.logging.basicConfig") as mock_basic,
         ):
             config = _make_config()
@@ -444,7 +460,7 @@ class TestDebugFlag:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
             patch("anteroom.__main__.logging.basicConfig") as mock_basic,
         ):
             config = _make_config()
@@ -463,7 +479,7 @@ class TestDebugFlag:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
             patch("anteroom.__main__.logging.basicConfig") as mock_basic,
         ):
             config = _make_config()
@@ -482,7 +498,7 @@ class TestDebugFlag:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
             patch("anteroom.__main__.logging.basicConfig") as mock_basic,
         ):
             config = _make_config()
@@ -503,7 +519,7 @@ class TestDebugFlag:
         ):
             config = _make_config()
             mock_load.return_value = (Path("/tmp/config.yaml"), config, [])
-            with patch("sys.argv", ["aroom", "--debug"]):
+            with patch("sys.argv", ["aroom", "web", "--debug"]):
                 main()
 
         mock_run_web.assert_called_once()
@@ -559,7 +575,7 @@ class TestTeamConfigFlag:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config()
             mock_load.return_value = (Path("/tmp/config.yaml"), config, [])
@@ -575,7 +591,7 @@ class TestTeamConfigFlag:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config()
             config.safety.approval_mode = "ask"
@@ -595,7 +611,7 @@ class TestTeamConfigFlag:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config()
             config.safety.approval_mode = "ask"
@@ -612,7 +628,7 @@ class TestTeamConfigFlag:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config(port=8080)
             mock_load.return_value = (Path("/tmp/config.yaml"), config, ["app.port"])

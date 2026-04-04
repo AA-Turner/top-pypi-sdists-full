@@ -56,6 +56,12 @@ class WorkflowExecutorWorker:
     def active_run_count(self) -> int:
         return len(self._active_tasks)
 
+    async def wait_for_idle(self) -> None:
+        """Wait for all currently dispatched runs to finish."""
+        if not self._active_tasks:
+            return
+        await asyncio.gather(*list(self._active_tasks), return_exceptions=True)
+
     def _reset_backoff(self) -> None:
         self._consecutive_failures = 0
         self._current_interval = float(self._config.executor_poll_interval)
@@ -75,6 +81,12 @@ class WorkflowExecutorWorker:
     async def run_once(self) -> int:
         """Run a single poll cycle. Returns number of runs dispatched."""
         from . import workflow_storage as ws
+
+        # Reclaim stale locks each poll cycle (#1257)
+        threshold = getattr(self._config, "lock_reclaim_threshold", 120)
+        reclaimed = ws.reclaim_stale_locks(self._db, threshold)
+        for run_id, target_ref, _was_comp in reclaimed:
+            logger.info("Poll: reclaimed stale lock run=%s target=%s", run_id, target_ref)
 
         # Clean up completed tasks
         done = {t for t in self._active_tasks if t.done()}
@@ -116,6 +128,7 @@ class WorkflowExecutorWorker:
 
     async def _dispatch_run(self, run: dict[str, Any]) -> None:
         """Dispatch a single claimed run to a fresh engine instance."""
+        from ..workflows.gates import register_builtin_gates
         from .workflow_engine import load_definition
 
         run_id = run["id"]
@@ -144,6 +157,7 @@ class WorkflowExecutorWorker:
                     return
                 definition = load_definition(path)
 
+            register_builtin_gates()
             engine = self._engine_factory()
             await engine.execute_enqueued_run(run_id, definition)
             logger.info("Workflow run %s completed", run_id)
@@ -179,11 +193,16 @@ class WorkflowExecutorWorker:
             if sched_reset:
                 logger.info("Reset %d stale schedule claims", sched_reset)
 
-        # Find stale running runs (heartbeat expired) and mark paused for resume
-        stale_runs = ws.find_stale_runs(self._db, stale_threshold_seconds=self._config.stale_threshold)
-        for run in stale_runs:
-            ws.update_workflow_run(self._db, run["id"], status="paused", stop_reason="stale_heartbeat_recovery")
-            logger.info("Recovered stale running run %s -> paused", run["id"])
+        # Reclaim stale locks (#1257)
+        threshold = getattr(self._config, "lock_reclaim_threshold", 120)
+        reclaimed = ws.reclaim_stale_locks(self._db, threshold)
+        for run_id, target_ref, was_compensating in reclaimed:
+            logger.info(
+                "Reclaimed stale lock: run=%s target=%s compensating=%s",
+                run_id,
+                target_ref,
+                was_compensating,
+            )
 
     async def run_forever(self) -> None:
         """Main poll loop."""

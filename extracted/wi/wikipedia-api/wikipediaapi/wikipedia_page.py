@@ -6,9 +6,11 @@ for accessing page content, metadata, and related information.
 """
 
 from typing import Any
+from typing import cast
 
-from ._base_wikipedia_page import BaseWikipediaPage
 from ._base_wikipedia_page import NOT_CACHED
+from ._base_wikipedia_page import BaseWikipediaPage
+from ._pages_dict import ImagesDict
 from ._pages_dict import PagesDict
 from ._params.coordinates_params import CoordinatesParams
 from ._params.images_params import ImagesParams
@@ -275,7 +277,7 @@ class WikipediaPage(BaseWikipediaPage["WikipediaPage"]):
         """
         if not self._called["langlinks"]:
             self._fetch("langlinks")
-        return self._langlinks  # type: ignore[return-value]
+        return cast(PagesDict, self._langlinks)
 
     @property
     def links(self) -> PagesDict:
@@ -295,7 +297,7 @@ class WikipediaPage(BaseWikipediaPage["WikipediaPage"]):
         """
         if not self._called["links"]:
             self._fetch("links")
-        return self._links  # type: ignore[return-value]
+        return cast(PagesDict, self._links)
 
     @property
     def backlinks(self) -> PagesDict:
@@ -314,7 +316,7 @@ class WikipediaPage(BaseWikipediaPage["WikipediaPage"]):
         """
         if not self._called["backlinks"]:
             self._fetch("backlinks")
-        return self._backlinks  # type: ignore[return-value]
+        return cast(PagesDict, self._backlinks)
 
     @property
     def categories(self) -> PagesDict:
@@ -333,7 +335,7 @@ class WikipediaPage(BaseWikipediaPage["WikipediaPage"]):
         """
         if not self._called["categories"]:
             self._fetch("categories")
-        return self._categories  # type: ignore[return-value]
+        return cast(PagesDict, self._categories)
 
     @property
     def categorymembers(self) -> PagesDict:
@@ -353,7 +355,7 @@ class WikipediaPage(BaseWikipediaPage["WikipediaPage"]):
         """
         if not self._called["categorymembers"]:
             self._fetch("categorymembers")
-        return self._categorymembers  # type: ignore[return-value]
+        return cast(PagesDict, self._categorymembers)
 
     @property
     def coordinates(self) -> list[Coordinate]:
@@ -377,7 +379,7 @@ class WikipediaPage(BaseWikipediaPage["WikipediaPage"]):
         return cached  # type: ignore[no-any-return]
 
     @property
-    def images(self) -> PagesDict:
+    def images(self) -> ImagesDict:
         """Images (files) used on this page.
 
         Triggers an ``images`` API call on first access using default
@@ -385,7 +387,7 @@ class WikipediaPage(BaseWikipediaPage["WikipediaPage"]):
         Use ``wiki.images(page, limit=50)`` for non-default params.
 
         Returns:
-            :class:`PagesDict` keyed by image title; empty if the page
+            :class:`ImagesDict` keyed by image title; empty if the page
             has no images or does not exist.
         """
         default_params = ImagesParams()
@@ -394,7 +396,7 @@ class WikipediaPage(BaseWikipediaPage["WikipediaPage"]):
             self.wiki.images(self)
             cached = self._get_cached("images", default_params.cache_key())
             if isinstance(cached, type(NOT_CACHED)):
-                return PagesDict()
+                return ImagesDict()
         return cached  # type: ignore[no-any-return]
 
     @property
@@ -444,14 +446,18 @@ class WikipediaPage(BaseWikipediaPage["WikipediaPage"]):
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
         try:
             attrs = object.__getattribute__(self, "_attributes")
-        except AttributeError:
-            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        except AttributeError as err:
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'"
+            ) from err
         if name in attrs:
             return attrs[name]
         try:
             called = object.__getattribute__(self, "_called")
-        except AttributeError:
-            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        except AttributeError as err:
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'"
+            ) from err
         if not called.get("info", False):
             object.__getattribute__(self, "_fetch")("info")
             if name in attrs:

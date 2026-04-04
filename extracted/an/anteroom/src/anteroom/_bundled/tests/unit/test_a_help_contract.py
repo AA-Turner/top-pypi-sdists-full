@@ -1,13 +1,16 @@
-"""Tests pinning /a-help prompt behavioral contracts and CLI invocation path."""
+"""Tests pinning /a-help prompt behavioral contracts and CLI invocation path (#1180)."""
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
 import yaml
 
-_A_HELP_PATH = Path(__file__).resolve().parents[2] / "src" / "anteroom" / "cli" / "default_skills" / "a-help.yaml"
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_A_HELP_PATH = _REPO_ROOT / "src" / "anteroom" / "cli" / "default_skills" / "a-help.yaml"
+_SRC_ROOT = _REPO_ROOT / "src" / "anteroom"
 
 _EXPECTED_INTROSPECT_SECTIONS = [
     "config",
@@ -125,3 +128,127 @@ def test_introspect_section_present(_prompt: str, section: str) -> None:
         f"Expected 'section={section}' to appear in the a-help prompt, but it was not found. "
         "If this section was intentionally removed, update _EXPECTED_INTROSPECT_SECTIONS."
     )
+
+
+# ---------------------------------------------------------------------------
+# Live-source validation tests (#1180)
+# ---------------------------------------------------------------------------
+
+
+class TestIntrospectSectionsMatchLive:
+    """Introspect sections in a-help.yaml must match the live introspect tool enum."""
+
+    def test_introspect_sections_match_live(self, _prompt: str) -> None:
+        from anteroom.tools.introspect import DEFINITION
+
+        live_sections = set(DEFINITION["parameters"]["properties"]["section"]["enum"])
+        prompt_sections = {s for s in live_sections if f"section={s}" in _prompt}
+        assert prompt_sections == live_sections, (
+            f"a-help.yaml is missing introspect sections: {live_sections - prompt_sections}"
+        )
+
+
+class TestDocIndexPathsExist:
+    """Every docs/ path in a-help.yaml Documentation Index must exist."""
+
+    def test_doc_index_paths_exist(self, _prompt: str) -> None:
+        doc_paths: set[str] = set()
+        for m in re.finditer(r"`(docs/[^`]+)`", _prompt):
+            doc_paths.add(m.group(1))
+        assert doc_paths, "No docs/ paths found in prompt"
+        missing = sorted(p for p in doc_paths if not (_REPO_ROOT / p).is_file())
+        assert not missing, "a-help.yaml references missing doc files:\n" + "\n".join(f"  - {p}" for p in missing)
+
+
+class TestSourceIndexPathsExist:
+    """Every source path in the Source Code Index must resolve under src/anteroom/."""
+
+    def test_source_index_paths_exist(self, _prompt: str) -> None:
+        in_source_index = False
+        paths: set[str] = set()
+        for line in _prompt.splitlines():
+            if "## Source Code Index" in line:
+                in_source_index = True
+                continue
+            if in_source_index and line.strip().startswith("## "):
+                break
+            if in_source_index and "|" in line:
+                for m in re.finditer(r"`([^`]+\.py)`", line):
+                    paths.add(m.group(1))
+                for m in re.finditer(r"`([^`]+/)`", line):
+                    paths.add(m.group(1))
+        assert paths, "No source paths found in Source Code Index"
+        missing: list[str] = []
+        for p in sorted(paths):
+            if p.endswith("/"):
+                if not (_SRC_ROOT / p).is_dir():
+                    missing.append(p)
+            else:
+                if not (_SRC_ROOT / p).is_file():
+                    missing.append(p)
+        assert not missing, "Source Code Index references missing paths:\n" + "\n".join(f"  - {p}" for p in missing)
+
+
+class TestToolNamesMatchRegistered:
+    """Core tool names in a-help.yaml must match register_default_tools()."""
+
+    _CORE_TOOLS = {
+        "read_file",
+        "write_file",
+        "edit_file",
+        "bash",
+        "glob_files",
+        "grep",
+        "create_canvas",
+        "update_canvas",
+        "patch_canvas",
+        "run_agent",
+        "ask_user",
+        "introspect",
+    }
+    _OPTIONAL_TOOLS = {"docx", "xlsx", "pptx"}
+
+    def test_tool_names_match_registered(self, _prompt: str) -> None:
+        from anteroom.tools import ToolRegistry, register_default_tools
+
+        reg = ToolRegistry()
+        register_default_tools(reg)
+        registered_names = set(reg._definitions.keys())
+        assert self._CORE_TOOLS.issubset(registered_names), (
+            f"Core tools missing from registry: {self._CORE_TOOLS - registered_names}"
+        )
+        for tool in self._CORE_TOOLS:
+            assert tool in _prompt, f"Core tool '{tool}' not mentioned in a-help.yaml"
+
+    def test_optional_tools_in_optional_context(self, _prompt: str) -> None:
+        for tool in self._OPTIONAL_TOOLS:
+            if tool in _prompt:
+                idx = _prompt.index(tool)
+                context = _prompt[max(0, idx - 200) : idx + 200]
+                assert "optional" in context.lower() or "office" in context.lower(), (
+                    f"Optional tool '{tool}' appears without optional/office context"
+                )
+
+
+class TestCommandsSubsetOfCanonical:
+    """Slash commands in the REPL Slash Commands table must all be valid."""
+
+    def test_commands_subset_of_canonical(self, _prompt: str) -> None:
+        from anteroom.cli.commands import ALL_COMMAND_NAMES
+
+        canonical = set(ALL_COMMAND_NAMES)
+        in_table = False
+        listed_commands: set[str] = set()
+        for line in _prompt.splitlines():
+            if "### REPL Slash Commands" in line:
+                in_table = True
+                continue
+            if in_table and line.strip().startswith("### "):
+                break
+            if in_table and "|" in line:
+                m = re.match(r"\s*\|\s*/(\S+)", line)
+                if m:
+                    listed_commands.add(m.group(1))
+        assert listed_commands, "No commands found in REPL Slash Commands table"
+        not_in_canonical = listed_commands - canonical
+        assert not not_in_canonical, f"a-help.yaml lists commands not in ALL_COMMAND_NAMES: {not_in_canonical}"

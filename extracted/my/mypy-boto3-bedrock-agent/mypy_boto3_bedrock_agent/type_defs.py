@@ -3,7 +3,7 @@ Type annotations for bedrock-agent service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -2380,6 +2380,7 @@ class ToolSpecificationOutputTypeDef(TypedDict):
     name: str
     inputSchema: ToolInputSchemaOutputTypeDef
     description: NotRequired[str]
+    strict: NotRequired[bool]
 
 
 ToolInputSchemaUnionTypeDef = Union[ToolInputSchemaTypeDef, ToolInputSchemaOutputTypeDef]
@@ -2730,6 +2731,7 @@ class ToolSpecificationTypeDef(TypedDict):
     name: str
     inputSchema: ToolInputSchemaUnionTypeDef
     description: NotRequired[str]
+    strict: NotRequired[bool]
 
 
 class TransformationTypeDef(TypedDict):

@@ -13,12 +13,13 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from chalk._gen.chalk.common.v1 import offline_query_pb2 as chalk_dot_common_dot_v1_dot_offline__query__pb2
 from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n#chalk/artifacts/v1/cron_query.proto\x12\x12\x63halk.artifacts.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"Y\n\x11RecomputeSettings\x12!\n\x0c\x66\x65\x61ture_fqns\x18\x01 \x03(\tR\x0b\x66\x65\x61tureFqns\x12!\n\x0c\x61ll_features\x18\x02 \x01(\x08R\x0b\x61llFeatures"\x80\x08\n\tCronQuery\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n\x04\x63ron\x18\x02 \x01(\tR\x04\x63ron\x12\x1b\n\tfile_name\x18\x03 \x01(\tR\x08\x66ileName\x12\x16\n\x06output\x18\x04 \x03(\tR\x06output\x12$\n\x0bmax_samples\x18\x05 \x01(\x03H\x00R\nmaxSamples\x88\x01\x01\x12\x43\n\trecompute\x18\x06 \x01(\x0b\x32%.chalk.artifacts.v1.RecomputeSettingsR\trecompute\x12;\n\x0blower_bound\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\nlowerBound\x12;\n\x0bupper_bound\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\nupperBound\x12\x12\n\x04tags\x18\t \x03(\tR\x04tags\x12\x34\n\x16required_resolver_tags\x18\n \x03(\tR\x14requiredResolverTags\x12!\n\x0cstore_online\x18\x0b \x01(\x08R\x0bstoreOnline\x12#\n\rstore_offline\x18\x0c \x01(\x08R\x0cstoreOffline\x12/\n\x13incremental_sources\x18\r \x03(\tR\x12incrementalSources\x12*\n\x0eresource_group\x18\x0e \x01(\tH\x01R\rresourceGroup\x88\x01\x01\x12Z\n\x0fplanner_options\x18\x0f \x03(\x0b\x32\x31.chalk.artifacts.v1.CronQuery.PlannerOptionsEntryR\x0eplannerOptions\x12O\n\x13\x63ompletion_deadline\x18\x10 \x01(\x0b\x32\x19.google.protobuf.DurationH\x02R\x12\x63ompletionDeadline\x88\x01\x01\x12"\n\nnum_shards\x18\x11 \x01(\x05H\x03R\tnumShards\x88\x01\x01\x12$\n\x0bnum_workers\x18\x12 \x01(\x05H\x04R\nnumWorkers\x88\x01\x01\x12 \n\tinput_sql\x18\x13 \x01(\tH\x05R\x08inputSql\x88\x01\x01\x1a\x41\n\x13PlannerOptionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x0e\n\x0c_max_samplesB\x11\n\x0f_resource_groupB\x16\n\x14_completion_deadlineB\r\n\x0b_num_shardsB\x0e\n\x0c_num_workersB\x0c\n\n_input_sqlB\x92\x01\n\x16\x63om.chalk.artifacts.v1B\x0e\x43ronQueryProtoP\x01\xa2\x02\x03\x43\x41X\xaa\x02\x12\x43halk.Artifacts.V1\xca\x02\x12\x43halk\\Artifacts\\V1\xe2\x02\x1e\x43halk\\Artifacts\\V1\\GPBMetadata\xea\x02\x14\x43halk::Artifacts::V1b\x06proto3'
+    b'\n#chalk/artifacts/v1/cron_query.proto\x12\x12\x63halk.artifacts.v1\x1a#chalk/common/v1/offline_query.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"Y\n\x11RecomputeSettings\x12!\n\x0c\x66\x65\x61ture_fqns\x18\x01 \x03(\tR\x0b\x66\x65\x61tureFqns\x12!\n\x0c\x61ll_features\x18\x02 \x01(\x08R\x0b\x61llFeatures"\xd0\x08\n\tCronQuery\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n\x04\x63ron\x18\x02 \x01(\tR\x04\x63ron\x12\x1b\n\tfile_name\x18\x03 \x01(\tR\x08\x66ileName\x12\x16\n\x06output\x18\x04 \x03(\tR\x06output\x12$\n\x0bmax_samples\x18\x05 \x01(\x03H\x00R\nmaxSamples\x88\x01\x01\x12\x43\n\trecompute\x18\x06 \x01(\x0b\x32%.chalk.artifacts.v1.RecomputeSettingsR\trecompute\x12;\n\x0blower_bound\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\nlowerBound\x12;\n\x0bupper_bound\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\nupperBound\x12\x12\n\x04tags\x18\t \x03(\tR\x04tags\x12\x34\n\x16required_resolver_tags\x18\n \x03(\tR\x14requiredResolverTags\x12!\n\x0cstore_online\x18\x0b \x01(\x08R\x0bstoreOnline\x12#\n\rstore_offline\x18\x0c \x01(\x08R\x0cstoreOffline\x12/\n\x13incremental_sources\x18\r \x03(\tR\x12incrementalSources\x12*\n\x0eresource_group\x18\x0e \x01(\tH\x01R\rresourceGroup\x88\x01\x01\x12Z\n\x0fplanner_options\x18\x0f \x03(\x0b\x32\x31.chalk.artifacts.v1.CronQuery.PlannerOptionsEntryR\x0eplannerOptions\x12O\n\x13\x63ompletion_deadline\x18\x10 \x01(\x0b\x32\x19.google.protobuf.DurationH\x02R\x12\x63ompletionDeadline\x88\x01\x01\x12"\n\nnum_shards\x18\x11 \x01(\x05H\x03R\tnumShards\x88\x01\x01\x12$\n\x0bnum_workers\x18\x12 \x01(\x05H\x04R\nnumWorkers\x88\x01\x01\x12 \n\tinput_sql\x18\x13 \x01(\tH\x05R\x08inputSql\x88\x01\x01\x12N\n\x10unload_resolvers\x18\x14 \x03(\x0b\x32#.chalk.common.v1.UnloadResolverSpecR\x0funloadResolvers\x1a\x41\n\x13PlannerOptionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x0e\n\x0c_max_samplesB\x11\n\x0f_resource_groupB\x16\n\x14_completion_deadlineB\r\n\x0b_num_shardsB\x0e\n\x0c_num_workersB\x0c\n\n_input_sqlB\x92\x01\n\x16\x63om.chalk.artifacts.v1B\x0e\x43ronQueryProtoP\x01\xa2\x02\x03\x43\x41X\xaa\x02\x12\x43halk.Artifacts.V1\xca\x02\x12\x43halk\\Artifacts\\V1\xe2\x02\x1e\x43halk\\Artifacts\\V1\\GPBMetadata\xea\x02\x14\x43halk::Artifacts::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -31,10 +32,10 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\n\026com.chalk.artifacts.v1B\016CronQueryProtoP\001\242\002\003CAX\252\002\022Chalk.Artifacts.V1\312\002\022Chalk\\Artifacts\\V1\342\002\036Chalk\\Artifacts\\V1\\GPBMetadata\352\002\024Chalk::Artifacts::V1"
     _globals["_CRONQUERY_PLANNEROPTIONSENTRY"]._options = None
     _globals["_CRONQUERY_PLANNEROPTIONSENTRY"]._serialized_options = b"8\001"
-    _globals["_RECOMPUTESETTINGS"]._serialized_start = 124
-    _globals["_RECOMPUTESETTINGS"]._serialized_end = 213
-    _globals["_CRONQUERY"]._serialized_start = 216
-    _globals["_CRONQUERY"]._serialized_end = 1240
-    _globals["_CRONQUERY_PLANNEROPTIONSENTRY"]._serialized_start = 1071
-    _globals["_CRONQUERY_PLANNEROPTIONSENTRY"]._serialized_end = 1136
+    _globals["_RECOMPUTESETTINGS"]._serialized_start = 161
+    _globals["_RECOMPUTESETTINGS"]._serialized_end = 250
+    _globals["_CRONQUERY"]._serialized_start = 253
+    _globals["_CRONQUERY"]._serialized_end = 1357
+    _globals["_CRONQUERY_PLANNEROPTIONSENTRY"]._serialized_start = 1188
+    _globals["_CRONQUERY_PLANNEROPTIONSENTRY"]._serialized_end = 1253
 # @@protoc_insertion_point(module_scope)

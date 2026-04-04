@@ -87,6 +87,31 @@ class TestDeliverHooks:
             await asyncio.sleep(0.01)
             mock.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_rerun_skips_hooks_by_default(self) -> None:
+        hooks = [
+            {"transport": "webhook", "url": "https://x.com/hook", "events": ["run_started"]},
+        ]
+        with patch("anteroom.services.workflow_hooks.deliver_webhook", new_callable=AsyncMock) as mock:
+            await deliver_hooks(hooks, {"event_type": "run_started"}, attempt=2)
+            await asyncio.sleep(0.01)
+            mock.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_rerun_delivers_when_hook_opts_in(self) -> None:
+        hooks = [
+            {
+                "transport": "webhook",
+                "url": "https://x.com/hook",
+                "events": ["run_started"],
+                "deliver_on_rerun": True,
+            },
+        ]
+        with patch("anteroom.services.workflow_hooks.deliver_webhook", new_callable=AsyncMock) as mock:
+            await deliver_hooks(hooks, {"event_type": "run_started"}, attempt=2)
+            await asyncio.sleep(0.01)
+            mock.assert_called_once()
+
 
 class TestDeliverWebhook:
     @pytest.mark.asyncio

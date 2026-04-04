@@ -73,8 +73,8 @@ from prefect.utilities.hashing import hash_objects
 logfire: Any | None = configure_logfire()
 
 TITLE = "Prefect Server"
-API_TITLE = "Prefect Prefect REST API"
-UI_TITLE = "Prefect Prefect REST API UI"
+API_TITLE = "Prefect REST API"
+UI_TITLE = "Prefect REST API UI"
 API_VERSION: str = prefect.__version__
 # migrations should run only once per app start; the ephemeral API can potentially
 # create multiple apps in a single process
@@ -557,7 +557,17 @@ def create_ui_app(ephemeral: bool) -> FastAPI:
         # If the static files have already been copied, check if the base_url has changed
         # If it has, we delete the subpath directory and copy the files again
         if not reference_file_matches_base_url():
-            create_ui_static_subpath()
+            try:
+                create_ui_static_subpath()
+            except PermissionError as exc:
+                logger.error(
+                    "Failed to create UI static directory at %s: %s. "
+                    "The UI will not be available. "
+                    "To resolve this, set PREFECT_UI_STATIC_DIRECTORY to a writable directory.",
+                    static_dir,
+                    exc,
+                )
+                return ui_app
 
         ui_app.mount(
             PREFECT_UI_SERVE_BASE.value(),

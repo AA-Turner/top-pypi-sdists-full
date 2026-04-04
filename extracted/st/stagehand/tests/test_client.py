@@ -24,7 +24,7 @@ from stagehand._types import Omit
 from stagehand._utils import asyncify
 from stagehand._models import BaseModel, FinalRequestOptions
 from stagehand._streaming import Stream, AsyncStream
-from stagehand._exceptions import APIStatusError, StagehandError, APITimeoutError, APIResponseValidationError
+from stagehand._exceptions import APIStatusError, APITimeoutError, APIResponseValidationError
 from stagehand._base_client import (
     DEFAULT_TIMEOUT,
     HTTPX_DEFAULT_TIMEOUT,
@@ -464,22 +464,21 @@ class TestStagehand:
         request = client._build_request(FinalRequestOptions(method="get", url="/foo"))
         assert request.headers.get("x-model-api-key") == model_api_key
 
-        with pytest.raises(StagehandError):
-            with update_env(
-                **{
-                    "BROWSERBASE_API_KEY": Omit(),
-                    "BROWSERBASE_PROJECT_ID": Omit(),
-                    "MODEL_API_KEY": Omit(),
-                }
-            ):
-                client2 = Stagehand(
-                    base_url=base_url,
-                    browserbase_api_key=None,
-                    browserbase_project_id=None,
-                    model_api_key=None,
-                    _strict_response_validation=True,
-                )
-                client2.sessions.start(model_name="openai/gpt-5-nano")
+        with update_env(
+            BROWSERBASE_API_KEY=Omit(),
+            BROWSERBASE_PROJECT_ID=Omit(),
+        ):
+            client2 = Stagehand(
+                base_url=base_url,
+                browserbase_api_key=None,
+                browserbase_project_id=None,
+                model_api_key=None,
+                _strict_response_validation=True,
+            )
+            request = client2._build_request(FinalRequestOptions(method="get", url="/foo"))
+            assert request.headers.get("x-bb-api-key") is None
+            assert request.headers.get("x-bb-project-id") is None
+            assert request.headers.get("x-model-api-key") is None
 
     def test_default_query_option(self) -> None:
         client = Stagehand(
@@ -1010,7 +1009,7 @@ class TestStagehand:
         respx_mock.post("/v1/sessions/start").mock(side_effect=httpx.TimeoutException("Test timeout error"))
 
         with pytest.raises(APITimeoutError):
-            client.sessions.with_streaming_response.start(model_name="openai/gpt-4o").__enter__()
+            client.sessions.with_streaming_response.start(model_name="openai/gpt-5.4-mini").__enter__()
 
         assert _get_open_connections(client) == 0
 
@@ -1020,7 +1019,7 @@ class TestStagehand:
         respx_mock.post("/v1/sessions/start").mock(return_value=httpx.Response(500))
 
         with pytest.raises(APIStatusError):
-            client.sessions.with_streaming_response.start(model_name="openai/gpt-4o").__enter__()
+            client.sessions.with_streaming_response.start(model_name="openai/gpt-5.4-mini").__enter__()
         assert _get_open_connections(client) == 0
 
     @pytest.mark.parametrize("failures_before_success", [0, 2, 4])
@@ -1049,7 +1048,7 @@ class TestStagehand:
 
         respx_mock.post("/v1/sessions/start").mock(side_effect=retry_handler)
 
-        response = client.sessions.with_raw_response.start(model_name="openai/gpt-4o")
+        response = client.sessions.with_raw_response.start(model_name="openai/gpt-5.4-mini")
 
         assert response.retries_taken == failures_before_success
         assert int(response.http_request.headers.get("x-stainless-retry-count")) == failures_before_success
@@ -1074,7 +1073,7 @@ class TestStagehand:
         respx_mock.post("/v1/sessions/start").mock(side_effect=retry_handler)
 
         response = client.sessions.with_raw_response.start(
-            model_name="openai/gpt-4o", extra_headers={"x-stainless-retry-count": Omit()}
+            model_name="openai/gpt-5.4-mini", extra_headers={"x-stainless-retry-count": Omit()}
         )
 
         assert len(response.http_request.headers.get_list("x-stainless-retry-count")) == 0
@@ -1099,7 +1098,7 @@ class TestStagehand:
         respx_mock.post("/v1/sessions/start").mock(side_effect=retry_handler)
 
         response = client.sessions.with_raw_response.start(
-            model_name="openai/gpt-4o", extra_headers={"x-stainless-retry-count": "42"}
+            model_name="openai/gpt-5.4-mini", extra_headers={"x-stainless-retry-count": "42"}
         )
 
         assert response.http_request.headers.get("x-stainless-retry-count") == "42"
@@ -1512,22 +1511,21 @@ class TestAsyncStagehand:
         request = client._build_request(FinalRequestOptions(method="get", url="/foo"))
         assert request.headers.get("x-model-api-key") == model_api_key
 
-        with pytest.raises(StagehandError):
-            with update_env(
-                **{
-                    "BROWSERBASE_API_KEY": Omit(),
-                    "BROWSERBASE_PROJECT_ID": Omit(),
-                    "MODEL_API_KEY": Omit(),
-                }
-            ):
-                client2 = AsyncStagehand(
-                    base_url=base_url,
-                    browserbase_api_key=None,
-                    browserbase_project_id=None,
-                    model_api_key=None,
-                    _strict_response_validation=True,
-                )
-            _ = client2
+        with update_env(
+            BROWSERBASE_API_KEY=Omit(),
+            BROWSERBASE_PROJECT_ID=Omit(),
+        ):
+            client2 = AsyncStagehand(
+                base_url=base_url,
+                browserbase_api_key=None,
+                browserbase_project_id=None,
+                model_api_key=None,
+                _strict_response_validation=True,
+            )
+            request = client2._build_request(FinalRequestOptions(method="get", url="/foo"))
+            assert request.headers.get("x-bb-api-key") is None
+            assert request.headers.get("x-bb-project-id") is None
+            assert request.headers.get("x-model-api-key") is None
 
     async def test_default_query_option(self) -> None:
         client = AsyncStagehand(
@@ -2065,7 +2063,7 @@ class TestAsyncStagehand:
         respx_mock.post("/v1/sessions/start").mock(side_effect=httpx.TimeoutException("Test timeout error"))
 
         with pytest.raises(APITimeoutError):
-            await async_client.sessions.with_streaming_response.start(model_name="openai/gpt-4o").__aenter__()
+            await async_client.sessions.with_streaming_response.start(model_name="openai/gpt-5.4-mini").__aenter__()
 
         assert _get_open_connections(async_client) == 0
 
@@ -2077,7 +2075,7 @@ class TestAsyncStagehand:
         respx_mock.post("/v1/sessions/start").mock(return_value=httpx.Response(500))
 
         with pytest.raises(APIStatusError):
-            await async_client.sessions.with_streaming_response.start(model_name="openai/gpt-4o").__aenter__()
+            await async_client.sessions.with_streaming_response.start(model_name="openai/gpt-5.4-mini").__aenter__()
         assert _get_open_connections(async_client) == 0
 
     @pytest.mark.parametrize("failures_before_success", [0, 2, 4])
@@ -2106,7 +2104,7 @@ class TestAsyncStagehand:
 
         respx_mock.post("/v1/sessions/start").mock(side_effect=retry_handler)
 
-        response = await client.sessions.with_raw_response.start(model_name="openai/gpt-4o")
+        response = await client.sessions.with_raw_response.start(model_name="openai/gpt-5.4-mini")
 
         assert response.retries_taken == failures_before_success
         assert int(response.http_request.headers.get("x-stainless-retry-count")) == failures_before_success
@@ -2131,7 +2129,7 @@ class TestAsyncStagehand:
         respx_mock.post("/v1/sessions/start").mock(side_effect=retry_handler)
 
         response = await client.sessions.with_raw_response.start(
-            model_name="openai/gpt-4o", extra_headers={"x-stainless-retry-count": Omit()}
+            model_name="openai/gpt-5.4-mini", extra_headers={"x-stainless-retry-count": Omit()}
         )
 
         assert len(response.http_request.headers.get_list("x-stainless-retry-count")) == 0
@@ -2156,7 +2154,7 @@ class TestAsyncStagehand:
         respx_mock.post("/v1/sessions/start").mock(side_effect=retry_handler)
 
         response = await client.sessions.with_raw_response.start(
-            model_name="openai/gpt-4o", extra_headers={"x-stainless-retry-count": "42"}
+            model_name="openai/gpt-5.4-mini", extra_headers={"x-stainless-retry-count": "42"}
         )
 
         assert response.http_request.headers.get("x-stainless-retry-count") == "42"

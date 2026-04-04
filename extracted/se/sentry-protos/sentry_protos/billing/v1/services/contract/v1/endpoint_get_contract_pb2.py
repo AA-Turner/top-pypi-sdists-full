@@ -12,18 +12,19 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from sentry_protos.billing.v1 import date_pb2 as sentry__protos_dot_billing_dot_v1_dot_date__pb2
 from sentry_protos.billing.v1.services.contract.v1 import contract_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_contract__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nIsentry_protos/billing/v1/services/contract/v1/endpoint_get_contract.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a<sentry_protos/billing/v1/services/contract/v1/contract.proto\"-\n\x12GetContractRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\"`\n\x13GetContractResponse\x12I\n\x08\x63ontract\x18\x01 \x01(\x0b\x32\x37.sentry_protos.billing.v1.services.contract.v1.Contractb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nIsentry_protos/billing/v1/services/contract/v1/endpoint_get_contract.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a#sentry_protos/billing/v1/date.proto\x1a<sentry_protos/billing/v1/services/contract/v1/contract.proto\"[\n\x12GetContractRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12,\n\x04\x64\x61te\x18\x02 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\"`\n\x13GetContractResponse\x12I\n\x08\x63ontract\x18\x01 \x01(\x0b\x32\x37.sentry_protos.billing.v1.services.contract.v1.Contractb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.contract.v1.endpoint_get_contract_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_GETCONTRACTREQUEST']._serialized_start=186
-  _globals['_GETCONTRACTREQUEST']._serialized_end=231
-  _globals['_GETCONTRACTRESPONSE']._serialized_start=233
-  _globals['_GETCONTRACTRESPONSE']._serialized_end=329
+  _globals['_GETCONTRACTREQUEST']._serialized_start=223
+  _globals['_GETCONTRACTREQUEST']._serialized_end=314
+  _globals['_GETCONTRACTRESPONSE']._serialized_start=316
+  _globals['_GETCONTRACTRESPONSE']._serialized_end=412
 # @@protoc_insertion_point(module_scope)

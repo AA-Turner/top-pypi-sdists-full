@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: huggingface_hub
-Version: 1.8.0
+Version: 1.9.0
 Summary: Client library to download and publish models, datasets and other repos on the huggingface.co hub
 Home-page: https://github.com/huggingface/huggingface_hub
 Author: Hugging Face, Inc.
@@ -14,19 +14,18 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.9.0
+Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: filelock>=3.10.0
 Requires-Dist: fsspec>=2023.5.0
-Requires-Dist: hf-xet<2.0.0,>=1.4.2; platform_machine == "x86_64" or platform_machine == "amd64" or platform_machine == "AMD64" or platform_machine == "arm64" or platform_machine == "aarch64"
+Requires-Dist: hf-xet<2.0.0,>=1.4.3; platform_machine == "x86_64" or platform_machine == "amd64" or platform_machine == "AMD64" or platform_machine == "arm64" or platform_machine == "aarch64"
 Requires-Dist: httpx<1,>=0.23.0
 Requires-Dist: packaging>=20.9
 Requires-Dist: pyyaml>=5.1
@@ -46,7 +45,7 @@ Requires-Dist: toml; extra == "fastai"
 Requires-Dist: fastai>=2.4; extra == "fastai"
 Requires-Dist: fastcore>=1.3.27; extra == "fastai"
 Provides-Extra: hf-xet
-Requires-Dist: hf-xet<2.0.0,>=1.4.2; extra == "hf-xet"
+Requires-Dist: hf-xet<2.0.0,>=1.4.3; extra == "hf-xet"
 Provides-Extra: mcp
 Requires-Dist: mcp>=1.8.0; extra == "mcp"
 Provides-Extra: testing
@@ -70,6 +69,9 @@ Requires-Dist: Pillow; extra == "testing"
 Requires-Dist: numpy; extra == "testing"
 Requires-Dist: duckdb; extra == "testing"
 Requires-Dist: fastapi; extra == "testing"
+Provides-Extra: gradio
+Requires-Dist: gradio>=5.0.0; extra == "gradio"
+Requires-Dist: requests; extra == "gradio"
 Provides-Extra: typing
 Requires-Dist: typing-extensions>=4.8.0; extra == "typing"
 Requires-Dist: types-PyYAML; extra == "typing"

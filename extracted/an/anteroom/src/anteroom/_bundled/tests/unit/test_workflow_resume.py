@@ -5,12 +5,15 @@ from __future__ import annotations
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from anteroom.config import WorkflowConfig
 from anteroom.db import init_db
+from anteroom.services import workflow_hooks
 from anteroom.services.workflow_engine import (
     WorkflowEngine,
     load_definition,
@@ -241,7 +244,7 @@ class TestListCompletedStepIds:
 
 class TestRecoverInterruptedRuns:
     @pytest.mark.asyncio
-    async def test_marks_stale_runs_paused(self, db: Any, engine: WorkflowEngine) -> None:
+    async def test_marks_stale_runs_failed(self, db: Any, engine: WorkflowEngine) -> None:
         run = create_workflow_run(
             db,
             workflow_id="test",
@@ -257,8 +260,8 @@ class TestRecoverInterruptedRuns:
         assert len(recovered) == 1
 
         refreshed = get_workflow_run(db, run["id"])
-        assert refreshed["status"] == "paused"
-        assert refreshed["stop_reason"] == "process_interrupted"
+        assert refreshed["status"] == "failed"
+        assert refreshed["stop_reason"] == "stale_heartbeat_reclaimed"
 
     @pytest.mark.asyncio
     async def test_releases_locks(self, db: Any, engine: WorkflowEngine) -> None:
@@ -287,6 +290,7 @@ class TestRecoverInterruptedRuns:
         )
         old_time = (datetime.now(timezone.utc) - timedelta(seconds=120)).isoformat()
         update_workflow_run(db, run["id"], status="running", heartbeat_at=old_time)
+        acquire_lock(db, target_kind="task", target_ref="t1", run_id=run["id"])
         step = create_workflow_step(
             db,
             run_id=run["id"],
@@ -303,7 +307,7 @@ class TestRecoverInterruptedRuns:
         assert active[0]["completed_at"] is not None
 
     @pytest.mark.asyncio
-    async def test_emits_event_with_interrupted_steps(self, db: Any, engine: WorkflowEngine) -> None:
+    async def test_emits_event(self, db: Any, engine: WorkflowEngine) -> None:
         run = create_workflow_run(
             db,
             workflow_id="test",
@@ -313,20 +317,14 @@ class TestRecoverInterruptedRuns:
         )
         old_time = (datetime.now(timezone.utc) - timedelta(seconds=120)).isoformat()
         update_workflow_run(db, run["id"], status="running", heartbeat_at=old_time)
-        step = create_workflow_step(
-            db,
-            run_id=run["id"],
-            step_id="active_step",
-            step_type="runner",
-        )
-        update_workflow_step(db, step["id"], status="running")
+        acquire_lock(db, target_kind="task", target_ref="t1", run_id=run["id"])
 
         await engine.recover_interrupted_runs()
 
         events = list_workflow_events(db, run["id"])
-        pause_events = [e for e in events if e["event_type"] == "run_paused"]
-        assert len(pause_events) == 1
-        assert "active_step" in pause_events[0]["payload"]["interrupted_steps"]
+        failed_events = [e for e in events if e["event_type"] == "run_failed"]
+        assert len(failed_events) == 1
+        assert failed_events[0]["payload"]["reason"] == "stale_heartbeat_reclaimed"
 
 
 # ---------------------------------------------------------------------------
@@ -368,7 +366,7 @@ class TestResumeRun:
     async def test_resume_with_from_step_override(self, db: Any, engine: WorkflowEngine) -> None:
         defn = load_definition(GENERIC_WORKFLOW)
         run = await engine.start_run(defn, target_kind="task", target_ref="t1")
-        update_workflow_run(db, run["id"], status="paused", stop_reason="test")
+        update_workflow_run(db, run["id"], status="paused", stop_reason="test", attempt_count=1)
 
         # Resume from step_c — skips step_a and step_b
         result = await engine.resume_run(run["id"], defn, from_step="step_c")
@@ -378,7 +376,7 @@ class TestResumeRun:
     async def test_resume_invalid_from_step_raises(self, db: Any, engine: WorkflowEngine) -> None:
         defn = load_definition(GENERIC_WORKFLOW)
         run = await engine.start_run(defn, target_kind="task", target_ref="t1")
-        update_workflow_run(db, run["id"], status="paused", stop_reason="test")
+        update_workflow_run(db, run["id"], status="paused", stop_reason="test", attempt_count=1)
 
         with pytest.raises(ValueError, match="not found in workflow"):
             await engine.resume_run(run["id"], defn, from_step="nonexistent")
@@ -387,13 +385,121 @@ class TestResumeRun:
     async def test_resume_emits_run_resumed_event(self, db: Any, engine: WorkflowEngine) -> None:
         defn = load_definition(GENERIC_WORKFLOW)
         run = await engine.start_run(defn, target_kind="task", target_ref="t1")
-        update_workflow_run(db, run["id"], status="paused", stop_reason="test")
+        update_workflow_run(db, run["id"], status="paused", stop_reason="test", attempt_count=1)
 
         await engine.resume_run(run["id"], defn)
 
         events = list_workflow_events(db, run["id"])
         resumed = [e for e in events if e["event_type"] == "run_resumed"]
         assert len(resumed) == 1
+
+    @pytest.mark.asyncio
+    async def test_resume_does_not_redeliver_hooks_by_default(self, db: Any, engine: WorkflowEngine) -> None:
+        defn = load_definition(GENERIC_WORKFLOW)
+        defn.notifications = {
+            "hooks": [{"transport": "webhook", "url": "https://example.com/hook", "events": ["run_resumed"]}]
+        }
+        run = await engine.start_run(defn, target_kind="task", target_ref="t1")
+        update_workflow_run(db, run["id"], status="paused", stop_reason="test", attempt_count=1)
+
+        delivered: list[tuple[str, dict[str, Any]]] = []
+
+        async def _capture(url: str, payload: dict[str, Any], timeout: float = 5.0) -> None:
+            delivered.append((url, payload))
+
+        engine._definition_loader = SimpleNamespace(get=lambda workflow_id: defn)
+
+        with patch.object(workflow_hooks, "deliver_webhook", new=AsyncMock(side_effect=_capture)):
+            await engine.resume_run(run["id"], defn)
+            await engine._drain_hooks()
+
+        assert delivered == []
+
+    @pytest.mark.asyncio
+    async def test_resume_skips_non_resumed_hooks_during_rerun_by_default(
+        self, db: Any, engine: WorkflowEngine
+    ) -> None:
+        defn = load_definition(GENERIC_WORKFLOW)
+        defn.notifications = {
+            "hooks": [{"transport": "webhook", "url": "https://example.com/hook", "events": ["run_started"]}]
+        }
+        run = await engine.start_run(defn, target_kind="task", target_ref="t1")
+        update_workflow_run(db, run["id"], status="paused", stop_reason="test", attempt_count=1)
+
+        delivered: list[tuple[str, dict[str, Any]]] = []
+
+        async def _capture(url: str, payload: dict[str, Any], timeout: float = 5.0) -> None:
+            delivered.append((url, payload))
+
+        engine._definition_loader = SimpleNamespace(get=lambda workflow_id: defn)
+
+        with patch.object(workflow_hooks, "deliver_webhook", new=AsyncMock(side_effect=_capture)):
+            await engine.resume_run(run["id"], defn)
+            await engine._drain_hooks()
+
+        assert delivered == []
+
+    @pytest.mark.asyncio
+    async def test_resume_redelivers_hooks_when_opted_in(self, db: Any, engine: WorkflowEngine) -> None:
+        defn = load_definition(GENERIC_WORKFLOW)
+        defn.notifications = {
+            "hooks": [
+                {
+                    "transport": "webhook",
+                    "url": "https://example.com/hook",
+                    "events": ["run_resumed"],
+                    "deliver_on_rerun": True,
+                }
+            ]
+        }
+        run = await engine.start_run(defn, target_kind="task", target_ref="t1")
+        update_workflow_run(db, run["id"], status="paused", stop_reason="test", attempt_count=1)
+
+        delivered: list[tuple[str, dict[str, Any]]] = []
+        original_publish_event = engine._publish_event
+
+        async def _capture(url: str, payload: dict[str, Any], timeout: float = 5.0) -> None:
+            delivered.append((url, payload))
+
+        async def _capture_publish_event(
+            run_id: str,
+            event_type: str,
+            payload: dict[str, Any] | None = None,
+            *,
+            definition: Any | None = None,
+        ) -> None:
+            event_payload = dict(payload or {})
+            run_record = get_workflow_run(db, run_id)
+            attempt = 1
+            if run_record is not None:
+                attempt = int(run_record.get("attempt_count") or 0) + 1
+            event_payload["attempt"] = attempt
+            await original_publish_event(
+                run_id,
+                event_type,
+                event_payload,
+                definition=(defn if definition is None else definition),
+            )
+
+        with patch.object(workflow_hooks, "deliver_webhook", new=AsyncMock(side_effect=_capture)):
+            with patch.object(engine, "_publish_event", new=AsyncMock(side_effect=_capture_publish_event)):
+                await engine.resume_run(run["id"], defn)
+                await engine._drain_hooks()
+
+        events = list_workflow_events(db, run["id"])
+        resumed = [event for event in events if event["event_type"] == "run_resumed"]
+        assert len(resumed) == 1
+        resumed_payload = resumed[0].get("payload") or {}
+        assert resumed_payload["prior_status"] == "paused"
+        assert set(resumed_payload["skip_completed"]) == {"step_a", "step_b", "step_c"}
+
+        assert len(delivered) == 1
+        url, payload = delivered[0]
+        assert url == "https://example.com/hook"
+        assert payload["event_type"] == "run_resumed"
+        assert payload["attempt"] == 2
+        assert set(payload["skip_completed"]) == {"step_a", "step_b", "step_c"}
+        assert payload["prior_status"] == "paused"
 
     @pytest.mark.asyncio
     async def test_resume_failed_run(self, db: Any, engine: WorkflowEngine) -> None:
@@ -540,6 +646,93 @@ class TestCancel:
 # ---------------------------------------------------------------------------
 # Generic runner preflight
 # ---------------------------------------------------------------------------
+
+
+COMPENSATE_WORKFLOW = """\
+kind: workflow
+id: test_compensate_resume
+version: 0.1.0
+inputs: {}
+steps:
+  - id: deploy
+    type: runner
+    runner: shell
+    command: "echo deploy"
+    timeout: 10
+    compensate:
+      type: runner
+      runner: shell
+      command: "echo rollback"
+  - id: verify
+    type: runner
+    runner: shell
+    command: "echo verify"
+    timeout: 10
+"""
+
+
+class TestStaleHeartbeatCompensationResume:
+    @pytest.mark.asyncio
+    async def test_resume_stale_reclaimed_during_compensation_enters_compensation_mode(
+        self, db: Any, engine: WorkflowEngine
+    ) -> None:
+        """Runs paused with stale_heartbeat_reclaimed_during_compensation resume in compensation mode."""
+        defn = load_definition(COMPENSATE_WORKFLOW)
+
+        # Start a run so steps get created, then manually transition to
+        # paused-during-compensation to simulate stale heartbeat reclaim.
+        run = await engine.start_run(defn, target_kind="task", target_ref="comp1")
+
+        # The run completed normally.  Force it into the state that the
+        # stale-heartbeat recovery path produces: paused with the new
+        # stop_reason.
+        update_workflow_run(
+            db,
+            run["id"],
+            status="paused",
+            stop_reason="stale_heartbeat_reclaimed_during_compensation",
+            attempt_count=1,
+        )
+
+        await engine.resume_run(run["id"], defn)
+
+        # The engine should have entered the compensation branch, which
+        # emits a run_resumed event with resume_phase="compensation".
+        events = list_workflow_events(db, run["id"])
+        resumed_events = [e for e in events if e["event_type"] == "run_resumed"]
+        compensation_resumed = [
+            e for e in resumed_events if (e.get("payload") or {}).get("resume_phase") == "compensation"
+        ]
+        assert len(compensation_resumed) >= 1, (
+            f"Expected compensation resume event, got resume events: {resumed_events}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_process_interrupted_during_compensation_still_resumes_compensation(
+        self, db: Any, engine: WorkflowEngine
+    ) -> None:
+        """Existing process_interrupted_during_compensation path still works after the gate change."""
+        defn = load_definition(COMPENSATE_WORKFLOW)
+        run = await engine.start_run(defn, target_kind="task", target_ref="comp2")
+
+        update_workflow_run(
+            db,
+            run["id"],
+            status="paused",
+            stop_reason="process_interrupted_during_compensation",
+            attempt_count=1,
+        )
+
+        await engine.resume_run(run["id"], defn)
+
+        events = list_workflow_events(db, run["id"])
+        resumed_events = [e for e in events if e["event_type"] == "run_resumed"]
+        compensation_resumed = [
+            e for e in resumed_events if (e.get("payload") or {}).get("resume_phase") == "compensation"
+        ]
+        assert len(compensation_resumed) >= 1, (
+            f"Expected compensation resume event, got resume events: {resumed_events}"
+        )
 
 
 class TestRunnerPreflight:

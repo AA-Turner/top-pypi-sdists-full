@@ -152,6 +152,41 @@ pub struct ExtractionResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub children: Option<Vec<ArchiveEntry>>,
+
+    /// URIs/links discovered during document extraction.
+    ///
+    /// Contains hyperlinks, image references, citations, email addresses, and
+    /// other URI-like references found in the document. Always extracted when
+    /// present in the source document.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub uris: Option<Vec<super::uri::Uri>>,
+
+    /// Code intelligence results from tree-sitter analysis.
+    ///
+    /// Populated when extracting source code files with the `tree-sitter` feature.
+    /// Contains metrics, structural analysis, imports/exports, comments,
+    /// docstrings, symbols, diagnostics, and optionally chunked code segments.
+    #[cfg(feature = "tree-sitter")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "api", schema(value_type = Option<serde_json::Value>))]
+    pub code_intelligence: Option<tree_sitter_language_pack::ProcessResult>,
+
+    /// Pre-rendered content in the requested output format.
+    ///
+    /// Populated during `derive_extraction_result` before tree derivation consumes
+    /// element data. `apply_output_format` swaps this into `content` at the end
+    /// of the pipeline, after post-processors have operated on plain text.
+    #[serde(skip)]
+    pub formatted_content: Option<String>,
+
+    /// Structured hOCR document for the OCR+layout pipeline.
+    ///
+    /// When tesseract produces hOCR output, the parsed `InternalDocument` carries
+    /// paragraph structure with bounding boxes and confidence scores. The layout
+    /// classification step enriches these elements before final rendering.
+    #[serde(skip)]
+    pub ocr_internal_document: Option<super::internal::InternalDocument>,
 }
 
 /// A single file extracted from an archive.
@@ -185,6 +220,44 @@ pub struct ProcessingWarning {
     pub message: Cow<'static, str>,
 }
 
+/// Semantic structural classification of a text chunk.
+///
+/// Assigned by the heuristic classifier in `chunking::classifier`.
+/// Defaults to `Unknown` when no rule matches.
+/// Designed to be extended in future versions without breaking changes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "api", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ChunkType {
+    /// Section heading or document title.
+    Heading,
+    /// Party list: names, addresses, and signatories.
+    PartyList,
+    /// Definition clause ("X means…", "X shall mean…").
+    Definitions,
+    /// Operative clause containing legal/contractual action verbs.
+    OperativeClause,
+    /// Signature block with signatures, names, and dates.
+    SignatureBlock,
+    /// Schedule, annex, appendix, or exhibit section.
+    Schedule,
+    /// Table-like content with aligned columns or repeated patterns.
+    TableLike,
+    /// Mathematical formula or equation.
+    Formula,
+    /// Code block or preformatted content.
+    CodeBlock,
+    /// Embedded or referenced image content.
+    Image,
+    /// Organizational chart or hierarchy diagram.
+    OrgChart,
+    /// Diagram, figure, or visual illustration.
+    Diagram,
+    /// Unclassified or mixed content.
+    #[default]
+    Unknown,
+}
+
 /// A text chunk with optional embedding and metadata.
 ///
 /// Chunks are created when chunking is enabled in `ExtractionConfig`. Each chunk
@@ -195,6 +268,13 @@ pub struct ProcessingWarning {
 pub struct Chunk {
     /// The text content of this chunk.
     pub content: String,
+
+    /// Semantic structural classification of this chunk.
+    ///
+    /// Assigned by the heuristic classifier based on content patterns and
+    /// heading context. Defaults to `ChunkType::Unknown` when no rule matches.
+    #[serde(default)]
+    pub chunk_type: ChunkType,
 
     /// Optional embedding vector for this chunk.
     ///
@@ -333,6 +413,12 @@ pub struct ExtractedImage {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub bounding_box: Option<BoundingBox>,
+
+    /// Original source path of the image within the document archive (e.g., "media/image1.png" in DOCX).
+    /// Used for rendering image references when the binary data is not extracted.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub source_path: Option<String>,
 }
 
 // ============================================================================

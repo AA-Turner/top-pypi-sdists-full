@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 import inspect
 import logging
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING, Any, Final, Literal, overload
@@ -17,7 +17,7 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import (
     AdvertisementData,
     AdvertisementDataCallback,
-    BaseBleakScanner,
+    AdvertisementDataFilter,
 )
 from bleak_retry_connector import (
     ble_device_description,
@@ -64,7 +64,7 @@ class _HaWrappedBleakBackend:
     backend_name: str | None = None
 
 
-class HaBleakScannerWrapper(BaseBleakScanner):
+class HaBleakScannerWrapper:
     """A wrapper that uses the single instance."""
 
     def __init__(
@@ -85,9 +85,9 @@ class HaBleakScannerWrapper(BaseBleakScanner):
             **kwargs,
         }
         self._map_filters(*args, **remapped_kwargs)
-        super().__init__(
-            detection_callback=detection_callback, service_uuids=service_uuids or []
-        )
+        if detection_callback is not None:
+            self._advertisement_data_callback = detection_callback
+            self._setup_detection_callback()
 
     @classmethod
     async def find_device_by_address(
@@ -98,6 +98,31 @@ class HaBleakScannerWrapper(BaseBleakScanner):
         return manager.async_ble_device_from_address(
             device_identifier, True
         ) or manager.async_ble_device_from_address(device_identifier, False)
+
+    @classmethod
+    async def find_device_by_name(
+        cls, name: str, timeout: float = 10.0, **kwargs: Any
+    ) -> BLEDevice | None:
+        """Find a device by name."""
+        return await cls.find_device_by_filter(
+            lambda d, ad: ad.local_name == name,
+            timeout=timeout,
+            **kwargs,
+        )
+
+    @classmethod
+    async def find_device_by_filter(
+        cls,
+        filterfunc: AdvertisementDataFilter,
+        timeout: float = 10.0,
+        **kwargs: Any,
+    ) -> BLEDevice | None:
+        """Find a device by filter."""
+        manager = get_manager()
+        for info in manager.async_discovered_service_info(False):
+            if filterfunc(info.device, info.advertisement):
+                return info.device
+        return None
 
     @overload
     @classmethod
@@ -126,6 +151,15 @@ class HaBleakScannerWrapper(BaseBleakScanner):
 
     async def start(self, *args: Any, **kwargs: Any) -> None:
         """Start scanning for devices."""
+
+    async def __aenter__(self) -> HaBleakScannerWrapper:
+        """Enter the context manager."""
+        await self.start()
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        """Exit the context manager."""
+        await self.stop()
 
     def _map_filters(self, *args: Any, **kwargs: Any) -> bool:
         """Map the filters."""
@@ -158,19 +192,30 @@ class HaBleakScannerWrapper(BaseBleakScanner):
         """Return a list of discovered devices."""
         return list(get_manager().async_discovered_devices(True))
 
-    def register_detection_callback(
-        self, callback: AdvertisementDataCallback | None
-    ) -> Callable[[], None]:
-        """
-        Register a detection callback.
+    @property
+    def discovered_devices_and_advertisement_data(
+        self,
+    ) -> dict[str, tuple[BLEDevice, AdvertisementData]]:
+        """Return a dict of discovered devices and their advertisement data."""
+        return {
+            info.address: (info.device, info.advertisement)
+            for info in get_manager().async_discovered_service_info(True)
+        }
 
-        The callback is called when a device is discovered or has a property changed.
-
-        This method takes the callback and registers it with the long running scanner.
-        """
-        self._advertisement_data_callback = callback
-        self._setup_detection_callback()
-        return self._cancel_callback
+    async def advertisement_data(
+        self,
+    ) -> AsyncGenerator[tuple[BLEDevice, AdvertisementData], None]:
+        """Yield devices and advertisement data as they are discovered."""
+        queue: asyncio.Queue[tuple[BLEDevice, AdvertisementData]] = asyncio.Queue()
+        cancel = get_manager().async_register_bleak_callback(
+            lambda bd, ad: queue.put_nowait((bd, ad)),
+            self._mapped_filters,
+        )
+        try:
+            while True:
+                yield await queue.get()
+        finally:
+            cancel()
 
     def _setup_detection_callback(self) -> None:
         """Set up the detection callback."""
@@ -178,7 +223,6 @@ class HaBleakScannerWrapper(BaseBleakScanner):
             return
         callback = self._advertisement_data_callback
         self._cancel_callback()
-        super().register_detection_callback(self._advertisement_data_callback)
         manager = get_manager()
 
         if not inspect.iscoroutinefunction(callback):

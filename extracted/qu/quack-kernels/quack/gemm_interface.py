@@ -10,12 +10,12 @@ from quack.gemm_config import GemmConfig, get_all_configs
 
 from quack.autotuner import autotune, AutotuneConfig
 from quack.cute_dsl_utils import get_device_capacity
-from quack.gemm import gemm as gemm_sm90_sm100
-from quack.gemm_act import gemm_act as gemm_act_sm90_sm100
-from quack.gemm_dact import gemm_dact as gemm_dact_sm90_sm100
-from quack.gemm_symmetric import gemm_symmetric as gemm_symmetric_sm90_sm100
-from quack.gemm_sq_reduce import gemm_sq_reduce as gemm_sq_reduce_sm90_sm100
-from quack.gemm_norm_act import gemm_norm_act_fn as gemm_norm_act_sm90_sm100
+from quack.gemm import gemm as gemm_dispatch
+from quack.gemm_act import gemm_act as gemm_act_dispatch
+from quack.gemm_dact import gemm_dact as gemm_dact_dispatch
+from quack.gemm_symmetric import gemm_symmetric as gemm_symmetric_dispatch
+from quack.gemm_sq_reduce import gemm_sq_reduce as gemm_sq_reduce_dispatch
+from quack.gemm_norm_act import gemm_norm_act_fn as gemm_norm_act_dispatch
 from quack.rms_final_reduce import rms_final_reduce
 from quack.rounding import RoundingMode
 
@@ -56,16 +56,8 @@ Activation = Literal[
 
 
 def default_config(device):
-    if get_device_capacity(device)[0] != 10:
-        return GemmConfig(
-            tile_m=128,
-            tile_n=192,
-            cluster_m=2,
-            cluster_n=1,
-            pingpong=True,
-            is_dynamic_persistent=False,
-        )
-    else:
+    cap = get_device_capacity(device)[0]
+    if cap in [10, 11]:
         return GemmConfig(
             tile_m=256,
             tile_n=256,
@@ -73,6 +65,26 @@ def default_config(device):
             cluster_n=1,
             pingpong=False,
             is_dynamic_persistent=True,
+            device_capacity=10,
+        )
+    elif cap == 12:
+        return GemmConfig(
+            tile_m=128,
+            tile_n=128,
+            cluster_m=1,
+            cluster_n=1,
+            pingpong=True,
+            is_dynamic_persistent=True,
+            device_capacity=12,
+        )
+    else:
+        return GemmConfig(
+            tile_m=128,
+            tile_n=192,
+            cluster_m=2,
+            cluster_n=1,
+            pingpong=True,
+            is_dynamic_persistent=False,
         )
 
 
@@ -101,7 +113,7 @@ def prune_invalid_gemm_configs(configs, named_args: dict, **kwargs):
         configs = [conf for conf in configs if conf.kwargs["config"].cluster_n == 1]
         if device_capacity == 9:
             configs = [conf for conf in configs if conf.kwargs["config"].tile_n != 208]
-            configs = [conf for conf in configs if not conf.kwargs["config"].clc]
+            configs = [conf for conf in configs if not conf.kwargs["config"].is_dynamic_persistent]
     return configs
 
 
@@ -178,7 +190,7 @@ def gemm_tuned(
         if dynamic_scheduler and get_device_capacity(A)[0] == 9
         else None
     )
-    gemm_sm90_sm100(
+    gemm_dispatch(
         A if not config.swap_ab else B,
         B if not config.swap_ab else A,
         out if not config.swap_ab else out.mT,
@@ -254,7 +266,7 @@ def gemm_act_tuned(
         if dynamic_scheduler and get_device_capacity(A)[0] == 9
         else None
     )
-    gemm_act_sm90_sm100(
+    gemm_act_dispatch(
         A if not config.swap_ab else B,
         B if not config.swap_ab else A,
         (D if not config.swap_ab else D.mT) if D is not None else None,
@@ -321,7 +333,7 @@ def gemm_dact_tuned(
         if dynamic_scheduler and get_device_capacity(A)[0] == 9
         else None
     )
-    gemm_dact_sm90_sm100(
+    gemm_dact_dispatch(
         A if not config.swap_ab else B,
         B if not config.swap_ab else A,
         D if not config.swap_ab else D.mT,
@@ -1062,19 +1074,27 @@ def gemm_symmetric_out(
     tile_count_semaphore = (
         torch.zeros(1, dtype=torch.int32, device=A.device) if dynamic_scheduler else None
     )
-    tile_m = 256 if get_device_capacity(A.device)[0] == 10 else 128
-    gemm_symmetric_sm90_sm100(
+    sm = get_device_capacity(A.device)[0]
+    # We want square tile per cluster
+    tile_m, tile_n, cluster_m, pingpong = {
+        9: (128, 256, 2, False),
+        10: (256, 256, 2, False),
+        11: (256, 256, 2, False),
+        12: (128, 128, 1, True),
+    }[sm]
+    gemm_symmetric_dispatch(
         A,
         B,
         out if out is not None else None,
         C if C is not None else None,
         tile_count_semaphore,
         tile_M=tile_m,
-        tile_N=256,
-        cluster_M=2,
+        tile_N=tile_n,
+        cluster_M=cluster_m,
         cluster_N=1,
-        pingpong=False,
+        pingpong=pingpong,
         persistent=True,
+        is_dynamic_persistent=sm >= 10,
         max_swizzle_size=8,
         alpha=alpha,
         beta=beta,
@@ -1158,7 +1178,7 @@ def gemm_gated_tuned(
         if dynamic_scheduler and get_device_capacity(A)[0] == 9
         else None
     )
-    gemm_act_sm90_sm100(
+    gemm_act_dispatch(
         A if not config.swap_ab else B,
         B if not config.swap_ab else A,
         (D if not config.swap_ab else D.mT) if D is not None else None,
@@ -1252,7 +1272,7 @@ def gemm_dgated_tuned(
         if dynamic_scheduler and get_device_capacity(A)[0] == 9
         else None
     )
-    gemm_dact_sm90_sm100(
+    gemm_dact_dispatch(
         A if not config.swap_ab else B,
         B if not config.swap_ab else A,
         D if not config.swap_ab else D.mT,
@@ -1506,17 +1526,20 @@ def gemm_symmetric_out_fake(
     if not COMPILE_ONLY or isinstance(A.shape[0], torch.SymInt):
         return
     # gemm_symmetric is not autotuned, compile the single fixed config directly
-    tile_m = 256 if get_device_capacity(A.device)[0] == 10 else 128
+    sm = get_device_capacity(A.device)[0]
+    tile_m = 256 if sm == 10 else 128
+    tile_n = 128 if sm == 12 else 256
+    cluster_m = 1 if sm == 12 else 2
     try:
-        gemm_symmetric_sm90_sm100(
+        gemm_symmetric_dispatch(
             A.unsqueeze(0) if A.ndim == 2 else A,
             (B.mT.unsqueeze(0) if B.ndim == 2 else B.mT),
             out.unsqueeze(0) if out.ndim == 2 else out,
             (C.unsqueeze(0) if C.ndim == 2 else C) if C is not None else None,
             torch.zeros(1, dtype=torch.int32, device=A.device) if dynamic_scheduler else None,
             tile_M=tile_m,
-            tile_N=256,
-            cluster_M=2,
+            tile_N=tile_n,
+            cluster_M=cluster_m,
             cluster_N=1,
             pingpong=False,
             persistent=True,
@@ -1579,7 +1602,7 @@ def _gemm_rms_tuned(
         if dynamic_scheduler and get_device_capacity(A)[0] == 9
         else None
     )
-    gemm_sq_reduce_sm90_sm100(
+    gemm_sq_reduce_dispatch(
         A,
         B,
         out,
@@ -1759,7 +1782,7 @@ def gemm_norm_act_tuned(
         if dynamic_scheduler and get_device_capacity(A)[0] == 9
         else None
     )
-    gemm_norm_act_sm90_sm100(
+    gemm_norm_act_dispatch(
         A if not config.swap_ab else B,
         B if not config.swap_ab else A,
         (D if not config.swap_ab else D.mT) if D is not None else None,
@@ -1821,7 +1844,7 @@ def gemm_norm_gated_tuned(
         if dynamic_scheduler and get_device_capacity(A)[0] == 9
         else None
     )
-    gemm_norm_act_sm90_sm100(
+    gemm_norm_act_dispatch(
         A if not config.swap_ab else B,
         B if not config.swap_ab else A,
         (D if not config.swap_ab else D.mT) if D is not None else None,

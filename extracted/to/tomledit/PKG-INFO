@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tomledit
-Version: 0.12.1
+Version: 1.0.0
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
@@ -80,29 +80,29 @@ Under the hood, though, every `Item` is really a _path_ back into the shared
 document.
 
 This is mostly invisible, but sometimes the implementation leaks out.
-In particular: because items are paths, they can go stale when the document
-changes underneath them.
+Because items are paths, a mutation to the `Document` can invalidate or change
+the value being pointed at.
+In such cases the `Item` is made stale:
 
 ```python
 doc = Document.parse('arr = ["a", "b"]')
-first = doc["arr"][0]       # a path to arr[0]
-doc["arr"][0] = "changed"   # mutates the document
-print(first)                # RuntimeError: this Item is stale
+first = doc["arr"][0]         # `first` mostly behaves as "a"
+doc["arr"][0] = "changed"     # prefer `first` still to be "a", but...
+print(first)                  # RuntimeError: this Item is stale
 ```
 
-The item that performs the mutation stays valid:
+Changes in unrelated parts of the document are no problem:
 
 ```python
-arr = doc["arr"]
-arr[0] = "changed"
-print(arr)                  # still works - arr itself did the mutating
+first = doc["arr"][0]
+doc["foo"] = "bar"
+print(first)                  # this is fine
 ```
 
-If you just need the plain Python value, grab it with `.value` before the
-document changes:
+If you just need the plain Python value, grab it with `.value`:
 
 ```python
-first = doc["arr"][0].value   # "a" - a plain str, not a path
+first = doc["arr"][0].value   # "a" - a regular string, not a path
 doc["arr"][0] = "changed"
 print(first)                  # still "a"
 ```

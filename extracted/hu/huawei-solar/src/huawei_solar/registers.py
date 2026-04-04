@@ -1,373 +1,34 @@
 """Register definitions from the Huawei inverter."""
 
-import struct
-from collections.abc import Callable
-from dataclasses import dataclass
-from datetime import datetime
-from enum import Flag, IntEnum, auto
 from functools import partial
-from inspect import isclass
-from typing import Any, Generic, Never, TypeVar, cast
-
-from pymodbus.client.mixin import ModbusClientMixin
+from typing import Any, TypeVar
 
 import huawei_solar.register_names as rn
 import huawei_solar.register_values as rv
-from huawei_solar.exceptions import (
-    DecodeError,
-    PeakPeriodsValidationError,
-    TimeOfUsePeriodsException,
-    WriteException,
+from huawei_solar.register_definitions import (
+    ChargeDischargePeriodRegisters,
+    HUAWEI_LUNA2000_TimeOfUseRegisters,
+    I16Register,
+    I32AbsoluteValueRegister,
+    I32Register,
+    I64Register,
+    LG_RESU_TimeOfUseRegisters,
+    PeakSettingPeriodRegisters,
+    RegisterDefinition,
+    StringRegister,
+    TargetDevice,
+    TimestampRegister,
+    U16Register,
+    U32Register,
+    U64Register,
 )
 
 T = TypeVar("T")
 
-UnitType = None | str | dict[Any, T] | Callable[..., T]
 
-
-class TargetDevice(Flag):
-    """Target device for a register."""
-
-    SUN2000 = auto()
-    EMMA = auto()
-    SCHARGER = auto()
-    SDONGLE = auto()
-    SMARTLOGGER = auto()
-
-
-class RegisterDefinition(Generic[T]):
-    """Base class for register definitions."""
-
-    unit: UnitType = None
-    datatype: ModbusClientMixin.DATATYPE
-    length: int
-
-    def __init__(
-        self,
-        register: int,
-        length: int,
-        *,
-        writeable: bool = False,
-        readable: bool = True,
-        target_device: TargetDevice = TargetDevice.SUN2000,
-    ) -> None:
-        """Create RegisterDefinition."""
-        self.register = register
-        self.length = length
-        self.writeable = writeable
-        self.readable = readable
-        self.target_device = target_device
-
-    def encode(self, data: T) -> list[int]:
-        """Encode register to bytes."""
-        return ModbusClientMixin.convert_to_registers(data, self.datatype)  # type: ignore[report-argument-type]
-
-    def decode(self, registers: list[int]) -> T:
-        """Decode register to value."""
-        return ModbusClientMixin.convert_from_registers(registers, self.datatype)  # type: ignore[report-argument-type]
-
-    def _validate(self, data: T) -> Never:
-        """Validate data type."""
-        raise NotImplementedError
-
-
-class StringRegister(RegisterDefinition[str]):
-    """A string register."""
-
-    datatype = ModbusClientMixin.DATATYPE.STRING
-
-    def decode(self, registers: list[int]) -> str:
-        """Decode string."""
-        b = registers_to_bytearray(registers)
-
-        # remove trailing null bytes
-        trailing_nulls_begin = len(b)
-        while trailing_nulls_begin > 0 and b[trailing_nulls_begin - 1] == 0:
-            trailing_nulls_begin -= 1
-
-        b = b[:trailing_nulls_begin]
-
-        try:
-            return b.decode("utf-8")
-        except UnicodeDecodeError as err:
-            raise DecodeError from err
-
-
-class NumberRegister(RegisterDefinition[T], Generic[T]):
-    """Base class for number registers."""
-
-    def __init__(  # noqa: PLR0913
-        self,
-        unit: UnitType,
-        gain: int,
-        register: int,
-        length: int,
-        *,
-        writeable: bool = False,
-        readable: bool = True,
-        invalid_value: int | None = None,
-        target_device: TargetDevice = TargetDevice.SUN2000,
-    ) -> None:
-        """Initialize NumberRegister."""
-        super().__init__(
-            register,
-            length,
-            writeable=writeable,
-            readable=readable,
-            target_device=target_device,
-        )
-        self.unit = unit
-        self.gain = gain
-
-        self._invalid_value = invalid_value
-
-    def decode(self, registers: list[int]) -> T | None:
-        """Decode number register."""
-        result = cast("int", ModbusClientMixin.convert_from_registers(registers, self.datatype))
-
-        if self._invalid_value is not None and result == self._invalid_value:
-            return None
-
-        if callable(self.unit):
-            assert self.gain == 1
-            try:
-                result = cast("T", self.unit(result))
-            except ValueError as err:
-                raise DecodeError from err
-        elif isinstance(self.unit, dict):
-            assert self.gain == 1
-            try:
-                result = cast("T", self.unit[result])
-            except KeyError as err:
-                raise DecodeError from err
-
-        if self.gain != 1:
-            result /= self.gain  # type: ignore[report-operator-issue]
-        return result  # type: ignore[report-return-type]
-
-    def encode(self, data: T) -> list[int]:
-        """Encode number register."""
-        if isinstance(data, int):
-            int_data = data * self.gain
-        elif isinstance(data, float):
-            int_data = int(data * self.gain)  # it should always be an int!
-        elif self.unit is bool:
-            assert isinstance(data, bool)
-            int_data = int(data)
-            assert self.gain == 1
-        elif isclass(self.unit) and issubclass(self.unit, IntEnum):
-            assert isinstance(data, self.unit)
-            int_data = int(data)
-            assert self.gain == 1
-        elif isclass(self.unit) and not isinstance(data, self.unit):
-            msg = f"Expected data of type {self.unit}, but got {type(data)}"
-            raise WriteException(
-                msg,
-            )
-        else:
-            msg = f"Unsupported type: {type(data)}."
-            raise WriteException(msg)
-
-        return ModbusClientMixin.convert_to_registers(int_data, self.datatype)
-
-
-class U16Register(NumberRegister[T], Generic[T]):
-    """Unsigned 16-bit register."""
-
-    datatype = ModbusClientMixin.DATATYPE.UINT16
-
-    def __init__(  # noqa: PLR0913
-        self,
-        unit: UnitType,
-        gain: int,
-        register: int,
-        *,
-        writeable: bool = False,
-        readable: bool = True,
-        ignore_invalid: bool = False,
-        target_device: TargetDevice = TargetDevice.SUN2000,
-    ) -> None:
-        """Create Unsigned 16-bit register."""
-        super().__init__(
-            unit=unit,
-            gain=gain,
-            register=register,
-            length=1,
-            writeable=writeable,
-            readable=readable,
-            invalid_value=2**16 - 1 if not ignore_invalid else None,
-            target_device=target_device,
-        )
-
-
-class U32Register(NumberRegister[T], Generic[T]):
-    """Unsigned 32-bit register."""
-
-    datatype = ModbusClientMixin.DATATYPE.UINT32
-
-    def __init__(
-        self,
-        unit: UnitType,
-        gain: int,
-        register: int,
-        *,
-        writeable: bool = False,
-        target_device: TargetDevice = TargetDevice.SUN2000,
-    ) -> None:
-        """Create Unsigned 32-bit register."""
-        super().__init__(
-            unit=unit,
-            gain=gain,
-            register=register,
-            length=2,
-            writeable=writeable,
-            invalid_value=2**32 - 1,
-            target_device=target_device,
-        )
-
-
-class U64Register(NumberRegister[T], Generic[T]):
-    """Unsigned 64-bit register."""
-
-    datatype = ModbusClientMixin.DATATYPE.UINT64
-
-    def __init__(
-        self,
-        unit: UnitType,
-        gain: int,
-        register: int,
-        *,
-        writeable: bool = False,
-        target_device: TargetDevice = TargetDevice.SUN2000,
-    ) -> None:
-        """Create Unsigned 64-bit register."""
-        super().__init__(
-            unit=unit,
-            gain=gain,
-            register=register,
-            length=4,
-            writeable=writeable,
-            invalid_value=2**63 - 1,
-            target_device=target_device,
-        )
-
-
-class I16Register(NumberRegister[T], Generic[T]):
-    """Signed 16-bit register."""
-
-    datatype = ModbusClientMixin.DATATYPE.INT16
-
-    def __init__(
-        self,
-        unit: UnitType,
-        gain: int,
-        register: int,
-        *,
-        writeable: bool = False,
-        target_device: TargetDevice = TargetDevice.SUN2000,
-    ) -> None:
-        """Create Signed 16-bit register."""
-        super().__init__(
-            unit=unit,
-            gain=gain,
-            register=register,
-            length=1,
-            writeable=writeable,
-            invalid_value=2**15 - 1,
-            target_device=target_device,
-        )
-
-
-class I32Register(NumberRegister[T], Generic[T]):
-    """Signed 32-bit register."""
-
-    datatype = ModbusClientMixin.DATATYPE.INT32
-
-    def __init__(
-        self,
-        unit: UnitType,
-        gain: int,
-        register: int,
-        *,
-        writeable: bool = False,
-        target_device: TargetDevice = TargetDevice.SUN2000,
-    ) -> None:
-        """Create Signed 32-bit register."""
-        super().__init__(
-            unit=unit,
-            gain=gain,
-            register=register,
-            length=2,
-            writeable=writeable,
-            invalid_value=2**31 - 1,
-            target_device=target_device,
-        )
-
-
-class I64Register(NumberRegister[T], Generic[T]):
-    """Signed 64-bit register."""
-
-    datatype = ModbusClientMixin.DATATYPE.INT64
-
-    def __init__(
-        self,
-        unit: UnitType,
-        gain: int,
-        register: int,
-        *,
-        writeable: bool = False,
-        target_device: TargetDevice = TargetDevice.SUN2000,
-    ) -> None:
-        """Create Signed 64-bit register."""
-        super().__init__(
-            unit=unit,
-            gain=gain,
-            register=register,
-            length=4,
-            writeable=writeable,
-            invalid_value=2**63 - 1,
-            target_device=target_device,
-        )
-
-
-class I32AbsoluteValueRegister(I32Register):
-    """Signed 32-bit register, converted into the equivalent absolute number.
-
-    Use case: for registers of which the value should always be interpreted
-     as a positive number, but are (in some cases) being reported as a
-     negative number.
-
-    cfr. https://github.com/wlcrs/huawei_solar/issues/54
-
-    """
-
-    def __init__(
-        self,
-        unit: UnitType,
-        gain: int,
-        register: int,
-        *,
-        writeable: bool = False,
-        target_device: TargetDevice = TargetDevice.SUN2000,
-    ) -> None:
-        """Create Absolute value 32-bit register."""
-        super().__init__(
-            unit,
-            gain,
-            register,
-            writeable=writeable,
-            target_device=target_device,
-        )
-
-    def decode(self, registers: list[int]) -> int | None:
-        """Decode 32-bit signed integer into absolute value."""
-        value = super().decode(registers)
-        return abs(value) if value is not None else None
-
-
-def bitfield_decoder(definition: dict[int, T], bitfield: int) -> list[T]:
+def bitfield_decoder[T](definition: dict[int, T], bitfield: int) -> list[Any]:
     """Decode a bitfield into a list of statuses."""
-    result = []
+    result: list[Any] = []
     for key, value in definition.items():
         if isinstance(value, rv.OnOffBit):
             result.append(value.on_value if key & bitfield else value.off_value)
@@ -377,500 +38,28 @@ def bitfield_decoder(definition: dict[int, T], bitfield: int) -> list[T]:
     return result
 
 
-class TimestampRegister(U32Register[datetime]):
-    """Timestamp register."""
-
-    def __init__(
-        self,
-        register: int,
-        *,
-        writeable: bool = False,
-        target_device: TargetDevice = TargetDevice.SUN2000,
-    ) -> None:
-        """Create timestamp register."""
-        super().__init__(
-            unit=None,
-            gain=1,
-            register=register,
-            writeable=writeable,
-            target_device=target_device,
-        )
-
-    def decode(self, registers: list[int]) -> datetime | None:
-        """Decode timestamp register."""
-        value = super().decode(registers)
-        if value is None:
-            return None
-
-        assert isinstance(value, int)
-
-        # I was unable to come up with a good way of determining in which time
-        # zone this value is. So we return it without one.
-        return datetime.fromtimestamp(value)  # noqa: DTZ006
-
-
-@dataclass
-class LG_RESU_TimeOfUsePeriod:  # noqa: N801
-    """Time of use period of LG RESU."""
-
-    start_time: int  # minutes since midnight
-    end_time: int  # minutes since midnight
-    electricity_price: float
-
-
-class ChargeFlag(IntEnum):
-    """Charge Flag."""
-
-    CHARGE = 0
-    DISCHARGE = 1
-
-
-@dataclass
-class HUAWEI_LUNA2000_TimeOfUsePeriod:  # noqa: N801
-    """Time of use period of Huawei LUNA2000."""
-
-    start_time: int  # minutes since midnight
-    end_time: int  # minutes since midnight
-    charge_flag: ChargeFlag
-    days_effective: tuple[
-        bool,
-        bool,
-        bool,
-        bool,
-        bool,
-        bool,
-        bool,
-    ]  # Valid on days Sunday to Saturday
-
-
-LG_RESU_TOU_PERIODS = 10
-
-
-class LG_RESU_TimeOfUseRegisters(RegisterDefinition[list[LG_RESU_TimeOfUsePeriod]]):  # noqa: N801
-    """Time of use register."""
-
-    def decode(self, registers: list[int]) -> list[LG_RESU_TimeOfUsePeriod]:
-        """Decode time of use register."""
-        number_of_periods = cast(
-            "int",
-            ModbusClientMixin.convert_from_registers(registers[0:1], ModbusClientMixin.DATATYPE.UINT16),
-        )
-        assert number_of_periods <= LG_RESU_TOU_PERIODS
-
-        def _decode_lg_resu_tou_period(r: list[int]) -> LG_RESU_TimeOfUsePeriod:
-            start_time, end_time, electricity_price = struct.unpack(">HHI", registers_to_bytearray(r))
-            return LG_RESU_TimeOfUsePeriod(
-                start_time,
-                end_time,
-                electricity_price / 1000,
-            )
-
-        return [
-            _decode_lg_resu_tou_period(registers[1 + idx * 4 : 1 + ((idx + 1) * 4)]) for idx in range(number_of_periods)
-        ]
-
-    def _validate(
-        self,
-        data: list[LG_RESU_TimeOfUsePeriod],
-    ) -> None:
-        """Validate data type."""
-        if len(data) == 0:
-            return  # nothing to check
-
-        # Sanity check of each period individually
-        for tou_period in data:
-            if tou_period.start_time < 0 or tou_period.end_time < 0:
-                msg = "TOU period is invalid (Below zero)"
-                raise TimeOfUsePeriodsException(msg)
-            if tou_period.start_time > 24 * 60 or tou_period.end_time > 24 * 60:
-                msg = "TOU period is invalid (Spans over more than one day)"
-                raise TimeOfUsePeriodsException(
-                    msg,
-                )
-            if tou_period.start_time >= tou_period.end_time:
-                msg = "TOU period is invalid (start-time is greater than end-time)"
-                raise TimeOfUsePeriodsException(
-                    msg,
-                )
-
-        # make a copy of the data to sort
-        sorted_periods: list[LG_RESU_TimeOfUsePeriod] = data.copy()
-
-        sorted_periods.sort(key=lambda a: a.start_time)
-
-        for period_idx in range(1, len(sorted_periods)):
-            current_period = sorted_periods[period_idx]
-            prev_period = sorted_periods[period_idx - 1]
-            if (
-                prev_period.start_time <= current_period.start_time < prev_period.end_time
-                or prev_period.start_time < current_period.end_time <= prev_period.end_time
-            ):
-                msg = "TOU periods are overlapping"
-                raise TimeOfUsePeriodsException(msg)
-
-    def encode(self, data: list[LG_RESU_TimeOfUsePeriod]) -> list[int]:
-        """Encode Time Of Use Period registers."""
-        self._validate(data)
-
-        assert len(data) <= LG_RESU_TOU_PERIODS
-
-        b = bytearray(43 * 2)
-        struct.pack_into(">H", b, 0, len(data))
-
-        for idx, period in enumerate(data):
-            struct.pack_into(
-                ">HHI",
-                b,
-                2 * (1 + idx * 4),
-                period.start_time,
-                period.end_time,
-                int(period.electricity_price * 1000),
-            )
-
-        return bytearray_to_registers(b)
-
-
-HUAWEI_LUNA2000_TOU_PERIODS = 14
-
-
-def registers_to_bytearray(registers: list[int]) -> bytearray:
-    """Convert registers to bytes."""
-    b = bytearray()
-    for x in registers:
-        b.extend(x.to_bytes(2, "big"))
-
-    return b
-
-
-def bytearray_to_registers(data: bytearray) -> list[int]:
-    """Convert bytes to registers."""
-    assert len(data) % 2 == 0
-    return [int.from_bytes(data[i : i + 2], "big") for i in range(0, len(data), 2)]
-
-
-class HUAWEI_LUNA2000_TimeOfUseRegisters(RegisterDefinition[list[HUAWEI_LUNA2000_TimeOfUsePeriod]]):  # noqa: N801
-    """Time of use register."""
-
-    def decode(self, registers: list[int]) -> list[HUAWEI_LUNA2000_TimeOfUsePeriod]:
-        """Decode time of use register."""
-        number_of_periods = cast(
-            "int",
-            ModbusClientMixin.convert_from_registers(registers[0:1], ModbusClientMixin.DATATYPE.UINT16),
-        )
-        assert number_of_periods <= HUAWEI_LUNA2000_TOU_PERIODS
-
-        def _days_effective_parser(value: int) -> tuple[bool, bool, bool, bool, bool, bool, bool]:
-            result = []
-            mask = 0x1
-            for _ in range(7):
-                result.append((value & mask) != 0)
-                mask = mask << 1
-
-            return tuple(result)
-
-        def _decode_huawei_luna2000_tou_period(r: list[int]) -> HUAWEI_LUNA2000_TimeOfUsePeriod:
-            start_time, end_time, charge, days_effective = struct.unpack(">HHBB", registers_to_bytearray(r))
-
-            return HUAWEI_LUNA2000_TimeOfUsePeriod(
-                start_time,
-                end_time,
-                ChargeFlag(charge),
-                _days_effective_parser(days_effective),
-            )
-
-        periods = [
-            _decode_huawei_luna2000_tou_period(registers[1 + idx * 3 : 1 + ((idx + 1) * 3)])
-            for idx in range(HUAWEI_LUNA2000_TOU_PERIODS)
-        ]
-
-        return periods[:number_of_periods]
-
-    def _validate(
-        self,
-        data: list[HUAWEI_LUNA2000_TimeOfUsePeriod],
-    ) -> None:
-        """Validate data type."""
-        if len(data) == 0:
-            return  # nothing to check
-
-        # Sanity check of each period individually
-        for tou_period in data:
-            if not isinstance(tou_period, HUAWEI_LUNA2000_TimeOfUsePeriod):
-                msg = "TOU period is of an unexpected type"
-                raise TimeOfUsePeriodsException(msg)
-            if tou_period.start_time < 0 or tou_period.end_time < 0:
-                msg = "TOU period is invalid (Below zero)"
-                raise TimeOfUsePeriodsException(msg)
-            if tou_period.start_time > 24 * 60 or tou_period.end_time > 24 * 60:
-                msg = "TOU period is invalid (Spans over more than one day)"
-                raise TimeOfUsePeriodsException(
-                    msg,
-                )
-            if tou_period.start_time >= tou_period.end_time:
-                msg = "TOU period is invalid (start-time is greater than end-time)"
-                raise TimeOfUsePeriodsException(
-                    msg,
-                )
-
-        for day_idx in range(7):
-            # find all ranges that are valid for the given day
-            active_periods: list[HUAWEI_LUNA2000_TimeOfUsePeriod] = list(
-                filter(lambda period: period.days_effective[day_idx], data),
-            )
-
-            active_periods.sort(key=lambda a: a.start_time)
-
-            for period_idx in range(1, len(active_periods)):
-                current_period = active_periods[period_idx]
-                prev_period = active_periods[period_idx - 1]
-                if (
-                    prev_period.start_time <= current_period.start_time < prev_period.end_time
-                    or prev_period.start_time < current_period.end_time <= prev_period.end_time
-                ):
-                    msg = "TOU periods are overlapping"
-                    raise TimeOfUsePeriodsException(msg)
-
-    def encode(
-        self,
-        data: list[HUAWEI_LUNA2000_TimeOfUsePeriod],
-    ) -> list[int]:
-        """Encode Time Of Use Period registers."""
-        self._validate(data)
-
-        assert len(data) <= HUAWEI_LUNA2000_TOU_PERIODS
-
-        b = bytearray(43 * 2)
-        struct.pack_into(">H", b, 0, len(data))
-
-        def _days_effective_builder(days_tuple: tuple[bool, bool, bool, bool, bool, bool, bool]) -> int:
-            result = 0
-            mask = 0x1
-            for i in range(7):
-                if days_tuple[i]:
-                    result += mask
-                mask = mask << 1
-
-            return result
-
-        for idx, period in enumerate(data):
-            struct.pack_into(
-                ">HHBB",
-                b,
-                2 * (1 + idx * 3),
-                period.start_time,
-                period.end_time,
-                int(period.charge_flag),
-                _days_effective_builder(period.days_effective),
-            )
-
-        return bytearray_to_registers(b)
-
-
-@dataclass
-class ChargeDischargePeriod:
-    """Charge or Discharge Period."""
-
-    start_time: int  # minutes since midnight
-    end_time: int  # minutes since midnight
-    power: int  # power in watts
-
-
-CHARGE_DISCHARGE_PERIODS = 10
-
-
-class ChargeDischargePeriodRegisters(RegisterDefinition[list[ChargeDischargePeriod]]):
-    """Charge or discharge period registers."""
-
-    def decode(self, registers: list[int]) -> list[ChargeDischargePeriod]:
-        """Decode ChargeDischargePeriodRegisters."""
-        number_of_periods = cast(
-            "int",
-            ModbusClientMixin.convert_from_registers(registers[0:1], ModbusClientMixin.DATATYPE.UINT16),
-        )
-        assert number_of_periods <= CHARGE_DISCHARGE_PERIODS
-
-        def _decode_charge_discharge_period(r: list[int]) -> ChargeDischargePeriod:
-            start_time, end_time, power = struct.unpack(">HHI", registers_to_bytearray(r))
-            return ChargeDischargePeriod(start_time, end_time, power)
-
-        periods = [
-            _decode_charge_discharge_period(registers[1 + idx * 3 : 1 + ((idx + 1) * 3)])
-            for idx in range(number_of_periods)
-        ]
-
-        return periods[:number_of_periods]
-
-    def encode(self, data: list[ChargeDischargePeriod]) -> list[int]:
-        """Encode ChargeDischargePeriodRegisters."""
-        assert len(data) <= CHARGE_DISCHARGE_PERIODS
-
-        b = bytearray()
-        b.extend(struct.pack(">H", len(data)))
-
-        for period in data:
-            b.extend(struct.pack(">HHI", period.start_time, period.end_time, period.power))
-
-        # pad with empty periods
-        for _ in range(len(data), CHARGE_DISCHARGE_PERIODS):
-            b.extend(struct.pack(">HHI", 0, 0, 0))
-
-        return bytearray_to_registers(b)
-
-
-@dataclass
-class PeakSettingPeriod:
-    """Peak Setting Period."""
-
-    start_time: int  # minutes since midnight
-    end_time: int  # minutes since midnight
-    power: int  # power in watts
-    days_effective: tuple[
-        bool,
-        bool,
-        bool,
-        bool,
-        bool,
-        bool,
-        bool,
-    ]  # Valid on days Sunday to
-
-
-PEAK_SETTING_PERIODS = 14
-
-
-def _days_effective_builder(days_tuple: tuple[bool, bool, bool, bool, bool, bool, bool]) -> int:
-    result = 0
-    mask = 0x1
-    for i in range(7):
-        if days_tuple[i]:
-            result += mask
-        mask = mask << 1
-
-    return result
-
-
-def _days_effective_parser(value: int) -> tuple[bool, bool, bool, bool, bool, bool, bool]:
-    result = []
-    mask = 0x1
-    for _ in range(7):
-        result.append((value & mask) != 0)
-        mask = mask << 1
-
-    return tuple(result)
-
-
-class PeakSettingPeriodRegisters(RegisterDefinition[list[PeakSettingPeriod]]):
-    """Peak Setting Period registers."""
-
-    def decode(self, registers: list[int]) -> list[PeakSettingPeriod]:
-        """Decode PeakSettingPeriodRegisters."""
-        number_of_periods = cast(
-            "int",
-            ModbusClientMixin.convert_from_registers(registers[0:1], ModbusClientMixin.DATATYPE.UINT16),
-        )
-
-        # Safety check
-        number_of_periods = min(number_of_periods, PEAK_SETTING_PERIODS)
-
-        b = registers_to_bytearray(registers[1:])
-        decoder = struct.Struct(">HHIB")
-
-        periods = []
-        for idx in range(number_of_periods):
-            start_time, end_time, peak_value, week_value = decoder.unpack(
-                b[idx * decoder.size : (idx + 1) * decoder.size],
-            )
-
-            if start_time != end_time and week_value != 0:
-                periods.append(
-                    PeakSettingPeriod(
-                        start_time,
-                        end_time,
-                        peak_value,
-                        _days_effective_parser(week_value),
-                    ),
-                )
-
-        return periods[:number_of_periods]
-
-    def _validate(self, data: list[PeakSettingPeriod]) -> None:
-        for day_idx in range(7):
-            # find all ranges that are valid for the given day
-            active_periods: list[PeakSettingPeriod] = list(
-                filter(lambda period: period.days_effective[day_idx], data),
-            )
-
-            if not active_periods:
-                msg = "All days of the week need to be covered"
-                raise PeakPeriodsValidationError(
-                    msg,
-                )
-
-            # require full day to be covered
-            active_periods.sort(key=lambda a: a.start_time)
-
-            if active_periods[0].start_time != 0:
-                msg = "Every day must be covered from 00:00"
-                raise PeakPeriodsValidationError(msg)
-
-            for period_idx in range(1, len(active_periods)):
-                current_period = active_periods[period_idx]
-                prev_period = active_periods[period_idx - 1]
-                if current_period.start_time not in (
-                    prev_period.end_time,
-                    prev_period.end_time + 1,
-                ):
-                    msg = "All moments of each day need to be covered"
-                    raise PeakPeriodsValidationError(
-                        msg,
-                    )
-
-            if active_periods[-1].end_time not in ((24 * 60) - 1, 24 * 60):
-                msg = "Every day must be covered until 23:59"
-                raise PeakPeriodsValidationError(
-                    msg,
-                )
-
-    def encode(self, data: list[PeakSettingPeriod]) -> list[int]:
-        """Encode PeakSettingPeriodRegisters."""
-        if len(data) > PEAK_SETTING_PERIODS:
-            data = data[:PEAK_SETTING_PERIODS]
-
-        result = bytearray()
-        result.extend(struct.pack(">H", len(data)))
-
-        for period in data:
-            result.extend(
-                struct.pack(
-                    ">HHIB",
-                    period.start_time,
-                    period.end_time,
-                    period.power,
-                    _days_effective_builder(period.days_effective),
-                ),
-            )
-
-        # pad with empty periods
-        for _ in range(len(data), PEAK_SETTING_PERIODS):
-            result.extend(struct.pack(">HHIB", 0, 0, 0, 0))
-
-        return bytearray_to_registers(result)
-
-
-REGISTERS: dict[str, RegisterDefinition] = {
+REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     rn.MODEL_NAME: StringRegister(
         30000,
         15,
-        target_device=TargetDevice.SUN2000 | TargetDevice.EMMA | TargetDevice.SCHARGER,
+        target_device=TargetDevice.SUN2000
+        | TargetDevice.EMMA
+        | TargetDevice.SCHARGER
+        | TargetDevice.SDONGLE
+        | TargetDevice.SMARTLOGGER,
     ),
     rn.SERIAL_NUMBER: StringRegister(
         30015,
         10,
-        target_device=TargetDevice.SUN2000 | TargetDevice.EMMA | TargetDevice.SDONGLE,
+        target_device=TargetDevice.SUN2000 | TargetDevice.EMMA | TargetDevice.SDONGLE | TargetDevice.SMARTLOGGER,
     ),
     rn.PN: StringRegister(30025, 10),
     rn.FIRMWARE_VERSION: StringRegister(30035, 15),
-    rn.SOFTWARE_VERSION: StringRegister(30050, 15, target_device=TargetDevice.SUN2000 | TargetDevice.SDONGLE),
+    rn.SOFTWARE_VERSION: StringRegister(
+        30050,
+        15,
+        target_device=TargetDevice.SUN2000 | TargetDevice.SDONGLE,
+    ),
     rn.PROTOCOL_VERSION_MODBUS: U32Register(None, 1, 30068),
     rn.MODEL_ID: U16Register(None, 1, 30070),
     rn.NB_PV_STRINGS: U16Register(None, 1, 30071),
@@ -1039,6 +228,9 @@ REGISTERS: dict[str, RegisterDefinition] = {
         10,
         35044,
     ),  # SUN2000MA-only register
+    rn.ACTIVE_POWER_ADJUSTMENT_MODE: U16Register(None, 1, 35300),
+    rn.ACTIVE_POWER_ADJUSTMENT_VALUE: U32Register(None, 1, 35301),
+    rn.ACTIVE_POWER_ADJUSTMENT_COMMAND: U16Register(None, 1, 35303),
     rn.NB_OPTIMIZERS: U16Register(None, 1, 37200),
     rn.NB_ONLINE_OPTIMIZERS: U16Register(None, 1, 37201),
     rn.SYSTEM_TIME: TimestampRegister(40000),
@@ -1081,6 +273,7 @@ REGISTERS: dict[str, RegisterDefinition] = {
     rn.MPPT_MULTIMODAL_SCANNING: U16Register(bool, 1, 42054, writeable=True),
     rn.MPPT_SCANNING_INTERVAL: U16Register("minutes", 1, 42055, writeable=True),
     rn.MPPT_PREDICTED_POWER: U32Register("W", 1, 42056),
+    rn.MAXIMUM_ACTIVE_POWER: U32Register("W", 1, 42178),
     rn.DAYLIGHT_SAVING_TIME: U16Register(
         bool,
         1,
@@ -1153,7 +346,7 @@ PV_REGISTERS = {
 
 REGISTERS.update(PV_REGISTERS)
 
-BATTERY_REGISTERS = {
+BATTERY_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     rn.STORAGE_UNIT_1_RUNNING_STATUS: U16Register(rv.StorageStatus, 1, 37000),
     rn.STORAGE_UNIT_1_CHARGE_DISCHARGE_POWER: I32Register("W", 1, 37001),
     rn.STORAGE_UNIT_1_BUS_VOLTAGE: U16Register("V", 10, 37003),
@@ -1274,8 +467,7 @@ BATTERY_REGISTERS = {
     rn.STORAGE_UNIT_1_PRODUCT_MODEL: U16Register(rv.StorageProductModel, 1, 47000),
     rn.STORAGE_WORKING_MODE_A: I16Register(rv.StorageWorkingModesA, 1, 47004),
     rn.STORAGE_TIME_OF_USE_PRICE: I16Register(bool, 1, 47027),
-    rn.STORAGE_LG_RESU_TIME_OF_USE_PRICE_PERIODS: LG_RESU_TimeOfUseRegisters(47028, 41, writeable=True),
-    rn.STORAGE_HUAWEI_LUNA2000_TIME_OF_USE_PRICE_PERIODS: HUAWEI_LUNA2000_TimeOfUseRegisters(47028, 41, writeable=True),
+    rn.STORAGE_LG_RESU_TIME_OF_USE_PRICE_PERIODS: LG_RESU_TimeOfUseRegisters(47028, writeable=True),
     rn.STORAGE_LCOE: U32Register(None, 1000, 47069),
     rn.STORAGE_MAXIMUM_CHARGING_POWER: U32Register("W", 1, 47075, writeable=True),
     rn.STORAGE_MAXIMUM_DISCHARGING_POWER: U32Register("W", 1, 47077, writeable=True),
@@ -1325,7 +517,6 @@ BATTERY_REGISTERS = {
     rn.STORAGE_UNIT_2_NO: U16Register(None, 1, 47108),
     rn.STORAGE_FIXED_CHARGING_AND_DISCHARGING_PERIODS: ChargeDischargePeriodRegisters(
         47200,
-        41,
         writeable=True,
     ),
     rn.STORAGE_POWER_OF_CHARGE_FROM_GRID: U32Register("W", 1, 47242, writeable=True),
@@ -1343,14 +534,8 @@ BATTERY_REGISTERS = {
     ),
     rn.STORAGE_FORCIBLE_CHARGE_POWER: U32Register(None, 1, 47247, writeable=True),
     rn.STORAGE_FORCIBLE_DISCHARGE_POWER: U32Register(None, 1, 47249, writeable=True),
-    rn.STORAGE_LG_RESU_TIME_OF_USE_CHARGING_AND_DISCHARGING_PERIODS: LG_RESU_TimeOfUseRegisters(
-        47255,
-        43,
-        writeable=True,
-    ),
     rn.STORAGE_HUAWEI_LUNA2000_TIME_OF_USE_CHARGING_AND_DISCHARGING_PERIODS: HUAWEI_LUNA2000_TimeOfUseRegisters(
         47255,
-        43,
         writeable=True,
     ),
     rn.STORAGE_EXCESS_PV_ENERGY_USE_IN_TOU: U16Register(
@@ -1397,7 +582,7 @@ BATTERY_REGISTERS = {
 }
 REGISTERS.update(BATTERY_REGISTERS)
 
-CAPACITY_CONTROL_REGISTERS = {
+CAPACITY_CONTROL_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     # We must check if we can read from these registers to know if this feature is supported
     # by the inverter/battery firmware
     rn.STORAGE_CAPACITY_CONTROL_MODE: U16Register(
@@ -1414,14 +599,13 @@ CAPACITY_CONTROL_REGISTERS = {
     ),
     rn.STORAGE_CAPACITY_CONTROL_PERIODS: PeakSettingPeriodRegisters(
         47956,
-        64,
         writeable=True,
     ),
 }
 
 REGISTERS.update(CAPACITY_CONTROL_REGISTERS)
 
-EMMA_REGISTERS = {
+EMMA_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     rn.EMMA_SOFTWARE_VERSION: StringRegister(30035, 15, target_device=TargetDevice.EMMA),
     rn.EMMA_MODEL: StringRegister(30222, 20, target_device=TargetDevice.EMMA),
     rn.INVERTER_TOTAL_ABSORBED_ENERGY: U64Register("kWh", 100, 30302, target_device=TargetDevice.EMMA),
@@ -1500,57 +684,57 @@ EMMA_REGISTERS = {
     ),
     rn.NUMBER_OF_INVERTERS_FOUND: U16Register(None, 1, 30801, target_device=TargetDevice.EMMA),
     rn.NUMBER_OF_CHARGERS_FOUND: U16Register(None, 1, 30804, target_device=TargetDevice.EMMA),
-    rn.PHASE_A_VOLTAGE_BUILT_IN_ENERGY_SENSOR: U32Register("V", 100, 31639, target_device=TargetDevice.EMMA),
-    rn.PHASE_B_VOLTAGE_BUILT_IN_ENERGY_SENSOR: U32Register("V", 100, 31641, target_device=TargetDevice.EMMA),
-    rn.PHASE_C_VOLTAGE_BUILT_IN_ENERGY_SENSOR: U32Register("V", 100, 31643, target_device=TargetDevice.EMMA),
-    rn.LINE_VOLTAGE_A_B_BUILT_IN_ENERGY_SENSOR: U32Register("V", 100, 31645, target_device=TargetDevice.EMMA),
-    rn.LINE_VOLTAGE_B_C_BUILT_IN_ENERGY_SENSOR: U32Register("V", 100, 31647, target_device=TargetDevice.EMMA),
-    rn.LINE_VOLTAGE_C_A_BUILT_IN_ENERGY_SENSOR: U32Register("V", 100, 31649, target_device=TargetDevice.EMMA),
-    rn.PHASE_A_CURRENT_BUILT_IN_ENERGY_SENSOR: I32Register("A", 10, 31651, target_device=TargetDevice.EMMA),
-    rn.PHASE_B_CURRENT_BUILT_IN_ENERGY_SENSOR: I32Register("A", 10, 31653, target_device=TargetDevice.EMMA),
-    rn.PHASE_C_CURRENT_BUILT_IN_ENERGY_SENSOR: I32Register("A", 10, 31655, target_device=TargetDevice.EMMA),
-    rn.ACTIVE_POWER_BUILT_IN_ENERGY_SENSOR: I32Register("W", 1, 31657, target_device=TargetDevice.EMMA),
-    rn.POWER_FACTOR_BUILT_IN_ENERGY_SENSOR: I32Register(None, 1000, 31661, target_device=TargetDevice.EMMA),
-    rn.APPARENT_POWER_BUILT_IN_ENERGY_SENSOR: I32Register("VA", 1, 31663, target_device=TargetDevice.EMMA),
-    rn.PHASE_A_ACTIVE_POWER_BUILT_IN_ENERGY_SENSOR: I32Register("W", 1, 31665, target_device=TargetDevice.EMMA),
-    rn.PHASE_B_ACTIVE_POWER_BUILT_IN_ENERGY_SENSOR: I32Register("W", 1, 31667, target_device=TargetDevice.EMMA),
-    rn.PHASE_C_ACTIVE_POWER_BUILT_IN_ENERGY_SENSOR: I32Register("W", 1, 31669, target_device=TargetDevice.EMMA),
-    rn.TOTAL_ACTIVE_ENERGY_BUILT_IN_ENERGY_SENSOR: I64Register("kWh", 100, 31671, target_device=TargetDevice.EMMA),
-    rn.TOTAL_NEGATIVE_ACTIVE_ENERGY_BUILT_IN_ENERGY_SENSOR: I64Register(
+    rn.PHASE_A_VOLTAGE_BUILT_IN_ENERGY: U32Register("V", 100, 31639, target_device=TargetDevice.EMMA),
+    rn.PHASE_B_VOLTAGE_BUILT_IN_ENERGY: U32Register("V", 100, 31641, target_device=TargetDevice.EMMA),
+    rn.PHASE_C_VOLTAGE_BUILT_IN_ENERGY: U32Register("V", 100, 31643, target_device=TargetDevice.EMMA),
+    rn.LINE_VOLTAGE_A_B_BUILT_IN_ENERGY: U32Register("V", 100, 31645, target_device=TargetDevice.EMMA),
+    rn.LINE_VOLTAGE_B_C_BUILT_IN_ENERGY: U32Register("V", 100, 31647, target_device=TargetDevice.EMMA),
+    rn.LINE_VOLTAGE_C_A_BUILT_IN_ENERGY: U32Register("V", 100, 31649, target_device=TargetDevice.EMMA),
+    rn.PHASE_A_CURRENT_BUILT_IN_ENERGY: I32Register("A", 10, 31651, target_device=TargetDevice.EMMA),
+    rn.PHASE_B_CURRENT_BUILT_IN_ENERGY: I32Register("A", 10, 31653, target_device=TargetDevice.EMMA),
+    rn.PHASE_C_CURRENT_BUILT_IN_ENERGY: I32Register("A", 10, 31655, target_device=TargetDevice.EMMA),
+    rn.ACTIVE_POWER_BUILT_IN_ENERGY: I32Register("W", 1, 31657, target_device=TargetDevice.EMMA),
+    rn.POWER_FACTOR_BUILT_IN_ENERGY: I32Register(None, 1000, 31661, target_device=TargetDevice.EMMA),
+    rn.APPARENT_POWER_BUILT_IN_ENERGY: I32Register("VA", 1, 31663, target_device=TargetDevice.EMMA),
+    rn.PHASE_A_ACTIVE_POWER_BUILT_IN_ENERGY: I32Register("W", 1, 31665, target_device=TargetDevice.EMMA),
+    rn.PHASE_B_ACTIVE_POWER_BUILT_IN_ENERGY: I32Register("W", 1, 31667, target_device=TargetDevice.EMMA),
+    rn.PHASE_C_ACTIVE_POWER_BUILT_IN_ENERGY: I32Register("W", 1, 31669, target_device=TargetDevice.EMMA),
+    rn.TOTAL_ACTIVE_ENERGY_BUILT_IN_ENERGY: I64Register("kWh", 100, 31671, target_device=TargetDevice.EMMA),
+    rn.TOTAL_NEGATIVE_ACTIVE_ENERGY_BUILT_IN_ENERGY: I64Register(
         "kWh",
         100,
         31679,
         target_device=TargetDevice.EMMA,
     ),
-    rn.TOTAL_POSITIVE_ACTIVE_ENERGY_BUILT_IN_ENERGY_SENSOR: I64Register(
+    rn.TOTAL_POSITIVE_ACTIVE_ENERGY_BUILT_IN_ENERGY: I64Register(
         "kWh",
         100,
         31687,
         target_device=TargetDevice.EMMA,
     ),
-    rn.PHASE_A_VOLTAGE_EXTERNAL_ENERGY_SENSOR: U32Register("V", 100, 31895, target_device=TargetDevice.EMMA),
-    rn.PHASE_B_VOLTAGE_EXTERNAL_ENERGY_SENSOR: U32Register("V", 100, 31897, target_device=TargetDevice.EMMA),
-    rn.PHASE_C_VOLTAGE_EXTERNAL_ENERGY_SENSOR: U32Register("V", 100, 31899, target_device=TargetDevice.EMMA),
-    rn.LINE_VOLTAGE_A_B_EXTERNAL_ENERGY_SENSOR: U32Register("V", 100, 31901, target_device=TargetDevice.EMMA),
-    rn.LINE_VOLTAGE_B_C_EXTERNAL_ENERGY_SENSOR: U32Register("V", 100, 31903, target_device=TargetDevice.EMMA),
-    rn.LINE_VOLTAGE_C_A_EXTERNAL_ENERGY_SENSOR: U32Register("V", 100, 31905, target_device=TargetDevice.EMMA),
-    rn.PHASE_A_CURRENT_EXTERNAL_ENERGY_SENSOR: I32Register("A", 10, 31907, target_device=TargetDevice.EMMA),
-    rn.PHASE_B_CURRENT_EXTERNAL_ENERGY_SENSOR: I32Register("A", 10, 31909, target_device=TargetDevice.EMMA),
-    rn.PHASE_C_CURRENT_EXTERNAL_ENERGY_SENSOR: I32Register("A", 10, 31911, target_device=TargetDevice.EMMA),
-    rn.ACTIVE_POWER_EXTERNAL_ENERGY_SENSOR: I32Register("W", 1, 31913, target_device=TargetDevice.EMMA),
-    rn.POWER_FACTOR_EXTERNAL_ENERGY_SENSOR: I32Register(None, 1000, 31917, target_device=TargetDevice.EMMA),
-    rn.APPARENT_POWER_EXTERNAL_ENERGY_SENSOR: I32Register("VA", 1, 31919, target_device=TargetDevice.EMMA),
-    rn.PHASE_A_ACTIVE_POWER_EXTERNAL_ENERGY_SENSOR: I32Register("W", 1, 31921, target_device=TargetDevice.EMMA),
-    rn.PHASE_B_ACTIVE_POWER_EXTERNAL_ENERGY_SENSOR: I32Register("W", 1, 31923, target_device=TargetDevice.EMMA),
-    rn.PHASE_C_ACTIVE_POWER_EXTERNAL_ENERGY_SENSOR: I32Register("W", 1, 31925, target_device=TargetDevice.EMMA),
-    rn.TOTAL_ACTIVE_ENERGY_EXTERNAL_ENERGY_SENSOR: I64Register("kWh", 100, 31927, target_device=TargetDevice.EMMA),
-    rn.TOTAL_NEGATIVE_ACTIVE_ENERGY_EXTERNAL_ENERGY_SENSOR: I64Register(
+    rn.PHASE_A_VOLTAGE_EXTERNAL_ENERGY: U32Register("V", 100, 31895, target_device=TargetDevice.EMMA),
+    rn.PHASE_B_VOLTAGE_EXTERNAL_ENERGY: U32Register("V", 100, 31897, target_device=TargetDevice.EMMA),
+    rn.PHASE_C_VOLTAGE_EXTERNAL_ENERGY: U32Register("V", 100, 31899, target_device=TargetDevice.EMMA),
+    rn.LINE_VOLTAGE_A_B_EXTERNAL_ENERGY: U32Register("V", 100, 31901, target_device=TargetDevice.EMMA),
+    rn.LINE_VOLTAGE_B_C_EXTERNAL_ENERGY: U32Register("V", 100, 31903, target_device=TargetDevice.EMMA),
+    rn.LINE_VOLTAGE_C_A_EXTERNAL_ENERGY: U32Register("V", 100, 31905, target_device=TargetDevice.EMMA),
+    rn.PHASE_A_CURRENT_EXTERNAL_ENERGY: I32Register("A", 10, 31907, target_device=TargetDevice.EMMA),
+    rn.PHASE_B_CURRENT_EXTERNAL_ENERGY: I32Register("A", 10, 31909, target_device=TargetDevice.EMMA),
+    rn.PHASE_C_CURRENT_EXTERNAL_ENERGY: I32Register("A", 10, 31911, target_device=TargetDevice.EMMA),
+    rn.ACTIVE_POWER_EXTERNAL_ENERGY: I32Register("W", 1, 31913, target_device=TargetDevice.EMMA),
+    rn.POWER_FACTOR_EXTERNAL_ENERGY: I32Register(None, 1000, 31917, target_device=TargetDevice.EMMA),
+    rn.APPARENT_POWER_EXTERNAL_ENERGY: I32Register("VA", 1, 31919, target_device=TargetDevice.EMMA),
+    rn.PHASE_A_ACTIVE_POWER_EXTERNAL_ENERGY: I32Register("W", 1, 31921, target_device=TargetDevice.EMMA),
+    rn.PHASE_B_ACTIVE_POWER_EXTERNAL_ENERGY: I32Register("W", 1, 31923, target_device=TargetDevice.EMMA),
+    rn.PHASE_C_ACTIVE_POWER_EXTERNAL_ENERGY: I32Register("W", 1, 31925, target_device=TargetDevice.EMMA),
+    rn.TOTAL_ACTIVE_ENERGY_EXTERNAL_ENERGY: I64Register("kWh", 100, 31927, target_device=TargetDevice.EMMA),
+    rn.TOTAL_NEGATIVE_ACTIVE_ENERGY_EXTERNAL_ENERGY: I64Register(
         "kWh",
         100,
         31935,
         target_device=TargetDevice.EMMA,
     ),
-    rn.TOTAL_POSITIVE_ACTIVE_ENERGY_EXTERNAL_ENERGY_SENSOR: I64Register(
+    rn.TOTAL_POSITIVE_ACTIVE_ENERGY_EXTERNAL_ENERGY: I64Register(
         "kWh",
         100,
         31943,
@@ -1579,7 +763,6 @@ EMMA_REGISTERS = {
     ),
     rn.EMMA_TOU_PERIODS: HUAWEI_LUNA2000_TimeOfUseRegisters(
         40004,
-        43,
         writeable=True,
         target_device=TargetDevice.EMMA,
     ),
@@ -1649,21 +832,21 @@ EMMA_REGISTERS = {
 
 REGISTERS.update(EMMA_REGISTERS)
 
-SCHARGER_REGISTERS = {
+SCHARGER_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     rn.CHARGER_SOFTWARE_VERSION: StringRegister(30031, 16, target_device=TargetDevice.SCHARGER),
     rn.CHARGER_ESN: StringRegister(30015, 16, target_device=TargetDevice.SCHARGER),
     rn.CHARGER_MODEL: StringRegister(30078, 14, target_device=TargetDevice.SCHARGER),
     rn.CHARGER_RATED_POWER: U32Register("kW", 10, 30076, target_device=TargetDevice.SCHARGER),
-    rn.CHARGER_PHASE_A_VOLTAGE_SENSOR: U32Register("V", 10, 30500, target_device=TargetDevice.SCHARGER),
-    rn.CHARGER_PHASE_B_VOLTAGE_SENSOR: U32Register("V", 10, 30502, target_device=TargetDevice.SCHARGER),
-    rn.CHARGER_PHASE_C_VOLTAGE_SENSOR: U32Register("V", 10, 30504, target_device=TargetDevice.SCHARGER),
-    rn.CHARGER_TOTAL_ENERGY_CHARGED_SENSOR: U32Register("kWh", 1000, 30506, target_device=TargetDevice.SCHARGER),
-    rn.CHARGER_TEMPERATURE_SENSOR: I32Register("°C", 10, 30508, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_PHASE_A_VOLTAGE: U32Register("V", 10, 30500, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_PHASE_B_VOLTAGE: U32Register("V", 10, 30502, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_PHASE_C_VOLTAGE: U32Register("V", 10, 30504, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_TOTAL_ENERGY_CHARGED: U32Register("kWh", 1000, 30506, target_device=TargetDevice.SCHARGER),
+    rn.CHARGER_TEMPERATURE: I32Register("°C", 10, 30508, target_device=TargetDevice.SCHARGER),
 }
 
 REGISTERS.update(SCHARGER_REGISTERS)
 
-METER_REGISTERS = {
+METER_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
     rn.METER_STATUS: U16Register(rv.MeterStatus, 1, 37100),
     rn.GRID_A_VOLTAGE: I32Register("V", 10, 37101),
     rn.GRID_B_VOLTAGE: I32Register("V", 10, 37103),
@@ -1691,12 +874,798 @@ METER_REGISTERS = {
 
 REGISTERS.update(METER_REGISTERS)
 
-SDONGLE_REGISTERS = {
-    rn.SDONGLE_TOTAL_INPUT_POWER: U32Register("W", 1, 37498),
-    rn.SDONGLE_LOAD_POWER: U32Register("W", 1, 37500),
-    rn.SDONGLE_GRID_POWER: I32Register("W", 1, 37502),  # positive is importing, negative is exporting
-    rn.SDONGLE_TOTAL_BATTERY_POWER: I32Register("W", 1, 37504),  # positive is charging, negative is discharging
-    rn.SDONGLE_TOTAL_ACTIVE_POWER: I32Register("W", 1, 37516),
+SDONGLE_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
+    rn.SDONGLE_TYPE: U16Register(rv.SDongleType, 1, 37410, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_DEVICE_SEARCH_STATUS: U16Register(
+        rv.SDongleDeviceSearchStatus,
+        1,
+        37411,
+        target_device=TargetDevice.SDONGLE,
+    ),
+    rn.SDONGLE_DEVICE_CHANGE_SEQUENCE_NUMBER: U16Register(None, 1, 37412, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_MAXIMUM_DEVICES_ALLOWED: U16Register(None, 1, 37429, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_WIRELESS_ROUTE_ACCESS_SIGNAL_STRENGTH: I16Register(
+        rv.SDongleWirelessRouteAccessSignalStrength4G,
+        1,
+        35104,
+        target_device=TargetDevice.SDONGLE,
+    ),
+    rn.SDONGLE_MONTHLY_USED_TRAFFIC_4G: U32Register("MB", 1, 35116, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_MONTHLY_REMAINING_TRAFFIC_4G: U32Register("MB", 1, 35118, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_AVERAGE_DAILY_USED_TRAFFIC_4G: U32Register("MB", 1, 35120, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_TRAFFIC_STATUS_4G: U16Register(rv.SDongleTrafficStatus4G, 1, 35122, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_IMEI_4G: StringRegister(35254, 10, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_SIGNAL_STRENGTH_4G: U16Register(None, 1, 35264, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_SYSTEM_4G: StringRegister(35266, 10, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_CARRIER_4G: StringRegister(37440, 15, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_TOTAL_INPUT_POWER: U32Register("kW", 1000, 37498, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_LOAD_POWER: U32Register("kW", 1000, 37500, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_GRID_POWER: I32Register(
+        "kW",
+        1000,
+        37502,
+        target_device=TargetDevice.SDONGLE,
+    ),  # positive is importing, negative is exporting
+    rn.SDONGLE_TOTAL_BATTERY_POWER: I32Register(
+        "kW",
+        1000,
+        37504,
+        target_device=TargetDevice.SDONGLE,
+    ),  # positive is charging, negative is discharging
+    rn.SDONGLE_TOTAL_ACTIVE_POWER: I32Register("kW", 1000, 37516, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_RESET: U16Register(None, 1, 40205, target_device=TargetDevice.SDONGLE, readable=False, writeable=True),
+    rn.SDONGLE_APPLICATION_LAYER_HEARTBEAT_PERIOD: U16Register(
+        "min",
+        1,
+        43064,
+        target_device=TargetDevice.SDONGLE,
+        writeable=True,
+    ),
+    rn.SDONGLE_TCP_HEARTBEAT_PERIOD: U16Register("s", 1, 43065, target_device=TargetDevice.SDONGLE, writeable=True),
+    rn.SDONGLE_NMS_SERVER: StringRegister(43067, 30, target_device=TargetDevice.SDONGLE, writeable=True),
+    rn.SDONGLE_NMS_SERVER_PORT1: U16Register(None, 1, 43097, target_device=TargetDevice.SDONGLE, writeable=True),
+    rn.SDONGLE_SSL_ENCRYPTION: U16Register(bool, 1, 43098, target_device=TargetDevice.SDONGLE, writeable=True),
+    rn.SDONGLE_NMS_SERVER_PORT2: U16Register(None, 1, 43099, target_device=TargetDevice.SDONGLE, writeable=True),
+    rn.SDONGLE_PORT_MODE: U16Register(rv.SDonglePortMode, 1, 43100, target_device=TargetDevice.SDONGLE, writeable=True),
+    rn.SDONGLE_REGISTRATION_STATUS: U16Register(bool, 1, 43101, target_device=TargetDevice.SDONGLE, writeable=True),
+    rn.SDONGLE_UNSOLICITED_REPORT_INTERVAL: U16Register(
+        "min",
+        1,
+        43134,
+        target_device=TargetDevice.SDONGLE,
+        writeable=True,
+    ),
+    rn.SDONGLE_REPORTED_DATA_RECORD_PERIOD: U16Register(
+        bool,
+        1,
+        43311,
+        target_device=TargetDevice.SDONGLE,
+        writeable=True,
+    ),
+    rn.SDONGLE_NTP_TIME_SYNCHRONIZATION: U16Register(
+        "min",
+        1,
+        43343,
+        target_device=TargetDevice.SDONGLE,
+        writeable=True,
+    ),
+    rn.SDONGLE_CARD_NUMBER_4G: StringRegister(43386, 10, target_device=TargetDevice.SDONGLE, writeable=True),
+    rn.SDONGLE_NETWORK_MODE_4G: U16Register(
+        rv.SDongleNetworkMode4G,
+        1,
+        43430,
+        target_device=TargetDevice.SDONGLE,
+        writeable=True,
+    ),
+    rn.SDONGLE_TRAFFIC_PACKAGE_4G: U32Register("MB", 2, 43564, target_device=TargetDevice.SDONGLE, writeable=True),
+    rn.SDONGLE_MONTHLY_USED_TRAFFIC_CORRECTION_4G: U32Register("MB", 2, 43566, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_CONNECTION_PORT: U16Register(
+        rv.SDongleConnectionPort,
+        1,
+        45038,
+        target_device=TargetDevice.SDONGLE,
+        readable=False,
+        writeable=True,
+    ),
+    rn.SDONGLE_DEVICE_OPERATION_SN: StringRegister(47402, 10, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_DEVICE_OPERATION_COMMAND: StringRegister(47412, 1, target_device=TargetDevice.SDONGLE),
+    rn.SDONGLE_START_DEVICE_SEARCH: U16Register(None, 1, 47413, target_device=TargetDevice.SDONGLE),
+}
+REGISTERS.update(SDONGLE_REGISTERS)
+
+SMARTLOGGER_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
+    rn.SMARTLOGGER_DATE_TIME: U32Register(None, 1, 40000, writeable=True, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_CITY: U32Register(None, 1, 40002, writeable=True, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_DAYLIGHT_SAVING_TIME_DST: U16Register(
+        None,
+        1,
+        40004,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_TIME_ZONE: I32Register("s", 1, 40005, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_DST_STATE: U16Register(None, 1, 40007, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_DST_OFFSET: U16Register("mins", 1, 40008, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_LOCAL_TIME: U32Register(None, 1, 40009, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_PV_INVERTER_SHUTDOWN: U16Register(
+        None,
+        1,
+        40196,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_PV_INVERTER_STARTUP: U16Register(
+        None,
+        1,
+        40197,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ESS_SHUTDOWN: U16Register(None, 1, 40198, writeable=True, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ESS_STARTUP: U16Register(None, 1, 40199, writeable=True, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_STARTUP: U16Register(None, 1, 40200, writeable=True, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_SHUTDOWN: U16Register(None, 1, 40201, writeable=True, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_STARTUP_SHUTDOWN: U16Register(
+        None,
+        1,
+        40202,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_STARTUP_SHUTDOWN_ESS: U16Register(
+        None,
+        1,
+        40203,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_TRANSFER_TRIP: U16Register(None, 1, 40204, writeable=True, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ARRAY_RESET: U16Register(None, 1, 40205, writeable=True, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_QUANTITY_OF_RUNNING_PV_INVERTERS: U16Register(
+        None,
+        1,
+        40206,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_QUANTITY_OF_RUNNING_ESS_PCSS: U16Register(None, 1, 40207, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ESS_END_OF_DISCHARGE_SOC: U16Register("%", 10, 40217, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ESS_END_OF_CHARGE_SOC: U16Register("%", 10, 40218, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ACTIVE_PV_POWER_ADJUSTMENT_IN_FIXED_VALUE: U32Register(
+        "kW",
+        10,
+        40378,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ACTIVE_PV_POWER_ADJUSTMENT_IN_PERCENTAGE: U16Register(
+        "%",
+        10,
+        40380,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ACTIVE_ESS_POWER_ADJUSTMENT_IN_FIXED_VALUE: I32Register(
+        "kW",
+        10,
+        40381,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ACTIVE_ESS_POWER_ADJUSTMENT_IN_PERCENTAGE: I16Register(
+        "%",
+        10,
+        40383,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_REACTIVE_PV_POWER_ADJUSTMENT_IN_FIXED_VALUE: I32Register(
+        "kVar",
+        10,
+        40384,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_REACTIVE_ESS_POWER_ADJUSTMENT_IN_FIXED_VALUE: I32Register(
+        "kVar",
+        10,
+        40386,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ACTIVE_PV_POWER: U32Register("kW", 1000, 40388, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_REACTIVE_PV_POWER: I32Register("kVar", 1000, 40390, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ACTIVE_ESS_POWER: I32Register("kW", 1000, 40392, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_REACTIVE_ESS_POWER: I32Register("kVar", 1000, 40394, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_RATED_PV_POWER: U32Register("kW", 1000, 40396, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_RATED_ESS_POWER: U32Register("kW", 1000, 40398, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_MAXIMUM_ACTIVE_PV_POWER_ADJUSTMENT_VALUE: U32Register(
+        "kW",
+        1000,
+        40400,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_MAXIMUM_REACTIVE_PV_POWER_ADJUSTMENT_VALUE: U32Register(
+        "kVar",
+        1000,
+        40402,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_MINIMUM_REACTIVE_PV_POWER_ADJUSTMENT_VALUE: I32Register(
+        "kVar",
+        1000,
+        40404,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_MAXIMUM_REACTIVE_ESS_POWER_ADJUSTMENT_VALUE: U32Register(
+        "kVar",
+        1000,
+        40406,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_MINIMUM_REACTIVE_ESS_POWER_ADJUSTMENT_VALUE: I32Register(
+        "kVar",
+        1000,
+        40408,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_MINIMUM_ACTIVE_POWER_ADJUSTMENT_VALUE: I32Register(
+        "kW",
+        10,
+        40412,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ACTIVE_POWER_ADJUSTMENT: I32Register("kW", 10, 40420, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_REACTIVE_POWER_ADJUSTMENT: I32Register("kVar", 10, 40422, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ACTIVE_POWER_ADJUSTMENT_TARGET: U32Register("kW", 10, 40424, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_REACTIVE_POWER_ADJUSTMENT_TARGET: I32Register(
+        "kVar",
+        10,
+        40426,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ACTIVE_POWER_ADJUSTMENT_IN_PERCENTAGE: I16Register(
+        "%",
+        10,
+        40428,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_POWER_FACTOR_ADJUSTMENT: I16Register(None, 1000, 40429, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ACTIVE_POWER_ADJUSTMENT_HIGHEST_PRIORITY: I32Register(
+        "kW",
+        1000,
+        40430,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_REACTIVE_POWER_ADJUSTMENT_HIGHEST_PRIORITY: I32Register(
+        "kVar",
+        1000,
+        40432,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_POWER_SUPPLY_FROM_GRID_TODAY: U32Register("kWh", 100, 40438, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_TOTAL_POWER_SUPPLY_FROM_GRID: I64Register("kWh", 100, 40464, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ENERGY_CHARGED_TODAY: U32Register("kWh", 100, 40468, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ENERGY_DISCHARGED_TODAY: U32Register("kWh", 100, 40470, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_TOTAL_ENERGY_CHARGED: I64Register("kWh", 100, 40472, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_TOTAL_ENERGY_DISCHARGE_D: I64Register("kWh", 100, 40476, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_CHARGEABLE_CAPACITY: U32Register("kWh", 1000, 40480, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_DISCHARGEABLE_CAPACITY: U32Register("kWh", 1000, 40482, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_RATED_ESS_CAPACITY: U32Register("kWh", 1000, 40484, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_MAXIMUM_ESS_CHARGE_POWER: U32Register("kW", 1000, 40490, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_MAXIMUM_ESS_DISCHARGE_POWER: U32Register("kW", 1000, 40492, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_HIGHEST_STABLE_CHARGE_POWER_OF_ESS: U32Register(
+        "kW",
+        1000,
+        40494,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_HIGHEST_STABLE_DISCHARGE_POWER_OF_ESS: U32Register(
+        "kW",
+        1000,
+        40496,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_DC_CURRENT: I16Register("A", 10, 40500, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_SOC: U16Register("%", 10, 40515, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_SOH: U16Register("%", 10, 40516, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_SOE: U16Register("%", 10, 40517, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_RATED_ESS_CAPACITY_IN_AH: U32Register("Ah", 10, 40518, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_INPUT_POWER: U32Register("kW", 1000, 40521, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_CO2_REDUCED: U32Register("kg", 10, 40523, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ACTIVE_POWER: I32Register("kW", 1000, 40525, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_POWER_FACTOR: I16Register(None, 1000, 40532, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ARRAY_IN_OPERATION: U16Register(
+        rv.SmartLoggerInOperation,
+        1,
+        40535,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ARRAY_SHUT_DOWN: U16Register(
+        rv.SmartLoggerShutDown,
+        1,
+        40536,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_PV_INVERTER_IN_OPERATION: U16Register(
+        rv.SmartLoggerInOperation,
+        1,
+        40537,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_PV_INVERTER_SHUT_DOWN: U16Register(
+        rv.SmartLoggerShutDown,
+        1,
+        40538,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ESS_PCS_IN_OPERATION: U16Register(
+        rv.SmartLoggerInOperation,
+        1,
+        40539,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ESS_PCS_SHUT_DOWN: U16Register(
+        rv.SmartLoggerShutDown,
+        1,
+        40540,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_PLANT_STATUS_QINGHAI: U16Register(None, 1, 40541, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_PLANT_STATUS_SHAANXI: U16Register(None, 1, 40542, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_PLANT_STATUS: U16Register(None, 1, 40543, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_REACTIVE_POWER: I32Register("kVar", 1000, 40544, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_CO2_REDUCED_TOTAL: U64Register("kg", 100, 40550, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_DC_CURRENT_2: I32Register("A", 10, 40554, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_TOTAL_ENERGY_YIELD: U32Register("kWh", 10, 40560, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_YIELD_TODAY: U32Register("kWh", 10, 40562, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_TODAYS_POWER_GENERATION_HOURS: U32Register("h", 10, 40564, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_PLANT_STATUS_GANSU: U16Register(None, 1, 40566, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_PLANT_STATUS_NINGXIA: U16Register(None, 1, 40567, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ACTIVE_ALARM_SEQUENCE_NUMBER: U32Register(None, 1, 40568, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_HISTORICAL_ALARM_SEQUENCE_NUMBER: U32Register(
+        None,
+        1,
+        40570,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_PHASE_A_CURRENT_OF_GRID: I16Register("A", 1, 40572, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_PHASE_B_CURRENT_OF_GRID: I16Register("A", 1, 40573, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_PHASE_C_CURRENT_OF_GRID: I16Register("A", 1, 40574, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_A_B_LINE_VOLTAGE_OF_GRID: U16Register("V", 10, 40575, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_B_C_LINE_VOLTAGE_OF_GRID: U16Register("V", 10, 40576, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_C_A_LINE_VOLTAGE_OF_GRID: U16Register("V", 10, 40577, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_STATUS_INFORMATION: U16Register(None, 1, 40578, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_RESERVED: U16Register(None, 1, 40608, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_INVERTER_EFFICIENCY: U16Register("%", 100, 40685, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_MAXIMUM_REACTIVE_POWER_ADJUSTMENT_VALUE: U32Register(
+        "kVar",
+        10,
+        40693,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_MINIMUM_REACTIVE_POWER_ADJUSTMENT_VALUE: I32Register(
+        "kVar",
+        10,
+        40695,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_MAXIMUM_ACTIVE_POWER_ADJUSTMENT_VALUE: I32Register(
+        "kW",
+        10,
+        40697,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_LOCKING_STATUS: U16Register(None, 1, 40699, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_DI_GROUP_STATE: U16Register(None, 1, 40700, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EQUIPMENT_SERIAL_NUMBER_ESN: StringRegister(40713, 10, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_SYSTEM_RESET: U16Register(None, 1, 40723, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_FAST_DEVICE_ACCESS: U16Register(None, 1, 40724, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_DEVICE_OPERATION: StringRegister(40725, 11, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_DEVICE_ACCESS_STATUS: U16Register(None, 1, 40736, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ACTIVE_POWER_CONTROL_MODE: U16Register(None, 1, 40737, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_ACTIVE_POWER_SCHEDULING_TARGET_VALUE: I32Register(
+        "kW",
+        10,
+        40738,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_REACTIVE_POWER_CONTROL_MODE: U16Register(
+        rv.SmartLoggerReactivePowerControl,
+        1,
+        40740,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_REACTIVE_POWER_SCHEDULING_CURVE_MODE: U16Register(
+        None,
+        1,
+        40741,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_REACTIVE_POWER_SCHEDULING_TARGET_VALUE: I32Register(
+        "kVar",
+        10,
+        40742,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ACTIVE_POWER_SCHEDULING_IN_PERCENTAGE: I32Register(
+        "%",
+        1,
+        40802,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_CO2_EMISSION_REDUCTION_COEFFICIENT: U16Register(
+        "kg/k Wh",
+        1000,
+        41124,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ACTIVE_POWER_CONTROL_MODE_PLANT: U16Register(None, 1, 41889, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_PV_MODULE_CAPACITY: U32Register("kW", 1000, 41934, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_RATED_PLANT_CAPACITY: U32Register("kW", 1000, 41936, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_TOTAL_RATED_CAPACITY_OF_GRID_TIED_INVERTERS: U32Register(
+        "kW",
+        1000,
+        41938,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_CONVERSION_COEFFICIENT: U32Register(None, 1000, 41940, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_COMMUNICATION_STATUS: U16Register(None, 1, 41942, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_SHUT_DOWN_ARRAY_UPON_COMMUNICATION_TIMEOUT: U16Register(
+        None,
+        1,
+        41947,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_TIME_FOR_COMMUNICATION_EXCEPTION_DETECTION: U16Register(
+        "s",
+        1,
+        41948,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_START_UP_ARRAY_UPON_COMMUNICATION_RECOVERY: U16Register(
+        None,
+        1,
+        41949,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_SYSTEM_TIME_YEAR: U16Register(
+        None,
+        1,
+        42017,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_SYSTEM_TIME_MONTH: U16Register(
+        None,
+        1,
+        42018,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_SYSTEM_TIME_DAY: U16Register(None, 1, 42019, writeable=True, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_SYSTEM_TIME_HOUR: U16Register(
+        None,
+        1,
+        42020,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_SYSTEM_TIME_MINUTE: U16Register(
+        None,
+        1,
+        42021,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_SYSTEM_TIME_SECOND: U16Register(
+        None,
+        1,
+        42022,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_CURRENT_ERROR_DURING_SCANNING: U16Register(
+        None,
+        100,
+        42150,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_WORKING_MODE: U16Register(None, 1, 42256, writeable=True, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_THE_ACTIVE_POWER_GRADIENT_REGISTER: U32Register(
+        "%/s",
+        1000,
+        42728,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_INSPECTION_CONTROL: U16Register(
+        None,
+        1,
+        42730,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_I_V_CURVE_SCANNING: U16Register(
+        None,
+        1,
+        42779,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_REACTIVE_POWER_CONTROL_MODE_SUBARRAY: U16Register(
+        None,
+        1,
+        44165,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ARRAY_BLACK_START: U16Register(
+        None,
+        1,
+        44360,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ARRAY_BLACK_START_STATUS: U16Register(None, 1, 44361, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_PV_ARRAY_PCS_WORKING_MODE: U16Register(None, 1, 44365, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_VOLTAGE_ADJUSTMENT_VALUE_FOR_VSG_SYNCHRONOUS_CONTROL: I16Register(
+        "%",
+        100,
+        44366,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_FREQUENCY_ADJUSTMENT_VALUE_FOR_VSG_SYNCHRONOUS_CONTROL: I16Register(
+        "%",
+        100,
+        44367,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_POWER_ON_THE_PCS_OF_THE_SUBARRAY: U16Register(
+        None,
+        1,
+        44373,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_SHUT_DOWN_THE_PCS_OF_THE_SUBARRAY: U16Register(
+        None,
+        1,
+        44374,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_SUBARRAY_PV_INVERTER_MICROGRID_ADAPTABILITY: U16Register(
+        None,
+        1,
+        44375,
+        writeable=True,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ALARM_1: U16Register(
+        partial(bitfield_decoder, rv.SMARTLOGGER_ALARM_CODES_1),
+        1,
+        50000,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ALARM_2: U16Register(
+        partial(bitfield_decoder, rv.SMARTLOGGER_ALARM_CODES_2),
+        1,
+        50001,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ALARM_3: U16Register(
+        partial(bitfield_decoder, rv.SMARTLOGGER_ALARM_CODES_3),
+        1,
+        50002,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ALARM_4: U16Register(
+        partial(bitfield_decoder, rv.SMARTLOGGER_ALARM_CODES_4),
+        1,
+        50003,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ALARM_5: U16Register(
+        partial(bitfield_decoder, rv.SMARTLOGGER_ALARM_CODES_5),
+        1,
+        50004,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ALARM_6: U16Register(
+        partial(bitfield_decoder, rv.SMARTLOGGER_ALARM_CODES_6),
+        1,
+        50005,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_ALARM_7: U16Register(
+        partial(bitfield_decoder, rv.SMARTLOGGER_ALARM_CODES_7),
+        1,
+        50006,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    # Public Registers (Section 2.4, registers 65521-65534)
+    rn.SMARTLOGGER_DEVICE_LIST_CHANGE: U16Register(None, 1, 65521, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_DEVICE_NAME: StringRegister(65524, 10, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_DEVICE_CONNECTION_STATUS: U16Register(None, 1, 65534, target_device=TargetDevice.SMARTLOGGER),
 }
 
-REGISTERS.update(SDONGLE_REGISTERS)
+REGISTERS.update(SMARTLOGGER_REGISTERS)
+
+SMARTLOGGER_POWER_METER_REGISTERS: dict[rn.RegisterName, RegisterDefinition[Any]] = {
+    rn.SMARTLOGGER_EXTERNAL_METER_PHASE_A_VOLTAGE: U32Register("V", 100, 32260, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_PHASE_B_VOLTAGE: U32Register("V", 100, 32262, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_PHASE_C_VOLTAGE: U32Register("V", 100, 32264, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_A_B_LINE_VOLTAGE: U32Register(
+        "V",
+        100,
+        32266,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_B_C_LINE_VOLTAGE: U32Register(
+        "V",
+        100,
+        32268,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_C_A_LINE_VOLTAGE: U32Register(
+        "V",
+        100,
+        32270,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_PHASE_A_CURRENT: I32Register("A", 10, 32272, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_PHASE_B_CURRENT: I32Register("A", 10, 32274, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_PHASE_C_CURRENT: I32Register("A", 10, 32276, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_ACTIVE_POWER: I32Register("kW", 1000, 32278, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_REACTIVE_POWER: I32Register(
+        "kVa r",
+        1000,
+        32280,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_ACTIVE_ELECTRICITY: I32Register(
+        "kW h",
+        10,
+        32282,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_POWER_FACTOR: I16Register(None, 1000, 32284, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_REACTIVE_ELECTRICITY: I32Register(
+        "kvar h",
+        10,
+        32285,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_APPARENT_POWER: I32Register(
+        "kVA",
+        1000,
+        32287,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_POSITIVE_ACTIVE_ELECTRICITY: I32Register(
+        "kW h",
+        100,
+        32289,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_POSITIVE_REACTIVE_ELECTRICITY: I32Register(
+        "kvar h",
+        100,
+        32291,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_ELECTRICITY_IN_POSITIVE_ACTIVE_ELECTRICITY_PRICE_SEGMENT_1: I32Register(
+        "kW h",
+        100,
+        32299,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_ELECTRICITY_IN_POSITIVE_ACTIVE_ELECTRICITY_PRICE_SEGMENT_2: I32Register(
+        "kW h",
+        100,
+        32301,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_ELECTRICITY_IN_POSITIVE_ACTIVE_ELECTRICITY_PRICE_SEGMENT_3: I32Register(
+        "kW h",
+        100,
+        32303,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_ELECTRICITY_IN_POSITIVE_ACTIVE_ELECTRICITY_PRICE_SEGMENT_4: I32Register(
+        "kW h",
+        100,
+        32305,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_ELECTRICITY_IN_NEGATIVE_ACTIVE_ELECTRICITY_PRICE_SEGMENT_1: I32Register(
+        "kW h",
+        100,
+        32307,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_ELECTRICITY_IN_NEGATIVE_ACTIVE_ELECTRICITY_PRICE_SEGMENT_2: I32Register(
+        "kW h",
+        100,
+        32309,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_ELECTRICITY_IN_NEGATIVE_ACTIVE_ELECTRICITY_PRICE_SEGMENT_3: I32Register(
+        "kW h",
+        100,
+        32311,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_ELECTRICITY_IN_NEGATIVE_ACTIVE_ELECTRICITY_PRICE_SEGMENT_4: I32Register(
+        "kW h",
+        100,
+        32313,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_CUSTOM_1: I32Register(None, 1000, 32315, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_CUSTOM_2: I32Register(None, 1000, 32317, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_CUSTOM_3: I32Register(None, 1000, 32319, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_CUSTOM_4: I32Register(None, 1000, 32321, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_CUSTOM_5: I32Register(None, 1000, 32323, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_CUSTOM_6: I32Register(None, 1000, 32325, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_CUSTOM_7: I32Register(None, 1000, 32327, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_CUSTOM_8: I32Register(None, 1000, 32329, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_CUSTOM_9: I32Register(None, 1000, 32331, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_CUSTOM_10: I32Register(None, 1000, 32333, target_device=TargetDevice.SMARTLOGGER),
+    rn.SMARTLOGGER_EXTERNAL_METER_PHASE_A_ACTIVE_POWER: I32Register(
+        "kW",
+        1000,
+        32335,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_PHASE_B_ACTIVE_POWER: I32Register(
+        "kW",
+        1000,
+        32337,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_PHASE_C_ACTIVE_POWER: I32Register(
+        "kW",
+        1000,
+        32339,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_TOTAL_ACTIVE_ELECTRICITY: I64Register(
+        "kW h",
+        100,
+        32341,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_TOTAL_REACTIVE_ELECTRICITY: I64Register(
+        "kvar h",
+        100,
+        32345,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_NEGATIVE_ACTIVE_ELECTRICITY: I64Register(
+        "kW h",
+        100,
+        32349,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_NEGATIVE_REACTIVE_ELECTRICITY: I64Register(
+        "kvar h",
+        100,
+        32353,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_POSITIVE_ACTIVE_ELECTRICITY_TOTAL: I64Register(
+        "kW h",
+        100,
+        32357,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+    rn.SMARTLOGGER_EXTERNAL_METER_POSITIVE_REACTIVE_ELECTRICITY_TOTAL: I64Register(
+        "kvar h",
+        100,
+        32361,
+        target_device=TargetDevice.SMARTLOGGER,
+    ),
+}
+
+REGISTERS.update(SMARTLOGGER_POWER_METER_REGISTERS)

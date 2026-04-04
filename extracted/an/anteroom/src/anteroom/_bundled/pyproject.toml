@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "anteroom"
-version = "1.151.0"
+version = "1.152.0"
 description = "Anteroom - your gateway to AI conversation"
 readme = "README.md"
 license = "Apache-2.0"
@@ -162,6 +162,7 @@ line-length = 120
 select = ["E", "F", "I", "N", "W"]
 
 [tool.pytest.ini_options]
+pythonpath = ["src"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [

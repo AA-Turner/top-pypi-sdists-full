@@ -111,42 +111,42 @@ pub(crate) fn rfind_bitvec(
 ) -> Option<usize> {
     debug_assert!(end >= start);
     debug_assert!(end <= haystack.len());
+    let lps = compute_lps(needle);
     if byte_aligned {
-        rfind_bitvec_impl::<true>(haystack, needle, start, end)
+        rfind_bitvec_impl_with_lps::<true>(&haystack, &needle, &lps, start, end)
     } else {
-        rfind_bitvec_impl::<false>(haystack, needle, start, end)
+        rfind_bitvec_impl_with_lps::<false>(&haystack, &needle, &lps, start, end)
     }
 }
 
-fn rfind_bitvec_impl<const BYTE_ALIGNED: bool>(
+pub(crate) fn rfind_bitvec_with_lps(
     haystack: &BS,
     needle: &BS,
+    lps: &[usize],
+    start: usize,
+    end: usize,
+    byte_aligned: bool,
+) -> Option<usize> {
+    debug_assert!(end >= start);
+    debug_assert!(end <= haystack.len());
+    if byte_aligned {
+        rfind_bitvec_impl_with_lps::<true>(&haystack, &needle, &lps, start, end)
+    } else {
+        rfind_bitvec_impl_with_lps::<false>(&haystack, &needle, &lps, start, end)
+    }
+}
+
+fn rfind_bitvec_impl_with_lps<const BYTE_ALIGNED: bool>(
+    haystack: &BS,
+    needle: &BS,
+    lps: &[usize],
     start: usize,
     end: usize,
 ) -> Option<usize> {
-    let needle_len = needle.len();
-    if needle.is_empty() || needle_len > end - start {
+    if needle.is_empty() || needle.len() > end - start {
         return None;
     }
-
-    // TODO: this should be hoisted out as it shouldn't be recalculated for a rfind_all.
-    // We treat needle as if it were reversed: needle_rev[i] == needle[len - 1 - i]
-    // The lps_rev array matches the indices of the conceptual reversed needle.
-    let mut lps_rev = vec![0; needle_len];
-    let mut len_prev = 0;
-    let mut i = 1;
-    while i < needle_len {
-        if needle[needle_len - 1 - i] == needle[needle_len - 1 - len_prev] {
-            len_prev += 1;
-            lps_rev[i] = len_prev;
-            i += 1;
-        } else if len_prev != 0 {
-            len_prev = lps_rev[len_prev - 1];
-        } else {
-            lps_rev[i] = 0;
-            i += 1;
-        }
-    }
+    let needle_len = needle.len();
 
     // 2. Search backwards in haystack
     // i is the current index in haystack (moving backwards)
@@ -168,12 +168,12 @@ fn rfind_bitvec_impl<const BYTE_ALIGNED: bool>(
                     return Some(i);
                 }
                 // Mismatch due to alignment, slide using the table
-                j = lps_rev[j - 1];
+                j = lps[j - 1];
             }
         } else if j != 0 {
             // Mismatch, but we have some progress `j`.
             // Jump to the longest suffix that is also a prefix (in reverse logic)
-            j = lps_rev[j - 1];
+            j = lps[j - 1];
         } else {
             i -= 1;
         }
@@ -248,7 +248,8 @@ pub(crate) fn count_bitvec(haystack: &BS, needle: &BS) -> usize {
     count
 }
 
-pub(crate) fn validate_index(index: i64, length: usize) -> PyResult<usize> {
+/// Validates the index is in range and returns an absolute MSB0 index.
+pub(crate) fn validate_index(index: i64, length: usize, is_msb0: bool) -> PyResult<usize> {
     let index_p = if index < 0 {
         length as i64 + index
     } else {
@@ -259,7 +260,11 @@ pub(crate) fn validate_index(index: i64, length: usize) -> PyResult<usize> {
             "Index of {index} is out of range for length of {length}"
         )));
     }
-    Ok(index_p as usize)
+    if is_msb0 {
+        Ok(index_p as usize)
+    } else {
+        Ok((length as i64 - index_p - 1) as usize)
+    }
 }
 
 pub(crate) fn validate_shift(s: &impl BitCollection, n: i64) -> PyResult<usize> {
@@ -297,6 +302,34 @@ pub(crate) fn validate_slice(
         )));
     }
     Ok((start as usize, end as usize))
+}
+
+#[inline]
+pub(crate) fn logical_range_to_physical(
+    length: usize,
+    start: usize,
+    end: usize,
+    msb0: bool,
+) -> (usize, usize) {
+    if msb0 {
+        (start, end)
+    } else {
+        (length - end, length - start)
+    }
+}
+
+#[inline]
+pub(crate) fn physical_match_to_logical_start(
+    length: usize,
+    needle_len: usize,
+    physical_start: usize,
+    msb0: bool,
+) -> usize {
+    if msb0 {
+        physical_start
+    } else {
+        length - needle_len - physical_start
+    }
 }
 
 pub(crate) fn process_seed(seed: &Option<Vec<u8>>) -> [u8; 32] {
@@ -480,7 +513,7 @@ pub(crate) fn bv_from_bytes_slice(
 }
 
 #[inline]
-pub(crate) fn bv_from_u128(value: u128, length: i64) -> PyResult<BV> {
+pub(crate) fn bv_from_u128(value: u128, length: i64, is_little_endian: bool) -> PyResult<BV> {
     if length <= 0 || length > 128 {
         return Err(PyValueError::new_err(format!(
             "Bit length for unsigned int must be between 1 and 128. Received {length}."
@@ -489,7 +522,11 @@ pub(crate) fn bv_from_u128(value: u128, length: i64) -> PyResult<BV> {
     // Special case for 128 to avoid overflow in more general case
     if length == 128 {
         let mut bv = BV::repeat(false, 128);
-        bv.store_be(value);
+        if is_little_endian {
+            bv.store_le(value);
+        } else {
+            bv.store_be(value);
+        }
         return Ok(bv);
     }
     if value >= (1u128 << length) {
@@ -498,12 +535,16 @@ pub(crate) fn bv_from_u128(value: u128, length: i64) -> PyResult<BV> {
         )));
     }
     let mut bv = BV::repeat(false, length as usize);
-    bv.store_be(value);
+    if is_little_endian {
+        bv.store_le(value);
+    } else {
+        bv.store_be(value);
+    }
     Ok(bv)
 }
 
 #[inline]
-pub(crate) fn bv_from_i128(value: i128, length: i64) -> PyResult<BV> {
+pub(crate) fn bv_from_i128(value: i128, length: i64, is_little_endian: bool) -> PyResult<BV> {
     if length <= 0 || length > 128 {
         return Err(PyValueError::new_err(format!(
             "Bit length for signed int must be between 1 and 128. Received {length}."
@@ -512,7 +553,11 @@ pub(crate) fn bv_from_i128(value: i128, length: i64) -> PyResult<BV> {
     // Special case for 128 to avoid overflow in more general case
     if length == 128 {
         let mut bv = BV::repeat(value < 0, 128);
-        bv.store_be(value);
+        if is_little_endian {
+            bv.store_le(value);
+        } else {
+            bv.store_be(value);
+        }
         return Ok(bv);
     }
     let min_val = -(1i128 << (length - 1));
@@ -524,27 +569,43 @@ pub(crate) fn bv_from_i128(value: i128, length: i64) -> PyResult<BV> {
     }
     let repeat_bit = value < 0;
     let mut bv = BV::repeat(repeat_bit, length as usize);
-    bv.store_be(value);
+    if is_little_endian {
+        bv.store_le(value);
+    } else {
+        bv.store_be(value);
+    }
     Ok(bv)
 }
 
-pub(crate) fn bv_from_f64(value: f64, length: i64) -> PyResult<BV> {
+pub(crate) fn bv_from_f64(value: f64, length: i64, is_little_endian: bool) -> PyResult<BV> {
     let bv = match length {
         64 => {
             let mut bv = BV::repeat(false, 64);
-            bv.store_be(value.to_bits());
+            if is_little_endian {
+                bv.store_le(value.to_bits());
+            } else {
+                bv.store_be(value.to_bits());
+            }
             bv
         }
         32 => {
             let value_f32 = value as f32;
             let mut bv = BV::repeat(false, 32);
-            bv.store_be(value_f32.to_bits());
+            if is_little_endian {
+                bv.store_le(value_f32.to_bits());
+            } else {
+                bv.store_be(value_f32.to_bits());
+            }
             bv
         }
         16 => {
             let value_f16 = f16::from_f64(value);
             let mut bv = BV::repeat(false, 16);
-            bv.store_be(value_f16.to_bits());
+            if is_little_endian {
+                bv.store_le(value_f16.to_bits());
+            } else {
+                bv.store_be(value_f16.to_bits());
+            }
             bv
         }
         _ => {

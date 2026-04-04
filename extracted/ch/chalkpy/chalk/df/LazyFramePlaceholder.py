@@ -1667,6 +1667,10 @@ def _convert_to_dataframe_proto(
             return dataframe_pb2.DataFrameOperand(
                 value_none=dataframe_pb2.PyNone(),
             )
+        if isinstance(value, bool):
+            return dataframe_pb2.DataFrameOperand(
+                value_bool=value,
+            )
         if isinstance(value, int):
             return dataframe_pb2.DataFrameOperand(
                 value_int=value,
@@ -1674,10 +1678,6 @@ def _convert_to_dataframe_proto(
         if isinstance(value, str):
             return dataframe_pb2.DataFrameOperand(
                 value_string=value,
-            )
-        if isinstance(value, bool):
-            return dataframe_pb2.DataFrameOperand(
-                value_bool=value,
             )
         if isinstance(value, (list, tuple)):
             return dataframe_pb2.DataFrameOperand(

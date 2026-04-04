@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -9,6 +10,7 @@ from anteroom.cli.instructions import (
     _CHARS_PER_TOKEN_ESTIMATE,
     CONVENTIONS_TOKEN_WARNING_THRESHOLD,
     ConventionsInfo,
+    capture_snapshot,
     discover_conventions,
     estimate_tokens,
     find_project_instructions,
@@ -183,6 +185,100 @@ class TestWalkUpDiscovery:
         assert result is None or result[1] is not None
 
 
+class TestClaudeMdPrecedence:
+    """Verify .claude.md and CLAUDE.md are discovered with correct priority (#1180)."""
+
+    def test_claude_md_discovered(self, tmp_path: Path):
+        (tmp_path / "CLAUDE.md").write_text("claude visible")
+        result = find_project_instructions_path(str(tmp_path))
+        assert result is not None
+        path, content = result
+        assert path.name == "CLAUDE.md"
+        assert content == "claude visible"
+
+    def test_hidden_claude_md_takes_priority(self, tmp_path: Path):
+        (tmp_path / ".claude.md").write_text("claude hidden")
+        (tmp_path / "CLAUDE.md").write_text("claude visible")
+        result = find_project_instructions_path(str(tmp_path))
+        assert result is not None
+        path, content = result
+        assert path.name == ".claude.md"
+        assert content == "claude hidden"
+
+    def test_anteroom_beats_claude(self, tmp_path: Path):
+        (tmp_path / "ANTEROOM.md").write_text("anteroom")
+        (tmp_path / ".claude.md").write_text("claude hidden")
+        result = find_project_instructions_path(str(tmp_path))
+        assert result is not None
+        path, content = result
+        assert path.name == "ANTEROOM.md"
+        assert content == "anteroom"
+
+
+class TestFullFourFilenamePrecedence:
+    """Full 4-filename priority within a single directory (#1180).
+
+    Expected order: .anteroom.md > ANTEROOM.md > .claude.md > CLAUDE.md
+    """
+
+    def test_full_precedence_order(self, tmp_path: Path):
+        (tmp_path / ".anteroom.md").write_text("1-hidden-anteroom")
+        (tmp_path / "ANTEROOM.md").write_text("2-anteroom")
+        (tmp_path / ".claude.md").write_text("3-hidden-claude")
+        (tmp_path / "CLAUDE.md").write_text("4-claude")
+        result = find_project_instructions_path(str(tmp_path))
+        assert result is not None
+        _, content = result
+        assert content == "1-hidden-anteroom"
+
+    def test_second_priority(self, tmp_path: Path):
+        (tmp_path / "ANTEROOM.md").write_text("2-anteroom")
+        (tmp_path / ".claude.md").write_text("3-hidden-claude")
+        (tmp_path / "CLAUDE.md").write_text("4-claude")
+        result = find_project_instructions_path(str(tmp_path))
+        assert result is not None
+        _, content = result
+        assert content == "2-anteroom"
+
+    def test_third_priority(self, tmp_path: Path):
+        (tmp_path / ".claude.md").write_text("3-hidden-claude")
+        (tmp_path / "CLAUDE.md").write_text("4-claude")
+        result = find_project_instructions_path(str(tmp_path))
+        assert result is not None
+        _, content = result
+        assert content == "3-hidden-claude"
+
+    def test_fourth_priority(self, tmp_path: Path):
+        (tmp_path / "CLAUDE.md").write_text("4-claude")
+        result = find_project_instructions_path(str(tmp_path))
+        assert result is not None
+        _, content = result
+        assert content == "4-claude"
+
+
+class TestWalkUpMixedFilenames:
+    """Walk-up with mixed filenames across directories (#1180)."""
+
+    def test_child_claude_md_beats_parent_anteroom(self, tmp_path: Path):
+        (tmp_path / "ANTEROOM.md").write_text("parent anteroom")
+        child = tmp_path / "subdir"
+        child.mkdir()
+        (child / ".claude.md").write_text("child claude")
+        result = find_project_instructions_path(str(child))
+        assert result is not None
+        _, content = result
+        assert content == "child claude"
+
+    def test_falls_through_to_parent(self, tmp_path: Path):
+        (tmp_path / "CLAUDE.md").write_text("parent claude")
+        child = tmp_path / "subdir"
+        child.mkdir()
+        result = find_project_instructions_path(str(child))
+        assert result is not None
+        _, content = result
+        assert content == "parent claude"
+
+
 class TestTokenEstimationThreshold:
     """Token estimation and oversized threshold detection."""
 
@@ -214,3 +310,138 @@ class TestTokenEstimationThreshold:
         assert info.is_oversized is True
         assert info.warning is not None
         assert str(CONVENTIONS_TOKEN_WARNING_THRESHOLD) in info.warning.replace(",", "")
+
+
+class TestInstructionsSnapshot:
+    """Tests for InstructionsSnapshot change detection (#1302)."""
+
+    def test_capture_both_files(self, tmp_path: Path):
+        (tmp_path / "ANTEROOM.md").write_text("project")
+        global_dir = tmp_path / "global"
+        global_dir.mkdir()
+        (global_dir / "ANTEROOM.md").write_text("global")
+
+        with patch(
+            "anteroom.cli.instructions.find_global_instructions_path",
+            return_value=(global_dir / "ANTEROOM.md", "global"),
+        ):
+            snap = capture_snapshot(str(tmp_path))
+
+        assert snap.project_path == tmp_path / "ANTEROOM.md"
+        assert snap.project_mtime is not None
+        assert snap.global_path == global_dir / "ANTEROOM.md"
+        assert snap.global_mtime is not None
+        assert snap.working_dir == str(tmp_path)
+
+    def test_capture_no_files(self, tmp_path: Path):
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            snap = capture_snapshot(str(tmp_path))
+
+        assert snap.project_path is None
+        assert snap.project_mtime is None
+        assert snap.global_path is None
+        assert snap.global_mtime is None
+
+    def test_capture_project_only(self, tmp_path: Path):
+        (tmp_path / ".anteroom.md").write_text("hidden variant")
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            snap = capture_snapshot(str(tmp_path))
+
+        assert snap.project_path == tmp_path / ".anteroom.md"
+        assert snap.project_mtime is not None
+        assert snap.global_path is None
+
+    def test_capture_global_only(self, tmp_path: Path):
+        global_dir = tmp_path / "global"
+        global_dir.mkdir()
+        (global_dir / "ANTEROOM.md").write_text("global")
+
+        with patch(
+            "anteroom.cli.instructions.find_global_instructions_path",
+            return_value=(global_dir / "ANTEROOM.md", "global"),
+        ):
+            snap = capture_snapshot(str(tmp_path))
+
+        assert snap.project_path is None
+        assert snap.global_path == global_dir / "ANTEROOM.md"
+
+    def test_capture_claude_md_variant(self, tmp_path: Path):
+        (tmp_path / ".claude.md").write_text("claude md variant")
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            snap = capture_snapshot(str(tmp_path))
+
+        assert snap.project_path == tmp_path / ".claude.md"
+
+    def test_has_changed_detects_mtime(self, tmp_path: Path):
+        (tmp_path / "ANTEROOM.md").write_text("v1")
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            snap = capture_snapshot(str(tmp_path))
+
+        # Ensure mtime actually changes (filesystem resolution can be coarse)
+        time.sleep(0.05)
+        (tmp_path / "ANTEROOM.md").write_text("v2")
+
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            assert snap.has_changed(str(tmp_path)) is True
+
+    def test_has_changed_stable(self, tmp_path: Path):
+        (tmp_path / "ANTEROOM.md").write_text("stable")
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            snap = capture_snapshot(str(tmp_path))
+            assert snap.has_changed(str(tmp_path)) is False
+
+    def test_has_changed_file_appears(self, tmp_path: Path):
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            snap = capture_snapshot(str(tmp_path))
+
+        # File didn't exist, now it does
+        (tmp_path / "ANTEROOM.md").write_text("appeared")
+
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            assert snap.has_changed(str(tmp_path)) is True
+
+    def test_has_changed_file_disappears(self, tmp_path: Path):
+        (tmp_path / "ANTEROOM.md").write_text("will vanish")
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            snap = capture_snapshot(str(tmp_path))
+
+        (tmp_path / "ANTEROOM.md").unlink()
+
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            assert snap.has_changed(str(tmp_path)) is True
+
+    def test_has_changed_working_dir_change(self, tmp_path: Path):
+        (tmp_path / "ANTEROOM.md").write_text("content")
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            snap = capture_snapshot(str(tmp_path))
+
+        other_dir = tmp_path / "other"
+        other_dir.mkdir()
+        assert snap.has_changed(str(other_dir)) is True
+
+    def test_has_changed_higher_priority_shadows(self, tmp_path: Path):
+        (tmp_path / "ANTEROOM.md").write_text("original")
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            snap = capture_snapshot(str(tmp_path))
+
+        # Higher-priority .anteroom.md shadows ANTEROOM.md
+        (tmp_path / ".anteroom.md").write_text("shadow")
+
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            assert snap.has_changed(str(tmp_path)) is True
+
+    def test_has_changed_nearer_dir_shadows(self, tmp_path: Path):
+        (tmp_path / "ANTEROOM.md").write_text("parent")
+        child = tmp_path / "subdir"
+        child.mkdir()
+
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            snap = capture_snapshot(str(child))
+
+        assert snap.project_path == tmp_path / "ANTEROOM.md"
+
+        # Create nearer file that shadows parent
+        (child / "ANTEROOM.md").write_text("child")
+
+        with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
+            assert snap.has_changed(str(child)) is True

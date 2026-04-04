@@ -4,7 +4,6 @@
 
 """Local language providers & translators."""
 
-
 from typing import List, Callable
 
 from garak.exception import BadGeneratorException

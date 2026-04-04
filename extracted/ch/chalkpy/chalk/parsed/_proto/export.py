@@ -9,6 +9,7 @@ from chalk._gen.chalk.artifacts.v1 import chart_pb2 as chart_pb
 from chalk._gen.chalk.artifacts.v1.cdc_pb2 import CDCSource, CDCTableReference
 from chalk._gen.chalk.artifacts.v1.cron_query_pb2 import CronQuery, RecomputeSettings
 from chalk._gen.chalk.common.v1 import chalk_error_pb2
+from chalk._gen.chalk.common.v1.offline_query_pb2 import UnloadResolverSpec
 from chalk._gen.chalk.lsp.v1 import lsp_pb2
 from chalk._lsp.error_builder import LSPErrorBuilder
 from chalk._monitoring.Chart import Chart as _Chart
@@ -230,6 +231,13 @@ def export_from_registry() -> export_pb.Export:
                 num_shards=cron.num_shards,
                 num_workers=cron.num_workers,
                 input_sql=cron.input_sql,
+                unload_resolvers=[
+                    UnloadResolverSpec(
+                        fqn=spec["fqn"],
+                        partition_by=spec.get("partition_by", []),
+                    )
+                    for spec in (cron.unload_resolvers or [])
+                ],
             )
         )
 

@@ -238,7 +238,14 @@ def add_toctree_functions(
         nav_item = "nav-item"
         nav_link = "nav-link"
         dropdown_item = "dropdown-item"
-        for link in links_data[:n_links_before_dropdown]:
+        if len(links_data) <= n_links_before_dropdown + 1:
+            # max items without a dropdown is n + 1,
+            # the cutoff counting the dropdown itself.
+            # avoids having a dropdown with exactly one item
+            dropdown_cutoff = n_links_before_dropdown + 1
+        else:
+            dropdown_cutoff = n_links_before_dropdown
+        for link in links_data[:dropdown_cutoff]:
             links_html.append(
                 boilerplate.format(
                     active="current active" if link.is_current else "",
@@ -249,7 +256,7 @@ def add_toctree_functions(
                     title=link.title,
                 )
             )
-        for link in links_data[n_links_before_dropdown:]:
+        for link in links_data[dropdown_cutoff:]:
             links_dropdown.append(
                 boilerplate.format(
                     active="current active" if link.is_current else "",
@@ -427,7 +434,7 @@ def add_toctree_functions(
             if ul is None:
                 return
             if level <= (context["theme_show_toc_level"] + 1):
-                ul["class"] = [*ul.get("class", []), "visible"]
+                ul["class"] = [*ul.get("class", []), "pst-show_toc_level"]
             for li in ul("li", recursive=False):
                 li["class"] = [*li.get("class", []), f"toc-h{level}"]
                 add_header_level_recursive(li.find("ul", recursive=False), level + 1)

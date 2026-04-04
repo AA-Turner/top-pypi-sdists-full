@@ -13,7 +13,7 @@ description = "ryo3 + jiff https://github.com/BurntSushi/jiff"
 readme = "README.md"
 
 [dependencies]
-jiff = {workspace =true, features = ["default", "perf-inline"] }
+jiff = { workspace = true, features = ["default", "perf-inline"] }
 pyo3 = { workspace = true, features = ["jiff-02"] }
 ryo3-core.workspace = true
 ryo3-macro-rules.workspace = true
@@ -30,17 +30,9 @@ pyo3-build-config = { workspace = true }
 
 [features]
 default = []
-ry = [
-  "serde",
-  "pydantic"
-]
-pydantic = [
-  "ryo3-pydantic",
-]
-serde = [
-  "dep:serde",
-  "jiff/serde",
-]
+ry = ["serde", "pydantic"]
+pydantic = ["ryo3-pydantic"]
+serde = ["dep:serde", "jiff/serde"]
 
 [lints]
 workspace = true

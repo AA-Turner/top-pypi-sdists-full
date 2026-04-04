@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain
-Version: 1.2.14
+Version: 1.2.15
 Summary: Building applications with LLMs through composability
 Project-URL: Homepage, https://docs.langchain.com/
 Project-URL: Documentation, https://reference.langchain.com/python/langchain/langchain/
@@ -25,7 +25,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <4.0.0,>=3.10.0
 Requires-Dist: langchain-core<2.0.0,>=1.2.10
-Requires-Dist: langgraph<1.2.0,>=1.1.1
+Requires-Dist: langgraph<1.2.0,>=1.1.5
 Requires-Dist: pydantic<3.0.0,>=2.7.4
 Provides-Extra: anthropic
 Requires-Dist: langchain-anthropic; extra == 'anthropic'

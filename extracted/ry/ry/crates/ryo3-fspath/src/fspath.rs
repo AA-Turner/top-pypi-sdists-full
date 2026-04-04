@@ -7,7 +7,7 @@ use pyo3::exceptions::{
 
 use pyo3::types::{PyBytes, PyTuple};
 use pyo3::{IntoPyObjectExt, intern, prelude::*};
-use ryo3_bytes::extract_bytes_ref;
+use ryo3_bytes::PyBytes as RyBytes;
 use ryo3_core::RyMutex;
 use ryo3_core::types::PathLike;
 use ryo3_macro_rules::pytodo;
@@ -323,7 +323,7 @@ impl PyFsPath {
         Self::from(p)
     }
 
-    fn read(&self, py: Python<'_>) -> PyResult<ryo3_bytes::PyBytes> {
+    fn read(&self, py: Python<'_>) -> PyResult<RyBytes> {
         let fbytes = py.detach(|| std::fs::read(self.path()))?;
         Ok(fbytes.into())
     }
@@ -346,8 +346,8 @@ impl PyFsPath {
         }
     }
 
-    fn write(&self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<usize> {
-        let b = extract_bytes_ref(data)?;
+    fn write(&self, py: Python<'_>, data: RyBytes) -> PyResult<usize> {
+        let b = data.as_slice();
         let write_res = py.detach(|| std::fs::write(self.path(), b));
         match write_res {
             Ok(()) => Ok(b.len()),
@@ -360,7 +360,7 @@ impl PyFsPath {
         }
     }
 
-    fn write_bytes(&self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<usize> {
+    fn write_bytes(&self, py: Python<'_>, data: RyBytes) -> PyResult<usize> {
         self.write(py, data)
     }
 
@@ -378,7 +378,7 @@ impl PyFsPath {
     }
     // Path.touch(mode=0o666, exist_ok=True)
     // Create a file at this given path. If mode is given, it is combined with the
-    // process’s umask value to determine the file mode and access flags. If the
+    // process's umask value to determine the file mode and access flags. If the
     // file already exists, the function succeeds when exist_ok is true (and its
     // modification time is updated to the current time), otherwise FileExistsError
     // is raised.

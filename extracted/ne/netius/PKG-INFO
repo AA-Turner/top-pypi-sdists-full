@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: netius
-Version: 1.36.2
+Version: 1.37.0
 Summary: Netius System
 Home-page: http://netius.hive.pt
 Author: Hive Solutions Lda.
@@ -77,3 +77,5 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14

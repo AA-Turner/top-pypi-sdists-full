@@ -1,10 +1,9 @@
 from collections import defaultdict
 from itertools import combinations
-from typing import Callable, Dict, Iterable, List, Set, Tuple
-
-import networkx as nx
+from typing import Callable, Dict, Iterable, List, Set, Tuple, cast
 
 from trilogy.constants import logger
+from trilogy.core import graph as nx
 from trilogy.core.enums import Derivation, Purpose
 from trilogy.core.graph_models import ReferenceGraph, concept_to_node
 from trilogy.core.models.build import (
@@ -341,7 +340,7 @@ def build_ds_column_index(
 
 
 def iter_unique_ds_pairs(
-    g: nx.Graph,
+    g: nx.Graph | nx.DiGraph,
 ) -> Iterable[Tuple[str, str]]:
     """
     Yield each unordered datasource pair once.
@@ -349,7 +348,7 @@ def iter_unique_ds_pairs(
     seen = set()
     for ds in g.nodes:
         for nbr in g.neighbors(ds):
-            pair = tuple(sorted((ds, nbr)))
+            pair = cast(Tuple[str, str], tuple(sorted((ds, nbr))))
             if pair in seen:
                 continue
             seen.add(pair)

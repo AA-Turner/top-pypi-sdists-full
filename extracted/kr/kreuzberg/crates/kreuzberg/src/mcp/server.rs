@@ -107,8 +107,13 @@ impl KreuzbergMcp {
         Parameters(params): Parameters<super::params::ExtractFileParams>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
         use super::errors::map_kreuzberg_error_to_mcp;
-        use super::format::{build_config, format_extraction_result};
+        use super::format::{build_config, format_extraction_result_for_wire};
         use tower::Service;
+
+        let use_toon = params
+            .response_format
+            .as_deref()
+            .is_some_and(|f| f.eq_ignore_ascii_case("toon"));
 
         let config =
             build_config(&self.default_config, params.config).map_err(|e| rmcp::ErrorData::invalid_params(e, None))?;
@@ -125,7 +130,7 @@ impl KreuzbergMcp {
             .clone();
         let result = svc.call(request).await.map_err(map_kreuzberg_error_to_mcp)?;
 
-        let response = format_extraction_result(&result);
+        let response = format_extraction_result_for_wire(&result, use_toon);
         Ok(CallToolResult::success(vec![Content::text(response)]))
     }
 
@@ -145,9 +150,14 @@ impl KreuzbergMcp {
         Parameters(params): Parameters<super::params::ExtractBytesParams>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
         use super::errors::map_kreuzberg_error_to_mcp;
-        use super::format::{build_config, format_extraction_result};
+        use super::format::{build_config, format_extraction_result_for_wire};
         use base64::prelude::*;
         use tower::Service;
+
+        let use_toon = params
+            .response_format
+            .as_deref()
+            .is_some_and(|f| f.eq_ignore_ascii_case("toon"));
 
         let bytes = BASE64_STANDARD
             .decode(&params.data)
@@ -167,7 +177,7 @@ impl KreuzbergMcp {
             .clone();
         let result = svc.call(request).await.map_err(map_kreuzberg_error_to_mcp)?;
 
-        let response = format_extraction_result(&result);
+        let response = format_extraction_result_for_wire(&result, use_toon);
         Ok(CallToolResult::success(vec![Content::text(response)]))
     }
 
@@ -232,11 +242,20 @@ impl KreuzbergMcp {
                     .collect()
             };
 
+        let use_toon = params
+            .response_format
+            .as_deref()
+            .is_some_and(|f| f.eq_ignore_ascii_case("toon"));
+
         let results = batch_extract_file(items, &config)
             .await
             .map_err(map_kreuzberg_error_to_mcp)?;
 
-        let response = serde_json::to_string_pretty(&results).unwrap_or_default();
+        let response = if use_toon {
+            serde_toon::to_string(&results).unwrap_or_default()
+        } else {
+            serde_json::to_string_pretty(&results).unwrap_or_default()
+        };
         Ok(CallToolResult::success(vec![Content::text(response)]))
     }
 
@@ -431,6 +450,16 @@ impl KreuzbergMcp {
         &self,
         Parameters(params): Parameters<super::params::CacheWarmParams>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
+        // Validate embedding_model is not an empty string
+        if let Some(ref name) = params.embedding_model
+            && name.trim().is_empty()
+        {
+            return Err(rmcp::ErrorData::invalid_params(
+                "Field 'embedding_model' must not be empty. Omit the field or provide a valid preset name.".to_string(),
+                None,
+            ));
+        }
+
         let cache_base = resolve_cache_base();
 
         let mut downloaded: Vec<String> = Vec::new();
@@ -614,6 +643,7 @@ fn embed_text_impl(params: super::params::EmbedTextParams) -> Result<CallToolRes
         .enumerate()
         .map(|(idx, text)| Chunk {
             content: text.clone(),
+            chunk_type: Default::default(),
             embedding: None,
             metadata: ChunkMetadata {
                 byte_start: 0,
@@ -765,7 +795,7 @@ impl ServerHandler for KreuzbergMcp {
                 "Extract content from documents in various formats. Supports PDFs, Word documents, \
                  Excel spreadsheets, images (with OCR), HTML, emails, and more. Use enable_ocr=true \
                  for scanned documents, force_ocr=true to always use OCR even if text extraction \
-                 succeeds.",
+                 succeeds. Use disable_ocr=true to skip OCR entirely (images return metadata only).",
             )
     }
 }
@@ -1303,6 +1333,7 @@ mod tests {
             config: None,
             pdf_password: None,
             file_configs: None,
+            response_format: None,
         };
 
         let result = server

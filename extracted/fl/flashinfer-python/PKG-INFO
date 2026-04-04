@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flashinfer-python
-Version: 0.6.7
+Version: 0.6.7.post1
 Summary: FlashInfer: Kernel Library for LLM Serving
 Author: FlashInfer team
 License-Expression: Apache-2.0

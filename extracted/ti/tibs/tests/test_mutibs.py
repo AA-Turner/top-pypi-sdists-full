@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import pytest
-from tibs import Tibs, Mutibs
+from tibs import Tibs, Mutibs, BitIndexing, Endianness
 
 
 def test_creation():
@@ -18,11 +18,10 @@ def test_extend():
     a.extend('0x0a')
     assert a == '0x0f0a'
 
-    # Verify method chaining
     a = Mutibs('0x01')
-    result = a.extend('0x02').extend('0x03')
+    a.extend('0x02')
+    a.extend('0x03')
     assert a == '0x010203'
-    assert result is a  # Should return self
 
     # Different input types
     a = Mutibs('0b1010')
@@ -43,11 +42,10 @@ def test_extend_left():
     a.extend_left('0x0a')
     assert a == '0x0a0f'
 
-    # Verify method chaining
     a = Mutibs('0x03')
-    result = a.extend_left('0x02').extend_left('0x01')
+    a.extend_left('0x02')
+    a.extend_left('0x01')
     assert a == '0x010203'
-    assert result is a  # Should return self
 
     # Different input types
     a = Mutibs('0b1010')
@@ -65,7 +63,8 @@ def test_extend_left():
 def test_extend_prepend_together():
     # Test combining both operations
     a = Mutibs('0xAA')
-    a.extend('0xBB').extend_left('0xCC')
+    a.extend('0xBB')
+    a.extend_left('0xCC')
     assert a == '0xCCAABB'
 
 
@@ -344,11 +343,10 @@ def test_insert_from_mutable_bits():
 
 
 def test_insert_chaining():
-    # Method chaining
     a = Mutibs('0b10')
-    result = a.insert(1, '0b1').insert(2, '0b0')
+    a.insert(1, '0b1')
+    a.insert(2, '0b0')
     assert a == '0b1100'
-    assert result is a
 
 
 def test_insert_beyond_length():
@@ -361,91 +359,82 @@ def test_insert_beyond_length():
 def test_set_single_bit_to_one():
     # Basic set functionality - setting a single bit to 1
     a = Mutibs('0b0000')
-    a.set(1, 2)
+    a.set(2)
     assert a == '0b0010'
 
 
 def test_set_single_bit_to_zero():
     # Setting a single bit to 0
     a = Mutibs('0b1111')
-    a.set(0, 2)
+    a.unset(2)
     assert a == '0b1101'
 
 
 def test_set_with_boolean_values():
     # Setting with boolean values
     a = Mutibs('0b0000')
-    a.set(True, 1)
+    a.set(1)
     assert a == '0b0100'
-    a.set(False, 1)
+    a.unset(1)
     assert a == '0b0000'
 
 
 def test_set_with_negative_index():
     # Setting with negative index
     a = Mutibs('0b0010')
-    a.set(1, -1)
+    a.set(-1)
     assert a == '0b0011'
-    a.set(0, -2)
+    a.unset(-2)
     assert a == '0b0001'
 
 
 def test_set_multiple_positions():
     # Setting multiple positions
     a = Mutibs('0b0000')
-    a.set(1, [0, 2])
+    a.set([0, 2])
     assert a == '0b1010'
 
 
 def test_set_mixed_indices():
     # Setting with mixed positive and negative indices
     a = Mutibs('0b0000')
-    a.set(1, [1, -1])
+    a.set([1, -1])
     assert a == '0b0101'
 
 
 def test_set_with_range():
     # Setting with range
     a = Mutibs('0b0000')
-    a.set(1, range(4))
+    a.set(range(4))
     assert a == '0b1111'
 
 
 def test_set_with_empty_sequence():
     # Setting with an empty sequence
     a = Mutibs('0b1010')
-    a.set(0, [])
+    a.unset([])
     assert a == '0b1010'  # Should remain unchanged
 
 
 def test_set_method_chaining():
-    # Method chaining
     a = Mutibs('0b0000')
-    result = a.set(1, 0).set(1, 2)
+    result = a.set(0)
+    assert result is None
+    a.set(2)
     assert a == '0b1010'
-    assert result is a
-
-
-def test_set_with_non_boolean_values():
-    # Testing non-boolean values
-    a = Mutibs('0b0000')
-    a.set("string", 1)  # Any non-empty string evaluates to True
-    assert a == '0b0100'
-    a.set(0, 1)  # 0 evaluates to False
-    assert a == '0b0000'
 
 
 def test_set_index_out_of_range():
     # Error cases
     with pytest.raises(IndexError):
         a = Mutibs('0b1010')
-        a.set(1, 4)  # Index out of range
+        a.set(4)  # Index out of range
 
 
 def test_set_negative_index_out_of_range():
     with pytest.raises(IndexError):
         a = Mutibs('0b1010')
-        a.set(0, -5)  # Negative index out of range
+        a.unset(-5)  # Negative index out of range
 
 
 def test_invert_all():
@@ -491,11 +480,11 @@ def test_invert_with_range():
 
 
 def test_invert_chaining():
-    # Method chaining
     a = Mutibs('0b1010')
-    result = a.invert(1).invert(2)
+    result = a.invert(1)
+    assert result is None
+    a.invert(2)
     assert a == '0b1100'
-    assert result is a
 
 
 def test_invert_index_out_of_range():
@@ -575,11 +564,11 @@ def test_replace_byte_aligned():
 
 
 def test_replace_method_chaining():
-    # Method chaining
     a = Mutibs('0b10101010')
-    result = a.replace('0b10', '0b11').replace('0b11', '0b00')
+    result = a.replace('0b10', '0b11')
+    assert result is None
+    a.replace('0b11', '0b00')
     assert a == '0b00000000'
-    assert result is a
 
 
 def test_replace_different_types():
@@ -646,124 +635,123 @@ def test_reverse_hex():
 
 
 def test_reverse_method_chaining():
-    # Method chaining
     a = Mutibs('0b1100')
     result = a.reverse()
+    assert result is None
     assert a == '0b0011'
-    assert result is a
 
 
 def test_reverse_idempotence():
     # Reverse twice should give original
     a = Mutibs('0b10110')
-    a.reverse().reverse()
+    a.reverse()
+    a.reverse()
     assert a == '0b10110'
 
 
 def test_rol_basic():
     # Basic rotate left functionality
     a = Mutibs('0b1010')
-    a.rol(1)
+    a.rotate_left(1)
     assert a == '0b0101'
 
 
 def test_rol_full_rotation():
     # Rotating by the full length should return the original
     a = Mutibs('0b1010')
-    a.rol(4)
+    a.rotate_left(4)
     assert a == '0b1010'
 
 
 def test_rol_wraparound():
     # Rotating by more than length should wrap around
     a = Mutibs('0b1010')
-    a.rol(5)
-    assert a == '0b0101'  # Same as rol(1)
+    a.rotate_left(5)
+    assert a == '0b0101'  # Same as rotate_left(1)
 
 
 def test_rol_with_start_end():
     # Rotating with start and end parameters
     a = Mutibs('0b10101100')
-    a.rol(2, start=2, end=6)
+    a.rotate_left(2, start=2, end=6)
     assert a == '0b10111000'
 
 
 def test_rol_method_chaining():
-    # Method chaining
     a = Mutibs('0b1010')
-    result = a.rol(1)
+    result = a.rotate_left(1)
     assert a == '0b0101'
-    assert result is a
+    assert result is None
 
 
 def test_rol_negative_amount():
     # Error cases - negative rotation
     with pytest.raises(ValueError):
         a = Mutibs('0b1010')
-        a.rol(-1)  # Negative rotation amount
+        a.rotate_left(-1)  # Negative rotation amount
 
 
 def test_rol_empty_bits():
     # Error cases - empty bits
     with pytest.raises(ValueError):
         a = Mutibs()
-        a.rol(1)  # Empty Mutibs
+        a.rotate_left(1)  # Empty Mutibs
 
 
 def test_rol_zero_rotation():
     # Zero rotation should not change anything
     a = Mutibs('0b1010')
-    a.rol(0)
+    a.rotate_left(0)
     assert a == '0b1010'
 
 
 def test_rol_large_rotation():
     # Large rotation value
     a = Mutibs('0b1010')
-    a.rol(1000000)  # Should be equivalent to rol(0) since 1000000 % 4 = 0
+    a.rotate_left(1000000)  # Should be equivalent to rotate_left(0) since 1000000 % 4 = 0
     assert a == '0b1010'
 
 
 def test_ror_basic():
     # Basic rotate right functionality
     a = Mutibs('0b1010')
-    a.ror(1)
+    a.rotate_right(1)
     assert a == '0b0101'
 
 
 def test_ror_full_rotation():
     # Rotating by the full length should return the original
     a = Mutibs('0b1010')
-    a.ror(4)
+    a.rotate_right(4)
     assert a == '0b1010'
 
 
 def test_ror_wraparound():
     # Rotating by more than length should wrap around
     a = Mutibs('0b1010')
-    a.ror(5)
-    assert a == '0b0101'  # Same as ror(1)
+    a.rotate_right(5)
+    assert a == '0b0101'  # Same as rotate_right(1)
 
 
 def test_ror_with_start_end():
     # Rotating with start and end parameters
     a = Mutibs('0b10101100')
-    a.ror(2, start=2, end=6)
+    a.rotate_right(2, start=2, end=6)
     assert a == '0b10111000'
 
 
 def test_ror_method_chaining():
-    # Method chaining
     a = Mutibs('0b1010')
-    result = a.ror(1)
+    result = a.rotate_right(1)
     assert a == '0b0101'
-    assert result is a
+    assert result is None
 
 
 def test_rol_ror_cancellation():
     # Rotating left then right should cancel out
     a = Mutibs('0b10110')
-    a.rol(2).ror(2)
+    a.rotate_left(2)
+    a.rotate_right(2)
     assert a == '0b10110'
 
 
@@ -771,27 +759,27 @@ def test_ror_negative_amount():
     # Error cases - negative rotation
     with pytest.raises(ValueError):
         a = Mutibs('0b1010')
-        a.ror(-1)  # Negative rotation amount
+        a.rotate_right(-1)  # Negative rotation amount
 
 
 def test_ror_empty_bits():
     # Error cases - empty bits
     with pytest.raises(ValueError):
         a = Mutibs()
-        a.ror(1)  # Empty Mutibs
+        a.rotate_right(1)  # Empty Mutibs
 
 
 def test_ror_zero_rotation():
     # Zero rotation should not change anything
     a = Mutibs('0b1010')
-    a.ror(0)
+    a.rotate_right(0)
     assert a == '0b1010'
 
 
 def test_ror_large_rotation():
     # Large rotation value
     a = Mutibs('0b1010')
-    a.ror(1000000)  # Should be equivalent to ror(0) since 1000000 % 4 = 0
+    a.rotate_right(1000000)  # Should be equivalent to rotate_right(0) since 1000000 % 4 = 0
     assert a == '0b1010'
 
 
@@ -817,17 +805,17 @@ def test_byte_swap_single_byte():
 
 
 def test_byte_swap_method_chaining():
-    # Method chaining
     a = Mutibs('0x1234')
     result = a.byte_swap()
     assert a == '0x3412'
-    assert result is a
+    assert result is None
 
 
 def test_byte_swap_idempotence():
     # Byte swap twice should return to original
     a = Mutibs('0x12345678')
-    a.byte_swap(2).byte_swap(2)
+    a.byte_swap(2)
+    a.byte_swap(2)
     assert a == '0x12345678'
 
 
@@ -841,9 +829,8 @@ def test_byte_swap_non_multiple_of_8():
 def test_byte_swap_empty():
     # Empty Mutibs
     a = Mutibs()
-    result = a.byte_swap()
+    a.byte_swap()
     assert a == ''
-    assert result == Mutibs()
 
 
 def test_byte_swap_negative_length():
@@ -1022,8 +1009,10 @@ def test_interleaved_operations():
 
     # Chain multiple operations
     a = Mutibs('0b101')
-    result = a.extend('0b010').invert().reverse()
-    assert result == a  # Verify chaining returns self
+    result = a.extend('0b010')
+    a.invert()
+    a.reverse()
+    assert result is None
     assert a == '0b101010'  # 101 + 010 -> 101010 -> 010101 (invert) -> 010010 (reverse)
 
 
@@ -1182,7 +1171,7 @@ def test_iter():
 def test_partial_update():
     a = Mutibs.from_ones(10)
     try:
-        a.set(0, [0, 1, 1000])
+        a.unset([0, 1, 1000])
     except IndexError:
         pass
     assert a == '0b1111111111'
@@ -1241,3 +1230,86 @@ def test_set_bug():
     m = Mutibs.from_hex('0x001122')
     m[8:0] = '0xff'
     assert m == '0x00ff1122'
+
+
+def test_convenience_properties():
+    m = Mutibs('0x123', BitIndexing.Lsb0)
+    assert m.to_hex() == m.hex
+    assert m.to_oct() == m.oct
+    assert m.to_bin() == m.bin
+    assert m[:8].to_bytes() == m[:8].bytes
+
+
+def test_byte_swapped():
+    a = Mutibs.from_bytes(b'!olleh')
+    b = a.byte_swapped()
+    assert b == b'hello!'
+
+
+def test_bit_indexing():
+    with pytest.raises(TypeError):
+        a = Mutibs.from_u(101, 16, "asdf")
+    a = Mutibs.from_u(101, 16, Endianness.Unspecified, BitIndexing.Lsb0)
+    assert a.to_u() == 101
+    assert a.bit_indexing is BitIndexing.Lsb0
+
+
+def test_contains():
+    m = Mutibs('0x12345')
+    assert '0x23' in m
+    assert '0xff' not in m
+    with pytest.raises(ValueError):
+        'trevor' not in m
+
+
+def test_special_method_creation_fails():
+    m = Mutibs('0xff')
+    with pytest.raises(ValueError):
+        _ = 'macdonald' + m
+    with pytest.raises(ValueError):
+        _ = m & 'grebditch'
+    with pytest.raises(ValueError):
+        _ = m | 'grebditch'
+    with pytest.raises(ValueError):
+        _ = m ^ 'grebditch'
+    with pytest.raises(ValueError):
+        m ^= 'grebditch'
+    with pytest.raises(ValueError):
+        m |= 'grebditch'
+    with pytest.raises(ValueError):
+        m &= 'grebditch'
+
+
+def test_lsb0_set_slice():
+    m = Mutibs('0x0000', bit_indexing=BitIndexing.Lsb0)
+    m[0] = 1
+    assert m == '0x0001'
+    m[-8:] = '0xab'
+    assert m == '0xab01'
+
+
+def test_lsb0_del_slice():
+    m = Mutibs.from_hex("abcdef", bit_indexing=BitIndexing.Lsb0)
+    t = m.to_tibs()
+    del m[:8]
+    assert m == '0xabcd'
+
+
+def test_replace_negative_count():
+    m = Mutibs.from_random(1_000_000, bit_indexing=BitIndexing.Lsb0)
+    t = m.to_tibs()
+    m.replace('0b1', '0b0', count=0)
+    assert m == t
+    with pytest.raises(ValueError):
+        m.replace('0b1', '0b0', count=-1)
+    assert m == t
+
+def test_float_endianness():
+    m1 = Mutibs.from_f(3.5, 32)
+    m2 = Mutibs.from_f(3.5, 32, Endianness.Unspecified)
+    m3 = Mutibs.from_f(3.5, 32, Endianness.Big)
+    m4 = Mutibs.from_f(3.5, 32, Endianness.Little)
+    assert m1.to_f() == m2.to_f() == 3.5
+    assert m4.to_f(Endianness.Little) == 3.5
+    assert m3.to_f(Endianness.Big) == 3.5
+    assert m3.byte_swapped() == m4

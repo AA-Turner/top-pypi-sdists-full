@@ -463,8 +463,8 @@ def construction_sets(
         construction_type: Optional text for the construction type to filter
             the sets. Choose from: "SteelFramed", "WoodFramed", "Mass", "Metal Building".
         keyword: An optional keyword to be used to filter the output list of
-            constructions. This can also be a list of keywords which will collectively
-            be used to filter the results. If None, all available constructions
+            construction sets. This can also be a list of keywords which will collectively
+            be used to filter the results. If None, all available construction sets
             will be output. (Default: None).
         join_words: Boolean to note whether strings of multiple keywords (separated
             by spaces) are joined together or will be split into separate keywords
@@ -472,7 +472,7 @@ def construction_sets(
             not desirable when searching for a specific word sequence. (Default: False).
         json_objects: Boolean to note whether the output should be formatted as
             an array of JSON objects instead of a plain text list of the construction
-            identifiers currently in the library. (Default: False).
+            set identifiers currently in the library. (Default: False).
         output_file: Optional file to output the full report of the validation.
             If None, the string will simply be returned from this method.
     """
@@ -657,15 +657,15 @@ def schedules(
     type=str, default=None)
 @click.option(
     '--vintage', '-v', help='Optional text for the building vintage to filter the '
-    'sets. Choose from: "2019", "2016", "2013", "2010", "2007", "2004", '
+    'programs. Choose from: "2019", "2016", "2013", "2010", "2007", "2004", '
     '"1980_2004", "pre_1980". Note that vintages are often called "templates" '
     'within the OpenStudio standards gem and this property effectively maps to '
     'the standards gem "template".', type=str, default=None)
 @click.option(
     '--keyword', '-k', help='Text for an optional keyword to be used to filter the '
-    'output. If nothing is input here, all available construction sets will be output. '
+    'output. If nothing is input here, all available programs will be output. '
     'Multiple keywords can be requested by using multiple -k options. For example\n'
-    ' -k "Generic" -k "Context"', type=str, default=None, multiple=True)
+    ' -k "Hospital" -k "ICU"', type=str, default=None, multiple=True)
 @click.option(
     '--split-words/--join-words', ' /-w', help='Flag to note whether strings '
     'of multiple keywords (separated by spaces) are split into separate '
@@ -675,7 +675,7 @@ def schedules(
 @click.option(
     '--identifiers/--json-objects', ' /-j', help='Flag to note whether to format the '
     'output as an array of JSON objects instead of a plain text list of the '
-    'material identifiers.', default=True, show_default=True)
+    'program identifiers.', default=True, show_default=True)
 @click.option(
     '--output-file', '-f', help='Optional file to output the result. By default, it '
     'is printed out to stdout', type=click.File('w'), default='-', show_default=True)
@@ -704,19 +704,19 @@ def program_types(
     Args:
         building_type: Optional text to filter the programs by building
             type (eg. "LargeOffice", "MidriseApartment", etc.).
-        vintage: Optional text for the building vintage to filter the sets.
+        vintage: Optional text for the building vintage to filter the programs.
             Choose from: "2019", "2016", "2013", "2010", "2007", "2004",
             "1980_2004", "pre_1980".
         keyword: An optional keyword to be used to filter the output list of
-            constructions. This can also be a list of keywords which will collectively
-            be used to filter the results. If None, all available constructions
+            programs. This can also be a list of keywords which will collectively
+            be used to filter the results. If None, all available programs
             will be output. (Default: None).
         join_words: Boolean to note whether strings of multiple keywords (separated
             by spaces) are joined together or will be split into separate keywords
             for searching. This results in a greater likelihood of finding an item but is
             not desirable when searching for a specific word sequence. (Default: False).
         json_objects: Boolean to note whether the output should be formatted as
-            an array of JSON objects instead of a plain text list of the construction
+            an array of JSON objects instead of a plain text list of the program
             identifiers currently in the library. (Default: False).
         output_file: Optional file to output the full report of the validation.
             If None, the string will simply be returned from this method.
@@ -729,14 +729,28 @@ def program_types(
             '{}'.format(vintage, '\n'.join(STANDARDS_REGISTRY.keys()))
         base_str = '{}::'.format(vintage)
     if building_type is not None:
-        assert building_type in STANDARDS_REGISTRY['2019'], \
-            'Input building_type "{}" is not valid. Choose from:\n' \
-            '{}'.format(building_type, '\n'.join(STANDARDS_REGISTRY['2019']))
-        base_str = '{}{}'.format(base_str, building_type)
+        if building_type not in ('Residential', 'NonResidential'):
+            assert building_type in STANDARDS_REGISTRY['2019'], \
+                'Input building_type "{}" is not valid. Choose from:\n' \
+                '{}'.format(building_type, '\n'.join(STANDARDS_REGISTRY['2019']))
+            base_str = '{}{}'.format(base_str, building_type)
     if base_str:
         prog_ids = sorted(filter_array_by_keywords(PROGRAM_TYPES, [base_str]))
     else:
         prog_ids = PROGRAM_TYPES
+    if building_type == 'Residential':
+        filter_prog_ids = []
+        for prog_id in prog_ids:
+            if '::MidriseApartment::' in prog_id or '::HighriseApartment::' in prog_id:
+                filter_prog_ids.append(prog_id)
+        prog_ids = filter_prog_ids
+    elif building_type == 'NonResidential':
+        filter_prog_ids = []
+        for prog_id in prog_ids:
+            if '::MidriseApartment::' not in prog_id and \
+                    '::HighriseApartment::' not in prog_id:
+                filter_prog_ids.append(prog_id)
+        prog_ids = filter_prog_ids
     # filter the objects by keywords
     if keyword:
         split_words = not join_words

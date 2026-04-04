@@ -72,6 +72,7 @@ from skylos.rules.quality.logic import (
     DuplicateStringLiteralRule,
     TooManyReturnsRule,
     BooleanTrapRule,
+    BroadExceptionRule,
 )
 from skylos.rules.quality.performance import PerformanceRule
 from skylos.rules.quality.unreachable import UnreachableCodeRule
@@ -1789,7 +1790,16 @@ class Skylos:
                 _ud_py_files = [
                     f for f in files if str(f).endswith((".py", ".pyi", ".pyw"))
                 ]
-                if _ud_py_files:
+                if isinstance(path, (list, tuple)):
+                    _scan_targets = [Path(p).resolve() for p in path]
+                else:
+                    _scan_targets = [Path(path).resolve()]
+
+                _file_scoped_scan = bool(_scan_targets) and all(
+                    target.is_file() for target in _scan_targets
+                )
+
+                if _ud_py_files and not _file_scoped_scan:
                     _ud_root = Path(
                         os.path.commonpath([str(p.resolve()) for p in _ud_py_files])
                     )
@@ -1836,6 +1846,7 @@ class Skylos:
                     logger.error(traceback.format_exc())
 
         from skylos.visitors.languages.typescript.resolve import MonorepoResolver
+
         monorepo_resolver = MonorepoResolver(str(self._project_root))
         self._build_ts_import_graph(ts_raw_imports, monorepo_resolver)
 
@@ -2087,11 +2098,17 @@ def proc_file(
             if "SKY-L026" not in cfg["ignore"]:
                 q_rules.append(UnfinishedGenerationRule())
             if "SKY-L027" not in cfg["ignore"]:
-                q_rules.append(DuplicateStringLiteralRule(threshold=cfg.get("duplicate_strings", 3)))
+                q_rules.append(
+                    DuplicateStringLiteralRule(
+                        threshold=cfg.get("duplicate_strings", 3)
+                    )
+                )
             if "SKY-L028" not in cfg["ignore"]:
                 q_rules.append(TooManyReturnsRule())
             if "SKY-L029" not in cfg["ignore"]:
                 q_rules.append(BooleanTrapRule())
+            if "SKY-L030" not in cfg["ignore"]:
+                q_rules.append(BroadExceptionRule())
             # SKY-D260 (prompt injection) is now handled by injection_scanner..
             if "SKY-Q501" not in cfg["ignore"]:
                 q_rules.append(GodClassRule())

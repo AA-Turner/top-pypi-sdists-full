@@ -158,3 +158,81 @@ def discover_conventions(working_dir: str | None = None) -> ConventionsInfo:
         )
 
     return ConventionsInfo(path=None, content=None, source="none")
+
+
+@dataclass(frozen=True)
+class InstructionsSnapshot:
+    """Tracks instruction file paths and mtimes for change detection."""
+
+    global_path: Path | None
+    global_mtime: float | None
+    project_path: Path | None
+    project_mtime: float | None
+    working_dir: str
+
+    def has_changed(self, current_working_dir: str) -> bool:
+        """Re-run full path discovery and compare against this snapshot.
+
+        Returns True if the working directory changed, a discovered path changed,
+        or an mtime changed. This catches shadowing (e.g., a higher-priority
+        .anteroom.md created alongside existing ANTEROOM.md).
+        """
+        if current_working_dir != self.working_dir:
+            return True
+
+        # Re-discover global instructions path
+        new_global = find_global_instructions_path()
+        new_global_path = new_global[0] if new_global else None
+        if new_global_path != self.global_path:
+            return True
+        if new_global_path is not None:
+            try:
+                if os.stat(new_global_path).st_mtime != self.global_mtime:
+                    return True
+            except OSError:
+                return True
+
+        # Re-discover project instructions path
+        new_project = find_project_instructions_path(current_working_dir)
+        new_project_path = new_project[0] if new_project else None
+        if new_project_path != self.project_path:
+            return True
+        if new_project_path is not None:
+            try:
+                if os.stat(new_project_path).st_mtime != self.project_mtime:
+                    return True
+            except OSError:
+                return True
+
+        return False
+
+
+def capture_snapshot(working_dir: str) -> InstructionsSnapshot:
+    """Create a snapshot of current instruction file paths and mtimes."""
+    global_result = find_global_instructions_path()
+    global_path: Path | None = None
+    global_mtime: float | None = None
+    if global_result is not None:
+        global_path = global_result[0]
+        try:
+            global_mtime = os.stat(global_path).st_mtime
+        except OSError:
+            pass
+
+    project_result = find_project_instructions_path(working_dir)
+    project_path: Path | None = None
+    project_mtime: float | None = None
+    if project_result is not None:
+        project_path = project_result[0]
+        try:
+            project_mtime = os.stat(project_path).st_mtime
+        except OSError:
+            pass
+
+    return InstructionsSnapshot(
+        global_path=global_path,
+        global_mtime=global_mtime,
+        project_path=project_path,
+        project_mtime=project_mtime,
+        working_dir=working_dir,
+    )

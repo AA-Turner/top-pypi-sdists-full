@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, "..")
 import pytest
-from tibs import Tibs, Mutibs
+from tibs import Tibs, Mutibs, BitIndexing
 
 
 class TestTibsCreation:
@@ -187,13 +187,24 @@ class TestMutibsMethods:
 
     def test_set_from_sequence(self):
         m = Mutibs("0b00000")
-        m.set(True, [1, 3])
+        m.set([1, 3])
         assert m == "0b01010"
 
     def test_set_from_slice(self):
         m = Mutibs("0b00000000")
         m[1:7:2] = [1, 1, 1]
         assert m == "0b01010100"
+
+    def test_insert_uses_logical_position_in_lsb0_mode(self):
+        m = Mutibs("0b1100", bit_indexing=BitIndexing.Lsb0)
+
+        # Build the expected logical bit sequence (the order used by indexing/iteration in LSB0).
+        expected_logical_bits = list(m.to_tibs())
+        expected_logical_bits.insert(1, True)
+
+        m.insert(1, "0b1")
+
+        assert list(m.to_tibs()) == expected_logical_bits
 
 
 class TestIterators:
@@ -246,12 +257,12 @@ class TestErrorHandling:
 class TestAdvancedFeatures:
     def test_rol(self):
         s = Mutibs("0b0001")
-        s.rol(1)
+        s.rotate_left(1)
         assert s == "0b0010"
 
     def test_ror(self):
         s = Mutibs("0b1000")
-        s.ror(1)
+        s.rotate_right(1)
         assert s == "0b0100"
 
     def test_byte_swap(self):
@@ -318,9 +329,9 @@ class TestComplexInteractions:
 
     def test_chained_mutations(self):
         m = Mutibs("0x1234")
-        m.rol(4)
+        m.rotate_left(4)
         m.invert()
-        m.ror(8)
+        m.rotate_right(8)
         assert m == "0xbedc"
 
     def test_immutable_slice_mutation_check(self):
@@ -450,3 +461,124 @@ class TestSliceOperations:
         s_a = a[1:9]
         s_b = b[1:9]
         assert s_a ^ s_b == "0b10100101"
+
+
+class TestKnownRegressions:
+    def test_lsb0_setitem_writes_logical_index(self):
+        m = Mutibs("0b0000", bit_indexing=BitIndexing.Lsb0)
+        m[0] = 1
+        # In lsb0, logical index 0 is the rightmost bit.
+        assert m.to_bin() == "0001"
+
+    def test_rotate_empty_selected_slice_is_noop(self):
+        m = Mutibs("0b101010")
+        m.rotate_left(3, start=2, end=2)
+        m.rotate_right(1, start=4, end=4)
+        assert m == "0b101010"
+
+    def test_set_negative_step_range(self):
+        m = Mutibs("0b00000000")
+        m.set(range(7, 3, -1))
+        assert m.to_bin() == "00001111"
+
+    def test_unset_negative_step_range(self):
+        m = Mutibs("0b11111111")
+        m.unset(range(7, 3, -1))
+        assert m.to_bin() == "11110000"
+
+    def test_lsb0_slice_assignment_writes_logical_positions(self):
+        m = Mutibs("0b000000", bit_indexing=BitIndexing.Lsb0)
+        m[0:2] = "0b11"
+        # In lsb0, [0:2] addresses the two least-significant logical bits.
+        assert m.to_bin() == "000011"
+
+    def test_lsb0_delete_index_removes_logical_position(self):
+        m = Mutibs("0b1010", bit_indexing=BitIndexing.Lsb0)
+        del m[0]
+        # In lsb0, index 0 is the rightmost logical bit.
+        assert m.to_bin() == "101"
+
+    def test_lsb0_set_updates_logical_positions(self):
+        m = Mutibs("0b00000000", bit_indexing=BitIndexing.Lsb0)
+        m.set([0, 1])
+        # In lsb0, indices 0 and 1 are the two rightmost logical bits.
+        assert m.to_bin() == "00000011"
+
+    def test_lsb0_extended_slice_assignment_negative_step_logical_order(self):
+        m = Mutibs("0b00000000", bit_indexing=BitIndexing.Lsb0)
+        m[7:3:-1] = "0b1010"
+        # Logical indices [7, 6, 5, 4] should map to the left nibble.
+        assert m.to_bin() == "10100000"
+
+    def test_lsb0_extended_slice_delete_negative_step_logical_positions(self):
+        m = Mutibs("0b11110000", bit_indexing=BitIndexing.Lsb0)
+        del m[7:3:-1]
+        # Deleting logical indices [7, 6, 5, 4] should remove the left nibble.
+        assert m.to_bin() == "0000"
+
+
+    def test_lsb0_delete_prefix_and_suffix_slices(self):
+        m = Mutibs("0b11001010", bit_indexing=BitIndexing.Lsb0)
+        del m[:3]
+        # In lsb0 this removes the 3 least-significant logical bits.
+        assert m.to_bin() == "11001"
+        del m[-2:]
+        # Then remove two most-significant logical bits from the remaining logical view.
+        assert m.to_bin() == "001"
+
+
+class TestDocsMismatchRegressions:
+    def test_find_all_empty_needle_raises_value_error_docs_contract(self):
+        t = Tibs("0b101")
+        with pytest.raises(ValueError):
+            print(list(t.find_all("")))
+
+    def test_tibs_from_random_positional_seed_is_deterministic_docs_example(self):
+        a = Tibs.from_random(256, seed=b"a_seed")
+        b = Tibs.from_random(256, seed=b"a_seed")
+        assert a == b
+
+    def test_mutibs_from_random_positional_seed_is_deterministic_docs_example(self):
+        a = Mutibs.from_random(256, seed=b"a_seed")
+        b = Mutibs.from_random(256, seed=b"a_seed")
+        assert a == b
+
+    def test_mutibs_insert_out_of_range_raises_value_error_docs_contract(self):
+        m = Mutibs("0b101")
+        m.insert(len(m) + 1, "0b1")
+        assert m == "0b1011"
+
+    def test_tibs_to_u_empty_raises_value_error_docs_contract(self):
+        with pytest.raises(ValueError):
+            Tibs().to_u()
+
+    def test_tibs_to_i_empty_raises_value_error_docs_contract(self):
+        with pytest.raises(ValueError):
+            Tibs().to_i()
+
+    def test_tibs_find_respects_lsb0_logical_indexing_contract(self):
+        t = Tibs("0b110100", bit_indexing=BitIndexing.Lsb0)
+        assert t[0] is False
+        assert t.find("0b1") == 2
+
+
+class TestKnownLogicFaults:
+    def test_lsb0_delete_simple_slice_matches_logical_semantics(self):
+        m = Mutibs("0b101010", bit_indexing=BitIndexing.Lsb0)
+        # This currently errors due to an invalid underlying drain range in lsb0 mode.
+        del m[1:4]
+        assert m == '0b100'
+
+    def test_lsb0_negative_step_slice_matches_logical_semantics(self):
+        t = Tibs("0b110100", bit_indexing=BitIndexing.Lsb0)
+        assert t[::-1] == '0b001011'
+
+    def test_set_range_descending_to_minus_one_includes_zero(self):
+        m = Mutibs.from_zeros(4)
+        m.set(range(3, -1, -1))
+        assert m.to_bin() == "1111"
+
+    def test_unset_range_descending_to_minus_one_includes_zero(self):
+        m = Mutibs.from_ones(4)
+        m.unset(range(3, -1, -1))
+        assert m.to_bin() == "0000"

@@ -79,29 +79,43 @@ async def deliver_unix_socket(path: str, payload: dict[str, Any]) -> None:
 async def deliver_hooks(
     hooks: list[dict[str, Any]],
     event_payload: dict[str, Any],
+    *,
+    attempt: int = 1,
+    webhook_deliverer: Any | None = None,
+    unix_socket_deliverer: Any | None = None,
 ) -> list[asyncio.Task[None]]:
     """Deliver event to all matching hooks. Returns list of pending tasks.
 
     Each hook config has an optional 'events' list. If present, only
     matching event types are delivered. 'all' matches everything.
+
+    By default only the first delivery attempt sends notifications. This
+    prevents reruns/resumes from re-delivering one-shot issue hooks unless
+    a hook explicitly opts in with ``deliver_on_rerun: true``.
     """
     event_type = event_payload.get("event_type", "")
     tasks: list[asyncio.Task[None]] = []
+    webhook_deliverer = webhook_deliverer or deliver_webhook
+    unix_socket_deliverer = unix_socket_deliverer or deliver_unix_socket
 
     for hook in hooks:
         allowed_events = hook.get("events", ["all"])
         if "all" not in allowed_events and event_type not in allowed_events:
             continue
+        if attempt > 1 and not hook.get("deliver_on_rerun", False):
+            continue
 
         transport = hook.get("transport", "")
         if transport == "webhook":
             url = hook.get("url", "")
-            task = asyncio.create_task(deliver_webhook(url, event_payload))
+            task = asyncio.create_task(webhook_deliverer(url, event_payload))
             tasks.append(task)
         elif transport == "unix_socket":
             path = hook.get("path", "")
-            task = asyncio.create_task(deliver_unix_socket(path, event_payload))
+            task = asyncio.create_task(unix_socket_deliverer(path, event_payload))
             tasks.append(task)
+        else:
+            logger.warning("Skipping hook with unknown transport: %r", transport)
 
     return tasks
 

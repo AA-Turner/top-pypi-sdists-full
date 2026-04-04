@@ -59,6 +59,9 @@ from .binprovider_pip import PipProvider
 from .binprovider_npm import NpmProvider
 from .binprovider_ansible import AnsibleProvider
 from .binprovider_pyinfra import PyinfraProvider
+from .binprovider_chromewebstore import ChromeWebstoreProvider
+from .binprovider_puppeteer import PuppeteerProvider
+from .binprovider_bash import BashProvider
 
 ALL_PROVIDERS = [
     EnvProvider,
@@ -73,23 +76,27 @@ ALL_PROVIDERS = [
     NpmProvider,
     AnsibleProvider,
     PyinfraProvider,
+    ChromeWebstoreProvider,
+    PuppeteerProvider,
+    BashProvider,
 ]
+
+
+def _provider_class(provider: type[BinProvider] | BinProvider) -> type[BinProvider]:
+    return provider if isinstance(provider, type) else type(provider)
+
+
 ALL_PROVIDER_NAMES = [
-    (provider if isinstance(provider, type) else type(provider))
-    .model_fields["name"]
-    .default
-    for provider in ALL_PROVIDERS
+    _provider_class(provider).model_fields["name"].default for provider in ALL_PROVIDERS
 ]  # pip, apt, brew, etc.
 ALL_PROVIDER_CLASS_NAMES = [
-    provider.__name__ for provider in ALL_PROVIDERS
+    _provider_class(provider).__name__ for provider in ALL_PROVIDERS
 ]  # PipProvider, AptProvider, BrewProvider, etc.
 
 # Lazy provider singletons: maps provider name -> class
 # e.g. 'apt' -> AptProvider, 'pip' -> PipProvider, 'env' -> EnvProvider
 _PROVIDER_CLASS_BY_NAME = {
-    (provider if isinstance(provider, type) else type(provider))
-    .model_fields["name"]
-    .default: provider
+    _provider_class(provider).model_fields["name"].default: _provider_class(provider)
     for provider in ALL_PROVIDERS
 }
 _provider_singletons: dict = {}
@@ -162,6 +169,9 @@ __all__ = [
     "NpmProvider",
     "AnsibleProvider",
     "PyinfraProvider",
+    "ChromeWebstoreProvider",
+    "PuppeteerProvider",
+    "BashProvider",
     # Note: provider singleton names (apt, pip, brew, etc.) are intentionally
     # excluded from __all__ so that `from abx_pkg import *` does not eagerly
     # instantiate every provider. Use explicit imports instead:

@@ -57,7 +57,7 @@ dependencies = [
     "protobuf>=6.33.5",
     "pdfminer-six>=20251230",
     "typer>=0.12.0",
-    "litellm>=1.0.0,<1.82.6",
+    "litellm>=1.0.0,<1.83.1",
     "python-multipart>=0.0.22",
     "tree-sitter>=0.23.0",
     "tree-sitter-python>=0.23.0",
@@ -92,6 +92,7 @@ test = [
 dev = [
     "mypy>=1.0.0",
     "ruff>=0.1.0",
+    "setuptools_scm>=10.0.0",
 ]
 doc = [
     "sphinx>=7.0.0",
@@ -158,6 +159,14 @@ bot-fuse = ["fusepy>=3.0.1"]
 bot-opencode = ["opencode-ai>=0.1.0a0"]
 bot-full = [
     "openviking[bot,bot-langfuse,bot-telegram,bot-feishu,bot-dingtalk,bot-slack,bot-qq,bot-sandbox,bot-fuse,bot-opencode]",
+]
+benchmark = [
+    "langchain>=1.0.0",
+    "langchain-core>=1.0.0",
+    "langchain-openai>=1.0.0",
+    "tiktoken>=0.5.0",
+    "datasets>=2.0.0",
+    "pandas>=2.0.0",
 ]
 
 [project.urls]

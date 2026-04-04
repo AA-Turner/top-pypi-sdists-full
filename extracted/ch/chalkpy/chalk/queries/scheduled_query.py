@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Collection
+from typing import TYPE_CHECKING, Any, Collection, Dict, Optional, Sequence, Union
 
 from chalk.utils.duration import CronTab, Duration
 
@@ -32,6 +32,7 @@ class ScheduledQuery:
         num_shards: int | None = None,
         num_workers: int | None = None,
         input_sql: str | None = None,
+        unload_resolvers: Optional[Sequence[Union[str, Dict[str, Any]]]] = None,
     ):
         """Create an offline query which runs on a schedule.
 
@@ -167,6 +168,11 @@ class ScheduledQuery:
 
         self.num_shards = num_shards
         self.num_workers = num_workers
+        self.unload_resolvers = (
+            [{"fqn": r} if isinstance(r, str) else r for r in unload_resolvers]
+            if unload_resolvers is not None
+            else None
+        )
 
         CRON_QUERY_REGISTRY[name] = self
 

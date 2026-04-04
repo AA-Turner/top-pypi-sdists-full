@@ -42,6 +42,7 @@ jiff.workspace = true
 
 [profile.dev]
 opt-level = 0
+strip = true
 
 [profile.release]
 opt-level = 3
@@ -72,7 +73,7 @@ inherits = "release"
 lto = "fat"
 
 [workspace.package]
-version = "0.0.86"
+version = "0.0.87"
 authors = [
   "jesse k. rubin <jessekrubin@gmail.com>",
   # hopefully you will contribute!
@@ -87,7 +88,7 @@ repository = "https://github.com/jessekrubin/ry"
 
 [workspace]
 resolver = "2"
-members = ["crates/_ryo3-dev", "crates/_ryo3-quick-maths", "crates/ryo3", "crates/ryo3-aws-lc", "crates/ryo3-brotli", "crates/ryo3-bytes", "crates/ryo3-bzip2", "crates/ryo3-core", "crates/ryo3-dirs", "crates/ryo3-flate2", "crates/ryo3-fnv", "crates/ryo3-fspath", "crates/ryo3-glob", "crates/ryo3-globset", "crates/ryo3-heck", "crates/ryo3-http", "crates/ryo3-jiff", "crates/ryo3-jiter", "crates/ryo3-json", "crates/ryo3-macro-rules", "crates/ryo3-memchr", "crates/ryo3-pydantic", "crates/ryo3-regex", "crates/ryo3-reqwest", "crates/ryo3-same-file", "crates/ryo3-serde", "crates/ryo3-shlex", "crates/ryo3-size", "crates/ryo3-sqlformat", "crates/ryo3-std", "crates/ryo3-tokio", "crates/ryo3-twox-hash", "crates/ryo3-ulid", "crates/ryo3-unindent", "crates/ryo3-url", "crates/ryo3-uuid", "crates/ryo3-walkdir", "crates/ryo3-which", "crates/ryo3-zstd"]
+members = ["crates/_ryo3-dev", "crates/_ryo3-quick-maths", "crates/ryo3", "crates/ryo3-aws-lc", "crates/ryo3-brotli", "crates/ryo3-bytes", "crates/ryo3-bzip2", "crates/ryo3-cookie", "crates/ryo3-core", "crates/ryo3-dirs", "crates/ryo3-flate2", "crates/ryo3-fnv", "crates/ryo3-fspath", "crates/ryo3-glob", "crates/ryo3-globset", "crates/ryo3-heck", "crates/ryo3-http", "crates/ryo3-jiff", "crates/ryo3-jiter", "crates/ryo3-json", "crates/ryo3-macro-rules", "crates/ryo3-memchr", "crates/ryo3-pydantic", "crates/ryo3-regex", "crates/ryo3-reqwest", "crates/ryo3-same-file", "crates/ryo3-serde", "crates/ryo3-shlex", "crates/ryo3-size", "crates/ryo3-sqlformat", "crates/ryo3-std", "crates/ryo3-tokio", "crates/ryo3-tokio-rt", "crates/ryo3-tokio-websockets", "crates/ryo3-twox-hash", "crates/ryo3-ulid", "crates/ryo3-unindent", "crates/ryo3-url", "crates/ryo3-uuid", "crates/ryo3-walkdir", "crates/ryo3-which", "crates/ryo3-zstd"]
 
 [workspace.dependencies]
 # ======
@@ -97,13 +98,13 @@ members = ["crates/_ryo3-dev", "crates/_ryo3-quick-maths", "crates/ryo3", "crate
 ryo3 = { path = "./crates/ryo3", features = [] }
 # dev/future
 ryo3-ignore = { path = "./crates/_future/ryo3-ignore" }
-ryo3-tokio-websockets = { path = "./crates/_future/ryo3-tokio-websockets" }
 # wrappers
 ryo3-aws-lc = { path = "./crates/ryo3-aws-lc" }
 ryo3-brotli = { path = "./crates/ryo3-brotli" }
 ryo3-bytes = { path = "./crates/ryo3-bytes" }
 ryo3-bzip2 = { path = "./crates/ryo3-bzip2" }
 ryo3-core = { path = "./crates/ryo3-core" }
+ryo3-cookie = { path = "./crates/ryo3-cookie" }
 ryo3-dev = { path = "./crates/_ryo3-dev" }
 ryo3-dirs = { path = "./crates/ryo3-dirs" }
 ryo3-flate2 = { path = "./crates/ryo3-flate2" }
@@ -129,6 +130,8 @@ ryo3-size = { path = "./crates/ryo3-size" }
 ryo3-sqlformat = { path = "./crates/ryo3-sqlformat" }
 ryo3-std = { path = "./crates/ryo3-std" }
 ryo3-tokio = { path = "./crates/ryo3-tokio" }
+ryo3-tokio-rt = { path = "./crates/ryo3-tokio-rt" }
+ryo3-tokio-websockets = { path = "./crates/ryo3-tokio-websockets" }
 ryo3-twox-hash = { path = "./crates/ryo3-twox-hash" }
 ryo3-ulid = { path = "./crates/ryo3-ulid" }
 ryo3-unindent = { path = "./crates/ryo3-unindent" }
@@ -218,7 +221,7 @@ rand = { version = "0.10.0", default-features = false, features = [] }
 ulid = { version = "1.2.1", default-features = false, features = ["std"] }
 unindent = { version = "0.2.4", default-features = false, features = [] }
 url = { version = "2.5.4", default-features = false, features = ["std"] }
-uuid = { version = "1.22.0", default-features = false, features = [] }
+uuid = { version = "1.23.0", default-features = false, features = [] }
 walkdir = { version = "2.5.0", default-features = false, features = [] }
 which = { version = "8.0.2", default-features = false, features = [] }
 zstd = { version = "0.13.3", default-features = false, features = [] }

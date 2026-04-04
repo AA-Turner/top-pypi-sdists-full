@@ -9,6 +9,7 @@ from anteroom.services.spec_schema import (
     CREATION_FLOW_MANUAL,
     CREATION_FLOW_PROMPT,
     SPEC_GENERATION_SCHEMA,
+    VALID_ITEM_TYPES,
     SpecContent,
     SpecPhaseStatus,
     SpecTask,
@@ -158,6 +159,38 @@ class TestParseSpecContentErrors:
 
 
 # ---------------------------------------------------------------------------
+# item_type parsing
+# ---------------------------------------------------------------------------
+
+
+class TestItemType:
+    def test_defaults_to_task(self) -> None:
+        spec = parse_spec_content(MINIMAL_SPEC)
+        assert spec.tasks[0].item_type == "task"
+
+    def test_explicit_item_type_parsed(self) -> None:
+        yaml_str = "requirements: r\ndesign: d\ntasks:\n  - id: t1\n    summary: s\n    item_type: docs\n"
+        spec = parse_spec_content(yaml_str)
+        assert spec.tasks[0].item_type == "docs"
+
+    @pytest.mark.parametrize("item_type", sorted(VALID_ITEM_TYPES))
+    def test_all_valid_item_types_accepted(self, item_type: str) -> None:
+        yaml_str = f"requirements: r\ndesign: d\ntasks:\n  - id: t1\n    summary: s\n    item_type: {item_type}\n"
+        spec = parse_spec_content(yaml_str)
+        assert spec.tasks[0].item_type == item_type
+
+    def test_invalid_item_type_rejected(self) -> None:
+        yaml_str = "requirements: r\ndesign: d\ntasks:\n  - id: t1\n    summary: s\n    item_type: invalid\n"
+        with pytest.raises(SpecValidationError, match="item_type must be one of"):
+            parse_spec_content(yaml_str)
+
+    def test_non_string_item_type_rejected(self) -> None:
+        yaml_str = "requirements: r\ndesign: d\ntasks:\n  - id: t1\n    summary: s\n    item_type: 42\n"
+        with pytest.raises(SpecValidationError, match="item_type must be one of"):
+            parse_spec_content(yaml_str)
+
+
+# ---------------------------------------------------------------------------
 # Serialization round-trip
 # ---------------------------------------------------------------------------
 
@@ -174,11 +207,24 @@ class TestSerialize:
             assert t1.id == t2.id
             assert t1.summary == t2.summary
             assert t1.depends_on == t2.depends_on
+            assert t1.item_type == t2.item_type
 
     def test_depends_on_omitted_when_empty(self) -> None:
         spec = SpecContent(requirements="r", design="d", tasks=[SpecTask(id="t1", summary="s")])
         yaml_out = serialize_spec_content(spec)
         assert "depends_on" not in yaml_out
+
+    def test_item_type_omitted_when_default(self) -> None:
+        spec = SpecContent(requirements="r", design="d", tasks=[SpecTask(id="t1", summary="s")])
+        yaml_out = serialize_spec_content(spec)
+        assert "item_type" not in yaml_out
+
+    def test_item_type_included_when_non_default(self) -> None:
+        spec = SpecContent(requirements="r", design="d", tasks=[SpecTask(id="t1", summary="s", item_type="docs")])
+        yaml_out = serialize_spec_content(spec)
+        assert "item_type: docs" in yaml_out
+        spec2 = parse_spec_content(yaml_out)
+        assert spec2.tasks[0].item_type == "docs"
 
 
 # ---------------------------------------------------------------------------

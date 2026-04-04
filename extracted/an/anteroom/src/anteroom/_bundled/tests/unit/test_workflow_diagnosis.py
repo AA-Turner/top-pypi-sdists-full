@@ -333,3 +333,26 @@ class TestRecoveryActions:
         actions = recovery_actions_for_run(run, steps, [])
         assert any("resume" in a.lower() for a in actions)
         assert any("cancel" in a.lower() for a in actions)
+
+
+# ---------------------------------------------------------------------------
+# Stale heartbeat reclaimed (#1257)
+# ---------------------------------------------------------------------------
+
+
+class TestStaleRecoveryDiagnosis:
+    def test_stale_heartbeat_reclaimed(self) -> None:
+        run = _run(status="failed", stop_reason="stale_heartbeat_reclaimed")
+        dx = diagnose(run, [], [])
+        assert dx.category == "stale_recovery"
+        assert "heartbeat" in dx.what.lower()
+        assert "died" in dx.why.lower() or "interrupted" in dx.why.lower()
+        assert any("resume" in a for a in dx.next_actions)
+        assert any("status" in a for a in dx.next_actions)
+
+    def test_stale_heartbeat_reclaimed_during_compensation(self) -> None:
+        run = _run(status="paused", stop_reason="stale_heartbeat_reclaimed_during_compensation")
+        dx = diagnose(run, [], [])
+        assert dx.category == "stale_recovery"
+        assert "compensation" in dx.why.lower() or "rollback" in dx.why.lower()
+        assert any("resume" in a for a in dx.next_actions)

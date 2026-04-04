@@ -37,6 +37,7 @@ from snowflake.snowpark_connect.typed_column import TypedColumn
 from snowflake.snowpark_connect.utils import expression_transformer
 from snowflake.snowpark_connect.utils.context import (
     grouping_by_scala_udf_key,
+    register_lca_alias,
     set_current_grouping_columns,
 )
 
@@ -448,6 +449,19 @@ def map_aggregate_helper(
                 equivalent_snowpark_names=set(),
             )
         )
+
+        # Register LCA alias so subsequent aggregate expressions can reference
+        # this alias by name (e.g. df.agg(collect_list("a").alias("foo"),
+        # concat_ws("", col("foo")).alias("bar"))).  Store a column reference
+        # to the snowpark alias; Snowflake resolves the lateral alias natively.
+        if not skip_alias and exp.HasField("alias") and exp.alias.name:
+            register_lca_alias(
+                exp.alias.name[0],
+                TypedColumn(
+                    snowpark_fn.col(alias),
+                    lambda typ=agg_col_typ: [typ] if typ is not None else None,
+                ),
+            )
 
     return (
         input_container,

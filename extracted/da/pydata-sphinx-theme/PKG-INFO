@@ -1,51 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pydata-sphinx-theme
-Version: 0.16.1
+Version: 0.17.0
 Summary: Bootstrap-based Sphinx theme from the PyData community
 Maintainer-Email: Joris Van den Bossche <jorisvandenbossche@gmail.com>
-License: BSD 3-Clause License
-         
-         Copyright (c) 2018, pandas
-         All rights reserved.
-         
-         Redistribution and use in source and binary forms, with or without
-         modification, are permitted provided that the following conditions are met:
-         
-         * Redistributions of source code must retain the above copyright notice, this
-           list of conditions and the following disclaimer.
-         
-         * Redistributions in binary form must reproduce the above copyright notice,
-           this list of conditions and the following disclaimer in the documentation
-           and/or other materials provided with the distribution.
-         
-         * Neither the name of the copyright holder nor the names of its
-           contributors may be used to endorse or promote products derived from
-           this software without specific prior written permission.
-         
-         THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-         AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-         IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-         DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-         FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-         DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-         SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-         CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-         OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-         OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-         
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Sphinx
 Classifier: Framework :: Sphinx :: Theme
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Project-URL: Source, https://github.com/pydata/pydata-sphinx-theme
-Requires-Python: >=3.9
-Requires-Dist: sphinx>=6.1
+Requires-Python: >=3.10
+Requires-Dist: sphinx<10,>=7.0
 Requires-Dist: beautifulsoup4
 Requires-Dist: docutils!=0.17.0
 Requires-Dist: Babel
@@ -53,12 +25,13 @@ Requires-Dist: pygments>=2.7
 Requires-Dist: accessible-pygments
 Requires-Dist: typing-extensions
 Provides-Extra: doc
+Requires-Dist: astroid!=4.0.3,>=3; extra == "doc"
 Requires-Dist: numpydoc; extra == "doc"
 Requires-Dist: linkify-it-py; extra == "doc"
 Requires-Dist: rich; extra == "doc"
 Requires-Dist: sphinxext-rediraffe; extra == "doc"
-Requires-Dist: sphinx-sitemap; extra == "doc"
-Requires-Dist: sphinx-autoapi>=3.0.0; extra == "doc"
+Requires-Dist: sphinx-sitemap<2.7.0; extra == "doc"
+Requires-Dist: sphinx-autoapi==3.6.1; extra == "doc"
 Requires-Dist: myst-parser; extra == "doc"
 Requires-Dist: ablog>=0.11.8; extra == "doc"
 Requires-Dist: jupyter_sphinx; extra == "doc"
@@ -71,6 +44,7 @@ Requires-Dist: sphinx-copybutton; extra == "doc"
 Requires-Dist: sphinx-design; extra == "doc"
 Requires-Dist: sphinx-togglebutton; extra == "doc"
 Requires-Dist: jupyterlite-sphinx; extra == "doc"
+Requires-Dist: sphinxcontrib-mermaid; extra == "doc"
 Requires-Dist: sphinxcontrib-youtube>=1.4.1; extra == "doc"
 Requires-Dist: sphinx-favicon>=1.0.1; extra == "doc"
 Requires-Dist: ipykernel; extra == "doc"
@@ -79,11 +53,6 @@ Requires-Dist: ipyleaflet; extra == "doc"
 Requires-Dist: colorama; extra == "doc"
 Requires-Dist: ipywidgets; extra == "doc"
 Requires-Dist: graphviz; extra == "doc"
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: pytest-regressions; extra == "test"
-Requires-Dist: sphinx[test]; extra == "test"
 Provides-Extra: dev
 Requires-Dist: pyyaml; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
@@ -91,8 +60,14 @@ Requires-Dist: pydata-sphinx-theme[doc,test]; extra == "dev"
 Requires-Dist: tox; extra == "dev"
 Requires-Dist: pandoc; extra == "dev"
 Requires-Dist: sphinx-theme-builder[cli]; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-regressions; extra == "test"
+Requires-Dist: sphinx[test]; extra == "test"
+Requires-Dist: pytest-playwright; extra == "test"
 Provides-Extra: a11y
-Requires-Dist: pytest-playwright; extra == "a11y"
+Requires-Dist: pydata-sphinx-theme[test]; extra == "a11y"
 Provides-Extra: i18n
 Requires-Dist: Babel; extra == "i18n"
 Requires-Dist: jinja2; extra == "i18n"

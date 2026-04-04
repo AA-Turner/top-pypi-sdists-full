@@ -54,7 +54,7 @@ def load_project_config(
     If the file is untrusted or unreadable, returns ``({}, [])``.
     """
     try:
-        content = path.read_text(encoding="utf-8")
+        content = path.read_text(encoding="utf-8-sig")
     except OSError as exc:
         logger.warning("Cannot read project config %s: %s", path, exc)
         return {}, []

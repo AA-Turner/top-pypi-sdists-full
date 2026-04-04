@@ -309,6 +309,25 @@ def diagnose(
             ],
         )
 
+    # --- Stale heartbeat reclaimed (#1257) ---
+    if "stale_heartbeat_reclaimed" in stop_reason:
+        was_compensation = "during_compensation" in stop_reason
+        why = (
+            "The owning worker process likely died or was interrupted during compensation — rollback may be incomplete"
+            if was_compensation
+            else "The owning worker process likely died or was interrupted"
+        )
+        return Diagnosis(
+            category="stale_recovery",
+            what="Run terminated because its heartbeat expired",
+            why=why,
+            evidence=[DiagnosisEvidence(source="stop_reason", content=stop_reason)],
+            next_actions=[
+                f"aroom workflow resume {run_id_short}",
+                f"aroom workflow status {run_id_short}",
+            ],
+        )
+
     # --- Process interrupted ---
     if "process_interrupted" in stop_reason:
         return Diagnosis(

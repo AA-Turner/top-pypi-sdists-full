@@ -891,7 +891,7 @@ def get_auto_reply_candidates(campaign_id: str | None = None, min_age_seconds: i
            WHERE {where}
              AND o.status IN ('hot_lead', 'replied', 'connected', 'messaged')
              AND m.role = 'prospect'
-             AND m.sentiment NOT IN ('opt_out', 'out_of_office', 'negative')
+             AND m.sentiment NOT IN ('opt_out', 'out_of_office', 'negative', 'positive', 'calendar')
              AND m.id = (
                  SELECT m2.id FROM messages m2
                  WHERE m2.outreach_id = o.id

@@ -116,8 +116,13 @@ def map_execution_root(
         schema = None
         yield _build_execute_plan_response(row_count, data_bytes, schema, request)
     elif result.has_zero_columns():
-        # 0-column dataframes can still have rows
-        row_count = result.dataframe.count()
+        # 0-column dataframes can still have rows.
+        # SNOW-3242008: Use known_row_count when available to avoid a Snowflake query.
+        row_count = (
+            result.known_row_count
+            if result.known_row_count is not None
+            else result.dataframe.count()
+        )
         data_bytes = pandas_to_arrow_batches_bytes(
             pandas.DataFrame(index=range(row_count))
         )
@@ -131,6 +136,31 @@ def map_execution_root(
             snowpark_schema, filtered_result.column_map, filtered_result_df
         )
         spark_columns = filtered_result.column_map.get_spark_columns()
+
+        # SNOW-3242008: Performance optimization for DDL sql_command results.
+        # When a DDL statement (USE DATABASE, ALTER SESSION SET, etc.) is executed,
+        # the result ("Statement executed successfully.") round-trips through the
+        # client as a LocalRelation. Without this short-circuit, we'd create a
+        # Snowpark DataFrame and execute a VALUES query against Snowflake just to
+        # return this static data. Instead, we return the already-deserialized Arrow
+        # table directly from memory, saving a Snowflake warehouse round trip.
+        cached_local_table = filtered_result.cached_local_relation_arrow_table
+        if cached_local_table is not None:
+            if cached_local_table.num_rows > 0:
+                data_bytes = arrow_table_to_arrow_bytes(
+                    cached_local_table, snowpark_schema, spark_columns
+                )
+                yield _build_execute_plan_response(
+                    cached_local_table.num_rows, data_bytes, schema, request
+                )
+            else:
+                pandas_df = cached_local_table.to_pandas()
+                data_bytes = pandas_empty_table_to_arrow_bytes(
+                    pandas_df, snowpark_schema, spark_columns
+                )
+                yield _build_execute_plan_response(0, data_bytes, schema, request)
+            return
+
         if tcm.TCM_MODE:
             # TCM result handling:
             # - small result (only one batch): just return the executePlanResponse
@@ -183,7 +213,7 @@ def map_execution_root(
                     spark_schema.SerializeToString(),
                 )
         else:
-            arrow_table_iter = to_arrow_batch_iter(filtered_result_df, to_iter=to_iter)
+            arrow_table_iter = to_arrow_batch_iter(filtered_result_df, to_iter=False)
             batch_count = 0
             for arrow_table in arrow_table_iter:
                 if arrow_table.num_rows > 0:

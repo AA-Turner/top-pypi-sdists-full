@@ -1,13 +1,13 @@
 """File definitions from the Huawei inverter."""
 
-import binascii
 import logging
 import struct
 from dataclasses import dataclass
 from datetime import datetime
-from enum import IntEnum
 
-from huawei_solar.exceptions import HuaweiSolarException
+from huawei_solar.exceptions import DecodeError
+from huawei_solar.register_definitions.string import bytes_to_string
+from huawei_solar.register_values import _IntEnumWithPrettyString
 from huawei_solar.utils import get_local_timezone
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ OPTIMIZER_ALARM_CODES = {
 }
 
 
-class OptimizerRunningStatus(IntEnum):
+class OptimizerRunningStatus(_IntEnumWithPrettyString):
     """Optimizer Running Status."""
 
     OFFLINE = 0
@@ -46,12 +46,8 @@ class OptimizerRunningStatus(IntEnum):
     RUNNING = 4
     POWER_OFF = 12
 
-    def __str__(self) -> str:
-        """Optimizer Running Status."""
-        return self.name.replace("_", " ").capitalize()
 
-
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class OptimizerRealTimeData:
     """Optimizer History Real Time Data."""
 
@@ -68,7 +64,7 @@ class OptimizerRealTimeData:
     accumulated_energy_yield: float  # kWh
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class OptimizerHistoryRealTimeDataUnit:
     """Optimizer History Real Time Data Unit."""
 
@@ -178,19 +174,15 @@ class OptimizerRealTimeDataFile:
         return struct.pack(">BBIII", tag, value_length, start_time, end_time, reserved)
 
 
-class OptimizerOnlineStatus(IntEnum):
-    """Optimizer Running Status."""
+class OptimizerOnlineStatus(_IntEnumWithPrettyString):
+    """Optimizer Online Status."""
 
     OFFLINE = 0
     ONLINE = 1
     DISCONNECTED = 2
 
-    def __str__(self) -> str:
-        """Return a string representation of an OptimizerOnlineStatus."""
-        return self.name.replace("_", " ").capitalize()
 
-
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class OptimizerSystemInformation:
     """Optimizer System Information."""
 
@@ -277,10 +269,10 @@ class OptimizerSystemInformationDataFile:
                             if position_in_current_string != INVALID_OPTIMIZER_POSITION
                             else None
                         ),
-                        _to_string(sn),
-                        _to_string(software_version),
-                        _to_string(alias),
-                        _to_string(model),
+                        bytes_to_string(sn),
+                        bytes_to_string(software_version),
+                        bytes_to_string(alias),
+                        bytes_to_string(model),
                     ),
                 )
 
@@ -318,10 +310,10 @@ class OptimizerSystemInformationDataFile:
                             if position_in_current_string != INVALID_OPTIMIZER_POSITION
                             else None
                         ),
-                        _to_string(sn),
-                        _to_string(software_version),
-                        _to_string(alias),
-                        _to_string(model),
+                        bytes_to_string(sn),
+                        bytes_to_string(software_version),
+                        bytes_to_string(alias),
+                        bytes_to_string(model),
                         # machine_id=_to_string(machine_id), # looks like gibberish? ignoring...  # noqa: ERA001
                         one_to_more=bool(one_to_more),
                         rated_power=rated_power,
@@ -330,14 +322,6 @@ class OptimizerSystemInformationDataFile:
                 )
         else:
             msg = f"Unsupported OptimizerSystemInformation file version: {self.file_version}"
-            raise HuaweiSolarException(
+            raise DecodeError(
                 msg,
             )
-
-
-def _to_string(data: bytes) -> str:
-    try:
-        return data.decode("ascii").rstrip("\x00")
-    except ValueError:
-        _LOGGER.exception("Could not decode '%s'. Ignoring", binascii.hexlify(data))
-        return ""

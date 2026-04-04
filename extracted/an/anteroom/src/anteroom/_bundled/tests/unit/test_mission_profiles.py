@@ -426,3 +426,116 @@ class TestApplyExecutionProfile:
         path = new_plan.items[0].adapter_config["workflow_path"]
         assert path == str(resolved)
         assert path.endswith(".yaml")
+
+
+# ---------------------------------------------------------------------------
+# preferred_workflow_tags
+# ---------------------------------------------------------------------------
+
+
+class TestPreferredWorkflowTags:
+    """Tests for profile-driven workflow tag preferences (tie-breaking)."""
+
+    def test_preferred_tag_field_default_empty(self) -> None:
+        p = ExecutionProfile(name="test")
+        assert p.preferred_workflow_tags == []
+
+    def test_preferred_tag_field_set(self) -> None:
+        p = ExecutionProfile(name="test", preferred_workflow_tags=["review_only"])
+        assert p.preferred_workflow_tags == ["review_only"]
+
+    def test_score_bonus_for_matching_tag(self) -> None:
+        """Workflow whose tags match preferred_workflow_tags scores higher."""
+        wf_match = _StubWorkflow(id="review_wf", tags=["review_only"])
+        wf_no_match = _StubWorkflow(id="generic_wf", tags=["general"])
+        profile = ExecutionProfile(name="test", preferred_workflow_tags=["review_only"])
+        score_match = score_workflow(wf_match, profile)
+        score_no = score_workflow(wf_no_match, profile)
+        assert score_match > score_no
+
+    def test_score_bonus_for_matching_id(self) -> None:
+        """Workflow whose id matches a preferred tag gets a bonus."""
+        wf = _StubWorkflow(id="issue_delivery", tags=[])
+        profile = ExecutionProfile(name="test", preferred_workflow_tags=["issue_delivery"])
+        score_with = score_workflow(wf, profile)
+        profile_none = ExecutionProfile(name="test")
+        score_without = score_workflow(wf, profile_none)
+        assert score_with > score_without
+
+    def test_no_preferred_tags_is_neutral(self) -> None:
+        """Without preferred tags the component is neutral (0.5)."""
+        wf = _StubWorkflow(id="any", tags=["something"])
+        profile = ExecutionProfile(name="test")
+        score = score_workflow(wf, profile)
+        # Should still produce a valid score
+        assert 0.0 <= score <= 1.0
+
+    def test_select_workflow_prefers_tagged(self) -> None:
+        """select_workflow picks the workflow matching preferred tags over others."""
+        wf_preferred = _StubWorkflow(
+            id="issue_delivery", steps=[_StubStep(runner="cli_claude")], tags=["issue_delivery"]
+        )
+        wf_other = _StubWorkflow(id="generic", steps=[_StubStep(runner="cli_claude")], tags=["generic"])
+        profile = ExecutionProfile(
+            name="test",
+            preferred_runners=["cli_claude"],
+            preferred_workflow_tags=["issue_delivery"],
+        )
+        defn, reason = select_workflow([wf_other, wf_preferred], profile, threshold=0.0)
+        assert defn is not None
+        assert defn.id == "issue_delivery"
+
+    def test_select_workflow_reason_includes_preferred_tag(self) -> None:
+        """Reason string mentions matched preferred tags."""
+        wf = _StubWorkflow(id="issue_delivery", steps=[_StubStep(runner="cli_claude")], tags=["issue_delivery"])
+        profile = ExecutionProfile(
+            name="test",
+            preferred_runners=["cli_claude"],
+            preferred_workflow_tags=["issue_delivery"],
+        )
+        defn, reason = select_workflow([wf], profile, threshold=0.0)
+        assert defn is not None
+        assert "preferred tag" in reason
+        assert "issue_delivery" in reason
+
+    def test_builtin_parallel_review_has_tags(self) -> None:
+        """parallel-review profile prefers router path."""
+        p = resolve_profile("parallel-review")
+        assert len(p.preferred_workflow_tags) > 0
+        assert "router" in p.preferred_workflow_tags
+        assert "work_item_router" in p.preferred_workflow_tags
+
+    def test_builtin_hands_off_has_tags(self) -> None:
+        """hands-off profile prefers router path."""
+        p = resolve_profile("hands-off")
+        assert len(p.preferred_workflow_tags) > 0
+        assert "router" in p.preferred_workflow_tags
+        assert "work_item_router" in p.preferred_workflow_tags
+
+    def test_binding_reason_includes_profile_name(self) -> None:
+        """When a workflow is matched, _binding_reason mentions the profile."""
+        from pathlib import Path
+
+        wf = _StubWorkflow(
+            id="local_work_item_router",
+            steps=[_StubStep(runner="cli_claude")],
+            tags=["router", "work_item_router"],
+        )
+        profile = ExecutionProfile(
+            name="hands-off",
+            preferred_runners=["cli_claude"],
+            preferred_workflow_tags=["router", "work_item_router"],
+        )
+        plan = CompiledPlan(
+            items=[CompiledItem(summary="Task t1", temp_id="t1")],
+            title="Test",
+        )
+        resolved = Path("/workflows/local_work_item_router.yaml")
+        with patch(
+            "anteroom.services.workflow_resolution.resolve_workflow_path",
+            return_value=resolved,
+        ):
+            new_plan, _ = apply_execution_profile(plan, profile, workflows=[wf])
+        reason = new_plan.items[0].adapter_config["_binding_reason"]
+        assert "hands-off" in reason
+        assert "local_work_item_router" in reason

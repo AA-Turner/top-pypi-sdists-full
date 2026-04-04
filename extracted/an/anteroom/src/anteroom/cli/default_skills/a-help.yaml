@@ -169,7 +169,7 @@ prompt: |
   | /spec            | Manage specs (list/show/create/approve/unapprove/diff/dashboard) |
   | /pack            | Manage packs (list/install/update/remove/attach/detach) |
   | /mcp             | Show MCP server status and tools                    |
-  | /conventions     | Display space conventions (ANTEROOM.md)             |
+  | /conventions     | Display conventions; trust and reload changed instructions |
   | /config          | Edit config interactively (TUI-based)               |
   | /plan            | Enter/exit planning mode                            |
   | /verbose         | Toggle verbosity level                              |
@@ -180,6 +180,8 @@ prompt: |
   Loaded automatically via walk-up discovery from cwd.
   Search filenames (first match wins): `.anteroom.md` > `ANTEROOM.md` > `.claude.md` > `CLAUDE.md`
   Trust: SHA-256 hash verified. Flags: `--trust-project`, `--no-project-context`.
+  Live reload: instructions are reloaded automatically when the file changes on disk.
+  Project instruction changes require re-trust via `/conventions` (select `[t] Trust and reload`).
 
   ### Directory Equivalence
 
@@ -235,7 +237,7 @@ prompt: |
   | Packs | `services/packs.py`, `services/pack_attachments.py`, `services/config_overlays.py` |
   | Spaces | `services/spaces.py`, `services/space_storage.py` |
   | Security | `services/audit.py`, `services/context_trust.py`, `services/dlp.py` |
-  | CLI REPL | `cli/repl.py`, `cli/commands.py`, `cli/agent_turn.py` |
+  | CLI REPL | `cli/repl.py`, `cli/commands.py` |
   | Web routers | `routers/chat.py`, `routers/sources.py`, `routers/spaces.py` |
 
   ---

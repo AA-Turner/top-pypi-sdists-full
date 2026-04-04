@@ -29,9 +29,7 @@ class Detector(Configurable):
 
     # list of strings naming modules required but not explicitly in garak by default
     extra_dependency_names = []
-    hit_desc = (
-        "Detector identified matching indicators of risk"  # description when detector scores a hit
-    )
+    hit_desc = "Detector identified matching indicators of risk"  # description when detector scores a hit
     pass_desc = "Detector found no issue"  # description when detector passes
 
     # support mainstream any-to-any large models
@@ -200,15 +198,14 @@ class StringDetector(Detector):
 
     DEFAULT_PARAMS = Detector.DEFAULT_PARAMS | {
         "matchtype": "str",  # "str" or "word"
+        "case_sensitive": False,
     }
 
     def __init__(self, substrings, config_root=_config):
         super().__init__(config_root=config_root)
         self.substrings = substrings
 
-    def detect(
-        self, attempt: garak.attempt.Attempt, case_sensitive=False
-    ) -> Iterable[float | None]:
+    def detect(self, attempt: garak.attempt.Attempt) -> Iterable[float | None]:
         detector_results = []
         all_outputs = attempt.outputs_for(self.lang_spec)
 
@@ -219,7 +216,7 @@ class StringDetector(Detector):
                 continue
             match = False
             for s in self.substrings:
-                if not case_sensitive:
+                if not self.case_sensitive:
                     s, output_text = s.lower(), output_text.lower()
 
                 if self.matchtype == "str":
@@ -243,9 +240,9 @@ class StringDetector(Detector):
 class TriggerListDetector(Detector):
     """Subclass of Detector using attempt's notes[triggers] as list of strings to match"""
 
-    def detect(
-        self, attempt: garak.attempt.Attempt, case_sensitive=False
-    ) -> Iterable[float | None]:
+    DEFAULT_PARAMS = Detector.DEFAULT_PARAMS | {"case_sensitive": False}
+
+    def detect(self, attempt: garak.attempt.Attempt) -> Iterable[float | None]:
         detector_results = []
         all_outputs = attempt.outputs_for(self.lang_spec)
 
@@ -259,7 +256,7 @@ class TriggerListDetector(Detector):
                     continue  # trigger is absent
                 match = False
                 for trigger in triggers:
-                    if case_sensitive:
+                    if self.case_sensitive:
                         if trigger in output.text:
                             match = True
                     else:
@@ -275,7 +272,7 @@ class FileDetector(Detector):
 
     valid_format = "local filename"
 
-    def _test_file(self, filename: str) -> Union[None, str]:
+    def _test_file(self, filename: str) -> Union[None, float]:
         raise NotImplementedError
 
     def detect(self, attempt: garak.attempt.Attempt) -> Iterable[float | None]:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hatchet-sdk
-Version: 1.29.5
+Version: 1.31.0
 Summary: This is the official Python SDK for Hatchet, a distributed, fault-tolerant task queue. The SDK allows you to easily integrate Hatchet's task scheduling and workflow orchestration capabilities into your Python applications.
 Author-email: Alexander Belanger <alexander@hatchet.run>, Matt Kaye <matt@hatchet.run>, Gabe Ruttner <gabe@hatchet.run>, Mohammed Nafees <nafees@hatchet.run>
 License: MIT
@@ -16,25 +16,30 @@ Requires-Dist: python-dateutil<3,>=2.9.0.post0
 Requires-Dist: tenacity>=8.4.1
 Requires-Dist: typing-inspection>=0.1.0
 Requires-Dist: urllib3<3,>=2.6.0
+Provides-Extra: claude
+Requires-Dist: claude-agent-sdk; extra == 'claude'
+Requires-Dist: mcp; extra == 'claude'
 Provides-Extra: docs
 Requires-Dist: bs4>=0.0.2; extra == 'docs'
 Requires-Dist: fastapi<1,>=0.115.14; extra == 'docs'
 Requires-Dist: markdownify>=1.1.0; extra == 'docs'
 Requires-Dist: mkdocs<2,>=1.6.1; extra == 'docs'
 Requires-Dist: mkdocstrings[python]<1,>=0.29.1; extra == 'docs'
-Requires-Dist: openai<2,>=1.75.0; extra == 'docs'
+Requires-Dist: openai<3,>=2.30.0; extra == 'docs'
 Requires-Dist: pydoclint>=0.6.6; extra == 'docs'
 Requires-Dist: types-beautifulsoup4>=4.12.0.20250204; extra == 'docs'
 Requires-Dist: uvicorn<1,>=0.34.3; extra == 'docs'
 Provides-Extra: lint
-Requires-Dist: black==26.1.0; extra == 'lint'
-Requires-Dist: mypy==1.19.1; extra == 'lint'
+Requires-Dist: black==26.3.1; extra == 'lint'
+Requires-Dist: mypy==1.20.0; extra == 'lint'
 Requires-Dist: psutil>=6.0.0; extra == 'lint'
-Requires-Dist: ruff==0.15.0; extra == 'lint'
+Requires-Dist: ruff==0.15.9; extra == 'lint'
 Requires-Dist: types-grpcio>=1.0.0; extra == 'lint'
 Requires-Dist: types-protobuf>=5.28.3.20241030; extra == 'lint'
 Requires-Dist: types-psutil>=6.1.0.20241221; extra == 'lint'
 Requires-Dist: types-requests>=2.32.0.20241016; extra == 'lint'
+Provides-Extra: openai
+Requires-Dist: openai-agents; extra == 'openai'
 Provides-Extra: otel
 Requires-Dist: opentelemetry-api<2,>=1.28.0; extra == 'otel'
 Requires-Dist: opentelemetry-distro>=0.49b0; extra == 'otel'

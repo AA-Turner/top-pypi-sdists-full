@@ -7,6 +7,10 @@ class HuaweiSolarException(Exception):  # noqa: N818
     """Base class for Huawei Solar exceptions."""
 
 
+class DeviceDetectionError(HuaweiSolarException):
+    """Failed to detect the type of the connected device."""
+
+
 class DecodeError(HuaweiSolarException):
     """Decoding failed."""
 
@@ -36,16 +40,12 @@ class ReadException(HuaweiSolarException):
         self.modbus_exception_code = modbus_exception_code
 
 
+class UnexpectedResponseContent(HuaweiSolarException):
+    """The response from the device contained unexpected content."""
+
+
 class ConnectionInterruptedException(HuaweiSolarException):
     """Connection to the inverter was interrupted."""
-
-
-class SlaveBusyException(HuaweiSolarException):
-    """Non-fatal exception while trying to read from device."""
-
-
-class SlaveFailureException(HuaweiSolarException):
-    """Possibly fatal exception while trying to read from device."""
 
 
 class WriteException(HuaweiSolarException):
@@ -55,10 +55,6 @@ class WriteException(HuaweiSolarException):
         """Create WriteException."""
         super().__init__(*args, **kwargs)
         self.modbus_exception_code = modbus_exception_code
-
-
-class PermissionDenied(HuaweiSolarException):
-    """The inverter returned an error indicating that you don't have permission for this action."""
 
 
 class InvalidCredentials(HuaweiSolarException):

@@ -1,4 +1,4 @@
-use tombi_test_lib::project_root_path;
+use tombi_test_lib::{cargo_feature_navigation_fixture_path, project_root_path};
 
 mod goto_definition_tests {
     use super::*;
@@ -396,10 +396,293 @@ mod goto_definition_tests {
                 SourcePath(project_root_path().join("crates/tombi-lsp/Cargo.toml")),
             ) -> Ok([project_root_path().join("Cargo.toml")]);
         );
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn feature_local_feature_reference(
+                r#"
+                [package]
+                name = "explicit-feature"
+                version = "0.1.0"
+
+                [dependencies]
+                schemars = { version = "1.0", optional = true }
+
+                [features]
+                local = []
+                bundle = ["local█", "schemars", "dep:schemars"]
+                "#,
+                SourcePath(cargo_feature_navigation_fixture_path().join("explicit/Cargo.toml")),
+            ) -> Ok([
+                cargo_feature_navigation_fixture_path().join("explicit/Cargo.toml")
+            ]);
+        );
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn feature_key_collects_same_file_and_workspace_usages(
+                r#"
+                [package]
+                name = "provider"
+                version = "0.1.0"
+                edition = "2024"
+
+                [features]
+                jsonschema█ = []
+                "#,
+                SourcePath(
+                    cargo_feature_navigation_fixture_path().join("workspace/provider/Cargo.toml")
+                ),
+            ) -> Ok([
+                cargo_feature_navigation_fixture_path().join("workspace/Cargo.toml"),
+                cargo_feature_navigation_fixture_path().join("workspace/consumer/Cargo.toml"),
+                cargo_feature_navigation_fixture_path().join("workspace/consumer/Cargo.toml"),
+                cargo_feature_navigation_fixture_path().join("workspace/renamed-consumer/Cargo.toml"),
+                cargo_feature_navigation_fixture_path().join("workspace/renamed-consumer/Cargo.toml"),
+                cargo_feature_navigation_fixture_path().join("workspace/weak-consumer/Cargo.toml"),
+            ]);
+        );
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn feature_implicit_optional_dependency_reference(
+                r#"
+                [package]
+                name = "implicit-feature"
+                version = "0.1.0"
+
+                [dependencies]
+                schemars = { version = "1.0", optional = true }
+
+                [features]
+                bundle = ["schemars█"]
+                "#,
+                SourcePath(cargo_feature_navigation_fixture_path().join("implicit/Cargo.toml")),
+            ) -> Ok([
+                cargo_feature_navigation_fixture_path().join("implicit/Cargo.toml")
+            ]);
+        );
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn feature_implicit_optional_dependency_disabled_by_dep_syntax(
+                r#"
+                [package]
+                name = "explicit-feature"
+                version = "0.1.0"
+
+                [dependencies]
+                schemars = { version = "1.0", optional = true }
+
+                [features]
+                local = []
+                bundle = ["local", "schemars█", "dep:schemars"]
+                "#,
+                SourcePath(cargo_feature_navigation_fixture_path().join("explicit/Cargo.toml")),
+            ) -> Ok([]);
+        );
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn feature_dep_optional_dependency_reference(
+                r#"
+                [package]
+                name = "explicit-feature"
+                version = "0.1.0"
+
+                [dependencies]
+                schemars = { version = "1.0", optional = true }
+
+                [features]
+                local = []
+                bundle = ["local", "schemars", "dep:schemars█"]
+                "#,
+                SourcePath(cargo_feature_navigation_fixture_path().join("explicit/Cargo.toml")),
+            ) -> Ok([
+                cargo_feature_navigation_fixture_path().join("explicit/Cargo.toml")
+            ]);
+        );
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn optional_dependency_definition_collects_same_manifest_feature_usages(
+                r#"
+                [package]
+                name = "explicit-feature"
+                version = "0.1.0"
+
+                [dependencies]
+                schemars = { version = "1.0", optional█ = true }
+
+                [features]
+                local = []
+                bundle = ["local", "schemars", "dep:schemars"]
+                "#,
+                SourcePath(cargo_feature_navigation_fixture_path().join("explicit/Cargo.toml")),
+            ) -> Ok([
+                cargo_feature_navigation_fixture_path().join("explicit/Cargo.toml")
+            ]);
+        );
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn feature_dependency_feature_reference(
+                r#"
+                [package]
+                name = "consumer"
+                version = "0.1.0"
+
+                [dependencies]
+                provider = { workspace = true, features = ["jsonschema"] }
+
+                [features]
+                local = ["provider/jsonschema█"]
+                "#,
+                SourcePath(
+                    cargo_feature_navigation_fixture_path().join("workspace/consumer/Cargo.toml")
+                ),
+            ) -> Ok([
+                cargo_feature_navigation_fixture_path().join("workspace/provider/Cargo.toml")
+            ]);
+        );
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn feature_weak_dependency_feature_reference(
+                r#"
+                [package]
+                name = "weak-consumer"
+                version = "0.1.0"
+
+                [dependencies]
+                provider = { path = "../provider" }
+
+                [features]
+                weak = ["provider?/jsonschema█"]
+                "#,
+                SourcePath(
+                    cargo_feature_navigation_fixture_path().join("workspace/weak-consumer/Cargo.toml")
+                ),
+            ) -> Ok([
+                cargo_feature_navigation_fixture_path().join("workspace/provider/Cargo.toml")
+            ]);
+        );
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn feature_renamed_dependency_feature_reference(
+                r#"
+                [package]
+                name = "renamed-consumer"
+                version = "0.1.0"
+
+                [dependencies]
+                sev = { package = "provider", path = "../provider", features = ["jsonschema"] }
+
+                [features]
+                rename = ["sev/jsonschema█", "provider/jsonschema"]
+                "#,
+                SourcePath(
+                    cargo_feature_navigation_fixture_path()
+                        .join("workspace/renamed-consumer/Cargo.toml")
+                ),
+            ) -> Ok([
+                cargo_feature_navigation_fixture_path().join("workspace/provider/Cargo.toml")
+            ]);
+        );
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn feature_wrong_package_name_for_renamed_dependency_returns_none(
+                r#"
+                [package]
+                name = "renamed-consumer"
+                version = "0.1.0"
+
+                [dependencies]
+                sev = { package = "provider", path = "../provider", features = ["jsonschema"] }
+
+                [features]
+                rename = ["sev/jsonschema", "provider/jsonschema█"]
+                "#,
+                SourcePath(
+                    cargo_feature_navigation_fixture_path()
+                        .join("workspace/renamed-consumer/Cargo.toml")
+                ),
+            ) -> Ok([]);
+        );
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn dependency_features_reference_local_feature(
+                r#"
+                [package]
+                name = "consumer"
+                version = "0.1.0"
+
+                [dependencies]
+                provider = { workspace = true, features = ["jsonschema█"] }
+
+                [features]
+                local = ["provider/jsonschema"]
+                "#,
+                SourcePath(
+                    cargo_feature_navigation_fixture_path().join("workspace/consumer/Cargo.toml")
+                ),
+            ) -> Ok([
+                cargo_feature_navigation_fixture_path().join("workspace/provider/Cargo.toml")
+            ]);
+        );
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn dependency_features_registry_dependency_returns_none(
+                r#"
+                [package]
+                name = "registry-consumer"
+                version = "0.1.0"
+
+                [dependencies]
+                serde = { version = "1.0", features = ["derive█"] }
+                "#,
+                SourcePath(
+                    cargo_feature_navigation_fixture_path()
+                        .join("workspace/registry-consumer/Cargo.toml")
+                ),
+            ) -> Ok([]);
+        );
     }
 
     mod pyproject_schema {
         use super::*;
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn dependency_groups_group_name_lists_include_group_usages(
+                r#"
+                [dependency-groups]
+                dev = [{ include-group = "ci" }]
+                qa = [{ include-group = "ci" }]
+                ci█ = ["ruff"]
+                "#,
+                SourcePath(project_root_path().join("pyproject.toml")),
+            ) -> Ok([
+                project_root_path().join("pyproject.toml"),
+                project_root_path().join("pyproject.toml"),
+            ]);
+        );
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn dependency_groups_include_group_value_jumps_to_group_name(
+                r#"
+                [dependency-groups]
+                dev = [{ include-group = "ci█" }]
+                ci = ["ruff"]
+                "#,
+                SourcePath(project_root_path().join("pyproject.toml")),
+            ) -> Ok([project_root_path().join("pyproject.toml")]);
+        );
 
         test_goto_definition!(
             #[tokio::test]

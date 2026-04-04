@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=61", "setuptools-scm~=9.2"]
+requires = ["setuptools~=82.0", "setuptools-scm~=10.0"]
 
 [project]
 authors = [
@@ -38,26 +38,30 @@ name = "pylint-per-file-ignores"
 readme = "README.md"
 requires-python = ">=3.10,<4"
 
+[project.urls]
+Changelog = "https://github.com/SAP/pylint-per-file-ignores/blob/main/CHANGELOG.md"
+"Issue Tracker" = "https://github.com/SAP/pylint-per-file-ignores/issues"
+
 [dependency-groups]
 dev = [
-    "pre-commit==4.4.0",
-    "pylint==4.0.3",
-    "black==25.11.0",
-    "isort==7.0.0",
+    "pre-commit==4.5.1",
+    "pylint==4.0.5",
+    "black==26.3.1",
+    "isort==8.0.1",
     "flake8==7.3.0",
-    "flake8-tergeo==25.10.9.0",
-    "mypy==1.18.2",
+    "flake8-tergeo==26.4.1.0",
+    "mypy==1.20.0",
     "yesqa==1.5.0",
     "pyupgrade==3.21.2",
-    "toml-sort==0.24.3",
-    "uv==0.9.11",
+    "toml-sort==0.24.4",
+    "uv==0.11.3",
     "towncrier==25.8.0",
 ]
 test = [
-    "pytest==9.0.1",
-    "coverage==7.11.3",
-    "diff-cover==9.7.2",
-    "pytest-cov==7.0.0",
+    "pytest==9.0.2",
+    "coverage==7.13.5",
+    "diff-cover==10.2.0",
+    "pytest-cov==7.1.0",
     "pytest-randomly==4.0.1",
     "pytest-datadir==1.8.0",
     "pytest-fixture-classes==1.0.4",
@@ -70,6 +74,7 @@ skip_covered = true
 
 [tool.coverage.run]
 branch = true
+patch = ["subprocess"]
 
 [tool.diff_cover]
 fail_under = 90
@@ -161,9 +166,12 @@ reports = false
 [tool.pylint.similarities]
 ignore-imports = true
 
-[tool.pytest.ini_options]
-addopts = "--strict-markers"
-xfail_strict = true
+[tool.pytest]
+addopts = ["-p", "no:legacypath"]
+filterwarnings = [
+    "error",
+]
+strict = true
 
 [tool.setuptools.package-data]
 swagger_plugin_for_sphinx = ["py.typed"]

@@ -211,7 +211,7 @@ class PythonExecutionBase(Generic[ConnectionType]):
         return [
             re.compile(re.escape(val))
             for key, val in env.items()
-            if len(val) > 8 and key != "PATH"
+            if len(val) > 8 and key != "PATH" and key != "ISOLATE_SERVER_VERSION"
         ]
 
     def _mask_agent_log(

@@ -96,6 +96,11 @@ pub(crate) fn error_extraction_result(e: &KreuzbergError, elapsed_ms: Option<u64
         processing_warnings: Vec::new(),
         annotations: None,
         children: None,
+        uris: None,
+        #[cfg(feature = "tree-sitter")]
+        code_intelligence: None,
+        formatted_content: None,
+        ocr_internal_document: None,
     }
 }
 

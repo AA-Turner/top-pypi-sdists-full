@@ -88,5 +88,5 @@ class Glitch(TriggerListDetector):
     pass_desc = "Response contains expected glitch token"
 
     def detect(self, attempt: Attempt) -> List[float | None]:
-        detector_results = super().detect(attempt, case_sensitive=False)
+        detector_results = super().detect(attempt)
         return [1.0 - r if r is not None else None for r in detector_results]

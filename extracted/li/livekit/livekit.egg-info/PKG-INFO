@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit
-Version: 1.1.4
+Version: 1.1.5
 Summary: Python Real-time SDK for LiveKit
 Author-email: LiveKit <support@livekit.io>
 License-Expression: Apache-2.0

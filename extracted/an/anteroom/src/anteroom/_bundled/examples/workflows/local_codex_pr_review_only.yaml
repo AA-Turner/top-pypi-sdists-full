@@ -1,0 +1,82 @@
+kind: workflow
+id: local_codex_pr_review_only
+version: 0.1.0
+
+inputs:
+  issue_number:
+    type: integer
+    required: true
+
+steps:
+  - id: gate_issue_current
+    type: gate
+    condition: issue_is_current
+    if_false: blocked_issue_not_open
+
+  - id: prepare_issue
+    type: runner
+    runner: python_script
+    command: "scripts/workflows/local_cli_issue_flow.py"
+    argv:
+      - "prepare"
+      - "--issue"
+      - "{issue_number}"
+    timeout: 300
+    retry:
+      max_attempts: 2
+      backoff: fixed
+      initial_delay: 5
+
+  - id: assert_pr_fresh
+    type: runner
+    runner: python_script
+    command: "scripts/workflows/local_cli_issue_flow.py"
+    argv:
+      - "assert-pr-fresh"
+      - "--issue"
+      - "{issue_number}"
+    timeout: 30
+
+  - id: assert_pr_mergeable
+    type: runner
+    runner: python_script
+    command: "scripts/workflows/local_cli_issue_flow.py"
+    argv:
+      - "assert-pr-mergeable"
+      - "--issue"
+      - "{issue_number}"
+    timeout: 30
+
+  - id: ensure_pr_ready
+    type: runner
+    runner: python_script
+    command: "scripts/workflows/local_cli_issue_flow.py"
+    argv:
+      - "ready-pr"
+      - "--issue"
+      - "{issue_number}"
+    timeout: 60
+
+  - id: review_pr
+    type: runner
+    runner: python_script
+    command: "scripts/workflows/local_cli_issue_flow.py"
+    argv:
+      - "review-pr"
+      - "--issue"
+      - "{issue_number}"
+    timeout: 180
+
+  - id: assert_pr_approved
+    type: runner
+    runner: python_script
+    command: "scripts/workflows/local_cli_issue_flow.py"
+    argv:
+      - "assert-pr-approved"
+      - "--issue"
+      - "{issue_number}"
+      - "--wait-seconds"
+      - "0"
+      - "--poll-interval"
+      - "5"
+    timeout: 15

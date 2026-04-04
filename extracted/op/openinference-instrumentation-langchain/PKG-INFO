@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-langchain
-Version: 0.1.61
+Version: 0.1.62
 Summary: OpenInference LangChain Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-langchain
 Author-email: OpenInference Authors <oss@arize.com>
@@ -25,22 +25,6 @@ Requires-Dist: opentelemetry-semantic-conventions
 Requires-Dist: wrapt
 Provides-Extra: instruments
 Requires-Dist: langchain-core>=0.3.9; extra == 'instruments'
-Provides-Extra: test
-Requires-Dist: langchain-classic>=1.0.0; extra == 'test'
-Requires-Dist: langchain-community>=0.4.0; extra == 'test'
-Requires-Dist: langchain-core<2.0.0,>=1.0.0; extra == 'test'
-Requires-Dist: langchain-google-vertexai>=2.0.12; extra == 'test'
-Requires-Dist: langchain-openai>=0.2.14; extra == 'test'
-Requires-Dist: langchain>=1.0.0; extra == 'test'
-Requires-Dist: langsmith; extra == 'test'
-Requires-Dist: opentelemetry-sdk; extra == 'test'
-Requires-Dist: portpicker; extra == 'test'
-Requires-Dist: pytest-recording; extra == 'test'
-Requires-Dist: pytest-rerunfailures; extra == 'test'
-Requires-Dist: respx; extra == 'test'
-Requires-Dist: starlette; extra == 'test'
-Requires-Dist: uvicorn; extra == 'test'
-Requires-Dist: vcrpy>=6.0.1; extra == 'test'
 Provides-Extra: type-check
 Requires-Dist: langchain-core==0.3.9; extra == 'type-check'
 Description-Content-Type: text/markdown

@@ -145,6 +145,7 @@ struct DefListContext {
 #[derive(Debug)]
 struct FigureContext {
     img_alt: Option<String>,
+    img_src: Option<String>,
     img_width: Option<String>,
     img_height: Option<String>,
     caption: Option<String>,
@@ -340,7 +341,10 @@ impl<'a, 'b> HtmlWalker<'a, 'b> {
                 } else if self.in_list_item {
                     self.list_item_text.push('\n');
                 } else {
-                    self.text_buf.push('\n');
+                    // Use sentinel \x01 to mark intentional line breaks from <br> tags.
+                    // normalize_whitespace will convert these to real newlines while
+                    // collapsing all other whitespace (including source HTML newlines).
+                    self.text_buf.push('\x01');
                 }
             }
             "strong" | "b" => self.push_inline(InlineKind::Bold),
@@ -431,17 +435,19 @@ impl<'a, 'b> HtmlWalker<'a, 'b> {
             }
             "img" => {
                 let alt = extract_attr(attrs_str, "alt");
+                let src = extract_attr(attrs_str, "src").map(|s| s.to_string());
                 let width = extract_attr(attrs_str, "width").map(|s| s.to_string());
                 let height = extract_attr(attrs_str, "height").map(|s| s.to_string());
 
                 // If inside a <figure>, accumulate rather than emitting immediately
                 if let Some(ref mut fig) = self.figure {
                     fig.img_alt = alt.map(|s| s.to_string());
+                    fig.img_src = src;
                     fig.img_width = width;
                     fig.img_height = height;
                 } else {
                     self.flush_paragraph();
-                    let idx = self.builder.push_image(alt, None, None, None);
+                    let idx = self.builder.push_image_with_src(alt, src.as_deref(), None, None, None);
                     if width.is_some() || height.is_some() {
                         let mut attrs = AHashMap::new();
                         if let Some(w) = width {
@@ -458,6 +464,7 @@ impl<'a, 'b> HtmlWalker<'a, 'b> {
                 self.flush_paragraph();
                 self.figure = Some(FigureContext {
                     img_alt: None,
+                    img_src: None,
                     img_width: None,
                     img_height: None,
                     caption: None,
@@ -521,14 +528,27 @@ impl<'a, 'b> HtmlWalker<'a, 'b> {
                     }
                 }
             }
+            "video" | "audio" => {
+                // Skip entire element including fallback text children.
+                // EPUB files embed fallback text like "Your Reading System does
+                // not support..." which should never appear in extracted content.
+                let close_tag = format!("</{tag}>");
+                if let Some(close_pos) = self.src[self.pos..].find(&close_tag) {
+                    self.pos += close_pos + close_tag.len();
+                }
+            }
             "hr" => {
                 self.flush_paragraph();
                 // HR is just a separator; we don't have a dedicated node type,
                 // so we skip it.
             }
-            // Structural containers we pass through
-            "div" | "section" | "article" | "main" | "aside" | "header" | "footer" | "nav" | "details" | "summary"
-            | "span" | "html" | "body" | "title" | "link" => {}
+            // Block-level structural containers: flush any accumulated text
+            // so that each block boundary produces a paragraph break.
+            "div" | "section" | "article" | "main" | "aside" | "header" | "footer" | "nav" | "details" | "summary" => {
+                self.flush_paragraph();
+            }
+            // Inline / root-level elements we pass through without flushing
+            "span" | "html" | "body" | "title" | "link" => {}
             _ => {}
         }
     }
@@ -632,7 +652,9 @@ impl<'a, 'b> HtmlWalker<'a, 'b> {
                         .map(|s| s.trim())
                         .filter(|s| !s.is_empty())
                         .or(fig.img_alt.as_deref());
-                    let idx = self.builder.push_image(desc, None, None, None);
+                    let idx = self
+                        .builder
+                        .push_image_with_src(desc, fig.img_src.as_deref(), None, None, None);
                     let has_dims = fig.img_width.is_some() || fig.img_height.is_some();
                     if has_dims {
                         let mut attrs = AHashMap::new();
@@ -657,6 +679,10 @@ impl<'a, 'b> HtmlWalker<'a, 'b> {
                     let entries = std::mem::take(&mut self.meta_entries);
                     self.builder.push_metadata_block(entries, None);
                 }
+            }
+            // Block-level structural containers: flush accumulated text on close
+            "div" | "section" | "article" | "main" | "aside" | "header" | "footer" | "nav" | "details" | "summary" => {
+                self.flush_paragraph();
             }
             _ => {}
         }
@@ -1010,11 +1036,24 @@ fn decode_entities(s: &str) -> String {
 }
 
 /// Collapse runs of whitespace into single spaces and trim.
+///
+/// The sentinel character `\x01` marks intentional line breaks inserted by
+/// `<br>` tag handling. These are converted to real newlines in the output
+/// while all other whitespace (including source HTML newlines) is collapsed.
 fn normalize_whitespace(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut last_was_space = true; // trim leading
+
     for c in s.chars() {
-        if c.is_ascii_whitespace() {
+        if c == '\x01' {
+            // Sentinel from <br> — convert to real newline.
+            // Trim trailing horizontal whitespace before the newline.
+            while out.ends_with(' ') {
+                out.pop();
+            }
+            out.push('\n');
+            last_was_space = true; // trim leading whitespace on next line
+        } else if c.is_ascii_whitespace() {
             if !last_was_space {
                 out.push(' ');
                 last_was_space = true;
@@ -1167,6 +1206,51 @@ mod tests {
         let quote = &doc.nodes[0];
         assert!(matches!(quote.content, NodeContent::Quote));
         assert_eq!(quote.children.len(), 1);
+    }
+
+    #[test]
+    fn test_blockquote_with_divs() {
+        // Simulates EPUB verse structure: blockquote > div > div lines
+        let html = r#"<div>Before</div>
+<blockquote><div><div>Line one</div><div>Line two</div></div></blockquote>
+<div>After</div>"#;
+        let doc = build_document_structure(html);
+        assert!(doc.validate().is_ok(), "validate: {:?}", doc.validate());
+
+        // Should have: Paragraph("Before"), Quote with children, Paragraph("After")
+        let roots: Vec<_> = doc.body_roots().collect();
+        println!("=== ALL NODES ===");
+        for (i, node) in doc.nodes.iter().enumerate() {
+            println!(
+                "  [{}] {:?} parent={:?} children={:?}",
+                i, node.content, node.parent, node.children
+            );
+        }
+
+        // Find the Quote node
+        let quote_idx = doc.nodes.iter().position(|n| matches!(n.content, NodeContent::Quote));
+        assert!(
+            quote_idx.is_some(),
+            "Should have a Quote node. Roots: {:?}",
+            roots.len()
+        );
+        let quote = &doc.nodes[quote_idx.unwrap()];
+        assert!(
+            !quote.children.is_empty(),
+            "Quote should have children with div content"
+        );
+
+        // The paragraphs inside the blockquote should be children of the Quote
+        let child_texts: Vec<_> = quote
+            .children
+            .iter()
+            .filter_map(|ci| match &doc.nodes[ci.0 as usize].content {
+                NodeContent::Paragraph { text } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert!(child_texts.contains(&"Line one"), "Quote children: {:?}", child_texts);
+        assert!(child_texts.contains(&"Line two"), "Quote children: {:?}", child_texts);
     }
 
     #[test]

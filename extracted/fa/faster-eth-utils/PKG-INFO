@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: faster-eth-utils
-Version: 5.3.25
+Version: 5.3.26
 Summary: A faster fork of eth-utils: Common utility functions for python code that interacts with Ethereum. Implemented in C.
 Home-page: https://github.com/BobTheBuidler/faster-eth-utils
 Author: The Ethereum Foundation
@@ -40,7 +40,7 @@ Requires-Dist: build>=0.9.0; extra == "dev"
 Requires-Dist: bump_my_version>=0.19.0; extra == "dev"
 Requires-Dist: eth-hash[pycryptodome]; extra == "dev"
 Requires-Dist: ipython; extra == "dev"
-Requires-Dist: mypy[mypyc]<1.20,>=1.14.1; extra == "dev"
+Requires-Dist: mypy[mypyc]<1.21,>=1.20; extra == "dev"
 Requires-Dist: pre-commit>=3.4.0; extra == "dev"
 Requires-Dist: tox>=4.0.0; extra == "dev"
 Requires-Dist: twine; extra == "dev"
@@ -50,7 +50,7 @@ Requires-Dist: sphinx-autobuild>=2021.3.14; extra == "dev"
 Requires-Dist: sphinx_rtd_theme>=1.0.0; extra == "dev"
 Requires-Dist: towncrier<26,>=24; extra == "dev"
 Requires-Dist: hypothesis>=4.43.0; extra == "dev"
-Requires-Dist: mypy[mypyc]<1.20,>=1.14.1; extra == "dev"
+Requires-Dist: mypy[mypyc]<1.21,>=1.20; extra == "dev"
 Requires-Dist: pytest-xdist>=2.4.0; extra == "dev"
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Provides-Extra: docs
@@ -60,7 +60,7 @@ Requires-Dist: sphinx_rtd_theme>=1.0.0; extra == "docs"
 Requires-Dist: towncrier<26,>=24; extra == "docs"
 Provides-Extra: test
 Requires-Dist: hypothesis>=4.43.0; extra == "test"
-Requires-Dist: mypy[mypyc]<1.20,>=1.14.1; extra == "test"
+Requires-Dist: mypy[mypyc]<1.21,>=1.20; extra == "test"
 Requires-Dist: pytest-xdist>=2.4.0; extra == "test"
 Requires-Dist: pytest>=7.0.0; extra == "test"
 Provides-Extra: codspeed

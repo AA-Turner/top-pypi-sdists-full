@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anteroom
-Version: 1.151.0
+Version: 1.152.0
 Summary: Anteroom - your gateway to AI conversation
 License-Expression: Apache-2.0
 Classifier: Programming Language :: Python :: 3
@@ -138,7 +138,8 @@ Dynamic: license-file
 ```bash
 pip install anteroom
 aroom init          # interactive setup wizard
-aroom               # web UI at http://127.0.0.1:8080
+aroom               # CLI REPL (default entry point)
+aroom web           # web UI at http://127.0.0.1:8080
 aroom start         # or run in the background — no terminal needed
 ```
 

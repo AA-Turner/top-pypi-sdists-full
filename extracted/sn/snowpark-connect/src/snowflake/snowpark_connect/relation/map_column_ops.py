@@ -84,7 +84,6 @@ from snowflake.snowpark_connect.utils import context
 from snowflake.snowpark_connect.utils.context import (
     clear_lca_alias_map,
     register_lca_alias,
-    was_lca_used,
 )
 from snowflake.snowpark_connect.utils.expression_transformer import (
     is_child_agg_function_expression,
@@ -238,8 +237,6 @@ def map_project(
     # LCA Support: build DataFrame progressively to allow later expressions to reference earlier aliases
     clear_lca_alias_map()
 
-    # Collect aliases to batch process them
-    pending_aliases = []  # List of (spark_name, snowpark_col, aliased_col, alias_types)
     # Track columns that might need aliasing if multi-column generators are present
     # Format: (index_in_select_list, snowpark_column_name, mapper.col)
     conditional_aliases = []
@@ -354,19 +351,23 @@ def map_project(
             column_types.extend(mapper.types)
             qualifiers.append(mapper.get_qualifiers())
 
-            # Only update the DataFrame and register LCA for explicit aliases
+            # Only register LCA for explicit aliases
             if (
                 exp.WhichOneof("expr_type") == "alias"
                 and not context.is_resolving_subquery_exp()
             ):
-                # Collect alias for batch processing
-                pending_aliases.append(
-                    (spark_name, snowpark_column, aliased_col, mapper.types)
-                )
-
-                # Register in LCA map immediately so subsequent expressions can resolve it
+                # Register in LCA map immediately so subsequent expressions can resolve it.
+                # Store a simple column reference to the alias name rather than the full
+                # expression.  Snowflake supports lateral column aliases natively, so the
+                # generated SELECT can reference the earlier alias by name.  Inlining the
+                # full expression would break when the expression contains aggregates
+                # (the intermediate with_columns projection would re-introduce aggregates
+                # without a GROUP BY).
                 alias_types = mapper.types
-                typed_alias = TypedColumn(aliased_col, lambda types=alias_types: types)
+                typed_alias = TypedColumn(
+                    snowpark_fn.col(snowpark_column),
+                    lambda types=alias_types: types,
+                )
                 register_lca_alias(spark_name, typed_alias)
 
                 # Also register with the original qualified name if this is an alias of a column reference
@@ -418,17 +419,7 @@ def map_project(
             column_is_hidden=[True],
         )
 
-    if pending_aliases and was_lca_used():
-        # LCA case: a later expression actually referenced an earlier alias,
-        # so we need the intermediate DataFrame to make those aliases available.
-        old_cols = [alias[1] for alias in pending_aliases]
-        new_cols = [alias[2] for alias in pending_aliases]
-
-        intermediate_df = input_df.with_columns(old_cols, new_cols)
-
-        result = intermediate_df.select(*select_list)
-    else:
-        result = input_df.select(*select_list)
+    result = input_df.select(*select_list)
 
     # Apply toDF renaming for multi-column aliasing
     if has_multi_column_alias:

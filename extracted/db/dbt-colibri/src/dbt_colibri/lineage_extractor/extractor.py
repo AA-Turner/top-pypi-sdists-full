@@ -2,7 +2,7 @@
 from sqlglot.lineage import maybe_parse, SqlglotError, exp
 import logging
 from ..utils import json_utils, parsing_utils
-from .lineage import lineage, prepare_scope
+from .lineage import lineage, prepare_scope, extract_structural_lineage
 import re
 from importlib.metadata import version, PackageNotFoundError
 import gc
@@ -36,6 +36,7 @@ class DbtColumnLineageExtractor:
         self.dialect = self._detect_adapter_type()
         # self.node_mapping = self._get_dict_mapping_full_table_name_to_dbt_node()
         self.nodes_with_columns = self.build_nodes_with_columns()
+        self._table_to_node = {k.lower(): v for k, v in self.nodes_with_columns.items()}
         # Store references to parent and child maps for easy access
         self.parent_map = self.manifest.get("parent_map", {})
         self.child_map = self.manifest.get("child_map", {})
@@ -59,11 +60,17 @@ class DbtColumnLineageExtractor:
         Validate models in manifest and catalog:
         1. Check for missing compiled SQL.
         2. Check for non-materialized models.
+
+        Stores validation counts as instance attributes for downstream consumers:
+        - self.total_model_count: total number of models in manifest
+        - self.unmaterialized_model_count: models missing from catalog
         """
         all_models = [
             node_id for node_id, node in self.manifest.get("nodes", {}).items()
             if node.get("resource_type") == "model"
         ]
+
+        self.total_model_count = len(all_models)
 
         # --- Missing compiled SQL ---
         missing_compiled = [
@@ -75,12 +82,13 @@ class DbtColumnLineageExtractor:
             total = len(all_models)
             missing = len(missing_compiled)
             msg = f"{missing}/{total} models are missing compiled SQL. Ensure dbt compile was run."
-            
+
             self.logger.error(msg)
 
         # --- Non-materialized models (missing from catalog) ---
         catalog_models = set(self.catalog.get("nodes", {}).keys())
         non_materialized = set(all_models) - catalog_models
+        self.unmaterialized_model_count = len(non_materialized)
 
         if non_materialized:
             msg = f"{len(non_materialized)}/{len(all_models)} models are not materialized (missing from catalog)."
@@ -102,7 +110,7 @@ class DbtColumnLineageExtractor:
         Raises:
             ValueError: If adapter_type is not found or not supported
         """
-        SUPPORTED_ADAPTERS = {'snowflake', 'bigquery', 'redshift', 'duckdb', 'postgres', 'databricks', 'athena', 'trino', 'sqlserver', 'clickhouse'}
+        SUPPORTED_ADAPTERS = {'snowflake', 'bigquery', 'redshift', 'duckdb', 'postgres', 'databricks', 'athena', 'trino', 'sqlserver', 'clickhouse', 'oracle'}
         
         # Get adapter_type from manifest metadata
         adapter_type = self.manifest.get("metadata", {}).get("adapter_type")
@@ -253,10 +261,26 @@ class DbtColumnLineageExtractor:
             else:
                 self.logger.warning(f"Parent model {parent} not found in catalog")
         return parent_catalog
+    
+    def _sanitize_sql_for_parsing(self, sql):
+        # Placeholder for any SQL sanitization needed before parsing
+        if self.dialect != "oracle":
+            return sql
+
+        sql = re.sub(r"(?i)\bLISTAGG\s*\(\s*DISTINCT\s+", "LISTAGG(", sql)
+
+        sql = re.sub(
+            r"(?is)\bON\s+OVERFLOW\s+(?:TRUNCATE|ERROR)\b(?:\s+'[^']*')?(?:\s+(?:WITH|WITHOUT)\s+COUNT)?",
+            "",
+            sql,
+        )
+
+        return sql
 
     def _extract_lineage_for_model(self, model_sql, schema, model_node, resource_type, selected_columns=[]):
         lineage_map = {}
-        parsed_model_sql = maybe_parse(model_sql, dialect=self.dialect)
+        model_sql_for_parse = self._sanitize_sql_for_parsing(model_sql)
+        parsed_model_sql = maybe_parse(model_sql_for_parse, dialect=self.dialect)
         # sqlglot does not unfold * to schema when the schema has quotes, or upper (for BigQuery)
         if self.dialect == "postgres":
             parsed_model_sql = parsing_utils.remove_quotes(parsed_model_sql)
@@ -390,6 +414,25 @@ class DbtColumnLineageExtractor:
                 f"Completed with {error_count} errors out of {processed_count} models processed"
             )
         return lineage_map
+    
+    def _table_key_from_sqlglot_table_node(self, node):
+        catalog = (node.source.catalog or "").strip()
+        db = (node.source.db or "").strip()
+        table_name = (node.source.name or "").strip()
+
+        if not table_name:
+            return ""
+
+        if not catalog:
+            if not db:
+                return table_name.lower()
+
+            return f"{db}.{table_name}".lower()
+        
+        if not db:
+            return f"{catalog}.{table_name}".lower()
+
+        return f"{catalog}.{db}.{table_name}".lower()
 
     def get_dbt_node_from_sqlglot_table_node(self, node, model_node):
         if node.source.key != "table":
@@ -399,17 +442,17 @@ class DbtColumnLineageExtractor:
             return None
             
         column_name = node.name.split(".")[-1].lower()
-        
+
         if self.dialect == 'clickhouse':
             table_name = f"{node.source.db}.{node.source.name}"
+        elif self.dialect == 'oracle':
+            table_name = self._table_key_from_sqlglot_table_node(node)
         else:
             table_name = f"{node.source.catalog}.{node.source.db}.{node.source.name}"
         
-        for key, data in self.nodes_with_columns.items():
-            if key.lower() == table_name.lower():
-                dbt_node = data["unique_id"]
-                break
-        
+        match = self._table_to_node.get(table_name.lower())
+        if match:
+            dbt_node = match["unique_id"]
         else:
             # Check if the table is hardcoded in raw code.
             raw_code = self.manifest["nodes"][model_node]["raw_code"].lower()
@@ -598,6 +641,7 @@ class DbtColumnLineageExtractor:
         total_models = len(all_models)
         processed_count = 0
         error_count = 0
+        errors = []
 
         for model_node in all_models:
             model_info = self.manifest["nodes"].get(model_node)
@@ -624,7 +668,8 @@ class DbtColumnLineageExtractor:
                 model_sql = model_info["compiled_code"]
 
                 # Parse and qualify once per model
-                parsed_model_sql = maybe_parse(model_sql, dialect=self.dialect)
+                model_sql_for_parse = self._sanitize_sql_for_parsing(model_sql)
+                parsed_model_sql = maybe_parse(model_sql_for_parse, dialect=self.dialect)
                 if self.dialect == "postgres":
                     parsed_model_sql = parsing_utils.remove_quotes(parsed_model_sql)
                 if self.dialect == "bigquery":
@@ -729,6 +774,35 @@ class DbtColumnLineageExtractor:
                             f"Unexpected error processing model {model_node}, column {column_name}: {e}"
                         )
 
+                # Extract structural lineage (WHERE/HAVING/JOIN ON columns)
+                try:
+                    structural = extract_structural_lineage(scope, self.dialect)
+                    for edge_type, nodes_list in structural.items():
+                        if not nodes_list:
+                            continue
+                        key = f"__colibri_{edge_type}__"
+                        entries = []
+                        for struct_node in nodes_list:
+                            if struct_node is None:
+                                continue
+                            for n in struct_node.walk():
+                                if n.source.key == "table":
+                                    parent_columns = self.get_dbt_node_from_sqlglot_table_node(n, model_node)
+                                    if parent_columns and parent_columns["dbt_node"] != model_node:
+                                        parent_columns["lineage_type"] = edge_type
+                                        if parent_columns not in entries:
+                                            entries.append(parent_columns)
+                                            # Update children map
+                                            parent_model = parent_columns["dbt_node"]
+                                            parent_col = parent_columns["column"].lower()
+                                            children.setdefault(parent_model, {}).setdefault(parent_col, []).append(
+                                                {"column": key, "dbt_node": model_node}
+                                            )
+                        if entries:
+                            model_parents[key] = entries
+                except Exception as e:
+                    self.logger.debug(f"Could not extract structural columns for {model_node}: {e}")
+
                 if model_parents:
                     parents[model_node] = model_parents
 
@@ -740,6 +814,11 @@ class DbtColumnLineageExtractor:
             except Exception as e:
                 error_count += 1
                 self.logger.error(f"Error processing model {model_node}: {str(e)}")
+                errors.append({
+                    "node_id": model_node,
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                })
                 self.logger.debug("Continuing with next model...")
                 continue
 
@@ -748,7 +827,7 @@ class DbtColumnLineageExtractor:
                 f"Completed with {error_count} errors out of {processed_count} models processed"
             )
 
-        return {"lineage": {"parents": parents, "children": children}}
+        return {"lineage": {"parents": parents, "children": children}, "errors": errors}
 
 class DBTNodeCatalog:
     def __init__(self, node_data):

@@ -8,29 +8,21 @@ Entry point and orchestration for running docstring/signature checks.
 from __future__ import annotations as _
 
 import logging as _logging
-import os as _os
 import sys as _sys
 import warnings as _warnings
 from pathlib import Path as _Path
-from tokenize import TokenError as _TokenError
-from warnings import warn as _warn
-
-import astroid as _ast
 
 from . import _decorators
 from ._check import run_checks as _run_checks
 from ._config import Check as _Check
 from ._config import Config as _Config
 from ._config import Ignore as _Ignore
-from ._directives import Directives as _Directives
-from ._files import FILE_INFO as _FILE_INFO
-from ._files import Paths as _Paths
-from ._module import Error as _Error
-from ._module import Parent as _Parent
+from ._files import Files as _Files
+from ._parsers import parse_from_file as _parse_from_file
+from ._parsers import parse_from_string as _parse_from_string
 from ._report import Failures as _Failures
+from ._report import report as _report
 from ._utils import print_checks as _print_checks
-from .messages import NEW as _NEW
-from .messages import TEMPLATE as _TEMPLATE
 from .messages import E as _E
 from .messages import Messages as _Messages
 
@@ -69,102 +61,6 @@ def setup_logger(verbose: bool) -> None:
         logger.addHandler(stream_handler)
 
 
-def _parse_from_file(path: _Path, config: _Config) -> _Parent:
-    try:
-        code = path.read_text(encoding="utf-8")
-        parent = _parse_from_string(
-            code,
-            config,
-            str(path)[:-3].replace(_os.sep, ".").replace("-", "_"),
-            path,
-        )
-    except UnicodeDecodeError as err:
-        logger = _logging.getLogger(__package__)
-        logger.debug(_FILE_INFO, path, str(err).replace("\n", " "))
-        parent = _Parent(error=_Error.UNICODE)
-
-    if parent.error is not None and not path.name.endswith(".py"):
-        parent = _Parent()
-
-    return parent
-
-
-def _parse_from_string(
-    code: str,
-    config: _Config,
-    module_name: str = "",
-    path: _Path | None = None,
-) -> _Parent:
-    logger = _logging.getLogger(__package__)
-    source_name = path or "stdin"
-    try:
-        node = _ast.parse(code, module_name, str(path))
-        try:
-            directives = _Directives.from_text(code, config.disable)
-        except _TokenError as err:
-            directives = _Directives()
-            logger.debug(
-                _FILE_INFO,
-                source_name,
-                f"error parsing comments {err}".lower(),
-            )
-
-        parent = _Parent(
-            node,
-            directives,
-            path,
-            config.ignore.args,
-            config.ignore.kwargs,
-            config.check.class_constructor,
-        )
-        logger.debug(_FILE_INFO, source_name, "Parsing Python code successful")
-    except _ast.AstroidSyntaxError as err:
-        logger.debug(_FILE_INFO, source_name, str(err).replace("\n", " "))
-        parent = _Parent(error=_Error.SYNTAX)
-    except RecursionError as err:
-        logger.debug(_FILE_INFO, source_name, str(err).replace("\n", " "))
-        parent = _Parent(error=_Error.RECURSION)
-
-    return parent
-
-
-def _report(
-    failures: _Failures,
-    config: _Config,
-    path: str | None = None,
-) -> int:
-    retcodes = [0]
-    for failure in failures:
-        retcodes.append(failure.retcode)
-        path_prefix = f"{path}:" if path is not None else ""
-        header = f"{path_prefix}{failure.lineno} in {failure.name}"
-        if not config.no_ansi and _sys.stdout.isatty():
-            header = f"\033[35m{header}\033[0m"
-
-        print(header)
-        for item in failure:
-            extra = None
-            if item.hint:
-                extra = f"hint: {item.hint}"
-
-            if item.new:
-                extra = "warning: please remember to fix this or disable it"
-                _warn(_NEW.format(ref=item.ref), FutureWarning, stacklevel=3)
-
-            print(
-                "    "
-                + _TEMPLATE.format(
-                    ref=item.ref,
-                    description=item.description,
-                    symbolic=item.symbolic,
-                ),
-            )
-            if extra is not None:
-                print(f"    {extra}")
-
-    return max(retcodes)
-
-
 def handle_deprecations(
     ignore_typechecker: bool,
     disable: list,
@@ -187,14 +83,14 @@ def handle_deprecations(
         disable.extend(messages)
 
 
-def runner(path: _Path, config: _Config) -> _Failures:
+def runner(file: _Path, config: _Config) -> _Failures:
     """Run checks for a single file and return collected failures.
 
-    :param path: Path to the file to check.
+    :param file: Path to the file to check.
     :param config: Configuration object.
     :return: Collected failures for the file.
     """
-    module = _parse_from_file(path, config)
+    module = _parse_from_file(file, config)
     return _run_checks(module, config)
 
 
@@ -315,14 +211,10 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
         return _report(failures, config)
 
     retcodes = [0]
-    paths = _Paths(
-        *path,
-        patterns=config.exclude,
-        excludes=config.excludes,
-        include_ignored=config.include_ignored,
-    )
-    for path_ in paths:
-        failures = runner(path_, config)
-        retcodes.append(_report(failures, config, str(path_)))
+    files = _Files(path, config)
+    for file in files:
+        failures = runner(file, config)
+        retcode = _report(failures, config, str(file))
+        retcodes.append(retcode)
 
     return max(retcodes)

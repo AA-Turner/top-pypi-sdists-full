@@ -33,13 +33,14 @@ impl BoolIterator {
 #[pyclass]
 pub struct FindAllIterator {
     pub haystack: Py<Tibs>, // Py<T> keeps the Python object alive
-    pub needle: Py<Tibs>,
+    pub needle: Tibs,
     pub start: usize,
     pub end: usize,
     pub byte_aligned: bool,
     pub step: usize,
     pub current_pos: usize,
     pub lps: Vec<usize>,
+    pub is_reverse: bool,
 }
 
 #[pymethods]
@@ -56,41 +57,64 @@ impl FindAllIterator {
         let current_pos = slf.current_pos;
         let byte_aligned = slf.byte_aligned;
         let step = slf.step; // Needed to update slf.current_pos later
+        let needle_len = slf.needle.len();
+        if needle_len == 0 {
+            return Ok(None);
+        }
 
         // This block limits the scope of haystack_rs and needle_rs.
         // The immutable borrows of slf (to access slf.haystack and slf.needle)
         // will end when this block finishes.
-        let find_result = {
+        let (find_result, haystack_len, haystack_msb0) = {
             let haystack_rs = slf.haystack.borrow(py);
-            let needle_rs = slf.needle.borrow(py);
             let lps = &slf.lps;
-
-            let needle_len = needle_rs.len();
-            if needle_len == 0 {
-                // If needle is empty, stop iteration.
-                return Ok(None);
-            }
-
             let haystack_len = haystack_rs.len();
-            if current_pos >= haystack_len || haystack_len.saturating_sub(current_pos) < needle_len
-            {
-                return Ok(None); // No space left for the needle or already past the end
-            }
-            helpers::find_bitvec_with_lps(
-                haystack_rs.as_bitslice(),
-                needle_rs.as_bitslice(),
-                lps,
-                current_pos,
-                slf.end,
-                byte_aligned,
-            )
+            let haystack_msb0 = haystack_rs.msb0;
+
+            let result = if slf.is_reverse {
+                if current_pos <= slf.start || current_pos > slf.end {
+                    return Ok(None);
+                }
+                helpers::rfind_bitvec_with_lps(
+                    haystack_rs.to_bitslice(),
+                    slf.needle.to_bitslice(),
+                    lps,
+                    slf.start,
+                    current_pos,
+                    byte_aligned,
+                )
+            } else {
+                if current_pos >= haystack_len
+                    || haystack_len.saturating_sub(current_pos) < needle_len
+                {
+                    return Ok(None); // No space left for the needle or already past the end
+                }
+                helpers::find_bitvec_with_lps(
+                    haystack_rs.to_bitslice(),
+                    slf.needle.to_bitslice(),
+                    lps,
+                    current_pos,
+                    slf.end,
+                    byte_aligned,
+                )
+            };
+            (result, haystack_len, haystack_msb0)
         };
 
         // Now, `slf` can be mutably accessed without conflicting with the previous borrows.
         match find_result {
             Some(pos) => {
-                slf.current_pos = pos + step;
-                Ok(Some(pos))
+                if slf.is_reverse {
+                    slf.current_pos = pos + needle_len.saturating_sub(step);
+                } else {
+                    slf.current_pos = pos + step;
+                }
+                Ok(Some(helpers::physical_match_to_logical_start(
+                    haystack_len,
+                    needle_len,
+                    pos,
+                    haystack_msb0,
+                )))
             }
             None => Ok(None),
         }

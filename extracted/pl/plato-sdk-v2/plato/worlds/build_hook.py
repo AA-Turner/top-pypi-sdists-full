@@ -24,6 +24,7 @@ time — heavy runtime deps are not required.
 
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -35,6 +36,7 @@ except ImportError:
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
 ECR_REGISTRY = "383806609161.dkr.ecr.us-west-1.amazonaws.com"
+_SKIP_WORLD_BUILD_HOOK_ENV = "PLATO_SKIP_WORLD_BUILD_HOOK"
 
 
 class WorldSchemaHook(BuildHookInterface):
@@ -44,6 +46,10 @@ class WorldSchemaHook(BuildHookInterface):
 
     def initialize(self, version: str, build_data: dict) -> None:
         """Generate schema.json before building."""
+        if self._should_skip_build_hook():
+            print(f"Skipping world build hook because {_SKIP_WORLD_BUILD_HOOK_ENV} is set")
+            return
+
         # Find the source directory
         src_path = Path(self.root) / "src"
         if not src_path.exists():
@@ -121,6 +127,12 @@ class WorldSchemaHook(BuildHookInterface):
         finally:
             if str(src_path) in sys.path:
                 sys.path.remove(str(src_path))
+
+    @staticmethod
+    def _should_skip_build_hook() -> bool:
+        """Return True when the world build hook should be bypassed."""
+        value = os.getenv(_SKIP_WORLD_BUILD_HOOK_ENV, "")
+        return value.strip().lower() in {"1", "true", "yes", "on"}
 
     def _find_module_name(self, src_path: Path) -> str | None:
         """Find the Python module name in the source directory."""

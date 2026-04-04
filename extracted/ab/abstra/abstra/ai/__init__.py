@@ -16,10 +16,8 @@ from abstra_internals.interface.sdk.ai import (
     prompt,
 )
 from abstra_internals.interface.sdk.ai_agent import run_agent
-from abstra_internals.interface.sdk.prompt_browser import experimental_prompt_browser
 
 __all__ = [
-    "experimental_prompt_browser",
     "parse_bank_statement",
     "parse_boleto",
     "parse_invoice",

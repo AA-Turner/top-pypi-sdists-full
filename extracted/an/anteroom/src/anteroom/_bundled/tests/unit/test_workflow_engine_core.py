@@ -18,6 +18,7 @@ from anteroom.config import WorkflowConfig
 from anteroom.db import init_db
 from anteroom.services.workflow_engine import (
     WorkflowEngine,
+    _resolve_dotted_refs,
     _resolve_summary_template,
     load_definition,
     register_gate_condition,
@@ -2038,3 +2039,155 @@ class TestResumableRunStatuses:
         from anteroom.services.workflow_storage import _RESUMABLE_RUN_STATUSES
 
         assert "blocked" in _RESUMABLE_RUN_STATUSES
+
+
+# ---------------------------------------------------------------------------
+# _resolve_dotted_refs tests (#1228)
+# ---------------------------------------------------------------------------
+
+
+class TestResolveDottedRefs:
+    def test_yaml_artifact_ref_resolves(self) -> None:
+        """YAML syntax: {step.artifacts.key} resolves via alias."""
+        step_results = {
+            "prepare_issue": {
+                "result_artifacts": {"worktree_path": "/tmp/wt"},
+            },
+        }
+        result = _resolve_dotted_refs("{prepare_issue.artifacts.worktree_path}", step_results)
+        assert result == "/tmp/wt"
+
+    def test_raw_result_artifacts_still_works(self) -> None:
+        """Backward compat: {step.result_artifacts.key} still resolves."""
+        step_results = {
+            "prepare_issue": {
+                "result_artifacts": {"worktree_path": "/tmp/wt"},
+            },
+        }
+        result = _resolve_dotted_refs("{prepare_issue.result_artifacts.worktree_path}", step_results)
+        assert result == "/tmp/wt"
+
+    def test_env_ref_resolves(self) -> None:
+        result = _resolve_dotted_refs("{env.HOME}", {}, process_env={"HOME": "/home/user"})
+        assert result == "/home/user"
+
+    def test_mixed_yaml_refs(self) -> None:
+        """Shipped workflow form: {step.artifacts.key}:{env.VAR}."""
+        step_results = {
+            "prepare_issue": {
+                "result_artifacts": {"bin": "/opt/bin"},
+            },
+        }
+        template = "{prepare_issue.artifacts.bin}:{env.PATH}"
+        result = _resolve_dotted_refs(template, step_results, process_env={"PATH": "/usr/bin"})
+        assert result == "/opt/bin:/usr/bin"
+
+    def test_shipped_workflow_working_dir(self) -> None:
+        """Exact form used in shipped YAML: working_dir: '{prepare_issue.artifacts.worktree_path}'."""
+        step_results = {
+            "prepare_issue": {
+                "result_artifacts": {"worktree_path": "/tmp/worktree"},
+            },
+        }
+        result = _resolve_dotted_refs("{prepare_issue.artifacts.worktree_path}", step_results)
+        assert result == "/tmp/worktree"
+
+    def test_summary_alias_resolves(self) -> None:
+        step_results = {"s1": {"result_summary": "all good"}}
+        result = _resolve_dotted_refs("{s1.summary}", step_results)
+        assert result == "all good"
+
+    def test_status_alias_resolves(self) -> None:
+        step_results = {"s1": {"result_status": "success"}}
+        result = _resolve_dotted_refs("{s1.status}", step_results)
+        assert result == "success"
+
+    def test_unresolvable_left_as_is(self) -> None:
+        result = _resolve_dotted_refs("{unknown.field.value}", {})
+        assert result == "{unknown.field.value}"
+
+    def test_missing_step_returns_original(self) -> None:
+        result = _resolve_dotted_refs("{no_such_step.artifacts.x}", {})
+        assert result == "{no_such_step.artifacts.x}"
+
+    def test_missing_env_var_left_as_is(self) -> None:
+        result = _resolve_dotted_refs("{env.NONEXISTENT_VAR_XYZ}", {}, process_env={})
+        assert result == "{env.NONEXISTENT_VAR_XYZ}"
+
+    def test_plain_braces_untouched(self) -> None:
+        result = _resolve_dotted_refs("{simple_key}", {})
+        assert result == "{simple_key}"
+
+    def test_numeric_artifact_value(self) -> None:
+        step_results = {"s1": {"result_artifacts": {"count": 42}}}
+        result = _resolve_dotted_refs("{s1.artifacts.count}", step_results)
+        assert result == "42"
+
+
+# ---------------------------------------------------------------------------
+# Resolved working_dir/env reach opaque runner (#1228)
+# ---------------------------------------------------------------------------
+
+
+class TestResolvedFieldsReachOpaqueRunner:
+    @pytest.mark.asyncio
+    async def test_shell_runner_receives_resolved_working_dir_and_env(self) -> None:
+        """Verify that artifact refs in working_dir and env are resolved
+        before being passed to execute_opaque_runner."""
+        from unittest.mock import MagicMock
+
+        from anteroom.services.workflow_runners import RunnerResult, create_default_registry
+
+        captured: dict[str, Any] = {}
+
+        async def fake_opaque_runner(**kwargs: Any) -> RunnerResult:
+            captured.update(kwargs)
+            return RunnerResult(status="success", summary="ok", duration_ms=1)
+
+        step_def = MagicMock()
+        step_def.id = "run_tests"
+        step_def.runner = "shell"
+        step_def.command = "echo hi"
+        step_def.working_dir = "{prepare_issue.artifacts.worktree_path}"
+        step_def.env = {"MY_PATH": "{prepare_issue.artifacts.bin}:{env.PATH}"}
+        step_def.timeout = 30
+        step_def.context_from = None
+        step_def.context_from_failed_step = None
+        step_def.credentials = None
+        step_def.skill_name = None
+        step_def.skill_args = None
+
+        step_results = {
+            "prepare_issue": {
+                "result_artifacts": {
+                    "worktree_path": "/tmp/worktree",
+                    "bin": "/opt/bin",
+                },
+            },
+        }
+
+        engine = WorkflowEngine.__new__(WorkflowEngine)
+        engine._config = MagicMock()
+        engine._config.step_timeout = 60
+        engine._config.transcript = None
+        engine._runner_registry = create_default_registry()
+        engine._db = MagicMock()
+        engine._tool_executor = None
+        engine._ai_service = None
+        engine._tools_openai = None
+        engine._progress_callback = None
+
+        run = {"id": "run-1"}
+        inputs: dict[str, Any] = {}
+
+        with (
+            patch(
+                "anteroom.services.workflow_runners.execute_opaque_runner",
+                side_effect=fake_opaque_runner,
+            ),
+            patch.dict("os.environ", {"PATH": "/usr/bin"}),
+        ):
+            await engine._execute_runner_step(step_def, run, inputs, step_results, MagicMock())
+
+        assert captured["working_dir"] == "/tmp/worktree"
+        assert captured["env"]["MY_PATH"] == "/opt/bin:/usr/bin"

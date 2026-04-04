@@ -34,9 +34,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/aws-pipes-sources-alpha",
-    "2.247.0-alpha.0",
+    "2.248.0-alpha.0",
     __name__[0:-6],
-    "aws-pipes-sources-alpha@2.247.0-alpha.0.jsii.tgz",
+    "aws-pipes-sources-alpha@2.248.0-alpha.0.jsii.tgz",
 )
 
 __all__ = [

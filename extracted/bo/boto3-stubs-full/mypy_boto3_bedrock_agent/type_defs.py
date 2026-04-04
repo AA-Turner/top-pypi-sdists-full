@@ -2380,6 +2380,7 @@ class ToolSpecificationOutputTypeDef(TypedDict):
     name: str
     inputSchema: ToolInputSchemaOutputTypeDef
     description: NotRequired[str]
+    strict: NotRequired[bool]
 
 
 ToolInputSchemaUnionTypeDef = Union[ToolInputSchemaTypeDef, ToolInputSchemaOutputTypeDef]
@@ -2730,6 +2731,7 @@ class ToolSpecificationTypeDef(TypedDict):
     name: str
     inputSchema: ToolInputSchemaUnionTypeDef
     description: NotRequired[str]
+    strict: NotRequired[bool]
 
 
 class TransformationTypeDef(TypedDict):

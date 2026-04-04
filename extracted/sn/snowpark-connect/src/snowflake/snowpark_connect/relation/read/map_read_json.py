@@ -38,13 +38,13 @@ from snowflake.snowpark.types import (
     _FractionalType,
     _IntegralType,
 )
+from snowflake.snowpark_connect.config import global_config
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.relation.read.map_read import JsonReaderConfig
 from snowflake.snowpark_connect.relation.read.map_read_partitioned_file import (
     _discover_partition_columns,
-    _read_file_with_partitions,
 )
 from snowflake.snowpark_connect.relation.read.metadata_utils import (
     METADATA_FILENAME_COLUMN,
@@ -54,6 +54,7 @@ from snowflake.snowpark_connect.relation.read.metadata_utils import (
 from snowflake.snowpark_connect.relation.read.utils import (
     _load_file_with_copy_into,
     apply_metadata_exclusion_pattern,
+    extract_relative_file_path,
     generate_stage_path_groups,
     get_spark_column_names_from_snowpark_columns,
     rename_columns_as_snowflake_standard,
@@ -76,6 +77,7 @@ from snowflake.snowpark_connect.utils.bz2_file_loader import (
     VALUE_COLUMN,
     load_bz2_file,
 )
+from snowflake.snowpark_connect.utils.io_utils import cached_file_format
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -193,45 +195,121 @@ def _convert_struct_type_to_variant(schema: StructType) -> StructType:
     return StructType(simplified_fields)
 
 
+def _deduplicate_fields_case_insensitive(schema: StructType) -> StructType:
+    """Merge schema fields that differ only in case, matching PySpark behaviour.
+
+    Snowflake's INFER_SCHEMA treats JSON keys case-sensitively, so scanning
+    files with ``{"CITY": ...}`` and ``{"city": ...}`` produces *both* ``CITY``
+    (unquoted/uppercase) and ``"city"`` (quoted/lowercase) as separate fields.
+
+    PySpark (with the default ``spark.sql.caseSensitive=false``) merges such
+    fields into a single lowercase column.  JSON value extraction, however,
+    remains case-sensitive, so rows whose keys don't match the chosen casing
+    yield NULLs — e.g. a row with ``"CITY"`` will show NULL under the ``city``
+    column.  We replicate the same semantics here:
+
+    1. Group fields by their lowercased name.
+    2. If no case conflict exists, keep the original field untouched.
+    3. On conflict, prefer the *lowercase* variant if present (quoted to
+       prevent Snowpark's ``StructField`` from auto-uppercasing it).
+       If no lowercase variant exists, keep the first field seen — this
+       mirrors PySpark's non-deterministic "pick one" behaviour.
+    """
+    seen: dict[str, tuple[StructField, bool]] = {}
+    for field in schema.fields:
+        raw_name = unquote_if_quoted(field.name)
+        key = raw_name.lower()
+        if key not in seen:
+            seen[key] = (field, False)
+        elif raw_name == key:
+            seen[key] = (field, True)
+        else:
+            seen[key] = (seen[key][0], True)
+    result_fields = []
+    for key, (field, had_conflict) in seen.items():
+        if had_conflict:
+            raw_winner = unquote_if_quoted(field.name)
+            if raw_winner == key:
+                quoted_key = f'"{key}"'
+                result_fields.append(
+                    StructField(quoted_key, field.datatype, field.nullable)
+                )
+            else:
+                result_fields.append(field)
+        else:
+            result_fields.append(field)
+    return StructType(result_fields)
+
+
 def _get_schema_for_copy_into_json(
     session: snowpark.Session,
     schema: StructType | None,
-    first_path: str,
+    stage_name: str,
+    stage_files: list[str],
     snowpark_options: dict,
     raw_options: dict,
     json_local_rows_to_infer_schema: int,
     drop_field_if_all_null: bool,
     relax_types_to_infer_schema: bool = False,
+    infer_schema_all_files: bool = True,
 ) -> StructType:
     """
-    Get schema for COPY INTO operation by reading the first file.
+    Get merged schema for COPY INTO by scanning all files via INFER_SCHEMA.
 
-    This function determines the schema to use for COPY INTO:
-    1. If user provided a schema, use it directly (no I/O needed)
-    2. Otherwise, read the first file to infer the schema (handles nested structures, arrays, etc.)
+    For multiple files, uses Snowpark's INFER_SCHEMA with the FILES option to
+    discover columns across all files in a single call, matching PySpark's
+    behavior of always merging JSON schemas.
 
     Args:
         session: The Snowpark session.
         schema: User-provided schema, or None if not provided.
-        first_path: The first file path to read.
+        stage_name: Quoted stage name like "'@stage_name'".
+        stage_files: List of quoted stage file paths.
         snowpark_options: Snowpark options for reading.
         raw_options: Raw options from the read request.
         json_local_rows_to_infer_schema: Number of rows to use for schema inference.
         drop_field_if_all_null: Whether to drop fields that are all null.
         relax_types_to_infer_schema: Whether to widen numeric types for overflow safety.
+        infer_schema_all_files: If True, scan all files for schema. If False, read first file only.
 
     Returns:
-        StructType schema to use for COPY INTO.
+        StructType schema covering all columns across all files.
     """
-    # Case 1: User provided schema - use it directly (cheapest, no I/O)
     if schema is not None:
         return schema
 
-    # Case 2: Read the first file to infer the schema
-    reader = add_filename_metadata_to_reader(
-        session.read.options(snowpark_options), raw_options
-    )
-    df = reader.json(first_path)
+    if infer_schema_all_files and len(stage_files) > 1:
+        # Compute the common directory prefix so reader.json() scopes its
+        # scan to the right subdirectory instead of the bare stage root
+        # (e.g. '@~/abc123/' instead of '@~').  This avoids picking up
+        # unrelated files from other parallel tests on the session stage.
+        clean_paths = [p.strip("'") for p in stage_files]
+        common = os.path.commonprefix(clean_paths)
+        # Truncate to the last '/' so we get a directory, not a partial filename
+        dir_idx = common.rfind("/")
+        if dir_idx >= 0:
+            common = common[: dir_idx + 1]
+        common_stage_prefix = f"'{common}'"
+
+        relative_files = [
+            extract_relative_file_path(path, common_stage_prefix)
+            for path in stage_files
+        ]
+        infer_options = dict(snowpark_options)
+        existing_infer_opts = infer_options.get("INFER_SCHEMA_OPTIONS", {})
+        infer_options["INFER_SCHEMA_OPTIONS"] = {
+            **existing_infer_opts,
+            "FILES": relative_files,
+        }
+        reader = add_filename_metadata_to_reader(
+            session.read.options(infer_options), raw_options
+        )
+        df = reader.json(common_stage_prefix)
+    else:
+        reader = add_filename_metadata_to_reader(
+            session.read.options(snowpark_options), raw_options
+        )
+        df = reader.json(stage_files[0])
 
     # When sampling is active, the inferred SQL uses narrow types from the
     # sampled rows (e.g. NUMBER(2,0) from 10 rows).  Re-read with widened
@@ -246,7 +324,13 @@ def _get_schema_for_copy_into_json(
                 if unquote_if_quoted(f.name) != METADATA_FILENAME_COLUMN
             ]
         )
-        df = reader.schema(normalized).json(first_path)
+
+        path = (
+            common_stage_prefix
+            if (infer_schema_all_files and len(stage_files) > 1)
+            else stage_files[0]
+        )
+        df = reader.schema(normalized).json(path)
 
     inferred_schema = _infer_json_schema_from_rows(
         df=df,
@@ -256,6 +340,13 @@ def _get_schema_for_copy_into_json(
     )
 
     validated_schema, _ = validate_and_update_schema(inferred_schema)
+    # Strip METADATA$FILENAME — it is a pseudo-column injected by
+    # with_metadata() for schema inference, not an actual data field.
+    validated_schema = StructType(
+        [f for f in validated_schema.fields if f.name != METADATA_FILENAME_COLUMN]
+    )
+    if not global_config.spark_sql_caseSensitive:
+        validated_schema = _deduplicate_fields_case_insensitive(validated_schema)
     return validated_schema
 
 
@@ -291,8 +382,9 @@ def map_read_json(
             "jsonlocalrowstoinferschema", 1000
         )
         drop_field_if_all_null = snowpark_options.pop("dropfieldifallnull", False)
-        use_bulk = snowpark_options.pop("processinbulk", True)
-        batch_size = snowpark_options.pop("batchsize", 1000)
+        snowpark_options.pop("processinbulk", None)
+        snowpark_options.pop("batchsize", None)
+        infer_schema_all_files = snowpark_options.pop("inferschemaallfiles", True)
         parallel_load_json_file = snowpark_options.pop("jsonfileparallelloading", False)
         file_encoding = snowpark_options.pop("encoding", "utf-8")
         compression = snowpark_options.get("compression", "auto")
@@ -336,10 +428,9 @@ def map_read_json(
                 raw_options,
                 json_local_rows_to_infer_schema,
                 drop_field_if_all_null,
-                use_bulk,
-                batch_size,
                 schema,
                 relax_types_to_infer_schema,
+                infer_schema_all_files,
             )
 
         spark_column_names = get_spark_column_names_from_snowpark_columns(df.columns)
@@ -426,6 +517,45 @@ def read_single_bz2_file(
     )
 
 
+def _build_json_typed_transformations(
+    schema: StructType,
+    session: snowpark.Session,
+) -> tuple[list[str], list["snowpark.Column"]]:
+    """Build COPY INTO transformations that cast JSON fields to typed columns.
+
+    Instead of loading as VARIANT and post-processing with INSERT INTO SELECT,
+    this generates transformations applied directly during COPY INTO so that
+    data lands in the target table with correct types in a single step.
+
+    Args:
+        schema: The target schema with fully typed fields (including nested
+            StructType, ArrayType, MapType).
+        session: The Snowpark session (used to check TRY_CAST PERMISSIVE support).
+
+    Returns:
+        ``(target_columns, transformations)`` where *target_columns* is a list
+        of quoted column names and *transformations* is a list of Snowpark
+        Column objects with the appropriate casts.
+    """
+    from snowflake.snowpark.functions import sql_expr
+
+    f_generate = (
+        _generate_json_path_reference
+        if session._has_structured_try_cast
+        else _generate_json_path_reference_legacy
+    )
+
+    target_cols: list[str] = []
+    transforms: list[snowpark.Column] = []
+
+    for field in schema.fields:
+        target_cols.append(field.name)
+        cast_expr = f_generate(f"$1:{field.name}", field.datatype)
+        transforms.append(sql_expr(cast_expr).alias(field.name))
+
+    return target_cols, transforms
+
+
 def read_normal_json_files(
     session: snowpark.Session,
     paths: list[str],
@@ -433,121 +563,90 @@ def read_normal_json_files(
     raw_options: dict,
     json_local_rows_to_infer_schema: int,
     drop_field_if_all_null: bool,
-    use_bulk: bool,
-    batch_size: int,
     schema: StructType | None,
     relax_types_to_infer_schema: bool,
+    infer_schema_all_files: bool = True,
 ) -> snowpark.DataFrame:
     # Read the normal JSON files, support metadata population
 
-    reader = add_filename_metadata_to_reader(
-        session.read.options(snowpark_options), raw_options
-    )
+    needs_metadata = populate_metadata(raw_options)
 
     file_format_options = _parse_json_snowpark_options(snowpark_options)
+    # Keep reader-level options separate from file format options.
+    # ENFORCE_EXISTING_FILE_FORMAT cannot be used together with format type options.
+    reader_options = {
+        key: value
+        for key, value in snowpark_options.items()
+        if key.upper() not in _json_file_format_allowed_options
+    }
+    if "FORMAT_NAME" not in reader_options:
+        reader_options["FORMAT_NAME"] = cached_file_format(
+            session, "json", file_format_options
+        )
+    reader_options["ENFORCE_EXISTING_FILE_FORMAT"] = True
+    apply_metadata_exclusion_pattern(reader_options)
+
+    reader = add_filename_metadata_to_reader(
+        session.read.options(reader_options), raw_options
+    )
 
     # Probe for Hive-style partition directories (lightweight LS on first path).
-    # This determines whether we need per-file reads (union_all) or can use bulk COPY INTO.
-    # Use populate_metadata() which checks both the reader option and the
-    # SNOWPARK_POPULATE_FILE_METADATA_DEFAULT env var, matching what
-    # add_filename_metadata_to_reader() uses to decide whether the reader
-    # gets .with_metadata().
-    needs_metadata = populate_metadata(raw_options)
-    partition_columns, _ = _discover_partition_columns(session, paths[0], "json")
+    partition_columns, partition_types = _discover_partition_columns(
+        session, paths[0], "json"
+    )
 
-    if needs_metadata or partition_columns:
-        # Union-all approach: required for METADATA$FILENAME and Hive partition columns,
-        # since COPY INTO exposes neither.
-        # TODO: SNOW-3002469 copy into approach does not support metadata columns today.
-        df, _ = _read_file_with_partitions(
+    logger.debug(
+        f"Using COPY INTO for {len(paths)} JSON file(s)"
+        f"{' with partition transforms' if partition_columns else ''}"
+        f"{' with metadata' if needs_metadata else ''}."
+    )
+    temp_table_name = random_name_for_temp_object(TempObjectType.TABLE)
+    stage_file_groups = generate_stage_path_groups(paths)
+    for stage_name, stage_files in stage_file_groups:
+        copy_into_schema = _get_schema_for_copy_into_json(
             session=session,
-            reader=reader,
-            file_format="json",
-            path=paths[0],
             schema=schema,
-            snowpark_options=snowpark_options,
+            stage_name=stage_name,
+            stage_files=stage_files,
+            snowpark_options=reader_options,
             raw_options=raw_options,
-            relax_types_to_infer_schema=relax_types_to_infer_schema,
-        )
-        for p in paths[1:]:
-            partition_df, _ = _read_file_with_partitions(
-                session=session,
-                reader=reader,
-                file_format="json",
-                path=p,
-                schema=schema,
-                snowpark_options=snowpark_options,
-                raw_options=raw_options,
-                relax_types_to_infer_schema=relax_types_to_infer_schema,
-            )
-            df = df.union_all(partition_df)
-    else:
-        # COPY INTO: bulk loading for 1 or N files when no metadata/partitions needed.
-        logger.debug(f"Using COPY INTO optimization for {len(paths)} JSON file(s).")
-        temp_table_name = random_name_for_temp_object(TempObjectType.TABLE)
-        df = session.table(temp_table_name)
-        stage_file_groups = generate_stage_path_groups(paths)
-        for stage_name, stage_files in stage_file_groups:
-            copy_into_schema = _get_schema_for_copy_into_json(
-                session=session,
-                schema=schema,
-                first_path=stage_files[0],
-                snowpark_options=snowpark_options,
-                raw_options=raw_options,
-                json_local_rows_to_infer_schema=json_local_rows_to_infer_schema,
-                drop_field_if_all_null=drop_field_if_all_null,
-                relax_types_to_infer_schema=relax_types_to_infer_schema,
-            )
-            if len(stage_files) == 1:
-                stage_file_paths = []
-                copy_from_stage = stage_files[0]
-            else:
-                stage_file_paths = stage_files
-                copy_from_stage = stage_name
-            # Use a simplified schema for COPY INTO loading: nested complex types
-            # (StructType, ArrayType, MapType) become VariantType to avoid schema
-            # mismatch errors when different rows have different nested field sets.
-            loading_schema = _convert_struct_type_to_variant(copy_into_schema)
-            _load_file_with_copy_into(
-                reader=reader,
-                session=session,
-                target=temp_table_name,
-                stage_file_paths=stage_file_paths,
-                stage=copy_from_stage,
-                schema=loading_schema,
-                file_format_options=file_format_options,
-                file_format="json",
-            )
-            # Schema inference will run downstream via _infer_json_schema_from_rows
-            # when schema is None (no user-provided schema).
-
-    # Original schema inference and processing path (for single file or with metadata)
-    if schema is None:
-        schema = _infer_json_schema_from_rows(
-            df=df,
-            initial_schema=df.schema,
             json_local_rows_to_infer_schema=json_local_rows_to_infer_schema,
             drop_field_if_all_null=drop_field_if_all_null,
+            relax_types_to_infer_schema=relax_types_to_infer_schema,
+            infer_schema_all_files=infer_schema_all_files,
+        )
+        if len(stage_files) == 1:
+            stage_file_paths = []
+            copy_from_stage = stage_files[0]
+        else:
+            stage_file_paths = stage_files
+            copy_from_stage = stage_name
+
+        final_schema, _ = validate_and_update_schema(copy_into_schema)
+        if relax_types_to_infer_schema:
+            final_schema = relax_json_types(final_schema)
+
+        target_cols, typed_transforms = _build_json_typed_transformations(
+            final_schema, session
         )
 
-    new_schema, fields_changed = validate_and_update_schema(schema)
-    if fields_changed:
-        schema = new_schema
-
-    if relax_types_to_infer_schema:
-        schema = relax_json_types(schema)
-
-    if use_bulk:
-        df = construct_dataframe_by_schema_bulk(
-            schema,
-            df,
-            session,
+        _load_file_with_copy_into(
+            reader=reader,
+            session=session,
+            target=temp_table_name,
+            stage_file_paths=stage_file_paths,
+            stage=copy_from_stage,
+            schema=final_schema,
+            file_format_options=file_format_options,
+            file_format="json",
+            partition_columns=partition_columns if partition_columns else None,
+            partition_types=partition_types if partition_columns else None,
+            needs_metadata=needs_metadata,
+            target_columns=target_cols,
+            transformations=typed_transforms,
         )
-    else:
-        df = construct_dataframe_by_schema(
-            schema, df.to_local_iterator(), session, snowpark_options, batch_size
-        )
-    return df
+
+    return session.table(temp_table_name)
 
 
 def should_drop_field(field: StructField) -> bool:
@@ -1055,46 +1154,18 @@ def _generate_create_table_ddl(table_name: str, schema: StructType) -> str:
 
 def _generate_snowflake_type_signature(data_type: DataType) -> str:
     """
-    Generate Snowflake type signature for CAST.
+    Generate Snowflake type signature for structured type casting.
+
+    Delegates to ``map_type_to_snowflake_type(structured=True)`` for most
+    types.  Adds special handling for integral types that need explicit
+    precision (e.g. NUMBER(19,0) for Scala/Java client round-trips).
 
     Examples:
       IntegerType() → "INT"
       StructType([...]) → "OBJECT(field1 INT, field2 VARCHAR, ...)"
       ArrayType(IntegerType()) → "ARRAY(INT)"
-
-    Args:
-        data_type: The DataType to convert
     """
-    if isinstance(data_type, StructType):
-        # OBJECT(field1 type1, field2 type2, ...)
-        field_sigs = []
-        for field in data_type.fields:
-            field_type_sig = _generate_snowflake_type_signature(
-                field.datatype,
-            )
-            field_sigs.append(f"{field.name} {field_type_sig}")
-        return f"OBJECT({', '.join(field_sigs)})"
-
-    elif isinstance(data_type, ArrayType):
-        # ARRAY(element_type)
-        element_sig = _generate_snowflake_type_signature(
-            data_type.element_type,
-        )
-        return f"ARRAY({element_sig})"
-
-    elif isinstance(data_type, MapType):
-        # MAP(key_type, value_type)
-        key_sig = _generate_snowflake_type_signature(
-            data_type.key_type,
-        )
-        value_sig = _generate_snowflake_type_signature(
-            data_type.value_type,
-        )
-        return f"MAP({key_sig}, {value_sig})"
-
-    elif isinstance(data_type, _IntegralType):
-        # If _precision was explicitly set (e.g. from a Snowflake roundtrip),
-        # use it directly to preserve the exact precision.
+    if isinstance(data_type, _IntegralType):
         precision = getattr(data_type, "_precision", None)
         if precision is not None:
             return f"NUMBER({precision},0)"
@@ -1103,11 +1174,7 @@ def _generate_snowflake_type_signature(data_type: DataType) -> str:
         # and maps to LongType rather than DecimalType(38,0).
         if _integral_types_conversion_enabled:
             return "NUMBER(19,0)"
-        return map_type_to_snowflake_type(data_type)
-
-    else:
-        # Simple types - use existing mapping
-        return map_type_to_snowflake_type(data_type)
+    return map_type_to_snowflake_type(data_type, structured=True)
 
 
 def _generate_json_path_reference(

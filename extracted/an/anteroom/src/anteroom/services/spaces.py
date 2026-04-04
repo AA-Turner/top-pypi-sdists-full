@@ -87,7 +87,7 @@ def parse_space_file(path: Path) -> SpaceConfig:
     if path.stat().st_size > _MAX_FILE_SIZE:
         raise ValueError(f"Space file exceeds {_MAX_FILE_SIZE // 1024}KB limit: {path}")
 
-    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    raw = yaml.safe_load(path.read_text(encoding="utf-8-sig"))
     if not isinstance(raw, dict):
         raise ValueError(f"Space file must be a YAML mapping: {path}")
 
@@ -125,7 +125,7 @@ def parse_local_file(path: Path) -> SpaceLocalConfig:
     if not path.is_file():
         raise FileNotFoundError(f"Local config file not found: {path}")
 
-    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    raw = yaml.safe_load(path.read_text(encoding="utf-8-sig"))
     if not isinstance(raw, dict):
         raise ValueError(f"Local config must be a YAML mapping: {path}")
 

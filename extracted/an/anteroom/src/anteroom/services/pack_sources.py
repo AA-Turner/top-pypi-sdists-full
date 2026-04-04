@@ -112,7 +112,7 @@ def add_pack_source(url: str) -> AddSourceResult:
     config_path.parent.mkdir(parents=True, exist_ok=True)
     raw: dict[str, object] = {}
     if config_path.exists():
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8-sig") as f:
             raw = yaml.safe_load(f) or {}
 
     sources_list: list[dict[str, object]] = raw.setdefault("pack_sources", [])  # type: ignore[assignment]

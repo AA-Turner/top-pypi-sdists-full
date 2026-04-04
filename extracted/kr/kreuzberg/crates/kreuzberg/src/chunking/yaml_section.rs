@@ -164,6 +164,7 @@ fn build_chunks_from_sections(sections: &[Section], config: &ChunkingConfig) -> 
         if config.max_characters == 0 || content.len() <= config.max_characters {
             chunks.push(Chunk {
                 content,
+                chunk_type: Default::default(),
                 embedding: None,
                 metadata: ChunkMetadata {
                     byte_start: section.byte_start,
@@ -188,6 +189,7 @@ fn build_chunks_from_sections(sections: &[Section], config: &ChunkingConfig) -> 
             for sub_chunk in sub_result.chunks {
                 chunks.push(Chunk {
                     content: format!("{}\n\n{}", prefix, sub_chunk.content),
+                    chunk_type: Default::default(),
                     embedding: None,
                     metadata: ChunkMetadata {
                         byte_start: section.byte_start + sub_chunk.metadata.byte_start,
@@ -485,11 +487,17 @@ mod tests {
         let json = r#"{"server": "localhost", "port": 8080, "debug": true}"#;
         let result = chunk_yaml_by_sections(json, &make_config()).unwrap();
         assert_eq!(result.chunk_count, 3);
-        // serde_json uses BTreeMap (sorted keys): debug, port, server
-        assert!(result.chunks[0].content.contains("# debug"));
-        assert!(result.chunks[1].content.contains("# port"));
-        assert!(result.chunks[2].content.contains("# server"));
-        assert!(result.chunks[2].content.contains("localhost"));
+        // Key order may vary depending on JSON/YAML internal map ordering
+        let all_content: String = result
+            .chunks
+            .iter()
+            .map(|c| c.content.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(all_content.contains("# debug"), "should contain debug key");
+        assert!(all_content.contains("# port"), "should contain port key");
+        assert!(all_content.contains("# server"), "should contain server key");
+        assert!(all_content.contains("localhost"), "should contain localhost value");
     }
 
     #[test]

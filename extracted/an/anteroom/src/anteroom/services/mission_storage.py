@@ -186,6 +186,59 @@ def get_session(db: ThreadSafeConnection, session_id: str) -> dict[str, Any] | N
     return _deserialize_session(dict(row))
 
 
+def resolve_session_id(db: ThreadSafeConnection, session_ref: str, *, max_matches: int = 5) -> str:
+    """Resolve an exact mission session ID or a unique prefix to a full session ID."""
+    row = db.execute_fetchone("SELECT id FROM mission_sessions WHERE id = ?", (session_ref,))
+    if row:
+        return str(row["id"])
+
+    rows = db.execute_fetchall(
+        "SELECT id FROM mission_sessions WHERE id LIKE ? ORDER BY created_at DESC LIMIT ?",
+        (f"{session_ref}%", max_matches + 1),
+    )
+    if not rows:
+        raise ValueError(f"Mission not found: {session_ref}")
+    if len(rows) == 1:
+        return str(rows[0]["id"])
+
+    samples = ", ".join(str(r["id"])[:12] for r in rows[:max_matches])
+    if len(rows) > max_matches:
+        samples += ", ..."
+    raise ValueError(f"Ambiguous mission ID prefix: {session_ref} ({samples})")
+
+
+def resolve_item_id(
+    db: ThreadSafeConnection,
+    item_ref: str,
+    *,
+    session_id: str | None = None,
+    max_matches: int = 5,
+) -> str:
+    """Resolve an exact mission item ID or a unique prefix to a full item ID."""
+    row = db.execute_fetchone("SELECT id FROM mission_items WHERE id = ?", (item_ref,))
+    if row:
+        return str(row["id"])
+
+    query = "SELECT id, session_id FROM mission_items WHERE id LIKE ?"
+    params: list[Any] = [f"{item_ref}%"]
+    if session_id:
+        query += " AND session_id = ?"
+        params.append(session_id)
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(max_matches + 1)
+
+    rows = db.execute_fetchall(query, params)
+    if not rows:
+        raise ValueError(f"Item not found: {item_ref}")
+    if len(rows) == 1:
+        return str(rows[0]["id"])
+
+    samples = ", ".join(f"{r['id'][:12]} (session: {r['session_id'][:8]})" for r in rows[:max_matches])
+    if len(rows) > max_matches:
+        samples += ", ..."
+    raise ValueError(f"Ambiguous item ID prefix: {item_ref} matches {len(rows)} items: {samples}")
+
+
 def list_sessions(
     db: ThreadSafeConnection,
     *,
@@ -594,6 +647,35 @@ def list_events(
     return [_deserialize_event(dict(r)) for r in rows]
 
 
+def delete_events_by_type(
+    db: ThreadSafeConnection,
+    session_id: str,
+    event_type: str,
+) -> int:
+    """Delete all events of *event_type* for a session. Returns rows deleted."""
+    cursor = db.execute(
+        "DELETE FROM mission_events WHERE session_id = ? AND event_type = ?",
+        (session_id, event_type),
+    )
+    db.commit()
+    return cursor.rowcount
+
+
+def list_events_since(
+    db: ThreadSafeConnection,
+    session_id: str,
+    since_timestamp: str,
+    *,
+    limit: int = 500,
+) -> list[dict[str, Any]]:
+    """Return events for a session created after *since_timestamp* (ISO 8601)."""
+    rows = db.execute_fetchall(
+        "SELECT * FROM mission_events WHERE session_id = ? AND created_at > ? ORDER BY id ASC LIMIT ?",
+        (session_id, since_timestamp, limit),
+    )
+    return [_deserialize_event(dict(r)) for r in rows]
+
+
 # ---------------------------------------------------------------------------
 # Scheduler queries
 # ---------------------------------------------------------------------------
@@ -652,6 +734,187 @@ def list_eligible_items(
 # ---------------------------------------------------------------------------
 # Plan snapshot
 # ---------------------------------------------------------------------------
+
+
+_RECONCILABLE_STATUSES = frozenset({"active", "failed", "blocked"})
+
+
+def reconcile_item(
+    db: ThreadSafeConnection,
+    item_id: str,
+    *,
+    status: str = "completed",
+    reason: str,
+) -> dict[str, Any]:
+    """Reconcile an item whose work completed outside the tracked child run.
+
+    Validates the item exists and is in an ``active``, ``failed``, or
+    ``blocked`` state.  Updates the item status, closes the latest
+    execution (if any), and emits an ``item_reconciled`` event with the
+    operator-supplied *reason*.
+
+    Returns the updated item dict.
+
+    Raises ``ValueError`` if the item is not found, has no session, or
+    is already in a terminal status (``completed`` or ``dropped``).
+    """
+    if status not in _VALID_ITEM_STATUSES:
+        raise ValueError(f"Invalid reconcile target status: {status!r}")
+
+    item = get_item(db, item_id)
+    if item is None:
+        raise ValueError(f"Item not found: {item_id}")
+
+    if item["status"] not in _RECONCILABLE_STATUSES:
+        raise ValueError(
+            f"Cannot reconcile item in status {item['status']!r}; must be one of {sorted(_RECONCILABLE_STATUSES)}"
+        )
+
+    # Fail closed: refuse to reconcile items with live child executions.
+    # The operator must cancel or replace first, or use --force at the CLI.
+    latest = get_latest_execution(db, item_id)
+    if latest and latest["status"] in ("pending", "running"):
+        raise ValueError(
+            f"Item has a live execution (status: {latest['status']}). "
+            "Cancel it first with `aroom mission replace`, or use `--force` to cancel and reconcile."
+        )
+
+    now = _now()
+
+    # Update item status
+    db.execute(
+        "UPDATE mission_items SET status = ?, updated_at = ? WHERE id = ?",
+        (status, now, item_id),
+    )
+
+    # Close latest execution if it is in a non-terminal state (should not
+    # happen after the guard above, but kept for defence-in-depth).
+    if latest and latest["status"] in ("pending", "running"):
+        db.execute(
+            "UPDATE mission_executions SET status = ?, finished_at = ? WHERE id = ?",
+            ("cancelled", now, latest["id"]),
+        )
+
+    # Insert event in the same transaction as the status update (#1306).
+    detail_json = json.dumps({"reason": reason, "from_status": item["status"], "to_status": status})
+    db.execute(
+        "INSERT INTO mission_events (session_id, item_id, event_type, detail_json, created_at) VALUES (?, ?, ?, ?, ?)",
+        (item["session_id"], item_id, "item_reconciled", detail_json, now),
+    )
+
+    db.commit()
+
+    return get_item(db, item_id)  # type: ignore[return-value]
+
+
+def force_reconcile_item(
+    db: ThreadSafeConnection,
+    item_id: str,
+    *,
+    status: str = "completed",
+    reason: str,
+) -> dict[str, Any]:
+    """Cancel any live execution and reconcile the item in one transaction (#1306).
+
+    Unlike :func:`reconcile_item`, this does not raise on live executions —
+    it cancels them first.  All mutations (execution cancel, item status
+    update, and ``item_reconciled`` event) are committed atomically.
+
+    Used by the scheduler for automatic external-reality reconciliation
+    where no operator is present to cancel manually.
+    """
+    if status not in _VALID_ITEM_STATUSES:
+        raise ValueError(f"Invalid reconcile target status: {status!r}")
+
+    item = get_item(db, item_id)
+    if item is None:
+        raise ValueError(f"Item not found: {item_id}")
+
+    if item["status"] not in _RECONCILABLE_STATUSES:
+        raise ValueError(
+            f"Cannot reconcile item in status {item['status']!r}; must be one of {sorted(_RECONCILABLE_STATUSES)}"
+        )
+
+    now = _now()
+
+    # Cancel live execution if present (no ValueError, unlike reconcile_item).
+    latest = get_latest_execution(db, item_id)
+    if latest and latest["status"] in ("pending", "running"):
+        db.execute(
+            "UPDATE mission_executions SET status = ?, summary = ?, finished_at = ? WHERE id = ?",
+            ("cancelled", "superseded_by_external_completion", now, latest["id"]),
+        )
+
+    # Update item status.
+    db.execute(
+        "UPDATE mission_items SET status = ?, updated_at = ? WHERE id = ?",
+        (status, now, item_id),
+    )
+
+    # Insert event — all in one transaction.
+    detail_json = json.dumps({"reason": reason, "from_status": item["status"], "to_status": status})
+    db.execute(
+        "INSERT INTO mission_events (session_id, item_id, event_type, detail_json, created_at) VALUES (?, ?, ?, ?, ?)",
+        (item["session_id"], item_id, "item_reconciled", detail_json, now),
+    )
+
+    db.commit()
+
+    return get_item(db, item_id)  # type: ignore[return-value]
+
+
+def retry_item(db: ThreadSafeConnection, item_id: str) -> dict[str, Any]:
+    """Reset a failed item to pending so the scheduler re-launches it.
+
+    Validates that the item is currently in ``failed`` status and emits
+    an ``item_retried`` event.
+    """
+    item = get_item(db, item_id)
+    if item is None:
+        raise ValueError(f"Item not found: {item_id}")
+    if item["status"] != "failed":
+        raise ValueError(f"Item must be in 'failed' status to retry (current: {item['status']!r})")
+
+    update_item(db, item_id, status="pending")
+    create_event(
+        db,
+        session_id=item["session_id"],
+        item_id=item_id,
+        event_type="item_retried",
+    )
+    result = get_item(db, item_id)
+    assert result is not None
+    return result
+
+
+def prepare_replace(db: ThreadSafeConnection, item_id: str, execution_id: str) -> dict[str, Any]:
+    """Mark the current execution as cancelled and reset the item to pending.
+
+    Does NOT call ``adapter.cancel()`` — that is the caller's responsibility
+    (e.g. the CLI handler cancels via the adapter before calling this).
+    Emits an ``item_replaced`` event.
+    """
+    item = get_item(db, item_id)
+    if item is None:
+        raise ValueError(f"Item not found: {item_id}")
+    execution = get_execution(db, execution_id)
+    if execution is None:
+        raise ValueError(f"Execution not found: {execution_id}")
+    if execution["item_id"] != item_id:
+        raise ValueError("Execution does not belong to the specified item")
+
+    update_execution(db, execution_id, status="cancelled", finished_at=_now())
+    update_item(db, item_id, status="pending")
+    create_event(
+        db,
+        session_id=item["session_id"],
+        item_id=item_id,
+        event_type="item_replaced",
+        detail={"cancelled_execution_id": execution_id},
+    )
+    result = get_item(db, item_id)
+    assert result is not None
+    return result
 
 
 def build_plan_snapshot(db: ThreadSafeConnection, session_id: str) -> dict[str, Any]:

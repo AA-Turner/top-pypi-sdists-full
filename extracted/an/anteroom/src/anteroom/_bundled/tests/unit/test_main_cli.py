@@ -1450,7 +1450,7 @@ class TestMainDispatch:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config()
             config.safety.allowed_tools = []
@@ -1466,7 +1466,7 @@ class TestMainDispatch:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config()
             config.safety.allowed_tools = ["bash"]
@@ -1481,7 +1481,7 @@ class TestMainDispatch:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config()
             config.safety.denied_tools = []
@@ -1497,7 +1497,7 @@ class TestMainDispatch:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config()
             config.safety.denied_tools = ["bash"]
@@ -1512,7 +1512,7 @@ class TestMainDispatch:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config()
             mock_load.return_value = (Path("/tmp/config.yaml"), config, [])
@@ -1526,7 +1526,7 @@ class TestMainDispatch:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config()
             config.safety.read_only = False
@@ -1541,7 +1541,7 @@ class TestMainDispatch:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config()
             mock_load.return_value = (Path("/tmp/config.yaml"), config, [])
@@ -1555,7 +1555,7 @@ class TestMainDispatch:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config()
             mock_load.return_value = (Path("/tmp/config.yaml"), config, [])
@@ -1569,7 +1569,7 @@ class TestMainDispatch:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config()
             mock_load.return_value = (Path("/tmp/config.yaml"), config, [])
@@ -1583,7 +1583,7 @@ class TestMainDispatch:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config()
             mock_load.return_value = (Path("/tmp/config.yaml"), config, [])
@@ -1597,7 +1597,7 @@ class TestMainDispatch:
 
         with (
             patch("anteroom.__main__._load_config_or_exit") as mock_load,
-            patch("anteroom.__main__._run_web"),
+            patch("anteroom.__main__._run_chat"),
         ):
             config = _make_config()
             config.safety.approval_mode = "ask"
@@ -1623,7 +1623,21 @@ class TestMainDispatch:
 
         mock_asyncio_run.assert_called_once()
 
-    def test_main_dispatches_to_web_when_no_command(self) -> None:
+    def test_main_dispatches_to_chat_when_no_command(self) -> None:
+        from anteroom.__main__ import main
+
+        with (
+            patch("anteroom.__main__._load_config_or_exit") as mock_load,
+            patch("anteroom.__main__._run_chat") as mock_chat,
+        ):
+            config = _make_config()
+            mock_load.return_value = (Path("/tmp/config.yaml"), config, [])
+            with patch("sys.argv", ["aroom"]):
+                main()
+
+        mock_chat.assert_called_once()
+
+    def test_main_dispatches_web_subcommand(self) -> None:
         from anteroom.__main__ import main
 
         with (
@@ -1632,9 +1646,57 @@ class TestMainDispatch:
         ):
             config = _make_config()
             mock_load.return_value = (Path("/tmp/config.yaml"), config, [])
-            with patch("sys.argv", ["aroom"]):
+            with patch("sys.argv", ["aroom", "web"]):
                 main()
 
+        mock_web.assert_called_once()
+
+    def test_main_web_subcommand_port_flag(self) -> None:
+        from anteroom.__main__ import main
+
+        with (
+            patch("anteroom.__main__._load_config_or_exit") as mock_load,
+            patch("anteroom.__main__._run_web") as mock_web,
+        ):
+            config = _make_config()
+            mock_load.return_value = (Path("/tmp/config.yaml"), config, [])
+            with patch("sys.argv", ["aroom", "web", "--port", "9090"]):
+                main()
+
+        assert config.app.port == 9090
+        mock_web.assert_called_once()
+
+    def test_main_global_port_web_subcommand(self) -> None:
+        from anteroom.__main__ import main
+
+        with (
+            patch("anteroom.__main__._load_config_or_exit") as mock_load,
+            patch("anteroom.__main__._run_web") as mock_web,
+        ):
+            config = _make_config()
+            mock_load.return_value = (Path("/tmp/config.yaml"), config, [])
+            with patch("sys.argv", ["aroom", "--port", "9090", "web"]):
+                main()
+
+        assert config.app.port == 9090
+        mock_web.assert_called_once()
+
+    def test_web_subcommand_port_suppressed_when_enforced(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """aroom web --port must be ignored when app.port is team-enforced."""
+        from anteroom.__main__ import main
+
+        with (
+            patch("anteroom.__main__._load_config_or_exit") as mock_load,
+            patch("anteroom.__main__._run_web") as mock_web,
+        ):
+            config = _make_config(port=8080)
+            mock_load.return_value = (Path("/tmp/config.yaml"), config, ["app.port"])
+            with patch("sys.argv", ["aroom", "web", "--port", "9090"]):
+                main()
+
+        assert config.app.port == 8080
+        captured = capsys.readouterr()
+        assert "enforced by team config" in captured.err
         mock_web.assert_called_once()
 
     def test_main_dispatches_chat(self) -> None:

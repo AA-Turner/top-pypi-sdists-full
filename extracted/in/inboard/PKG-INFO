@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inboard
-Version: 0.90.0
+Version: 0.91.0
 Summary: Docker images and utilities to power your Python APIs and help you ship faster.
 Project-URL: Docker, https://github.com/br3ndonland/inboard/pkgs/container/inboard
 Project-URL: Documentation, https://inboard.bws.bio
@@ -25,15 +25,18 @@ Classifier: Topic :: System :: Software Distribution
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Python: <4,>=3.10
-Requires-Dist: gunicorn==23.0.0
+Requires-Dist: gunicorn==25.3.0
 Requires-Dist: uvicorn==0.28.1
 Provides-Extra: fastapi
 Requires-Dist: fastapi<0.136,>=0.135; extra == 'fastapi'
+Provides-Extra: gunicorn-fast
+Requires-Dist: gunicorn-h1c>=0.6.3; extra == 'gunicorn-fast'
+Requires-Dist: uvloop>=0.19.0; (sys_platform != 'win32' and (sys_platform != 'cygwin' and platform_python_implementation != 'PyPy')) and extra == 'gunicorn-fast'
 Provides-Extra: starlette
 Requires-Dist: starlette>=0.46.0; extra == 'starlette'
 Provides-Extra: uvicorn-fast
 Requires-Dist: httptools>=0.6.3; extra == 'uvicorn-fast'
-Requires-Dist: uvloop>0.15.1; (sys_platform != 'win32' and (sys_platform != 'cygwin' and platform_python_implementation != 'PyPy')) and extra == 'uvicorn-fast'
+Requires-Dist: uvloop>=0.19.0; (sys_platform != 'win32' and (sys_platform != 'cygwin' and platform_python_implementation != 'PyPy')) and extra == 'uvicorn-fast'
 Requires-Dist: websockets>=10.4; extra == 'uvicorn-fast'
 Provides-Extra: uvicorn-standard
 Requires-Dist: uvicorn[standard]==0.28.1; extra == 'uvicorn-standard'
@@ -41,7 +44,7 @@ Description-Content-Type: text/markdown
 
 # 🚢 inboard 🐳
 
-<img src="https://raw.githubusercontent.com/br3ndonland/inboard/develop/docs/assets/images/inboard-logo.svg" alt="inboard logo" width="90%" />
+<img src="https://raw.githubusercontent.com/br3ndonland/inboard/HEAD/docs/images/inboard-logo.svg" alt="inboard logo" width="90%" />
 
 _Docker images and utilities to power your Python APIs and help you ship faster._
 
@@ -55,7 +58,7 @@ _Docker images and utilities to power your Python APIs and help you ship faster.
 
 ## Description
 
-This project provides [Docker images](https://github.com/br3ndonland/inboard/pkgs/container/inboard) and a [PyPI package](https://pypi.org/project/inboard/) with useful utilities for Python web servers. It runs [Uvicorn with Gunicorn](https://www.uvicorn.org/), and can be used to build applications with [Starlette](https://www.starlette.io/) and [FastAPI](https://fastapi.tiangolo.com/).
+This project provides [Docker images](https://github.com/br3ndonland/inboard/pkgs/container/inboard) and a [PyPI package](https://pypi.org/project/inboard/) with useful utilities for Python web servers. It runs [Gunicorn](https://gunicorn.org/) with (or [without](https://gunicorn.org/asgi/)) [Uvicorn](https://uvicorn.dev/), and can be used to build applications with [Starlette](https://starlette.dev/) and [FastAPI](https://fastapi.tiangolo.com/).
 
 ## Justification
 
@@ -73,12 +76,12 @@ _Why use this project?_ You might want to try out inboard because it:
 ```sh
 docker pull ghcr.io/br3ndonland/inboard
 docker run -d -p 80:80 --platform linux/amd64 ghcr.io/br3ndonland/inboard
-http :80  # HTTPie: https://httpie.io/
+curl -s http://localhost:80 | jq
 ```
 
 ## Documentation
 
-Documentation is built with [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/), deployed to [Vercel](https://vercel.com/) using the [Vercel project configuration](https://vercel.com/docs/project-configuration) in `vercel.json`, and available at [inboard.bws.bio](https://inboard.bws.bio) and [inboard.vercel.app](https://inboard.vercel.app).
+Documentation is built with [Zensical](https://zensical.org/), deployed to [Vercel](https://vercel.com/) using the [Vercel project configuration](https://vercel.com/docs/project-configuration) in `vercel.json`, and available at [inboard.bws.bio](https://inboard.bws.bio) and [inboard.vercel.app](https://inboard.vercel.app).
 
 ## Background
 

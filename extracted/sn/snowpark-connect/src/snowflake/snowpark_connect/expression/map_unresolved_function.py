@@ -1992,9 +1992,15 @@ def map_unresolved_function(
                     lambda: [ArrayType(element_type)],
                 )
         case "array_append":
+            arr_arg, elem_arg, result_arr_type = _coerce_array_and_element(
+                snowpark_args[0],
+                snowpark_typed_args[0].typ,
+                snowpark_args[1],
+                snowpark_typed_args[1].typ,
+            )
             result_exp = TypedColumn(
-                snowpark_fn.array_append(snowpark_args[0], snowpark_args[1]),
-                lambda: snowpark_typed_args[0].types,
+                snowpark_fn.array_append(arr_arg, elem_arg),
+                lambda: [result_arr_type],
             )
         case "array_compact":
             result_exp = TypedColumn(
@@ -2049,14 +2055,47 @@ def map_unresolved_function(
                 lambda: snowpark_typed_args[0].types,
             )
         case "array_except":
+            arr1, arr2, result_arr_type = _coerce_two_arrays(
+                snowpark_args[0],
+                snowpark_typed_args[0].typ,
+                snowpark_args[1],
+                snowpark_typed_args[1].typ,
+            )
             result_exp = TypedColumn(
-                snowpark_fn.array_except(*snowpark_args),
-                lambda: snowpark_typed_args[0].types,
+                snowpark_fn.array_except(arr1, arr2),
+                lambda: [result_arr_type],
             )
         case "array_insert":
             data = snowpark_args[0]
             spark_index = snowpark_args[1]
             el = snowpark_args[2]
+
+            input_array_type = snowpark_typed_args[0].types[0]
+            value_type = snowpark_typed_args[2].typ
+            if not isinstance(value_type, NullType):
+                elem_type = input_array_type.element_type
+                compatible = type(elem_type) is type(value_type) or (
+                    isinstance(elem_type, _NumericType)
+                    and isinstance(value_type, _NumericType)
+                )
+                if not compatible:
+                    exception = AnalysisException(
+                        f'[DATATYPE_MISMATCH.ARRAY_FUNCTION_DIFF_TYPES] Cannot resolve "{spark_function_name}" due to data type mismatch: '
+                        f'Input to `array_insert` should have been "ARRAY" followed by a value with same element type, '
+                        f'but it\'s ["{input_array_type}", "{value_type}"].'
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+                    raise exception
+
+                data, el, widened_type = _coerce_array_and_element(
+                    data, input_array_type, el, value_type
+                )
+                if widened_type.element_type != input_array_type.element_type:
+                    input_array_type = ArrayType(
+                        widened_type.element_type,
+                        structured=input_array_type.structured,
+                        contains_null=input_array_type.contains_null,
+                    )
 
             snow_index = (
                 snowpark_fn.when(
@@ -2064,7 +2103,6 @@ def map_unresolved_function(
                     spark_index + 1,
                 )
                 .when(spark_index < 0, snowpark_fn.array_size(data) + spark_index + 1)
-                # Trigger an exception by using a string instead of an integer.
                 .when(
                     spark_index == 0,
                     snowpark_fn.lit(
@@ -2074,23 +2112,27 @@ def map_unresolved_function(
                 .otherwise(spark_index - 1)
             )
 
-            input_array_type = snowpark_typed_args[0].types[0]
             array_type_containing_nulls = ArrayType(
                 input_array_type.element_type,
                 structured=input_array_type.structured,
                 contains_null=True,
             )
             if not input_array_type.contains_null:
-                # array_insert always returns an array which can contain null regardless of the input
                 data = snowpark_fn.cast(data, array_type_containing_nulls)
             result_exp = TypedColumn(
                 snowpark_fn.array_insert(data, snow_index, el),
                 lambda: [array_type_containing_nulls],
             )
         case "array_intersect":
+            arr1, arr2, result_arr_type = _coerce_two_arrays(
+                snowpark_args[0],
+                snowpark_typed_args[0].typ,
+                snowpark_args[1],
+                snowpark_typed_args[1].typ,
+            )
             result_exp = TypedColumn(
-                snowpark_fn.array_intersection(*snowpark_args),
-                lambda: snowpark_typed_args[0].types,
+                snowpark_fn.array_intersection(arr1, arr2),
+                lambda: [result_arr_type],
             )
         case "array_join":
             match snowpark_args:
@@ -2143,9 +2185,15 @@ def map_unresolved_function(
             )
             result_exp = TypedColumn(result_exp, lambda: [LongType()])
         case "array_prepend":
+            arr_arg, elem_arg, result_arr_type = _coerce_array_and_element(
+                snowpark_args[0],
+                snowpark_typed_args[0].typ,
+                snowpark_args[1],
+                snowpark_typed_args[1].typ,
+            )
             result_exp = TypedColumn(
-                snowpark_fn.array_prepend(snowpark_args[0], snowpark_args[1]),
-                lambda: snowpark_typed_args[0].types,
+                snowpark_fn.array_prepend(arr_arg, elem_arg),
+                lambda: [result_arr_type],
             )
         case "array_remove":
             array_type = snowpark_typed_args[0].typ
@@ -2255,10 +2303,14 @@ def map_unresolved_function(
                 lambda: snowpark_typed_args[0].types,
             )
         case "array_union":
-            result_exp = snowpark_fn.array_distinct(
-                snowpark_fn.array_cat(*snowpark_args)
+            arr1, arr2, result_arr_type = _coerce_two_arrays(
+                snowpark_args[0],
+                snowpark_typed_args[0].typ,
+                snowpark_args[1],
+                snowpark_typed_args[1].typ,
             )
-            result_exp = TypedColumn(result_exp, lambda: snowpark_typed_args[0].types)
+            result_exp = snowpark_fn.array_distinct(snowpark_fn.array_cat(arr1, arr2))
+            result_exp = TypedColumn(result_exp, lambda: [result_arr_type])
         case "arrays_overlap":
             array1, array2 = snowpark_args
 
@@ -2312,9 +2364,10 @@ def map_unresolved_function(
 
                 field_mappings = ", ".join(
                     f"'{name}', elem:\"${i+1}\""
-                    for i, name in enumerate([n for n, _ in array_arg_info])
+                    for i, (name, _) in enumerate(array_arg_info)
                 )
-                result_exp = snowpark_fn.arrays_zip(*snowpark_args)
+                variant_args = [arg.cast(ArrayType()) for arg in snowpark_args]
+                result_exp = snowpark_fn.arrays_zip(*variant_args)
                 result_exp = snowpark_fn.function("transform")(
                     result_exp,
                     snowpark_fn.sql_expr(
@@ -2323,12 +2376,14 @@ def map_unresolved_function(
                 )
 
                 struct_fields = [
-                    StructField(name, elem_type, nullable=True)
+                    StructField(name, elem_type, nullable=True, _is_column=False)
                     for name, elem_type in array_arg_info
                 ]
                 result_type = ArrayType(StructType(struct_fields, structured=True))
-                result_exp = snowpark_fn.cast(result_exp, result_type)
-            result_exp = _type_with_typer(result_exp)
+                result_exp = TypedColumn(
+                    snowpark_fn.cast(result_exp, result_type),
+                    lambda: [result_type],
+                )
         case "asc":
             result_exp = TypedColumn(
                 snowpark_fn.asc(snowpark_args[0]), lambda: snowpark_typed_args[0].types
@@ -2480,19 +2535,37 @@ def map_unresolved_function(
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
 
-            @cached_udf(
-                input_types=[VariantType()],
-                return_type=LongType(),
-            )
-            def _bit_count_udf(intval):
-                try:
-                    return int(intval).bit_count()
-                except (ValueError, TypeError):
-                    return None
+            if snowpark_arg_names[0] in ("True", "False"):
+                spark_function_name = f"bit_count({snowpark_arg_names[0].lower()})"
 
-            result_exp = _bit_count_udf(
-                snowpark_fn.cast(snowpark_args[0], VariantType())
-            )
+            if isinstance(snowpark_typed_args[0].typ, BooleanType):
+                result_exp = (
+                    snowpark_fn.when(
+                        snowpark_fn.is_null(snowpark_args[0]), snowpark_fn.lit(None)
+                    )
+                    .when(snowpark_args[0], snowpark_fn.lit(1))
+                    .otherwise(snowpark_fn.lit(0))
+                )
+            elif isinstance(snowpark_typed_args[0].typ, NullType):
+                result_exp = snowpark_fn.lit(None)
+            else:
+
+                @cached_udf(
+                    input_types=[VariantType()],
+                    return_type=LongType(),
+                )
+                def _bit_count_udf(intval):
+                    try:
+                        n = int(intval)
+                        if n < 0:
+                            n = n & 0xFFFFFFFFFFFFFFFF
+                        return n.bit_count()
+                    except (ValueError, TypeError):
+                        return None
+
+                result_exp = _bit_count_udf(
+                    snowpark_fn.cast(snowpark_args[0], VariantType())
+                )
             result_type = IntegerType()
         case "bit_get" | "getbit":
             snowflake_compat = get_boolean_session_config_param(
@@ -3262,16 +3335,24 @@ def map_unresolved_function(
 
         case "csc":
             spark_function_name = f"CSC({snowpark_arg_names[0]})"
-            result_exp = snowpark_fn.when(
-                snowpark_fn.is_null(snowpark_args[0]), snowpark_fn.lit(NAN)
-            ).otherwise(
+            csc_base = snowpark_fn.when(
+                snowpark_fn.is_null(snowpark_args[0]), snowpark_fn.lit(None)
+            )
+            if isinstance(snowpark_typed_args[0].typ, (FloatType, DoubleType)):
+                csc_base = csc_base.when(
+                    snowpark_fn.equal_nan(snowpark_args[0]),
+                    snowpark_fn.lit(NAN),
+                )
+            result_exp = csc_base.otherwise(
                 snowpark_fn.coalesce(
-                    _divnull(snowpark_fn.lit(1.0), snowpark_fn.sin(snowpark_args[0])),
+                    _divnull(
+                        snowpark_fn.lit(1.0),
+                        snowpark_fn.sin(snowpark_args[0]),
+                    ),
                     snowpark_fn.lit(INFINITY),
                 )
             )
-            # TODO: can we resolve the return type?
-            result_exp = _type_with_typer(result_exp)
+            result_exp = TypedColumn(result_exp, lambda: [DoubleType()])
         case "cume_dist":
             result_exp = TypedColumn(snowpark_fn.cume_dist(), lambda: [DoubleType()])
         case "current_catalog":
@@ -3690,21 +3771,49 @@ def map_unresolved_function(
             match typ:
                 case ArrayType():
                     result_type = typ.element_type
-                    # Convert Spark 1-based index to Snowflake 0-based index
-                    # Trigger an exception by using a string instead of an integer when index == 0
-                    snow_index = (
-                        snowpark_fn.when(
-                            spark_index < 0,
-                            snowpark_fn.array_size(data) + spark_index,
+                    arr_size = snowpark_fn.array_size(data)
+                    if spark_sql_ansi_enabled:
+                        raise_error = _raise_error_helper(
+                            result_type,
+                            error_class=ArrayIndexOutOfBoundsException,
                         )
-                        .when(
-                            spark_index == 0,
+                        oob_error = raise_error(
                             snowpark_fn.lit(
-                                "[snowpark_connect::invalid_index_of_zero] The index 0 is invalid. An index shall be either < 0 or > 0 (the first element has index 1)."
-                            ),
+                                "[INVALID_ARRAY_INDEX_IN_ELEMENT_AT] The index is out of bounds."
+                            )
                         )
-                        .otherwise(spark_index - 1)
-                    )
+                        snow_index = (
+                            snowpark_fn.when(
+                                spark_index == 0,
+                                snowpark_fn.lit(
+                                    "[snowpark_connect::invalid_index_of_zero] The index 0 is invalid. An index shall be either < 0 or > 0 (the first element has index 1)."
+                                ),
+                            )
+                            .when(
+                                (spark_index > 0) & (spark_index > arr_size),
+                                oob_error,
+                            )
+                            .when(
+                                (spark_index < 0) & ((arr_size + spark_index) < 0),
+                                oob_error,
+                            )
+                            .when(spark_index < 0, arr_size + spark_index)
+                            .otherwise(spark_index - 1)
+                        )
+                    else:
+                        snow_index = (
+                            snowpark_fn.when(
+                                spark_index < 0,
+                                arr_size + spark_index,
+                            )
+                            .when(
+                                spark_index == 0,
+                                snowpark_fn.lit(
+                                    "[snowpark_connect::invalid_index_of_zero] The index 0 is invalid. An index shall be either < 0 or > 0 (the first element has index 1)."
+                                ),
+                            )
+                            .otherwise(spark_index - 1)
+                        )
                     result_exp = snowpark_fn.element_at(data, snow_index)
                 case MapType():
                     result_exp = snowpark_fn.element_at(data, spark_index)
@@ -4600,7 +4709,7 @@ def map_unresolved_function(
         case "get":
             if exp.unresolved_function.arguments[1].HasField("literal"):
                 index = unwrap_literal(exp.unresolved_function.arguments[1])
-                if index < 0:
+                if index is None or index < 0:
                     result_exp = snowpark_fn.lit(None)
                 else:
                     result_exp = snowpark_fn.get(*snowpark_args)
@@ -5124,9 +5233,17 @@ def map_unresolved_function(
             )
             result_type = DoubleType()
         case "ilike":
-            # Snowpark is not supporting ilike, so using Snowflake builtin function
+            _validate_arity([2, 3])
             ilike = snowpark_fn.builtin("ilike")
-            result_exp = ilike(snowpark_args[0], snowpark_args[1])
+            if len(snowpark_args) == 3:
+                result_exp = ilike(snowpark_args[0], snowpark_args[1], snowpark_args[2])
+            else:
+                result_exp = ilike(
+                    snowpark_args[0], snowpark_args[1], snowpark_fn.lit("\\")
+                )
+            spark_function_name = (
+                f"ilike({snowpark_arg_names[0]}, {snowpark_arg_names[1]})"
+            )
             result_type = BooleanType()
         case "in":
             spark_function_name = f"({snowpark_arg_names[0] if not snowpark_arg_names[0] in ['True', 'False'] else snowpark_arg_names[0].lower()} IN ({', '.join(snowpark_arg_names[1:])}))"
@@ -7237,9 +7354,7 @@ def map_unresolved_function(
             # The float conversion below is necessary, because snowpark python uses int64 for integers, but we are
             # shifting into unit64 and hence are out of the range of int64.
             result_exp = (result_exp - float(MIN_INT64)) / (float(MAX_UINT64) + 1)
-            # TODO SNOW-2034495: can we resolve this type?
-            # result_type = DecimalType(26, 6)
-            result_exp = _type_with_typer(result_exp)
+            result_exp = TypedColumn(result_exp, lambda: [DoubleType()])
         case "randn":
             args = exp.unresolved_function.arguments
 
@@ -8213,19 +8328,22 @@ def map_unresolved_function(
             )
             result_exp = TypedColumn(result_exp, lambda: snowpark_typed_args[0].types)
         case "sort_array":
-            if len(snowpark_args) == 2 and not isinstance(
-                snowpark_typed_args[1].typ, BooleanType
-            ):
-                exception = AnalysisException(
-                    f'[DATATYPE_MISMATCH.UNEXPECTED_INPUT_TYPE] Cannot resolve "{spark_function_name}" due to data type mismatch: Parameter 2 requires the "BOOLEAN" type, however "{snowpark_arg_names[1]}" has the type "{snowpark_typed_args[1].typ.simpleString().upper()}"'
-                )
-                attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
-                raise exception
-            sort_asc = (
-                unwrap_literal(exp.unresolved_function.arguments[1])
-                if len(snowpark_args) == 2
-                else True
-            )
+            if len(snowpark_args) == 2:
+                if not isinstance(snowpark_typed_args[1].typ, BooleanType):
+                    exception = AnalysisException(
+                        f'[DATATYPE_MISMATCH.UNEXPECTED_INPUT_TYPE] Cannot resolve "{spark_function_name}" due to data type mismatch: Parameter 2 requires the "BOOLEAN" type, however "{snowpark_arg_names[1]}" has the type "{snowpark_typed_args[1].typ.simpleString().upper()}"'
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+                    raise exception
+                sort_asc = unwrap_literal(exp.unresolved_function.arguments[1])
+                if sort_asc is None:
+                    exception = AnalysisException(
+                        f'[DATATYPE_MISMATCH.UNEXPECTED_INPUT_TYPE] Cannot resolve "{spark_function_name}" due to data type mismatch: Parameter 2 requires the "BOOLEAN" type, however "CAST(NULL AS BOOLEAN)" has the type "BOOLEAN"'
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+                    raise exception
+            else:
+                sort_asc = True
             result_exp = snowpark_fn.sort_array(
                 *snowpark_args,
                 nulls_first=sort_asc,
@@ -8798,10 +8916,20 @@ def map_unresolved_function(
             )
             result_exp = TypedColumn(result_exp, lambda: [LongType()])
         case "timestamp_micros":
-            result_exp = snowpark_fn.cast(
-                snowpark_fn.to_timestamp(snowpark_args[0], 6),
-                TimestampType(snowpark.types.TimestampTimeZone.LTZ),
-            )
+            if isinstance(snowpark_typed_args[0].typ, NullType):
+                result_exp = snowpark_fn.lit(None)
+            elif not isinstance(snowpark_typed_args[0].typ, _IntegralType):
+                exception = AnalysisException(
+                    f'[DATATYPE_MISMATCH.UNEXPECTED_INPUT_TYPE] Cannot resolve "timestamp_micros({snowpark_arg_names[0]}" due to data type mismatch: Parameter 1 requires the "INTEGRAL" type, however "{snowpark_arg_names[0]}" has the type "{snowpark_typed_args[0].typ}".'
+                )
+                attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+                raise exception
+            else:
+                result_exp = _timestamp_with_overflow_guard(
+                    snowpark_args[0],
+                    micros_expr=snowpark_args[0],
+                    overflow_limit=_MICROS_OVERFLOW_LIMIT,
+                )
             result_type = TimestampType(snowpark.types.TimestampTimeZone.LTZ)
         case "timestamp_millis":
             if isinstance(snowpark_typed_args[0].typ, NullType):
@@ -8813,9 +8941,10 @@ def map_unresolved_function(
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
             else:
-                result_exp = snowpark_fn.cast(
-                    snowpark_fn.to_timestamp(snowpark_args[0] * 1_000, 6),
-                    TimestampType(snowpark.types.TimestampTimeZone.LTZ),
+                result_exp = _timestamp_with_overflow_guard(
+                    snowpark_args[0],
+                    micros_expr=snowpark_args[0] * 1_000,
+                    overflow_limit=_MILLIS_OVERFLOW_LIMIT,
                 )
             result_type = TimestampType(snowpark.types.TimestampTimeZone.LTZ)
         case "timestamp_seconds":
@@ -8831,11 +8960,12 @@ def map_unresolved_function(
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
             else:
-                result_exp = snowpark_fn.cast(
-                    snowpark_fn.to_timestamp(
-                        snowpark_fn.cast(snowpark_args[0] * 1_000_000, LongType()), 6
+                result_exp = _timestamp_with_overflow_guard(
+                    snowpark_args[0],
+                    micros_expr=snowpark_fn.cast(
+                        snowpark_args[0] * 1_000_000, LongType()
                     ),
-                    TimestampType(snowpark.types.TimestampTimeZone.LTZ),
+                    overflow_limit=_SECONDS_OVERFLOW_LIMIT,
                 )
             result_type = TimestampType(snowpark.types.TimestampTimeZone.LTZ)
         case "to_char" | "to_varchar":
@@ -10562,13 +10692,13 @@ def map_unresolved_function(
             window_schema = StructType(
                 [
                     StructField(
-                        '"start"',
+                        "start",
                         TimestampType(TimestampTimeZone.LTZ),
                         True,
                         _is_column=False,
                     ),
                     StructField(
-                        '"end"',
+                        "end",
                         TimestampType(TimestampTimeZone.LTZ),
                         True,
                         _is_column=False,
@@ -10576,9 +10706,9 @@ def map_unresolved_function(
                 ],
                 structured=STRUCTURED_TYPES_ENABLED,
             )
-            result_exp = snowpark_fn.cast(result_exp, window_schema)
-            # TODO SNOW-2034495: figure out how to specify the type of a window
-            result_exp = _type_with_typer(result_exp)
+            result_exp = TypedColumn(
+                snowpark_fn.cast(result_exp, window_schema), lambda: [window_schema]
+            )
         case "xpath":
             result_type = ArrayType(StringType())
             result_exp = _create_xpath_expression("xpath_list", "ARRAY(STRING)")
@@ -10725,6 +10855,12 @@ def map_unresolved_function(
             result_type = [f.datatype for f in udtf.output_schema]
 
         case cast_funcs if cast_funcs in CAST_FUNCTIONS:
+            if len(snowpark_args) != 1:
+                exception = AnalysisException(
+                    f"[WRONG_NUM_ARGS.WITHOUT_SUGGESTION] The `{cast_funcs}` requires 1 parameter(s), but the actual number is {len(snowpark_args)}."
+                )
+                attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+                raise exception
             cast_exp = expressions_proto.Expression(
                 cast=expressions_proto.Expression.Cast(
                     expr=exp.unresolved_function.arguments[0],
@@ -10899,6 +11035,34 @@ def _handle_current_timestamp():
     return result_exp
 
 
+# Arrow timestamps are int64 microseconds; values outside this range silently
+# wrap in the Snowflake connector's nanoarrow layer. Guard thresholds are the
+# max absolute input value for each unit before the microsecond conversion
+# would overflow int64.
+_MICROS_OVERFLOW_LIMIT = 9_223_372_036_854_775_807  # int64 max
+_MILLIS_OVERFLOW_LIMIT = 9_223_372_036_854_775  # int64 max // 1_000
+_SECONDS_OVERFLOW_LIMIT = 9_223_372_036_854  # int64 max // 1_000_000
+
+
+def _timestamp_with_overflow_guard(
+    input_col: Column,
+    micros_expr: Column,
+    overflow_limit: int,
+) -> Column:
+    """Generate a TIMESTAMP_LTZ expression with an overflow guard.
+
+    Produces: IFF(ABS(input) > limit, TO_TIMESTAMP('overflow'), CAST(TO_TIMESTAMP(micros, 6) AS TIMESTAMP_LTZ))
+    The overflow branch deliberately triggers a Snowflake error, matching
+    Spark's ArithmeticException for timestamp overflow.
+    """
+    ts_type = TimestampType(snowpark.types.TimestampTimeZone.LTZ)
+    return snowpark_fn.iff(
+        snowpark_fn.abs(input_col) > snowpark_fn.lit(overflow_limit),
+        snowpark_fn.to_timestamp(snowpark_fn.lit("overflow")),
+        snowpark_fn.cast(snowpark_fn.to_timestamp(micros_expr, 6), ts_type),
+    )
+
+
 def _equivalent_decimal(typ: DataType) -> DecimalType:
     (precision, scale) = _get_type_precision_from_datatype(typ)
     return DecimalType(precision, scale)
@@ -10958,6 +11122,63 @@ def _coerce_null_typed_expr(arg, arg_type: DataType, target_type: DataType):
     if _is_null_typed_container(arg_type):
         return snowpark_fn.cast(snowpark_fn.to_variant(arg), target_type)
     return arg
+
+
+def _coerce_array_and_element(
+    arr_col: Column,
+    arr_type: DataType,
+    elem_col: Column,
+    elem_type: DataType,
+) -> tuple[Column, Column, ArrayType]:
+    """Widen the array and/or element to their common element type.
+
+    Snowflake's ARRAY_APPEND/ARRAY_PREPEND/ARRAY_INSERT cast the element to
+    the array's element type, which can truncate (e.g. float → int).  Spark
+    instead widens the array to the common type.  This helper performs
+    explicit casts so the Snowflake behavior matches Spark.
+    """
+    arr_elem_type = arr_type.element_type if isinstance(arr_type, ArrayType) else None
+    if arr_elem_type is not None:
+        common = _find_common_type([arr_elem_type, elem_type])
+    else:
+        common = elem_type
+
+    if arr_elem_type is not None and common != arr_elem_type:
+        arr_col = snowpark_fn.cast(arr_col, ArrayType(common))
+    if common != elem_type:
+        elem_col = snowpark_fn.cast(elem_col, common)
+
+    return arr_col, elem_col, ArrayType(common) if common else arr_type
+
+
+def _coerce_two_arrays(
+    arr1_col: Column,
+    arr1_type: DataType,
+    arr2_col: Column,
+    arr2_type: DataType,
+) -> tuple[Column, Column, ArrayType]:
+    """Widen two arrays to a common element type.
+
+    When Spark combines two arrays (union, except, intersect) with different
+    element types it widens both to the common element type.  Snowflake does
+    not, so we cast explicitly.
+    """
+    elem1 = arr1_type.element_type if isinstance(arr1_type, ArrayType) else None
+    elem2 = arr2_type.element_type if isinstance(arr2_type, ArrayType) else None
+
+    if elem1 is not None and elem2 is not None:
+        common = _find_common_type([elem1, elem2])
+    else:
+        common = elem1 or elem2
+
+    result_type = ArrayType(common) if common else arr1_type
+
+    if elem1 is not None and common != elem1:
+        arr1_col = snowpark_fn.cast(arr1_col, result_type)
+    if elem2 is not None and common != elem2:
+        arr2_col = snowpark_fn.cast(arr2_col, result_type)
+
+    return arr1_col, arr2_col, result_type
 
 
 def _find_common_type(

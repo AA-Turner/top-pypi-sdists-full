@@ -1011,6 +1011,10 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
     def _visit_admonition(self, node, atype, title=None, logo=True):
         collapsible = node.get('collapsible', False)
 
+        ato = self.builder.config.confluence_adv_admonition_overrides
+        if ato:
+            atype = ato.get(node.__class__.__name__, atype)
+
         self.body.append(self.start_ac_macro(node, atype))
         if title and not collapsible:
             self.body.append(self.build_ac_param(node, 'title', title))
@@ -1138,7 +1142,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
     depart_tip = _depart_admonition
     visit_todo_node = _visit_todo_node
     depart_todo_node = depart_admonition
-    visit_warning = _visit_warning
+    visit_warning = _visit_note
     depart_warning = _depart_admonition
 
     # ------
@@ -1766,13 +1770,13 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
         has_added = False
 
         classes = node.get('classes', [])
-        if classes in [['guilabel']]:
+        if 'guilabel' in classes:
             self.body.append(self.start_tag(node, 'em'))
             has_added = True
-        elif classes in [['accelerator']]:
+        elif 'accelerator' in classes:
             self.body.append(self.start_tag(node, 'u'))
             has_added = True
-        elif classes in [['strike']]:
+        elif 'strike' in classes:
             self.body.append(self.start_tag(node, 's'))
             has_added = True
         # [sphinx-design]
@@ -1820,7 +1824,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
             has_added = True
         elif isinstance(node.parent, addnodes.desc_parameter):
             # check if an identifier in signature
-            if classes in [['n']]:
+            if 'n' in classes:
                 self.body.append(self.start_tag(node, 'em'))
                 has_added = True
 
@@ -2451,7 +2455,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
         doclink = node['doclink']
         space_key = None
 
-        # if prefixed with an exclamation, document is refering to another
+        # if prefixed with an exclamation, document is referring to another
         # Sphinx document -- find the respective title based off the captured
         # state
         if doclink.startswith('!'):
@@ -4111,19 +4115,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
             the escaped text
         """
 
-        # workaround for Confluence 8.0.x to 8.2.x series
-        # (https://jira.atlassian.com/browse/CONFSERVER-82849)
-        #
-        # The else case here should be always working; however, in some
-        # Confluence instances, there was a window where pages could not
-        # be uploaded since Confluence would refuse the EOF sequence for
-        # CDATA blocks. This workaround can help a user get their content
-        # published at the unfortunate tweak of changing any trailing EOF
-        # CDATA blocks to have a space character included.
-        if self.builder.config.confluence_adv_quirk_cdata:
-            data = data.replace(']]>', ']] >')
-        else:
-            data = data.replace(']]>', ']]]]><![CDATA[>')
+        data = data.replace(']]>', ']]]]><![CDATA[>')
 
         return ConfluenceBaseTranslator.encode(self, data)
 

@@ -62,7 +62,7 @@ def get_editor_bp(main_controller: MainController):
             main_controller.browser_get_console_logs,
             main_controller.browser_get_network_requests,
             main_controller.browser_close,
-            main_controller.browser_list_pages,
+            main_controller.browser_list_tabs,
             main_controller.list_directory,
             main_controller.find_files_by_pattern,
             main_controller.grep_codebase,

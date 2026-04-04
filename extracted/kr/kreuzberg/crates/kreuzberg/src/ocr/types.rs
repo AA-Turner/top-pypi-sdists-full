@@ -319,6 +319,7 @@ mod tests {
             metadata: std::collections::HashMap::new(),
             tables: vec![],
             ocr_elements: None,
+            internal_document: None,
         };
 
         let batch_result = BatchItemResult {

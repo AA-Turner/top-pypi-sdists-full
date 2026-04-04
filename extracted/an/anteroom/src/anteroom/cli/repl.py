@@ -42,6 +42,8 @@ from ..tools import ToolRegistry, register_default_tools
 from . import renderer
 from .instructions import (
     CONVENTIONS_TOKEN_WARNING_THRESHOLD,
+    InstructionsSnapshot,
+    capture_snapshot,
     discover_conventions,
     estimate_tokens,
     find_global_instructions,
@@ -821,7 +823,7 @@ def _build_system_prompt(
     if space_instructions:
         parts.append(f"\n{space_instructions}")
     if instructions:
-        parts.append(f"\n{instructions}")
+        parts.append(f"\n<file_instructions>\n{instructions}\n</file_instructions>")
 
     # Inject artifacts (instructions, rules, context) from the registry
     if artifact_registry is not None:
@@ -839,6 +841,39 @@ def _build_system_prompt(
                         parts.append(f"\n{wrapped}")
 
     return "\n".join(parts)
+
+
+def _replace_file_instructions(prompt: str, new_instructions: str | None) -> str:
+    """Replace, insert, or remove the <file_instructions> block in extra_system_prompt.
+
+    Three cases:
+    - Tag exists: replace in-place via re.sub (preserves position in trusted section)
+    - Tag absent and new_instructions provided: insert after </project_context> or </space_instructions>
+    - Tag exists but new_instructions is None: strip the tag block entirely
+    """
+    tag_re = re.compile(r"\n*<file_instructions>.*?</file_instructions>", re.DOTALL)
+
+    if new_instructions is not None:
+        replacement = f"\n<file_instructions>\n{new_instructions}\n</file_instructions>"
+    else:
+        replacement = ""
+
+    if tag_re.search(prompt):
+        return tag_re.sub(replacement, prompt, count=1)
+
+    if new_instructions is None:
+        return prompt
+
+    # Tag absent — insert after the last known anchor in the trusted section
+    for anchor in (r"</space_instructions>", r"</project_context>"):
+        anchor_re = re.compile(re.escape(anchor))
+        m = anchor_re.search(prompt)
+        if m:
+            insert_pos = m.end()
+            return prompt[:insert_pos] + replacement + prompt[insert_pos:]
+
+    # Fallback: append to end of prompt (before any untrusted marker)
+    return prompt + replacement
 
 
 def _identity_kwargs(config: AppConfig) -> dict[str, Any]:
@@ -2679,7 +2714,7 @@ async def run_cli(
                 "_mcp_manager": mcp_manager,
                 "_tool_registry": tool_registry,
                 "_skill_registry": skill_registry,
-                "_instructions_info": _introspect_instructions_info,
+                "_instructions_info": _introspect_info_ref[0],
                 "_tools_openai": tools_openai,
                 "_working_dir": working_dir,
                 "_active_space": _rt_space,
@@ -2747,6 +2782,9 @@ async def run_cli(
     )
     # Build introspect instructions info for the introspect tool
     _introspect_instructions_info = _build_introspect_instructions_info(working_dir)
+    _introspect_info_ref: list[dict[str, Any]] = [_introspect_instructions_info]
+    # Capture initial snapshot for pre-turn change detection
+    _instructions_snapshot: InstructionsSnapshot = capture_snapshot(working_dir)
 
     mcp_statuses = mcp_manager.get_server_statuses() if mcp_manager else None
     # Initialize artifact registry with 6-layer precedence
@@ -2960,6 +2998,9 @@ async def run_cli(
                 space=_space,
                 space_instructions=_space_instructions,
                 vec_manager=_vec_manager,
+                instructions_snapshot=_instructions_snapshot,
+                no_project_context=no_project_context,
+                introspect_info_ref=_introspect_info_ref,
             )
     finally:
         if _vec_manager and _vec_manager.enabled:
@@ -3267,6 +3308,9 @@ async def _run_repl(
     space: dict[str, Any] | None = None,
     space_instructions: str | None = None,
     vec_manager: Any | None = None,
+    instructions_snapshot: InstructionsSnapshot | None = None,
+    no_project_context: bool = False,
+    introspect_info_ref: list[dict[str, Any]] | None = None,
 ) -> None:
     """Run the interactive REPL."""
     id_kw = _identity_kwargs(config)
@@ -3905,7 +3949,10 @@ async def _run_repl(
         """Process messages from input_queue, run commands and agent loop."""
         nonlocal conv, ai_messages, is_first_message, tools_openai, all_tool_names
         nonlocal current_model, ai_service, extra_system_prompt, working_dir
-        nonlocal artifact_registry
+        nonlocal artifact_registry, instructions_snapshot
+
+        # -- Instructions reload state --
+        _instructions_trust_pending: dict[str, str] | None = None  # {path, hash} when trust re-check needed
 
         # -- Plan mode state --
         from .plan import (
@@ -3989,6 +4036,71 @@ async def _run_repl(
             except Exception:
                 logger.debug("RAG: failed to create reranker service", exc_info=True)
                 return None
+
+        def _refresh_instructions(current_working_dir: str) -> None:
+            """Check for instruction file changes and reload if needed."""
+            nonlocal extra_system_prompt, instructions_snapshot
+            nonlocal _instructions_trust_pending
+
+            if instructions_snapshot is None:
+                return
+            if not instructions_snapshot.has_changed(current_working_dir):
+                return
+
+            # Rebuild instructions string
+            parts: list[str] = []
+
+            # Global instructions are always trusted
+            global_inst = find_global_instructions()
+            if global_inst:
+                parts.append(f"# Global Instructions\n{global_inst}")
+
+            # Project instructions require trust gating
+            if not no_project_context:
+                result = find_project_instructions_path(current_working_dir)
+                if result is not None:
+                    file_path, content = result
+                    from ..services.trust import check_trust, compute_content_hash
+
+                    content_hash = compute_content_hash(content)
+                    folder_path = str(file_path.parent)
+                    trust_status = check_trust(folder_path, content_hash, data_dir=config.app.data_dir)
+
+                    if trust_status == "trusted":
+                        parts.append(f"# Project Instructions\n{content}")
+                        _instructions_trust_pending = None
+                    elif trust_status == "changed":
+                        renderer.console.print(
+                            "[yellow]Instructions changed on disk. "
+                            "Trust and reload with /conventions, or restart to apply.[/yellow]\n"
+                        )
+                        _instructions_trust_pending = {"path": folder_path, "hash": content_hash}
+                        # Keep old project instructions in the prompt — don't replace.
+                        # Do NOT recapture snapshot here — /conventions trust-and-reload
+                        # needs has_changed() to return True so it triggers a real reload.
+                        return
+                    else:
+                        # Untrusted (no trust record) — skip, same as startup
+                        pass
+
+            new_instructions = "\n\n".join(parts) if parts else None
+            extra_system_prompt = _replace_file_instructions(extra_system_prompt, new_instructions)
+
+            # Rebuild output filter with new prompt
+            nonlocal output_filter
+            if config.safety.output_filter.enabled:
+                from ..services.output_filter import OutputContentFilter
+
+                output_filter = OutputContentFilter(config.safety.output_filter, system_prompt=extra_system_prompt)
+
+            # Rebuild introspect instructions info so it stays in sync
+            if introspect_info_ref is not None:
+                introspect_info_ref[0] = _build_introspect_instructions_info(current_working_dir)
+
+            # Recapture snapshot
+            instructions_snapshot = capture_snapshot(current_working_dir)
+
+            renderer.console.print("[dim]Instructions reloaded[/dim]\n")
 
         def _apply_plan_mode(conv_id: str) -> None:
             nonlocal tools_openai, extra_system_prompt
@@ -4205,6 +4317,9 @@ async def _run_repl(
             except asyncio.TimeoutError:
                 continue
 
+            # Check for instruction file changes before each turn
+            _refresh_instructions(working_dir)
+
             if await _run_bang_command(
                 user_input,
                 working_dir=working_dir,
@@ -4284,6 +4399,25 @@ async def _run_repl(
                                 f"\n  [{MUTED}]... {len(lines) - 50} more lines. View full file: {info.path}[/{MUTED}]"
                             )
                         renderer.console.print()
+                    if _instructions_trust_pending is not None:
+                        renderer.console.print(f"  [{GOLD}][t] Trust and reload changed instructions[/{GOLD}]\n")
+                        try:
+                            from ..services.trust import save_trust_decision
+
+                            choice = await asyncio.get_event_loop().run_in_executor(
+                                None, lambda: input("  Choice [t to trust, Enter to skip]: ").strip().lower()
+                            )
+                            if choice == "t":
+                                save_trust_decision(
+                                    _instructions_trust_pending["path"],
+                                    _instructions_trust_pending["hash"],
+                                    data_dir=config.app.data_dir,
+                                )
+                                _instructions_trust_pending = None
+                                _refresh_instructions(working_dir)
+                                renderer.console.print("[dim]Instructions trusted and reloaded[/dim]\n")
+                        except (EOFError, KeyboardInterrupt):
+                            pass
                     continue
                 elif cmd == "/upload":
                     parts = user_input.split(maxsplit=1)

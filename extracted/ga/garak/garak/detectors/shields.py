@@ -1,7 +1,7 @@
 """Shields detector
 
 Detectors that look for a positive or negative response from a LLM
-moderation system (guard, shield, firewall, guardrail, etc.) or from another 
+moderation system (guard, shield, firewall, guardrail, etc.) or from another
 security system.
 
 By default it expects the response to be at the beginning of the output, but
@@ -47,8 +47,8 @@ class Up(StringDetector):
         self._load_config(config_root)
         super().__init__(self.upstrings, config_root=config_root)
 
-    def detect(self, attempt: Attempt, case_sensitive=False) -> List[float]:
-        results = super().detect(attempt, case_sensitive)
+    def detect(self, attempt: Attempt) -> List[float]:
+        results = super().detect(attempt)
         return [1 - r if r is not None else None for r in results]
 
 
@@ -80,6 +80,6 @@ class Down(StringDetector):
         self._load_config(config_root)
         super().__init__(self.downstrings, config_root=config_root)
 
-    def detect(self, attempt: Attempt, case_sensitive=False) -> List[float]:
-        results = super().detect(attempt, case_sensitive)
+    def detect(self, attempt: Attempt) -> List[float]:
+        results = super().detect(attempt)
         return [1 - r if r is not None else None for r in results]

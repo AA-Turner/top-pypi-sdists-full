@@ -64,6 +64,7 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     "get_symbol_diff", "embed_repo",
     # Utilities
     "get_session_stats", "invalidate_cache", "test_summarizer",
+    "audit_agent_config",
 )
 
 # Tools excluded from strict freshness mode (don't wait for reindex)
@@ -780,6 +781,32 @@ def _build_tools_list() -> list[Tool]:
                         "type": "integer",
                         "description": "Slow-response threshold in ms.",
                         "default": 15000,
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="audit_agent_config",
+            description=(
+                "Audit agent configuration files (CLAUDE.md, .cursorrules, copilot-instructions.md, etc.) "
+                "for token waste. Reports per-file token cost, stale symbol references, dead file paths, "
+                "redundancy between global and project configs, bloat patterns, and scope leaks. "
+                "Cross-references against the jcodemunch index to catch references to renamed or deleted "
+                "symbols and files that no other linter can detect."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": (
+                            "Repository identifier for cross-referencing symbols and files. "
+                            "If omitted, skips stale-reference and dead-path checks."
+                        ),
+                    },
+                    "project_path": {
+                        "type": "string",
+                        "description": "Project directory to scan for config files. Defaults to cwd.",
                     },
                 },
             },
@@ -1859,6 +1886,16 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     timeout_ms=arguments.get("timeout_ms", 15000),
                 )
             )
+        elif name == "audit_agent_config":
+            from .tools.audit_agent_config import audit_agent_config
+            result = await asyncio.to_thread(
+                functools.partial(
+                    audit_agent_config,
+                    repo=arguments.get("repo"),
+                    project_path=arguments.get("project_path"),
+                    storage_path=storage_path,
+                )
+            )
         elif name == "get_dependency_graph":
             from .tools.get_dependency_graph import get_dependency_graph
             result = await asyncio.to_thread(
@@ -2494,7 +2531,8 @@ def _generate_claude_md_snippet(missing_only: bool = False) -> str:
                                 "get_repo_health", "get_symbol_importance",
                                 "find_dead_code", "get_dead_code_v2"]),
         ("Diffs & Embeddings", ["get_symbol_diff", "embed_repo"]),
-        ("Utilities", ["get_session_stats", "invalidate_cache", "test_summarizer"]),
+        ("Utilities", ["get_session_stats", "invalidate_cache", "test_summarizer",
+                        "audit_agent_config"]),
     ]
     from . import __version__ as _ver
     lines = [
@@ -3147,6 +3185,53 @@ def main(argv: Optional[list[str]] = None):
     )
     _add_common_args(index_file_parser)
 
+    # --- init ---
+    init_parser = subparsers.add_parser(
+        "init",
+        help="One-command setup: register with MCP clients, install CLAUDE.md policy, hooks, and index",
+    )
+    init_parser.add_argument(
+        "--client",
+        nargs="*",
+        default=None,
+        metavar="CLIENT",
+        help="MCP clients to configure (auto, claude-code, claude-desktop, cursor, windsurf, continue, none)",
+    )
+    init_parser.add_argument(
+        "--claude-md",
+        choices=["global", "project"],
+        default=None,
+        dest="claude_md",
+        help="Install Code Exploration Policy to CLAUDE.md (global = ~/.claude/CLAUDE.md, project = ./CLAUDE.md)",
+    )
+    init_parser.add_argument(
+        "--hooks",
+        action="store_true",
+        help="Install worktree lifecycle hooks into ~/.claude/settings.json",
+    )
+    init_parser.add_argument(
+        "--index",
+        action="store_true",
+        help="Index the current working directory after setup",
+    )
+    init_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Show what would be done without making changes",
+    )
+    init_parser.add_argument(
+        "--yes", "-y",
+        action="store_true",
+        help="Accept all defaults non-interactively",
+    )
+    init_parser.add_argument(
+        "--no-backup",
+        action="store_true",
+        dest="no_backup",
+        help="Skip creating .bak backups of modified files",
+    )
+
     # --- hook-event ---
     hook_parser = subparsers.add_parser(
         "hook-event",
@@ -3208,7 +3293,7 @@ def main(argv: Optional[list[str]] = None):
     if any(arg in top_level_flags for arg in raw_argv):
         args = parser.parse_args(raw_argv)
     else:
-        known_commands = {"serve", "watch", "hook-event", "watch-claude", "config", "index-file", "claude-md"}
+        known_commands = {"serve", "watch", "hook-event", "watch-claude", "config", "index-file", "claude-md", "init"}
         has_subcommand = any(arg in known_commands for arg in raw_argv if not arg.startswith("-"))
         if not has_subcommand:
             raw_argv = ["serve"] + list(raw_argv)
@@ -3228,6 +3313,18 @@ def main(argv: Optional[list[str]] = None):
             fmt=getattr(args, "fmt", "full"),
         )
         return
+
+    if args.command == "init":
+        from .cli.init import run_init
+        sys.exit(run_init(
+            clients=args.client,
+            claude_md=args.claude_md,
+            hooks=args.hooks,
+            index=args.index,
+            dry_run=args.dry_run,
+            yes=args.yes,
+            no_backup=args.no_backup,
+        ))
 
     # Apply config defaults for watcher keys: CLI args > config > env vars.
     # config.load_config() is called inside each subcommand handler, but we need

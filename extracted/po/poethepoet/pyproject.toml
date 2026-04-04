@@ -1,6 +1,6 @@
 [project]
 name            = "poethepoet"
-version         = "0.42.1"
+version         = "0.43.0"
 description     = "A task runner that works well with poetry and uv."
 authors         = [{ name = "Nat Noordanus", email = "n@noordan.us" }]
 requires-python = ">=3.10"
@@ -161,6 +161,8 @@ ignore_fail = true
 [tool.poe.tasks.poe]
 help   = "Execute poe from this repo (useful for testing)"
 script = "poethepoet:main"
+
+
 
 [tool.poe.tasks.zsh-harness]
 help   = "Run zsh completion script through test harness for debugging"

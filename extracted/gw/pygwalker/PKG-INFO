@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygwalker
-Version: 0.5.0.0
+Version: 0.5.0.1
 Summary: pygwalker: turn your data into an interactive UI for data exploration and visualization
 Project-URL: homepage, https://kanaries.net/pygwalker
 Project-URL: repository, https://github.com/Kanaries/pygwalker
@@ -29,7 +29,6 @@ Requires-Dist: psutil
 Requires-Dist: pyarrow
 Requires-Dist: pydantic
 Requires-Dist: pytz
-Requires-Dist: quickjs
 Requires-Dist: requests
 Requires-Dist: segment-analytics-python==2.2.3
 Requires-Dist: sqlalchemy
@@ -37,6 +36,7 @@ Requires-Dist: sqlglot>=23.15.8
 Requires-Dist: traitlets
 Requires-Dist: typing-extensions
 Provides-Extra: all
+Requires-Dist: mini-racer>=0.12; extra == 'all'
 Requires-Dist: pandas; extra == 'all'
 Requires-Dist: polars; extra == 'all'
 Requires-Dist: reflex; extra == 'all'
@@ -46,6 +46,8 @@ Requires-Dist: build; extra == 'dev'
 Requires-Dist: jupyter-server-proxy; extra == 'dev'
 Requires-Dist: jupyterlab; extra == 'dev'
 Requires-Dist: twine; extra == 'dev'
+Provides-Extra: export
+Requires-Dist: mini-racer>=0.12; extra == 'export'
 Provides-Extra: labv4
 Requires-Dist: ipywidgets>=8.0.0; extra == 'labv4'
 Requires-Dist: jupyter-client>7.4.9; extra == 'labv4'

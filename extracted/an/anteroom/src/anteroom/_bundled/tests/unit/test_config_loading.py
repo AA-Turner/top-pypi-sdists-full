@@ -1,7 +1,7 @@
 """Tests for config.py env var overrides and load_config branches.
 
 Covers missed lines concentrated in:
-- Lines 40-41, 66-96: _get_version and build_runtime_context
+- Lines 40-96: build_runtime_context
 - Lines 913-968: AI timeout/retry env var loading
 - Lines 996-1000: allowed_domains env var
 - Lines 1048-1049: port fallback
@@ -54,6 +54,12 @@ class TestBuildRuntimeContext:
         assert "Web UI" in ctx
         assert "gpt-4" in ctx
         assert "</anteroom_context>" in ctx
+
+    def test_version_matches_package_version(self) -> None:
+        from anteroom import __version__
+
+        ctx = build_runtime_context(model="gpt-4")
+        assert f"v{__version__}" in ctx
 
     def test_cli_interface(self) -> None:
         ctx = build_runtime_context(model="gpt-4o", interface="cli")

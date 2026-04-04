@@ -47,6 +47,7 @@ rustls = { workspace = true, features = [
 ] }
 rustls-native-certs = "0.8.3"
 ryo3-bytes.workspace = true
+ryo3-cookie.workspace = true
 ryo3-core.workspace = true
 ryo3-http.workspace = true
 ryo3-jiter.workspace = true
@@ -54,6 +55,7 @@ ryo3-json.workspace = true
 ryo3-macro-rules.workspace = true
 ryo3-serde.workspace = true
 ryo3-std = { workspace = true, features = ["time"] }
+ryo3-tokio-rt.workspace = true
 ryo3-url.workspace = true
 serde.workspace = true
 serde_urlencoded.workspace = true

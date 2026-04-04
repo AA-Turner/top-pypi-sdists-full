@@ -13,8 +13,9 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from ..config import ConfigPartition, PoeConfig
+    from ..config.partition import GroupConfig
     from ..context import RunContext
-    from ..env.manager import EnvVarsManager
+    from ..env.task_env import TaskEnv
     from .base import TaskSpecFactory
 
 T = TypeVar("T")
@@ -93,8 +94,11 @@ class ParallelTask(PoeTask):
             source: ConfigPartition,
             *,
             parent: PoeTask.TaskSpec | None = None,
+            group: GroupConfig | None = None,
         ):
-            super().__init__(name, task_def, factory, source, parent=parent)
+            super().__init__(
+                name, task_def, factory, source, parent=parent, group=group
+            )
 
             self.subtasks = []
             for index, sub_task_def in enumerate(task_def[ParallelTask.__key__]):
@@ -163,10 +167,10 @@ class ParallelTask(PoeTask):
         ]
 
     async def _handle_run(
-        self, context: RunContext, env: EnvVarsManager, task_state: PoeTaskRun
+        self, context: RunContext, env: TaskEnv, task_state: PoeTaskRun
     ):
         named_arg_values, _ = self.get_parsed_arguments(env)
-        env.update(named_arg_values)
+        env.register_task_args(named_arg_values)
 
         if not named_arg_values and any(arg.strip() for arg in self.invocation[1:]):
             raise PoeException(f"Parallel task {self.name!r} does not accept arguments")

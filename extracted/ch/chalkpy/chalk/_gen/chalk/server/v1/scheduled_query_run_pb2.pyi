@@ -1,3 +1,4 @@
+from chalk._gen.chalk.common.v1 import offline_query_pb2 as _offline_query_pb2
 from chalk._gen.chalk.server.v1 import offline_queries_pb2 as _offline_queries_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
@@ -221,6 +222,7 @@ class ScheduledQuerySchedule(_message.Message):
         "num_shards",
         "num_workers",
         "input_sql",
+        "unload_resolvers",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -252,6 +254,7 @@ class ScheduledQuerySchedule(_message.Message):
     NUM_SHARDS_FIELD_NUMBER: _ClassVar[int]
     NUM_WORKERS_FIELD_NUMBER: _ClassVar[int]
     INPUT_SQL_FIELD_NUMBER: _ClassVar[int]
+    UNLOAD_RESOLVERS_FIELD_NUMBER: _ClassVar[int]
     id: int
     cron_query_id: int
     deployment_id: str
@@ -272,6 +275,7 @@ class ScheduledQuerySchedule(_message.Message):
     num_shards: int
     num_workers: int
     input_sql: str
+    unload_resolvers: _containers.RepeatedCompositeFieldContainer[_offline_query_pb2.UnloadResolverSpec]
     def __init__(
         self,
         id: _Optional[int] = ...,
@@ -294,4 +298,5 @@ class ScheduledQuerySchedule(_message.Message):
         num_shards: _Optional[int] = ...,
         num_workers: _Optional[int] = ...,
         input_sql: _Optional[str] = ...,
+        unload_resolvers: _Optional[_Iterable[_Union[_offline_query_pb2.UnloadResolverSpec, _Mapping]]] = ...,
     ) -> None: ...

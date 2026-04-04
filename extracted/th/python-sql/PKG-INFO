@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-sql
-Version: 1.8.0
+Version: 1.8.1
 Summary: Library to write SQL queries
 Project-URL: homepage, https://www.tryton.org/
 Project-URL: changelog, https://code.tryton.org/python-sql/-/blob/branch/default/CHANGELOG

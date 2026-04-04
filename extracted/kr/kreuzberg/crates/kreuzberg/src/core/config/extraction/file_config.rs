@@ -61,6 +61,10 @@ pub struct FileExtractionConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub force_ocr_pages: Option<Vec<usize>>,
 
+    /// Override disable OCR for this file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disable_ocr: Option<bool>,
+
     /// Override chunking configuration for this file.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chunking: Option<ChunkingConfig>,
@@ -124,4 +128,9 @@ pub struct FileExtractionConfig {
     /// affecting other files in the batch.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout_secs: Option<u64>,
+
+    /// Override tree-sitter configuration for this file.
+    #[cfg(feature = "tree-sitter")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tree_sitter: Option<super::super::tree_sitter::TreeSitterConfig>,
 }

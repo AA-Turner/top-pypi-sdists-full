@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poethepoet
-Version: 0.42.1
+Version: 0.43.0
 Summary: A task runner that works well with poetry and uv.
 License-Expression: MIT
 License-File: LICENSE
@@ -57,7 +57,7 @@ Description-Content-Type: text/markdown
 
 - ✅ Tasks are run in poetry or uv's virtualenv ([or another env](https://poethepoet.natn.io/index.html#usage-without-poetry) you specify)
 
-- ✅ [Shell completion of task names and arguments](https://poethepoet.natn.io/installation.html#shell-completion)
+- ✅ [Shell completion](https://poethepoet.natn.io/installation.html#shell-completion) of task names and arguments
 
 - ✅ The poe CLI can be used standalone, or as a [plugin for poetry](https://poethepoet.natn.io/poetry_plugin.html)
 
@@ -69,7 +69,7 @@ Description-Content-Type: text/markdown
 
 - ✅ Tasks can specify and [reference environment variables](https://poethepoet.natn.io/tasks/task_types/cmd.html#ref-env-vars), even without a shell
 
-- ✅ Tasks are [self documenting](https://poethepoet.natn.io/guides/help_guide.html), with optional help messages (just run `poe` with no arguments)
+- ✅ Tasks are [self documenting](https://poethepoet.natn.io/guides/help_guide.html), with optional help messages and task grouping (just run `poe` with no arguments)
 
 - ✅ Tasks can be composed to run in [sequence](https://poethepoet.natn.io/guides/composition_guide.html#composing-tasks-into-sequences), in [parallel](https://poethepoet.natn.io/guides/composition_guide.html#composing-tasks-to-run-in-parallel), or as a [DAG](https://poethepoet.natn.io/guides/composition_guide.html#composing-tasks-into-graphs).
 

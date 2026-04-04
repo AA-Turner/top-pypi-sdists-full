@@ -37,6 +37,7 @@ class ExecutionProfile:
     default_adapter_config: dict[str, Any] = field(default_factory=dict)
     lane_limits: dict[str, int] | None = None
     escalation_on_failure: str = "hold"
+    preferred_workflow_tags: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -60,6 +61,7 @@ _BUILTIN_PROFILES: dict[str, ExecutionProfile] = {
         review_gate=True,
         preferred_runners=["cli_claude"],
         lane_limits={"default": 3},
+        preferred_workflow_tags=["router", "work_item_router"],
     ),
     "hands-off": ExecutionProfile(
         name="hands-off",
@@ -68,6 +70,7 @@ _BUILTIN_PROFILES: dict[str, ExecutionProfile] = {
         preferred_runners=["cli_claude"],
         escalation_on_failure="hold",
         lane_limits={"default": 3},
+        preferred_workflow_tags=["router", "work_item_router"],
     ),
 }
 
@@ -124,10 +127,11 @@ def discover_workflows() -> list[Any]:
 # ---------------------------------------------------------------------------
 
 # Weights for scoring criteria
-_W_RUNNER = 0.4
-_W_INPUT = 0.3
-_W_TAG = 0.2
+_W_RUNNER = 0.35
+_W_INPUT = 0.25
+_W_TAG = 0.15
 _W_STRUCTURE = 0.1
+_W_PREFERRED_TAG = 0.15
 
 
 def score_workflow(definition: Any, profile: ExecutionProfile) -> float:
@@ -157,7 +161,7 @@ def score_workflow(definition: Any, profile: ExecutionProfile) -> float:
     else:
         scores.append((_W_INPUT, 0.5))  # neutral
 
-    # Tag match
+    # Tag match (profile name keywords vs definition tags)
     if definition.tags:
         profile_keywords = {profile.name.lower().replace("-", " ")}
         tag_set = {t.lower() for t in definition.tags}
@@ -165,6 +169,18 @@ def score_workflow(definition: Any, profile: ExecutionProfile) -> float:
         scores.append((_W_TAG, min(overlap / max(len(tag_set), 1), 1.0)))
     else:
         scores.append((_W_TAG, 0.0))
+
+    # Preferred workflow tag match (explicit tag/id preferences)
+    if profile.preferred_workflow_tags:
+        pref_set = {t.lower() for t in profile.preferred_workflow_tags}
+        # Match against definition id, tags, and description
+        candidates = {definition.id.lower()}
+        if definition.tags:
+            candidates |= {t.lower() for t in definition.tags}
+        matched = len(pref_set & candidates)
+        scores.append((_W_PREFERRED_TAG, matched / len(pref_set)))
+    else:
+        scores.append((_W_PREFERRED_TAG, 0.5))  # neutral when no preference
 
     # Structure match
     structure_score = 0.0
@@ -209,7 +225,7 @@ def select_workflow(
     if best_defn is None or best_score < threshold:
         return None, "no workflow matched preferences; using fallback adapter"
 
-    parts = [f"matched workflow '{best_defn.id}'"]
+    parts = [f"matched workflow '{best_defn.id}' via profile '{profile.name}'"]
     step_runners = {s.runner for s in best_defn.steps if s.runner}
     runner_overlap = [r for r in profile.preferred_runners if r in step_runners]
     if runner_overlap:
@@ -217,6 +233,14 @@ def select_workflow(
     input_overlap = [i for i in profile.required_inputs if i in best_defn.inputs]
     if input_overlap:
         parts.append(f"input {', '.join(input_overlap)} present")
+    if profile.preferred_workflow_tags:
+        candidates = {best_defn.id.lower()}
+        if best_defn.tags:
+            candidates |= {t.lower() for t in best_defn.tags}
+        pref_set = {t.lower() for t in profile.preferred_workflow_tags}
+        tag_overlap = sorted(pref_set & candidates)
+        if tag_overlap:
+            parts.append(f"preferred tag {', '.join(tag_overlap)}")
     parts.append(f"score {best_score:.2f}")
 
     return best_defn, " — ".join(parts)

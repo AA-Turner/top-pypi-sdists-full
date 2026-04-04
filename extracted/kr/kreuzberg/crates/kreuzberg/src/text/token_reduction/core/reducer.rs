@@ -5,6 +5,7 @@ use crate::text::token_reduction::{
     semantic::SemanticAnalyzer,
     simd_text::{SimdTextProcessor, chunk_text_for_parallel},
 };
+#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 use std::sync::Arc;
 use unicode_normalization::UnicodeNormalization;
@@ -81,7 +82,14 @@ impl TokenReducer {
             return texts.iter().map(|text| self.reduce(text)).collect();
         }
 
-        texts.par_iter().map(|text| self.reduce(text)).collect()
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            texts.par_iter().map(|text| self.reduce(text)).collect()
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            texts.iter().map(|text| self.reduce(text)).collect()
+        }
     }
 
     fn apply_light_reduction_optimized(&self, text: &str) -> String {
@@ -133,15 +141,25 @@ impl TokenReducer {
     }
 
     fn apply_parallel_moderate_reduction(&self, text: &str) -> String {
-        let num_threads = rayon::current_num_threads();
-        let chunks = chunk_text_for_parallel(text, num_threads);
-
-        let processed_chunks: Vec<String> = chunks
-            .par_iter()
-            .map(|chunk| self.filter_pipeline.apply_moderate_filters(chunk))
-            .collect();
-
-        processed_chunks.join(" ")
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let num_threads = rayon::current_num_threads();
+            let chunks = chunk_text_for_parallel(text, num_threads);
+            let processed_chunks: Vec<String> = chunks
+                .par_iter()
+                .map(|chunk| self.filter_pipeline.apply_moderate_filters(chunk))
+                .collect();
+            processed_chunks.join(" ")
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let chunks = chunk_text_for_parallel(text, 1);
+            let processed_chunks: Vec<String> = chunks
+                .iter()
+                .map(|chunk| self.filter_pipeline.apply_moderate_filters(chunk))
+                .collect();
+            processed_chunks.join(" ")
+        }
     }
 }
 

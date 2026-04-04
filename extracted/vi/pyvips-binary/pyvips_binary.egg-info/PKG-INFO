@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvips-binary
-Version: 8.18.1
+Version: 8.18.2
 Summary: Binary distribution of libvips and dependencies for use with pyvips
 Author-email: Kleis Auke Wolthuizen <info@kleisauke.nl>
 License: LGPL-3.0-or-later

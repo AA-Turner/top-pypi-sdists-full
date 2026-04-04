@@ -27,7 +27,9 @@ jobs:
           - "3.11"
           - "3.12"
           - "3.13"
+          - "3.13t"
           - "3.14"
+          - "3.14t"
           - "3.15"
         include:
           - os: Ubuntu
@@ -45,7 +47,7 @@ jobs:
           allow-prereleases: true
 
       - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
 
       - name: Check lockfile
         run: uv lock --check
@@ -67,6 +69,9 @@ jobs:
 
       - name: mypy
         run: uv run mypy
+
+      - name: ty check
+        run: uvx ty check
 
   rust:
     name: Rust
@@ -111,7 +116,7 @@ jobs:
           python-version: "3.14"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
 
       - name: Build with coverage instrumentation and run tests
         run: |
@@ -126,4 +131,5 @@ jobs:
           LIB_PATH=$(find target -name 'libtomledit.so' -path '*/release/*' | head -1)
           "$LLVM_TOOLS_PATH/llvm-cov" report \
             "$LIB_PATH" \
-            --instr-profile=target/tomledit.profdata --sources src/
+            --instr-profile=target/tomledit.profdata --sources src/ \
+            --show-branch-summary=false

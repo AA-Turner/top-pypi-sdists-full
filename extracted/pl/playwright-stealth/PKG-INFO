@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: playwright-stealth
-Version: 2.0.2
+Version: 2.0.3
 Summary: Make your playwright instance stealthy
 License-Expression: MIT
 License-File: LICENSE
-Author: AtuboDad
-Author-email: lcjasas@sina.com
+Author: Mattwmaster58
+Author-email: mattwmaster58@gmail.com>
 Requires-Python: >=3.9
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3

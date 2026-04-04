@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omnibase_core
-Version: 0.37.0
+Version: 0.38.0
 Summary: ONEX Core Framework - Base classes and essential implementations
 Project-URL: Homepage, https://github.com/OmniNode-ai/omnibase_core
 Project-URL: Repository, https://github.com/OmniNode-ai/omnibase_core
@@ -20,7 +20,7 @@ Requires-Python: >=3.12
 Requires-Dist: blake3<2.0.0,>=1.0.8
 Requires-Dist: click<9.0.0,>=8.3.1
 Requires-Dist: cryptography<47.0.0,>=46.0.3
-Requires-Dist: deepdiff<9.0.0,>=8.0.0
+Requires-Dist: deepdiff<10.0.0,>=8.0.0
 Requires-Dist: dependency-injector<5.0.0,>=4.48.3
 Requires-Dist: httpx<1.0.0,>=0.27.0
 Requires-Dist: jsonschema<5.0.0,>=4.25.1

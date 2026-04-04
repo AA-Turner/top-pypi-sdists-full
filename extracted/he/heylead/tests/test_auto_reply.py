@@ -82,18 +82,36 @@ def _setup_campaign_and_replied_outreach(
 def test_get_auto_reply_candidates_basic():
     """Returns candidates where last message is from prospect and old enough."""
     camp_id, _, outreach_id = _setup_campaign_and_replied_outreach(
-        status="hot_lead", sentiment="positive", message_age=600,
+        status="replied", sentiment="question", message_age=600,
     )
     candidates = get_auto_reply_candidates(camp_id, min_age_seconds=300)
     assert len(candidates) == 1
     assert candidates[0]["outreach_id"] == outreach_id
-    assert candidates[0]["last_sentiment"] == "positive"
+    assert candidates[0]["last_sentiment"] == "question"
 
 
 def test_get_auto_reply_candidates_min_age_filter():
     """Messages newer than min_age_seconds are excluded."""
     camp_id, _, _ = _setup_campaign_and_replied_outreach(
-        status="hot_lead", sentiment="positive", message_age=60,  # Only 1 min old
+        status="replied", sentiment="question", message_age=60,  # Only 1 min old
+    )
+    candidates = get_auto_reply_candidates(camp_id, min_age_seconds=300)
+    assert len(candidates) == 0
+
+
+def test_get_auto_reply_candidates_excludes_positive():
+    """Positive sentiment (meeting intent) is excluded — user should decide."""
+    camp_id, _, _ = _setup_campaign_and_replied_outreach(
+        status="hot_lead", sentiment="positive", message_age=600,
+    )
+    candidates = get_auto_reply_candidates(camp_id, min_age_seconds=300)
+    assert len(candidates) == 0
+
+
+def test_get_auto_reply_candidates_excludes_calendar():
+    """Calendar sentiment (scheduling) is excluded — user should decide."""
+    camp_id, _, _ = _setup_campaign_and_replied_outreach(
+        status="hot_lead", sentiment="calendar", message_age=600,
     )
     candidates = get_auto_reply_candidates(camp_id, min_age_seconds=300)
     assert len(candidates) == 0
@@ -146,9 +164,9 @@ def test_get_auto_reply_candidates_dedup_pending_jobs():
 
 
 def test_get_auto_reply_candidates_sentiment_priority():
-    """Candidates ordered by priority: positive > question > neutral. Negative excluded."""
+    """Candidates ordered by priority: engaged > question > neutral. Positive/negative/calendar excluded."""
     camp_id = create_campaign(name="Priority Test", status="active")
-    sentiments = [("negative", "replied"), ("positive", "hot_lead"), ("question", "replied"), ("neutral", "replied")]
+    sentiments = [("negative", "replied"), ("positive", "hot_lead"), ("question", "replied"), ("neutral", "replied"), ("engaged", "replied"), ("calendar", "hot_lead")]
 
     for i, (sentiment, status) in enumerate(sentiments):
         cid = save_contact(
@@ -167,7 +185,8 @@ def test_get_auto_reply_candidates_sentiment_priority():
 
     candidates = get_auto_reply_candidates(camp_id, min_age_seconds=300)
     sentiments_ordered = [c["last_sentiment"] for c in candidates]
-    assert sentiments_ordered == ["positive", "question", "neutral"]
+    # positive, negative, calendar excluded — only engaged, question, neutral remain
+    assert sentiments_ordered == ["engaged", "question", "neutral"]
 
 
 # ── get_daily_auto_reply_count tests ──
@@ -220,7 +239,7 @@ async def test_plan_auto_replies_schedules_job():
     """Creates a scheduler job for valid candidate."""
     camp_id, _, outreach_id = await run_db(
         _setup_campaign_and_replied_outreach,
-        status="hot_lead", sentiment="positive", message_age=600,
+        status="replied", sentiment="question", message_age=600,
     )
 
     from heylead.scheduler.planner import plan_auto_replies
@@ -254,12 +273,12 @@ async def test_plan_auto_replies_max_three_per_cycle():
                 campaign_id=camp_id, name=f"Person {i}",
                 linkedin_id=f"person-max-{i}",
             )
-            oid = create_outreach(campaign_id=camp_id, contact_id=cid, status="hot_lead")
+            oid = create_outreach(campaign_id=camp_id, contact_id=cid, status="replied")
             db = get_db()
             db.execute(
                 """INSERT INTO messages (id, outreach_id, role, text, sentiment, format, timestamp)
                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (f"msg-max-{i}", oid, "prospect", f"Interested! {i}", "positive", "text",
+                (f"msg-max-{i}", oid, "prospect", f"Question {i}?", "question", "text",
                  int(time.time()) - 600),
             )
             db.commit()
@@ -448,19 +467,19 @@ def test_multiturn_auto_reply_candidates():
     candidates = get_auto_reply_candidates(camp_id, min_age_seconds=300)
     assert len(candidates) == 0
 
-    # Step 3: Prospect replies again (6 min ago)
+    # Step 3: Prospect replies again with a question (6 min ago)
     db = get_db()
     db.execute(
         """INSERT INTO messages (id, outreach_id, role, text, sentiment, format, timestamp)
            VALUES (?, ?, ?, ?, ?, ?, ?)""",
         ("msg-multi-3", outreach_id, "prospect",
-         "How about Thursday at 2pm?", "positive", "text", int(time.time()) - 360),
+         "What does the product do exactly?", "question", "text", int(time.time()) - 360),
     )
     db.commit()
     db.close()
 
-    # Now last message is from prospect and old enough -> IS a candidate
+    # Now last message is from prospect with question sentiment -> IS a candidate
     candidates = get_auto_reply_candidates(camp_id, min_age_seconds=300)
     assert len(candidates) == 1
     assert candidates[0]["outreach_id"] == outreach_id
-    assert candidates[0]["last_reply_text"] == "How about Thursday at 2pm?"
+    assert candidates[0]["last_reply_text"] == "What does the product do exactly?"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyPartMC
-Version: 2.0.0
+Version: 2.0.1
 Summary: Python interface to PartMC
 Author-Email: "https://github.com/open-atmos/PyPartMC/graphs/contributors" <nriemer@illinois.edu>
 License-Expression: GPL-3.0

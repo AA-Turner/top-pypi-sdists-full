@@ -17,13 +17,13 @@ class TestPrintTranscriptLine:
     """Tests for the _print_transcript_line helper function."""
 
     def test_stdout_rendered(self) -> None:
-        """transcript_stdout renders with [stdout] prefix."""
+        """transcript_stdout renders without [stdout] prefix."""
         output = StringIO()
         with patch("anteroom.cli.workflow_cli.console") as mock_console:
             mock_console.print = lambda *a, **k: output.write(str(a[0]) + "\n")
             _print_transcript_line("transcript_stdout", {"content": "hello world"})
-        assert "stdout" in output.getvalue()
         assert "hello world" in output.getvalue()
+        assert "stdout" not in output.getvalue()
 
     def test_stderr_rendered(self) -> None:
         """transcript_stderr renders with [stderr] prefix."""
@@ -107,14 +107,15 @@ class TestPrintTranscriptLine:
 
         assert not printed
 
-    def test_long_content_truncated(self) -> None:
-        """Lines longer than 200 chars are truncated."""
+    def test_long_single_line_not_truncated(self) -> None:
+        """Single-line stdout is not truncated — Rich handles terminal wrapping."""
         output = StringIO()
         with patch("anteroom.cli.workflow_cli.console") as mock_console:
             mock_console.print = lambda *a, **k: output.write(str(a[0]) + "\n")
             _print_transcript_line("transcript_stdout", {"content": "x" * 300})
         text = output.getvalue()
-        assert "..." in text
+        assert "x" * 300 in text
+        assert "\u2026" not in text
 
     def test_assistant_multiline_shows_first_line(self) -> None:
         """Multiline assistant content shows only the first line."""
@@ -440,6 +441,77 @@ class TestEmitEventRendering:
 
         result = _describe_transcript_event("step_emitted", {"message": "", "level": "info"})
         assert result is None
+
+
+class TestContentColor:
+    """Tests for content-aware color detection (#1241)."""
+
+    def test_command_line_cyan(self) -> None:
+        from anteroom.cli.workflow_cli import _content_color
+
+        assert _content_color("$ echo hello") == "cyan"
+        assert _content_color("> some prompt") == "cyan"
+        assert _content_color("+ added line") == "cyan"
+
+    def test_file_path_blue(self) -> None:
+        from anteroom.cli.workflow_cli import _content_color
+
+        assert _content_color("src/anteroom/cli/workflow_cli.py") == "blue"
+        assert _content_color("/usr/local/bin/python") == "blue"
+
+    def test_pass_green(self) -> None:
+        from anteroom.cli.workflow_cli import _content_color
+
+        assert _content_color("All tests PASSED") == "green"
+        assert _content_color("OK - 5 tests") == "green"
+
+    def test_fail_red(self) -> None:
+        from anteroom.cli.workflow_cli import _content_color
+
+        assert _content_color("FAIL test_something") == "red"
+        assert _content_color("ERROR: connection refused") == "red"
+        assert _content_color("3 tests failed") == "red"
+
+    def test_plain_text_none(self) -> None:
+        from anteroom.cli.workflow_cli import _content_color
+
+        assert _content_color("hello world") is None
+        assert _content_color("just some text") is None
+
+
+class TestDescribeTranscriptStdoutLabel:
+    """Tests for stdout label=None and tool_result color=blue (#1241)."""
+
+    def test_stdout_label_is_none(self) -> None:
+        from anteroom.cli.workflow_cli import _describe_transcript_event
+
+        result = _describe_transcript_event("transcript_stdout", {"content": "hello"})
+        assert result is not None
+        label, text, color = result
+        assert label is None
+        assert text == "hello"
+
+    def test_tool_result_color_is_blue(self) -> None:
+        from anteroom.cli.workflow_cli import _describe_transcript_event
+
+        result = _describe_transcript_event(
+            "transcript_tool_result",
+            {"tool_name": "bash", "output": "{'stdout': 'hi', 'exit_code': 0}"},
+        )
+        assert result is not None
+        label, text, color = result
+        assert color == "blue"
+
+    def test_print_transcript_line_no_label(self) -> None:
+        """When label is None, output has no [label] prefix."""
+        output = StringIO()
+        with patch("anteroom.cli.workflow_cli.console") as mock_console:
+            mock_console.print = lambda *a, **k: output.write(str(a[0]) + "\n")
+            _print_transcript_line("transcript_stdout", {"content": "test output"})
+        text = output.getvalue()
+        assert "test output" in text
+        # No label bracket should appear before the content
+        assert "\\[stdout]" not in text
 
 
 class TestPrintRunProgressRecoveryActions:

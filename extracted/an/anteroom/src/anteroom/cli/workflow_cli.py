@@ -178,12 +178,26 @@ def _enrich_steps_for_diagnosis(steps: list[dict[str, Any]]) -> list[dict[str, A
     return enriched
 
 
+def _content_color(text: str) -> str | None:
+    """Return a semantic color hint based on line content, or None for default."""
+    if text.startswith("$") or text.startswith(">") or text.startswith("+"):
+        return "cyan"
+    if "/" in text and " " not in text.split("/")[0]:
+        return "blue"
+    upper = text.upper()
+    if "PASS" in upper or "OK" in upper or "PASSED" in upper:
+        return "green"
+    if "FAIL" in upper or "ERROR" in upper or "FAILED" in upper:
+        return "red"
+    return None
+
+
 def _truncate_text(text: str, max_len: int) -> str:
     """Truncate long transcript fragments to a single compact line."""
     text = re.sub(r"\s+", " ", text).strip()
     if len(text) <= max_len:
         return text
-    return text[: max_len - 3].rstrip() + "..."
+    return text[: max_len - 3].rstrip() + "\u2026"
 
 
 def _human_count(n: int) -> str:
@@ -362,8 +376,8 @@ def _summarize_tool_result(tool_name: str, output: Any, *, status: str = "") -> 
     return _truncate_text(str(output), 100)
 
 
-def _describe_transcript_event(event_type: str, payload: dict[str, Any]) -> tuple[str, str, str] | None:
-    """Return (label, text, color) for a transcript event."""
+def _describe_transcript_event(event_type: str, payload: dict[str, Any]) -> tuple[str | None, str, str] | None:
+    """Return (label, text, color) for a transcript event.  label may be None."""
     if event_type == "transcript_tool_call":
         tool_name = str(payload.get("tool_name", "")).strip()
         args_str = payload.get("arguments", "")
@@ -379,7 +393,7 @@ def _describe_transcript_event(event_type: str, payload: dict[str, Any]) -> tupl
         if not tool_name and not output:
             return None
         summary = _summarize_tool_result(tool_name, output, status=status)
-        return ("tool_result", f"{tool_name}: {summary}" if tool_name else summary, "cyan")
+        return ("tool_result", f"{tool_name}: {summary}" if tool_name else summary, "blue")
 
     if event_type == "transcript_assistant":
         content = str(payload.get("content", "")).strip()
@@ -408,10 +422,18 @@ def _describe_transcript_event(event_type: str, payload: dict[str, Any]) -> tupl
     content = str(payload.get("content", "")).strip()
     if not content:
         return None
-    if event_type == "transcript_stderr":
-        return ("stderr", _summarize_text_blob(content, max_len=200), "red")
-    if event_type == "transcript_stdout":
-        return ("stdout", _summarize_text_blob(content, max_len=200), "green")
+    if event_type in ("transcript_stderr", "transcript_stdout"):
+        # Don't truncate stdout/stderr — let Rich handle terminal wrapping.
+        # For multiline content, show only the first non-empty line with a
+        # continuation marker so the watch display doesn't explode vertically.
+        lines = [line for line in content.splitlines() if line.strip()]
+        if len(lines) > 1:
+            summary = lines[0] + f" (+{len(lines) - 1} lines)"
+        else:
+            summary = lines[0] if lines else content
+        if event_type == "transcript_stderr":
+            return ("stderr", summary, "red")
+        return (None, summary, _content_color(summary) or "default")
     return None
 
 
@@ -423,7 +445,10 @@ def _print_transcript_line(event_type: str, payload: dict[str, Any]) -> None:
     if described is None:
         return
     label, text, color = described
-    console.print(f"    [{color}]\\[{escape(label)}][/{color}] [{color}]{escape(text)}[/{color}]")
+    if label is None:
+        console.print(f"    [{color}]{escape(text)}[/{color}]")
+    else:
+        console.print(f"    [{color}]\\[{escape(label)}][/{color}] [{color}]{escape(text)}[/{color}]")
 
 
 def _summarize_step_reason(payload: dict[str, Any], *, max_len: int = 100) -> str:
@@ -801,7 +826,8 @@ def _run_workflow(config: AppConfig, args: argparse.Namespace) -> None:
     if not action:
         console.print(
             "Usage: aroom workflow {run,status,list,history,transcript,replay,resume,repair,"
-            "cancel,approve,deny,respond,watch,diagnose,triggers,schedule,validate,simulate}"
+            "cancel,approve,deny,respond,watch,diagnose,why,triggers,schedule,validate,simulate,"
+            "tail,worktree,delta}"
         )
         return
 
@@ -844,12 +870,20 @@ def _run_workflow(config: AppConfig, args: argparse.Namespace) -> None:
         _handle_watch(db, args)
     elif action == "diagnose":
         _handle_diagnose(db, args)
+    elif action == "why":
+        _handle_why(db, args)
     elif action == "triggers":
         _handle_triggers(config, db, args)
     elif action == "schedule":
         _handle_schedule(config, db, args)
     elif action == "_execute_pending":
         _handle_execute_pending(config, db, args)
+    elif action == "tail":
+        _handle_tail(db, args)
+    elif action == "worktree":
+        _handle_worktree(db, args)
+    elif action == "delta":
+        _handle_delta(db, args)
     else:
         console.print(f"Unknown workflow action: {action}")
 
@@ -1106,18 +1140,12 @@ def _handle_status(db: Any, args: argparse.Namespace) -> None:
 
 
 def _handle_list(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
-    """Handle `aroom workflow list`."""
+    """Handle `aroom workflow list` (read-only — no inline recovery)."""
     from ..services.workflow_storage import check_approval_timeouts, check_decision_timeouts, list_workflow_runs
 
-    # On-demand timeout checks
+    # On-demand timeout checks (read-only bookkeeping)
     check_approval_timeouts(db)
     check_decision_timeouts(db)
-
-    # Recover stale runs before listing (on-demand recovery)
-    engine, _event_bus = _create_engine(config, db)
-    recovered = asyncio.run(engine.recover_interrupted_runs())
-    if recovered:
-        console.print(f"[yellow]Recovered {len(recovered)} interrupted run(s)[/yellow]")
 
     status_filter = getattr(args, "status", None)
     workflow_filter = getattr(args, "workflow", None)
@@ -1134,10 +1162,10 @@ def _handle_list(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
     table.add_column("Workflow")
     table.add_column("Target", max_width=40)
     table.add_column("State", max_width=28)
+    table.add_column("Stop Reason", max_width=36)
     table.add_column("Created")
 
     for run in runs:
-        # Shorten long target refs (e.g., temp file paths from tests)
         target_ref = run["target_ref"]
         if len(target_ref) > 35:
             target_ref = "..." + target_ref[-32:]
@@ -1145,16 +1173,19 @@ def _handle_list(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
         current_step = run.get("current_step_id")
         if current_step and run["status"] not in {"completed", "failed", "cancelled", "compensated"}:
             state = f"{state} · {current_step}"
+        stop_reason = run.get("stop_reason") or ""
+        if len(stop_reason) > 33:
+            stop_reason = stop_reason[:30] + "..."
         table.add_row(
             run["id"][:12],
             run["workflow_id"],
             f"{run['target_kind']}:{target_ref}",
             state,
+            stop_reason,
             run["created_at"][:19],
         )
 
     console.print(table)
-    _cleanup_event_bus(_event_bus)
 
 
 def _handle_execute_pending(config: AppConfig, db: Any, args: argparse.Namespace) -> None:
@@ -1764,6 +1795,64 @@ def _handle_diagnose(db: Any, args: argparse.Namespace) -> None:
     console.print(Panel(diagnosis_text, title="Diagnosis", border_style="yellow"))
 
 
+def _handle_why(db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow why <run_id>`. Concise one-shot blocker summary."""
+    from ..services.workflow_diagnosis import diagnose
+    from ..services.workflow_storage import (
+        get_workflow_run,
+        list_pending_approvals,
+        list_pending_decisions,
+        list_workflow_events,
+        list_workflow_steps,
+    )
+
+    run_id = _resolve_run_id_or_print(db, getattr(args, "run_id", None))
+    if not run_id:
+        return
+
+    run = get_workflow_run(db, run_id)
+    assert run is not None
+
+    status = run.get("status", "unknown")
+    run_id_short = run_id[:8]
+
+    if status == "waiting_for_approval":
+        approvals = list_pending_approvals(db, run_id)
+        if approvals:
+            step_ids = ", ".join(a.get("step_id", "?") for a in approvals)
+            console.print(f"[yellow]Waiting:[/yellow] approval needed for step {step_ids}")
+        else:
+            console.print("[yellow]Waiting:[/yellow] approval needed (no pending records found)")
+        return
+
+    if status == "waiting_for_input":
+        decisions = list_pending_decisions(db, run_id)
+        if decisions:
+            prompts = "; ".join(d.get("prompt", "?") for d in decisions)
+            console.print(f"[yellow]Waiting:[/yellow] human input needed — {prompts}")
+        else:
+            console.print("[yellow]Waiting:[/yellow] human input needed")
+        return
+
+    terminal_statuses = {"completed", "cancelled"}
+    if status in terminal_statuses:
+        console.print(f"Run {run_id_short} is [bold]{status}[/bold]. No active blocker.")
+        return
+
+    if status in ("running", "claimed", "pending"):
+        console.print(f"Run {run_id_short} is [green]{status}[/green]. No active blocker.")
+        return
+
+    steps = _enrich_steps_for_diagnosis(list_workflow_steps(db, run_id))
+    events = list_workflow_events(db, run_id)
+    result = diagnose(run, steps, events)
+
+    console.print(f"[red]Blocked:[/red] {result.what}")
+    console.print(f"[yellow]Because:[/yellow] {result.why}")
+    if result.next_actions:
+        console.print(f"[cyan]Next:[/cyan] {result.next_actions[0]}")
+
+
 def _handle_watch(db: Any, args: argparse.Namespace) -> None:
     """Handle `aroom workflow watch <run_id>`. Poll and display live timeline with transcript."""
     import collections
@@ -1845,7 +1934,8 @@ def _handle_watch(db: Any, args: argparse.Namespace) -> None:
                     continue
                 label, line_text, color = described
                 text.append(f"  {ts}  ", style="dim")
-                text.append(f"[{label}] ", style=color)
+                if label is not None:
+                    text.append(f"[{label}] ", style=color)
                 text.append(f"{line_text}\n", style=color)
 
         return text
@@ -2162,3 +2252,197 @@ def _handle_simulate(args: argparse.Namespace) -> None:
     console.print(f"\n[{status_color}]Final status: {result.final_status}[/{status_color}]")
     if result.error:
         console.print(f"  [red]Error[/red]: {result.error}")
+
+
+# ---------------------------------------------------------------------------
+# Transcript tail, worktree, and delta handlers (#1236)
+# ---------------------------------------------------------------------------
+
+_UNMERGED_CODES = {"UU", "AA", "DD", "AU", "UA", "DU", "UD"}
+
+
+def _has_unmerged_entries(porcelain_output: str) -> bool:
+    """Detect unmerged (conflicted) files from ``git status --porcelain`` output."""
+    for line in porcelain_output.splitlines():
+        if len(line) >= 2 and line[:2] in _UNMERGED_CODES:
+            return True
+    return False
+
+
+def _handle_tail(db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow tail <run_id> [--step <id>] [--last N] [--stderr]`."""
+    from ..services.workflow_storage import get_workflow_run, list_transcript_events
+
+    run_id = _resolve_run_id_or_print(db, getattr(args, "run_id", None))
+    if not run_id:
+        return
+
+    run = get_workflow_run(db, run_id)
+    if not run:
+        console.print(f"[red]Run not found: {run_id}[/red]")
+        return
+
+    step_id: str | None = getattr(args, "step_id", None)
+    last: int = getattr(args, "last", 20)
+    stderr_only: bool = getattr(args, "stderr", False)
+    stdout_only: bool = getattr(args, "stdout", False)
+
+    event_types: list[str] | None = None
+    if stderr_only:
+        event_types = ["transcript_stderr"]
+    elif stdout_only:
+        event_types = ["transcript_stdout"]
+
+    events = list_transcript_events(db, run_id, step_id=step_id, limit=last, event_types=event_types)
+    if not events:
+        console.print("[dim]No transcript events found.[/dim]")
+        return
+
+    header = f"Tail: {run_id[:8]}"
+    if step_id:
+        header += f" / {step_id}"
+    console.print(f"[bold]{header}[/bold] ({len(events)} events)\n")
+
+    for ev in events:
+        et = ev.get("event_type", "")
+        payload = ev.get("payload") or {}
+        _print_transcript_line(et, payload)
+
+
+def _handle_worktree(db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow worktree <run_id>`. Show worktree health for an issue workflow."""
+    from ..services.workflow_state import read_issue_state
+    from ..services.workflow_storage import get_workflow_run
+
+    run_id = _resolve_run_id_or_print(db, getattr(args, "run_id", None))
+    if not run_id:
+        return
+
+    run = get_workflow_run(db, run_id)
+    if not run:
+        console.print(f"[red]Run not found: {run_id}[/red]")
+        return
+
+    inputs = run.get("inputs") or {}
+    issue_number = inputs.get("issue_number")
+    if not issue_number:
+        console.print("[yellow]Run does not have an issue_number in inputs.[/yellow]")
+        return
+
+    cwd = Path.cwd()
+    state = read_issue_state(cwd, int(issue_number))
+    if state is None:
+        console.print(f"[yellow]No issue state found for issue #{issue_number}.[/yellow]")
+        return
+
+    worktree_path = state.get("worktree_path")
+    branch = state.get("branch")
+    console.print(f"[bold]Worktree health: issue #{issue_number}[/bold]\n")
+
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column("Key", style="bold")
+    table.add_column("Value")
+
+    table.add_row("Worktree", str(worktree_path) if worktree_path else "[dim]unknown[/dim]")
+    table.add_row("Branch", str(branch) if branch else "[dim]unknown[/dim]")
+
+    if worktree_path:
+        wt = Path(worktree_path)
+        if wt.exists():
+            try:
+                status_result = subprocess.run(
+                    ["git", "status", "--porcelain"],
+                    capture_output=True,
+                    text=True,
+                    cwd=str(wt),
+                    timeout=10,
+                )
+                status_lines = status_result.stdout.strip()
+                if not status_lines:
+                    table.add_row("Status", "[green]clean[/green]")
+                elif _has_unmerged_entries(status_lines):
+                    table.add_row("Status", "[red]conflicted[/red]")
+                else:
+                    dirty_count = len(status_lines.splitlines())
+                    table.add_row("Status", f"[yellow]dirty ({dirty_count} files)[/yellow]")
+            except (subprocess.TimeoutExpired, OSError):
+                table.add_row("Status", "[red]error running git status[/red]")
+
+            try:
+                ahead_behind = subprocess.run(
+                    ["git", "rev-list", "--left-right", "--count", "HEAD...origin/main"],
+                    capture_output=True,
+                    text=True,
+                    cwd=str(wt),
+                    timeout=10,
+                )
+                if ahead_behind.returncode == 0:
+                    parts = ahead_behind.stdout.strip().split()
+                    if len(parts) == 2:
+                        ahead, behind = parts
+                        table.add_row("Ahead/Behind main", f"+{ahead} / -{behind}")
+            except (subprocess.TimeoutExpired, OSError):
+                pass
+
+            venv_path = wt / ".venv"
+            if venv_path.exists():
+                table.add_row("Venv", f"[green]{venv_path}[/green]")
+            else:
+                table.add_row("Venv", "[yellow]not found[/yellow]")
+        else:
+            table.add_row("Status", "[red]path does not exist[/red]")
+
+    for key, value in state.items():
+        if key not in ("worktree_path", "branch"):
+            table.add_row(key, str(value))
+
+    console.print(table)
+
+
+def _handle_delta(db: Any, args: argparse.Namespace) -> None:
+    """Handle `aroom workflow delta <run_id> [--since-event <id>]`."""
+    from ..services.workflow_storage import get_workflow_run, list_events_since
+
+    run_id = _resolve_run_id_or_print(db, getattr(args, "run_id", None))
+    if not run_id:
+        return
+
+    run = get_workflow_run(db, run_id)
+    if not run:
+        console.print(f"[red]Run not found: {run_id}[/red]")
+        return
+
+    since_event: int = getattr(args, "since_event", 0) or 0
+
+    events = list_events_since(db, run_id, since_event)
+    if not events:
+        console.print("[dim]No new events since the given event ID.[/dim]")
+        return
+
+    console.print(f"[bold]Delta: {run_id[:8]}[/bold] ({len(events)} events since #{since_event})\n")
+
+    for ev in events:
+        eid = ev.get("id", "?")
+        et = ev.get("event_type", "")
+        step_id = ev.get("step_id") or ""
+        payload = ev.get("payload") or {}
+
+        label_parts = [f"#{eid}", et]
+        if step_id:
+            label_parts.append(step_id)
+        label = "  ".join(label_parts)
+
+        summary = ""
+        if et.startswith("transcript_"):
+            described = _describe_transcript_event(et, payload)
+            if described:
+                _, summary, _ = described
+        elif "status" in payload:
+            summary = str(payload["status"])
+        elif "message" in payload:
+            summary = str(payload["message"])[:120]
+
+        if summary:
+            console.print(f"  [dim]{label}[/dim]  {summary}")
+        else:
+            console.print(f"  [dim]{label}[/dim]")

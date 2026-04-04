@@ -26,13 +26,13 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version-file: .python-version
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           version-file: pyproject.toml
       - name: Install dependencies
@@ -74,13 +74,13 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version-file: .python-version
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           version-file: pyproject.toml
       - name: Extract version from branch name
@@ -103,5 +103,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
-          tag_name: v${{ inputs.version }}
-          name: Version ${{ inputs.version }}
+          tag_name: v${{ steps.extract_version.outputs.version }}
+          name: Version ${{ steps.extract_version.outputs.version }}

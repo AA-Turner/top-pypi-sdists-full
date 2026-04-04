@@ -35,7 +35,6 @@ dependencies = [
     "packaging",
     "numpy",
     "ipylab<=1.0.0",
-    "quickjs",
     "traitlets",
     "anywidget",
 ]
@@ -65,8 +64,9 @@ labv4 = [
     "jupyter-server>2.5.0",
     "ipywidgets>=8.0.0"
 ]
+export = ["mini-racer>=0.12"]
 all = [
-    "pygwalker[pandas,polars,streamlit,reflex]",
+    "pygwalker[pandas,polars,streamlit,reflex,export]",
 ]
 dev = [
     "build",

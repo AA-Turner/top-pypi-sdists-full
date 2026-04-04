@@ -1,6 +1,6 @@
 [package]
 name = "toml-rs"
-version = "0.3.7"
+version = "0.3.8"
 edition = "2024"
 license = "Unlicense"
 repository = "https://github.com/lava-sh/toml-rs"
@@ -12,20 +12,20 @@ name = "_toml_rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "=0.28.2", features = [
+pyo3 = { version = "=0.28.3", features = [
     "extension-module",
     "generate-import-lib",
     "num-bigint",
 ] }
 memchr = "=2.8.0"
-rustc-hash = "=2.1.1"
+rustc-hash = "=2.1.2"
 num-bigint = "=0.4.6"
 smallvec = "=2.0.0-alpha.12"
 bytecount = { version = "=0.6.9", features = ["runtime-dispatch-simd"] }
 
 [dependencies.lexical-core]
 git = "https://github.com/Alexhuszagh/rust-lexical"
-rev = "59382e249f8fd0dd384ed1f180b38d168cf9fcbb"
+rev = "afb2efa651f42f63415a3bf3d51ced6143132b2b"
 default-features = false
 features = [
     "radix",
@@ -69,7 +69,7 @@ features = [
 ##############################################################
 [dependencies.toml]
 git = "https://github.com/lava-sh/toml"
-rev = "2ea4efedff151141f4c35fe98b0ff13e8f48d142"
+rev = "e6fb38068158e684ba04263fb83a5c9d104781b8"
 features = [
     "fast_hash", # uses `foldhash`
     "unbounded", # disables default recursion limit
@@ -78,7 +78,7 @@ features = [
 
 [dependencies.toml_parser]
 git = "https://github.com/lava-sh/toml"
-rev = "2ea4efedff151141f4c35fe98b0ff13e8f48d142"
+rev = "e6fb38068158e684ba04263fb83a5c9d104781b8"
 features = [
     "std",
     "simd",
@@ -87,7 +87,7 @@ features = [
 
 [dependencies.toml_edit]
 git = "https://github.com/lava-sh/toml"
-rev = "2ea4efedff151141f4c35fe98b0ff13e8f48d142"
+rev = "e6fb38068158e684ba04263fb83a5c9d104781b8"
 features = [
     "serde",
     "unbounded",
@@ -95,7 +95,10 @@ features = [
 
 [dependencies.mimalloc]
 optional = true
-version = "=0.1.48"
+# version = "=0.1.48"
+git = "https://github.com/bluecatengineering/mimalloc_rust"
+rev = "8b86a87995e0c2d2fd11e2a15c7f26bc74005d74"
+package = "bc-mimalloc"
 features = [
     # mimalloc v3
     # See: https://github.com/microsoft/mimalloc/tree/dev3?tab=readme-ov-file#branches
@@ -106,7 +109,7 @@ features = [
 
 [dependencies.snmalloc-rs]
 optional = true
-version = "=0.3.8"
+version = "=0.7.4"
 features = [
     "lto",
     "build_cc",

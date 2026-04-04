@@ -249,7 +249,7 @@ def _run_config_view(team_config_path: Path | None = None, *, with_sources: bool
 
     # 2. Personal config (overrides team)
     if config_path.exists():
-        with open(config_path, encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8-sig") as f:
             personal_raw = yaml.safe_load(f) or {}
         if personal_raw:
             layers.append(("personal", personal_raw))
@@ -404,7 +404,7 @@ def _run_db(args: argparse.Namespace) -> None:
     config_path = _get_config_path()
     raw: dict = {}
     if config_path.exists():
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8-sig") as f:
             raw = yaml.safe_load(f) or {}
 
     action = args.db_action
@@ -2657,6 +2657,8 @@ def main() -> None:
     workflow_watch_parser.add_argument("run_id", help="Run identifier")
     workflow_diagnose_parser = workflow_subparsers.add_parser("diagnose", help="Explain why a run stopped")
     workflow_diagnose_parser.add_argument("run_id", help="Run identifier")
+    workflow_why_parser = workflow_subparsers.add_parser("why", help="Concise blocker summary for a run")
+    workflow_why_parser.add_argument("run_id", help="Run identifier")
     workflow_triggers_parser = workflow_subparsers.add_parser("triggers", help="Manage workflow triggers")
     triggers_subparsers = workflow_triggers_parser.add_subparsers(dest="trigger_action")
     triggers_subparsers.add_parser("list", help="List workflow schedules")
@@ -2673,9 +2675,28 @@ def main() -> None:
     workflow_simulate_parser = workflow_subparsers.add_parser("simulate", help="Simulate a workflow with stub runners")
     workflow_simulate_parser.add_argument("workflow_path", help="Workflow ID or YAML path")
     workflow_simulate_parser.add_argument("--stubs", help="Path to stub results YAML")
+    workflow_tail_parser = workflow_subparsers.add_parser("tail", help="Show recent transcript events")
+    workflow_tail_parser.add_argument("run_id", help="Run identifier")
+    workflow_tail_parser.add_argument("--step", dest="step_id", help="Filter by step ID")
+    workflow_tail_parser.add_argument("--last", type=int, default=20, help="Number of events (default 20)")
+    workflow_tail_parser.add_argument("--stderr", action="store_true", help="Show only stderr events")
+    workflow_tail_parser.add_argument("--stdout", action="store_true", help="Show only stdout events")
+    workflow_worktree_parser = workflow_subparsers.add_parser("worktree", help="Show worktree health for a run")
+    workflow_worktree_parser.add_argument("run_id", help="Run identifier")
+    workflow_delta_parser = workflow_subparsers.add_parser("delta", help="Show events since a given event ID")
+    workflow_delta_parser.add_argument("run_id", help="Run identifier")
+    workflow_delta_parser.add_argument("--since-event", type=int, default=0, help="Event ID to start from")
     workflow_exec_pending_parser = workflow_subparsers.add_parser("_execute_pending", help=argparse.SUPPRESS)
     workflow_exec_pending_parser.add_argument("run_id", help=argparse.SUPPRESS)
     workflow_exec_pending_parser.add_argument("--definition", required=True, help=argparse.SUPPRESS)
+
+    observe_parser = subparsers.add_parser("observe", help="Observe a mission session or workflow run")
+    observe_parser.add_argument("target", help="Mission session ID/prefix or workflow run ID/prefix")
+    observe_parser.add_argument("--json", dest="json_output", action="store_true", help="Output machine-readable JSON")
+    observe_parser.add_argument("--since", dest="since", help="ISO 8601 timestamp — show delta summary since this time")
+    observe_parser.add_argument(
+        "--summary", dest="summary", action="store_true", help="Show retrospective summary for the mission"
+    )
 
     # `aroom mission` subcommand
     mission_parser = subparsers.add_parser("mission", help="Manage missions")
@@ -2696,6 +2717,19 @@ def main() -> None:
     mission_status_parser = mission_sub.add_parser("status", help="Show mission status")
     mission_status_parser.add_argument("session_id", help="Mission session ID")
 
+    mission_scheduler_parser = mission_sub.add_parser("scheduler", help="Run the mission scheduler")
+    mission_scheduler_parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Run one scheduler cycle, then exit",
+    )
+    mission_scheduler_parser.add_argument(
+        "--poll-interval",
+        type=float,
+        default=5.0,
+        help="Foreground scheduler poll interval in seconds",
+    )
+
     mission_talk_parser = mission_sub.add_parser("talk", help="Steer a mission conversationally")
     mission_talk_parser.add_argument("session_id", help="Mission session ID")
 
@@ -2710,6 +2744,32 @@ def main() -> None:
     mission_cancel_parser = mission_sub.add_parser("cancel", help="Cancel a mission")
     mission_cancel_parser.add_argument("session_id", help="Mission session ID")
 
+    mission_reconcile_parser = mission_sub.add_parser(
+        "reconcile", help="Reconcile an item whose work completed outside the tracked child run"
+    )
+    mission_reconcile_parser.add_argument("session_id", help="Mission session ID")
+    mission_reconcile_parser.add_argument("item_id", help="Mission item ID")
+    mission_reconcile_parser.add_argument("--status", default="completed", help="Target status (default: completed)")
+    mission_reconcile_parser.add_argument("--reason", required=True, help="Reason for reconciliation")
+    mission_reconcile_parser.add_argument(
+        "--force", action="store_true", default=False, help="Cancel live child execution via adapter before reconciling"
+    )
+
+    mission_why_parser = mission_sub.add_parser("why", help="Concise blocker summary for a mission")
+    mission_why_parser.add_argument("session_id", help="Mission session ID")
+
+    mission_summary_parser = mission_sub.add_parser("summary", help="Show retrospective summary for a mission")
+    mission_summary_parser.add_argument("session_id", help="Mission session ID")
+    mission_summary_parser.add_argument(
+        "--since", help="ISO 8601 timestamp — show delta summary since this time instead of full retrospective"
+    )
+
+    mission_retry_parser = mission_sub.add_parser("retry", help="Retry a failed mission item")
+    mission_retry_parser.add_argument("item_id", help="Mission item ID")
+
+    mission_replace_parser = mission_sub.add_parser("replace", help="Cancel and re-launch a mission item")
+    mission_replace_parser.add_argument("item_id", help="Mission item ID")
+
     # `aroom start` subcommand
     start_parser = subparsers.add_parser("start", help="Start the web UI server in the background")
     start_parser.add_argument("--no-browser", action="store_true", help="Do not open browser on start")
@@ -2719,6 +2779,11 @@ def main() -> None:
 
     # `aroom status` subcommand
     subparsers.add_parser("status", help="Show web UI server status")
+
+    # `aroom web` subcommand
+    web_parser = subparsers.add_parser("web", help="Start the web UI server")
+    web_parser.add_argument("--port", type=int, default=None, dest="web_port", help="Port for web server")
+    web_parser.add_argument("--debug", action="store_true", default=False, dest="web_debug", help="Enable debug mode")
 
     # `aroom unpack` subcommand
     unpack_parser = subparsers.add_parser("unpack", help="Extract bundled tests, docs, and config to a directory")
@@ -2805,8 +2870,8 @@ def main() -> None:
 
     _team_config_arg = getattr(args, "team_config", None)
     _team_config_path = Path(_team_config_arg) if _team_config_arg else None
-    _is_interactive = args.command in ("chat", None)  # chat or web UI (default)
-    _project_path = os.getcwd() if args.command in ("chat", "exec") else None
+    _is_interactive = args.command in ("chat", None)  # chat (explicit or default)
+    _project_path = os.getcwd() if args.command in ("chat", "exec", None) else None
     config_path, config, enforced_fields = _load_config_or_exit(
         team_config_path=_team_config_path,
         interactive=_is_interactive,
@@ -2908,6 +2973,12 @@ def main() -> None:
         _run_mission(config, args)
         return
 
+    if args.command == "observe":
+        from .cli.observe_cli import _run_observe
+
+        _run_observe(config, args)
+        return
+
     if args.command == "start":
         _run_start(config, config_path, args)
         return
@@ -2959,8 +3030,24 @@ def main() -> None:
             trust_project=args.trust_project,
             space_id=_space_id,
         )
+    elif args.command == "web":
+        _web_port = getattr(args, "web_port", None)
+        if _web_port is not None:
+            if "app.port" in enforced_fields:
+                print("WARNING: --port ignored; 'app.port' is enforced by team config.", file=sys.stderr)
+            else:
+                if not 1 <= _web_port <= 65535:
+                    print(f"Invalid port: {_web_port}. Must be between 1 and 65535.", file=sys.stderr)
+                    sys.exit(1)
+                config.app.port = _web_port
+        _web_debug = getattr(args, "web_debug", False) or args.debug
+        _run_web(config, config_path, debug=_web_debug, enforced_fields=enforced_fields)
     else:
-        _run_web(config, config_path, debug=args.debug, enforced_fields=enforced_fields)
+        # Default: bare `aroom` launches CLI REPL
+        _run_chat(
+            config,
+            space_id=_space_id,
+        )
 
 
 if __name__ == "__main__":

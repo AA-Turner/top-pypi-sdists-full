@@ -316,6 +316,58 @@ class TestAdapterNotFound:
 
 
 # ---------------------------------------------------------------------------
+# Phase B — attempt_number derivation
+# ---------------------------------------------------------------------------
+
+
+class TestAttemptNumberDerivation:
+    @pytest.mark.asyncio
+    async def test_first_launch_attempt_number_is_1(self, db: Any, registry: MissionAdapterRegistry) -> None:
+        adapter = _make_adapter(create_status=AdapterStatus(state="completed", summary="ok", adapter_ref="ref-1"))
+        registry.register("test", adapter)
+        _session, item = _active_session_with_item(db, adapter_type="test")
+
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+        await worker.run_once()
+
+        execs = ms.list_executions_by_item(db, item["id"])
+        assert len(execs) == 1
+        assert execs[0]["attempt_number"] == 1
+
+    @pytest.mark.asyncio
+    async def test_retry_launch_increments_attempt_number(self, db: Any, registry: MissionAdapterRegistry) -> None:
+        adapter = _make_adapter(create_status=AdapterStatus(state="completed", summary="ok", adapter_ref="ref-2"))
+        registry.register("test", adapter)
+        session, item = _active_session_with_item(db, adapter_type="test")
+
+        # Simulate a previous failed execution
+        ms.create_execution(db, item_id=item["id"], attempt_number=1, status="failed")
+
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+        await worker.run_once()
+
+        execs = ms.list_executions_by_item(db, item["id"])
+        assert len(execs) == 2
+        assert execs[1]["attempt_number"] == 2
+
+    @pytest.mark.asyncio
+    async def test_multiple_retries_increment_correctly(self, db: Any, registry: MissionAdapterRegistry) -> None:
+        adapter = _make_adapter(create_status=AdapterStatus(state="completed", summary="ok", adapter_ref="ref-3"))
+        registry.register("test", adapter)
+        session, item = _active_session_with_item(db, adapter_type="test")
+
+        ms.create_execution(db, item_id=item["id"], attempt_number=1, status="failed")
+        ms.create_execution(db, item_id=item["id"], attempt_number=2, status="failed")
+
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+        await worker.run_once()
+
+        execs = ms.list_executions_by_item(db, item["id"])
+        assert len(execs) == 3
+        assert execs[2]["attempt_number"] == 3
+
+
+# ---------------------------------------------------------------------------
 # Phase C — Poll active executions
 # ---------------------------------------------------------------------------
 
@@ -656,6 +708,65 @@ class TestIdempotency:
 # ---------------------------------------------------------------------------
 
 
+class TestStaleRecovery:
+    """Tests for _handle_stale_recovery (#1257)."""
+
+    @pytest.mark.asyncio
+    async def test_poll_emits_stale_event(self, db: Any, registry: MissionAdapterRegistry) -> None:
+        adapter = _make_adapter(
+            create_status=AdapterStatus(state="pending", summary="started", adapter_ref="ref-1"),
+            status_status=AdapterStatus(state="running", summary="stale_heartbeat_reclaimed"),
+        )
+        registry.register("test", adapter)
+        session, item = _active_session_with_item(db, adapter_type="test")
+
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+        # Launch
+        await worker.run_once()
+        # Poll — adapter reports running with stale_heartbeat summary
+        await worker.run_once()
+
+        events = ms.list_events(db, session_id=session["id"])
+        stale_events = [e for e in events if e["event_type"] == "item_stale_recovered"]
+        assert len(stale_events) >= 1
+
+    @pytest.mark.asyncio
+    async def test_recover_item_emits_stale_event(self, db: Any, registry: MissionAdapterRegistry) -> None:
+        adapter = _make_adapter(
+            create_status=AdapterStatus(state="pending", summary="started", adapter_ref="ref-1"),
+            status_status=AdapterStatus(state="running", summary="stale_heartbeat in adapter"),
+        )
+        registry.register("test", adapter)
+        session, item = _active_session_with_item(db, adapter_type="test")
+
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+        # Launch
+        await worker.run_once()
+        # Simulate startup recovery
+        await worker._recover_on_startup()
+
+        events = ms.list_events(db, session_id=session["id"])
+        stale_events = [e for e in events if e["event_type"] == "item_stale_recovered"]
+        assert len(stale_events) >= 1
+
+    @pytest.mark.asyncio
+    async def test_no_stale_event_without_marker(self, db: Any, registry: MissionAdapterRegistry) -> None:
+        adapter = _make_adapter(
+            create_status=AdapterStatus(state="pending", summary="started", adapter_ref="ref-1"),
+            status_status=AdapterStatus(state="running", summary="all good"),
+        )
+        registry.register("test", adapter)
+        session, item = _active_session_with_item(db, adapter_type="test")
+
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+        await worker.run_once()
+        await worker.run_once()
+
+        events = ms.list_events(db, session_id=session["id"])
+        stale_events = [e for e in events if e["event_type"] == "item_stale_recovered"]
+        assert len(stale_events) == 0
+
+
 class TestLifecycle:
     @pytest.mark.asyncio
     async def test_start_stop(self, db: Any, registry: MissionAdapterRegistry) -> None:
@@ -666,3 +777,263 @@ class TestLifecycle:
         assert worker.running is True
         worker.stop()
         assert worker.running is False
+
+
+# ---------------------------------------------------------------------------
+# Phase D — External reality reconciliation (#1306)
+# ---------------------------------------------------------------------------
+
+
+def _setup_failed_workflow_item(
+    db: Any,
+    *,
+    issue_number: int | None = 42,
+    adapter_type: str = "workflow",
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]:
+    """Create a session with a failed workflow-backed item.
+
+    Returns (session, item, workflow_run | None).
+    """
+    from anteroom.services import workflow_storage as ws
+
+    session = ms.create_session(db, title="test", status="active")
+    item = ms.create_item(
+        db,
+        session_id=session["id"],
+        summary="Task",
+        adapter_type=adapter_type,
+        status="active",
+    )
+
+    run: dict[str, Any] | None = None
+    if adapter_type == "workflow":
+        inputs = {"issue_number": issue_number} if issue_number is not None else {}
+        run = ws.create_workflow_run(
+            db,
+            workflow_id="test-wf",
+            workflow_version="1",
+            target_kind="issue",
+            target_ref=str(issue_number or 0),
+            inputs=inputs,
+        )
+        exc = ms.create_execution(
+            db,
+            item_id=item["id"],
+            attempt_number=1,
+            status="failed",
+            adapter_ref=run["id"],
+        )
+        ms.update_execution(db, exc["id"], finished_at="2025-01-01T00:00:00Z")
+    else:
+        ms.create_execution(
+            db,
+            item_id=item["id"],
+            attempt_number=1,
+            status="failed",
+        )
+
+    # Move item to failed
+    db.execute("UPDATE mission_items SET status = 'failed' WHERE id = ?", (item["id"],))
+    db.commit()
+
+    return session, ms.get_item(db, item["id"]), run  # type: ignore[return-value]
+
+
+class TestExternalReconciliation:
+    """Phase D external reality reconciliation (#1306)."""
+
+    @pytest.mark.asyncio
+    async def test_finalize_reconciles_failed_item_when_issue_closed(
+        self, db: Any, registry: MissionAdapterRegistry
+    ) -> None:
+        from unittest.mock import patch
+
+        session, item, _ = _setup_failed_workflow_item(db, issue_number=1180)
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+
+        with patch(
+            "anteroom.services.external_checks.check_external_completion",
+            return_value=(True, "Issue #1180 closed externally"),
+        ):
+            await worker.run_once()
+
+        updated = ms.get_item(db, item["id"])
+        assert updated is not None
+        assert updated["status"] == "completed"
+        updated_session = ms.get_session(db, session["id"])
+        assert updated_session is not None
+        assert updated_session["status"] == "completed"
+
+    @pytest.mark.asyncio
+    async def test_finalize_reconciles_failed_item_when_pr_merged(
+        self, db: Any, registry: MissionAdapterRegistry
+    ) -> None:
+        """Mirrors the #1180/#1305 acceptance scenario."""
+        from unittest.mock import patch
+
+        session, item, _ = _setup_failed_workflow_item(db, issue_number=1180)
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+
+        with patch(
+            "anteroom.services.external_checks.check_external_completion",
+            return_value=(True, "Issue #1180 closed; merged closing PR(s): #1305"),
+        ):
+            await worker.run_once()
+
+        updated = ms.get_item(db, item["id"])
+        assert updated is not None
+        assert updated["status"] == "completed"
+        events = ms.list_events(db, session["id"], event_type="item_reconciled")
+        assert len(events) == 1
+        assert "#1305" in events[0]["detail"]["reason"]
+
+    @pytest.mark.asyncio
+    async def test_finalize_skips_external_check_when_no_issue_number(
+        self, db: Any, registry: MissionAdapterRegistry
+    ) -> None:
+        from unittest.mock import patch
+
+        session, item, _ = _setup_failed_workflow_item(db, issue_number=None)
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+
+        with patch(
+            "anteroom.services.external_checks.check_external_completion",
+        ) as mock_check:
+            await worker.run_once()
+            mock_check.assert_not_called()
+
+        updated = ms.get_item(db, item["id"])
+        assert updated is not None
+        assert updated["status"] == "failed"
+
+    @pytest.mark.asyncio
+    async def test_finalize_skips_external_check_for_non_workflow_adapter(
+        self, db: Any, registry: MissionAdapterRegistry
+    ) -> None:
+        from unittest.mock import patch
+
+        adapter = _make_adapter(
+            status_status=AdapterStatus(state="failed", summary="fail"),
+        )
+        registry.register("noop", adapter)
+        session, item, _ = _setup_failed_workflow_item(db, adapter_type="noop")
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+
+        with patch(
+            "anteroom.services.external_checks.check_external_completion",
+        ) as mock_check:
+            await worker.run_once()
+            mock_check.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_finalize_session_completes_after_external_reconciliation(
+        self, db: Any, registry: MissionAdapterRegistry
+    ) -> None:
+        from unittest.mock import patch
+
+        session, item, _ = _setup_failed_workflow_item(db, issue_number=42)
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+
+        with patch(
+            "anteroom.services.external_checks.check_external_completion",
+            return_value=(True, "Issue #42 closed externally"),
+        ):
+            await worker.run_once()
+
+        updated_session = ms.get_session(db, session["id"])
+        assert updated_session is not None
+        assert updated_session["status"] == "completed"
+        session_events = ms.list_events(db, session["id"], event_type="session_completed")
+        assert len(session_events) == 1
+
+    @pytest.mark.asyncio
+    async def test_finalize_session_still_fails_when_external_check_returns_false(
+        self, db: Any, registry: MissionAdapterRegistry
+    ) -> None:
+        from unittest.mock import patch
+
+        session, item, _ = _setup_failed_workflow_item(db, issue_number=42)
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+
+        with patch(
+            "anteroom.services.external_checks.check_external_completion",
+            return_value=(False, None),
+        ):
+            await worker.run_once()
+
+        updated = ms.get_item(db, item["id"])
+        assert updated is not None
+        assert updated["status"] == "failed"
+        updated_session = ms.get_session(db, session["id"])
+        assert updated_session is not None
+        assert updated_session["status"] == "failed"
+
+    @pytest.mark.asyncio
+    async def test_finalize_handles_external_check_failure_gracefully(
+        self, db: Any, registry: MissionAdapterRegistry
+    ) -> None:
+        from unittest.mock import patch
+
+        session, item, _ = _setup_failed_workflow_item(db, issue_number=42)
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+
+        with patch(
+            "anteroom.services.external_checks.check_external_completion",
+            side_effect=RuntimeError("gh not found"),
+        ):
+            await worker.run_once()
+
+        # Graceful degradation: item stays failed, no crash
+        updated = ms.get_item(db, item["id"])
+        assert updated is not None
+        assert updated["status"] == "failed"
+
+    @pytest.mark.asyncio
+    async def test_finalize_reconciles_item_with_live_execution(
+        self, db: Any, registry: MissionAdapterRegistry
+    ) -> None:
+        """force_reconcile_item cancels a live execution before reconciling."""
+        from unittest.mock import patch
+
+        session = ms.create_session(db, title="test", status="active")
+        item = ms.create_item(
+            db,
+            session_id=session["id"],
+            summary="Task",
+            adapter_type="workflow",
+            status="active",
+        )
+
+        from anteroom.services import workflow_storage as ws
+
+        run = ws.create_workflow_run(
+            db,
+            workflow_id="test-wf",
+            workflow_version="1",
+            target_kind="issue",
+            target_ref="42",
+            inputs={"issue_number": 42},
+        )
+        ms.create_execution(
+            db,
+            item_id=item["id"],
+            attempt_number=1,
+            status="running",
+            adapter_ref=run["id"],
+        )
+        # Item is active with a running execution — but issue is closed.
+        # force_reconcile_item should cancel the execution first.
+        db.execute("UPDATE mission_items SET status = 'failed' WHERE id = ?", (item["id"],))
+        db.commit()
+
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+
+        with patch(
+            "anteroom.services.external_checks.check_external_completion",
+            return_value=(True, "Issue #42 closed externally"),
+        ):
+            await worker.run_once()
+
+        updated = ms.get_item(db, item["id"])
+        assert updated is not None
+        assert updated["status"] == "completed"

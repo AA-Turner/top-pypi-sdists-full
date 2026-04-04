@@ -56,6 +56,8 @@ Changes by Eric Larson and Guillaume Favelier, Apr. 2022
  Support for PyQt6
 """
 
+import sys
+
 # Check whether a specific PyQt implementation was chosen
 try:
     import vtkmodules.qt
@@ -65,8 +67,8 @@ except ImportError:
 
 # Check whether a specific QVTKRenderWindowInteractor base
 # class was chosen, can be set to "QGLWidget" in
-# PyQt implementation version lower than Pyside6,
-# or "QOpenGLWidget" in Pyside6
+# PyQt implementation version lower than Qt6,
+# or "QOpenGLWidget" in Pyside6 and PyQt6
 QVTKRWIBase = "QWidget"
 try:
     import vtkmodules.qt
@@ -80,54 +82,41 @@ from vtkmodules.vtkRenderingUI import vtkGenericRenderWindowInteractor
 if PyQtImpl is None:
     # Autodetect the PyQt implementation to use
     try:
-        import PyQt6
-        PyQtImpl = "PyQt6"
+        import PySide6.QtCore
+        PyQtImpl = "PySide6"
     except ImportError:
         try:
-            import PySide6
-            PyQtImpl = "PySide6"
+            import PyQt6.QtCore
+            PyQtImpl = "PyQt6"
         except ImportError:
             try:
-                import PyQt5
+                import PyQt5.QtCore
                 PyQtImpl = "PyQt5"
             except ImportError:
                 try:
-                    import PySide2
+                    import PySide2.QtCore
                     PyQtImpl = "PySide2"
                 except ImportError:
                     try:
-                        import PyQt4
+                        import PyQt4.QtCore
                         PyQtImpl = "PyQt4"
                     except ImportError:
                         try:
-                            import PySide
+                            import PySide.QtCore
                             PyQtImpl = "PySide"
                         except ImportError:
                             raise ImportError("Cannot load either PyQt or PySide")
 
 # Check the compatibility of PyQtImpl and QVTKRWIBase
 if QVTKRWIBase != "QWidget":
-    if PyQtImpl in ["PyQt6", "PySide6"] and QVTKRWIBase == "QOpenGLWidget":
+    if PyQtImpl in ["PySide6", "PyQt6"] and QVTKRWIBase == "QOpenGLWidget":
         pass  # compatible
     elif PyQtImpl in ["PyQt5", "PySide2","PyQt4", "PySide"] and QVTKRWIBase == "QGLWidget":
         pass  # compatible
     else:
         raise ImportError("Cannot load " + QVTKRWIBase + " from " + PyQtImpl)
 
-if PyQtImpl == "PyQt6":
-    if QVTKRWIBase == "QOpenGLWidget":
-        from PyQt6.QtOpenGLWidgets import QOpenGLWidget
-    from PyQt6.QtWidgets import QWidget
-    from PyQt6.QtWidgets import QSizePolicy
-    from PyQt6.QtWidgets import QApplication
-    from PyQt6.QtWidgets import QMainWindow
-    from PyQt6.QtGui import QCursor
-    from PyQt6.QtCore import Qt
-    from PyQt6.QtCore import QTimer
-    from PyQt6.QtCore import QObject
-    from PyQt6.QtCore import QSize
-    from PyQt6.QtCore import QEvent
-elif PyQtImpl == "PySide6":
+if PyQtImpl == "PySide6":
     if QVTKRWIBase == "QOpenGLWidget":
         from PySide6.QtOpenGLWidgets import QOpenGLWidget
     from PySide6.QtWidgets import QWidget
@@ -140,6 +129,21 @@ elif PyQtImpl == "PySide6":
     from PySide6.QtCore import QObject
     from PySide6.QtCore import QSize
     from PySide6.QtCore import QEvent
+    from PySide6.QtCore import __version__ as QT_VERSION
+elif PyQtImpl == "PyQt6":
+    if QVTKRWIBase == "QOpenGLWidget":
+        from PyQt6.QtOpenGLWidgets import QOpenGLWidget
+    from PyQt6.QtWidgets import QWidget
+    from PyQt6.QtWidgets import QSizePolicy
+    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtWidgets import QMainWindow
+    from PyQt6.QtGui import QCursor
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtCore import QTimer
+    from PyQt6.QtCore import QObject
+    from PyQt6.QtCore import QSize
+    from PyQt6.QtCore import QEvent
+    from PyQt6.QtCore import QT_VERSION_STR as QT_VERSION
 elif PyQtImpl == "PyQt5":
     if QVTKRWIBase == "QGLWidget":
         from PyQt5.QtOpenGL import QGLWidget
@@ -153,6 +157,7 @@ elif PyQtImpl == "PyQt5":
     from PyQt5.QtCore import QObject
     from PyQt5.QtCore import QSize
     from PyQt5.QtCore import QEvent
+    from PyQt5.QtCore import QT_VERSION_STR as QT_VERSION
 elif PyQtImpl == "PySide2":
     if QVTKRWIBase == "QGLWidget":
         from PySide2.QtOpenGL import QGLWidget
@@ -166,6 +171,7 @@ elif PyQtImpl == "PySide2":
     from PySide2.QtCore import QObject
     from PySide2.QtCore import QSize
     from PySide2.QtCore import QEvent
+    from PySide2.QtCore import QT_VERSION_STR as QT_VERSION
 elif PyQtImpl == "PyQt4":
     if QVTKRWIBase == "QGLWidget":
         from PyQt4.QtOpenGL import QGLWidget
@@ -178,6 +184,7 @@ elif PyQtImpl == "PyQt4":
     from PyQt4.QtCore import QObject
     from PyQt4.QtCore import QSize
     from PyQt4.QtCore import QEvent
+    from PyQt4.QtCore import QT_VERSION_STR as QT_VERSION
 elif PyQtImpl == "PySide":
     if QVTKRWIBase == "QGLWidget":
         from PySide.QtOpenGL import QGLWidget
@@ -190,6 +197,7 @@ elif PyQtImpl == "PySide":
     from PySide.QtCore import QObject
     from PySide.QtCore import QSize
     from PySide.QtCore import QEvent
+    from PySide.QtCore import QT_VERSION_STR as QT_VERSION
 else:
     raise ImportError("Unknown PyQt implementation " + repr(PyQtImpl))
 
@@ -205,15 +213,21 @@ else:
 
 if PyQtImpl == 'PyQt6':
     CursorShape = Qt.CursorShape
-    MouseButton = Qt.MouseButton
-    WindowType = Qt.WindowType
     WidgetAttribute = Qt.WidgetAttribute
-    KeyboardModifier = Qt.KeyboardModifier
     FocusPolicy = Qt.FocusPolicy
     ConnectionType = Qt.ConnectionType
     Key = Qt.Key
     SizePolicy = QSizePolicy.Policy
     EventType = QEvent.Type
+    try:
+        MouseButton = Qt.MouseButton
+        WindowType = Qt.WindowType
+        KeyboardModifier = Qt.KeyboardModifier
+    except AttributeError:
+        # Fallback solution for PyQt6 versions < 6.1.0
+        MouseButton = Qt.MouseButtons
+        WindowType = Qt.WindowFlags
+        KeyboardModifier = Qt.KeyboardModifiers
 else:
     CursorShape = MouseButton = WindowType = WidgetAttribute = \
         KeyboardModifier = FocusPolicy = ConnectionType = Key = Qt
@@ -224,6 +238,15 @@ if PyQtImpl in ('PyQt4', 'PySide'):
     MiddleButton = MouseButton.MidButton
 else:
     MiddleButton = MouseButton.MiddleButton
+
+try:
+    _DISABLE_PAINT_IN_PAINT = tuple(map(int, QT_VERSION.split('.')[:2])) >= (6, 10)
+except Exception:  # Couldn't parse properly, shouldn't happen but let's be safe
+    _DISABLE_PAINT_IN_PAINT = False
+_DISABLE_PAINT_IN_PAINT = _DISABLE_PAINT_IN_PAINT and sys.platform == "darwin"
+# now we invert it because the value we want to set for __doPaintEvent is actually False
+# for macOS and Qt >= 6.10
+_IN_PAINT_EVENT_VALUE = not _DISABLE_PAINT_IN_PAINT
 
 
 def _get_event_pos(ev):
@@ -327,6 +350,7 @@ class QVTKRenderWindowInteractor(QVTKRWIBaseClass):
         self.__saveModifiers = KeyboardModifier.NoModifier
         self.__saveButtons = MouseButton.NoButton
         self.__wheelDelta = 0
+        self.__doPaintEvent = True
 
         # do special handling of some keywords:
         # stereo, rw
@@ -346,7 +370,7 @@ class QVTKRenderWindowInteractor(QVTKRWIBaseClass):
             if "wflags" in kw:
                 wflags = kw['wflags']
             else:
-                wflags = Qt.WindowType.Widget
+                wflags = WindowType.Widget  # what Qt.WindowFlags() returns (0)
             QWidget.__init__(self, parent, wflags | WindowType.MSWindowsOwnDC)
         elif QVTKRWIBase == "QGLWidget":
             QGLWidget.__init__(self, parent)
@@ -360,17 +384,7 @@ class QVTKRenderWindowInteractor(QVTKRWIBaseClass):
 
         WId = self.winId()
 
-        # Python2
-        if type(WId).__name__ == 'PyCObject':
-            from ctypes import pythonapi, c_void_p, py_object
-
-            pythonapi.PyCObject_AsVoidPtr.restype  = c_void_p
-            pythonapi.PyCObject_AsVoidPtr.argtypes = [py_object]
-
-            WId = pythonapi.PyCObject_AsVoidPtr(WId)
-
-        # Python3
-        elif type(WId).__name__ == 'PyCapsule':
+        if type(WId).__name__ == 'PyCapsule':
             from ctypes import pythonapi, c_void_p, py_object, c_char_p
 
             pythonapi.PyCapsule_GetName.restype = c_char_p
@@ -451,12 +465,12 @@ class QVTKRenderWindowInteractor(QVTKRWIBaseClass):
 
     def HideCursor(self):
         """Hides the cursor."""
-        self.setCursor(Qt.BlankCursor)
+        self.setCursor(CursorShape.BlankCursor)
 
     def ShowCursor(self):
         """Shows the cursor."""
         vtk_cursor = self._Iren.GetRenderWindow().GetCurrentCursor()
-        qt_cursor = self._CURSOR_MAP.get(vtk_cursor, Qt.ArrowCursor)
+        qt_cursor = self._CURSOR_MAP.get(vtk_cursor, CursorShape.ArrowCursor)
         self.setCursor(qt_cursor)
 
     def closeEvent(self, evt):
@@ -469,18 +483,22 @@ class QVTKRenderWindowInteractor(QVTKRWIBaseClass):
         return None
 
     def paintEvent(self, ev):
-        self._Iren.Render()
+        if self.__doPaintEvent:
+            self.__doPaintEvent = _IN_PAINT_EVENT_VALUE
+            self._Iren.Render()
 
     def resizeEvent(self, ev):
         scale = self._getPixelRatio()
         w = int(round(scale*self.width()))
         h = int(round(scale*self.height()))
+        # Next 2 lines are specific to PyVistaQt because we set it to None elsewhere:
         if self._RenderWindow is None:
             return
         self._RenderWindow.SetDPI(int(round(72*scale)))
         vtkRenderWindow.SetSize(self._RenderWindow, w, h)
         self._Iren.SetSize(w, h)
         self._Iren.ConfigureEvent()
+        self.__doPaintEvent = True
         self.update()
 
     def _GetKeyCharAndKeySym(self, ev):
@@ -528,11 +546,7 @@ class QVTKRenderWindowInteractor(QVTKRWIBaseClass):
 
     @staticmethod
     def _getPixelRatio():
-        if PyQtImpl in ("PyQt4", "PySide"):
-            # Qt4 seems not to provide any cross-platform means to get the
-            # pixel ratio.
-            return 1.
-        else:
+        if PyQtImpl in ["PyQt5", "PySide2", "PySide6", "PyQt6"]:
             # Source: https://stackoverflow.com/a/40053864/3388962
             pos = QCursor.pos()
             for screen in QApplication.screens():
@@ -541,6 +555,10 @@ class QVTKRenderWindowInteractor(QVTKRWIBaseClass):
                     return screen.devicePixelRatio()
             # Should never happen, but try to find a good fallback.
             return QApplication.instance().devicePixelRatio()
+        else:
+            # Qt4 seems not to provide any cross-platform means to get the
+            # pixel ratio.
+            return 1.
 
     def _setEventInformation(self, x, y, ctrl, shift,
                              key, repeat=0, keysum=None):
@@ -562,12 +580,12 @@ class QVTKRenderWindowInteractor(QVTKRWIBaseClass):
         self._Iren.LeaveEvent()
 
     def mousePressEvent(self, ev):
-        pos_x, pos_y = _get_event_pos(ev)
         ctrl, shift = self._GetCtrlShift(ev)
         repeat = 0
         if ev.type() == EventType.MouseButtonDblClick:
             repeat = 1
-        self._setEventInformation(pos_x, pos_y,
+        x, y = _get_event_pos(ev)
+        self._setEventInformation(x, y,
                                   ctrl, shift, chr(0), repeat, None)
 
         self._ActiveButton = ev.button()
@@ -580,9 +598,9 @@ class QVTKRenderWindowInteractor(QVTKRWIBaseClass):
             self._Iren.MiddleButtonPressEvent()
 
     def mouseReleaseEvent(self, ev):
-        pos_x, pos_y = _get_event_pos(ev)
         ctrl, shift = self._GetCtrlShift(ev)
-        self._setEventInformation(pos_x, pos_y,
+        x, y = _get_event_pos(ev)
+        self._setEventInformation(x, y,
                                   ctrl, shift, chr(0), 0, None)
 
         if self._ActiveButton == MouseButton.LeftButton:
@@ -593,14 +611,14 @@ class QVTKRenderWindowInteractor(QVTKRWIBaseClass):
             self._Iren.MiddleButtonReleaseEvent()
 
     def mouseMoveEvent(self, ev):
-        pos_x, pos_y = _get_event_pos(ev)
         self.__saveModifiers = ev.modifiers()
         self.__saveButtons = ev.buttons()
-        self.__saveX = pos_x
-        self.__saveY = pos_y
+        x, y = _get_event_pos(ev)
+        self.__saveX = x
+        self.__saveY = y
 
         ctrl, shift = self._GetCtrlShift(ev)
-        self._setEventInformation(pos_x, pos_y,
+        self._setEventInformation(x, y,
                                   ctrl, shift, chr(0), 0, None)
         self._Iren.MouseMoveEvent()
 
@@ -636,9 +654,11 @@ class QVTKRenderWindowInteractor(QVTKRWIBaseClass):
         return self._RenderWindow
 
     def Render(self):
+        self.__doPaintEvent = True
         self.update()
 
 
+# In PyVistaQt we run this example so we need to add non-blocking conditionals
 def QVTKRenderWidgetConeExample(block=False):
     """A simple example that uses the QVTKRenderWindowInteractor class."""
 

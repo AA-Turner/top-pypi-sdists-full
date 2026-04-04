@@ -5,71 +5,192 @@
 
 use crate::Result;
 use crate::core::config::ExtractionConfig;
+#[cfg(feature = "chunking")]
+use crate::types::PageBoundary;
 use crate::types::{ExtractionResult, ProcessingWarning};
 use std::borrow::Cow;
 
-/// Push a warning and insert a matching metadata error entry in one call.
+/// Recompute page boundaries against the rendered `content` string.
 ///
-/// Avoids the repeated three-step pattern of converting the error to a `String`,
-/// pushing a `ProcessingWarning`, and inserting a `serde_json::Value::String` into
-/// `result.metadata.additional`.
-fn push_warning_and_meta(
-    result: &mut ExtractionResult,
-    source: &'static str,
-    meta_key: &'static str,
-    error: impl std::fmt::Display,
-) {
-    let error_msg = error.to_string();
-    result.processing_warnings.push(ProcessingWarning {
-        source: Cow::Borrowed(source),
-        message: Cow::Owned(error_msg.clone()),
-    });
-    result
-        .metadata
-        .additional
-        .insert(Cow::Borrowed(meta_key), serde_json::Value::String(error_msg));
+/// `PageBoundary` offsets produced during extraction are computed against raw
+/// pdfium/source text, but `result.content` is produced by `render_plain` which
+/// may have different byte lengths (e.g. normalised whitespace, Unicode
+/// normalisation, dropped control characters).  This function re-derives the
+/// boundaries by locating each page's rendered content inside the combined
+/// `content` string, so that the byte offsets passed to the chunker are valid
+/// indices into `result.content`.
+///
+/// Pages whose content cannot be found are silently skipped (the chunker will
+/// still produce output, just without page-range metadata for those pages).
+#[cfg(feature = "chunking")]
+fn recompute_boundaries_from_pages(content: &str, pages: &[crate::types::PageContent]) -> Vec<PageBoundary> {
+    let mut boundaries = Vec::with_capacity(pages.len());
+    let mut search_offset = 0usize;
+
+    for page in pages {
+        if page.content.is_empty() {
+            // Keep a zero-length marker so page numbers stay sequential.
+            boundaries.push(PageBoundary {
+                page_number: page.page_number,
+                byte_start: search_offset,
+                byte_end: search_offset,
+            });
+            continue;
+        }
+
+        if let Some(pos) = content[search_offset..].find(&page.content) {
+            let byte_start = search_offset + pos;
+            let byte_end = byte_start + page.content.len();
+            boundaries.push(PageBoundary {
+                page_number: page.page_number,
+                byte_start,
+                byte_end,
+            });
+            search_offset = byte_end;
+        }
+        // If the page content is not found we skip it — partial mismatch is
+        // better than passing an out-of-range offset to the chunker.
+    }
+
+    boundaries
+}
+
+/// Map TSLP `CodeChunk`s directly to kreuzberg `Chunk`s, bypassing text-splitter.
+///
+/// When the extraction result contains code intelligence with non-empty chunks,
+/// those chunks already represent semantically meaningful code boundaries produced
+/// by tree-sitter. Using text-splitter would break these boundaries.
+#[cfg(feature = "tree-sitter")]
+fn try_code_chunks(result: &ExtractionResult) -> Option<Vec<crate::types::extraction::Chunk>> {
+    use crate::types::extraction::{Chunk, ChunkMetadata, ChunkType, HeadingContext, HeadingLevel};
+
+    let code_chunks = match &result.metadata.format {
+        Some(crate::types::metadata::FormatMetadata::Code(pr)) if !pr.chunks.is_empty() => &pr.chunks,
+        _ => return None,
+    };
+
+    let total_chunks = code_chunks.len();
+    let chunks: Vec<Chunk> = code_chunks
+        .iter()
+        .enumerate()
+        .map(|(i, cc)| {
+            // All code chunks are classified as CodeBlock regardless of node type.
+            let chunk_type = ChunkType::CodeBlock;
+
+            // Build heading context from context_path.
+            let heading_context = if cc.metadata.context_path.is_empty() {
+                None
+            } else {
+                Some(HeadingContext {
+                    headings: cc
+                        .metadata
+                        .context_path
+                        .iter()
+                        .enumerate()
+                        .map(|(depth, name)| HeadingLevel {
+                            level: (depth as u8).saturating_add(2).min(6),
+                            text: name.clone(),
+                        })
+                        .collect(),
+                })
+            };
+
+            Chunk {
+                content: cc.content.clone(),
+                chunk_type,
+                embedding: None,
+                metadata: ChunkMetadata {
+                    byte_start: cc.start_byte,
+                    byte_end: cc.end_byte,
+                    token_count: None,
+                    chunk_index: i,
+                    total_chunks,
+                    first_page: None,
+                    last_page: None,
+                    heading_context,
+                },
+            }
+        })
+        .collect();
+
+    Some(chunks)
 }
 
 /// Execute chunking if configured.
 pub(super) fn execute_chunking(result: &mut ExtractionResult, config: &ExtractionConfig) -> Result<()> {
     #[cfg(feature = "chunking")]
     if let Some(ref chunking_config) = config.chunking {
+        // For code extractions with TSLP chunks, bypass text-splitter and map directly.
+        #[cfg(feature = "tree-sitter")]
+        if let Some(code_chunks) = try_code_chunks(result) {
+            result.chunks = Some(code_chunks);
+
+            let resolved_config = chunking_config.resolve_preset();
+            #[cfg(feature = "embeddings")]
+            if let Some(ref embedding_config) = resolved_config.embedding
+                && let Some(ref mut chunks) = result.chunks
+                && let Err(e) = crate::embeddings::generate_embeddings_for_chunks(chunks, embedding_config)
+            {
+                tracing::warn!("Embedding generation failed: {e}. Check that ONNX Runtime is installed.");
+                result.processing_warnings.push(ProcessingWarning {
+                    source: Cow::Borrowed("embedding"),
+                    message: Cow::Owned(e.to_string()),
+                });
+            }
+
+            #[cfg(not(feature = "embeddings"))]
+            if resolved_config.embedding.is_some() {
+                tracing::warn!(
+                    "Embedding config provided but embeddings feature is not enabled. Recompile with --features embeddings."
+                );
+                result.processing_warnings.push(ProcessingWarning {
+                    source: Cow::Borrowed("embedding"),
+                    message: Cow::Borrowed("Embeddings feature not enabled"),
+                });
+            }
+
+            return Ok(());
+        }
+
         let resolved_config = chunking_config.resolve_preset();
         let chunking_config = &resolved_config;
-        let page_boundaries = result.metadata.pages.as_ref().and_then(|ps| ps.boundaries.as_deref());
 
-        match crate::chunking::chunk_text(&result.content, chunking_config, page_boundaries) {
+        // Recompute page boundaries against `result.content` (rendered by `render_plain`)
+        // if per-page content is available.  The boundaries stored in
+        // `result.metadata.pages.boundaries` were computed against the raw extractor text
+        // and may have different byte offsets than the rendered content (fix for #636).
+        let recomputed_boundaries: Option<Vec<PageBoundary>> = result
+            .pages
+            .as_deref()
+            .map(|pages| recompute_boundaries_from_pages(&result.content, pages));
+
+        let page_boundaries: Option<&[PageBoundary]> = recomputed_boundaries
+            .as_deref()
+            .or_else(|| result.metadata.pages.as_ref().and_then(|ps| ps.boundaries.as_deref()));
+
+        // Pass formatted_content (markdown) for heading context resolution when available.
+        // Plain-text rendering strips heading markers, but the markdown chunker needs them
+        // to build the heading hierarchy for chunk metadata.
+        let heading_source = result.formatted_content.as_deref();
+        match crate::chunking::chunk_text_with_heading_source(
+            &result.content,
+            chunking_config,
+            page_boundaries,
+            heading_source,
+        ) {
             Ok(chunking_result) => {
                 result.chunks = Some(chunking_result.chunks);
-
-                if let Some(ref chunks) = result.chunks {
-                    // DEPRECATED: kept for backward compatibility; will be removed in next major version.
-                    // chunk_count is derivable from result.chunks.len().
-                    result.metadata.additional.insert(
-                        Cow::Borrowed("chunk_count"),
-                        serde_json::Value::Number(serde_json::Number::from(chunks.len())),
-                    );
-                }
 
                 #[cfg(feature = "embeddings")]
                 if let Some(ref embedding_config) = chunking_config.embedding
                     && let Some(ref mut chunks) = result.chunks
+                    && let Err(e) = crate::embeddings::generate_embeddings_for_chunks(chunks, embedding_config)
                 {
-                    match crate::embeddings::generate_embeddings_for_chunks(chunks, embedding_config) {
-                        Ok(()) => {
-                            // DEPRECATED: kept for backward compatibility; will be removed in next major version.
-                            // embeddings_generated is derivable from result.chunks having non-None embeddings.
-                            result
-                                .metadata
-                                .additional
-                                .insert(Cow::Borrowed("embeddings_generated"), serde_json::Value::Bool(true));
-                        }
-                        Err(e) => {
-                            tracing::warn!("Embedding generation failed: {e}. Check that ONNX Runtime is installed.");
-                            // DEPRECATED: kept for backward compatibility; will be removed in next major version.
-                            push_warning_and_meta(result, "embedding", "embedding_error", e);
-                        }
-                    }
+                    tracing::warn!("Embedding generation failed: {e}. Check that ONNX Runtime is installed.");
+                    result.processing_warnings.push(ProcessingWarning {
+                        source: Cow::Borrowed("embedding"),
+                        message: Cow::Owned(e.to_string()),
+                    });
                 }
 
                 #[cfg(not(feature = "embeddings"))]
@@ -77,21 +198,27 @@ pub(super) fn execute_chunking(result: &mut ExtractionResult, config: &Extractio
                     tracing::warn!(
                         "Embedding config provided but embeddings feature is not enabled. Recompile with --features embeddings."
                     );
-                    // DEPRECATED: kept for backward compatibility; will be removed in next major version.
-                    push_warning_and_meta(result, "embedding", "embedding_error", "Embeddings feature not enabled");
+                    result.processing_warnings.push(ProcessingWarning {
+                        source: Cow::Borrowed("embedding"),
+                        message: Cow::Borrowed("Embeddings feature not enabled"),
+                    });
                 }
             }
             Err(e) => {
-                // DEPRECATED: kept for backward compatibility; will be removed in next major version.
-                push_warning_and_meta(result, "chunking", "chunking_error", e);
+                result.processing_warnings.push(ProcessingWarning {
+                    source: Cow::Borrowed("chunking"),
+                    message: Cow::Owned(e.to_string()),
+                });
             }
         }
     }
 
     #[cfg(not(feature = "chunking"))]
     if config.chunking.is_some() {
-        // DEPRECATED: kept for backward compatibility; will be removed in next major version.
-        push_warning_and_meta(result, "chunking", "chunking_error", "Chunking feature not enabled");
+        result.processing_warnings.push(ProcessingWarning {
+            source: Cow::Borrowed("chunking"),
+            message: Cow::Borrowed("Chunking feature not enabled"),
+        });
     }
 
     Ok(())
@@ -106,21 +233,20 @@ pub(super) fn execute_language_detection(result: &mut ExtractionResult, config: 
                 result.detected_languages = detected;
             }
             Err(e) => {
-                // DEPRECATED: kept for backward compatibility; will be removed in next major version.
-                push_warning_and_meta(result, "language_detection", "language_detection_error", e);
+                result.processing_warnings.push(ProcessingWarning {
+                    source: Cow::Borrowed("language_detection"),
+                    message: Cow::Owned(e.to_string()),
+                });
             }
         }
     }
 
     #[cfg(not(feature = "language-detection"))]
     if config.language_detection.is_some() {
-        // DEPRECATED: kept for backward compatibility; will be removed in next major version.
-        push_warning_and_meta(
-            result,
-            "language_detection",
-            "language_detection_error",
-            "Language detection feature not enabled",
-        );
+        result.processing_warnings.push(ProcessingWarning {
+            source: Cow::Borrowed("language_detection"),
+            message: Cow::Borrowed("Language detection feature not enabled"),
+        });
     }
 
     Ok(())
@@ -148,7 +274,10 @@ pub(super) fn execute_token_reduction(result: &mut ExtractionResult, config: &Ex
                     result.content = reduced;
                 }
                 Err(e) => {
-                    push_warning_and_meta(result, "token_reduction", "token_reduction_error", e);
+                    result.processing_warnings.push(ProcessingWarning {
+                        source: Cow::Borrowed("token_reduction"),
+                        message: Cow::Owned(e.to_string()),
+                    });
                 }
             }
         }
@@ -156,12 +285,10 @@ pub(super) fn execute_token_reduction(result: &mut ExtractionResult, config: &Ex
 
     #[cfg(not(feature = "quality"))]
     if config.token_reduction.is_some() {
-        push_warning_and_meta(
-            result,
-            "token_reduction",
-            "token_reduction_error",
-            "Token reduction requires the quality feature",
-        );
+        result.processing_warnings.push(ProcessingWarning {
+            source: Cow::Borrowed("token_reduction"),
+            message: Cow::Borrowed("Token reduction requires the quality feature"),
+        });
     }
 
     Ok(())

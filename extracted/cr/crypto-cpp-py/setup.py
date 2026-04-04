@@ -49,18 +49,18 @@ with open("README.rst") as f:
 
 setup(
     name="crypto_cpp_py",
-    version="1.4.5",
+    version="2.0.0",
     description="This is a packaged crypto-cpp program",
     author="Wojciech Szymczyk, Marcin Warchoł, Kamil Jankowski",
     author_email="wojciech.szymczyk@swmansion.com, marcin.warchol@swmansion.com, kamil.jankowski@swmansion.com",
     url="https://github.com/software-mansion-labs/crypto-cpp-py.git",
     long_description=long_description,
     long_description_content_type="text/x-rst",
-    install_requires=["ecdsa==0.18.0", "sympy==1.12.1", "pywin32==306; os_name=='nt'"],
+    install_requires=["ecdsa==0.19.2", "sympy==1.14.0", "pywin32==311; os_name=='nt'"],
     extras_require={"build": ["cmake>=3.22.4"]},
     ext_modules=[CryptoExtension()],
     cmdclass={"build_py": BuildPy, "build_ext": BuildCrypto},
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     packages=["crypto_cpp_py"],
     package_data={"crypto_cpp_py": ["../libcrypto_c_exports.*"]},
 )

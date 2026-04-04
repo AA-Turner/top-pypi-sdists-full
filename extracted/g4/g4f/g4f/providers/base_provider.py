@@ -9,6 +9,7 @@ import json
 from inspect import signature, Parameter
 from typing import Optional, _GenericAlias
 from pathlib import Path
+from aiohttp import ClientSession
 try:
     from types import NoneType
 except ImportError:
@@ -20,19 +21,20 @@ from .asyncio import get_running_loop, to_sync_generator, to_async_iterator
 from .response import BaseConversation, AuthResult
 from .helper import concat_chunks
 from ..cookies import get_cookies_dir
+from ..requests import raise_for_status
 from ..errors import ModelNotFoundError, ResponseError, MissingAuthError, NoValidHarFileError, PaymentRequiredError, CloudflareError
 from ..tools.auth import AuthManager
 from .. import debug
 
 SAFE_PARAMETERS = [
     "model", "messages", "stream", "timeout",
-    "proxy", "media", "response_format",
+    "media", "response_format",
     "prompt", "negative_prompt", "tools", "conversation",
     "history_disabled",
     "temperature",  "top_k", "top_p",
     "frequency_penalty", "presence_penalty",
     "max_tokens", "stop",
-    "api_key", "base_url", "seed", "width", "height",
+    "api_key", "seed", "width", "height",
     "max_retries", "web_search", "cache",
     "guidance_scale", "num_inference_steps", "randomize_seed",
     "safe", "enhance", "private", "aspect_ratio", "n", "transparent"
@@ -287,6 +289,22 @@ class AsyncGeneratorProvider(AbstractProvider):
     """
     supports_stream = True
     use_stream_timeout = True
+    quota_url = None
+    
+    @classmethod
+    async def get_quota(cls, api_key: Optional[str] = None, **kwargs) -> dict:
+        """Get the quota information for the API key."""
+        if cls.quota_url is None:
+            raise NotImplementedError(f"{cls.__name__} does not implement get_quota method")
+        if not api_key and cls.needs_auth:
+            raise MissingAuthError("API key is required.")
+        headers = {
+            "authorization": f"Bearer {api_key}"
+        } if api_key else {}
+        async with ClientSession() as session:
+            async with session.get(cls.quota_url, headers=headers) as response:
+                await raise_for_status(response)
+                return await response.json()
 
     @classmethod
     def create_completion(

@@ -6,7 +6,6 @@
 use crate::plugins::{Plugin, PostProcessor, ProcessingStage};
 use crate::{ExtractionConfig, ExtractionResult, KreuzbergError, Result};
 use async_trait::async_trait;
-use std::borrow::Cow;
 
 /// Post-processor that extracts keywords from document content.
 ///
@@ -63,12 +62,7 @@ impl PostProcessor for KeywordExtractor {
         let keywords = super::extract_keywords(&result.content, keyword_config)
             .map_err(|e| KreuzbergError::Other(format!("Keyword extraction failed: {}", e)))?;
 
-        result.extracted_keywords = Some(keywords.clone());
-        // DEPRECATED: kept for backward compatibility; will be removed in next major version.
-        result
-            .metadata
-            .additional
-            .insert(Cow::Borrowed("keywords"), serde_json::to_value(&keywords)?);
+        result.extracted_keywords = Some(keywords);
 
         Ok(())
     }
@@ -92,6 +86,7 @@ mod tests {
     use super::*;
     use crate::keywords::KeywordConfig;
     use crate::types::Metadata;
+    use std::borrow::Cow;
 
     const TEST_TEXT: &str = r#"
 Machine learning is a branch of artificial intelligence that focuses on
@@ -127,6 +122,11 @@ machine learning that uses neural networks with multiple layers.
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         processor.process(&mut result, &config).await.unwrap();
@@ -166,6 +166,11 @@ machine learning that uses neural networks with multiple layers.
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         processor.process(&mut result, &config).await.unwrap();
@@ -201,6 +206,11 @@ machine learning that uses neural networks with multiple layers.
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         processor.process(&mut result, &config).await.unwrap();
@@ -236,6 +246,11 @@ machine learning that uses neural networks with multiple layers.
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         processor.process(&mut result, &config).await.unwrap();
@@ -282,6 +297,11 @@ machine learning that uses neural networks with multiple layers.
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         let config_with_keywords = ExtractionConfig {
@@ -317,6 +337,11 @@ machine learning that uses neural networks with multiple layers.
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         let long_result = ExtractionResult {
@@ -338,6 +363,11 @@ machine learning that uses neural networks with multiple layers.
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         let short_duration = processor.estimated_duration_ms(&short_result);

@@ -344,16 +344,19 @@ async def execute_opaque_runner(
                 command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                stdin=asyncio.subprocess.DEVNULL,
                 cwd=working_dir,
                 env=merged_env,
                 **spawn_kwargs,
             )
         elif mode == "exec":
-            exec_args = [sys.executable, command, *(argv or [])]
+            python_executable = merged_env.get("ANTEROOM_WORKTREE_PYTHON") or sys.executable
+            exec_args = [python_executable, command, *(argv or [])]
             proc = await asyncio.create_subprocess_exec(
                 *exec_args,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                stdin=asyncio.subprocess.DEVNULL,
                 cwd=working_dir,
                 env=merged_env,
                 **spawn_kwargs,

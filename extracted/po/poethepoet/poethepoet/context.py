@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from .config import PoeConfig
-    from .env.manager import EnvVarsManager
+    from .env.task_env import TaskEnv
     from .ui import PoeUi
 
 
@@ -35,10 +35,11 @@ class ContextProtocol(Protocol):
     def get_executor(
         self,
         invocation: tuple[str, ...],
-        env: EnvVarsManager,
+        env: TaskEnv,
         working_dir: Path,
         *,
         executor_config: Mapping[str, str] | None = None,
+        group_executor_config: Mapping[str, str] | None = None,
         capture_stdout: str | bool = False,
         resolve_python: bool = False,
         delegate_dry_run: bool = False,
@@ -50,7 +51,7 @@ class RunContext:
     config: PoeConfig
     exec_cache: dict[str, Any]
     ui: PoeUi | None
-    env: EnvVarsManager
+    env: TaskEnv
     dry: bool
     poe_active: str | None
     multistage: bool = False  # FIXME: check if this is used anywhere!
@@ -67,7 +68,7 @@ class RunContext:
         cwd: Path | str | None = None,
         loop: asyncio.AbstractEventLoop | None = None,
     ):
-        from .env.manager import EnvVarsManager
+        from .env.task_env import TaskEnv
 
         self.config = config
         self.ui = ui
@@ -79,8 +80,10 @@ class RunContext:
         self._loop = loop or asyncio.get_event_loop()
         self._shutdown_manager = ShutdownManager(self._loop, self.ui.io)
 
-        # Init root EnvVarsManager
-        self.env = EnvVarsManager(self.config, self.ui.io, base_env=env, cwd=cwd)
+        # Init root TaskEnv
+        self.env = TaskEnv.create(
+            config=self.config, base_env=env, io=self.ui.io, cwd=cwd
+        )
         for config_part in self.config.partitions():
             self.env.apply_env_config(
                 envfile_option=config_part.get("envfile"),
@@ -187,10 +190,11 @@ class RunContext:
     def get_executor(
         self,
         invocation: tuple[str, ...],
-        env: EnvVarsManager,
+        env: TaskEnv,
         working_dir: Path,
         *,
         executor_config: Mapping[str, str] | None = None,
+        group_executor_config: Mapping[str, str] | None = None,
         capture_stdout: str | bool = False,
         resolve_python: bool = False,
         delegate_dry_run: bool = False,
@@ -208,7 +212,10 @@ class RunContext:
         return PoeExecutor.get(
             invocation=invocation,
             context=self,
-            executor_config=self._resolve_executor_config(executor_config),
+            executor_config=self._resolve_executor_config(
+                task_level_config=executor_config,
+                group_level_config=group_executor_config,
+            ),
             env=env,
             working_dir=working_dir,
             capture_stdout=capture_stdout,
@@ -217,11 +224,16 @@ class RunContext:
             io=io or self.ui.io if self.ui else PoeIO.get_default_io(),
         )
 
-    def _resolve_executor_config(self, task_level_config: Mapping[str, str] | None):
+    def _resolve_executor_config(
+        self,
+        task_level_config: Mapping[str, str] | None,
+        group_level_config: Mapping[str, str] | None = None,
+    ):
         """
         Executor config is resolved from (in order of precedence):
         - the --executor and --executor-opt global cli options
         - the task level executor option
+        - the group level executor option
         - the global level executor option
         """
 
@@ -231,6 +243,7 @@ class RunContext:
         final_type: str = (
             self.ui["executor"]
             or (task_level_config or {}).get("type")
+            or (group_level_config or {}).get("type")
             or self.config.executor["type"]
         )
 
@@ -262,6 +275,11 @@ class RunContext:
         result: dict[str, str | bool | list[str | bool]] = {"type": final_type}
         if self.config.executor["type"] == final_type:
             result.update(self.config.executor)
+        if (
+            group_level_config
+            and group_level_config.get("type", final_type) == final_type
+        ):
+            result.update(group_level_config)
         if (
             task_level_config
             and task_level_config.get("type", final_type) == final_type
@@ -297,10 +315,11 @@ class InitializationContext:
     def get_executor(
         self,
         invocation: tuple[str, ...],
-        env: EnvVarsManager,
+        env: TaskEnv,
         working_dir: Path,
         *,
         executor_config: Mapping[str, str] | None = None,
+        group_executor_config: Mapping[str, str] | None = None,
         capture_stdout: str | bool = False,
         resolve_python: bool = False,
         delegate_dry_run: bool = False,

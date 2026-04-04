@@ -80,12 +80,20 @@ class SilverRecommendations:
 
 
 @dataclass
+class FeatureSelectionConfig:
+    variance_threshold: float
+    correlation_threshold: float
+    analyzed_features: List[str]
+
+
+@dataclass
 class GoldRecommendations:
     target_column: str
     encoding: List[LayeredRecommendation] = field(default_factory=list)
     scaling: List[LayeredRecommendation] = field(default_factory=list)
     feature_selection: List[LayeredRecommendation] = field(default_factory=list)
     transformations: List[LayeredRecommendation] = field(default_factory=list)
+    feature_selection_config: Optional[FeatureSelectionConfig] = None
 
     @property
     def all_recommendations(self) -> List[LayeredRecommendation]:
@@ -273,6 +281,16 @@ class RecommendationRegistry:
                                           {"method": method}, rationale, source_notebook)
         self.gold.scaling.append(rec)
 
+    def set_feature_selection_config(self, variance_threshold: float,
+                                      correlation_threshold: float,
+                                      analyzed_features: List[str]) -> None:
+        if self.gold:
+            self.gold.feature_selection_config = FeatureSelectionConfig(
+                variance_threshold=variance_threshold,
+                correlation_threshold=correlation_threshold,
+                analyzed_features=sorted(analyzed_features),
+            )
+
     def add_gold_drop_multicollinear(self, column: str, correlated_with: str, correlation: float,
                                       rationale: str, source_notebook: str) -> None:
         params = {"correlated_with": correlated_with, "correlation": correlation}
@@ -312,6 +330,19 @@ class RecommendationRegistry:
                                      rationale: str, source_notebook: str) -> None:
         params = {"variance": variance}
         rec = self._create_recommendation("gold", "feature_selection", "drop_zero_variance", column,
+                                          params, rationale, source_notebook)
+        self.gold.feature_selection.append(rec)
+
+    def add_gold_drop_chi_squared(self, column: str, rationale: str,
+                                   source_notebook: str) -> None:
+        rec = self._create_recommendation("gold", "feature_selection", "drop_chi_squared", column,
+                                          {}, rationale, source_notebook)
+        self.gold.feature_selection.append(rec)
+
+    def add_gold_drop_lgbm_importance(self, column: str, importance: float,
+                                       rationale: str, source_notebook: str) -> None:
+        params = {"importance": importance}
+        rec = self._create_recommendation("gold", "feature_selection", "drop_lgbm_importance", column,
                                           params, rationale, source_notebook)
         self.gold.feature_selection.append(rec)
 
@@ -533,7 +564,8 @@ class RecommendationRegistry:
             encoding=[cls._rec_from_dict(r) for r in data.get("encoding", [])],
             scaling=[cls._rec_from_dict(r) for r in data.get("scaling", [])],
             feature_selection=[cls._rec_from_dict(r) for r in data.get("feature_selection", [])],
-            transformations=[cls._rec_from_dict(r) for r in data.get("transformations", [])]
+            transformations=[cls._rec_from_dict(r) for r in data.get("transformations", [])],
+            feature_selection_config=FeatureSelectionConfig(**data["feature_selection_config"]) if data.get("feature_selection_config") else None,
         )
 
     @classmethod

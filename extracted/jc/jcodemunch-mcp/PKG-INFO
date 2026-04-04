@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.21.23
+Version: 1.21.25
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
@@ -230,6 +230,10 @@ Send the model the code it needs, not 1,500 lines of collateral damage.
 
 `find_importers` tells you what imports a file. `get_blast_radius` tells you what breaks if you change a symbol, with depth-weighted risk scores. `get_class_hierarchy` traverses inheritance chains. `find_dead_code` finds symbols and files unreachable from any entry point. `get_changed_symbols` maps a git diff to the exact symbols that were added, modified, or removed. `get_symbol_importance` ranks your codebase by architectural centrality using PageRank on the import graph. These are not "faster grep" — they are questions grep cannot answer at all.
 
+### Agent config hygiene
+
+`audit_agent_config` scans your CLAUDE.md, .cursorrules, copilot-instructions.md, and other agent config files for token waste: per-file token cost, stale symbol references (cross-referenced against the index — catches renamed or deleted functions), dead file paths, redundancy between global and project configs, bloat, and scope leaks. No other tool can tell you "line 15 references a function that was renamed three weeks ago."
+
 ### Better engineering workflows
 
 Useful for onboarding, debugging, refactoring, impact analysis, and exploring unfamiliar repos without brute-force file reading.
@@ -258,13 +262,30 @@ So when the agent wants a symbol, jCodeMunch can fetch the exact source directly
 
 ## Start fast
 
-### 1. Install it
+### Option A: One command (recommended)
+
+```bash
+pip install jcodemunch-mcp
+jcodemunch-mcp init
+```
+
+`init` auto-detects your MCP clients (Claude Code, Claude Desktop, Cursor, Windsurf, Continue), writes their config entries, installs the CLAUDE.md prompt policy so your agent actually uses jCodeMunch, and optionally indexes your project. Run `jcodemunch-mcp init --help` for all flags.
+
+For non-interactive CI or scripting:
+
+```bash
+jcodemunch-mcp init --yes --claude-md global --index
+```
+
+### Option B: Manual setup
+
+#### 1. Install it
 
 ```bash
 pip install jcodemunch-mcp
 ```
 
-### 2. Add it to your MCP client
+#### 2. Add it to your MCP client
 
 If you’re using Claude Code:
 
@@ -293,7 +314,7 @@ If you’re using **Paperclip** (the multi-agent orchestration platform), add a 
 
 Paperclip’s Claude Code agents auto-detect `.mcp.json` at startup. Add both servers to give your agents symbol search + doc navigation without blowing the token budget.
 
-### 3. Tell your agent to actually use it
+#### 3. Tell your agent to actually use it
 
 This matters more than people think.
 
@@ -305,7 +326,7 @@ A simple instruction like this helps:
 Use jcodemunch-mcp for code lookup whenever available. Prefer symbol search, outlines, and targeted retrieval over reading full files.
 ```
 
-> **Note:** For a comprehensive guide on enforcing these rules through agent hooks and prompt policies, see [AGENT_HOOKS.md](AGENT_HOOKS.md).
+> **Note:** `jcodemunch-mcp init` handles steps 2 and 3 automatically. For a comprehensive guide on enforcing these rules through agent hooks and prompt policies, see [AGENT_HOOKS.md](AGENT_HOOKS.md).
 
 ---
 

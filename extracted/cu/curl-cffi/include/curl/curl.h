@@ -185,6 +185,10 @@ typedef enum {
 /* Only use the custom method in the first request, always reset in the next */
 #define CURLFOLLOW_FIRSTONLY 3L
 
+/* curl-impersonate: Follow redirects, but reject redirects to
+   internal/private IP addresses (SSRF protection) */
+#define CURLFOLLOW_SAFE      4L
+
 struct curl_httppost {
   struct curl_httppost *next;       /* next entry in the list */
   char *name;                       /* pointer to allocated name */
@@ -2249,7 +2253,9 @@ typedef enum {
   /* set TLS supported signature algorithms */
   CURLOPT(CURLOPT_SSL_SIGNATURE_ALGORITHMS, CURLOPTTYPE_STRINGPOINT, 328),
 
-  /* curl-impersonate: The master option for setting an impersonate target */
+  /* curl-impersonate: The master option for setting an impersonate target.
+   * Impersonation target format is "name[:yes|no]".
+   * The optional suffix controls default browser headers. */
   CURLOPT(CURLOPT_IMPERSONATE, CURLOPTTYPE_STRINGPOINT, 999),
 
   /* curl-impersonate: A list of headers used by the impersonated browser.
@@ -2335,6 +2341,37 @@ typedef enum {
 
   /* curl-impersonate: Do not reuse TLS sessions or connections from different proxy credentials */
   CURLOPT(CURLOPT_PROXY_CREDENTIAL_NO_REUSE, CURLOPTTYPE_LONG, 1022),
+
+  /* curl-impersonate: Split cookies into separate Cookie headers */
+  CURLOPT(CURLOPT_SPLIT_COOKIES, CURLOPTTYPE_LONG, 1023),
+
+  /* curl-impersonate: Set multipart/form-data boundary style */
+  CURLOPT(CURLOPT_FORM_BOUNDARY, CURLOPTTYPE_STRINGPOINT, 1024),
+
+  /*
+   * curl-impersonate:
+   * Set the order of the HTTP/3 pseudo headers. The value must contain
+   * the letters 'm', 'a', 's', 'p' representing the pseudo-headers
+   * ":method", ":authority", ":scheme", ":path" in the desired order of
+   * appearance in the HTTP/3 HEADERS frame.
+   *
+   * This is very similar to the http/2 option.
+   */
+  CURLOPT(CURLOPT_HTTP3_PSEUDO_HEADERS_ORDER, CURLOPTTYPE_STRINGPOINT, 1025),
+
+  /* curl-impersonate: HTTP3 settings frame keys and values, format: 1:v;6:v;7:v */
+  CURLOPT(CURLOPT_HTTP3_SETTINGS, CURLOPTTYPE_STRINGPOINT, 1026),
+
+  /* curl-impersonate: QUIC transport parameters, format: id:value;id:value */
+  CURLOPT(CURLOPT_QUIC_TRANSPORT_PARAMETERS, CURLOPTTYPE_STRINGPOINT, 1027),
+
+  /* curl-impersonate: Signature hash algorithms for HTTP/3 (QUIC TLS).
+   * If set, used instead of CURLOPT_SSL_SIG_HASH_ALGS for QUIC connections. */
+  CURLOPT(CURLOPT_HTTP3_SIG_HASH_ALGS, CURLOPTTYPE_STRINGPOINT, 1028),
+
+  /* curl-impersonate: TLS extension order for HTTP/3 (QUIC TLS).
+   * If set, used instead of CURLOPT_TLS_EXTENSION_ORDER for QUIC connections. */
+  CURLOPT(CURLOPT_HTTP3_TLS_EXTENSION_ORDER, CURLOPTTYPE_STRINGPOINT, 1029),
 
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;

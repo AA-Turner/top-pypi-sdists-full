@@ -266,8 +266,18 @@ inspect that the configured Confluence URL is valid:
 This can be common for internal/self-hosted Confluence instances which
 may have been signed with an internal/corporate root authority. If the
 environment is not setup in a way to verify self-signed certificates,
-users may be interested in manually configure the `confluence_ca_cert`
+users may be interested in manually configuring the `confluence_ca_cert`
 option.
+
+If experiencing this issue on Confluence Cloud, the publish environment
+may not be populated with updated upstream certificates or Python/Requests
+cannot find these certificates. Setup to address this can verify based on
+platform distributions used. A workaround that may work is to install/upgrade
+the third-party `certifi` package and explicitly pass in the certificates
+using an environment hint. For example:
+
+    pip install --upgrade certifi
+    export SSL_CERT_FILE=$(python -m certifi)
 
 (details: {details})
 ---
@@ -289,38 +299,9 @@ configured Confluence URL is valid:
 ''')
 
 
-class ConfluenceUnexpectedCdataError(ConfluenceError):
-    def __init__(self):
-        super().__init__('''
----
-Unexpected Confluence XML stream CDATA parsing error
-
-Confluence has reported an error processing a document which contains
-CDATA data (e.g. a code block using `<![CDATA[data]]>`). This is
-unexpected since the data should be properly formed. There is a high
-chance that this is occurring on a Confluence instance which introduced
-some processing logic that incorrectly breaks the parsing of CDATA EOF
-strings (as of Confluence 8.x). This should be addressed in Confluence
-8.3.0 (or newer) release [1].
-
-To workaround this issue for the configured Confluence instance, a user
-can enable the `confluence_adv_quirk_cdata` inside their `conf.py`
-configuration file. For example:
-
-    confluence_adv_quirk_cdata = True
-
-If enabling this option does not resolve the publication issue, then
-this error message does not apply. Feel free to report this issue noting
-the exception message above this message.
-
-[1]: https://jira.atlassian.com/browse/CONFSERVER-82849
----
-''')
-
-
 class ConfluenceUnknownInstanceError(ConfluenceError):
     def __init__(self, server_url, space_key, uname, pw_set, token_set):
-        uname_value = uname if uname else '(empty)'
+        uname_value = uname or '(empty)'
         pw_value = '(set)' if pw_set else '(empty)'
         token_value = '(set)' if token_set else '(empty)'
         super().__init__(f'''

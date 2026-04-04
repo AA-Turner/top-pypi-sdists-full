@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stealth-requests
-Version: 2.0.5
+Version: 2.0.6
 Summary: Undetected web-scraping & seamless HTML parsing in Python!
 Author-email: Jacob Padilla <stealth-requests@jacobpadilla.com>
 License: MIT

@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -12,13 +13,13 @@ import base64
 class DbtColibriReportGenerator:
     """
     Generates dbt-colibri report data from lineage extraction results.
-    
+
     Uses composition with DbtColumnLineageExtractor to separate concerns:
     - Lineage extraction (DbtColumnLineageExtractor)
     - Report generation (DbtColibriReportGenerator)
     """
-    
-    def __init__(self, extractor: DbtColumnLineageExtractor, light_mode: bool = False):
+
+    def __init__(self, extractor: DbtColumnLineageExtractor, light_mode: bool = False, disable_telemetry: bool = False):
         self.extractor = extractor
         self.manifest = extractor.manifest
         self.catalog = extractor.catalog
@@ -26,6 +27,73 @@ class DbtColibriReportGenerator:
         self.colibri_version = extractor.colibri_version
         self.dialect = extractor.dialect
         self.light_mode = light_mode
+        self.disable_telemetry = disable_telemetry
+        self._tests_by_node: Optional[Dict[str, Dict[str, List[dict]]]] = None
+
+    def _build_tests_by_node(self) -> Dict[str, Dict[str, List[dict]]]:
+        """
+        Build an index of tests grouped by attached node and column name.
+
+        Returns a dict with structure:
+        {
+            "model.project.model_name": {
+                "column_name": [test1, test2, ...],  # Column-level tests
+                "__model__": [test3, ...]  # Model-level tests (column_name is null)
+            }
+        }
+        """
+        if self._tests_by_node is not None:
+            return self._tests_by_node
+
+        tests_by_node: Dict[str, Dict[str, List[dict]]] = {}
+
+        for node_id, node_data in self.manifest.get("nodes", {}).items():
+            if node_data.get("resource_type") != "test":
+                continue
+
+            attached_node = node_data.get("attached_node")
+            if not attached_node:
+                continue
+
+            # Extract the column name (lowercase for consistency)
+            column_name = node_data.get("column_name")
+            column_key = column_name.lower() if column_name else "__model__"
+
+            # Extract test metadata
+            test_metadata = node_data.get("test_metadata", {})
+            config = node_data.get("config", {})
+
+            test_entry = {
+                "unique_id": node_data.get("unique_id"),
+                "name": test_metadata.get("name"),
+                "namespace": test_metadata.get("namespace"),
+                "config": {
+                    "severity": config.get("severity"),
+                    "warn_if": config.get("warn_if"),
+                    "error_if": config.get("error_if"),
+                },
+                "kwargs": test_metadata.get("kwargs", {}),
+                "compiled_code": node_data.get("compiled_code"),
+            }
+
+            # Add depends_on for relationship tests (useful to know the referenced model)
+            depends_on_nodes = node_data.get("depends_on", {}).get("nodes", [])
+            if len(depends_on_nodes) > 1:
+                # For relationship tests, include referenced models (excluding the attached model)
+                test_entry["depends_on_nodes"] = [
+                    n for n in depends_on_nodes if n != attached_node
+                ]
+
+            # Initialize nested structure if needed
+            if attached_node not in tests_by_node:
+                tests_by_node[attached_node] = {}
+            if column_key not in tests_by_node[attached_node]:
+                tests_by_node[attached_node][column_key] = []
+
+            tests_by_node[attached_node][column_key].append(test_entry)
+
+        self._tests_by_node = tests_by_node
+        return tests_by_node
 
     def detect_model_type(self, node_id: str) -> str:
         """Detect model type based on naming conventions."""
@@ -83,8 +151,10 @@ class DbtColibriReportGenerator:
                 "path": None,
                 "contractEnforced": None,
                 "refs": [],
+                "tags": [],
                 "columns": {},
                 "database": None,
+                "relationName": None,
             }
 
         # Build columns based ONLY on catalog columns (real table),
@@ -93,10 +163,14 @@ class DbtColibriReportGenerator:
         manifest_columns = {}
         if node_data and node_data.get("columns"):
             for col, val in node_data["columns"].items():
-                manifest_columns[col.lower()] = {
+                col_meta = {
                     "contractType": val.get("data_type"),
                     "description": val.get("description"),
                 }
+                col_tags = val.get("tags", [])
+                if col_tags:
+                    col_meta["tags"] = col_tags
+                manifest_columns[col.lower()] = col_meta
         if catalog_data and catalog_data.get("columns"):
             for col, val in catalog_data["columns"].items():
                 col_lc = col.lower()
@@ -106,10 +180,12 @@ class DbtColibriReportGenerator:
                         entry["contractType"] = manifest_columns[col_lc]["contractType"]
                     if manifest_columns[col_lc].get("description") is not None:
                         entry["description"] = manifest_columns[col_lc]["description"]
+                    if manifest_columns[col_lc].get("tags"):
+                        entry["tags"] = manifest_columns[col_lc]["tags"]
                 columns[col_lc] = entry
 
         node_type = node_data.get("resource_type", "unknown")
-        materialized = node_data.get("config", {}).get("materialized", "unknown")
+        materialized = (node_data.get("config") or {}).get("materialized", "unknown")
 
         result = {
             "nodeType": node_type,
@@ -119,10 +195,12 @@ class DbtColibriReportGenerator:
             "schema": node_data.get("schema"),
             "path": node_data.get("original_file_path"),
             "description": node_data.get("description"),
-            "contractEnforced": node_data.get("config", {}).get("contract", {}).get("enforced"),
+            "contractEnforced": ((node_data.get("config") or {}).get("contract") or {}).get("enforced"),
             "refs": node_data.get("refs", []),
+            "tags": node_data.get("tags", []),
             "columns": columns,
-            "database": node_data.get("database")
+            "database": node_data.get("database"),
+            "relationName": node_data.get("relation_name")
         }
 
         # Add exposure_metadata for exposures
@@ -151,26 +229,38 @@ class DbtColibriReportGenerator:
         lineage_data = self.extractor.extract_project_lineage()
         parents_map = lineage_data["lineage"]["parents"]
         children_map = lineage_data["lineage"]["children"]
+        extraction_errors = lineage_data.get("errors", [])
 
         # Build nodes dictionary (keyed by node_id for easy lookup)
         nodes: Dict[str, dict] = {}
         edges: List[dict] = []
         edge_id_counter = 1
 
+        # Build test index once for efficient lookup
+        tests_by_node = self._build_tests_by_node()
+
         def ensure_node(node_id: str) -> dict:
             """Ensure a node exists in the nodes dict, creating if necessary."""
             if node_id not in nodes:
                 meta = self.build_manifest_node_data(node_id)
-                
+
+                # Get tests for this node
+                node_tests = tests_by_node.get(node_id, {})
+
                 # Build columns dictionary (keyed by column name)
                 columns_dict = {}
                 for col_name, col_meta in meta["columns"].items():
-                    columns_dict[col_name] = {
+                    col_entry = {
                         "columnName": col_name,
                         "hasLineage": False,  # Will be updated when we process lineage
                         **{k: v for k, v in col_meta.items() if v is not None}
                     }
-                
+                    # Add column-level tests if any exist
+                    col_tests = node_tests.get(col_name, [])
+                    if col_tests:
+                        col_entry["tests"] = col_tests
+                    columns_dict[col_name] = col_entry
+
                 node_dict = {
                     "id": node_id,
                     "name": self._get_node_display_name(node_id),
@@ -186,8 +276,15 @@ class DbtColibriReportGenerator:
                     "rawCode": meta["rawCode"],
                     "compiledCode": meta["compiledCode"],
                     "refs": meta["refs"],
+                    "tags": meta.get("tags", []),
                     "columns": columns_dict,
+                    "relationName": meta.get("relationName"),
                 }
+
+                # Add model-level tests (tests without a specific column)
+                model_tests = node_tests.get("__model__", [])
+                if model_tests:
+                    node_dict["tests"] = model_tests
 
                 # Add exposure_metadata if it exists
                 if "exposure_metadata" in meta:
@@ -196,16 +293,19 @@ class DbtColibriReportGenerator:
                 nodes[node_id] = node_dict
             return nodes[node_id]
 
-        def add_edge(src_id: str, src_col: str, tgt_id: str, tgt_col: str):
+        def add_edge(src_id: str, src_col: str, tgt_id: str, tgt_col: str, edge_type: str = None):
             """Add an edge between two columns."""
             nonlocal edge_id_counter
-            edges.append({
+            edge = {
                 "id": edge_id_counter,
                 "source": src_id,
                 "target": tgt_id,
                 "sourceColumn": src_col,
                 "targetColumn": tgt_col,
-            })
+            }
+            if edge_type:
+                edge["edgeType"] = edge_type
+            edges.append(edge)
             edge_id_counter += 1
 
         # Traverse all edges from parents_map
@@ -221,20 +321,30 @@ class DbtColibriReportGenerator:
 
         for tgt_id, mapping in parents_map.items():
             for tgt_col, sources in mapping.items():
-                # Ensure target node exists and normalize target column once
+                # Detect structural edge type
+                edge_type = None
+                if tgt_col == "__colibri_filter__":
+                    edge_type = "filter"
+                elif tgt_col == "__colibri_join__":
+                    edge_type = "join"
+
+                # Ensure target node exists
                 tgt_node = ensure_node(tgt_id)
-                norm_tgt_col = _normalize_col_name(tgt_col)
 
-                # Aggregate lineage type for the target column
-                # If multiple parents -> "transformation"; otherwise use the sole parent's lineage_type
-                aggregated_lineage = "unknown"
-                if isinstance(sources, list) and len(sources) >= 2:
-                    aggregated_lineage = "transformation"
-                elif isinstance(sources, list) and len(sources) == 1:
-                    aggregated_lineage = sources[0].get("lineage_type") or "unknown"
+                # Only process lineageType/hasLineage for data edges (not structural)
+                if not edge_type:
+                    norm_tgt_col = _normalize_col_name(tgt_col)
 
-                if norm_tgt_col in tgt_node["columns"]:
-                    tgt_node["columns"][norm_tgt_col]["lineageType"] = aggregated_lineage
+                    # Aggregate lineage type for the target column
+                    # If multiple parents -> "transformation"; otherwise use the sole parent's lineage_type
+                    aggregated_lineage = "unknown"
+                    if isinstance(sources, list) and len(sources) >= 2:
+                        aggregated_lineage = "transformation"
+                    elif isinstance(sources, list) and len(sources) == 1:
+                        aggregated_lineage = sources[0].get("lineage_type") or "unknown"
+
+                    if norm_tgt_col in tgt_node["columns"]:
+                        tgt_node["columns"][norm_tgt_col]["lineageType"] = aggregated_lineage
 
                 for src in sources:
                     src_id, src_col = src["dbt_node"], src["column"]
@@ -244,13 +354,18 @@ class DbtColibriReportGenerator:
                     # Ensure source node exists
                     src_node = ensure_node(src_id)
 
-                    # Update column lineage flags
+                    # Source column always gets hasLineage=True
                     if norm_src_col in src_node["columns"]:
                         src_node["columns"][norm_src_col]["hasLineage"] = True
-                    if norm_tgt_col in tgt_node["columns"]:
-                        tgt_node["columns"][norm_tgt_col]["hasLineage"] = True
 
-                    add_edge(src_id, norm_src_col, tgt_id, norm_tgt_col)
+                    if not edge_type:
+                        # Data edge: update target column too
+                        if norm_tgt_col in tgt_node["columns"]:
+                            tgt_node["columns"][norm_tgt_col]["hasLineage"] = True
+                        add_edge(src_id, norm_src_col, tgt_id, norm_tgt_col)
+                    else:
+                        # Structural edge: empty targetColumn + edgeType
+                        add_edge(src_id, norm_src_col, tgt_id, "", edge_type=edge_type)
 
         # Traverse all depends_on nodes to add model-level relationships
         for node_id, node_data in self.manifest.get("nodes", {}).items():
@@ -414,7 +529,7 @@ class DbtColibriReportGenerator:
 
             # Rebuild dict with sorted folder keys first, then __items__ last
             sorted_folder = {}
-            for key in sorted(k for k in folder.keys() if key != "__items__"):
+            for key in sorted(k for k in folder.keys() if k != "__items__"):
                 sorted_folder[key] = folder[key]
             if "__items__" in folder:
                 sorted_folder["__items__"] = folder["__items__"]
@@ -424,6 +539,15 @@ class DbtColibriReportGenerator:
         sort_path_tree(path_tree)
 
         project_name = self.manifest.get("metadata", {}).get("project_name", "project")
+
+        # Build an anonymized project fingerprint that is stable across runs
+        # but unique per team, even if project names collide.
+        # Combines the project name with the sorted set of database.schema pairs.
+        schema_pairs = sorted(
+            {f"{db}.{s}" for db, schemas in db_tree.items() for s in schemas}
+        )
+        fingerprint_input = f"{project_name}|{'|'.join(schema_pairs)}"
+        project_fingerprint = hashlib.sha256(fingerprint_input.encode()).hexdigest()[:16]
 
         # Build the final structure
         result = {
@@ -435,7 +559,9 @@ class DbtColibriReportGenerator:
                 "dbt_schema_version": self.manifest.get("metadata", {}).get("dbt_schema_version"),
                 "dbt_invocation_id": self.manifest.get("metadata", {}).get("invocation_id"),
                 "dbt_project_name": project_name,
-                "dbt_project_id": self.manifest.get("metadata", {}).get("project_id"),
+                "dbt_project_id": project_fingerprint,
+                "total_model_count": self.extractor.total_model_count,
+                "unmaterialized_model_count": self.extractor.unmaterialized_model_count,
             },
             "nodes": nodes,  # Dictionary keyed by node_id
             "lineage": {
@@ -452,6 +578,9 @@ class DbtColibriReportGenerator:
         # Apply light mode filtering before returning
         if self.light_mode:
             self._apply_light_mode_filter(result)
+
+        # Include extraction errors for downstream consumers
+        result["errors"] = extraction_errors
 
         return result
     
@@ -487,11 +616,19 @@ class DbtColibriReportGenerator:
         target_path = Path(output_dir)
         target_path.mkdir(parents=True, exist_ok=True)
         
+        # Extract and write parsing errors to a separate file (keep manifest clean)
+        parsing_errors = lineage.pop("errors", [])
+        if parsing_errors:
+            errors_path = target_path / "colibri-parsing-errors.json"
+            with open(errors_path, "w", encoding="utf-8") as f:
+                json.dump(parsing_errors, f, indent=2)
+            self.logger.info(f"Wrote {len(parsing_errors)} parsing errors to {errors_path}")
+
         # Save full JSON data (with parents and children)
         json_path = target_path / "colibri-manifest.json"
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(lineage, f, indent=2)
-        
+
         # Create a stripped version for HTML injection (without parents and children)
         lineage_stripped = {
             "metadata": lineage["metadata"],
@@ -502,44 +639,41 @@ class DbtColibriReportGenerator:
             },
             "tree": lineage["tree"]
         }
-        
-        # Save stripped version to a temporary file for HTML injection
-        json_path_stripped = target_path / "colibri-manifest-temp.json"
-        with open(json_path_stripped, "w", encoding="utf-8") as f:
-            json.dump(lineage_stripped, f, indent=2)
-        
-        # Delete lineage from memory to free up space before HTML injection
-        del lineage
-        del lineage_stripped
 
-        # Generate HTML with injected data
+        # Free full lineage from memory
+        del lineage
+
+        # Generate HTML with injected data directly from dict (no temp file)
         html_template_path = Path(__file__).parent / "index.html"
         html_output_path = target_path / "index.html"
-        
-        # Inject stripped data into HTML
+
         injected_html_path = inject_data_into_html(
-            json_data_path=str(json_path_stripped),
+            data=lineage_stripped,
             template_html_path=str(html_template_path),
-            output_html_path=str(html_output_path)
+            output_html_path=str(html_output_path),
+            disable_telemetry=self.disable_telemetry,
         )
+        del lineage_stripped
 
         self.logger.debug(f"Injected data into HTML: {injected_html_path}")
-        
-        # Clean up the temporary stripped JSON file
-        json_path_stripped.unlink()
-        
+
         return None
 
 
 
 def inject_data_into_html(
-    json_data_path: str,
+    data: dict,
     template_html_path: str = "dist/index.html",
     output_html_path: Optional[str] = None,
+    disable_telemetry: bool = False,
 ) -> str:
     """
-    Inject JSON data into the compiled HTML file in a streaming fashion to avoid
-    loading or re-encoding the full JSON in memory.
+    Inject JSON data into the compiled HTML file by encoding the dict
+    directly to base64 without writing a temp file.
+
+    When *disable_telemetry* is ``True``, a ``<script>`` tag setting
+    ``window.colibriTelemetry = false`` is injected before the app loads so
+    the UI honours the opt-out.
     """
     # Read the template (expected to be much smaller than the data)
     with open(template_html_path, "r", encoding="utf-8") as f:
@@ -558,34 +692,19 @@ def inject_data_into_html(
         output_dir = Path(template_html_path).parent
         output_html_path = output_dir / "index_with_data.html"
 
-    # Write output HTML while streaming base64-encoded JSON bytes
+    # Serialize to compact JSON bytes and base64 encode directly
+    json_bytes = json.dumps(data, separators=(",", ":")).encode("utf-8")
+    b64_str = base64.b64encode(json_bytes).decode("ascii")
+    del json_bytes
+
     with open(output_html_path, "w", encoding="utf-8") as out_f:
-        # Prefix (before insert point)
         out_f.write(template_html[:insert_at])
-
-        # Script preamble
+        # Inject telemetry opt-out flag before data so it's set when the app boots
+        if disable_telemetry:
+            out_f.write("<script>window.colibriTelemetry = false;</script>")
         out_f.write('<script>window.colibriData = JSON.parse(atob("')
-
-        # Stream base64 of the JSON file with 3-byte boundary handling
-        with open(json_data_path, "rb") as jf:
-            leftover = b""
-            chunk_size = 1024 * 1024  # 1MB chunks
-            while True:
-                chunk = jf.read(chunk_size)
-                if not chunk:
-                    break
-                buf = leftover + chunk
-                to_encode_len = len(buf) - (len(buf) % 3)
-                if to_encode_len:
-                    out_f.write(base64.b64encode(buf[:to_encode_len]).decode("ascii"))
-                leftover = buf[to_encode_len:]
-            if leftover:
-                out_f.write(base64.b64encode(leftover).decode("ascii"))
-
-        # Script postamble
+        out_f.write(b64_str)
         out_f.write('"));</script>')
-
-        # Suffix (after insert point)
         out_f.write(template_html[insert_at:])
 
     return str(output_html_path)

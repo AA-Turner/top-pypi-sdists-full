@@ -1,6 +1,7 @@
 """Error handling examples for primp."""
 
 import json
+
 import primp
 
 client = primp.Client(impersonate="chrome_146", timeout=10)
@@ -23,6 +24,12 @@ try:
     client.get("https://httpbin.org/delay/15", timeout=2)
 except primp.TimeoutError as e:
     print(f"Timeout: {e}")
+
+# Read timeout (max gap between bytes)
+try:
+    client.get("https://httpbin.org/delay/10", read_timeout=2)
+except primp.TimeoutError as e:
+    print(f"Read timeout: {e}")
 
 # Connection errors (DNS, proxy, SSL)
 try:

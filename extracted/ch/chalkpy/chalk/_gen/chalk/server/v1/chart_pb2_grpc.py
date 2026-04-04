@@ -45,6 +45,11 @@ class ChartsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.DeleteChartRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.DeleteChartResponse.FromString,
         )
+        self.GetChart = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/GetChart",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartResponse.FromString,
+        )
         self.GetChartOptions = channel.unary_unary(
             "/chalk.server.v1.ChartsService/GetChartOptions",
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartOptionsRequest.SerializeToString,
@@ -116,6 +121,12 @@ class ChartsServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def DeleteChart(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetChart(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -195,6 +206,11 @@ def add_ChartsServiceServicer_to_server(servicer, server):
             servicer.DeleteChart,
             request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.DeleteChartRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.DeleteChartResponse.SerializeToString,
+        ),
+        "GetChart": grpc.unary_unary_rpc_method_handler(
+            servicer.GetChart,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartResponse.SerializeToString,
         ),
         "GetChartOptions": grpc.unary_unary_rpc_method_handler(
             servicer.GetChartOptions,
@@ -404,6 +420,35 @@ class ChartsService(object):
             "/chalk.server.v1.ChartsService/DeleteChart",
             chalk_dot_server_dot_v1_dot_chart__pb2.DeleteChartRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_chart__pb2.DeleteChartResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetChart(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/GetChart",
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetChartRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetChartResponse.FromString,
             options,
             channel_credentials,
             insecure,

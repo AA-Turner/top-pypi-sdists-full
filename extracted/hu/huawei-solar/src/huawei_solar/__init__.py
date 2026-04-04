@@ -1,15 +1,17 @@
 """Interact with Huawei inverters over Modbus."""
 
-from . import register_names, register_values, registers
-from .bridge import (
-    HuaweiChargerBridge,
-    HuaweiEMMABridge,
-    HuaweiSolarBridge,
-    HuaweiSUN2000Bridge,
-    create_rtu_bridge,
-    create_sub_bridge,
-    create_tcp_bridge,
+from .device import (
+    EMMADevice,
+    HuaweiSolarDevice,
+    HuaweiSolarDeviceWithLogin,
+    SChargerDevice,
+    SDongleDevice,
+    SmartLoggerDevice,
+    SUN2000Device,
+    create_device_instance,
+    create_sub_device_instance,
 )
+from .device_discovery import DeviceIdentifier, DeviceInfo, get_device_identifiers, get_device_infos
 from .exceptions import (
     ConnectionException,
     ConnectionInterruptedException,
@@ -18,39 +20,53 @@ from .exceptions import (
     HuaweiSolarException,
     InvalidCredentials,
     PeakPeriodsValidationError,
-    PermissionDenied,
     ReadException,
-    SlaveBusyException,
-    SlaveFailureException,
     TimeOfUsePeriodsException,
     WriteException,
 )
-from .huawei_solar import AsyncHuaweiSolar, Result
+from .files import (
+    OptimizerHistoryRealTimeDataUnit,
+    OptimizerOnlineStatus,
+    OptimizerRealTimeData,
+    OptimizerRunningStatus,
+    OptimizerSystemInformation,
+)
+from .modbus_client import AsyncHuaweiSolarClient, create_rtu_client, create_tcp_client
+from .register_definitions import Result
+from .register_names import RegisterName
 
 __all__ = [
-    "AsyncHuaweiSolar",
+    "AsyncHuaweiSolarClient",
     "ConnectionException",
     "ConnectionInterruptedException",
     "DecodeError",
+    "DeviceIdentifier",
+    "DeviceInfo",
+    "EMMADevice",
     "EncodeError",
-    "HuaweiChargerBridge",
-    "HuaweiEMMABridge",
-    "HuaweiSUN2000Bridge",
-    "HuaweiSolarBridge",
+    "HuaweiSolarDevice",
+    "HuaweiSolarDeviceWithLogin",
     "HuaweiSolarException",
     "InvalidCredentials",
+    "OptimizerHistoryRealTimeDataUnit",
+    "OptimizerOnlineStatus",
+    "OptimizerRealTimeData",
+    "OptimizerRunningStatus",
+    "OptimizerSystemInformation",
     "PeakPeriodsValidationError",
-    "PermissionDenied",
     "ReadException",
+    "RegisterName",
     "Result",
-    "SlaveBusyException",
-    "SlaveFailureException",
+    "SChargerDevice",
+    "SDongleDevice",
+    "SUN2000Device",
+    "SmartLoggerDevice",
     "TimeOfUsePeriodsException",
     "WriteException",
-    "create_rtu_bridge",
-    "create_sub_bridge",
-    "create_tcp_bridge",
-    "register_names",
-    "register_values",
-    "registers",
+    "create_device_instance",
+    "create_rtu_client",
+    "create_sub_device_instance",
+    "create_tcp_client",
+    "get_device_identifiers",
+    "get_device_infos",
 ]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rio-tiler
-Version: 9.0.4
+Version: 9.0.5
 Summary: User friendly Rasterio plugin to read raster datasets.
 Project-URL: Homepage, https://cogeotiff.github.io/rio-tiler/
 Project-URL: Documentation, https://cogeotiff.github.io/rio-tiler/
@@ -61,7 +61,7 @@ Requires-Dist: pystac<2.0,>=1.9
 Requires-Dist: rasterio>=1.4.0
 Requires-Dist: typing-extensions>=4.10.0; python_version < '3.12'
 Provides-Extra: async
-Requires-Dist: async-geotiff<0.4,>=0.3; extra == 'async'
+Requires-Dist: async-geotiff<0.5,>=0.3; extra == 'async'
 Requires-Dist: obstore; extra == 'async'
 Provides-Extra: s3
 Requires-Dist: boto3; extra == 's3'

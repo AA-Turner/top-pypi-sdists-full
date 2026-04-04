@@ -22,7 +22,7 @@ def test_environment_discovery(fresh_registry):
     # can be improved later on.
 
     from isolate.registry import (
-        _reload_registry,
+        _ensure_registry,
         importlib_metadata,
     )
 
@@ -37,6 +37,6 @@ def test_environment_discovery(fresh_registry):
         "isolate.registry.importlib_metadata.entry_points",
         return_value=importlib_metadata.EntryPoints([fake_ep]),
     ):
-        _reload_registry()
+        _ensure_registry(force=True)
 
         prepare_environment("fake")

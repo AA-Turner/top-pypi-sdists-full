@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "extra-platforms"
-version = "11.0.4"
+version = "11.0.5"
 description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
@@ -258,7 +258,7 @@ extra-platforms = "extra_platforms.__main__:main"
 [project.urls]
 "Changelog" = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
 "Documentation" = "https://kdeldycke.github.io/extra-platforms"
-"Download" = "https://github.com/kdeldycke/extra-platforms/releases/tag/v11.0.4"
+"Download" = "https://github.com/kdeldycke/extra-platforms/releases/tag/v11.0.5"
 "Funding" = "https://github.com/sponsors/kdeldycke"
 "Homepage" = "https://github.com/kdeldycke/extra-platforms"
 "Issues" = "https://github.com/kdeldycke/extra-platforms/issues"
@@ -307,6 +307,7 @@ typing = [
 dependency-groups.docs = { requires-python = ">= 3.12" }
 # Cooldown period.
 exclude-newer = "2026-02-09T00:00:00Z"
+exclude-newer-package = { "pygments" = "0 day", "requests" = "0 day" }
 # Package is at root level, not in "./src/".
 build-backend.module-root = ""
 
@@ -370,6 +371,7 @@ default.extend-ignore-identifiers-re = [
 [tool.pytest]
 # https://docs.pytest.org/en/latest/customize.html#pyproject-toml
 addopts = [
+  "--dist=loadgroup",
   "--durations=10",
   "--cov",
   "--cov-report=term",
@@ -385,7 +387,7 @@ run.source = [ "extra_platforms" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "11.0.4"
+current_version = "11.0.5"
 allow_dirty = true
 ignore_missing_files = true
 # Parse versions with an optional .devN suffix (PEP 440).
@@ -437,6 +439,7 @@ search = "date-released: \\d{{4}}-\\d{{2}}-\\d{{2}}"
 replace = "date-released: {utcnow:%Y-%m-%d}"
 
 [tool.mypy]
+check_untyped_defs = true
 warn_unused_configs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
@@ -457,5 +460,7 @@ exclude = [
 [tool.repomatic]
 # We don't need custom label configuration, and the debug workflow is not used in this project.
 exclude = [ "labels", "workflows/debug.yaml" ]
+# Skills are excluded by default; force-include them.
+include = [ "skills" ]
 # Building the package with Nuitka is overkill.
 nuitka.enabled = false

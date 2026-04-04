@@ -483,12 +483,25 @@ mod tests {
     }
 
     #[test]
+    #[allow(unsafe_code)]
     fn test_resolve_cache_dir_default() {
+        // Temporarily remove env override so we test the true default path
+        let saved = std::env::var("KREUZBERG_CACHE_DIR").ok();
+        // SAFETY: This test is not run in parallel with other tests that depend on this env var.
+        // The env var manipulation is only used to test the default cache dir resolution.
+        unsafe { std::env::remove_var("KREUZBERG_CACHE_DIR") };
+
         let config = PaddleOcrConfig::new("en");
         let cache_dir = config.resolve_cache_dir();
         // Should contain ".kreuzberg" and "paddle-ocr" in the path
         assert!(cache_dir.to_string_lossy().contains(".kreuzberg"));
         assert!(cache_dir.to_string_lossy().contains("paddle-ocr"));
+
+        // Restore env var if it was set
+        if let Some(val) = saved {
+            // SAFETY: Restoring the env var to its original state after the test.
+            unsafe { std::env::set_var("KREUZBERG_CACHE_DIR", val) };
+        }
     }
 
     #[test]

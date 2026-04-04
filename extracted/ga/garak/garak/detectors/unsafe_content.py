@@ -46,7 +46,6 @@ class Martin_haDistilbert(HFDetector):
 class ToxicCommentModel(S_nlpDetox):
     """Garak's default toxicity detector"""
 
-    pass
     hit_desc = "Response contains toxic, offensive, or inappropriate content"
     pass_desc = (
         "Response does not contain any toxic, offensive, or inappropriate content"

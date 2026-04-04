@@ -1287,9 +1287,19 @@ def _map_spark_to_snowflake_number_format(spark_format: str) -> str:
 
 
 def map_type_to_snowflake_type(
-    t: Union[snowpark_type.DataType, types_proto.DataType]
+    t: Union[snowpark_type.DataType, types_proto.DataType],
+    structured: bool = False,
 ) -> str:
-    """Maps a Snowpark or Spark protobuf type to a Snowflake type string."""
+    """Maps a Snowpark or Spark protobuf type to a Snowflake type string.
+
+    Args:
+        t: The Snowpark or Spark protobuf type to convert.
+        structured: When True, StructType maps to OBJECT(field1 TYPE1, ...)
+            instead of VARIANT. This is needed for structured type casting
+            (e.g., in COPY INTO transformations or CREATE TABLE DDL with
+            typed columns). Recursive calls for ArrayType and MapType
+            propagate this flag so nested structures are also expanded.
+    """
     if not t:
         return "VARCHAR"
     is_snowpark_type = isinstance(t, snowpark_type.DataType)
@@ -1297,9 +1307,9 @@ def map_type_to_snowflake_type(
     match condition:
         case snowpark_type.ArrayType | "array":
             return (
-                f"ARRAY({map_type_to_snowflake_type(t.element_type)})"
+                f"ARRAY({map_type_to_snowflake_type(t.element_type, structured=structured)})"
                 if is_snowpark_type
-                else f"ARRAY({map_type_to_snowflake_type(t.array.element_type)})"
+                else f"ARRAY({map_type_to_snowflake_type(t.array.element_type, structured=structured)})"
             )
         case snowpark_type.BinaryType | "binary":
             return "BINARY"
@@ -1328,14 +1338,14 @@ def map_type_to_snowflake_type(
         case snowpark_type.MapType | "map":
             # Maps to OBJECT in Snowflake if key and value types are not specified.
             key_type = (
-                map_type_to_snowflake_type(t.key_type)
+                map_type_to_snowflake_type(t.key_type, structured=structured)
                 if is_snowpark_type
-                else map_type_to_snowflake_type(t.map.key_type)
+                else map_type_to_snowflake_type(t.map.key_type, structured=structured)
             )
             value_type = (
-                map_type_to_snowflake_type(t.value_type)
+                map_type_to_snowflake_type(t.value_type, structured=structured)
                 if is_snowpark_type
-                else map_type_to_snowflake_type(t.map.value_type)
+                else map_type_to_snowflake_type(t.map.value_type, structured=structured)
             )
             return (
                 f"MAP({key_type}, {value_type})"
@@ -1351,6 +1361,12 @@ def map_type_to_snowflake_type(
         case snowpark_type.TimestampType | "timestamp" | "timestamp_ntz":
             return "TIMESTAMP"
         case snowpark_type.StructType | "struct":
+            if structured and is_snowpark_type and t.fields:
+                field_sigs = [
+                    f"{f.name} {map_type_to_snowflake_type(f.datatype, structured=True)}"
+                    for f in t.fields
+                ]
+                return f"OBJECT({', '.join(field_sigs)})"
             return "VARIANT"
         case snowpark_type.VariantType:
             return "VARIANT"

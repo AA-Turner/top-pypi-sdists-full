@@ -15,8 +15,9 @@ from ..options import PoeOptions
 
 if TYPE_CHECKING:
     from ..config import ConfigPartition, PoeConfig
+    from ..config.partition import GroupConfig
     from ..context import RunContext
-    from ..env.manager import EnvVarsManager
+    from ..env.task_env import TaskEnv
     from ..ui import PoeUi
     from .args import PoeTaskArgs
 
@@ -87,6 +88,7 @@ class TaskSpecFactory:
         task_def: TaskDef,
         source: ConfigPartition,
         parent: PoeTask.TaskSpec | None = None,
+        group: GroupConfig | None = None,
     ) -> PoeTask.TaskSpec:
         """
         A parent task should be provided when this task is defined inline within another
@@ -102,19 +104,21 @@ class TaskSpecFactory:
             factory=self,
             source=source,
             parent=parent,
+            group=group,
         )
 
     def load_all(self):
-        for task_name in self.config.task_names:
+        for task_name in self.config.get_tasks().keys():
             self.load(task_name)
 
         return self
 
     def load(self, task_name: str):
-        task_def, config_partition = self.config.lookup_task(task_name)
-
-        if task_def is None or config_partition is None:
+        task = self.config.lookup_task(task_name)
+        if task is None:
             raise PoeException(f"Cannot instantiate unknown task {task_name!r}")
+
+        task_def = task.task_def
 
         task_type = PoeTask.resolve_task_type(task_def, self.config)
         if not task_type:
@@ -124,12 +128,12 @@ class TaskSpecFactory:
                 f"Available task keys: {set(PoeTask.get_task_types())!r}",
                 task_name=task_name,
                 filename=(
-                    None if config_partition.is_primary else str(config_partition.path)
+                    None if task.partition.is_primary else str(task.partition.path)
                 ),
             )
 
         self.__cache[task_name] = self.create(
-            task_name, task_type, task_def, source=config_partition
+            task_name, task_type, task_def, source=task.partition, group=task.group
         )
 
     def __iter__(self):
@@ -216,6 +220,7 @@ class PoeTask(metaclass=MetaPoeTask):
         task_type: type[PoeTask]
         source: ConfigPartition
         parent: PoeTask.TaskSpec | None = None
+        group: GroupConfig | None = None
 
         def __init__(
             self,
@@ -225,12 +230,14 @@ class PoeTask(metaclass=MetaPoeTask):
             source: ConfigPartition,
             *,
             parent: PoeTask.TaskSpec | None = None,
+            group: GroupConfig | None = None,
         ):
             self.name = name
             self.content = task_def[self.task_type.__key__]
             self.options = self._parse_options(task_def)
             self.source = source
             self.parent = parent
+            self.group = group
 
         def _parse_options(self, task_def: dict[str, Any]) -> PoeTask.TaskOptions:
             try:
@@ -245,12 +252,12 @@ class PoeTask(metaclass=MetaPoeTask):
 
         def get_task_env(
             self,
-            parent_env: EnvVarsManager,
+            parent_env: TaskEnv,
             io: PoeIO,
             uses_values: Mapping[str, str] | None = None,
-        ) -> EnvVarsManager:
+        ) -> TaskEnv:
             """
-            Resolve the EnvVarsManager for this task, relative to the given parent_env
+            Resolve the TaskEnv for this task, relative to the given parent_env
             """
 
             result = parent_env.clone(io=io)
@@ -437,8 +444,8 @@ class PoeTask(metaclass=MetaPoeTask):
         return None
 
     def get_parsed_arguments(
-        self, env: EnvVarsManager
-    ) -> tuple[dict[str, str], tuple[str, ...]]:
+        self, env: TaskEnv
+    ) -> tuple[dict[str, Any], tuple[str, ...]]:
         """
         Returns a dict of parsed arguments, and a list extra arguments.
 
@@ -471,7 +478,7 @@ class PoeTask(metaclass=MetaPoeTask):
     async def run(
         self,
         context: RunContext,
-        parent_env: EnvVarsManager | None = None,
+        parent_env: TaskEnv | None = None,
     ) -> PoeTaskRun:
         """
         Run this task
@@ -513,7 +520,7 @@ class PoeTask(metaclass=MetaPoeTask):
         return task_state
 
     async def _handle_run(
-        self, context: RunContext, env: EnvVarsManager, task_state: PoeTaskRun
+        self, context: RunContext, env: TaskEnv, task_state: PoeTaskRun
     ):
         """
         This method must be implemented by a subclass and is expected to mutate the
@@ -524,25 +531,32 @@ class PoeTask(metaclass=MetaPoeTask):
     def _get_executor(
         self,
         context: RunContext,
-        env: EnvVarsManager,
+        env: TaskEnv,
         *,
         resolve_python: bool = False,
         delegate_dry_run: bool = False,
     ):
-        return context.get_executor(
+        executor = context.get_executor(
             self.invocation,
             env,
             working_dir=self.get_working_dir(env),
             executor_config=self.spec.options.get("executor"),
+            group_executor_config=(
+                self.spec.group.executor if self.spec.group else None
+            ),
             capture_stdout=self.capture_stdout,
             resolve_python=resolve_python,
             delegate_dry_run=delegate_dry_run,
             io=self.ctx.io,
         )
+        # Make POE_ACTIVE variable available for interpolating into task content
+        if executor.__key__:
+            env.set("POE_ACTIVE", executor.__key__)
+        return executor
 
     def get_working_dir(
         self,
-        env: EnvVarsManager,
+        env: TaskEnv,
     ) -> Path:
         cwd_option = env.fill_template(self.spec.options.get("cwd", self.ctx.cwd))
         working_dir = Path(cwd_option)
@@ -572,7 +586,7 @@ class PoeTask(metaclass=MetaPoeTask):
 
         if self.__upstream_invocations is None:
             env = self.spec.get_task_env(context.env, io=self.ctx.io)
-            env.update(self.get_parsed_arguments(env)[0])
+            env.register_task_args(self.get_parsed_arguments(env)[0])
 
             self.__upstream_invocations = {
                 "deps": [

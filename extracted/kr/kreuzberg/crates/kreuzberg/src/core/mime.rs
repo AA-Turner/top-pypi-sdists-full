@@ -43,6 +43,7 @@ pub const TOML_MIME_TYPE: &str = "application/toml";
 pub const XML_MIME_TYPE: &str = "application/xml";
 pub const XML_TEXT_MIME_TYPE: &str = "text/xml";
 pub const SVG_MIME_TYPE: &str = "image/svg+xml";
+pub const SOURCE_CODE_MIME_TYPE: &str = "text/x-source-code";
 
 pub const EXCEL_MIME_TYPE: &str = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 pub const EXCEL_BINARY_MIME_TYPE: &str = "application/vnd.ms-excel";
@@ -484,7 +485,7 @@ static FORMATS: &[FormatEntry] = &[
         aliases: &["application/x-opml+xml", "text/x-opml"],
     },
     FormatEntry {
-        extensions: &["dbk", "docbook"],
+        extensions: &["dbk", "docbook", "docbook4", "docbook5"],
         mime_type: "application/docbook+xml",
         aliases: &["text/docbook"],
     },
@@ -522,6 +523,14 @@ static FORMATS: &[FormatEntry] = &[
     FormatEntry {
         extensions: &["key"],
         mime_type: "application/x-iwork-keynote-sffkey",
+        aliases: &[],
+    },
+    // ── Source code (tree-sitter) ──────────────────────────────────────
+    // No file extension mapping — detection is dynamic via TSLP's
+    // detect_language_from_extension() as a fallback in detect_mime_type().
+    FormatEntry {
+        extensions: &[],
+        mime_type: "text/x-source-code",
         aliases: &[],
     },
 ];
@@ -578,14 +587,32 @@ pub fn detect_mime_type(path: impl AsRef<Path>, check_exists: bool) -> Result<St
     }
 
     let extension = path.extension().and_then(|ext| ext.to_str()).map(|s| s.to_lowercase());
+    tracing::debug!(path = %path.display(), extension = ?extension, "detecting MIME type from path");
 
     if let Some(ext) = &extension
         && let Some(mime_type) = EXT_TO_MIME.get(ext.as_str())
     {
+        tracing::debug!(ext = %ext, mime_type = %mime_type, "matched via EXT_TO_MIME");
         return Ok(mime_type.to_string());
     }
 
+    // Tree-sitter detection: check if the extension belongs to a known
+    // programming language *before* falling back to mime_guess, which returns
+    // language-specific MIME types (e.g. "text/x-python") that are not in our
+    // supported set.
+    #[cfg(feature = "tree-sitter")]
+    {
+        if let Some(ext) = &extension {
+            let lang = tree_sitter_language_pack::detect_language_from_extension(ext);
+            tracing::debug!(ext = %ext, detected_language = ?lang, "tree-sitter extension detection");
+            if lang.is_some() {
+                return Ok(SOURCE_CODE_MIME_TYPE.to_string());
+            }
+        }
+    }
+
     let guess = mime_guess::from_path(path).first();
+    tracing::debug!(guess = ?guess, "mime_guess fallback");
     if let Some(mime) = guess {
         return Ok(mime.to_string());
     }
@@ -618,10 +645,12 @@ pub fn detect_mime_type(path: impl AsRef<Path>, check_exists: bool) -> Result<St
 /// Returns `KreuzbergError::UnsupportedFormat` if not supported.
 pub fn validate_mime_type(mime_type: &str) -> Result<String> {
     if SUPPORTED_MIME_TYPES.contains(mime_type) {
+        tracing::trace!(mime_type = %mime_type, "MIME type validated (exact match)");
         return Ok(mime_type.to_string());
     }
 
     if mime_type.starts_with("image/") {
+        tracing::trace!(mime_type = %mime_type, "MIME type validated (image prefix)");
         return Ok(mime_type.to_string());
     }
 
@@ -630,10 +659,12 @@ pub fn validate_mime_type(mime_type: &str) -> Result<String> {
     let lower = mime_type.to_ascii_lowercase();
     for supported in SUPPORTED_MIME_TYPES.iter() {
         if supported.to_ascii_lowercase() == lower {
+            tracing::trace!(mime_type = %mime_type, matched = %supported, "MIME type validated (case-insensitive)");
             return Ok(supported.to_string());
         }
     }
 
+    tracing::debug!(mime_type = %mime_type, "MIME type not in supported set");
     Err(KreuzbergError::UnsupportedFormat(mime_type.to_string()))
 }
 
@@ -651,9 +682,11 @@ pub fn validate_mime_type(mime_type: &str) -> Result<String> {
 /// The validated MIME type string.
 pub fn detect_or_validate(path: Option<&Path>, mime_type: Option<&str>) -> Result<String> {
     if let Some(mime) = mime_type {
+        tracing::debug!(mime_type = %mime, "validating caller-provided MIME type");
         validate_mime_type(mime)
     } else if let Some(p) = path {
         let detected = detect_mime_type(p, true)?;
+        tracing::debug!(path = %p.display(), detected = %detected, "detected MIME, now validating");
         validate_mime_type(&detected)
     } else {
         Err(KreuzbergError::validation(
@@ -697,6 +730,11 @@ pub fn detect_mime_type_from_bytes(content: &[u8]) -> Result<String> {
         }
     }
 
+    // PST (Outlook Personal Folders) magic signature: "!BDN" at offset 0
+    if content.len() >= 4 && content[..4] == [0x21, 0x42, 0x44, 0x4E] {
+        return Ok(PST_MIME_TYPE.to_string());
+    }
+
     if let Ok(text) = std::str::from_utf8(content) {
         let trimmed = text.trim_start();
 
@@ -716,6 +754,12 @@ pub fn detect_mime_type_from_bytes(content: &[u8]) -> Result<String> {
 
         if trimmed.starts_with("%PDF") {
             return Ok(PDF_MIME_TYPE.to_string());
+        }
+
+        // Tree-sitter fallback: detect language from shebang line.
+        #[cfg(feature = "tree-sitter")]
+        if tree_sitter_language_pack::detect_language_from_content(trimmed).is_some() {
+            return Ok(SOURCE_CODE_MIME_TYPE.to_string());
         }
 
         return Ok(PLAIN_TEXT_MIME_TYPE.to_string());
@@ -968,7 +1012,11 @@ mod tests {
     fn test_detect_mime_type_email() {
         let dir = tempdir().unwrap();
 
-        let test_cases = vec![("test.eml", EML_MIME_TYPE), ("test.msg", MSG_MIME_TYPE)];
+        let test_cases = vec![
+            ("test.eml", EML_MIME_TYPE),
+            ("test.msg", MSG_MIME_TYPE),
+            ("test.pst", PST_MIME_TYPE),
+        ];
 
         for (filename, expected_mime) in test_cases {
             let file_path = dir.path().join(filename);
@@ -1121,6 +1169,17 @@ mod tests {
         ];
         let mime = detect_mime_type_from_bytes(plain_zip_bytes).unwrap();
         assert_eq!(mime, "application/zip", "Plain ZIP should remain as application/zip");
+    }
+
+    #[test]
+    fn test_detect_pst_from_bytes() {
+        // PST magic signature: "!BDN" followed by format-specific bytes
+        let pst_bytes: &[u8] = &[
+            0x21, 0x42, 0x44, 0x4E, // "!BDN" magic signature
+            0x00, 0x00, 0x00, 0x00, // padding (real PST files have more header data)
+        ];
+        let mime = detect_mime_type_from_bytes(pst_bytes).unwrap();
+        assert_eq!(mime, PST_MIME_TYPE, "Should detect PST from magic bytes");
     }
 
     #[test]

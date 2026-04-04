@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.16.0
+    rev: v1.19.1
     hooks:
       - id: mypy
         # `pass_filenames` is used to overcome the "duplicate module"
@@ -15,13 +15,13 @@ repos:
         args: ["--config-file", "mypy.ini", "@mypy_checklist.txt"]
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.1
+    rev: v2.4.2
     hooks:
       - id: codespell
         args: ["docs examples examples_flask pyvista tests", "*.py *.rst *.md"]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-merge-conflict
       - id: debug-statements
@@ -30,7 +30,7 @@ repos:
 
   # this validates our github workflow files
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.33.0
+    rev: 0.37.1
     hooks:
       - id: check-github-workflows
 
@@ -41,7 +41,7 @@ repos:
         types_or: [yaml, markdown, html, css, scss, javascript, json]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.13
+    rev: v0.15.8
     hooks:
       - id: ruff
         args: [--fix, --show-fixes]

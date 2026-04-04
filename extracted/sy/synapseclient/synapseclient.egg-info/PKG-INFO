@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: synapseclient
-Version: 4.11.0
+Version: 4.12.0
 Summary: A client for Synapse, a collaborative, open-source research platform that allows teams to share data, track analyses, and collaborate.
 Home-page: https://www.synapse.org
 Author: The Synapse Engineering Team
@@ -47,6 +47,7 @@ Requires-Dist: httpcore>=1.0.9
 Requires-Dist: tqdm<5.0,>=4.66.2
 Requires-Dist: async-lru~=2.0.4
 Requires-Dist: psutil>=5.9.8
+Requires-Dist: setuptools>=80.10.1
 Provides-Extra: dev
 Requires-Dist: pytest~=8.2.0; extra == "dev"
 Requires-Dist: pytest-mock<4.0,>=3.0; extra == "dev"
@@ -57,9 +58,10 @@ Requires-Dist: pytest-xdist[psutil]<3.0.0,>=2.2; extra == "dev"
 Requires-Dist: pytest-rerunfailures~=12.0; extra == "dev"
 Requires-Dist: func-timeout~=4.3; extra == "dev"
 Requires-Dist: pytest-cov~=4.1.0; extra == "dev"
+Requires-Dist: pytest-html~=4.1.0; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: filelock>=3.20.1; extra == "dev"
+Requires-Dist: filelock>=3.20.3; extra == "dev"
 Requires-Dist: pandas<3.0,>=1.5; extra == "dev"
 Provides-Extra: tests
 Requires-Dist: pytest~=8.2.0; extra == "tests"
@@ -71,7 +73,9 @@ Requires-Dist: pytest-xdist[psutil]<3.0.0,>=2.2; extra == "tests"
 Requires-Dist: pytest-rerunfailures~=12.0; extra == "tests"
 Requires-Dist: func-timeout~=4.3; extra == "tests"
 Requires-Dist: pytest-cov~=4.1.0; extra == "tests"
+Requires-Dist: pytest-html~=4.1.0; extra == "tests"
 Requires-Dist: pandas<3.0,>=1.5; extra == "tests"
+Requires-Dist: jsonschema>=4.23.0; extra == "tests"
 Provides-Extra: pandas
 Requires-Dist: pandas<3.0,>=1.5; extra == "pandas"
 Provides-Extra: curator
@@ -81,7 +85,6 @@ Requires-Dist: inflection>=0.5.1; extra == "curator"
 Requires-Dist: networkx>=2.2.8; extra == "curator"
 Requires-Dist: dataclasses-json>=0.6.1; extra == "curator"
 Requires-Dist: rdflib>=6.0.0; extra == "curator"
-Requires-Dist: jsonschema>=4.23.0; extra == "curator"
 Provides-Extra: pysftp
 Requires-Dist: pysftp<0.3,>=0.2.8; extra == "pysftp"
 Requires-Dist: paramiko<4.0.0; extra == "pysftp"
@@ -105,9 +108,10 @@ Requires-Dist: pytest-xdist[psutil]<3.0.0,>=2.2; extra == "all"
 Requires-Dist: pytest-rerunfailures~=12.0; extra == "all"
 Requires-Dist: func-timeout~=4.3; extra == "all"
 Requires-Dist: pytest-cov~=4.1.0; extra == "all"
+Requires-Dist: pytest-html~=4.1.0; extra == "all"
 Requires-Dist: black; extra == "all"
 Requires-Dist: pre-commit; extra == "all"
-Requires-Dist: filelock>=3.20.1; extra == "all"
+Requires-Dist: filelock>=3.20.3; extra == "all"
 Requires-Dist: pandas<3.0,>=1.5; extra == "all"
 Requires-Dist: pandas<3.0,>=1.5; extra == "all"
 Requires-Dist: pandas<3.0,>=1.5; extra == "all"
@@ -116,7 +120,6 @@ Requires-Dist: inflection>=0.5.1; extra == "all"
 Requires-Dist: networkx>=2.2.8; extra == "all"
 Requires-Dist: dataclasses-json>=0.6.1; extra == "all"
 Requires-Dist: rdflib>=6.0.0; extra == "all"
-Requires-Dist: jsonschema>=4.23.0; extra == "all"
 Requires-Dist: pysftp<0.3,>=0.2.8; extra == "all"
 Requires-Dist: paramiko<4.0.0; extra == "all"
 Requires-Dist: boto3<2.0,>=1.7.0; extra == "all"

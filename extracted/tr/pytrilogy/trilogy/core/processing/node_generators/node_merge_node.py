@@ -1,11 +1,10 @@
-from typing import List, Optional
-
-import networkx as nx
-from networkx.algorithms import approximation as ax
+from typing import List, Optional, cast
 
 from trilogy.constants import logger
+from trilogy.core import graph as nx
 from trilogy.core.enums import BooleanOperator, Derivation, FunctionType
 from trilogy.core.exceptions import AmbiguousRelationshipResolutionException
+from trilogy.core.graph import approximation as ax
 from trilogy.core.graph_models import (
     ReferenceGraph,
     SearchCriteria,
@@ -83,17 +82,14 @@ def extract_ds_components(
     # from trilogy.hooks.graph_hook import GraphHook
     # GraphHook().query_graph_built(g, highlight_nodes=nodelist)
     for node in g.nodes:
-        if node.startswith("ds~"):
-            local = g.copy()
-            filter_pseudonyms_for_source(local, node, pseudonyms)
-            ds_graph: nx.DiGraph = nx.ego_graph(local, node, radius=EGO_RADIUS).copy()
-            graphs.append(
-                [
-                    extract_address(x)
-                    for x in ds_graph.nodes
-                    if not str(x).startswith("ds~")
-                ]
-            )
+        if not node.startswith("ds~"):
+            continue
+        local = g.copy()
+        filter_pseudonyms_for_source(local, node, pseudonyms)
+        ds_graph: nx.DiGraph = nx.ego_graph(local, node, radius=EGO_RADIUS).copy()
+        graphs.append(
+            [extract_address(x) for x in ds_graph.nodes if not str(x).startswith("ds~")]
+        )
     # if we had no ego graphs, return all concepts
     if not graphs:
         return [[extract_address(node) for node in nodelist]]
@@ -184,7 +180,7 @@ def determine_induced_minimal_nodes(
         return None
 
     logger.debug(f"Steiner tree found for nodes {nodelist} {sG.nodes}")
-    final: nx.DiGraph = nx.subgraph(G, sG.nodes).copy()
+    final = cast(ReferenceGraph, nx.subgraph(G, sG.nodes).copy())
 
     final_nodes = set(final.nodes)
     for edge in G.edges:
@@ -330,6 +326,7 @@ def resolve_weak_components(
     # to ensure there are not ambiguous discovery paths
     # (if we did not care about raising ambiguity errors, we could just use the first one)
     while break_flag is not True:
+        g: nx.DiGraph | None = None
         count += 1
         if count > AMBIGUITY_CHECK_LIMIT:
             break_flag = True
@@ -558,7 +555,7 @@ def _conditions_for_subgraph(
 
 def gen_merge_node(
     all_concepts: List[BuildConcept],
-    g: nx.DiGraph,
+    g: ReferenceGraph,
     environment: BuildEnvironment,
     depth: int,
     source_concepts,

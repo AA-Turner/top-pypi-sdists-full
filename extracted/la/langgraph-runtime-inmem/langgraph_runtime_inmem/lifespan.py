@@ -109,6 +109,7 @@ async def lifespan(
             var_child_runnable_config.set(langgraph_config)
 
             # Keep after the setter above so users can access the store from within the factory function
+            graph.patch_packages_distributions()
             try:
                 await graph.collect_graphs_from_env(True)
             except graph.GraphLoadError as exc:

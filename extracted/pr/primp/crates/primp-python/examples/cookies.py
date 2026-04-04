@@ -6,10 +6,7 @@ import primp
 client = primp.Client(cookie_store=True, impersonate="chrome_146")
 
 # Set cookies for a specific domain
-client.set_cookies(
-    url="https://httpbin.org",
-    cookies={"session_id": "abc123", "user": "john"}
-)
+client.set_cookies(url="https://httpbin.org", cookies={"session_id": "abc123", "user": "john"})
 
 # Get cookies for a domain
 cookies = client.get_cookies(url="https://httpbin.org")
@@ -20,10 +17,7 @@ resp = client.get("https://httpbin.org/cookies")
 print(f"Request cookies: {resp.json()['cookies']}")
 
 # Set cookies in request
-resp = client.get(
-    "https://httpbin.org/cookies",
-    cookies={"temp_cookie": "temp_value"}
-)
+resp = client.get("https://httpbin.org/cookies", cookies={"temp_cookie": "temp_value"})
 print(f"Request cookies: {resp.json()['cookies']}")
 
 # Get cookies from response
@@ -34,3 +28,10 @@ print(f"Response cookies: {resp.cookies}")
 client = primp.Client(cookie_store=False)
 resp = client.get("https://httpbin.org/cookies/set?name=value")
 # Cookies won't persist between requests
+
+# Initialize client with pre-set cookies
+client = primp.Client(
+    cookies={"session_id": "preloaded", "user": "admin"},
+)
+resp = client.get("https://httpbin.org/cookies")
+print(f"Preloaded cookies: {resp.json()['cookies']}")

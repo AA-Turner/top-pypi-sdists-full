@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import copy
+from collections import OrderedDict
+from types import MappingProxyType
 
 import pytest
 
+from tests.conftest import ItemsMapping, toml_literal
 from tomledit import Document
 
 # ---------------------------------------------------------------------------
@@ -34,15 +37,38 @@ class TestDocumentConstructor:
         assert doc["b"] == "two"
 
     def test_from_popped_table(self) -> None:
-        src = Document.parse("[project]\nname = 'hello'\nversion = '1.0'\n")
+        src = Document.parse(
+            toml_literal("""
+            [project]
+            name = 'hello'
+            version = '1.0'
+        """)
+        )
         data = src.pop("project")
         doc = Document(data)
         assert doc["name"] == "hello"
         assert doc["version"] == "1.0"
 
-    def test_non_dict_raises(self) -> None:
-        with pytest.raises(TypeError, match="must be a dict"):
-            Document(42)  # type: ignore[arg-type]
+    def test_non_mapping_raises(self) -> None:
+        with pytest.raises(TypeError, match="must be a mapping"):
+            Document(42)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+
+    def test_from_mapping_proxy(self) -> None:
+        doc = Document(MappingProxyType({"a": 1, "b": "hi"}))
+        assert doc == {"a": 1, "b": "hi"}
+
+    def test_from_ordered_dict(self) -> None:
+        doc = Document(OrderedDict({"x": 10}))
+        assert doc == {"x": 10}
+
+    def test_from_mapping_with_list_pairs(self) -> None:
+        doc = Document(ItemsMapping({"a": 1, "b": "hi"}, [["a", 1], ["b", "hi"]]))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        assert doc == {"a": 1, "b": "hi"}
+
+    def test_from_mapping_with_proxy_key(self) -> None:
+        base = Document.parse('key = "a"\n')
+        doc = Document({base["key"]: 1})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
+        assert doc == {"a": 1}
 
     def test_none_is_empty(self) -> None:
         doc = Document(None)
@@ -58,13 +84,24 @@ class TestDocumentValue:
     """Document.value returns the entire document as a native Python dict."""
 
     def test_value_returns_flat_native_dict(self) -> None:
-        doc = Document.parse("a = 1\nb = 2\n")
+        doc = Document.parse(
+            toml_literal("""
+            a = 1
+            b = 2
+        """)
+        )
         v = doc.value
         assert v == {"a": 1, "b": 2}
         assert type(v) is dict
 
     def test_value_with_nested_table(self) -> None:
-        doc = Document.parse("[section]\nx = 1\ny = 2\n")
+        doc = Document.parse(
+            toml_literal("""
+            [section]
+            x = 1
+            y = 2
+        """)
+        )
         assert doc.value == {"section": {"x": 1, "y": 2}}
 
     def test_empty(self) -> None:
@@ -93,25 +130,17 @@ class TestDocumentIdentity:
     """Document repr, bool, and equality."""
 
     def test_repr(self) -> None:
-        doc = Document.parse("a = 1\nb = 2\n")
+        doc = Document.parse(
+            toml_literal("""
+            a = 1
+            b = 2
+        """)
+        )
         assert repr(doc) == "Document(2 keys)"
-
-    def test_repr_empty(self) -> None:
-        doc = Document.parse("")
-        assert repr(doc) == "Document(0 keys)"
-
-    def test_bool_nonempty(self) -> None:
-        doc = Document.parse("x = 1\n")
-        assert bool(doc) is True
 
     def test_bool_empty(self) -> None:
         doc = Document.parse("")
         assert bool(doc) is False
-
-    def test_eq_same_content(self) -> None:
-        a = Document.parse("x = 1\ny = 2\n")
-        b = Document.parse("x = 1\ny = 2\n")
-        assert a == b
 
     def test_eq_different_content(self) -> None:
         a = Document.parse("x = 1\n")
@@ -119,7 +148,12 @@ class TestDocumentIdentity:
         assert a != b
 
     def test_eq_dict(self) -> None:
-        doc = Document.parse("x = 1\ny = 2\n")
+        doc = Document.parse(
+            toml_literal("""
+            x = 1
+            y = 2
+        """)
+        )
         assert doc == {"x": 1, "y": 2}
         assert doc != {"x": 1}
 
@@ -141,21 +175,19 @@ class TestDocumentIdentity:
 
 
 class TestDocumentFmt:
-    def test_fmt_normalizes_root_whitespace(self) -> None:
-        doc = Document.parse("  x  =  1  \n")
-        doc.fmt()
-        assert doc.as_toml() == "x = 1\n"
-
     def test_fmt_does_not_touch_table_internals(self) -> None:
         """fmt() only reformats root-level decor, not inside tables."""
-        doc = Document.parse("[t]\n  x  =  1\n")
+        doc = Document.parse(
+            toml_literal("""
+            [t]
+              x  =  1
+        """)
+        )
         doc.fmt()
-        assert doc.as_toml() == "[t]\n  x  =  1\n"
-
-    def test_fmt_strips_comments(self) -> None:
-        doc = Document.parse("# comment\na = 1 # inline\n")
-        doc.fmt()
-        assert doc.as_toml() == "a = 1\n"
+        assert doc.as_toml() == toml_literal("""
+            [t]
+              x  =  1
+        """)
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +204,12 @@ class TestDocumentCopy:
         assert doc2["x"] == 2
 
     def test_deepcopy_produces_independent_document(self) -> None:
-        doc = Document.parse('[t]\nk = "v"\n')
+        doc = Document.parse(
+            toml_literal("""
+            [t]
+            k = "v"
+        """)
+        )
         doc2 = copy.deepcopy(doc)
         doc2["t"]["k"] = "changed"
         assert doc["t"]["k"] == "v"

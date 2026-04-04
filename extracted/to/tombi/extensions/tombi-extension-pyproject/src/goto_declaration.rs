@@ -56,6 +56,8 @@ pub async fn goto_declaration(
             &pyproject_toml_path,
             toml_version,
         )?
+    } else if matches_accessors!(accessors, ["dependency-groups", _]) {
+        goto_declaration_for_dependency_group(document_tree, accessors, &pyproject_toml_path)?
     } else if matches_accessors!(accessors, ["project", "dependencies", _])
         || matches_accessors!(accessors, ["project", "optional-dependencies", _, _])
         || matches_accessors!(accessors, ["dependency-groups", _, _])
@@ -75,6 +77,14 @@ pub async fn goto_declaration(
     }
 
     Ok(Some(locations))
+}
+
+fn goto_declaration_for_dependency_group(
+    document_tree: &tombi_document_tree::DocumentTree,
+    accessors: &[tombi_schema_store::Accessor],
+    pyproject_toml_path: &std::path::Path,
+) -> Result<Vec<tombi_extension::DefinitionLocation>, tower_lsp::jsonrpc::Error> {
+    crate::include_group_locations(document_tree, accessors, pyproject_toml_path)
 }
 
 fn pyproject_navigation_enabled(

@@ -7,7 +7,7 @@ from datetime import date, datetime, time
 
 import pytest
 
-from tests.conftest import toml_literal
+from tests.conftest import ItemsMapping, toml_literal
 from tomledit import Document, Item
 
 # ---------------------------------------------------------------------------
@@ -71,10 +71,6 @@ class TestWriteArrayElements:
         doc["database"]["ports"][0] = 9999
         assert doc["database"]["ports"][0] == 9999
 
-    def test_replace_does_not_affect_others(self, doc: Document) -> None:
-        doc["database"]["ports"][0] = 9999
-        assert doc["database"]["ports"][2] == 8002
-
 
 # ---------------------------------------------------------------------------
 # Setting new keys (like dict[key] = value)
@@ -113,10 +109,42 @@ class TestSetNewKeys:
         doc["meta"] = {"key": "value"}
         assert doc["meta"]["key"] == "value"
 
-    def test_add_nested_dict(self) -> None:
+    def test_add_dict_with_proxy_key(self) -> None:
+        base = Document.parse('key = "name"\n')
         doc = Document()
-        doc["a"] = {"b": {"c": "deep"}}
-        assert doc["a"]["b"]["c"] == "deep"
+        doc["meta"] = {base["key"]: "value"}
+        assert doc["meta"]["name"] == "value"
+
+    def test_add_mapping_with_list_pairs(self) -> None:
+        doc = Document()
+        doc["meta"] = ItemsMapping({"key": "value"}, [["key", "value"]])
+        assert doc["meta"]["key"] == "value"
+
+    def test_add_inline_table_mapping_with_list_pairs(self) -> None:
+        doc = Document.parse("dst = { a = 1 }\n")
+        doc["dst"]["child"] = ItemsMapping({"b": 2}, [["b", 2]])
+        assert doc.as_toml() == "dst = { a = 1, child = { b = 2 } }\n"
+
+    def test_add_inline_table_dict_with_proxy_key(self) -> None:
+        base = Document.parse('key = "b"\n')
+        doc = Document.parse("dst = { a = 1 }\n")
+        doc["dst"]["child"] = {base["key"]: 2}
+        assert doc.as_toml() == "dst = { a = 1, child = { b = 2 } }\n"
+
+    @pytest.mark.parametrize(
+        "pair",
+        [[], ["x"], ["x", 1, 2]],
+        ids=["empty", "short", "long"],
+    )
+    def test_add_mapping_rejects_non_pair_items(self, pair: list[object]) -> None:
+        doc = Document()
+        with pytest.raises(ValueError, match="expected a length-2 iterable pair"):
+            doc["meta"] = ItemsMapping({"x": 1}, [pair])
+
+    def test_add_mapping_rejects_non_string_pair_key(self) -> None:
+        doc = Document()
+        with pytest.raises(TypeError, match="keys must be strings"):
+            doc["meta"] = ItemsMapping({"unused": 0}, [[1, "value"]])
 
     def test_add_list_of_dicts(self) -> None:
         doc = Document()
@@ -160,13 +188,6 @@ class TestSetNewKeys:
         assert doc["t"].value == value
         assert doc.as_toml() == "t = 10:30:45\n"
 
-    def test_add_time_with_microseconds(self) -> None:
-        doc = Document()
-        value = time(10, 30, 45, 123456)
-        doc["t"] = value
-        assert doc["t"].value == value
-        assert doc.as_toml() == "t = 10:30:45.123456\n"
-
     def test_add_time_with_tzinfo_raises(self) -> None:
         doc = Document()
         utc = zoneinfo.ZoneInfo("UTC")
@@ -187,11 +208,11 @@ class TestSetNewKeys:
 
 
 class TestArrayOfTablesMutation:
-    def test_set_element_to_scalar(self) -> None:
+    def test_set_element_to_scalar_raises(self) -> None:
         doc = Document()
         doc["d"] = [{"a": 1}, {"b": 2}]
-        doc["d"][0] = 7
-        assert doc["d"][0] == 7
+        with pytest.raises(TypeError, match="expected a table"):
+            doc["d"][0] = 7
 
     def test_set_nested_value_in_table(self) -> None:
         doc = Document()
@@ -199,15 +220,36 @@ class TestArrayOfTablesMutation:
         doc["d"][1]["b"] = 99
         assert doc["d"][1]["b"] == 99
 
-    def test_setitem_replaces_entry(self) -> None:
-        doc = Document.parse('[[items]]\nname = "a"\n[[items]]\nname = "b"\n')
-        doc["items"][0] = {"name": "z"}
-        assert doc["items"][0]["name"] == "z"
-
     def test_setitem_negative_index(self) -> None:
-        doc = Document.parse('[[items]]\nname = "a"\n[[items]]\nname = "b"\n')
+        doc = Document.parse(
+            toml_literal("""
+            [[items]]
+            name = "a"
+            [[items]]
+            name = "b"
+        """)
+        )
         doc["items"][-1] = {"name": "last"}
         assert doc["items"][1]["name"] == "last"
+
+    def test_setitem_inline_table_proxy(self) -> None:
+        """Assigning an inline-table proxy to an AoT index should produce valid TOML."""
+        doc = Document.parse(
+            toml_literal("""
+            [[items]]
+            name = "a"
+            [[items]]
+            name = "b"
+        """)
+        )
+        source = Document.parse('entry = {name = "replaced"}\n')
+        doc["items"][0] = source["entry"]
+        assert doc.as_toml() == toml_literal("""
+            [[items]]
+            name = "replaced"
+            [[items]]
+            name = "b"
+        """)
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +278,7 @@ class TestInlineTableMutation:
         doc["it"]["b"] = {"foo": "bar"}
         assert doc["it"]["b"]["foo"] == "bar"
         assert list(doc["it"]) == ["a", "b"]
-        assert doc.as_toml() == 'it = { a = 1 , b = { foo = "bar" } }\n'
+        assert doc.as_toml() == 'it = { a = 1, b = { foo = "bar" } }\n'
         doc2 = Document.parse(doc.as_toml())
         assert doc2 == doc
 
@@ -272,12 +314,23 @@ class TestNestedArrayNavigation:
 
 class TestAssignTableToKey:
     def test_assign_dict_to_existing_scalar(self) -> None:
-        doc = Document.parse("[section]\nx = 1\n")
+        doc = Document.parse(
+            toml_literal("""
+            [section]
+            x = 1
+        """)
+        )
         doc["section"]["x"] = {"nested": "value"}
         assert doc["section"]["x"]["nested"] == "value"
 
     def test_assign_dict_to_existing_table_key(self) -> None:
-        doc = Document.parse("[s]\n[s.inner]\na = 1\n")
+        doc = Document.parse(
+            toml_literal("""
+            [s]
+            [s.inner]
+            a = 1
+        """)
+        )
         doc["s"]["inner"] = {"b": 2}
         assert doc["s"]["inner"]["b"] == 2
 
@@ -295,7 +348,12 @@ class TestAssignTableToKey:
         assert 'baz = "hello"' in result
 
     def test_assign_nested_dict_creates_dotted_table(self) -> None:
-        doc = Document.parse("[existing]\nkey = 1\n")
+        doc = Document.parse(
+            toml_literal("""
+            [existing]
+            key = 1
+        """)
+        )
         doc["existing"]["nested"] = {"a": 2}
         result = doc.as_toml()
         assert "[existing.nested]" in result
@@ -320,7 +378,12 @@ class TestAssignTableToKey:
         assert doc.as_toml() == "items = []\n"
 
     def test_assign_nested_list_of_dicts_creates_dotted_aot(self) -> None:
-        doc = Document.parse('[project]\nname = "foo"\n')
+        doc = Document.parse(
+            toml_literal("""
+            [project]
+            name = "foo"
+        """)
+        )
         doc["project"]["authors"] = [{"name": "Alice"}, {"name": "Bob"}]
         result = doc.as_toml()
         assert result.count("[[project.authors]]") == 2
@@ -331,33 +394,18 @@ class TestAssignTableToKey:
         doc = Document()
         doc["foo"] = {"foo": {"bar": "baz"}}
         assert doc.as_toml() == toml_literal("""
+            [foo]
+
             [foo.foo]
             bar = "baz"
-        """)
-
-    def test_assign_three_level_nested_dict(self) -> None:
-        doc = Document()
-        doc["a"] = {"b": {"c": {"d": "deep"}}}
-        assert doc.as_toml() == toml_literal("""
-            [a.b.c]
-            d = "deep"
-        """)
-
-    def test_assign_nested_dict_with_sibling_scalars(self) -> None:
-        doc = Document()
-        doc["pkg"] = {"name": "hello", "deps": {"requests": ">=2.0"}}
-        assert doc.as_toml() == toml_literal("""
-            [pkg]
-            name = "hello"
-
-            [pkg.deps]
-            requests = ">=2.0"
         """)
 
     def test_assign_nested_aot_inside_dict(self) -> None:
         doc = Document()
         doc["pkg"] = {"servers": [{"name": "a"}, {"name": "b"}]}
         assert doc.as_toml() == toml_literal("""
+            [pkg]
+
             [[pkg.servers]]
             name = "a"
 
@@ -375,7 +423,12 @@ class TestAssignItemProxy:
     """Assigning an Item obtained from the document to another key."""
 
     def test_copy_array_to_new_key(self) -> None:
-        doc = Document.parse("[project]\ndynamic = ['license', 'version']\n")
+        doc = Document.parse(
+            toml_literal("""
+            [project]
+            dynamic = ['license', 'version']
+        """)
+        )
         doc["project"]["foo"] = doc["project"]["dynamic"]
         assert doc.as_toml() == (
             "[project]\n"
@@ -386,26 +439,73 @@ class TestAssignItemProxy:
     def test_copy_scalar_to_new_key(self) -> None:
         doc = Document.parse("a = 1\n")
         doc["b"] = doc["a"]
-        assert doc.as_toml() == "a = 1\nb = 1\n"
+        assert doc.as_toml() == toml_literal("""
+            a = 1
+            b = 1
+        """)
 
     def test_copy_table_to_new_key(self) -> None:
-        doc = Document.parse("[src]\nx = 1\ny = 2\n")
+        doc = Document.parse(
+            toml_literal("""
+            [src]
+            x = 1
+            y = 2
+        """)
+        )
         doc["dst"] = doc["src"]
         assert doc["dst"]["x"] == 1
         assert doc["dst"]["y"] == 2
 
     def test_copy_table_from_another_doc_has_blank_line(self) -> None:
-        src = Document.parse("[t]\na = 1\n")
-        dst = Document.parse("[existing]\nkey = 1\n")
+        src = Document.parse(
+            toml_literal("""
+            [t]
+            a = 1
+        """)
+        )
+        dst = Document.parse(
+            toml_literal("""
+            [existing]
+            key = 1
+        """)
+        )
         dst["t"] = src["t"]
-        expected = "[existing]\nkey = 1\n\n[t]\na = 1\n"
+        expected = toml_literal("""
+            [existing]
+            key = 1
+
+            [t]
+            a = 1
+        """)
         assert dst.as_toml() == expected
 
     def test_copy_aot_from_another_doc_has_blank_line(self) -> None:
-        src = Document.parse("[[items]]\nx = 1\n\n[[items]]\nx = 2\n")
-        dst = Document.parse("[existing]\nkey = 1\n")
+        src = Document.parse(
+            toml_literal("""
+            [[items]]
+            x = 1
+
+            [[items]]
+            x = 2
+        """)
+        )
+        dst = Document.parse(
+            toml_literal("""
+            [existing]
+            key = 1
+        """)
+        )
         dst["items"] = src["items"]
-        expected = "[existing]\nkey = 1\n\n[[items]]\nx = 1\n\n[[items]]\nx = 2\n"
+        expected = toml_literal("""
+            [existing]
+            key = 1
+
+            [[items]]
+            x = 1
+
+            [[items]]
+            x = 2
+        """)
         assert dst.as_toml() == expected
 
     def test_copy_is_independent(self) -> None:
@@ -414,42 +514,73 @@ class TestAssignItemProxy:
         doc["a"] = 99
         assert doc["b"] == 1
 
-    def test_proxy_setitem_on_nested_key(self) -> None:
-        doc = Document.parse("[t]\nx = 1\ny = 2\n")
-        doc["t"]["x"] = doc["t"]["y"]
-        assert doc["t"]["x"] == 2
-
     def test_slice_assign_from_proxy(self) -> None:
-        doc = Document.parse("a = [1, 2, 3]\nb = [10, 20]\n")
+        doc = Document.parse(
+            toml_literal("""
+            a = [1, 2, 3]
+            b = [10, 20]
+        """)
+        )
         doc["a"][0:1] = doc["b"]
         assert doc["a"] == [10, 20, 2, 3]
 
     def test_update_with_proxy_values(self) -> None:
-        doc = Document.parse("[t]\nx = 1\ny = 2\n")
+        doc = Document.parse(
+            toml_literal("""
+            [t]
+            x = 1
+            y = 2
+        """)
+        )
         doc["t"].update({"z": doc["t"]["x"]})
         assert doc["t"]["z"] == 1
 
     def test_doc_update_with_proxy_values(self) -> None:
-        doc = Document.parse("a = 1\nb = 2\n")
+        doc = Document.parse(
+            toml_literal("""
+            a = 1
+            b = 2
+        """)
+        )
         doc.update({"c": doc["a"]})
         assert doc["c"] == 1
 
     def test_copy_from_another_document(self) -> None:
-        src = Document.parse("[t]\nfoo = 42\n")
-        dst = Document.parse("[s]\nbar = 0\n")
+        src = Document.parse(
+            toml_literal("""
+            [t]
+            foo = 42
+        """)
+        )
+        dst = Document.parse(
+            toml_literal("""
+            [s]
+            bar = 0
+        """)
+        )
         dst["s"]["bar"] = src["t"]["foo"]
         assert dst["s"]["bar"] == 42
         assert src["t"]["foo"] == 42
 
     def test_assign_document_as_table(self) -> None:
         doc = Document.parse("x = 1\n")
-        other = Document.parse("a = 10\nb = 20\n")
+        other = Document.parse(
+            toml_literal("""
+            a = 10
+            b = 20
+        """)
+        )
         doc["foo"] = other
         assert doc["foo"]["a"] == 10
         assert doc["foo"]["b"] == 20
 
     def test_assign_document_to_itself(self) -> None:
-        doc = Document.parse("a = 1\nb = 2\n")
+        doc = Document.parse(
+            toml_literal("""
+            a = 1
+            b = 2
+        """)
+        )
         doc["foo"] = doc
         assert doc["foo"] == {"a": 1, "b": 2}
         assert "foo" not in doc["foo"]
@@ -471,11 +602,6 @@ class TestItemParse:
         doc = Document.parse("x = 1\n")
         doc["x"] = Item.parse("'literal'")
         assert doc.as_toml() == "x = 'literal'\n"
-
-    def test_multiline_string(self) -> None:
-        doc = Document.parse("x = 1\n")
-        doc["x"] = Item.parse("'''multi\nline'''")
-        assert doc.as_toml() == "x = '''multi\nline'''\n"
 
     def test_item_parse_value_returns_int(self) -> None:
         item = Item.parse("0xFF")
@@ -508,16 +634,6 @@ class TestItemParse:
 
 
 class TestTupleToArray:
-    def test_tuple_assigned_as_array(self) -> None:
-        doc = Document.parse("x = 1\n")
-        doc["x"] = (1, 2, 3)
-        assert doc["x"] == [1, 2, 3]
-
-    def test_nested_tuples(self) -> None:
-        doc = Document.parse("x = 1\n")
-        doc["x"] = ((1, 2), (3, 4))
-        assert doc["x"] == [[1, 2], [3, 4]]
-
     def test_mixed_tuple_and_list(self) -> None:
         doc = Document.parse("x = 1\n")
         doc["x"] = (1, [2, 3])
@@ -536,7 +652,11 @@ class TestFormatPreservation:
         assert doc.as_toml() == toml
 
     def test_mutation_preserves_other_formatting(self) -> None:
-        toml = "# header\na = 1\nb = 2\n"
+        toml = toml_literal("""
+            # header
+            a = 1
+            b = 2
+        """)
         doc = Document.parse(toml)
         doc["a"] = 10
         assert doc.as_toml() == toml_literal("""

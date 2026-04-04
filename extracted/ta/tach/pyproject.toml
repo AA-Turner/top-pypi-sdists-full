@@ -1,6 +1,6 @@
 [project]
 name = "tach"
-version = "0.34.0"
+version = "0.34.1"
 authors = [
     { name = "Caelean Barnes", email = "caeleanb@gmail.com" },
     { name = "Evan Doyle", email = "evanmdoyle@gmail.com" },
@@ -53,22 +53,23 @@ keywords = [
 [dependency-groups]
 dev = [
     # Setup
-    "pip==24.0",
+    "pip==26.0.1",
     # Code Quality
     "basedpyright>=1.31.7",
-    "ruff==0.14.6",
+    "ruff==0.15.6",
     # Build/Release
-    "setuptools==69.5.1",
-    "twine==5.1.1",
-    "build==1.2.1",
+    "setuptools==82.0.1",
+    "twine==6.2.0",
+    "build==1.4.0",
     "gnumake>=4.4.1",
     # Tests
-    "pytest==8.2.2",
-    "pytest-mock==3.14.0",
-    "coverage==7.6.0",
+    "pytest==8.4.2",
+    "pytest-mock==3.15.1",
+    "coverage==7.10.7",
     # Rust
-    "maturin==1.10.2",
-    "rustup>=1.28.2.1 ; sys_platform != 'win32'", # https://github.com/konstin/rustup-pypi/issues/5
+    "maturin==1.12.6",
+    "rustup<1.29.0.1 ; sys_platform != 'win32' and python_version < '3.10'", # last version with 3.9 support
+    "rustup>=1.29.0.1 ; sys_platform != 'win32' and python_version >= '3.10'", # https://github.com/konstin/rustup-pypi/issues/5
 ]
 vscode = [
     "nodejs-wheel>=22.20.0",
@@ -92,9 +93,6 @@ Issues = "https://github.com/gauge-sh/tach/issues"
 
 [tool.pyprojectx]
 cwd = "."
-main = [
-    "uv<0.9.16" # https://github.com/konstin/rustup-pypi/issues/7
-]
 
 [tool.uv]
 default-groups = ["dev", "vscode", "docs"]

@@ -23,6 +23,8 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
+from anteroom import __version__
+
 from .config import AppConfig, SessionConfig, ensure_identity, load_config
 from .db import DatabaseManager, init_db
 from .services.embedding_worker import EmbeddingWorker
@@ -30,6 +32,7 @@ from .services.embeddings import create_embedding_service, get_effective_dimensi
 from .services.event_bus import EventBus
 from .services.ip_allowlist import check_ip_allowed
 from .services.mcp_manager import McpManager
+from .services.mission_runtime import create_mission_adapter_registry, create_workflow_engine_factory
 from .services.session_store import MemorySessionStore, SQLiteSessionStore, create_session_store
 from .tools import ToolRegistry, register_default_tools
 
@@ -416,43 +419,51 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("Proxy AIService created")
     _write_progress(_progress_path, "artifacts", "done")
 
+    workflow_engine_factory = create_workflow_engine_factory(
+        config,
+        app.state.db,
+        event_bus=app.state.event_bus if hasattr(app.state, "event_bus") else None,
+        artifact_registry=getattr(app.state, "artifact_registry", None),
+        skill_registry=getattr(app.state, "skill_registry", None),
+        audit_writer=getattr(app.state, "audit_writer", None),
+    )
+
+    app.state.mission_scheduler = None
+    try:
+        from .services.mission_scheduler import MissionSchedulerWorker
+
+        mission_adapter_registry = create_mission_adapter_registry(
+            config,
+            app.state.db,
+            workflow_engine_factory=workflow_engine_factory,
+            event_bus=app.state.event_bus if hasattr(app.state, "event_bus") else None,
+            artifact_registry=getattr(app.state, "artifact_registry", None),
+            skill_registry=getattr(app.state, "skill_registry", None),
+            audit_writer=getattr(app.state, "audit_writer", None),
+        )
+        mission_scheduler = MissionSchedulerWorker(
+            db=app.state.db,
+            adapter_registry=mission_adapter_registry,
+        )
+        mission_scheduler.start()
+        app.state.mission_scheduler = mission_scheduler
+        logger.info("Mission scheduler started")
+
+        if config.workflow.enabled and not config.workflow.executor_enabled:
+            logger.warning(
+                "Mission scheduler is running with workflow adapter registered, "
+                "but workflow.executor_enabled is false. Workflow-backed missions "
+                "will stall. Set workflow.executor_enabled: true in config to fix."
+            )
+    except Exception:
+        logger.exception("Failed to start mission scheduler")
+
     # Start workflow executor worker if enabled (#888)
     app.state.workflow_executor = None
     if config.workflow.enabled and config.workflow.executor_enabled:
         from .services.workflow_executor import WorkflowExecutorWorker
 
-        def _make_engine() -> Any:
-            from .services.ai_service import create_ai_service
-            from .services.workflow_credentials import CredentialResolver
-            from .services.workflow_engine import WorkflowEngine
-            from .services.workflow_runners import create_default_registry
-
-            ai_svc = create_ai_service(config.ai)
-            cred_resolver = CredentialResolver(config.workflow.credentials)
-            # Register spec phase gate conditions (#997)
-            try:
-                from .services.spec_gates import register_spec_gates
-
-                register_spec_gates(app.state.db)
-            except Exception:
-                pass
-
-            registry = create_default_registry()
-            return WorkflowEngine(
-                app.state.db,
-                config.workflow,
-                registry,
-                ai_service=ai_svc,
-                event_bus=app.state.event_bus if hasattr(app.state, "event_bus") else None,
-                credential_resolver=cred_resolver,
-                artifact_registry=getattr(app.state, "artifact_registry", None),
-                skill_registry=getattr(app.state, "skill_registry", None),
-                egress_allowed_domains=config.ai.allowed_domains,
-                egress_block_localhost=config.ai.block_localhost_api,
-                audit_writer=getattr(app.state, "audit_writer", None),
-            )
-
-        executor_worker = WorkflowExecutorWorker(config.workflow, _make_engine, app.state.db)
+        executor_worker = WorkflowExecutorWorker(config.workflow, workflow_engine_factory, app.state.db)
         executor_worker.start()
         app.state.workflow_executor = executor_worker
         logger.info("Workflow executor worker started")
@@ -465,6 +476,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             _progress_path.unlink(missing_ok=True)
         except OSError:
             pass
+        if hasattr(app.state, "mission_scheduler") and app.state.mission_scheduler:
+            app.state.mission_scheduler.stop()
         if hasattr(app.state, "workflow_executor") and app.state.workflow_executor:
             app.state.workflow_executor.stop()
         if hasattr(app.state, "pack_refresh_worker") and app.state.pack_refresh_worker:
@@ -857,7 +870,7 @@ def create_app(config: AppConfig | None = None, enforced_fields: list[str] | Non
 
     app = FastAPI(
         title="Anteroom",
-        version="0.5.3",
+        version=__version__,
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,

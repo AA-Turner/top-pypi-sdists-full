@@ -30,6 +30,7 @@ class StreamingMessageStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     STREAMING_MESSAGE_STATUS_PARSE_SKIPPED: _ClassVar[StreamingMessageStatus]
     STREAMING_MESSAGE_STATUS_FAILED: _ClassVar[StreamingMessageStatus]
     STREAMING_MESSAGE_STATUS_SUCCESS: _ClassVar[StreamingMessageStatus]
+    STREAMING_MESSAGE_STATUS_DUPLICATE_SKIPPED: _ClassVar[StreamingMessageStatus]
 
 class TestStreamResolverStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -48,6 +49,7 @@ STREAMING_MESSAGE_STATUS_PARSE_FAILED: StreamingMessageStatus
 STREAMING_MESSAGE_STATUS_PARSE_SKIPPED: StreamingMessageStatus
 STREAMING_MESSAGE_STATUS_FAILED: StreamingMessageStatus
 STREAMING_MESSAGE_STATUS_SUCCESS: StreamingMessageStatus
+STREAMING_MESSAGE_STATUS_DUPLICATE_SKIPPED: StreamingMessageStatus
 TEST_STREAM_RESOLVER_STATUS_UNSPECIFIED: TestStreamResolverStatus
 TEST_STREAM_RESOLVER_STATUS_SUCCESS: TestStreamResolverStatus
 TEST_STREAM_RESOLVER_STATUS_FAILURE: TestStreamResolverStatus

@@ -46,7 +46,7 @@ DEVICE_STATUS_DEFINITIONS = {
     0x0307: "Shutdown: rapid cutoff",
     0x0308: "Shutdown: input underpowered",
     # cfr. https://github.com/wlcrs/huawei_solar/issues/1124
-    0x030c: "Shutdown: ESS end-of-discharge",
+    0x030C: "Shutdown: ESS end-of-discharge",
     0x0401: "Grid scheduling: cosphi-P curve",
     0x0402: "Grid scheduling: Q-U curve",
     0x0403: "Grid scheduling: PF-U curve",
@@ -751,3 +751,179 @@ class EmmaConsiderMainsFaultyIf(IntEnum):
 
     OPEN = 0
     CLOSED = 1
+
+
+class SDongleType(_IntEnumWithPrettyString):
+    """SDongle Type."""
+
+    NA = 1
+    WLAN = 2
+    _4G = 3
+    WLAN_FE = 4
+
+
+class SDongleDeviceSearchStatus(IntEnum):
+    """SDongle Device Search Status."""
+
+    SEARCH_COMPLETED = 0
+    SEARCHING = 1
+    SEARCH_FAILED = 2
+
+
+class SDongleWirelessRouteAccessSignalStrength4G(_IntEnumWithPrettyString):
+    """SDongle Wireless Route Access Signal Strength."""
+
+    DISCONNECTED = 0x7FFF
+    CONNECT_SUCCESS = 0x7FFC
+    CONNECTING_OR_CONNECTION_FAILED = 0x7FFD
+    DISCONNECTED_DUE_TO_AUTHENTICATION_FAILURE = 0x7FFE
+
+
+class SDongleTrafficStatus4G(_IntEnumWithPrettyString):
+    """SDongle Traffic Status."""
+
+    NORMAL = 0
+    WARNING = 1
+    USED_UP = 2
+    NO_PACKAGE_CONFIGURED = 0xFF
+
+
+class SDonglePortMode(_IntEnumWithPrettyString):
+    """SDongle Port Mode."""
+
+    DUAL_PORT = 0
+    SINGLE_PORT = 1
+
+
+class SDongleNetworkMode4G(_IntEnumWithPrettyString):
+    """SDongle Network Mode."""
+
+    AUTO_SELECT_4G_3G_2G = 0
+    AUTO_SELECT_3G_2G = 1
+    ONLY_2G = 2
+
+
+class SDongleConnectionPort(IntEnum):
+    """SDongle Connection Port Mode."""
+
+    PORT1 = 1
+    PORT2 = 2
+
+
+SMARTLOGGER_ALARM_CODES_1 = {
+    0b0000_0000_0000_1000: Alarm("Abnormal Active Schedule", 1100, "Major"),
+    0b0000_1000_0000_0000: Alarm("Abnormal Reactive Schedule", 1101, "Major"),
+}
+
+SMARTLOGGER_ALARM_CODES_2 = {
+    0b0000_0000_0000_0010: Alarm("MCB Disconnect", 1103, "Major"),
+    0b0000_0000_0000_0100: Alarm("Abnormal Cubicle", 1104, "Major"),
+    0b0000_0000_0000_1000: Alarm("Device Address Conflict", 1105, "Major"),
+    0b0000_0000_0001_0000: Alarm("AC SPD Fault", 1106, "Major"),
+    0b0000_0000_0010_0000: Alarm("DI1 Custom Alarm", 1107, "Adaptable"),
+    0b0000_0000_0100_0000: Alarm("DI2 Custom Alarm", 1108, "Adaptable"),
+    0b0000_0000_1000_0000: Alarm("DI3 Custom Alarm", 1109, "Adaptable"),
+    0b0000_0001_0000_0000: Alarm("DI4 Custom Alarm", 1110, "Adaptable"),
+    0b0000_0010_0000_0000: Alarm("DI5 Custom Alarm", 1111, "Adaptable"),
+    0b0000_0100_0000_0000: Alarm("DI6 Custom Alarm", 1112, "Adaptable"),
+    0b0000_1000_0000_0000: Alarm("DI7 Custom Alarm", 1113, "Adaptable"),
+    0b0001_0000_0000_0000: Alarm("DI8 Custom Alarm", 1114, "Adaptable"),
+    0b0010_0000_0000_0000: Alarm("24V Power Failure", 1115, "Major"),
+    0b0100_0000_0000_0000: Alarm("License Expired", 1119, "Warning"),
+}
+
+SMARTLOGGER_ALARM_CODES_3 = {
+    0b0000_0000_0000_0001: Alarm("WebUI Certificate Invalid", 1116, "Warning"),
+    0b0000_0000_0000_0010: Alarm("WebUI Certificate To Expire", 1117, "Warning"),
+    0b0000_0000_0000_0100: Alarm("WebUI Certificate Expired", 1118, "Major"),
+    0b0000_0000_0000_1000: Alarm("Mgmt System Certificate Invalid", 1120, "Warning"),
+    0b0000_0000_0001_0000: Alarm("Mgmt System Certificate To Expire", 1121, "Warning"),
+    0b0000_0000_0010_0000: Alarm("Mgmt System Certificate Expired", 1122, "Major"),
+    0b0001_0000_0000_0000: Alarm("SmartLogger Certificate Invalid", 1129, "Warning"),
+    0b0010_0000_0000_0000: Alarm("SmartLogger Certificate About To Expire", 1130, "Warning"),
+    0b0100_0000_0000_0000: Alarm("SmartLogger Certificate Expired", 1131, "Major"),
+    0b1000_0000_0000_0000: Alarm("Smart Rack Controller Cables Not Connected", 1132, "Major"),
+}
+
+SMARTLOGGER_ALARM_CODES_4 = {
+    0b0000_0000_0000_0001: Alarm("Mgmt System 1 Certificate Invalid", 1120, "Warning"),
+    0b0000_0000_0000_0010: Alarm("Mgmt System 1 Certificate To Expire", 1121, "Warning"),
+    0b0000_0000_0000_0100: Alarm("Mgmt System 1 Certificate Expired", 1122, "Major"),
+    0b0000_0000_0000_1000: Alarm("Smart PCS Cables Not Connected", 1134, "Major"),
+}
+
+SMARTLOGGER_ALARM_CODES_5 = {
+    0b0000_0000_0000_0001: Alarm("Array Black Start Failed - Command Timing", 1140, "Minor"),
+    0b0000_0000_0000_0010: Alarm("Array Black Start Failed - Condition Not Met", 1140, "Minor"),
+    0b0000_0000_0000_0100: Alarm("Array Black Start Failed - No ESS", 1140, "Minor"),
+    0b0000_0000_0000_1000: Alarm("Array Black Start Failed - ESS No Support", 1140, "Minor"),
+    0b0000_0000_0001_0000: Alarm("Array Black Start Failed - PCS No Support", 1140, "Minor"),
+    0b0000_0000_0010_0000: Alarm("Array Black Start Failed - ESS Failed", 1140, "Minor"),
+    0b0000_0000_0100_0000: Alarm("Array Black Start Failed - No PCS", 1140, "Minor"),
+    0b0000_0000_1000_0000: Alarm("Array Black Start Failed - PCS Failed", 1140, "Minor"),
+    0b0000_0001_0000_0000: Alarm("ESS Shutdown upon STS Switch-off", 1141, "Major"),
+    0b0010_0000_0000_0000: Alarm("ESS Shutdown - Battery EPO", 1141, "Minor"),
+    0b0100_0000_0000_0000: Alarm("ESS Shutdown - Logger Disconnected from BMS", 1141, "Major"),
+}
+
+SMARTLOGGER_ALARM_CODES_6 = {
+    0b0000_0000_0000_0001: Alarm("PV Array Topology Abnormal - Cable Check", 1163, "Minor"),
+    0b0000_0000_0000_0010: Alarm("PV Array Topology Abnormal - DC Bus PCS Mismatch", 1163, "Major"),
+    0b0000_0000_0000_0100: Alarm("ESS Control Abnormal", 1164, "Minor"),
+    0b0000_0000_0000_1000: Alarm("Inconsistent PCS Parameters - VSG", 1165, "Major"),
+    0b0000_0000_0001_0000: Alarm("Inconsistent PCS Parameters - GFM", 1165, "Major"),
+}
+
+SMARTLOGGER_ALARM_CODES_7 = {
+    0b0000_0000_0000_0001: Alarm("PV Array Topology Abnormal - Cable Check", 1163, "Minor"),
+    0b0000_0000_0000_0010: Alarm("PV Array Topology Abnormal - DC Bus PCS Mismatch", 1163, "Major"),
+    0b0000_0000_0000_0100: Alarm("ESS Control Abnormal", 1164, "Minor"),
+    0b0000_0000_0000_1000: Alarm("Inconsistent PCS Parameters - VSG", 1165, "Major"),
+    0b0000_0000_0001_0000: Alarm("Inconsistent PCS Parameters - GFM", 1165, "Major"),
+}
+
+
+class SmartLoggerReactivePowerControl(IntEnum):
+    """Reactive Power Control Mode."""
+
+    NO_OUTPUT = 0
+    REACTIVE_POWER_SCHEDULING_VIA_DI_PORT = 1
+    REACTIVE_POWER_IN_ABSOLUTE_VALUE = 2
+    POWER_FACTOR_FIXED_VALUE = 3
+    Q_U_CHARACTERISTIC_CURVE = 4
+    COS_PHI_CHARACTERISTICS_CURVE = 5
+    Q_U_HYSTERESIS_CURVE = 6
+    REMOTE_COMMUNICATION_SCHEDULING = 7
+    POWER_FACTOR_CLOSED_LOOP_CONTROL_OLD = 9
+    POWER_FACTOR_CLOSED_LOOP_CONTROL = 10
+    PF_U_CHARACTERISTIC_CURVE = 12
+    Q_P_CHARACTERISTIC_CURVE = 14
+    SLAVE_SMARTLOGGER = 65533
+    NO_SCHEDULING = 65534
+
+
+class SmartLoggerWorkingMode(IntEnum):
+    """Working Mode."""
+
+    NO_CONTROL = 0
+    RESERVED_1 = 1
+    MAXIMUM_SELF_CONSUMPTION = 2
+    RESERVED_3 = 3
+    FULLY_FED_TO_GRID = 4
+    TIME_OF_USE = 5
+    CHARGE_DISCHARGE = 6
+    TIME_OF_USE_FIXED_POWER = 7
+
+
+class SmartLoggerShutDown(IntEnum):
+    """Shutdown flags."""
+
+    INVALID = 0
+    SHUT_DOWN = 1
+
+
+class SmartLoggerInOperation(IntEnum):
+    """In operation flags."""
+
+    INVALID = 0
+    IN_OPERATION = 1

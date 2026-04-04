@@ -321,9 +321,12 @@ def _preview_directory_refresh(
                     ): node
                     for node in root_owner_to_addrs
                 }
+                _root_progress.register_futures(root_futures)
                 for root_future in as_completed(root_futures):
                     all_root_watermarks.update(root_future.result())
-                    _root_progress.advance()
+                    node = root_futures[root_future]
+                    for _ in root_owner_to_addrs[node]:
+                        _root_progress.advance()
 
     # Phase 2b: probe each managed asset exactly once via its owner script (parallel)
     # Root watermarks are pre-injected so each root is only queried once across all scripts.
@@ -345,6 +348,7 @@ def _preview_directory_refresh(
                 ): node
                 for node in ordered_nodes
             }
+            _progress.register_futures(futures)
             for future in as_completed(futures):
                 owner_node, plan = future.result()
                 plans_by_node.append((owner_node, plan))

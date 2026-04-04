@@ -1002,6 +1002,11 @@ class Threads(Authenticated):
                 thread_id=thread_id, metadata=metadata, if_exists=if_exists
             ),
         )
+        # Re-fetch in case an auth handler replaced the thread object in the store
+        # (e.g. via a loopback patch call, which deep-copies and replaces the element).
+        existing_thread = next(
+            (t for t in conn.store["threads"] if t["thread_id"] == thread_id), None
+        )
 
         if existing_thread:
             if filters and not _check_filter_match(
@@ -1050,6 +1055,7 @@ class Threads(Authenticated):
         metadata: MetadataValue,
         ttl: ThreadTTLConfig | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
+        read_mask_paths: list[str] | None = None,
     ) -> AsyncIterator[Thread]:
         """Update a thread."""
         thread_list = conn.store["threads"]
@@ -2414,6 +2420,12 @@ class Runs(Authenticated):
             "create_run",
             create_run_value,
         )
+        # Re-fetch in case an auth handler replaced the thread object in the store
+        # (e.g. via a loopback patch call, which deep-copies and replaces the element).
+        if thread_id is not None:
+            existing_thread = next(
+                (t for t in conn.store["threads"] if t["thread_id"] == thread_id), None
+            )
         # Automatically enforce assistant ownership for non-system assistants
         # by calling the user's assistant search auth handler.
         if assistant.get("metadata", {}).get("created_by") != "system":

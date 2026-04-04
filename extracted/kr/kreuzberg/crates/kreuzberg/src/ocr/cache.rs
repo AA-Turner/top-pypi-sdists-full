@@ -169,6 +169,7 @@ mod tests {
             metadata: HashMap::new(),
             tables: Vec::new(),
             ocr_elements: None,
+            internal_document: None,
         };
 
         cache.set_cached_result("abc123", "tesseract", "eng", &result).unwrap();
@@ -200,6 +201,7 @@ mod tests {
             metadata: HashMap::new(),
             tables: Vec::new(),
             ocr_elements: None,
+            internal_document: None,
         };
 
         cache.set_cached_result("test", "tesseract", "eng", &result).unwrap();
@@ -224,6 +226,7 @@ mod tests {
             metadata: HashMap::new(),
             tables: Vec::new(),
             ocr_elements: None,
+            internal_document: None,
         };
 
         cache.set_cached_result("test", "tesseract", "eng", &result).unwrap();
@@ -271,6 +274,7 @@ mod tests {
             metadata: HashMap::new(),
             tables: Vec::new(),
             ocr_elements: None,
+            internal_document: None,
         };
 
         let result2 = OcrExtractionResult {
@@ -279,6 +283,7 @@ mod tests {
             metadata: HashMap::new(),
             tables: Vec::new(),
             ocr_elements: None,
+            internal_document: None,
         };
 
         cache.set_cached_result("hash1", "tesseract", "eng", &result1).unwrap();
@@ -305,6 +310,7 @@ mod tests {
             metadata: HashMap::new(),
             tables: Vec::new(),
             ocr_elements: None,
+            internal_document: None,
         };
 
         let result2 = OcrExtractionResult {
@@ -313,6 +319,7 @@ mod tests {
             metadata: HashMap::new(),
             tables: Vec::new(),
             ocr_elements: None,
+            internal_document: None,
         };
 
         cache.set_cached_result("test", "tesseract", "eng", &result1).unwrap();
@@ -345,6 +352,7 @@ mod tests {
             metadata: HashMap::new(),
             tables: vec![table],
             ocr_elements: None,
+            internal_document: None,
         };
 
         cache.set_cached_result("test", "tesseract", "eng", &result).unwrap();
@@ -369,6 +377,7 @@ mod tests {
             metadata,
             tables: Vec::new(),
             ocr_elements: None,
+            internal_document: None,
         };
 
         cache.set_cached_result("test", "tesseract", "eng", &result).unwrap();
@@ -395,6 +404,7 @@ mod tests {
             metadata: HashMap::new(),
             tables: Vec::new(),
             ocr_elements: None,
+            internal_document: None,
         };
 
         cache.set_cached_result("test1", "tesseract", "eng", &result).unwrap();
@@ -459,6 +469,7 @@ mod tests {
             metadata: HashMap::new(),
             tables: Vec::new(),
             ocr_elements: None,
+            internal_document: None,
         };
 
         cache.set_cached_result("empty", "tesseract", "eng", &result).unwrap();
@@ -480,6 +491,7 @@ mod tests {
             metadata: HashMap::new(),
             tables: Vec::new(),
             ocr_elements: None,
+            internal_document: None,
         };
 
         cache.set_cached_result("large", "tesseract", "eng", &result).unwrap();

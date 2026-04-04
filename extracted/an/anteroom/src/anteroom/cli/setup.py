@@ -312,7 +312,7 @@ def bootstrap_team_config(
     # Trust the team config
     from ..services.trust import compute_content_hash, save_trust_decision
 
-    team_content = team_path.read_text(encoding="utf-8")
+    team_content = team_path.read_text(encoding="utf-8-sig")
     team_hash = compute_content_hash(team_content)
     data_dir = config_path.parent
     save_trust_decision(str(team_path), team_hash, recursive=False, data_dir=data_dir)
@@ -345,7 +345,7 @@ def _load_team_ai_settings(team_config_path: str | None) -> dict[str, Any]:
     if not team_path.exists():
         return {}
     try:
-        team_raw = yaml.safe_load(team_path.read_text(encoding="utf-8"))
+        team_raw = yaml.safe_load(team_path.read_text(encoding="utf-8-sig"))
         if isinstance(team_raw, dict):
             ai = team_raw.get("ai")
             if isinstance(ai, dict):
@@ -636,7 +636,7 @@ def run_config_editor() -> bool:
         console.print(f"[{SLATE}]No config found. Starting setup wizard...[/]\n")
         return run_init_wizard()
 
-    with open(config_path) as f:
+    with open(config_path, encoding="utf-8-sig") as f:
         raw: dict[str, Any] = yaml.safe_load(f) or {}
 
     original_raw = yaml.dump(raw, default_flow_style=False, sort_keys=False)

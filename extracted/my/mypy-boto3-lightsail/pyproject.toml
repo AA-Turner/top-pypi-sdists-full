@@ -4,10 +4,10 @@
 
 [project]
 name = "mypy-boto3-lightsail"
-version = "1.42.74"
+version = "1.42.83"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 Lightsail 1.42.74 service generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 Lightsail 1.42.83 service generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",

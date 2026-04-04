@@ -1,6 +1,7 @@
 import os
 import socket
 import subprocess
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,6 +29,7 @@ class AgentError(Exception):
 PROCESS_SHUTDOWN_TIMEOUT_SECONDS = float(
     os.getenv("ISOLATE_SHUTDOWN_GRACE_PERIOD", "60")
 )
+AGENT_READY_POLL_INTERVAL_SECONDS = 0.1
 
 
 @dataclass
@@ -40,6 +42,9 @@ class GRPCExecutionBase(EnvironmentConnection):
         raise NotImplementedError
 
     def abort_agent(self) -> None:
+        raise NotImplementedError
+
+    def is_alive(self) -> bool:
         raise NotImplementedError
 
     @contextmanager
@@ -55,13 +60,26 @@ class GRPCExecutionBase(EnvironmentConnection):
                 options=get_default_options(),
             ) as channel:
                 channel_status = grpc.channel_ready_future(channel)
-                try:
-                    channel_status.result(timeout=max_wait_timeout)
-                except grpc.FutureTimeoutError:
-                    raise AgentError(
-                        "Couldn't connect to the gRPC server in the agent "
-                        f"(listening at {address}) in time."
-                    )
+
+                start_time = time.monotonic()
+                while True:
+                    try:
+                        channel_status.result(timeout=AGENT_READY_POLL_INTERVAL_SECONDS)
+                        break
+                    except grpc.FutureTimeoutError:
+                        pass
+
+                    if time.monotonic() - start_time >= max_wait_timeout:
+                        raise AgentError(
+                            "Couldn't connect to the gRPC server in the agent "
+                            f"(listening at {address}) in time."
+                        )
+
+                    if not self.is_alive():
+                        raise AgentError(
+                            "The process crashed before the gRPC server was ready."
+                        )
+
                 stub = definitions.AgentStub(channel)
                 stub._channel = channel  # type: ignore
                 yield stub

@@ -120,6 +120,11 @@ mod tests {
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         processor.process(&mut result, &config).await.unwrap();
@@ -154,6 +159,11 @@ mod tests {
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         processor.process(&mut result, &config).await.unwrap();
@@ -199,6 +209,11 @@ mod tests {
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         let config_with_lang = ExtractionConfig {
@@ -238,6 +253,11 @@ mod tests {
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         let long_result = ExtractionResult {
@@ -259,6 +279,11 @@ mod tests {
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         let short_duration = processor.estimated_duration_ms(&short_result);

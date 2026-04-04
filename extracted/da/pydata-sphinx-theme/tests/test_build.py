@@ -52,8 +52,8 @@ def test_toc_visibility(sphinx_build_factory) -> None:
     index_html = sphinx_build.html_tree("index.html")
 
     # The 3rd level headers should be visible, but not the fourth-level
-    assert "visible" in index_html.select(".toc-h2 ul")[0].attrs["class"]
-    assert "visible" not in index_html.select(".toc-h3 ul")[0].attrs["class"]
+    assert "pst-show_toc_level" in index_html.select(".toc-h2 ul")[0].attrs["class"]
+    assert "pst-show_toc_level" not in index_html.select(".toc-h3 ul")[0].attrs["class"]
 
 
 def test_icon_links(sphinx_build_factory, file_regression) -> None:
@@ -703,9 +703,9 @@ def test_edit_page_url(sphinx_build_factory, html_context, edit_text_and_url) ->
     assert edit_link, "no edit link found"
     assert edit_link[0].attrs["href"] == edit_url, f"edit link didn't match {edit_link}"
     # First child is the icon
-    assert (
-        list(edit_link[0].strings)[1].strip() == edit_text
-    ), f"edit text didn't match {edit_text}"
+    assert list(edit_link[0].strings)[1].strip() == edit_text, (
+        f"edit text didn't match {edit_text}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -740,6 +740,13 @@ def test_analytics(sphinx_build_factory, provider, tags) -> None:
     tags_found = False
     for script in index_html.select("script"):
         if script.string and tags[0] in script.string and tags[1] in script.string:
+            # If the tag is found, make sure the consent mode is also there
+            if tags[0] == "gtag":
+                assert "gtag('consent', 'default', {" in script.string
+                assert "'ad_storage': 'denied'," in script.string
+                assert "'ad_user_data': 'denied'," in script.string
+                assert "'ad_personalization': 'denied'," in script.string
+                assert "'analytics_storage': 'denied'" in script.string
             tags_found = True
     assert tags_found is True
 
@@ -844,13 +851,34 @@ def test_theme_switcher(sphinx_build_factory, file_regression) -> None:
 
 def test_shorten_link(sphinx_build_factory, file_regression) -> None:
     """Regression test for "edit on <provider>" link shortening."""
-    sphinx_build = sphinx_build_factory("base").build()
+    confoverrides = {
+        "html_theme_options": {"shorten_urls": True},
+    }
+    sphinx_build = sphinx_build_factory("base", confoverrides=confoverrides).build()
 
     github = sphinx_build.html_tree("page1.html").select(".github-container")[0]
     file_regression.check(github.prettify(), basename="github_links", extension=".html")
 
     gitlab = sphinx_build.html_tree("page1.html").select(".gitlab-container")[0]
     file_regression.check(gitlab.prettify(), basename="gitlab_links", extension=".html")
+
+
+def test_dont_shorten_link(sphinx_build_factory, file_regression) -> None:
+    """Regression test for setting shorten_urls to false ."""
+    confoverrides = {
+        "html_theme_options": {"shorten_urls": False},
+    }
+    sphinx_build = sphinx_build_factory("base", confoverrides=confoverrides).build()
+
+    github = sphinx_build.html_tree("page1.html").select(".github-container")[0]
+    file_regression.check(
+        github.prettify(), basename="github_links_not_shortened", extension=".html"
+    )
+
+    gitlab = sphinx_build.html_tree("page1.html").select(".gitlab-container")[0]
+    file_regression.check(
+        gitlab.prettify(), basename="gitlab_links_not_shortened", extension=".html"
+    )
 
 
 def test_math_header_item(sphinx_build_factory, file_regression) -> None:
@@ -891,8 +919,8 @@ def test_pygments_fallbacks(sphinx_build_factory, style_names, keyword_colors) -
     # see if our warnings worked
     if style_names[0].startswith("fake"):
         assert len(warnings) == 2
-        re.match(r"Color theme fake_foo.*tango", warnings[0])
-        re.match(r"Color theme fake_bar.*monokai", warnings[1])
+        assert re.search(r"Highlighting style fake_foo.*tango", warnings[0])
+        assert re.search(r"Highlighting style fake_bar.*monokai", warnings[1])
     else:
         assert warnings == [""]
     # test that the rendered HTML has highlighting spans
@@ -908,10 +936,11 @@ def test_pygments_fallbacks(sphinx_build_factory, style_names, keyword_colors) -
     assert lines[0].startswith('html[data-theme="light"]')
     for mode, color in dict(zip(["light", "dark"], keyword_colors)).items():
         regexp = re.compile(
-            r'html\[data-theme="' + mode + r'"\].*\.k .*color: ' + color
+            r'html\[data-theme="' + mode + r'"\].*\.k .*color:\s?' + color,
+            re.IGNORECASE,
         )
-        matches = [regexp.match(line) is not None for line in lines]
-        assert sum(matches) == 1
+        matches = [regexp.search(line) is not None for line in lines]
+        assert sum(matches) == 1, f"expected {mode}: {color}\n" + "\n".join(lines)
 
 
 def test_deprecated_build_html(sphinx_build_factory, file_regression) -> None:

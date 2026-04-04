@@ -24,6 +24,27 @@ pub(super) fn format_extraction_result(result: &KreuzbergResult) -> String {
     serde_json::to_string_pretty(result).unwrap_or_default()
 }
 
+/// Format extraction result as TOON string.
+///
+/// Serializes the full `ExtractionResult` to TOON wire format.
+pub(super) fn format_extraction_result_toon(result: &KreuzbergResult) -> String {
+    serde_toon::to_string(result).unwrap_or_else(|e| {
+        tracing::error!(error = %e, "Failed to serialize extraction result to TOON, falling back to JSON");
+        format_extraction_result(result)
+    })
+}
+
+/// Format extraction result using the specified wire format.
+///
+/// When `use_toon` is true, serializes to TOON format; otherwise serializes to JSON.
+pub(super) fn format_extraction_result_for_wire(result: &KreuzbergResult, use_toon: bool) -> String {
+    if use_toon {
+        format_extraction_result_toon(result)
+    } else {
+        format_extraction_result(result)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -252,6 +273,11 @@ mod tests {
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         let formatted = format_extraction_result(&result);
@@ -291,6 +317,11 @@ mod tests {
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         let formatted = format_extraction_result(&result);
@@ -310,6 +341,7 @@ mod tests {
             detected_languages: None,
             chunks: Some(vec![crate::Chunk {
                 content: "Chunk 1".to_string(),
+                chunk_type: Default::default(),
                 embedding: None,
                 metadata: crate::ChunkMetadata {
                     byte_start: 0,
@@ -334,6 +366,11 @@ mod tests {
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         let formatted = format_extraction_result(&result);
@@ -364,6 +401,11 @@ mod tests {
             processing_warnings: Vec::new(),
             annotations: None,
             children: None,
+            uris: None,
+            #[cfg(feature = "tree-sitter")]
+            code_intelligence: None,
+            formatted_content: None,
+            ocr_internal_document: None,
         };
 
         let formatted = format_extraction_result(&result);
