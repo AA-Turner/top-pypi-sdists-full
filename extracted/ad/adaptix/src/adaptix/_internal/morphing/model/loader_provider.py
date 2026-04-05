@@ -1,5 +1,5 @@
 from collections.abc import Mapping, Set
-from functools import partial
+from typing import Any
 
 from ...code_tools.compiler import BasicClosureCompiler, ClosureCompiler
 from ...code_tools.name_sanitizer import BuiltinNameSanitizer, NameSanitizer
@@ -92,7 +92,7 @@ class ModelLoaderProvider(LoaderProvider, JSONSchemaProvider):
             file_name=file_name,
         )
 
-    def _generate_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
         if request.ctx.direction != Direction.INPUT:
             raise CannotProvide
 
@@ -100,19 +100,27 @@ class ModelLoaderProvider(LoaderProvider, JSONSchemaProvider):
         name_layout = self._fetch_name_layout(mediator, request, shape)
         skipped_fields = get_skipped_fields(shape, name_layout)
         self._validate_params(shape, name_layout, skipped_fields)
-        schema_gen = self._get_schema_gen(mediator, request, shape)
+
+        schema_gen = self._get_schema_gen(
+            shape=shape,
+            request=request,
+            field_name_to_json_schema=self._fetch_field_json_schemas(mediator, request, shape),
+            field_name_to_json_schema_of_default=self._fetch_field_json_schemas_of_default(mediator, request, shape),
+        )
         return schema_gen.convert_crown(name_layout.crown)
 
     def _get_schema_gen(
         self,
-        mediator: Mediator,
-        request: JSONSchemaRequest,
         shape: InputShape,
+        request: JSONSchemaRequest,
+        field_name_to_json_schema: Mapping[str, JSONSchema],
+        field_name_to_json_schema_of_default: Mapping[str, JSONValue],
     ) -> ModelInputJSONSchemaGen:
         return ModelInputJSONSchemaGen(
+            loc_stack=request.loc_stack,
             shape=shape,
-            field_default_dumper=partial(self._dump_field_default, mediator, request),
-            field_json_schema_getter=partial(self._get_field_json_schema, mediator, request),
+            field_name_to_json_schema=field_name_to_json_schema,
+            field_name_to_json_schema_of_default=field_name_to_json_schema_of_default,
         )
 
     def _dump_field_default(
@@ -133,13 +141,49 @@ class ModelLoaderProvider(LoaderProvider, JSONSchemaProvider):
         )
         return dumper(default_value)
 
-    def _get_field_json_schema(
+    def _fetch_field_json_schemas(
         self,
         mediator: Mediator,
         request: JSONSchemaRequest,
-        field: InputField,
-    ) -> JSONSchema:
-        return mediator.mandatory_provide(request.append_loc(input_field_to_loc(field)))
+        shape: InputShape,
+    ) -> Mapping[str, JSONSchema]:
+        json_schemas = mediator.mandatory_provide_by_iterable(
+            [
+                request.append_loc(input_field_to_loc(field))
+                for field in shape.fields
+            ],
+            lambda: "Cannot create JSON Schema for model. JSON Schemas for some fields cannot be created",
+        )
+        return {field.id: json_schema for field, json_schema in zip(shape.fields, json_schemas, strict=True)}
+
+    def _fetch_field_json_schemas_of_default(
+        self,
+        mediator: Mediator,
+        request: JSONSchemaRequest,
+        shape: InputShape,
+    ) -> Mapping[str, JSONValue]:
+        fields_and_defaults: list[tuple[InputField, Any]] = []
+        for field in shape.fields:
+            if isinstance(field.default, DefaultValue):
+                fields_and_defaults.append(
+                    (field, field.default.value),
+                )
+            if isinstance(field.default, DefaultFactory):
+                fields_and_defaults.append(
+                    (field, field.default.factory()),
+                )
+
+        dumpers = mediator.mandatory_provide_by_iterable(
+            [
+                DumperRequest(loc_stack=request.loc_stack.append_with(input_field_to_loc(field)))
+                for field, _default in fields_and_defaults
+            ],
+            lambda: "Cannot create JSON Schema for model. Dumpers for some field defaults cannot be created",
+        )
+        return {
+            field.id: dumper(default)
+            for (field, default), dumper in zip(fields_and_defaults, dumpers, strict=True)
+        }
 
     def _fetch_model_identity(
         self,
@@ -219,7 +263,7 @@ class ModelLoaderProvider(LoaderProvider, JSONSchemaProvider):
             ],
             lambda: "Cannot create loader for model. Loaders for some fields cannot be created",
         )
-        return {field.id: loader for field, loader in zip(shape.fields, loaders)}
+        return {field.id: loader for field, loader in zip(shape.fields, loaders, strict=True)}
 
     def _validate_params(
         self,

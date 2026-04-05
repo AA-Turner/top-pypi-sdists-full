@@ -3215,10 +3215,23 @@ def main(argv: Optional[list[str]] = None):
         help="Index the current working directory after setup",
     )
     init_parser.add_argument(
+        "--audit",
+        action="store_true",
+        help="Audit agent config files for token waste, stale references, and bloat",
+    )
+    init_parser.add_argument(
         "--dry-run",
         action="store_true",
         dest="dry_run",
         help="Show what would be done without making changes",
+    )
+    init_parser.add_argument(
+        "--demo",
+        action="store_true",
+        help=(
+            "Walk through the full init process without making any changes, "
+            "then summarise what would have been done and the benefit of each action"
+        ),
     )
     init_parser.add_argument(
         "--yes", "-y",
@@ -3243,6 +3256,18 @@ def main(argv: Optional[list[str]] = None):
         help="Event type: 'create' when a worktree is created, 'remove' when deleted",
     )
     _add_common_args(hook_parser)
+
+    # --- hook-pretooluse ---
+    subparsers.add_parser(
+        "hook-pretooluse",
+        help="PreToolUse hook: intercept Read on large code files, suggest jCodemunch (reads stdin)",
+    )
+
+    # --- hook-posttooluse ---
+    subparsers.add_parser(
+        "hook-posttooluse",
+        help="PostToolUse hook: auto-reindex files after Edit/Write (reads stdin)",
+    )
 
     # --- watch-claude ---
     wc_parser = subparsers.add_parser(
@@ -3293,7 +3318,7 @@ def main(argv: Optional[list[str]] = None):
     if any(arg in top_level_flags for arg in raw_argv):
         args = parser.parse_args(raw_argv)
     else:
-        known_commands = {"serve", "watch", "hook-event", "watch-claude", "config", "index-file", "claude-md", "init"}
+        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "watch-claude", "config", "index-file", "claude-md", "init"}
         has_subcommand = any(arg in known_commands for arg in raw_argv if not arg.startswith("-"))
         if not has_subcommand:
             raw_argv = ["serve"] + list(raw_argv)
@@ -3321,10 +3346,20 @@ def main(argv: Optional[list[str]] = None):
             claude_md=args.claude_md,
             hooks=args.hooks,
             index=args.index,
+            audit=args.audit,
             dry_run=args.dry_run,
+            demo=args.demo,
             yes=args.yes,
             no_backup=args.no_backup,
         ))
+
+    if args.command == "hook-pretooluse":
+        from .cli.hooks import run_pretooluse
+        sys.exit(run_pretooluse())
+
+    if args.command == "hook-posttooluse":
+        from .cli.hooks import run_posttooluse
+        sys.exit(run_posttooluse())
 
     # Apply config defaults for watcher keys: CLI args > config > env vars.
     # config.load_config() is called inside each subcommand handler, but we need

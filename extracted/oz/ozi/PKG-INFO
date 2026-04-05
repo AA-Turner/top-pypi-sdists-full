@@ -1,7 +1,7 @@
 Metadata-Version: 2.3
-Requires-Python: >=3.9, <3.14
+Requires-Python: >=3.10, <3.14
 Name: OZI
-Version: 2.1.29
+Version: 2.1.30
 Author: Eden Ross Duff MSc
 Author-email: help@oziproject.dev
 Classifier: Development Status :: 4 - Beta
@@ -67,7 +67,7 @@ Requires-Dist: mypy; extra=="lint"
 Requires-Dist: pyright; extra=="lint"
 Provides-Extra: test
 Requires-Dist: coverage[toml]; extra=="test"
-Requires-Dist: hypothesis[all]; extra=="test"
+Requires-Dist: hypothesis; extra=="test"
 Requires-Dist: pytest; extra=="test"
 Requires-Dist: pytest-asyncio; extra=="test"
 Requires-Dist: pytest-cov; extra=="test"

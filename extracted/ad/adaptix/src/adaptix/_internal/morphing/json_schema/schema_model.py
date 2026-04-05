@@ -1,24 +1,17 @@
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Generic, TypeVar, Union
+from typing import Any, Generic, TypeVar
 
 from ...utils import Omittable, Omitted
 
 T = TypeVar("T")
 
-JSONNumeric = Union[int, float]
+JSONNumeric = int | float
 JSONObject = Mapping[str, T]
 
 # Recursive normalized types are not supported now.
-JSONValue = Union[
-    JSONNumeric,
-    str,
-    bool,
-    None,
-    Sequence[Any],
-    JSONObject[Any],
-]
+JSONValue = Any
 
 
 class JSONSchemaType(Enum):
@@ -109,11 +102,11 @@ class _JSONSchemaSubschemas(Generic[JSONSchemaT]):
 @dataclass
 class _JSONSchemaValidation(Generic[JSONSchemaT]):
     # common
-    type: Omittable[Union[JSONSchemaType, Sequence[JSONSchemaType]]] = Omitted()
+    type: Omittable[JSONSchemaType | Sequence[JSONSchemaType]] = Omitted()
     enum: Omittable[Sequence[JSONValue]] = Omitted()
     const: Omittable[JSONValue] = Omitted()
 
-    format: Omittable[Union[JSONSchemaBuiltinFormat, str]] = Omitted()
+    format: Omittable[JSONSchemaBuiltinFormat | str] = Omitted()
 
     # numeric
     multiple_of: Omittable[JSONNumeric] = Omitted()
@@ -173,7 +166,3 @@ class BaseJSONSchema(
             if value != ({} if key == "extra_keywords" else Omitted())
         )
         return f"{type(self).__name__}({body})"
-
-
-class JSONSchemaDialect(str, Enum):
-    DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema"

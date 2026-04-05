@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Generic, TypeVar, Union
+from typing import Any, Generic, TypeVar
 
 from adaptix._internal.common import VarTuple
 from adaptix._internal.model_tools.definitions import Accessor
@@ -43,12 +44,12 @@ class UnpackMapping(Generic[PlanT]):
     element: PlanT
 
 
-FuncCallArg = Union[
-    PositionalArg[PlanT],
-    KeywordArg[PlanT],
-    UnpackIterable[PlanT],
-    UnpackMapping[PlanT],
-]
+FuncCallArg = (
+    PositionalArg[PlanT]
+    | KeywordArg[PlanT]
+    | UnpackIterable[PlanT]
+    | UnpackMapping[PlanT]
+)
 
 
 @dataclass(frozen=True)

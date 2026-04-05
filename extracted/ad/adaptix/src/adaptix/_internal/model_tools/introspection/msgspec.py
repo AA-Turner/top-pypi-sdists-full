@@ -94,7 +94,7 @@ def get_msgspec_shape(tp) -> FullShape:
                 if field_id in init_fields
             ),
             kwargs=None,
-            overriden_types=frozenset(
+            overridden_types=frozenset(
                 annotation
                 for annotation in annotations
                 if annotation in init_fields
@@ -110,7 +110,7 @@ def get_msgspec_shape(tp) -> FullShape:
                     default=_get_default_from_field_info(fi),
                     accessor=create_attr_accessor(attr_name=fi.name, is_required=True),
                 ) for fi in fields_info),
-            overriden_types=frozenset(
+            overridden_types=frozenset(
                 annotation
                 for annotation in annotations
                 if annotation in init_fields

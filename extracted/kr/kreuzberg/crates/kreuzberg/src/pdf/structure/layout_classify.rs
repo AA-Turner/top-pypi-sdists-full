@@ -39,6 +39,16 @@ pub(crate) fn apply_layout_overrides(
         // Proportional matching for structure tree pages (no positional data)
         apply_proportional_overrides(paragraphs, hints, min_confidence);
     }
+
+    tracing::debug!(
+        total = paragraphs.len(),
+        headings = paragraphs.iter().filter(|p| p.heading_level.is_some()).count(),
+        list_items = paragraphs.iter().filter(|p| p.is_list_item).count(),
+        code_blocks = paragraphs.iter().filter(|p| p.is_code_block).count(),
+        formulas = paragraphs.iter().filter(|p| p.is_formula).count(),
+        furniture = paragraphs.iter().filter(|p| p.is_page_furniture).count(),
+        "layout overrides applied"
+    );
 }
 
 /// Spatial matching: match paragraphs to hints by bounding box overlap.
@@ -347,8 +357,18 @@ pub(super) fn apply_hint_to_paragraph(para: &mut PdfParagraph, hint: &LayoutHint
                     }
                 }
         LayoutHintClass::Code => {
-            para.is_code_block = true;
-            para.heading_level = None;
+            // Guard: reject Code classification for text that is clearly prose.
+            // The layout model sometimes misclassifies body text as code.
+            let is_prose = {
+                let sentence_endings = para_text.chars().filter(|&c| c == '.' || c == '!' || c == '?' || c == ',').count();
+                let syntax_chars = para_text.chars().filter(|c| matches!(c, '{' | '}' | '(' | ')' | '[' | ']' | ';' | '=' | '<' | '>' | '|' | '@' | '#' | '$')).count();
+                let syntax_ratio = if para_text.is_empty() { 0.0 } else { syntax_chars as f64 / para_text.len() as f64 };
+                sentence_endings >= 2 && syntax_ratio < 0.03 && word_count > 15
+            };
+            if !is_prose {
+                para.is_code_block = true;
+                para.heading_level = None;
+            }
         }
         LayoutHintClass::Formula => {
             para.is_formula = true;
@@ -760,6 +780,33 @@ mod tests {
         apply_layout_overrides(&mut paragraphs, &hints, 0.5, 0.5, None);
         assert!(paragraphs[0].is_code_block);
         assert_eq!(paragraphs[0].heading_level, None); // Heading cleared
+    }
+
+    #[test]
+    fn test_code_override_rejects_prose() {
+        let mut para = make_para(50.0, 600.0, 300.0, 16.0);
+        // Set text to regular prose with multiple sentences
+        para.text = "Duis autem vel eum iriure dolor in hendrerit in vulputate velit esse molestie consequat. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore.".to_string();
+        let mut paragraphs = vec![para];
+        let hints = vec![make_hint(LayoutHintClass::Code, 0.9, 40.0, 598.0, 400.0, 620.0)];
+        apply_layout_overrides(&mut paragraphs, &hints, 0.5, 0.5, None);
+        assert!(
+            !paragraphs[0].is_code_block,
+            "Prose text should not be classified as code"
+        );
+    }
+
+    #[test]
+    fn test_code_override_accepts_real_code() {
+        let mut para = make_para(50.0, 600.0, 300.0, 16.0);
+        para.text = "function add(a, b) { return a + b; }".to_string();
+        let mut paragraphs = vec![para];
+        let hints = vec![make_hint(LayoutHintClass::Code, 0.9, 40.0, 598.0, 400.0, 620.0)];
+        apply_layout_overrides(&mut paragraphs, &hints, 0.5, 0.5, None);
+        assert!(
+            paragraphs[0].is_code_block,
+            "Code-like text should be classified as code"
+        );
     }
 
     #[test]

@@ -1,6 +1,6 @@
 """Initialize the app"""
 
-__version__ = "2.0.3"
+__version__ = "2.0.4"
 __title__ = "Killstats"
 
 __package_name__ = "aa-killstats"

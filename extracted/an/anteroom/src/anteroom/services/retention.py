@@ -191,7 +191,15 @@ class RetentionWorker:
             if orphaned_sources:
                 logger.info("Retention: removed %d orphaned source dir(s)", orphaned_sources)
 
-        return count + orphaned + orphaned_sources
+        orphaned_tasks = 0
+        if self._purge_attachments:
+            from .task_output import purge_orphaned_task_output
+
+            orphaned_tasks = purge_orphaned_task_output(self._data_dir, self._db)
+            if orphaned_tasks:
+                logger.info("Retention: removed %d orphaned task output dir(s)", orphaned_tasks)
+
+        return count + orphaned + orphaned_sources + orphaned_tasks
 
     async def run_forever(self) -> None:
         """Poll at regular intervals, enforcing retention policy."""

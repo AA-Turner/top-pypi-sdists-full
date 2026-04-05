@@ -9,6 +9,8 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
@@ -16,17 +18,24 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class UserCodespacesCodespaceNamePublishPostBody(GitHubModel):
-    """UserCodespacesCodespaceNamePublishPostBody"""
+class ReposOwnerRepoPullsPullNumberMergePutBody(GitHubModel):
+    """ReposOwnerRepoPullsPullNumberMergePutBody"""
 
-    name: Missing[str] = Field(
-        default=UNSET, description="A name for the new repository."
+    commit_title: Missing[str] = Field(
+        default=UNSET, description="Title for the automatic commit message."
     )
-    private: Missing[bool] = Field(
-        default=UNSET, description="Whether the new repository should be private."
+    commit_message: Missing[str] = Field(
+        default=UNSET, description="Extra detail to append to automatic commit message."
+    )
+    sha: Missing[str] = Field(
+        default=UNSET,
+        description="SHA that pull request head must match to allow merge.",
+    )
+    merge_method: Missing[Literal["merge", "squash", "rebase"]] = Field(
+        default=UNSET, description="The merge method to use."
     )
 
 
-model_rebuild(UserCodespacesCodespaceNamePublishPostBody)
+model_rebuild(ReposOwnerRepoPullsPullNumberMergePutBody)
 
-__all__ = ("UserCodespacesCodespaceNamePublishPostBody",)
+__all__ = ("ReposOwnerRepoPullsPullNumberMergePutBody",)

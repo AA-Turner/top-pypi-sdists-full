@@ -1,8 +1,7 @@
-# ruff: noqa: E721
 import builtins
 import math
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 BUILTIN_TO_NAME = {
     (getattr(builtins, name), type(getattr(builtins, name))): name
@@ -16,7 +15,7 @@ class _CannotBeRenderedError(Exception):
     pass
 
 
-def get_literal_expr(obj: object) -> Optional[str]:
+def get_literal_expr(obj: object) -> str | None:
     if type(obj) in (int, str, bytes, bytearray):
         return repr(obj)
     if type(obj) is float:
@@ -53,7 +52,7 @@ def _try_sort(iterable):
         return iterable
 
 
-def _get_complex_literal_expr(obj: object) -> Optional[str]:  # noqa: PLR0911, C901
+def _get_complex_literal_expr(obj: object) -> str | None:  # noqa: PLR0911, C901
     if type(obj) is list:
         return _parenthesize("[]", obj)
 
@@ -100,7 +99,7 @@ _CLS_TO_FACTORY_LITERAL: dict[Any, str] = {
 }
 
 
-def get_literal_from_factory(obj: object) -> Optional[str]:
+def get_literal_from_factory(obj: object) -> str | None:
     try:
         return _CLS_TO_FACTORY_LITERAL.get(obj)
     except TypeError:

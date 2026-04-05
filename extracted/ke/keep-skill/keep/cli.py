@@ -247,7 +247,7 @@ def render_context(ctx: ItemContext, as_json: bool = False) -> str:
     """
     if as_json:
         return json.dumps(ctx.to_dict(), indent=2)
-    return _render_frontmatter(ctx)
+    return _render_item_context(ctx)
 
 
 def _dicts_to_items(raw: list, summary_limit: int = 200) -> "list[Item]":
@@ -296,6 +296,27 @@ def render_flow_response(
         header += f" via {' > '.join(result.history)}"
     lines.append(header)
     remaining -= _tok(header)
+
+    # Some state docs have an explicitly declared note-first render contract
+    # on the text surface. Prompt expansion still consumes bindings directly;
+    # this only affects rendered flow/tool output.
+    from .const import FLOW_NOTE_FIRST_RENDER_STATES
+    # Only match direct single-step flows; compound flows that transition
+    # through `get` use the generic renderer to avoid masking intermediate data.
+    state_name = result.history[-1] if len(result.history) == 1 else None
+    if state_name in FLOW_NOTE_FIRST_RENDER_STATES and result.bindings and remaining > 0:
+        binding_render = _render_context_from_flow_bindings(result.bindings, kp=keeper)
+        if binding_render:
+            section = f"\n{binding_render}"
+            lines.append(section)
+            remaining -= _tok(section)
+
+            if result.tried_queries and remaining > 0:
+                line = f"queries tried: {', '.join(repr(q) for q in result.tried_queries)}"
+                lines.append(line)
+            if result.cursor:
+                lines.append(f"\ncursor: {result.cursor}")
+            return "\n".join(lines)
 
     # Render data fields — auto-detect result lists, meta sections, scalars
     def _render_result_list(label: str, raw: list) -> None:
@@ -362,6 +383,33 @@ def render_flow_response(
                 lines.append(line)
                 remaining -= _tok(line)
 
+    # Some flows return their useful payload only in bindings, not data.
+    # If we only have the status header so far, render bindings directly.
+    if len(lines) == 1 and result.bindings and remaining > 0:
+        binding_render = _render_context_from_flow_bindings(result.bindings, kp=keeper)
+        if not binding_render:
+            binding_sections = []
+            for name, binding in result.bindings.items():
+                if remaining <= 0 or not isinstance(binding, dict):
+                    continue
+                rendered = _render_binding(
+                    name,
+                    binding,
+                    kp=keeper,
+                    token_budget=min(remaining, token_budget),
+                )
+                if not rendered:
+                    continue
+                section = f"\n{name}:\n{rendered}"
+                binding_sections.append(section)
+                remaining -= _tok(section)
+        else:
+            section = f"\n{binding_render}"
+            binding_sections = [section]
+            remaining -= _tok(section)
+
+        lines.extend(binding_sections)
+
     # Tried queries (for stopped flows)
     if result.tried_queries and remaining > 0:
         line = f"queries tried: {', '.join(repr(q) for q in result.tried_queries)}"
@@ -408,8 +456,8 @@ def render_find_context(
     return render_find_context_plan(plan)
 
 
-def _render_frontmatter(ctx: ItemContext) -> str:
-    """Render ItemContext as YAML frontmatter with summary."""
+def _render_item_context(ctx: ItemContext) -> str:
+    """Render a complete item: YAML-style metadata block, then body text."""
     cols = _output_width()
     item = ctx.item
 
@@ -663,7 +711,7 @@ def _format_items(items: list[Item], as_json: bool = False, keeper=None, show_ta
                 parts=[PartRef(part_num=p.part_num, summary=p.summary) for p in manifest] if manifest else [],
                 focus_part=focus_int,
             )
-            parts.append(_render_frontmatter(ctx))
+            parts.append(_render_item_context(ctx))
         return "\n\n".join(parts)
 
     # Compute ID column width for alignment (capped to avoid long URIs dominating)
@@ -911,11 +959,24 @@ def _render_context_from_flow_bindings(bindings: dict[str, dict], kp=None) -> st
     if "id" not in item_binding or "summary" not in item_binding:
         return ""
 
+    item_id = str(item_binding["id"])
+    if kp is not None:
+        try:
+            # `now` is a virtual/default note until first materialized. Ensure
+            # it exists before asking get_context() to assemble the full view.
+            if item_id == "now" and hasattr(kp, "get_now"):
+                kp.get_now()
+            ctx = kp.get_context(item_id)
+            if ctx is not None and getattr(ctx, "item", None) is not None:
+                return render_context(ctx)
+        except Exception:
+            pass
+
     from ._context_resolution import ItemContext
     from .types import Item
 
     item = Item(
-        id=str(item_binding["id"]),
+        id=item_id,
         summary=str(item_binding.get("summary", "")),
         tags=dict(item_binding.get("tags") or {}),
     )
@@ -1251,6 +1312,7 @@ def _format_config_with_defaults(cfg, store_path: Path) -> str:
         lines.append("#   VOYAGE_API_KEY     → embedding: voyage (Anthropic's partner)")
         lines.append("#   ANTHROPIC_API_KEY  → summarization: anthropic")
         lines.append("#   OPENAI_API_KEY     → embedding: openai, summarization: openai")
+        lines.append("#   OPENROUTER_API_KEY → embedding: openrouter, summarization: openrouter")
         lines.append("#   GEMINI_API_KEY     → embedding: gemini, summarization: gemini")
         lines.append("#   GOOGLE_CLOUD_PROJECT → Vertex AI (uses Workload Identity / ADC)")
         lines.append("#")
@@ -1259,6 +1321,8 @@ def _format_config_with_defaults(cfg, store_path: Path) -> str:
         lines.append("#   anthropic: claude-3-haiku-20240307 (default), claude-3-5-haiku-20241022")
         lines.append("#   openai embedding: text-embedding-3-small (default), text-embedding-3-large")
         lines.append("#   openai summarization: gpt-4o-mini (default)")
+        lines.append("#   openrouter embedding: openai/text-embedding-3-small (default)")
+        lines.append("#   openrouter summarization: openai/gpt-4o-mini (default)")
         lines.append("#   gemini embedding: text-embedding-004 (default)")
         lines.append("#   gemini summarization: gemini-2.5-flash (default)")
         lines.append("#")
@@ -2084,7 +2148,7 @@ def doctor(
             from .providers.base import get_registry
             registry = get_registry()
             provider = registry.create_media(cfg.media.name, cfg.media.params)
-            model = getattr(provider, "model", getattr(provider, "model_name", cfg.media.name))
+            model = getattr(provider, "model_name", cfg.media.name)
             ok(f"Media: {cfg.media.name} ({model})")
         except Exception as e:
             fail(f"Media: {e}")

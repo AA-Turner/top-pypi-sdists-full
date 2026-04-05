@@ -1815,6 +1815,32 @@ const Chat = (() => {
         }
     }
 
+    function renderTaskChip(taskId, command, status, exitCode) {
+        const chatMessages = document.getElementById('chat-messages');
+        if (!chatMessages) return;
+        const chipId = `bg-task-${taskId.slice(0, 8)}`;
+        let chip = document.getElementById(chipId);
+        if (!chip) {
+            chip = document.createElement('div');
+            chip.id = chipId;
+            chip.className = 'tool-call bg-task-chip';
+            const summary = document.createElement('div');
+            summary.className = 'tool-summary';
+            chip.appendChild(summary);
+            chatMessages.appendChild(chip);
+            _scrollToBottom();
+        }
+        const summary = chip.querySelector('.tool-summary');
+        if (status === 'running') {
+            summary.innerHTML = `<span class="tool-spinner"></span> Background: <code>${_escapeHtml(command || '')}</code>`;
+        } else {
+            const icon = (exitCode === 0) ? '\u2713' : '\u2717';
+            const cls = (exitCode === 0) ? 'tool-status-success' : 'tool-status-error';
+            chip.classList.add(cls);
+            summary.innerHTML = `<span>${icon}</span> Task ${taskId.slice(0, 8)}: exit ${exitCode ?? '?'} \u2014 <code>${_escapeHtml(command || '')}</code>`;
+        }
+    }
+
     function renderSubagentEvent(data) {
         if (!currentAssistantEl) return;
         const contentEl = currentAssistantEl.querySelector('.message-content');
@@ -1900,6 +1926,18 @@ const Chat = (() => {
         App.state.isStreaming = streaming;
         document.getElementById('btn-stop').style.display = streaming ? 'flex' : 'none';
         document.getElementById('btn-send').style.display = streaming ? 'inline-flex' : 'flex';
+    }
+
+    function updateBgIndicator(count) {
+        const el = document.getElementById('bg-indicator');
+        if (!el) return;
+        if (count > 0) {
+            el.textContent = `${count} task${count !== 1 ? 's' : ''} running`;
+            el.style.display = '';
+        } else {
+            el.textContent = '';
+            el.style.display = 'none';
+        }
     }
 
     async function stopGeneration() {
@@ -2392,11 +2430,55 @@ const Chat = (() => {
     // Thin wrapper — actual logic lives in prompt-cleanup.js (loaded via <script>)
     // so tests can import the same function without duplicating selectors (#864).
 
+    // -- Background task output chip (#1312) --
+    function renderTaskOutputChip(taskId, status) {
+        const chip = document.createElement('div');
+        chip.className = 'task-output-chip';
+        chip.dataset.taskId = taskId;
+
+        const label = document.createElement('span');
+        label.textContent = `Task ${taskId.slice(0, 8)} (${status || 'completed'})`;
+        chip.appendChild(label);
+
+        const btn = document.createElement('button');
+        btn.className = 'task-view-output-btn';
+        btn.textContent = 'View Output';
+        btn.addEventListener('click', async () => {
+            if (chip.querySelector('.task-output-content')) {
+                chip.querySelector('.task-output-content').remove();
+                btn.textContent = 'View Output';
+                return;
+            }
+            btn.textContent = 'Loading...';
+            btn.disabled = true;
+            try {
+                const resp = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/output?tail=100`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                const pre = document.createElement('pre');
+                pre.className = 'task-output-content';
+                pre.textContent = data.content || '(no output)';
+                chip.appendChild(pre);
+                btn.textContent = 'Hide Output';
+            } catch (err) {
+                showToast('Failed to load task output: ' + err.message);
+                btn.textContent = 'View Output';
+            } finally {
+                btn.disabled = false;
+            }
+        });
+        chip.appendChild(btn);
+        return chip;
+    }
+
     return {
         init, sendMessage, loadMessages, stopGeneration, abortStream, setStreaming, escapeHtml,
         streamChatResponse, isRawMode, setRawMode, setConversationType,
         appendRemoteMessage, startRemoteStream, handleRemoteToken, finalizeRemoteStream,
         showApprovalPrompt, resolveApprovalCard, showAskUserPrompt, resolveAskUserCard, showThinkingFromEvent: showThinking,
         renderMarkdown, highlightCode, showToast, sendPlanExecution, cleanupPendingPrompts,
+        renderTaskChip,
+        renderTaskOutputChip,
+        updateBgIndicator,
     };
 })();

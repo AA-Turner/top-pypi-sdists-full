@@ -54,7 +54,7 @@ def _make_requirement_determinant(required_fields: set):
 
 def get_typed_dict_shape(tp) -> FullShape:
     # __annotations__ of TypedDict contain also parents' type hints unlike any other classes,
-    # so overriden_types always is empty
+    # so overridden_types always is empty
     if not is_typed_dict_class(tp):
         raise IntrospectionError
 
@@ -64,7 +64,7 @@ def get_typed_dict_shape(tp) -> FullShape:
         norm_types = [normalize_type(tp) for _, tp in type_hints]
 
         required_keys = _fetch_required_keys(
-            [(field_name, field_tp) for (field_name, _), field_tp in zip(type_hints, norm_types)],
+            [(field_name, field_tp) for (field_name, _), field_tp in zip(type_hints, norm_types, strict=True)],
             tp.__required_keys__,
         )
         requirement_determinant = _make_requirement_determinant(required_keys)
@@ -94,7 +94,7 @@ def get_typed_dict_shape(tp) -> FullShape:
                 for name, tp in type_hints
             ),
             kwargs=None,
-            overriden_types=frozenset({}),
+            overridden_types=frozenset({}),
         ),
         output=OutputShape(
             fields=tuple(
@@ -111,6 +111,6 @@ def get_typed_dict_shape(tp) -> FullShape:
                 )
                 for name, tp in type_hints
             ),
-            overriden_types=frozenset({}),
+            overridden_types=frozenset({}),
         ),
     )

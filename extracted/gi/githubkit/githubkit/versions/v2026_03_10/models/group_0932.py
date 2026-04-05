@@ -12,16 +12,22 @@ from __future__ import annotations
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
+
+from .group_0933 import (
+    AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof1PropSessionsItems,
+)
 
 
-class EnterprisesEnterpriseTeamsEnterpriseTeamMembershipsAddPostBody(GitHubModel):
-    """EnterprisesEnterpriseTeamsEnterpriseTeamMembershipsAddPostBody"""
+class AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof1(GitHubModel):
+    """AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof1"""
 
-    usernames: list[str] = Field(
-        description="The GitHub user handles to add to the team."
-    )
+    sessions: Missing[
+        list[AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof1PropSessionsItems]
+    ] = Field(default=UNSET, description="Sessions associated with this task")
 
 
-model_rebuild(EnterprisesEnterpriseTeamsEnterpriseTeamMembershipsAddPostBody)
+model_rebuild(AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof1)
 
-__all__ = ("EnterprisesEnterpriseTeamsEnterpriseTeamMembershipsAddPostBody",)
+__all__ = ("AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof1",)

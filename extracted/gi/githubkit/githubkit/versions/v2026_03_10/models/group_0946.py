@@ -9,8 +9,6 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-import datetime as _dt
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
@@ -18,18 +16,45 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class NotificationsPutBody(GitHubModel):
-    """NotificationsPutBody"""
+class AgentsTasksTaskIdGetResponse200Allof0PropCreatorOneof0(GitHubModel):
+    """AgentsTasksTaskIdGetResponse200Allof0PropCreatorOneof0
 
-    last_read_at: Missing[_dt.datetime] = Field(
-        default=UNSET,
-        description="Describes the last point that notifications were checked. Anything updated since this time will not be marked as read. If you omit this parameter, all notifications are marked as read. This is a timestamp in [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format: `YYYY-MM-DDTHH:MM:SSZ`. Default: The current timestamp.",
+    A GitHub user
+    """
+
+    id: Missing[int] = Field(
+        default=UNSET, description="The unique identifier of the user"
     )
-    read: Missing[bool] = Field(
-        default=UNSET, description="Whether the notification has been read."
+
+
+class AgentsTasksTaskIdGetResponse200Allof0PropUserCollaboratorsItems(GitHubModel):
+    """AgentsTasksTaskIdGetResponse200Allof0PropUserCollaboratorsItems
+
+    A GitHub user
+    """
+
+    id: Missing[int] = Field(
+        default=UNSET, description="The unique identifier of the user"
     )
 
 
-model_rebuild(NotificationsPutBody)
+class AgentsTasksTaskIdGetResponse200Allof0PropRepository(GitHubModel):
+    """AgentsTasksTaskIdGetResponse200Allof0PropRepository
 
-__all__ = ("NotificationsPutBody",)
+    The repository this task belongs to
+    """
+
+    id: Missing[int] = Field(
+        default=UNSET, description="The unique identifier of the repository"
+    )
+
+
+model_rebuild(AgentsTasksTaskIdGetResponse200Allof0PropCreatorOneof0)
+model_rebuild(AgentsTasksTaskIdGetResponse200Allof0PropUserCollaboratorsItems)
+model_rebuild(AgentsTasksTaskIdGetResponse200Allof0PropRepository)
+
+__all__ = (
+    "AgentsTasksTaskIdGetResponse200Allof0PropCreatorOneof0",
+    "AgentsTasksTaskIdGetResponse200Allof0PropRepository",
+    "AgentsTasksTaskIdGetResponse200Allof0PropUserCollaboratorsItems",
+)

@@ -30,7 +30,7 @@ class SentinelProvider(MorphingProvider):
     def provide_dumper(self, mediator: Mediator[Dumper], request: DumperRequest) -> Dumper:
         self._raise_error("dumper")
 
-    def _generate_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
         self._raise_error("JSON Schema")
 
     @method_handler

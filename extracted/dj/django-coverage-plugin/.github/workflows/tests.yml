@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/django_coverage_plugin/blob/main/NOTICE.txt
 
 name: "Tests"
 
@@ -50,12 +50,12 @@ jobs:
 
     steps:
       - name: "Check out the repo"
-        uses: "actions/checkout@v4"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
       - name: "Set up Python"
-        uses: "actions/setup-python@v5"
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "${{ matrix.python-version }}"
           allow-prereleases: true
@@ -87,12 +87,12 @@ jobs:
 
     steps:
       - name: "Check out the repo"
-        uses: "actions/checkout@v4"
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
       - name: "Set up Python"
-        uses: "actions/setup-python@v5"
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.10"
 

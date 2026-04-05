@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastled
-Version: 2.0.5
+Version: 2.0.6
 Summary: FastLED Wasm Compiler
 Home-page: https://github.com/zackees/fastled-wasm
 Maintainer: Zachary Vorhies

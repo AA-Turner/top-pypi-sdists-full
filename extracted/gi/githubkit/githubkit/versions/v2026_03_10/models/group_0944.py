@@ -18,193 +18,76 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
-from .group_0019 import LicenseSimple
-from .group_0021 import RepositoryPropCodeSearchIndexStatus, RepositoryPropPermissions
+from .group_0946 import (
+    AgentsTasksTaskIdGetResponse200Allof0PropCreatorOneof0,
+    AgentsTasksTaskIdGetResponse200Allof0PropRepository,
+    AgentsTasksTaskIdGetResponse200Allof0PropUserCollaboratorsItems,
+)
+from .group_0947 import (
+    AgentsTasksTaskIdGetResponse200Allof0PropArtifactsItems,
+    AgentsTasksTaskIdGetResponse200Allof0PropOwner,
+)
+from .group_0949 import AgentsTasksTaskIdGetResponse200Allof1PropSessionsItems
 
 
-class InstallationRepositoriesGetResponse200PropRepositoriesItems(GitHubModel):
-    """InstallationRepositoriesGetResponse200PropRepositoriesItems"""
+class AgentsTasksTaskIdGetResponse200(GitHubModel):
+    """AgentsTasksTaskIdGetResponse200"""
 
-    id: int = Field(description="Unique identifier of the repository")
-    node_id: str = Field()
-    name: str = Field(description="The name of the repository.")
-    full_name: str = Field()
-    license_: Union[None, LicenseSimple] = Field(alias="license")
-    forks: int = Field()
-    permissions: Missing[RepositoryPropPermissions] = Field(default=UNSET)
-    owner: Union[None, SimpleUser] = Field()
-    private: bool = Field(
-        default=False, description="Whether the repository is private or public."
+    id: str = Field(description="Unique task identifier")
+    url: Missing[str] = Field(default=UNSET, description="API URL for this task")
+    html_url: Missing[str] = Field(default=UNSET, description="Web URL for this task")
+    name: Missing[str] = Field(
+        default=UNSET, description="Human-readable name derived from the task prompt"
     )
-    html_url: str = Field()
-    description: Union[str, None] = Field()
-    fork: bool = Field()
-    url: str = Field()
-    archive_url: str = Field()
-    assignees_url: str = Field()
-    blobs_url: str = Field()
-    branches_url: str = Field()
-    collaborators_url: str = Field()
-    comments_url: str = Field()
-    commits_url: str = Field()
-    compare_url: str = Field()
-    contents_url: str = Field()
-    contributors_url: str = Field()
-    deployments_url: str = Field()
-    downloads_url: str = Field()
-    events_url: str = Field()
-    forks_url: str = Field()
-    git_commits_url: str = Field()
-    git_refs_url: str = Field()
-    git_tags_url: str = Field()
-    git_url: str = Field()
-    issue_comment_url: str = Field()
-    issue_events_url: str = Field()
-    issues_url: str = Field()
-    keys_url: str = Field()
-    labels_url: str = Field()
-    languages_url: str = Field()
-    merges_url: str = Field()
-    milestones_url: str = Field()
-    notifications_url: str = Field()
-    pulls_url: str = Field()
-    releases_url: str = Field()
-    ssh_url: str = Field()
-    stargazers_url: str = Field()
-    statuses_url: str = Field()
-    subscribers_url: str = Field()
-    subscription_url: str = Field()
-    tags_url: str = Field()
-    teams_url: str = Field()
-    trees_url: str = Field()
-    clone_url: str = Field()
-    mirror_url: Union[str, None] = Field()
-    hooks_url: str = Field()
-    svn_url: str = Field()
-    homepage: Union[str, None] = Field()
-    language: Union[str, None] = Field()
-    forks_count: int = Field()
-    stargazers_count: int = Field()
-    watchers_count: int = Field()
-    size: int = Field(
-        description="The size of the repository, in kilobytes. Size is calculated hourly. When a repository is initially created, the size is 0."
+    creator: Missing[AgentsTasksTaskIdGetResponse200Allof0PropCreatorOneof0] = Field(
+        default=UNSET, description="The entity who created this task"
     )
-    default_branch: str = Field(description="The default branch of the repository.")
-    open_issues_count: int = Field()
-    is_template: Missing[bool] = Field(
-        default=UNSET,
-        description="Whether this repository acts as a template that can be used to generate new repositories.",
+    creator_type: Missing[Literal["user", "organization"]] = Field(
+        default=UNSET, description="Type of the task creator"
     )
-    topics: Missing[list[str]] = Field(default=UNSET)
-    has_issues: bool = Field(default=True, description="Whether issues are enabled.")
-    has_projects: bool = Field(
-        default=True, description="Whether projects are enabled."
+    user_collaborators: Missing[
+        list[AgentsTasksTaskIdGetResponse200Allof0PropUserCollaboratorsItems]
+    ] = Field(default=UNSET, description="User objects of collaborators on this task")
+    owner: Missing[AgentsTasksTaskIdGetResponse200Allof0PropOwner] = Field(
+        default=UNSET, description="The owner of the repository"
     )
-    has_wiki: bool = Field(default=True, description="Whether the wiki is enabled.")
-    has_pages: bool = Field()
-    has_discussions: Missing[bool] = Field(
-        default=UNSET, description="Whether discussions are enabled."
+    repository: Missing[AgentsTasksTaskIdGetResponse200Allof0PropRepository] = Field(
+        default=UNSET, description="The repository this task belongs to"
     )
-    has_pull_requests: Missing[bool] = Field(
-        default=UNSET, description="Whether pull requests are enabled."
+    state: Literal[
+        "queued",
+        "in_progress",
+        "completed",
+        "failed",
+        "idle",
+        "waiting_for_user",
+        "timed_out",
+        "cancelled",
+    ] = Field(
+        description="Current state of the task, derived from its most recent session"
     )
-    pull_request_creation_policy: Missing[Literal["all", "collaborators_only"]] = Field(
-        default=UNSET,
-        description="The policy controlling who can create pull requests: all or collaborators_only.",
+    session_count: Missing[int] = Field(
+        default=UNSET, description="Number of sessions in this task"
     )
-    has_commit_comments: Missing[bool] = Field(
-        default=UNSET, description="Whether commit comments are enabled."
-    )
-    archived: bool = Field(
-        default=False, description="Whether the repository is archived."
-    )
-    disabled: bool = Field(
-        description="Returns whether or not this repository disabled."
-    )
-    visibility: Missing[str] = Field(
-        default=UNSET,
-        description="The repository visibility: public, private, or internal.",
-    )
-    pushed_at: Union[_dt.datetime, None] = Field()
-    created_at: Union[_dt.datetime, None] = Field()
-    updated_at: Union[_dt.datetime, None] = Field()
-    allow_rebase_merge: Missing[bool] = Field(
-        default=UNSET, description="Whether to allow rebase merges for pull requests."
-    )
-    temp_clone_token: Missing[Union[str, None]] = Field(default=UNSET)
-    allow_squash_merge: Missing[bool] = Field(
-        default=UNSET, description="Whether to allow squash merges for pull requests."
-    )
-    allow_auto_merge: Missing[bool] = Field(
-        default=UNSET,
-        description="Whether to allow Auto-merge to be used on pull requests.",
-    )
-    delete_branch_on_merge: Missing[bool] = Field(
-        default=UNSET,
-        description="Whether to delete head branches when pull requests are merged",
-    )
-    allow_update_branch: Missing[bool] = Field(
-        default=UNSET,
-        description="Whether or not a pull request head branch that is behind its base branch can always be updated even if it is not required to be up to date before merging.",
-    )
-    squash_merge_commit_title: Missing[Literal["PR_TITLE", "COMMIT_OR_PR_TITLE"]] = (
-        Field(
-            default=UNSET,
-            description="The default value for a squash merge commit title:\n\n- `PR_TITLE` - default to the pull request's title.\n- `COMMIT_OR_PR_TITLE` - default to the commit's title (if only one commit) or the pull request's title (when more than one commit).",
-        )
-    )
-    squash_merge_commit_message: Missing[
-        Literal["PR_BODY", "COMMIT_MESSAGES", "BLANK"]
+    artifacts: Missing[
+        list[AgentsTasksTaskIdGetResponse200Allof0PropArtifactsItems]
     ] = Field(
         default=UNSET,
-        description="The default value for a squash merge commit message:\n\n- `PR_BODY` - default to the pull request's body.\n- `COMMIT_MESSAGES` - default to the branch's commit messages.\n- `BLANK` - default to a blank commit message.",
+        description="Resources created by this task (PRs, branches, etc.)",
     )
-    merge_commit_title: Missing[Literal["PR_TITLE", "MERGE_MESSAGE"]] = Field(
+    archived_at: Missing[Union[_dt.datetime, None]] = Field(
         default=UNSET,
-        description="The default value for a merge commit title.\n\n- `PR_TITLE` - default to the pull request's title.\n- `MERGE_MESSAGE` - default to the classic title for a merge message (e.g., Merge pull request #123 from branch-name).",
+        description="Timestamp when the task was archived, null if not archived",
     )
-    merge_commit_message: Missing[Literal["PR_BODY", "PR_TITLE", "BLANK"]] = Field(
-        default=UNSET,
-        description="The default value for a merge commit message.\n\n- `PR_TITLE` - default to the pull request's title.\n- `PR_BODY` - default to the pull request's body.\n- `BLANK` - default to a blank commit message.",
+    updated_at: Missing[_dt.datetime] = Field(
+        default=UNSET, description="Timestamp of the most recent update"
     )
-    allow_merge_commit: Missing[bool] = Field(
-        default=UNSET, description="Whether to allow merge commits for pull requests."
-    )
-    allow_forking: Missing[bool] = Field(
-        default=UNSET, description="Whether to allow forking this repo"
-    )
-    web_commit_signoff_required: Missing[bool] = Field(
-        default=UNSET,
-        description="Whether to require contributors to sign off on web-based commits",
-    )
-    open_issues: int = Field()
-    watchers: int = Field()
-    starred_at: Missing[str] = Field(default=UNSET)
-    anonymous_access_enabled: Missing[bool] = Field(
-        default=UNSET,
-        description="Whether anonymous git access is enabled for this repository",
-    )
-    code_search_index_status: Missing[RepositoryPropCodeSearchIndexStatus] = Field(
-        default=UNSET,
-        description="The status of the code search index for this repository",
+    created_at: _dt.datetime = Field(description="Timestamp when the task was created")
+    sessions: Missing[list[AgentsTasksTaskIdGetResponse200Allof1PropSessionsItems]] = (
+        Field(default=UNSET, description="Sessions associated with this task")
     )
 
 
-class InstallationRepositoriesGetResponse200(GitHubModel):
-    """InstallationRepositoriesGetResponse200"""
+model_rebuild(AgentsTasksTaskIdGetResponse200)
 
-    total_count: int = Field()
-    repositories: list[InstallationRepositoriesGetResponse200PropRepositoriesItems] = (
-        Field()
-    )
-    repository_selection: Missing[str] = Field(default=UNSET)
-
-
-model_rebuild(InstallationRepositoriesGetResponse200PropRepositoriesItems)
-model_rebuild(InstallationRepositoriesGetResponse200)
-
-__all__ = (
-    "InstallationRepositoriesGetResponse200",
-    "InstallationRepositoriesGetResponse200PropRepositoriesItems",
-)
+__all__ = ("AgentsTasksTaskIdGetResponse200",)

@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from itertools import islice
-from typing import Optional, TypeVar, Union
+from typing import TypeVar
 
 from ..common import TypeHint
 from ..provider.essential import DirectMediator, Request, RequestChecker, RequestHandler
@@ -19,7 +19,7 @@ class SimpleRouter(RequestRouter[RequestT]):
     def __init__(self, checkers_and_handlers: Sequence[CheckerAndHandler]):
         self._checkers_and_handlers = checkers_and_handlers
 
-    def route_handler(
+    def find_handler(
         self,
         mediator: DirectMediator,
         request: RequestT,
@@ -38,16 +38,16 @@ class SimpleRouter(RequestRouter[RequestT]):
 
 
 OriginToHandler = dict[TypeHint, RequestHandler]
-LRRoutingItem = Union[CheckerAndHandler, OriginToHandler]
+LRRoutingItem = CheckerAndHandler | OriginToHandler
 
 
 class LocatedRequestRouter(RequestRouter[LocatedRequest]):
     __slots__ = ("_items", )
 
-    def __init__(self, items: Sequence[Union[CheckerAndHandler, OriginToHandler]]):
+    def __init__(self, items: Sequence[CheckerAndHandler | OriginToHandler]):
         self._items = items
 
-    def route_handler(
+    def find_handler(
         self,
         mediator: DirectMediator,
         request: LocatedRequest,
@@ -79,7 +79,7 @@ class ExactOriginCombiner:
     def __init__(self) -> None:
         self._combo: OriginToHandler = {}
 
-    def _stop_combo(self, checker_and_handler: Optional[CheckerAndHandler]) -> Sequence[LRRoutingItem]:
+    def _stop_combo(self, checker_and_handler: CheckerAndHandler | None) -> Sequence[LRRoutingItem]:
         result: list[LRRoutingItem] = []
         if self._combo:
             if len(self._combo) == 1:
@@ -111,7 +111,7 @@ class ExactOriginCombiner:
 def create_router_for_located_request(
     checkers_and_handlers: Sequence[CheckerAndHandler],
 ) -> RequestRouter[LocatedRequest]:
-    items: list[Union[CheckerAndHandler, OriginToHandler]] = []
+    items: list[CheckerAndHandler | OriginToHandler] = []
 
     combiner = ExactOriginCombiner()
     for checkers_and_handler in checkers_and_handlers:

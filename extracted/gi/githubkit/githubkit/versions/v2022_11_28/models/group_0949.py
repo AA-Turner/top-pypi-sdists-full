@@ -15,15 +15,17 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
+from .group_0950 import AgentsTasksTaskIdGetResponse200Allof1PropSessionsItems
 
-class NotificationsThreadsThreadIdSubscriptionPutBody(GitHubModel):
-    """NotificationsThreadsThreadIdSubscriptionPutBody"""
 
-    ignored: Missing[bool] = Field(
-        default=UNSET, description="Whether to block all notifications from a thread."
+class AgentsTasksTaskIdGetResponse200Allof1(GitHubModel):
+    """AgentsTasksTaskIdGetResponse200Allof1"""
+
+    sessions: Missing[list[AgentsTasksTaskIdGetResponse200Allof1PropSessionsItems]] = (
+        Field(default=UNSET, description="Sessions associated with this task")
     )
 
 
-model_rebuild(NotificationsThreadsThreadIdSubscriptionPutBody)
+model_rebuild(AgentsTasksTaskIdGetResponse200Allof1)
 
-__all__ = ("NotificationsThreadsThreadIdSubscriptionPutBody",)
+__all__ = ("AgentsTasksTaskIdGetResponse200Allof1",)

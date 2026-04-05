@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Mapping
-from typing import TypeVar, Union
+from typing import TypeVar
 
 from ...common import VarTuple
 from ...provider.essential import Mediator
@@ -23,10 +23,10 @@ from ..model.crown_definitions import (
 T = TypeVar("T")
 
 
-ExtraIn = Union[ExtraSkip, str, Iterable[str], ExtraForbid, ExtraKwargs, Saturator]
-ExtraOut = Union[ExtraSkip, str, Iterable[str], Extractor]
+ExtraIn = ExtraSkip | str | Iterable[str] | ExtraForbid | ExtraKwargs | Saturator
+ExtraOut = ExtraSkip | str | Iterable[str] | Extractor
 
-Key = Union[str, int]
+Key = str | int
 KeyPath = VarTuple[Key]
 PathsTo = Mapping[KeyPath, T]
 

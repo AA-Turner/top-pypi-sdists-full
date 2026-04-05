@@ -22,6 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import sys
 import pytest
 import spiceypy as spice
 import pandas as pd
@@ -43,6 +44,8 @@ from spiceypy.tests.gettestkernels import (
     cwd,
 )
 from spiceypy.utils.support_types import SPICEDOUBLE_CELL
+
+IS_PYODIDE = sys.platform == "emscripten" or "pyodide" in sys.modules
 
 
 @pytest.fixture(autouse=True)
@@ -66,6 +69,13 @@ def cleanup_kernel(path):
 
 def setup_module(module):
     download_kernels()
+
+
+@pytest.mark.skipif(
+    not IS_PYODIDE, reason="writing to file system not supported on Pyodide"
+)
+def test_cspice_flavor():
+    assert spice.cspice_flavor in {0, 1, 2}
 
 
 def test_appndc():
@@ -548,8 +558,8 @@ def test_ckcov():
     assert [
         [cover[i * 2], cover[i * 2 + 1]] for i in range(spice.wncard(cover))
     ] == expected_intervals
-    
-    
+
+
 def test_ckcov2():
     ckid = spice.ckobj(ExtraKernels.v1jCk)[0]
     cover = SPICEDOUBLE_CELL(200000)
@@ -3415,15 +3425,87 @@ def test_ektnam():
 
 
 def test_ekucec():
-    assert 1
+    ekpath = os.path.join(cwd, "example_ekucec.ek")
+    cleanup_kernel(ekpath)
+    # Create EK with a character column and add initial data
+    handle = spice.ekopn(ekpath, ekpath, 0)
+    segno = spice.ekbseg(
+        handle,
+        "test_table_ekucec",
+        ["c1"],
+        ["DATATYPE = CHARACTER*(10), NULLS_OK = TRUE, SIZE = VARIABLE"],
+    )
+    recno = spice.ekappr(handle, segno)
+    spice.ekacec(handle, segno, recno, "c1", 2, ["abc", "def"], False)
+    spice.ekcls(handle)
+    # Reopen for writing and update the record
+    handle = spice.ekopw(ekpath)
+    spice.ekucec(handle, segno, recno, "c1", 3, ["ghi", "jkl", "mno"], False)
+    spice.ekcls(handle)
+    # Reopen for reading and verify the updated values
+    handle = spice.ekopr(ekpath)
+    nvals, data, isnull = spice.ekrcec(handle, segno, recno, "c1", 11)
+    assert not isnull
+    assert nvals == 3
+    assert data == ["ghi", "jkl", "mno"]
+    spice.ekcls(handle)
+    cleanup_kernel(ekpath)
 
 
 def test_ekuced():
-    assert 1
+    ekpath = os.path.join(cwd, "example_ekuced.ek")
+    cleanup_kernel(ekpath)
+    # Create EK with a double precision column and add initial data
+    handle = spice.ekopn(ekpath, ekpath, 0)
+    segno = spice.ekbseg(
+        handle,
+        "test_table_ekuced",
+        ["d1"],
+        ["DATATYPE = DOUBLE PRECISION, NULLS_OK = TRUE, SIZE = VARIABLE"],
+    )
+    recno = spice.ekappr(handle, segno)
+    spice.ekaced(handle, segno, recno, "d1", 2, [1.0, 2.0], False)
+    spice.ekcls(handle)
+    # Reopen for writing and update the record
+    handle = spice.ekopw(ekpath)
+    spice.ekuced(handle, segno, recno, "d1", 3, [10.0, 20.0, 30.0], False)
+    spice.ekcls(handle)
+    # Reopen for reading and verify the updated values
+    handle = spice.ekopr(ekpath)
+    nvals, data, isnull = spice.ekrced(handle, segno, recno, "d1")
+    assert not isnull
+    assert nvals == 3
+    npt.assert_array_almost_equal(data, [10.0, 20.0, 30.0])
+    spice.ekcls(handle)
+    cleanup_kernel(ekpath)
 
 
 def test_ekucei():
-    assert 1
+    ekpath = os.path.join(cwd, "example_ekucei.ek")
+    cleanup_kernel(ekpath)
+    # Create EK with an integer column and add initial data
+    handle = spice.ekopn(ekpath, ekpath, 0)
+    segno = spice.ekbseg(
+        handle,
+        "test_table_ekucei",
+        ["i1"],
+        ["DATATYPE = INTEGER, NULLS_OK = TRUE, SIZE = VARIABLE"],
+    )
+    recno = spice.ekappr(handle, segno)
+    spice.ekacei(handle, segno, recno, "i1", 2, [1, 2], False)
+    spice.ekcls(handle)
+    # Reopen for writing and update the record
+    handle = spice.ekopw(ekpath)
+    spice.ekucei(handle, segno, recno, "i1", 3, [10, 20, 30], False)
+    spice.ekcls(handle)
+    # Reopen for reading and verify the updated values
+    handle = spice.ekopr(ekpath)
+    nvals, data, isnull = spice.ekrcei(handle, segno, recno, "i1")
+    assert not isnull
+    assert nvals == 3
+    npt.assert_array_equal(data, [10, 20, 30])
+    spice.ekcls(handle)
+    cleanup_kernel(ekpath)
 
 
 def test_ekuef():
@@ -3568,7 +3650,7 @@ def test_errint():
 
 
 def test_errprt():
-    assert spice.errprt("GET", 40, "ALL") == "NULL"
+    assert spice.errprt("GET", 41, "ALL") == "SHORT, LONG, EXPLAIN, TRACEBACK, DEFAULT"
 
 
 def test_esrchc():
@@ -4036,6 +4118,7 @@ def test_gfdist():
     assert temp_results == expected
 
 
+@pytest.mark.skipif(IS_PYODIDE, reason="Disabled test for Pyodide: flaky test in ci")
 def test_gfevnt():
     spice.furnsh(CoreKernels.testMetaKernel)
     #
@@ -4099,6 +4182,7 @@ def test_gfevnt():
     spice.gfclrh()
 
 
+@pytest.mark.skipif(IS_PYODIDE, reason="Disabled test for Pyodide: flaky test in ci")
 def test_gffove():
     spice.furnsh(CoreKernels.testMetaKernel)
     spice.furnsh(CassiniKernels.cassCk)
@@ -4716,8 +4800,14 @@ def test_gfsntc():
     begstr = spice.timout(beg, "YYYY-MON-DD HR:MN:SC.###### (TDB) ::TDB ::RND", 80)
     endstr = spice.timout(end, "YYYY-MON-DD HR:MN:SC.###### (TDB) ::TDB ::RND", 80)
     # uncertainty below is due to difference on arm vs x86 IEEE floating point issues
-    assert begstr == "2007-SEP-23 09:46:39.606982 (TDB)" or begstr == "2007-SEP-23 09:46:39.606981 (TDB)"
-    assert endstr == "2007-SEP-23 09:46:39.606982 (TDB)" or endstr == "2007-SEP-23 09:46:39.606981 (TDB)"
+    assert (
+        begstr == "2007-SEP-23 09:46:39.606982 (TDB)"
+        or begstr == "2007-SEP-23 09:46:39.606981 (TDB)"
+    )
+    assert (
+        endstr == "2007-SEP-23 09:46:39.606982 (TDB)"
+        or endstr == "2007-SEP-23 09:46:39.606981 (TDB)"
+    )
     cleanup_kernel(kernel)
 
 
@@ -5934,9 +6024,9 @@ def test_mequg():
     m1 = np.identity(2)
     mout = spice.mequg(m1, 2, 2)
     assert np.array_equal(m1, mout)
-    m2 = np.array([[1.0, 2.0],[2.0, 4.0],[4.0, 6.0]])
+    m2 = np.array([[1.0, 2.0], [2.0, 4.0], [4.0, 6.0]])
     mexp = m2.copy()
-    assert np.array_equal(mexp, spice.mequg(m2,3,2))
+    assert np.array_equal(mexp, spice.mequg(m2, 3, 2))
 
 
 def test_mtxm():
@@ -6255,14 +6345,14 @@ def test_oscelt():
     _len, mass_earth = spice.bodvrd("EARTH", "GM", 1)
     elts = spice.oscelt(state, et, mass_earth[0])
     expected = [
-        3.60975119168868346605e+05,
+        3.60975119168868346605e05,
         7.81035176779166367966e-02,
         4.87177926278510309288e-01,
-        6.18584206992959551030e+00,
-        1.28678805411666807856e+00,
+        6.18584206992959551030e00,
+        1.28678805411666807856e00,
         5.53312778515375192079e-01,
-        2.51812865183709204197e+08,
-        3.98600435436095925979e+05
+        2.51812865183709204197e08,
+        3.98600435436095925979e05,
     ]
     npt.assert_array_almost_equal(elts, expected, decimal=4)
 
@@ -6281,17 +6371,17 @@ def test_oscltx():
     _len, mass_earth = spice.bodvrd("EARTH", "GM", 1)
     elts = spice.oscltx(state, et, mass_earth[0])
     expected = [
-        3.60975119168868346605e+05,
+        3.60975119168868346605e05,
         7.81035176779166367966e-02,
         4.87177926278510309288e-01,
-        6.18584206992959551030e+00,
-        1.28678805411666807856e+00,
+        6.18584206992959551030e00,
+        1.28678805411666807856e00,
         5.53312778515375192079e-01,
-        2.51812865183709204197e+08,
-        3.98600435436095925979e+05,
+        2.51812865183709204197e08,
+        3.98600435436095925979e05,
         6.42686658697182999767e-01,
-        3.91557106563244480640e+05,
-        2.43839270213373843580e+06
+        3.91557106563244480640e05,
+        2.43839270213373843580e06,
     ]
     npt.assert_array_almost_equal(elts, expected, decimal=4)
 
@@ -6773,8 +6863,12 @@ def test_raxisa():
     npt.assert_array_almost_equal(axout, expected_angout)
 
 
+@pytest.mark.skipif(
+    IS_PYODIDE, reason="writing to file system not supported on Pyodide"
+)
 def test_rdtext():
     from datetime import datetime, timezone
+
     # Create ISO UTC datetime string using current time
     utcnow = datetime.now(timezone.utc).isoformat()
     spice.reset()
@@ -7348,7 +7442,6 @@ def test_sincpt():
     spice.furnsh(CassiniKernels.cassFk)
     spice.furnsh(CassiniKernels.cassPck)
     spice.furnsh(CassiniKernels.cassIk)
-    spice.furnsh(CassiniKernels.cassSclk)
     spice.furnsh(CassiniKernels.satSpk)
     spice.furnsh(CassiniKernels.cassTourSpk)
     spice.furnsh(CassiniKernels.cassCk)

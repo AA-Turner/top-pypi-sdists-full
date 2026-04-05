@@ -2,7 +2,7 @@ import inspect
 import typing
 from inspect import Parameter, Signature
 from types import MappingProxyType
-from typing import Any, Optional
+from typing import Any
 
 from ...common import VarTuple
 from ...feature_requirement import HAS_PY_312
@@ -31,9 +31,9 @@ def _is_empty(value):
     return value is Signature.empty
 
 
-def _upack_typed_dict_kwargs(
-    param_kwargs: Optional[ParamKwargs],
-) -> tuple[VarTuple[InputField], VarTuple[Param], Optional[ParamKwargs]]:
+def _unpack_typed_dict_kwargs(
+    param_kwargs: ParamKwargs | None,
+) -> tuple[VarTuple[InputField], VarTuple[Param], ParamKwargs | None]:
     if not HAS_PY_312 or param_kwargs is None:
         return (), (), param_kwargs
 
@@ -76,7 +76,7 @@ def get_callable_shape(func, params_slice=slice(0, None)) -> Shape[InputShape, N
         ),
         None,
     )
-    extra_fields, extra_params, param_kwargs = _upack_typed_dict_kwargs(param_kwargs)
+    extra_fields, extra_params, param_kwargs = _unpack_typed_dict_kwargs(param_kwargs)
 
     type_hints = get_all_type_hints(func)
 
@@ -105,7 +105,7 @@ def get_callable_shape(func, params_slice=slice(0, None)) -> Shape[InputShape, N
                 if param.kind != Parameter.VAR_KEYWORD
             ) + extra_params,
             kwargs=param_kwargs,
-            overriden_types=frozenset(
+            overridden_types=frozenset(
                 param.name
                 for param in params
                 if param.kind != Parameter.VAR_KEYWORD

@@ -20,7 +20,7 @@ import warnings
 from contextlib import contextmanager
 from os import PathLike
 from pathlib import Path
-from typing import Any, Generator, Iterator
+from typing import Any, ClassVar, Generator, Generic, Iterator, TypeVar
 
 import xlwings
 
@@ -45,7 +45,12 @@ except ImportError:
     PIL = None
 
 
-class Collection:
+_T = TypeVar("_T")
+
+
+class Collection(Generic[_T]):
+    _wrap: ClassVar[type]
+
     def __init__(self, impl: Any) -> None:
         self.impl = impl
 
@@ -57,7 +62,7 @@ class Collection:
         """
         return self.impl.api
 
-    def __call__(self, name_or_index: int | str) -> Any:
+    def __call__(self, name_or_index: int | str) -> _T:
         return self._wrap(impl=self.impl(name_or_index))
 
     def __len__(self) -> int:
@@ -70,11 +75,11 @@ class Collection:
         """
         return len(self)
 
-    def __iter__(self) -> Iterator[Any]:
+    def __iter__(self) -> Iterator[_T]:
         for impl in self.impl:
             yield self._wrap(impl=impl)
 
-    def __getitem__(self, key: int | str) -> Any:
+    def __getitem__(self, key: int | str) -> _T:
         if isinstance(key, numbers.Number):
             length = len(self)
             if key >= length:
@@ -374,6 +379,16 @@ class App:
         .. versionadded:: 0.9.0
         """
         return Range(impl=self.impl.selection) if self.impl.selection else None
+
+    async def get_selection(self) -> "Range | None":
+        """Returns the selected cells as Range, fetched live from Excel.
+
+        Requires xlwings Lite.
+
+        .. versionadded:: 0.35.0
+        """
+        impl = await self.impl.get_selection()
+        return Range(impl=impl) if impl else None
 
     def activate(self, steal_focus: bool = False) -> None:
         """
@@ -1022,14 +1037,39 @@ class Book:
         """
         return self.impl.json()
 
+    async def flush(self) -> None:
+        """
+        Flushes all pending actions to Excel and the Output pane.
+
+        Requires xlwings Lite.
+
+        .. versionadded:: 0.35.0
+        """
+        await self.impl.flush()
+
     async def sync(self) -> None:
         """
-        Flushes all pending actions to Excel. Only available in xlwings Lite.
-        Use this when you need the side effects of previous
-        operations (e.g., files written by ``Range.to_png()``) to be available
-        before continuing.
+        .. deprecated:: 0.35.0
+            Use :meth:`flush` instead.
         """
-        await self.impl.sync()
+        warnings.warn(
+            "Book.sync() is deprecated, use Book.flush() instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        await self.flush()
+
+    async def load(self) -> Book:
+        """Loads the book's current data from Excel on demand.
+
+        Requires xlwings Lite.
+
+        Returns
+        -------
+        Book
+        """
+        await self.impl.load()
+        return self
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -1258,6 +1298,15 @@ class Book:
         .. versionadded:: 0.9.0
         """
         return Range(impl=self.app.selection.impl) if self.app.selection else None
+
+    async def get_selection(self) -> "Range | None":
+        """Returns the selected cells as Range, fetched live from Excel.
+
+        Requires xlwings Lite.
+
+        .. versionadded:: 0.35.0
+        """
+        return await self.app.get_selection()
 
     def to_pdf(
         self,
@@ -1526,6 +1575,18 @@ class Sheet:
         """Activates the Sheet and returns it."""
         self.book.activate()
         return self.impl.activate()
+
+    async def load(self) -> Sheet:
+        """Loads the sheet's current data from Excel on demand.
+
+        Requires xlwings Lite.
+
+        Returns
+        -------
+        Sheet
+        """
+        await self.impl.load()
+        return self
 
     def select(self) -> None:
         """
@@ -2550,6 +2611,23 @@ class Range:
     def value(self, data: Any) -> None:
         conversion.write(data, self, self._options)
 
+    async def get_value(self) -> Any:
+        """Fetch values from Excel on demand.
+
+        Requires xlwings Lite.
+
+        Returns
+        -------
+        object : returned object depends on the converter being used,
+                 see :meth:`xlwings.Range.options`
+        """
+        return await conversion.async_read(
+            self,
+            None,
+            self._options,
+            pipeline_overrides=self._impl.get_async_pipeline_overrides(self._options),
+        )
+
     def expand(self, mode: str = "table") -> Range:
         """
         Expands the range according to the mode provided. Ignores empty top-left cells
@@ -3484,7 +3562,7 @@ class Shape:
         return "<Shape '{0}' in {1}>".format(self.name, self.parent)
 
 
-class Shapes(Collection):
+class Shapes(Collection[Shape]):
     """
     A collection of all :meth:`shape <Shape>` objects on the specified sheet:
 
@@ -3899,7 +3977,7 @@ class Table:
         return "<Table '{0}' in {1}>".format(self.name, self.parent)
 
 
-class Tables(Collection):
+class Tables(Collection[Table]):
     """A collection of all :meth:`table <Table>` objects on the specified sheet:
 
     >>> import xlwings as xw
@@ -4243,7 +4321,7 @@ class Chart:
         return "<Chart '{0}' in {1}>".format(self.name, self.parent)
 
 
-class Charts(Collection):
+class Charts(Collection[Chart]):
     """
     A collection of all :meth:`chart <Chart>` objects on the specified sheet:
 
@@ -4490,7 +4568,7 @@ class Picture:
         self.impl.lock_aspect_ratio = value
 
 
-class Pictures(Collection):
+class Pictures(Collection[Picture]):
     """
     A collection of all :meth:`picture <Picture>` objects on the specified sheet:
 
@@ -5221,7 +5299,7 @@ class FreezePanes:
         self.impl.unfreeze()
 
 
-class Books(Collection):
+class Books(Collection[Book]):
     """
     A collection of all :meth:`book <Book>` objects:
 
@@ -5242,6 +5320,17 @@ class Books(Collection):
         Returns the active Book.
         """
         return Book(impl=self.impl.active)
+
+    async def get_active(self) -> Book:
+        """Returns the active Book without pre-loading values (lazy loading).
+
+        Requires xlwings Lite.
+
+        Use ``await myrange.get_value()`` to read cell values on demand.
+
+        .. versionadded:: 0.35.0
+        """
+        return Book(impl=await self.impl.get_active())
 
     def add(self) -> Book:
         """
@@ -5327,7 +5416,7 @@ class Books(Collection):
         return Book(impl=impl)
 
 
-class Sheets(Collection):
+class Sheets(Collection[Sheet]):
     """
     A collection of all :meth:`sheet <Sheet>` objects:
 
@@ -5348,6 +5437,15 @@ class Sheets(Collection):
         Returns the active Sheet.
         """
         return Sheet(impl=self.impl.active)
+
+    async def get_active(self) -> Sheet:
+        """Returns the active Sheet, fetched live from Excel.
+
+        Requires xlwings Lite.
+
+        .. versionadded:: 0.35.0
+        """
+        return Sheet(impl=await self.impl.get_active())
 
     def __call__(self, name_or_index: int | str | Sheet) -> Sheet:
         if isinstance(name_or_index, Sheet):

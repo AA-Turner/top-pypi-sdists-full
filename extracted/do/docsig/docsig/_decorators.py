@@ -12,8 +12,8 @@ from pathlib import Path as _Path
 
 from .messages import E as _E
 
-_FuncType = _t.Callable[..., _t.Union[int]]
-_WrappedFuncType = _t.Callable[..., _t.Union[str, int]]
+_FuncType = _t.Callable[..., int]
+_WrappedFuncType = _t.Callable[..., str | int]
 
 
 def parse_msgs(func: _WrappedFuncType) -> _WrappedFuncType:

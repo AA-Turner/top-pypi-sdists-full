@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 0.11.4
+Version: 0.11.5
 Summary: A programming framework for agentic AI
 Project-URL: Homepage, https://ag2.ai/
 Project-URL: Documentation, https://docs.ag2.ai
@@ -8,10 +8,12 @@ Project-URL: Tracker, https://github.com/ag2ai/ag2/issues
 Project-URL: Source, https://github.com/ag2ai/ag2
 Project-URL: Discord, https://discord.gg/pAbnFJrkgZ
 Author-email: Chi Wang & Qingyun Wu <support@ag2.ai>
+License-Expression: Apache-2.0
 License-File: LICENSE
-License-File: NOTICE.md
 Keywords: ag2,ag2.ai,ag2ai,agent,agentic,ai,autogen
 Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: Pydantic
+Classifier: Framework :: Pydantic :: 2
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: License :: OSI Approved :: Apache Software License
@@ -41,10 +43,12 @@ Requires-Dist: termcolor
 Requires-Dist: tiktoken
 Provides-Extra: a2a
 Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'a2a'
+Provides-Extra: a2ui
+Requires-Dist: jsonschema<5,>=4.0.0; extra == 'a2ui'
 Provides-Extra: ag-ui
 Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'ag-ui'
 Provides-Extra: anthropic
-Requires-Dist: anthropic[vertex]>=0.79.0; extra == 'anthropic'
+Requires-Dist: anthropic[vertex]<1,>=0.79.0; extra == 'anthropic'
 Provides-Extra: autobuild
 Requires-Dist: chromadb<1.4,>=1.3.0; extra == 'autobuild'
 Requires-Dist: huggingface-hub; extra == 'autobuild'
@@ -77,20 +81,20 @@ Requires-Dist: crawl4ai<0.9,>=0.5.0; extra == 'crawl4ai'
 Provides-Extra: dashscope
 Requires-Dist: dashscope>=1.25.13; extra == 'dashscope'
 Provides-Extra: deepseek
-Requires-Dist: openai>=1.99.3; extra == 'deepseek'
+Requires-Dist: openai<2,>=1.99.3; extra == 'deepseek'
 Provides-Extra: dev
 Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'dev'
 Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'dev'
 Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'dev'
-Requires-Dist: anthropic[vertex]>=0.79.0; extra == 'dev'
+Requires-Dist: anthropic[vertex]<1,>=0.79.0; extra == 'dev'
 Requires-Dist: cairosvg; extra == 'dev'
 Requires-Dist: codespell==2.4.1; extra == 'dev'
 Requires-Dist: dashscope>=1.25.13; extra == 'dev'
 Requires-Dist: detect-secrets==1.5.0; extra == 'dev'
-Requires-Dist: dirty-equals==0.9.0; extra == 'dev'
+Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'dev'
 Requires-Dist: fastapi==0.116.1; extra == 'dev'
 Requires-Dist: fix-busted-json>=0.0.18; extra == 'dev'
-Requires-Dist: freezegun==1.5.5; extra == 'dev'
+Requires-Dist: freezegun<2,>=1.5.5; extra == 'dev'
 Requires-Dist: google-api-core; extra == 'dev'
 Requires-Dist: google-auth; extra == 'dev'
 Requires-Dist: google-cloud-aiplatform; extra == 'dev'
@@ -114,23 +118,23 @@ Requires-Dist: nbclient==0.10.2; extra == 'dev'
 Requires-Dist: nbconvert==7.16.6; extra == 'dev'
 Requires-Dist: nbformat==5.10.4; extra == 'dev'
 Requires-Dist: ollama>=0.4.7; extra == 'dev'
-Requires-Dist: openai>=1.99.3; extra == 'dev'
-Requires-Dist: opentelemetry-api>=1.20; extra == 'dev'
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'dev'
+Requires-Dist: openai<2,>=1.99.3; extra == 'dev'
 Requires-Dist: opentelemetry-sdk>=1.20; extra == 'dev'
 Requires-Dist: pandas==2.3.2; extra == 'dev'
 Requires-Dist: pdoc3==0.11.6; extra == 'dev'
 Requires-Dist: pillow; extra == 'dev'
-Requires-Dist: pre-commit==4.3.0; extra == 'dev'
-Requires-Dist: pytest-asyncio==1.1.0; extra == 'dev'
+Requires-Dist: prek==0.3.8; extra == 'dev'
+Requires-Dist: pytest-asyncio==1.3.0; extra == 'dev'
 Requires-Dist: pytest-cov==6.3.0; extra == 'dev'
-Requires-Dist: pytest==8.4.2; extra == 'dev'
-Requires-Dist: pyupgrade-directories==0.3.0; extra == 'dev'
+Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'dev'
+Requires-Dist: pytest==9.0.2; extra == 'dev'
 Requires-Dist: pyyaml==6.0.2; extra == 'dev'
-Requires-Dist: ruff==0.12.12; extra == 'dev'
+Requires-Dist: redis; extra == 'dev'
+Requires-Dist: ruff==0.14.14; extra == 'dev'
 Requires-Dist: termcolor==3.1.0; extra == 'dev'
 Requires-Dist: toml==0.10.2; extra == 'dev'
 Requires-Dist: typer==0.17.4; extra == 'dev'
+Requires-Dist: types-aiofiles; extra == 'dev'
 Requires-Dist: types-decorator; extra == 'dev'
 Requires-Dist: types-pycurl; extra == 'dev'
 Requires-Dist: types-python-dateutil; extra == 'dev'
@@ -141,7 +145,7 @@ Requires-Dist: uv==0.8.15; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'docs'
 Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'docs'
-Requires-Dist: anthropic[vertex]>=0.79.0; extra == 'docs'
+Requires-Dist: anthropic[vertex]<1,>=0.79.0; extra == 'docs'
 Requires-Dist: cairosvg; extra == 'docs'
 Requires-Dist: dashscope>=1.25.13; extra == 'docs'
 Requires-Dist: fix-busted-json>=0.0.18; extra == 'docs'
@@ -164,13 +168,12 @@ Requires-Dist: mkdocs-redirects==1.2.2; extra == 'docs'
 Requires-Dist: mkdocstrings[python]==0.30.0; extra == 'docs'
 Requires-Dist: nbclient==0.10.2; extra == 'docs'
 Requires-Dist: ollama>=0.4.7; extra == 'docs'
-Requires-Dist: openai>=1.99.3; extra == 'docs'
-Requires-Dist: opentelemetry-api>=1.20; extra == 'docs'
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'docs'
+Requires-Dist: openai<2,>=1.99.3; extra == 'docs'
 Requires-Dist: opentelemetry-sdk>=1.20; extra == 'docs'
 Requires-Dist: pdoc3==0.11.6; extra == 'docs'
 Requires-Dist: pillow; extra == 'docs'
 Requires-Dist: pyyaml==6.0.2; extra == 'docs'
+Requires-Dist: redis; extra == 'docs'
 Requires-Dist: termcolor==3.1.0; extra == 'docs'
 Requires-Dist: typer==0.17.4; extra == 'docs'
 Provides-Extra: duckduckgo
@@ -234,8 +237,7 @@ Requires-Dist: requests; extra == 'jupyter-executor'
 Requires-Dist: websocket-client; extra == 'jupyter-executor'
 Provides-Extra: lint
 Requires-Dist: codespell==2.4.1; extra == 'lint'
-Requires-Dist: pyupgrade-directories==0.3.0; extra == 'lint'
-Requires-Dist: ruff==0.12.12; extra == 'lint'
+Requires-Dist: ruff==0.14.14; extra == 'lint'
 Provides-Extra: lmm
 Requires-Dist: pillow; extra == 'lmm'
 Requires-Dist: replicate; extra == 'lmm'
@@ -264,9 +266,9 @@ Provides-Extra: ollama
 Requires-Dist: fix-busted-json>=0.0.18; extra == 'ollama'
 Requires-Dist: ollama>=0.4.7; extra == 'ollama'
 Provides-Extra: openai
-Requires-Dist: openai>=1.99.3; extra == 'openai'
+Requires-Dist: openai<2,>=1.99.3; extra == 'openai'
 Provides-Extra: openai-realtime
-Requires-Dist: openai>=1.99.3; extra == 'openai-realtime'
+Requires-Dist: openai<2,>=1.99.3; extra == 'openai-realtime'
 Requires-Dist: openai[realtime]; extra == 'openai-realtime'
 Provides-Extra: quick-research
 Requires-Dist: beautifulsoup4; extra == 'quick-research'
@@ -348,24 +350,30 @@ Provides-Extra: teachable
 Requires-Dist: chromadb; extra == 'teachable'
 Provides-Extra: test
 Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'test'
-Requires-Dist: dirty-equals==0.9.0; extra == 'test'
+Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'test'
 Requires-Dist: fastapi==0.116.1; extra == 'test'
-Requires-Dist: freezegun==1.5.5; extra == 'test'
+Requires-Dist: freezegun<2,>=1.5.5; extra == 'test'
 Requires-Dist: ipykernel==7.1.0; extra == 'test'
 Requires-Dist: mcp>=1.11.0; extra == 'test'
 Requires-Dist: nbconvert==7.16.6; extra == 'test'
 Requires-Dist: nbformat==5.10.4; extra == 'test'
 Requires-Dist: pandas==2.3.2; extra == 'test'
-Requires-Dist: pytest-asyncio==1.1.0; extra == 'test'
+Requires-Dist: pytest-asyncio==1.3.0; extra == 'test'
 Requires-Dist: pytest-cov==6.3.0; extra == 'test'
-Requires-Dist: pytest==8.4.2; extra == 'test'
+Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'test'
+Requires-Dist: pytest==9.0.2; extra == 'test'
+Provides-Extra: test-core
+Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'test-core'
+Requires-Dist: freezegun<2,>=1.5.5; extra == 'test-core'
+Requires-Dist: pytest-asyncio==1.3.0; extra == 'test-core'
+Requires-Dist: pytest-cov==6.3.0; extra == 'test-core'
+Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'test-core'
+Requires-Dist: pytest==9.0.2; extra == 'test-core'
 Provides-Extra: tinyfish
 Requires-Dist: tinyfish>=0.2.3; extra == 'tinyfish'
 Provides-Extra: together
 Requires-Dist: together>=1.2; extra == 'together'
 Provides-Extra: tracing
-Requires-Dist: opentelemetry-api>=1.20; extra == 'tracing'
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20; extra == 'tracing'
 Requires-Dist: opentelemetry-sdk>=1.20; extra == 'tracing'
 Provides-Extra: twilio
 Requires-Dist: fastapi<1,>=0.115.0; extra == 'twilio'
@@ -375,19 +383,21 @@ Provides-Extra: types
 Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.11; extra == 'types'
 Requires-Dist: ag-ui-protocol<0.2,>=0.1.10; extra == 'types'
 Requires-Dist: aiofiles<26.0.0,>=24.1.0; extra == 'types'
-Requires-Dist: dirty-equals==0.9.0; extra == 'types'
+Requires-Dist: dirty-equals<0.12,>=0.11; extra == 'types'
 Requires-Dist: fastapi==0.116.1; extra == 'types'
-Requires-Dist: freezegun==1.5.5; extra == 'types'
+Requires-Dist: freezegun<2,>=1.5.5; extra == 'types'
 Requires-Dist: ipykernel==7.1.0; extra == 'types'
 Requires-Dist: mcp>=1.11.0; extra == 'types'
 Requires-Dist: mypy==1.17.1; extra == 'types'
 Requires-Dist: nbconvert==7.16.6; extra == 'types'
 Requires-Dist: nbformat==5.10.4; extra == 'types'
-Requires-Dist: openai>=1.99.3; extra == 'types'
+Requires-Dist: openai<2,>=1.99.3; extra == 'types'
 Requires-Dist: pandas==2.3.2; extra == 'types'
-Requires-Dist: pytest-asyncio==1.1.0; extra == 'types'
+Requires-Dist: pytest-asyncio==1.3.0; extra == 'types'
 Requires-Dist: pytest-cov==6.3.0; extra == 'types'
-Requires-Dist: pytest==8.4.2; extra == 'types'
+Requires-Dist: pytest-timeout<3,>=2.4.0; extra == 'types'
+Requires-Dist: pytest==9.0.2; extra == 'types'
+Requires-Dist: types-aiofiles; extra == 'types'
 Requires-Dist: types-decorator; extra == 'types'
 Requires-Dist: types-pycurl; extra == 'types'
 Requires-Dist: types-python-dateutil; extra == 'types'
@@ -452,6 +462,11 @@ Description-Content-Type: text/markdown
 <p align="center">
 AG2 was evolved from AutoGen. Fully open-sourced. We invite collaborators from all organizations to contribute.
 </p>
+
+> [!IMPORTANT]
+> **AG2 is on the path to v1.0.** The current framework will be tidied up through deprecations over the next few minor versions and moved to maintenance mode. The beta framework (`autogen.beta`) will become the official version of AG2 at v1.0.
+>
+> [Read the full release roadmap →](https://docs.ag2.ai/latest/docs/user-guide/release-roadmap/)
 
 # AG2: Open-Source AgentOS for AI Agents
 
@@ -811,19 +826,19 @@ We adopt the Apache 2.0 license from v0.3. This enhances our commitment to open-
 
 ## Code style and linting
 
-This project uses pre-commit hooks to maintain code quality. Before contributing:
+This project uses [prek](https://github.com/j178/prek) hooks to maintain code quality. Before contributing:
 
-1. Install pre-commit:
+1. Install prek:
 
 ```bash
-pip install pre-commit
-pre-commit install
+pip install prek
+prek install
 ```
 
 2. The hooks will run automatically on commit, or you can run them manually:
 
 ```bash
-pre-commit run --all-files
+prek run --all-files
 ```
 
 ## Related papers

@@ -13,22 +13,16 @@ from pydantic import Field
 
 from githubkit.compat import PYDANTIC_V2, GitHubModel, model_rebuild
 
-from .group_0178 import CustomPropertyValue
 
+class OrgsOrgCopilotBillingSelectedUsersDeleteBody(GitHubModel):
+    """OrgsOrgCopilotBillingSelectedUsersDeleteBody"""
 
-class OrgsOrgPropertiesValuesPatchBody(GitHubModel):
-    """OrgsOrgPropertiesValuesPatchBody"""
-
-    repository_names: list[str] = Field(
-        max_length=30 if PYDANTIC_V2 else None,
+    selected_usernames: list[str] = Field(
         min_length=1 if PYDANTIC_V2 else None,
-        description="The names of repositories that the custom property values will be applied to.",
-    )
-    properties: list[CustomPropertyValue] = Field(
-        description="List of custom property names and associated values to apply to the repositories."
+        description="The usernames of the organization members for which to revoke access to GitHub Copilot.",
     )
 
 
-model_rebuild(OrgsOrgPropertiesValuesPatchBody)
+model_rebuild(OrgsOrgCopilotBillingSelectedUsersDeleteBody)
 
-__all__ = ("OrgsOrgPropertiesValuesPatchBody",)
+__all__ = ("OrgsOrgCopilotBillingSelectedUsersDeleteBody",)

@@ -102,7 +102,7 @@ except ImportError as e:
 
 # Path constants
 TRACE_LOG_PATH = os.path.join(TRACES_DIR, "trace.log")
-FRONTEND_DIST_DIR = os.path.join(PACKAGE_ROOT, "..", "frontend_workspaces", "frontend", "dist")
+FRONTEND_DIST_DIR = os.path.join(PACKAGE_ROOT, "frontend", "dist")
 EXTENSION_DIR = os.path.join(PACKAGE_ROOT, "..", "frontend_workspaces", "extension", "releases", "chrome-mv3")
 STATIC_DIR_FLOWS_PATH = os.path.join(PACKAGE_ROOT, "backend", "server", "flows")
 SAVE_REUSE_PY_PATH = os.path.join(
@@ -924,6 +924,10 @@ async def event_stream(
         from cuga.config import get_service_instance_id, get_tenant_id
 
         local_state.service_scope = {"tenant_id": get_tenant_id(), "instance_id": get_service_instance_id()}
+        if os.getenv("CUGA_DEMO_MODE") == "health" and not local_state.pi:
+            from cuga.backend.server.demo_manage_setup import HEALTH_USER_CONTEXT
+
+            local_state.pi = HEALTH_USER_CONTEXT
 
     if not api_mode:
         local_obs, _, _, _, local_info = await app_state.env.step("")

@@ -3,7 +3,7 @@ import typing
 from typing import Annotated, Any, ForwardRef, Generic, NewType, Protocol, TypedDict, TypeVar, Union
 
 from ..common import TypeHint, VarTuple
-from ..feature_requirement import HAS_PY_312, HAS_PY_313
+from ..feature_requirement import HAS_PY_312, HAS_PY_313, HAS_PY_314
 from .constants import BUILTIN_ORIGIN_TO_TYPEVARS
 from .fundamentals import get_generic_args, get_type_vars, strip_alias
 
@@ -51,7 +51,7 @@ def is_protocol(tp):
 
 
 def create_union(args: tuple):
-    return Union[args]
+    return Union[args]  # noqa: UP007
 
 
 def is_parametrized(tp: TypeHint) -> bool:
@@ -104,7 +104,7 @@ def is_generic_class(cls: type) -> bool:
     return (
         cls in BUILTIN_ORIGIN_TO_TYPEVARS
         or (
-            issubclass(cls, Generic)  # type: ignore[arg-type]
+            issubclass(cls, Generic)
             and bool(cls.__parameters__)  # type: ignore[attr-defined]
         )
     )
@@ -115,15 +115,18 @@ def get_type_vars_of_parametrized(tp: TypeHint) -> VarTuple[TypeVar]:
     if not params:
         return ()
     if isinstance(tp, type):
-        if isinstance(tp, types.GenericAlias):
-            return params
+        if isinstance(tp, types.GenericAlias):  # type: ignore[unreachable]
+            return params  # type: ignore[unreachable]
         return ()
     if strip_alias(tp) != tp and get_generic_args(tp) == ():
         return ()
     return params
 
 
-if HAS_PY_313:
+if HAS_PY_314:
+    def eval_forward_ref(namespace: dict[str, Any], forward_ref: ForwardRef):
+        return forward_ref.evaluate(globals=namespace)  # type: ignore[attr-defined]
+elif HAS_PY_313:
     def eval_forward_ref(namespace: dict[str, Any], forward_ref: ForwardRef):
         return forward_ref._evaluate(namespace, None, (), recursive_guard=frozenset())  # type: ignore[misc, arg-type]
 else:

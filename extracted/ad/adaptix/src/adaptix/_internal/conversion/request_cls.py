@@ -1,6 +1,7 @@
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from inspect import Signature
-from typing import Callable, Optional, TypeVar, Union
+from typing import TypeVar
 
 from ..common import Coercer, VarTuple
 from ..model_tools.definitions import DefaultFactory, DefaultValue, InputField, ParamKind
@@ -13,12 +14,12 @@ from ..provider.location import FieldLoc, GenericParamLoc, InputFieldLoc, InputF
 @dataclass(frozen=True)
 class ConverterRequest(Request):
     signature: Signature
-    function_name: Optional[str]
-    stub_function: Optional[Callable]
+    function_name: str | None
+    stub_function: Callable | None
 
 
-ConversionSourceItem = Union[FieldLoc, OutputFieldLoc, GenericParamLoc]
-ConversionDestItem = Union[TypeHintLoc, InputFieldLoc, InputFuncFieldLoc, GenericParamLoc]
+ConversionSourceItem = FieldLoc | OutputFieldLoc | GenericParamLoc
+ConversionDestItem = TypeHintLoc | InputFieldLoc | InputFuncFieldLoc | GenericParamLoc
 
 
 @dataclass(frozen=True)
@@ -36,12 +37,12 @@ LinkingSource = LocStack[ConversionSourceItem]
 @dataclass(frozen=True)
 class FieldLinking:
     source: LinkingSource
-    coercer: Optional[Coercer]
+    coercer: Coercer | None
 
 
 @dataclass(frozen=True)
 class ConstantLinking:
-    constant: Union[DefaultValue, DefaultFactory]
+    constant: DefaultValue | DefaultFactory
 
 
 @dataclass(frozen=True)
@@ -63,7 +64,7 @@ class FunctionLinking:
 
 @dataclass(frozen=True)
 class LinkingResult:
-    linking: Union[FieldLinking, ConstantLinking, ModelLinking, FunctionLinking]
+    linking: FieldLinking | ConstantLinking | ModelLinking | FunctionLinking
 
 
 @dataclass(frozen=True)

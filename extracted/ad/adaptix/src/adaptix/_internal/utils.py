@@ -1,13 +1,12 @@
-import itertools
 import sys
 import warnings
 from abc import ABC, abstractmethod
-from collections.abc import Collection, Generator, Iterable, Iterator, Mapping
+from collections.abc import Callable, Collection, Generator, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from copy import copy
-from typing import Any, Callable, Generic, Protocol, TypeVar, Union, final, overload
+from typing import Any, Generic, Protocol, TypeAlias, TypeVar, final, overload
 
-from .feature_requirement import HAS_NATIVE_EXC_GROUP, HAS_PY_310, HAS_PY_311
+from .feature_requirement import HAS_NATIVE_EXC_GROUP, HAS_PY_311
 
 C = TypeVar("C", bound="Cloneable")
 
@@ -48,10 +47,6 @@ def _singleton_repr(self):
     return f"{type(self).__name__}()"
 
 
-def _singleton_hash(self) -> int:
-    return hash(type(self))
-
-
 def _singleton_copy(self):
     return self
 
@@ -68,11 +63,12 @@ class SingletonMeta(type):
     def __new__(mcs, name, bases, namespace, **kwargs):
         namespace.setdefault("__repr__", _singleton_repr)
         namespace.setdefault("__str__", _singleton_repr)
-        namespace.setdefault("__hash__", _singleton_hash)
+        namespace.setdefault("__hash__", lambda self: cls_hash)
         namespace.setdefault("__copy__", _singleton_copy)
         namespace.setdefault("__deepcopy__", _singleton_deepcopy)
         namespace.setdefault("__slots__", ())
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+        cls_hash = hash(cls)
 
         instance = super().__call__(cls)
         cls._instance = instance
@@ -84,29 +80,14 @@ class SingletonMeta(type):
         return cls._instance
 
 
-T = TypeVar("T")
-
-if HAS_PY_310:
-    pairs = itertools.pairwise
-else:
-    def pairs(iterable: Iterable[T]) -> Iterable[tuple[T, T]]:  # type: ignore[no-redef]
-        it = iter(iterable)
-        try:
-            prev = next(it)
-        except StopIteration:
-            return
-
-        for current in it:
-            yield prev, current
-            prev = current
-
-
 class Omitted(metaclass=SingletonMeta):
     def __bool__(self):
         raise TypeError("Omitted() cannot be used in boolean context")
 
 
-Omittable = Union[T, Omitted]
+T = TypeVar("T")
+
+Omittable: TypeAlias = T | Omitted
 
 
 ComparableSeqT = TypeVar("ComparableSeqT", bound="ComparableSequence")

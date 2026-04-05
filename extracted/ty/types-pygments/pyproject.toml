@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-Pygments"
-version = "2.19.0.20260402"
+version = "2.20.0.20260405"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for Pygments"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`Pygments`](https://github.com/pygments/pygments) package. It can be used by type checkers
 to check code that uses `Pygments`. This version of
 `types-Pygments` aims to provide accurate annotations for
-`Pygments==2.19.*`.
+`Pygments==2.20.*`.
 
 This stub package is marked as [partial](https://typing.python.org/en/latest/spec/distributing.html#partial-stub-packages).
 If you find that annotations are missing, feel free to contribute and help complete them.
@@ -33,7 +33,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`4ab04d22631e5842838528ceaae19c3c532cdd43`](https://github.com/python/typeshed/commit/4ab04d22631e5842838528ceaae19c3c532cdd43).
+[`72b73680a27b8c92e6fdc6886c2f20448b273a36`](https://github.com/python/typeshed/commit/72b73680a27b8c92e6fdc6886c2f20448b273a36).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -54,4 +54,4 @@ packages = ['pygments-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'pygments-stubs' = ['__init__.pyi', 'cmdline.pyi', 'console.pyi', 'filter.pyi', 'filters/__init__.pyi', 'formatter.pyi', 'formatters/__init__.pyi', 'formatters/_mapping.pyi', 'formatters/bbcode.pyi', 'formatters/html.pyi', 'formatters/img.pyi', 'formatters/irc.pyi', 'formatters/latex.pyi', 'formatters/other.pyi', 'formatters/pangomarkup.pyi', 'formatters/rtf.pyi', 'formatters/svg.pyi', 'formatters/terminal.pyi', 'formatters/terminal256.pyi', 'lexer.pyi', 'lexers/__init__.pyi', 'lexers/javascript.pyi', 'lexers/jsx.pyi', 'lexers/kusto.pyi', 'lexers/ldap.pyi', 'lexers/lean.pyi', 'lexers/lisp.pyi', 'lexers/prql.pyi', 'lexers/vip.pyi', 'lexers/vyper.pyi', 'modeline.pyi', 'plugin.pyi', 'regexopt.pyi', 'scanner.pyi', 'sphinxext.pyi', 'style.pyi', 'styles/__init__.pyi', 'token.pyi', 'unistring.pyi', 'util.pyi', 'METADATA.toml', 'py.typed']
+'pygments-stubs' = ['__init__.pyi', 'cmdline.pyi', 'console.pyi', 'filter.pyi', 'filters/__init__.pyi', 'formatter.pyi', 'formatters/__init__.pyi', 'formatters/_mapping.pyi', 'formatters/bbcode.pyi', 'formatters/groff.pyi', 'formatters/html.pyi', 'formatters/img.pyi', 'formatters/irc.pyi', 'formatters/latex.pyi', 'formatters/other.pyi', 'formatters/pangomarkup.pyi', 'formatters/rtf.pyi', 'formatters/svg.pyi', 'formatters/terminal.pyi', 'formatters/terminal256.pyi', 'lexer.pyi', 'lexers/__init__.pyi', 'lexers/javascript.pyi', 'lexers/jsx.pyi', 'lexers/kusto.pyi', 'lexers/ldap.pyi', 'lexers/lean.pyi', 'lexers/lisp.pyi', 'lexers/prql.pyi', 'lexers/vip.pyi', 'lexers/vyper.pyi', 'modeline.pyi', 'plugin.pyi', 'regexopt.pyi', 'scanner.pyi', 'sphinxext.pyi', 'style.pyi', 'styles/__init__.pyi', 'token.pyi', 'unistring.pyi', 'util.pyi', 'METADATA.toml', 'py.typed']

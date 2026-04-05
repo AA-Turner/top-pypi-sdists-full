@@ -171,9 +171,10 @@ class TestReplCancelRecovery:
             cancel_event = kwargs.get("cancel_event")
 
             yield AgentEvent(kind="thinking", data={})
-            await asyncio.sleep(0.02)
-            if cancel_event and not cancel_event.is_set():
-                cancel_event.set()
+            await asyncio.sleep(0.05)
+            if cancel_event:
+                if not cancel_event.is_set():
+                    cancel_event.set()
                 cancel_was_set = True
             yield AgentEvent(kind="done", data={})
 

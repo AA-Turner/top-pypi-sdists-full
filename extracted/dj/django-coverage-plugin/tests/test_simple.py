@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/django_coverage_plugin/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/django_coverage_plugin/blob/main/NOTICE.txt
 
 """Simple tests for django_coverage_plugin."""
 
@@ -237,6 +237,17 @@ class OtherTest(DjangoPluginTestCase):
         text = self.run_django_coverage()
         self.assertEqual(text, "\nalpha = 1, beta = 2.\n\n")
         self.assert_analysis([1, 2])
+
+    def test_endwith_not_at_start_of_line(self):
+        self.make_template("""\
+            <div>
+              {% with alpha=1 %}
+                {{ alpha }}
+              {% endwith %}
+            </div>
+            """)
+        self.run_django_coverage()
+        self.assert_analysis([1, 2, 3, 5])
 
 
 class StringTemplateTest(DjangoPluginTestCase):

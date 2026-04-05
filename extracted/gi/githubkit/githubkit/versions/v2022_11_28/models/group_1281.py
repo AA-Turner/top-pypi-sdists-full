@@ -13,16 +13,15 @@ from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
-from .group_0131 import Codespace
+
+class ReposOwnerRepoPrivateVulnerabilityReportingGetResponse200(GitHubModel):
+    """ReposOwnerRepoPrivateVulnerabilityReportingGetResponse200"""
+
+    enabled: bool = Field(
+        description="Whether or not private vulnerability reporting is enabled for the repository."
+    )
 
 
-class UserCodespacesGetResponse200(GitHubModel):
-    """UserCodespacesGetResponse200"""
+model_rebuild(ReposOwnerRepoPrivateVulnerabilityReportingGetResponse200)
 
-    total_count: int = Field()
-    codespaces: list[Codespace] = Field()
-
-
-model_rebuild(UserCodespacesGetResponse200)
-
-__all__ = ("UserCodespacesGetResponse200",)
+__all__ = ("ReposOwnerRepoPrivateVulnerabilityReportingGetResponse200",)

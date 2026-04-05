@@ -16,6 +16,7 @@ from ._internal.morphing.facade.provider import (
     enum_by_value,
     flag_by_exact_value,
     flag_by_member_names,
+    json_schema,
     loader,
     name_mapping,
     validator,

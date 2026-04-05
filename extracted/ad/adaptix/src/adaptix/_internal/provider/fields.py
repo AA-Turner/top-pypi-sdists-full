@@ -1,4 +1,3 @@
-from typing import Union
 
 from ..model_tools.definitions import BaseField, InputField, OutputField
 from .location import InputFieldLoc, OutputFieldLoc
@@ -24,7 +23,7 @@ def output_field_to_loc(field: OutputField) -> OutputFieldLoc:
     )
 
 
-def field_to_loc(field: BaseField) -> Union[InputFieldLoc, OutputFieldLoc]:
+def field_to_loc(field: BaseField) -> InputFieldLoc | OutputFieldLoc:
     if isinstance(field, InputField):
         return input_field_to_loc(field)
     if isinstance(field, OutputField):

@@ -12,17 +12,21 @@ from __future__ import annotations
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-
-from .group_0255 import CodespaceMachine
-
-
-class UserCodespacesCodespaceNameMachinesGetResponse200(GitHubModel):
-    """UserCodespacesCodespaceNameMachinesGetResponse200"""
-
-    total_count: int = Field()
-    machines: list[CodespaceMachine] = Field()
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
 
-model_rebuild(UserCodespacesCodespaceNameMachinesGetResponse200)
+class ReposOwnerRepoPullsPullNumberRequestedReviewersDeleteBody(GitHubModel):
+    """ReposOwnerRepoPullsPullNumberRequestedReviewersDeleteBody"""
 
-__all__ = ("UserCodespacesCodespaceNameMachinesGetResponse200",)
+    reviewers: list[str] = Field(
+        description="An array of user `login`s that will be removed."
+    )
+    team_reviewers: Missing[list[str]] = Field(
+        default=UNSET, description="An array of team `slug`s that will be removed."
+    )
+
+
+model_rebuild(ReposOwnerRepoPullsPullNumberRequestedReviewersDeleteBody)
+
+__all__ = ("ReposOwnerRepoPullsPullNumberRequestedReviewersDeleteBody",)

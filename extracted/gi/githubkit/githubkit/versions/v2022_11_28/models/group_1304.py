@@ -16,18 +16,26 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class UserSshSigningKeysPostBody(GitHubModel):
-    """UserSshSigningKeysPostBody"""
+class ReposOwnerRepoReleasesGenerateNotesPostBody(GitHubModel):
+    """ReposOwnerRepoReleasesGenerateNotesPostBody"""
 
-    title: Missing[str] = Field(
-        default=UNSET, description="A descriptive name for the new key."
+    tag_name: str = Field(
+        description="The tag name for the release. This can be an existing tag or a new one."
     )
-    key: str = Field(
-        pattern="^ssh-(rsa|dss|ed25519) |^ecdsa-sha2-nistp(256|384|521) |^(sk-ssh-ed25519|sk-ecdsa-sha2-nistp256)@openssh.com ",
-        description='The public SSH key to add to your GitHub account. For more information, see "[Checking for existing SSH keys](https://docs.github.com/authentication/connecting-to-github-with-ssh/checking-for-existing-ssh-keys)."',
+    target_commitish: Missing[str] = Field(
+        default=UNSET,
+        description="Specifies the commitish value that will be the target for the release's tag. Required if the supplied tag_name does not reference an existing tag. Ignored if the tag_name already exists.",
+    )
+    previous_tag_name: Missing[str] = Field(
+        default=UNSET,
+        description="The name of the previous tag to use as the starting point for the release notes. Use to manually specify the range for the set of changes considered as part this release.",
+    )
+    configuration_file_path: Missing[str] = Field(
+        default=UNSET,
+        description="Specifies a path to a file in the repository containing configuration settings used for generating the release notes. If unspecified, the configuration file located in the repository at '.github/release.yml' or '.github/release.yaml' will be used. If that is not present, the default configuration will be used.",
     )
 
 
-model_rebuild(UserSshSigningKeysPostBody)
+model_rebuild(ReposOwnerRepoReleasesGenerateNotesPostBody)
 
-__all__ = ("UserSshSigningKeysPostBody",)
+__all__ = ("ReposOwnerRepoReleasesGenerateNotesPostBody",)

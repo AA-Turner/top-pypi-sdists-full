@@ -6,14 +6,16 @@ Uses domain-neutral test data — no GitHub/PR-specific concepts.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from anteroom.services.workflow_runners import (
     RunnerRegistry,
     RunnerResult,
+    _kill_subprocess,
     create_default_registry,
     execute_agent_runner,
     execute_opaque_runner,
@@ -325,3 +327,86 @@ class TestAgentRunner:
         assert payload["output"]["path"] == "/tmp/example.py"
         assert len(payload["output"]["content"]) == 120
         assert len(payload["output"]["meta"]["note"]) == 120
+
+
+# ---------------------------------------------------------------------------
+# Subprocess teardown on cancellation (#1149)
+# ---------------------------------------------------------------------------
+
+
+class TestOpaqueRunnerCancellation:
+    """Verify subprocess cleanup when the runner task is cancelled (Ctrl-C)."""
+
+    @pytest.mark.asyncio
+    async def test_opaque_runner_kills_subprocess_on_cancel(self) -> None:
+        """Subprocess is killed when CancelledError propagates through the runner."""
+        task = asyncio.ensure_future(execute_opaque_runner(mode="shell", command="sleep 60", timeout=300))
+        await asyncio.sleep(0.3)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    @pytest.mark.asyncio
+    async def test_opaque_runner_cancellation_propagates(self) -> None:
+        """CancelledError re-raises after subprocess cleanup, not swallowed."""
+        task = asyncio.ensure_future(execute_opaque_runner(mode="shell", command="sleep 60", timeout=300))
+        await asyncio.sleep(0.3)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    @pytest.mark.asyncio
+    async def test_opaque_runner_already_exited_no_kill(self) -> None:
+        """No kill attempt when process has already exited before cancellation."""
+        proc_mock = MagicMock()
+        proc_mock.returncode = 0
+        proc_mock.pid = 12345
+        proc_mock.kill = MagicMock()
+
+        await _kill_subprocess(proc_mock)
+
+        proc_mock.kill.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_kill_subprocess_escalates_to_sigkill_on_timeout(self) -> None:
+        """_kill_subprocess escalates to SIGKILL when SIGTERM doesn't stop the process."""
+        proc_mock = MagicMock()
+        proc_mock.returncode = None
+        proc_mock.pid = 12345
+        proc_mock.kill = MagicMock()
+
+        call_count = 0
+
+        async def _wait_side_effect() -> None:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                await asyncio.sleep(60)
+            # Second call (after kill) returns immediately
+
+        proc_mock.wait = _wait_side_effect
+
+        with patch("anteroom.services.workflow_runners.os.killpg"):
+            await _kill_subprocess(proc_mock)
+
+        proc_mock.kill.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_kill_subprocess_falls_back_on_killpg_failure(self) -> None:
+        """_kill_subprocess falls back to proc.kill() when os.killpg fails."""
+        proc_mock = MagicMock()
+        proc_mock.returncode = None
+        proc_mock.pid = 12345
+        proc_mock.kill = MagicMock()
+
+        wait_future: asyncio.Future[None] = asyncio.Future()
+        wait_future.set_result(None)
+        proc_mock.wait = AsyncMock(return_value=None)
+
+        with patch(
+            "anteroom.services.workflow_runners.os.killpg",
+            side_effect=ProcessLookupError,
+        ):
+            await _kill_subprocess(proc_mock)
+
+        proc_mock.kill.assert_called_once()

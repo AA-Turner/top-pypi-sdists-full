@@ -1,0 +1,1 @@
+chrome.runtime.onInstalled.addListener(function(e){chrome.sidePanel.setPanelBehavior({openPanelOnActionClick:!0}).catch(e=>{})});

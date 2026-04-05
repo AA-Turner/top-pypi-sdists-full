@@ -48,6 +48,7 @@ DEFAULT_TOOL_TIERS: dict[str, ToolTier] = {
     "update_canvas": ToolTier.READ,
     "patch_canvas": ToolTier.READ,
     "bash": ToolTier.EXECUTE,
+    "bash_task_output": ToolTier.READ,
     "run_agent": ToolTier.EXECUTE,
     # invoke_skill expands a skill prompt and queues it — no direct action,
     # but the expanded prompt may trigger tool calls that are individually gated.
@@ -65,6 +66,7 @@ DEFAULT_TOOL_TIERS: dict[str, ToolTier] = {
     "mission_drop_item": ToolTier.WRITE,
     "mission_complete": ToolTier.WRITE,
     "mission_patch_plan": ToolTier.EXECUTE,
+    "bash_background_status": ToolTier.READ,
 }
 
 # MCP tools and unknown tools default to this tier

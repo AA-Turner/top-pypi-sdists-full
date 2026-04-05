@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "keep-skill"
-version = "0.120.0"
+version = "0.123.1"
 description = "Reflective memory - remember and search documents by meaning"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -129,6 +129,8 @@ ignore = [
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
+"bench/*.py" = ["D101"]
+"bench/**/*.py" = ["D101"]
 "tests/*.py" = ["D101"]
 "tests/**/*.py" = ["D101"]
 

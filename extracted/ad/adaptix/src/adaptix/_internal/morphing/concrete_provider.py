@@ -7,7 +7,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from fractions import Fraction
 from io import BytesIO
-from typing import Generic, Optional, TypeVar, Union
+from typing import Generic, TypeVar
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ..common import Dumper, Loader
@@ -32,7 +32,7 @@ class IsoFormatProvider(MorphingProvider):
         datetime: JSONSchemaBuiltinFormat.DATE_TIME,
     }
 
-    def __init__(self, cls: type[Union[date, time]]):
+    def __init__(self, cls: type[date | time]):
         self._cls = cls
         self._loc_stack_checker = create_loc_stack_checker(cls)
 
@@ -60,7 +60,7 @@ class IsoFormatProvider(MorphingProvider):
     def _make_dumper(self):
         return self._cls.isoformat
 
-    def _generate_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
         return JSONSchema(type=JSONSchemaType.STRING, format=self._CLS_TO_JSON_FORMAT[self._cls])
 
 
@@ -99,13 +99,13 @@ class DatetimeFormatProvider(MorphingProvider):
 
         return datetime_format_dumper
 
-    def _generate_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
         return JSONSchema(type=JSONSchemaType.STRING)
 
 
 @for_predicate(datetime)
 class DatetimeTimestampProvider(MorphingProvider):
-    def __init__(self, tz: Optional[timezone]):
+    def __init__(self, tz: timezone | None):
         self._tz = tz
 
     def provide_loader(self, mediator: Mediator, request: LoaderRequest) -> Loader:
@@ -118,7 +118,7 @@ class DatetimeTimestampProvider(MorphingProvider):
             try:
                 return datetime.fromtimestamp(data, tz=tz)
             except TypeError:
-                raise TypeLoadError(Union[int, float], data)
+                raise TypeLoadError(int | float, data)
             except ValueError:
                 raise ValueLoadError("Unexpected value", data)
             except OverflowError:
@@ -137,7 +137,7 @@ class DatetimeTimestampProvider(MorphingProvider):
             return data.timestamp()
         return datetime_timestamp_dumper
 
-    def _generate_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
         return JSONSchema(type=JSONSchemaType.NUMBER)
 
 
@@ -145,7 +145,7 @@ class DatetimeTimestampProvider(MorphingProvider):
 class DateTimestampProvider(MorphingProvider):
     def _is_pydatetime(self) -> bool:
         try:
-            import _pydatetime
+            import _pydatetime  # noqa: PLC0415
         except ImportError:
             return False
         else:
@@ -164,11 +164,11 @@ class DateTimestampProvider(MorphingProvider):
                 # of datetime.date.fromtimestamp module works differently with a None arg.
                 # See https://github.com/python/cpython/issues/120268 for more details.
                 if data is None:
-                    raise TypeLoadError(Union[int, float], data)
+                    raise TypeLoadError(int | float, data)
 
                 return date.fromtimestamp(data)  # noqa: DTZ012
             except TypeError:
-                raise TypeLoadError(Union[int, float], data)
+                raise TypeLoadError(int | float, data)
             except ValueError:
                 raise ValueLoadError("Unexpected value", data)
             except OverflowError:
@@ -181,7 +181,7 @@ class DateTimestampProvider(MorphingProvider):
             try:
                 return date.fromtimestamp(data)  # noqa: DTZ012
             except TypeError:
-                raise TypeLoadError(Union[int, float], data)
+                raise TypeLoadError(int | float, data)
             except OverflowError:
                 raise ValueLoadError(
                     "Timestamp is out of the range of supported values",
@@ -204,7 +204,7 @@ class DateTimestampProvider(MorphingProvider):
             return dt.timestamp()
         return date_timestamp_dumper
 
-    def _generate_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
         return JSONSchema(type=JSONSchemaType.NUMBER)
 
 
@@ -220,7 +220,7 @@ class SecondsTimedeltaProvider(MorphingProvider):
 
         def timedelta_loader(data):
             if type(data) not in ok_types:
-                raise TypeLoadError(Union[int, float, Decimal], data)
+                raise TypeLoadError(int | float | Decimal, data)
             return timedelta(seconds=int(data), microseconds=int(data % 1 * 10 ** 6))
 
         return timedelta_loader
@@ -231,7 +231,7 @@ class SecondsTimedeltaProvider(MorphingProvider):
     def _make_dumper(self):
         return timedelta.total_seconds
 
-    def _generate_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
         return JSONSchema(type=JSONSchemaType.NUMBER)
 
 
@@ -249,7 +249,7 @@ class NoneProvider(MorphingProvider):
     def provide_dumper(self, mediator: Mediator, request: DumperRequest) -> Dumper:
         return as_is_stub
 
-    def _generate_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
         return JSONSchema(type=JSONSchemaType.NULL)
 
 
@@ -264,7 +264,7 @@ class _Base64DumperMixin(DumperProvider):
 
 
 class _Base64JSONSchemaMixin(JSONSchemaProvider):
-    def _generate_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
         return JSONSchema(type=JSONSchemaType.STRING, content_encoding="base64")
 
 
@@ -382,7 +382,7 @@ class RegexPatternProvider(MorphingProvider):
     def provide_dumper(self, mediator: Mediator, request: DumperRequest) -> Dumper:
         return _regex_dumper
 
-    def _generate_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
         return JSONSchema(type=JSONSchemaType.STRING, format=JSONSchemaBuiltinFormat.REGEX)
 
 
@@ -418,7 +418,7 @@ class ScalarProvider(MorphingProvider, Generic[T]):
     def provide_dumper(self, mediator: Mediator, request: DumperRequest) -> Dumper:
         return self._dumper
 
-    def _generate_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
         return self._json_schema
 
 
@@ -437,7 +437,7 @@ def int_lax_coercion_loader(data):
             raise ValueLoadError("Bad string format", data)
         raise ValueLoadError(e_str, data)
     except TypeError:
-        raise TypeLoadError(Union[int, float, str], data)
+        raise TypeLoadError(int | float | str, data)
 
 
 INT_PROVIDER = ScalarProvider(
@@ -452,7 +452,7 @@ INT_PROVIDER = ScalarProvider(
 def float_strict_coercion_loader(data):
     if type(data) in (float, int):
         return float(data)
-    raise TypeLoadError(Union[float, int], data)
+    raise TypeLoadError(int | float, data)
 
 
 def float_lax_coercion_loader(data):
@@ -464,7 +464,7 @@ def float_lax_coercion_loader(data):
             raise ValueLoadError("Bad string format", data)
         raise ValueLoadError(e_str, data)
     except TypeError:
-        raise TypeLoadError(Union[int, float, str], data)
+        raise TypeLoadError(int | float | str, data)
 
 
 FLOAT_PROVIDER = ScalarProvider(
@@ -514,7 +514,7 @@ def decimal_strict_coercion_loader(data):
             raise ValueLoadError("Bad string format", data)
     if type(data) is Decimal:
         return data
-    raise TypeLoadError(Union[str, Decimal], data)
+    raise TypeLoadError(str | Decimal, data)
 
 
 def decimal_lax_coercion_loader(data):
@@ -523,7 +523,7 @@ def decimal_lax_coercion_loader(data):
     except InvalidOperation:
         raise ValueLoadError("Bad string format", data)
     except TypeError:
-        raise TypeLoadError(Union[str, Decimal], data)
+        raise TypeLoadError(str | Decimal, data)
     except ValueError as e:
         raise ValueLoadError(str(e), data)
 
@@ -543,14 +543,14 @@ def fraction_strict_coercion_loader(data):
             return Fraction(data)
         except ValueError:
             raise ValueLoadError("Bad string format", data)
-    raise TypeLoadError(Union[str, Fraction], data)
+    raise TypeLoadError(str | Fraction, data)
 
 
 def fraction_lax_coercion_loader(data):
     try:
         return Fraction(data)
     except TypeError:
-        raise TypeLoadError(Union[str, Fraction], data)
+        raise TypeLoadError(str | Fraction, data)
     except ValueError as e:
         str_e = str(e)
         if str_e.startswith("Invalid literal"):
@@ -573,14 +573,14 @@ def complex_strict_coercion_loader(data):
             return complex(data)
         except ValueError:
             raise ValueLoadError("Bad string format", data)
-    raise TypeLoadError(Union[str, complex], data)
+    raise TypeLoadError(str | complex, data)
 
 
 def complex_lax_coercion_loader(data):
     try:
         return complex(data)
     except TypeError:
-        raise TypeLoadError(Union[str, complex], data)
+        raise TypeLoadError(str | complex, data)
     except ValueError:
         raise ValueLoadError("Bad string format", data)
 
@@ -637,7 +637,7 @@ class SelfTypeProvider(MorphingProvider):
     def provide_dumper(self, mediator: Mediator[Dumper], request: DumperRequest) -> Dumper:
         return self._substituting_provide(mediator, request)
 
-    def _generate_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
         return self._substituting_provide(mediator, request)
 
 
@@ -650,5 +650,5 @@ class LiteralStringProvider(MorphingProvider):
     def provide_dumper(self, mediator: Mediator, request: DumperRequest) -> Dumper:
         return as_is_stub
 
-    def _generate_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
         return JSONSchema(type=JSONSchemaType.STRING)

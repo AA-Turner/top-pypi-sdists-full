@@ -1,6 +1,6 @@
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, fields
-from typing import Any, Callable, ClassVar, Generic, Optional, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar
 
 from ..datastructures import ClassMap
 from ..type_tools import strip_alias
@@ -26,7 +26,7 @@ Merger = Callable[[Any, Any, Any], Any]
 @dataclass(frozen=True)
 class Overlay(Generic[Sc]):
     _schema_cls: ClassVar[type[Schema]]  # ClassVar cannot contain TypeVar
-    _mergers: ClassVar[Optional[Mapping[str, Merger]]]
+    _mergers: ClassVar[Mapping[str, Merger] | None]
 
     def __init_subclass__(cls, *args, **kwargs):
         for base in cls.__orig_bases__:
@@ -109,7 +109,7 @@ def provide_schema(overlay: type[Overlay[Sc]], mediator: Mediator, loc_stack: Lo
 
 
 class OverlayProvider(MethodsProvider):
-    def __init__(self, overlays: Iterable[Overlay], chain: Optional[Chain]):
+    def __init__(self, overlays: Iterable[Overlay], chain: Chain | None):
         self._chain = chain
         self._overlays = ClassMap(*overlays)
 

@@ -16,17 +16,20 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class ReposOwnerRepoReleasesAssetsAssetIdPatchBody(GitHubModel):
-    """ReposOwnerRepoReleasesAssetsAssetIdPatchBody"""
+class ReposOwnerRepoIssuesIssueNumberSubIssuesPriorityPatchBody(GitHubModel):
+    """ReposOwnerRepoIssuesIssueNumberSubIssuesPriorityPatchBody"""
 
-    name: Missing[str] = Field(default=UNSET, description="The file name of the asset.")
-    label: Missing[str] = Field(
+    sub_issue_id: int = Field(description="The id of the sub-issue to reprioritize")
+    after_id: Missing[int] = Field(
         default=UNSET,
-        description="An alternate short description of the asset. Used in place of the filename.",
+        description="The id of the sub-issue to be prioritized after (either positional argument after OR before should be specified).",
     )
-    state: Missing[str] = Field(default=UNSET)
+    before_id: Missing[int] = Field(
+        default=UNSET,
+        description="The id of the sub-issue to be prioritized before (either positional argument after OR before should be specified).",
+    )
 
 
-model_rebuild(ReposOwnerRepoReleasesAssetsAssetIdPatchBody)
+model_rebuild(ReposOwnerRepoIssuesIssueNumberSubIssuesPriorityPatchBody)
 
-__all__ = ("ReposOwnerRepoReleasesAssetsAssetIdPatchBody",)
+__all__ = ("ReposOwnerRepoIssuesIssueNumberSubIssuesPriorityPatchBody",)

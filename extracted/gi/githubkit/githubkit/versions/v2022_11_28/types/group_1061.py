@@ -9,92 +9,26 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-import datetime as _dt
-from typing import Literal, Union
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
+
+from .group_0133 import CodespaceType, CodespaceTypeForResponse
 
 
-class OrgsOrgPrivateRegistriesGetResponse200Type(TypedDict):
-    """OrgsOrgPrivateRegistriesGetResponse200"""
-
-    total_count: int
-    configurations: list[OrgPrivateRegistryConfigurationType]
-
-
-class OrgsOrgPrivateRegistriesGetResponse200TypeForResponse(TypedDict):
-    """OrgsOrgPrivateRegistriesGetResponse200"""
+class OrgsOrgCodespacesGetResponse200Type(TypedDict):
+    """OrgsOrgCodespacesGetResponse200"""
 
     total_count: int
-    configurations: list[OrgPrivateRegistryConfigurationTypeForResponse]
+    codespaces: list[CodespaceType]
 
 
-class OrgPrivateRegistryConfigurationType(TypedDict):
-    """Organization private registry
+class OrgsOrgCodespacesGetResponse200TypeForResponse(TypedDict):
+    """OrgsOrgCodespacesGetResponse200"""
 
-    Private registry configuration for an organization
-    """
-
-    name: str
-    registry_type: Literal[
-        "maven_repository",
-        "nuget_feed",
-        "goproxy_server",
-        "npm_registry",
-        "rubygems_server",
-        "cargo_registry",
-        "composer_repository",
-        "docker_registry",
-        "git_source",
-        "helm_registry",
-        "hex_organization",
-        "hex_repository",
-        "pub_repository",
-        "python_index",
-        "terraform_registry",
-    ]
-    url: NotRequired[str]
-    username: NotRequired[Union[str, None]]
-    replaces_base: NotRequired[bool]
-    visibility: Literal["all", "private", "selected"]
-    created_at: _dt.datetime
-    updated_at: _dt.datetime
-
-
-class OrgPrivateRegistryConfigurationTypeForResponse(TypedDict):
-    """Organization private registry
-
-    Private registry configuration for an organization
-    """
-
-    name: str
-    registry_type: Literal[
-        "maven_repository",
-        "nuget_feed",
-        "goproxy_server",
-        "npm_registry",
-        "rubygems_server",
-        "cargo_registry",
-        "composer_repository",
-        "docker_registry",
-        "git_source",
-        "helm_registry",
-        "hex_organization",
-        "hex_repository",
-        "pub_repository",
-        "python_index",
-        "terraform_registry",
-    ]
-    url: NotRequired[str]
-    username: NotRequired[Union[str, None]]
-    replaces_base: NotRequired[bool]
-    visibility: Literal["all", "private", "selected"]
-    created_at: str
-    updated_at: str
+    total_count: int
+    codespaces: list[CodespaceTypeForResponse]
 
 
 __all__ = (
-    "OrgPrivateRegistryConfigurationType",
-    "OrgPrivateRegistryConfigurationTypeForResponse",
-    "OrgsOrgPrivateRegistriesGetResponse200Type",
-    "OrgsOrgPrivateRegistriesGetResponse200TypeForResponse",
+    "OrgsOrgCodespacesGetResponse200Type",
+    "OrgsOrgCodespacesGetResponse200TypeForResponse",
 )

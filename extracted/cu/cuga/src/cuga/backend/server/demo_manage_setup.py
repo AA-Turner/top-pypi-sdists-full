@@ -61,6 +61,11 @@ def _get_digital_sales_tool() -> dict[str, Any]:
     }
 
 
+HEALTH_USER_CONTEXT = """Member ID (string): 121231234
+Location: latitude(str):40.7128, longitude(str):-74.0060
+Current Date: 2025-12-31"""
+
+
 def _get_oak_health_tool() -> dict[str, Any]:
     port = int(
         os.environ.get(
@@ -147,7 +152,7 @@ List every documentation URL that was visited. For each:
 If no pages were visited, write: "No external pages were consulted."
 
 ## Actions Performed
-List each documentation tool action: search_doc, fetch_doc_page, filter_grep — and what it was used for (URL, pattern, etc.). If no docs tools were used, write: "No documentation tools were used."
+List each documentation tool action: search_doc, fetch_doc_page, filter_grep — and what it was used for (URL, keywords, etc.). If no docs tools were used, write: "No documentation tools were used."
 
 Preserve all factual information. Do not add information not in the original. Only add structure and citations based on what the response implies or states.""",
     "priority": 80,
@@ -189,7 +194,7 @@ Replace `<search term>` with a descriptive phrase, using `+` to separate words. 
 - **Inspect the output before proceeding:**
   ```
   result = await search_doc(search_url=...)
-  print(result)
+  print(result['result'])
   ```
   Read the markdown — it contains result titles and URLs linking to the actual documentation pages.
 - One call is enough. Do NOT retry with different queries for the same topic.
@@ -200,27 +205,28 @@ Replace `<search term>` with a descriptive phrase, using `+` to separate words. 
 - Call **fetch_doc_page** with that URL to get the full page content and its same-domain links.
 - **Inspect the output before proceeding:**
   ```
-  result = await fetch_doc_page(url=...)
-  print(result)
+  result_page = await fetch_doc_page(url=...)
+  print(result_page['result'])
   ```
-  Review `result.content` and `result.links` before deciding whether to go deeper.
-- Do NOT re-fetch a page you already have.
 
 ## Step 3: Narrow down with filter_grep (only when needed)
 
 - Only use this after inspecting prior output and confirming targeted extraction is needed.
-- Pass the page `content` plus a regex pattern. Examples:
+- Use `keywords=` for plain-text search — separate alternatives with ` | `:
   ```
-  result = await filter_grep(content=..., pattern="timeout|retry")
+  result = await filter_grep(content=result_page['result'], keywords="timeout | retry")
   print(result)
   ```
-- Other examples: `r"Error \\d+"`, `r"api_key|API_KEY"`
+- More examples:
+  - `keywords="api key | authentication"`
+  - `keywords="release notes | what's new | deprecation"`
+- Only fall back to `pattern=` for raw regex when keywords aren't expressive enough. Never use both.
 
 ## Key rules
 
 - Always inspect tool output before deciding the next step.
 - search_doc returns the search page markdown — pick URLs from it to pass to fetch_doc_page.
-- Use the `links` field from fetch_doc_page results to navigate deeper — do not guess URLs.
+- The page content from fetch_doc_page already contains all links inline as markdown — no need to grep for URLs.
 - Use filter_grep only when targeted extraction is needed.
 - Cite all visited URLs in your response.
 """,
@@ -233,13 +239,13 @@ Replace `<search term>` with a descriptive phrase, using `+` to separate words. 
         },
         {
             "step_number": 2,
-            "instruction": "Pick the most relevant URL from the search results and call fetch_doc_page. Inspect the output — review content and links — before deciding to go deeper.",
-            "expected_outcome": "Full page markdown, same-domain links, and optional summary.",
+            "instruction": "Pick the most relevant URL from the search results and call fetch_doc_page. Inspect the output — links appear inline in the markdown — before deciding to follow one.",
+            "expected_outcome": "Full page markdown with inline links and optional LLM summary for large pages.",
             "tools_allowed": None,
         },
         {
             "step_number": 3,
-            "instruction": "Only if targeted extraction is needed after inspecting prior output, call filter_grep with the content and a regex pattern.",
+            "instruction": "Only if targeted extraction is needed after inspecting prior output, call filter_grep with the content and keywords (e.g. keywords=\"timeout | retry\"). Use pattern= only for raw regex.",
             "expected_outcome": "Structured matches with line numbers and section context.",
             "tools_allowed": None,
         },
@@ -336,7 +342,7 @@ def setup_demo_manage_config(
         "Show me the OpenShift container platform installation guide.",
     ]
     DEMO_HEALTH_STARTERS = [
-        "Show my last approved claims and share the URL of any EOB PDF (member 121231234)",
+        "Show my last approved claims and share the URL of any EOB PDF",
         "Find in-network primary care doctors near me that accept new patients",
         "Find knee surgeons nearby and what are my benefits for surgery",
         "What is my deductible and out-of-pocket progress this plan year?",

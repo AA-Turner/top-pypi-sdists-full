@@ -1,7 +1,7 @@
 import inspect
 from collections.abc import Container, Iterable
 from dataclasses import dataclass, replace
-from typing import Any, Generic, Optional, TypeVar, Union, cast
+from typing import Any, Generic, TypeVar, cast
 
 from ..common import TypeHint
 from ..model_tools.definitions import (
@@ -137,7 +137,7 @@ class PropertyExtender(MethodsProvider):
         return signature.return_annotation
 
 
-ShapeT = TypeVar("ShapeT", bound=Union[InputShape, OutputShape])
+ShapeT = TypeVar("ShapeT", bound=InputShape | OutputShape)
 
 
 class ShapeGenericResolver(Generic[ShapeT]):
@@ -160,7 +160,7 @@ class ShapeGenericResolver(Generic[ShapeT]):
             ),
         )
 
-    def _get_members(self, tp) -> MembersStorage[str, Optional[ShapeT]]:
+    def _get_members(self, tp) -> MembersStorage[str, ShapeT | None]:
         try:
             shape = self._mediator.delegating_provide(
                 replace(
@@ -172,12 +172,12 @@ class ShapeGenericResolver(Generic[ShapeT]):
             return MembersStorage(
                 meta=None,
                 members={},
-                overriden=frozenset(),
+                overridden=frozenset(),
             )
         return MembersStorage(
             meta=shape,
             members={field.id: field.type for field in shape.fields},
-            overriden=shape.overriden_types,
+            overridden=shape.overridden_types,
         )
 
 

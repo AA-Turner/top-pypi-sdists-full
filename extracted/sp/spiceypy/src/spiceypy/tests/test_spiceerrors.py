@@ -24,10 +24,13 @@ SOFTWARE.
 
 import pytest
 import spiceypy as spice
-from spiceypy.cyice import cyice
+
 import spiceypy.found_catcher
 from spiceypy.tests.gettestkernels import cwd, CoreKernels, ExtraKernels
 import os
+import sys
+
+IS_PYODIDE = sys.platform == "emscripten" or "pyodide" in sys.modules
 
 
 def test_tkversion():
@@ -43,12 +46,13 @@ def test_geterror():
     spice.reset()
 
 
+@pytest.mark.skipif(IS_PYODIDE, reason="Cyice Not supported on Pyodide")
 def test_cyice_geterror():
     spice.setmsg("some error occured")
     spice.sigerr("error")
-    assert cyice.failed()
-    assert cyice.getmsg("SHORT", 40) == "error"
-    assert cyice.getmsg("LONG", 200) == "some error occured"
+    assert spice.cyice.failed()
+    assert spice.cyice.getmsg("SHORT", 40) == "error"
+    assert spice.cyice.getmsg("LONG", 200) == "some error occured"
     spice.reset()
 
 
@@ -64,6 +68,7 @@ def test_get_spiceypy_exceptions():
     spice.reset()
 
 
+@pytest.mark.skipif(IS_PYODIDE, reason="Cyice Not supported on Pyodide")
 def test_get_cyice_exceptions():
     with pytest.raises(
         (
@@ -72,7 +77,7 @@ def test_get_cyice_exceptions():
             spice.exceptions.SpiceyPyIOError,
         )
     ):
-        cyice.furnsh(os.path.join(cwd, "_null_kernel.txt"))
+        spice.cyice.furnsh(os.path.join(cwd, "_null_kernel.txt"))
     spice.reset()
     with pytest.raises(
         (
@@ -82,8 +87,8 @@ def test_get_cyice_exceptions():
         )
     ):
         # make a very long name that's too long for the buffer
-        silly_long_name = 'a'*1842 
-        cyice.furnsh(silly_long_name)
+        silly_long_name = "a" * 1842
+        spice.cyice.furnsh(silly_long_name)
     spice.reset()
 
 
@@ -102,20 +107,6 @@ def test_no_loaded_files_exception():
         spice.ckgp(0, 0, 0, "blah")
     spice.reset()
     spice.kclear()
-    with pytest.raises(spice.SpiceyError):
-        cyice.ckgp(0, 0.0, 0, "blah")
-    spice.reset()
-    spice.kclear()
-    with pytest.raises(spice.exceptions.SpiceNOLOADEDFILES):
-        cyice.ckgp(0, 0.0, 0, "blah")
-    spice.reset()
-    spice.kclear()
-    spice.furnsh(CoreKernels.testMetaKernel)
-    spice.furnsh(ExtraKernels.v1jCk)
-    with pytest.raises(spice.NotFoundError):
-        cyice.ckgp(0, 0.0, 0, "blah")
-    spice.reset()
-    spice.kclear()
     with spiceypy.no_found_check():
         with pytest.raises(spice.SpiceyPyIOError):
             spice.ckgp(0, 0, 0, "blah")
@@ -123,11 +114,30 @@ def test_no_loaded_files_exception():
         with pytest.raises(spice.exceptions.SpiceNOLOADEDFILES):
             spice.ckgp(0, 0, 0, "blah")
         spice.reset()
+
+
+@pytest.mark.skipif(IS_PYODIDE, reason="Cyice Not supported on Pyodide")
+def test_no_loaded_files_exception_cyice():
+    with pytest.raises(spice.SpiceyError):
+        spice.cyice.ckgp(0, 0.0, 0, "blah")
+    spice.reset()
+    spice.kclear()
+    with pytest.raises(spice.exceptions.SpiceNOLOADEDFILES):
+        spice.cyice.ckgp(0, 0.0, 0, "blah")
+    spice.reset()
+    spice.kclear()
+    spice.furnsh(CoreKernels.testMetaKernel)
+    spice.furnsh(ExtraKernels.v1jCk)
+    with pytest.raises(spice.NotFoundError):
+        spice.cyice.ckgp(0, 0.0, 0, "blah")
+    spice.reset()
+    spice.kclear()
+    with spiceypy.no_found_check():
         with pytest.raises(spice.SpiceyPyIOError):
-            cyice.ckgp(0, 0.0, 0, "blah")
+            spice.cyice.ckgp(0, 0.0, 0, "blah")
         spice.reset()
         with pytest.raises(spice.exceptions.SpiceNOLOADEDFILES):
-            cyice.ckgp(0, 0.0, 0, "blah")
+            spice.cyice.ckgp(0, 0.0, 0, "blah")
         spice.reset()
 
 
@@ -209,6 +219,7 @@ def test_multiple_founds():
     assert all(success.found)
     failed = spice.NotFoundError(message="test", found=(True, False))
     assert not all(failed.found)
+
     # def test_fun
     @spiceypy.found_catcher.spice_found_exception_thrower
     def test_fun():

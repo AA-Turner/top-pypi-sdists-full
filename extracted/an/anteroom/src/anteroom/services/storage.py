@@ -781,6 +781,10 @@ def delete_conversation(db: ThreadSafeConnection, conversation_id: str, data_dir
     attachments_dir = data_dir / "attachments" / conversation_id
     if attachments_dir.exists():
         shutil.rmtree(attachments_dir)
+    # Clean up background task output files (#1312)
+    from .task_output import cleanup_conversation_task_output
+
+    cleanup_conversation_task_output(data_dir, conversation_id)
     db.execute("DELETE FROM conversations WHERE id = ?", (conversation_id,))
     db.commit()
     return True

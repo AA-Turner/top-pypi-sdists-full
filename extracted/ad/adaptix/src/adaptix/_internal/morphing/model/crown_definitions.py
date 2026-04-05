@@ -1,6 +1,6 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Generic, TypeVar, Union
+from typing import Any, Generic, TypeVar
 
 from ...common import VarTuple
 from ...model_tools.definitions import BaseShape, DefaultFactory, DefaultValue, InputShape, OutputShape
@@ -9,7 +9,7 @@ from ...utils import MappingHashWrapper, SingletonMeta
 
 T = TypeVar("T")
 
-CrownPathElem = Union[str, int]
+CrownPathElem = str | int
 CrownPath = VarTuple[CrownPathElem]  # subset of struct_path.Trail
 
 
@@ -56,14 +56,14 @@ class BaseFieldCrown:
     id: str
 
 
-BranchBaseCrown = Union[BaseDictCrown, BaseListCrown]
-LeafBaseCrown = Union[BaseFieldCrown, BaseNoneCrown]
-BaseCrown = Union[BranchBaseCrown, LeafBaseCrown]
+BranchBaseCrown = BaseDictCrown | BaseListCrown
+LeafBaseCrown = BaseFieldCrown | BaseNoneCrown
+BaseCrown = BranchBaseCrown | LeafBaseCrown
 
 # --------  Input Crown -------- #
 
-DictExtraPolicy = Union[ExtraSkip, ExtraForbid, ExtraCollect]
-ListExtraPolicy = Union[ExtraSkip, ExtraForbid]
+DictExtraPolicy = ExtraSkip | ExtraForbid | ExtraCollect
+ListExtraPolicy = ExtraSkip | ExtraForbid
 
 
 @dataclass(frozen=True)
@@ -89,9 +89,9 @@ class InpFieldCrown(BaseFieldCrown):
     pass
 
 
-BranchInpCrown = Union[InpDictCrown, InpListCrown]
-LeafInpCrown = Union[InpFieldCrown, InpNoneCrown]
-InpCrown = Union[BranchInpCrown, LeafInpCrown]
+BranchInpCrown = InpDictCrown | InpListCrown
+LeafInpCrown = InpFieldCrown | InpNoneCrown
+InpCrown = BranchInpCrown | LeafInpCrown
 
 # --------  Output Crown -------- #
 
@@ -123,7 +123,7 @@ class OutListCrown(BaseListCrown["OutCrown"]):
     pass
 
 
-Placeholder = Union[DefaultValue, DefaultFactory]
+Placeholder = DefaultValue | DefaultFactory
 
 
 @dataclass(frozen=True)
@@ -136,9 +136,9 @@ class OutFieldCrown(BaseFieldCrown):
     pass
 
 
-BranchOutCrown = Union[OutDictCrown, OutListCrown]
-LeafOutCrown = Union[OutFieldCrown, OutNoneCrown]
-OutCrown = Union[BranchOutCrown, LeafOutCrown]
+BranchOutCrown = OutDictCrown | OutListCrown
+LeafOutCrown = OutFieldCrown | OutNoneCrown
+OutCrown = BranchOutCrown | LeafOutCrown
 
 # --------  Name Layout -------- #
 
@@ -166,9 +166,9 @@ class ExtraExtract(Generic[T]):
     func: Extractor[T]
 
 
-InpExtraMove = Union[None, ExtraTargets, ExtraKwargs, ExtraSaturate[T]]
-OutExtraMove = Union[None, ExtraTargets, ExtraExtract[T]]
-BaseExtraMove = Union[InpExtraMove, OutExtraMove]
+InpExtraMove = None | ExtraTargets | ExtraKwargs | ExtraSaturate[T]
+OutExtraMove = None | ExtraTargets | ExtraExtract[T]
+BaseExtraMove = InpExtraMove | OutExtraMove
 
 
 @dataclass(frozen=True)

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import signal
 import sys
 import time
 from dataclasses import dataclass, field
@@ -296,6 +298,26 @@ async def execute_agent_runner(
     )
 
 
+async def _kill_subprocess(proc: asyncio.subprocess.Process) -> None:
+    """Terminate a subprocess and its process group, with escalation to SIGKILL."""
+    if proc.returncode is not None:
+        return
+
+    try:
+        if os.name != "nt":
+            os.killpg(proc.pid, signal.SIGTERM)
+        else:
+            proc.kill()
+    except (ProcessLookupError, OSError):
+        proc.kill()
+
+    try:
+        await asyncio.wait_for(proc.wait(), timeout=5.0)
+    except asyncio.TimeoutError:
+        proc.kill()
+        await proc.wait()
+
+
 async def execute_opaque_runner(
     *,
     mode: str,
@@ -326,9 +348,6 @@ async def execute_opaque_runner(
             summary=f"Working directory does not exist: {working_dir}",
             duration_ms=0,
         )
-
-    import os
-    import signal
 
     # Always build merged_env so we can inject PYTHONUNBUFFERED=1.
     # This forces Python subprocesses to flush stdout/stderr per-line
@@ -388,14 +407,12 @@ async def execute_opaque_runner(
                         {"content": line[:max_chars]},
                     )
 
+        readers = asyncio.gather(
+            _read_stream(proc.stdout, stdout_lines, "transcript_stdout", transcript_max_stdout_chars),
+            _read_stream(proc.stderr, stderr_lines, "transcript_stderr", transcript_max_stderr_chars),
+        )
         try:
-            await asyncio.wait_for(
-                asyncio.gather(
-                    _read_stream(proc.stdout, stdout_lines, "transcript_stdout", transcript_max_stdout_chars),
-                    _read_stream(proc.stderr, stderr_lines, "transcript_stderr", transcript_max_stderr_chars),
-                ),
-                timeout=timeout,
-            )
+            await asyncio.wait_for(readers, timeout=timeout)
             await proc.wait()
         except asyncio.TimeoutError:
             if os.name != "nt":
@@ -412,6 +429,14 @@ async def execute_opaque_runner(
                 summary=f"Timed out after {timeout}s",
                 duration_ms=duration_ms,
             )
+        except asyncio.CancelledError:
+            await _kill_subprocess(proc)
+            readers.cancel()
+            try:
+                await readers
+            except (asyncio.CancelledError, Exception):
+                pass
+            raise
 
         duration_ms = int((time.monotonic() - start) * 1000)
         stdout = "\n".join(stdout_lines).strip()
@@ -434,6 +459,8 @@ async def execute_opaque_runner(
                 duration_ms=duration_ms,
             )
 
+    except asyncio.CancelledError:
+        raise
     except Exception as exc:
         duration_ms = int((time.monotonic() - start) * 1000)
         return RunnerResult(

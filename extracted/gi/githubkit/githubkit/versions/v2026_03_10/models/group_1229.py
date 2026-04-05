@@ -9,7 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
+import datetime as _dt
 
 from pydantic import Field
 
@@ -17,31 +17,75 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_1228 import ReposOwnerRepoPagesPutBodyPropSourceAnyof1
 
+class ReposOwnerRepoGitCommitsPostBody(GitHubModel):
+    """ReposOwnerRepoGitCommitsPostBody"""
 
-class ReposOwnerRepoPagesPutBodyAnyof0(GitHubModel):
-    """ReposOwnerRepoPagesPutBodyAnyof0"""
-
-    cname: Missing[Union[str, None]] = Field(
+    message: str = Field(description="The commit message")
+    tree: str = Field(description="The SHA of the tree object this commit points to")
+    parents: Missing[list[str]] = Field(
         default=UNSET,
-        description='Specify a custom domain for the repository. Sending a `null` value will remove the custom domain. For more about custom domains, see "[Using a custom domain with GitHub Pages](https://docs.github.com/pages/configuring-a-custom-domain-for-your-github-pages-site)."',
+        description="The full SHAs of the commits that were the parents of this commit. If omitted or empty, the commit will be written as a root commit. For a single parent, an array of one SHA should be provided; for a merge commit, an array of more than one should be provided.",
     )
-    https_enforced: Missing[bool] = Field(
+    author: Missing[ReposOwnerRepoGitCommitsPostBodyPropAuthor] = Field(
         default=UNSET,
-        description="Specify whether HTTPS should be enforced for the repository.",
+        description="Information about the author of the commit. By default, the `author` will be the authenticated user and the current date. See the `author` and `committer` object below for details.",
     )
-    build_type: Literal["legacy", "workflow"] = Field(
-        description="The process by which the GitHub Pages site will be built. `workflow` means that the site is built by a custom GitHub Actions workflow. `legacy` means that the site is built by GitHub when changes are pushed to a specific branch."
+    committer: Missing[ReposOwnerRepoGitCommitsPostBodyPropCommitter] = Field(
+        default=UNSET,
+        description="Information about the person who is making the commit. By default, `committer` will use the information set in `author`. See the `author` and `committer` object below for details.",
     )
-    source: Missing[
-        Union[
-            Literal["gh-pages", "master", "master /docs"],
-            ReposOwnerRepoPagesPutBodyPropSourceAnyof1,
-        ]
-    ] = Field(default=UNSET)
+    signature: Missing[str] = Field(
+        default=UNSET,
+        description="The [PGP signature](https://en.wikipedia.org/wiki/Pretty_Good_Privacy) of the commit. GitHub adds the signature to the `gpgsig` header of the created commit. For a commit signature to be verifiable by Git or GitHub, it must be an ASCII-armored detached PGP signature over the string commit as it would be written to the object database. To pass a `signature` parameter, you need to first manually create a valid PGP signature, which can be complicated. You may find it easier to [use the command line](https://git-scm.com/book/id/v2/Git-Tools-Signing-Your-Work) to create signed commits.",
+    )
 
 
-model_rebuild(ReposOwnerRepoPagesPutBodyAnyof0)
+class ReposOwnerRepoGitCommitsPostBodyPropAuthor(GitHubModel):
+    """ReposOwnerRepoGitCommitsPostBodyPropAuthor
 
-__all__ = ("ReposOwnerRepoPagesPutBodyAnyof0",)
+    Information about the author of the commit. By default, the `author` will be the
+    authenticated user and the current date. See the `author` and `committer` object
+    below for details.
+    """
+
+    name: str = Field(description="The name of the author (or committer) of the commit")
+    email: str = Field(
+        description="The email of the author (or committer) of the commit"
+    )
+    date: Missing[_dt.datetime] = Field(
+        default=UNSET,
+        description="Indicates when this commit was authored (or committed). This is a timestamp in [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format: `YYYY-MM-DDTHH:MM:SSZ`.",
+    )
+
+
+class ReposOwnerRepoGitCommitsPostBodyPropCommitter(GitHubModel):
+    """ReposOwnerRepoGitCommitsPostBodyPropCommitter
+
+    Information about the person who is making the commit. By default, `committer`
+    will use the information set in `author`. See the `author` and `committer`
+    object below for details.
+    """
+
+    name: Missing[str] = Field(
+        default=UNSET, description="The name of the author (or committer) of the commit"
+    )
+    email: Missing[str] = Field(
+        default=UNSET,
+        description="The email of the author (or committer) of the commit",
+    )
+    date: Missing[_dt.datetime] = Field(
+        default=UNSET,
+        description="Indicates when this commit was authored (or committed). This is a timestamp in [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format: `YYYY-MM-DDTHH:MM:SSZ`.",
+    )
+
+
+model_rebuild(ReposOwnerRepoGitCommitsPostBody)
+model_rebuild(ReposOwnerRepoGitCommitsPostBodyPropAuthor)
+model_rebuild(ReposOwnerRepoGitCommitsPostBodyPropCommitter)
+
+__all__ = (
+    "ReposOwnerRepoGitCommitsPostBody",
+    "ReposOwnerRepoGitCommitsPostBodyPropAuthor",
+    "ReposOwnerRepoGitCommitsPostBodyPropCommitter",
+)

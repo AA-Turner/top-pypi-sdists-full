@@ -2,7 +2,7 @@ import dataclasses
 from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Optional, Union
+from typing import Any
 
 from ..common import TypeHint, VarTuple
 from ..compat import CompatExceptionGroup
@@ -70,7 +70,7 @@ class UnionLoadError(LoadExceptionGroup):
 @custom_exception
 @dataclass(eq=False)
 class MsgLoadError(LoadError):
-    msg: Optional[str]
+    msg: str | None
     input_value: Any
 
 
@@ -160,6 +160,6 @@ class DuplicatedValuesLoadError(LoadError):
 @custom_exception
 @dataclass(eq=False)
 class OutOfRangeLoadError(LoadError):
-    min_value: Optional[Union[int, float]]
-    max_value: Optional[Union[int, float]]
+    min_value: int | float | None
+    max_value: int | float | None
     input_value: Any

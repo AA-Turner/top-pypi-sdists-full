@@ -2,7 +2,7 @@ import collections.abc
 from collections.abc import Mapping, Set
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import dataclass, replace
-from typing import Any, Callable, Optional
+from typing import Any
 
 from ...code_tools.cascade_namespace import BuiltinCascadeNamespace, CascadeNamespace
 from ...code_tools.code_builder import CodeBuilder
@@ -11,9 +11,11 @@ from ...common import Loader
 from ...compat import CompatExceptionGroup
 from ...definitions import DebugTrail
 from ...model_tools.definitions import DefaultFactory, DefaultValue, InputField, InputShape, Param, ParamKind
+from ...provider.loc_stack_filtering import LocStack
+from ...provider.loc_stack_tools import format_type
 from ...special_cases_optimization import as_is_stub
 from ...struct_trail import append_trail, extend_trail, render_trail_as_note
-from ...utils import Omittable, Omitted
+from ...utils import Omitted
 from ..json_schema.definitions import JSONSchema
 from ..json_schema.schema_model import JSONSchemaType, JSONValue
 from ..load_error import (
@@ -118,7 +120,7 @@ class GenState(Namer):
         self.field_id_to_path: dict[str, CrownPath] = {}
 
         self._last_path_idx = 0
-        self._parent_path: Optional[CrownPath] = None
+        self._parent_path: CrownPath | None = None
         self._crown_stack: list[InpCrown] = [root_crown]
 
         self.type_checked_type_paths: set[CrownPath] = set()
@@ -381,7 +383,7 @@ class BuiltinModelLoaderGen(ModelLoaderGen):
         self,
         state: GenState,
         bad_type_load_error: str,
-        namer: Optional[Namer] = None,
+        namer: Namer | None = None,
     ) -> None:
         if namer is None:
             namer = state
@@ -405,7 +407,7 @@ class BuiltinModelLoaderGen(ModelLoaderGen):
         state: GenState,
         *,
         assign_to: str,
-        on_lookup_error: Optional[str] = None,
+        on_lookup_error: str | None = None,
     ):
         last_path_el = state.path[-1]
         if isinstance(last_path_el, str):
@@ -796,17 +798,20 @@ class BuiltinModelLoaderGen(ModelLoaderGen):
 class ModelInputJSONSchemaGen:
     def __init__(
         self,
+        loc_stack: LocStack,
         shape: InputShape,
-        field_json_schema_getter: Callable[[InputField], JSONSchema],
-        field_default_dumper: Callable[[InputField], Omittable[JSONValue]],
+        field_name_to_json_schema: Mapping[str, JSONSchema],
+        field_name_to_json_schema_of_default: Mapping[str, JSONValue],
     ):
+        self._loc_stack = loc_stack
         self._shape = shape
-        self._field_json_schema_getter = field_json_schema_getter
-        self._field_default_dumper = field_default_dumper
+        self._field_name_to_json_schema = field_name_to_json_schema
+        self._field_name_to_json_schema_of_default = field_name_to_json_schema_of_default
 
     def _convert_dict_crown(self, crown: InpDictCrown) -> JSONSchema:
         return JSONSchema(
             type=JSONSchemaType.OBJECT,
+            title=format_type(self._loc_stack.last.type, brackets=False),
             required=[
                 key
                 for key, value in crown.map.items()
@@ -832,10 +837,9 @@ class ModelInputJSONSchemaGen:
         )
 
     def _convert_field_crown(self, crown: InpFieldCrown) -> JSONSchema:
-        field = self._shape.fields_dict[crown.id]
-        json_schema = self._field_json_schema_getter(field)
-        default = self._field_default_dumper(field)
-        if default != Omitted():
+        json_schema = self._field_name_to_json_schema[crown.id]
+        if crown.id in self._field_name_to_json_schema_of_default:
+            default = self._field_name_to_json_schema_of_default[crown.id]
             return replace(json_schema, default=default)
         return json_schema
 

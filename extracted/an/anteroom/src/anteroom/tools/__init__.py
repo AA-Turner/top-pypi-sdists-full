@@ -236,6 +236,7 @@ class ToolRegistry:
         *,
         rule_enforcer_override: RuleEnforcer | None = None,
         _extra_env: dict[str, str] | None = None,
+        _extra_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         handler = self._handlers.get(name)
         if not handler:
@@ -294,6 +295,17 @@ class ToolRegistry:
         # Per-step credential env injection for workflow bash tool calls (#970)
         if name == "bash" and _extra_env is not None:
             extra_kwargs["_env"] = _extra_env
+        # Background task manager injection (#1311)
+        if name in ("bash", "bash_background_status", "bash_task_output") and _extra_context:
+            if "bg_manager" in _extra_context:
+                extra_kwargs["_bg_manager"] = _extra_context["bg_manager"]
+            if "conversation_id" in _extra_context:
+                extra_kwargs["_conversation_id"] = _extra_context["conversation_id"]
+            if "db" in _extra_context:
+                extra_kwargs["_db"] = _extra_context["db"]
+        # Strip 'background' from LLM arguments before passing to handler
+        if name == "bash" and "background" in arguments:
+            extra_kwargs["_background"] = arguments.pop("background")
         result = await handler(**arguments, **extra_kwargs)
         result["_approval_decision"] = approval_decision
         result["_context_trust"] = "untrusted" if name in _UNTRUSTED_TOOLS else "trusted"
@@ -377,6 +389,18 @@ def register_default_tools(registry: ToolRegistry, working_dir: str | None = Non
     registry.register(ask_user.DEFINITION["name"], ask_user.handle, ask_user.DEFINITION)
     registry.register(introspect.DEFINITION["name"], introspect.handle, introspect.DEFINITION)
 
+    # Background task status tool (#1311)
+    registry.register(
+        bash.BACKGROUND_STATUS_DEFINITION["name"],
+        bash.handle_background_status,
+        bash.BACKGROUND_STATUS_DEFINITION,
+    )
+
+    # Background task output tool (#1312) — registered alongside defaults;
+    # the _extra_context injection wires _bg_manager at call time.
+    from .bash import TASK_OUTPUT_DEFINITION, handle_task_output
+
+    registry.register(TASK_OUTPUT_DEFINITION["name"], handle_task_output, TASK_OUTPUT_DEFINITION)
     _register_optional_office_tools(registry, working_dir)
 
 

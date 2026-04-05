@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plato-sdk-v2
-Version: 2.54.7
+Version: 2.54.8
 Summary: Python SDK for the Plato API
 Author-email: Plato <support@plato.so>
 License-Expression: MIT
@@ -13,34 +13,34 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Typing :: Typed
 Requires-Python: <3.14,>=3.10
-Requires-Dist: aiohttp>=3.8.0
-Requires-Dist: blake3>=0.3.0
-Requires-Dist: boto3
-Requires-Dist: cloudpickle>=3.0.0
-Requires-Dist: cryptography>=46.0.6
-Requires-Dist: datamodel-code-generator>=0.43.0
-Requires-Dist: email-validator>=2.0.0
-Requires-Dist: fastmcp>=3.0.0
-Requires-Dist: gitpython>=3.1.46
-Requires-Dist: google-genai>=1.0.0
-Requires-Dist: httpx>=0.25.0
-Requires-Dist: jinja2>=3.1.0
-Requires-Dist: litellm>=1.40.0
-Requires-Dist: openapi-pydantic>=0.5.1
-Requires-Dist: opentelemetry-api>=1.20.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0
-Requires-Dist: opentelemetry-instrumentation-system-metrics>=0.50b0
-Requires-Dist: opentelemetry-sdk>=1.20.0
-Requires-Dist: pathspec>=0.12.1
-Requires-Dist: pydantic-settings>=2.12.0
-Requires-Dist: pydantic<2.13,>=2.12.0
-Requires-Dist: python-dotenv>=1.2.1
-Requires-Dist: pyyaml>=6.0
-Requires-Dist: requests>=2.32.5
-Requires-Dist: rich>=13.0.0
-Requires-Dist: tenacity>=9.1.2
-Requires-Dist: tomli>=2.0.0
-Requires-Dist: typer>=0.9.0
+Requires-Dist: aiohttp==3.13.4
+Requires-Dist: blake3==1.0.8
+Requires-Dist: boto3==1.42.52
+Requires-Dist: cloudpickle==3.1.2
+Requires-Dist: cryptography==46.0.6
+Requires-Dist: datamodel-code-generator==0.53.0
+Requires-Dist: email-validator==2.3.0
+Requires-Dist: fastmcp==3.0.0
+Requires-Dist: gitpython==3.1.46
+Requires-Dist: google-genai==1.59.0
+Requires-Dist: httpx==0.28.1
+Requires-Dist: jinja2==3.1.6
+Requires-Dist: litellm==1.81.13
+Requires-Dist: openapi-pydantic==0.5.1
+Requires-Dist: opentelemetry-api==1.39.1
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.39.1
+Requires-Dist: opentelemetry-instrumentation-system-metrics==0.60b1
+Requires-Dist: opentelemetry-sdk==1.39.1
+Requires-Dist: pathspec==0.12.1
+Requires-Dist: pydantic-settings==2.12.0
+Requires-Dist: pydantic==2.12.5
+Requires-Dist: python-dotenv==1.2.1
+Requires-Dist: pyyaml==6.0.3
+Requires-Dist: requests==2.33.0
+Requires-Dist: rich==14.2.0
+Requires-Dist: tenacity==9.1.2
+Requires-Dist: tomli==2.4.0
+Requires-Dist: typer==0.21.1
 Provides-Extra: db-cleanup
 Requires-Dist: aiomysql>=0.2; extra == 'db-cleanup'
 Requires-Dist: aiosqlite>=0.20; extra == 'db-cleanup'

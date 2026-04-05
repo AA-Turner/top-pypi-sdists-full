@@ -237,7 +237,7 @@ class AgentsGenerator:
         
         CLI configuration takes precedence over YAML configuration for:
         - Global config fields (acp, lsp) -> config.config
-        - Agent-level fields (trust, tool_timeout, planning_tools) -> applied to all agents
+        - Agent-level fields (trust, tool_timeout, planning_tools, autonomy, guardrail, approval) -> applied to all agents
         
         Args:
             config (dict): The parsed YAML configuration
@@ -258,9 +258,26 @@ class AgentsGenerator:
                 config['config']['lsp'] = cli_config['lsp'] 
                 self.logger.debug(f"CLI override: lsp = {cli_config['lsp']}")
         
-        # Handle agent-level overrides (trust, tool_timeout, planning_tools)
-        agent_level_fields = ['trust', 'tool_timeout', 'planning_tools']
+        # Handle agent-level overrides (trust, tool_timeout, planning_tools, autonomy, guardrail, approval)
+        agent_level_fields = ['trust', 'tool_timeout', 'planning_tools', 'autonomy', 'guardrail', 'approval', 'approve_all_tools', 'approval_timeout']
         agent_overrides = {k: v for k, v in cli_config.items() if k in agent_level_fields}
+        
+        # Map CLI field names to YAML field names
+        field_mappings = {
+            'guardrail': 'guardrails',  # CLI uses --guardrail, YAML uses guardrails
+            'trust': 'approval'  # --trust maps to approval=True
+        }
+        
+        # Apply field mappings and special handling
+        for cli_field in field_mappings:
+            if cli_field in agent_overrides:
+                value = agent_overrides.pop(cli_field)
+                if cli_field == 'trust' and value:
+                    # --trust flag maps to approval=True for auto-approval
+                    agent_overrides['approval'] = True
+                elif cli_field == 'guardrail':
+                    # --guardrail "description" maps to guardrails config
+                    agent_overrides['guardrails'] = value
         
         if agent_overrides:
             # Apply to all agents in the config
@@ -1179,6 +1196,48 @@ class AgentsGenerator:
                 else:
                     agent_planning.pop('planning_tools')
             
+            # Extract YAML configuration for advanced features
+            autonomy_config = details.get('autonomy')
+            guardrails_config = details.get('guardrails')
+            
+            # Reconstruct approval config from potentially scattered settings
+            approval_val = details.get('approval')
+            approve_all = details.get('approve_all_tools')
+            approval_timeout = details.get('approval_timeout')
+            
+            approval_config = None
+            if approval_val is not None or approve_all is not None or approval_timeout is not None:
+                if isinstance(approval_val, dict):
+                    approval_dict = approval_val
+                else:
+                    approval_dict = {'backend': approval_val}
+                
+                if approve_all is not None:
+                    approval_dict['approve_all_tools'] = approve_all
+                if approval_timeout is not None:
+                    approval_dict['approval_timeout'] = approval_timeout
+                
+                try:
+                    from .cli.features.approval import resolve_approval_config
+                    # Map common YAML fields to resolve_approval_config parameters
+                    approval_config = resolve_approval_config(
+                        backend_name=approval_dict.get('backend') or approval_dict.get('backend_name'),
+                        all_tools=approval_dict.get('approve_all_tools') or approval_dict.get('all_tools', False),
+                        timeout=approval_dict.get('approval_timeout') or approval_dict.get('timeout')
+                    )
+                except ImportError:
+                    # Fallback: Create ApprovalConfig directly if resolve_approval_config isn't available
+                    try:
+                        from praisonaiagents.approval.protocols import ApprovalConfig
+                        approval_config = ApprovalConfig(
+                            backend=approval_dict.get('backend', None),
+                            all_tools=approval_dict.get('approve_all_tools', approval_dict.get('all_tools', False)),
+                            timeout=approval_dict.get('approval_timeout', approval_dict.get('timeout', 0))
+                        )
+                    except ImportError:
+                        # Last resort: disable approval for this agent
+                        approval_config = None
+            
             agent = PraisonAgent(
                 name=role_filled,
                 role=role_filled,
@@ -1191,6 +1250,9 @@ class AgentsGenerator:
                 reflection=details.get('reflection', False),
                 tool_timeout=agent_tool_timeout,
                 planning=agent_planning,
+                autonomy=autonomy_config,
+                guardrails=guardrails_config,
+                approval=approval_config,
             )
             
             if self.agent_callback:

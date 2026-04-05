@@ -1,18 +1,30 @@
-import collections.abc
 from abc import ABC
-from collections.abc import ByteString, Iterable, Mapping, MutableMapping  # noqa: PYI057
+from collections import deque
+from collections.abc import (
+    Collection,
+    Iterable,
+    Mapping,
+    MutableMapping,
+    MutableSequence,
+    MutableSet,
+    Reversible,
+    Sequence,
+    Set,
+)
 from datetime import date, datetime, time
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from itertools import chain
 from pathlib import Path, PosixPath, PurePath, PurePosixPath, PureWindowsPath, WindowsPath
-from typing import Any, Optional, TypeVar, overload
+from typing import Any, TypeVar, overload
 from uuid import UUID
 
 from ...common import Dumper, Loader, TypeHint, VarTuple
 from ...definitions import DebugTrail
+from ...feature_requirement import HAS_BYTE_STRING
 from ...provider.essential import Provider, Request
 from ...provider.loc_stack_filtering import LocStack, P, VarTupleLSC
 from ...provider.location import TypeHintLoc
+from ...provider.provider_wrapper import ConcatProvider
 from ...provider.shape_provider import BUILTIN_SHAPE_PROVIDER
 from ...provider.value_provider import ValueProvider
 from ...retort.error_renderer import ErrorRenderer
@@ -52,13 +64,12 @@ from ..generic_provider import (
     TypeHintTagsUnwrappingProvider,
 )
 from ..iterable_provider import IterableProvider
-from ..json_schema.definitions import JSONSchema, ResolvedJSONSchema
-from ..json_schema.providers import InlineJSONSchemaProvider, JSONSchemaRefProvider
+from ..json_schema.definitions import JSONSchema
+from ..json_schema.providers import BuiltinInlineJSONSchemaProvider, JSONSchemaRefProvider
 from ..json_schema.request_cls import JSONSchemaContext, JSONSchemaRequest
 from ..model.crown_definitions import ExtraSkip
 from ..model.dumper_provider import ModelDumperProvider
 from ..model.loader_provider import ModelLoaderProvider
-from ..model.request_filtering import AnyModelLSC
 from ..name_layout.component import BuiltinExtraMoveAndPoliciesMaker, BuiltinSievesMaker, BuiltinStructureMaker
 from ..name_layout.name_mapping import SkipPrivateFieldsNameMappingProvider
 from ..name_layout.provider import BuiltinNameLayoutProvider
@@ -76,6 +87,9 @@ from .provider import (
     loader,
     name_mapping,
 )
+
+if HAS_BYTE_STRING:
+    from collections.abc import ByteString  # noqa: PYI057
 
 
 class FilledRetort(OperatingRetort, ABC):
@@ -141,7 +155,7 @@ class FilledRetort(OperatingRetort, ABC):
         bound(VarTupleLSC(), IterableProvider(dump_as=tuple)),
         bound(set, IterableProvider(dump_as=list, json_schema_unique_items=True)),
         bound(frozenset, IterableProvider(dump_as=tuple, json_schema_unique_items=True)),
-        bound(collections.deque, IterableProvider(dump_as=list)),
+        bound(deque, IterableProvider(dump_as=list)),
         ConstantLengthTupleProvider(),
 
         LiteralProvider(),
@@ -154,24 +168,19 @@ class FilledRetort(OperatingRetort, ABC):
 
         ABCProxy(Mapping, dict),
         ABCProxy(MutableMapping, dict),
-        ABCProxy(ByteString, bytes),
 
-        ToVarTupleProxy(collections.abc.Iterable),
-        ToVarTupleProxy(collections.abc.Reversible),
-        ToVarTupleProxy(collections.abc.Collection),
-        ToVarTupleProxy(collections.abc.Sequence),
-        ABCProxy(collections.abc.MutableSequence, list),
-        ABCProxy(collections.abc.Set, frozenset),
-        ABCProxy(collections.abc.MutableSet, set),
+        (
+            ABCProxy(ByteString, bytes) if HAS_BYTE_STRING else ConcatProvider()
+        ),
 
-        name_mapping(
-            JSONSchema,
-            omit_default=True,
-        ),
-        name_mapping(
-            ResolvedJSONSchema,
-            omit_default=True,
-        ),
+        ToVarTupleProxy(Iterable),
+        ToVarTupleProxy(Reversible),
+        ToVarTupleProxy(Collection),
+        ToVarTupleProxy(Sequence),
+        ABCProxy(MutableSequence, list),
+        ABCProxy(Set, frozenset),
+        ABCProxy(MutableSet, set),
+
         name_mapping(
             chain=None,
             skip=(),
@@ -195,16 +204,15 @@ class FilledRetort(OperatingRetort, ABC):
         ModelLoaderProvider(),
         ModelDumperProvider(),
 
-        bound(AnyModelLSC(), InlineJSONSchemaProvider(inline=False)),
-        InlineJSONSchemaProvider(inline=True),
+        BuiltinInlineJSONSchemaProvider(),
         JSONSchemaRefProvider(),
 
         BUILTIN_SHAPE_PROVIDER,
 
         NewTypeUnwrappingProvider(),
-        TypeHintTagsUnwrappingProvider(),
         TypeAliasUnwrappingProvider(),
         ForwardRefEvaluatingProvider(),
+        TypeHintTagsUnwrappingProvider(),
     ]
 
 
@@ -222,7 +230,7 @@ class AdornedRetort(OperatingRetort):
         recipe: Iterable[Provider] = (),
         strict_coercion: bool = True,
         debug_trail: DebugTrail = DebugTrail.ALL,
-        error_renderer: Optional[ErrorRenderer] = default_error_renderer,
+        error_renderer: ErrorRenderer | None = default_error_renderer,
     ):
         self._strict_coercion = strict_coercion
         self._debug_trail = debug_trail
@@ -238,7 +246,7 @@ class AdornedRetort(OperatingRetort):
         *,
         strict_coercion: Omittable[bool] = Omitted(),
         debug_trail: Omittable[DebugTrail] = Omitted(),
-        error_renderer: Omittable[Optional[ErrorRenderer]] = Omitted(),
+        error_renderer: Omittable[ErrorRenderer | None] = Omitted(),
     ) -> AR:
         with self._clone() as clone:
             if not isinstance(strict_coercion, Omitted):
@@ -331,10 +339,10 @@ class AdornedRetort(OperatingRetort):
         ...
 
     @overload
-    def dump(self, data: Any, tp: Optional[TypeHint] = None, /) -> Any:
+    def dump(self, data: Any, tp: TypeHint | None = None, /) -> Any:
         ...
 
-    def dump(self, data: Any, tp: Optional[TypeHint] = None, /) -> Any:
+    def dump(self, data: Any, tp: TypeHint | None = None, /) -> Any:
         if tp is None:
             tp = type(data)
             if is_generic_class(tp):

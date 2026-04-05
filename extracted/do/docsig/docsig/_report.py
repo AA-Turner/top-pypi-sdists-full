@@ -15,10 +15,10 @@ import sys as _sys
 import typing as _t
 from warnings import warn as _warn
 
+import astroid as _ast
 from astroid.nodes.scoped_nodes import scoped_nodes as _scoped_nodes
 
 from ._config import Config as _Config
-from ._module import Error as _Error
 from ._module import Function as _Function
 from ._stub import UNNAMED as _UNNAMED
 from ._stub import VALID_DESCRIPTION as _VALID_DESCRIPTION
@@ -36,7 +36,7 @@ _MIN_MATCH = 0.8
 _MAX_MATCH = 1.0
 
 
-class Failures(_t.List["Failure"]):
+class Failures(list["Failure"]):
     """Sequence of Failure instances (one per function checked)."""
 
 
@@ -52,7 +52,7 @@ class Failed(_t.NamedTuple):
     new: bool = False
 
 
-class Failure(_t.List[Failed]):
+class Failure(list[Failed]):
     """Collect docstring and signature failures for one function.
 
     Runs configured checks and appends Failed entries for each
@@ -288,18 +288,18 @@ class Failure(_t.List[Failed]):
             self._func.isproperty and not check_property_returns
         ):
             # no types, cannot know either way
-            if self._func.signature.rettype == _RetType.UNTYPED:
+            if self._func.signature.returns.type == _RetType.UNTYPED:
                 # confirm-return-needed
                 self._add(_E[501], hint=True)
             # return-type is none, so no return should be documented
-            elif self._func.docstring.returns:
-                if self._func.signature.rettype == _RetType.NONE:
+            elif self._func.docstring.returns.returns:
+                if self._func.signature.returns.type == _RetType.NONE:
                     # return-documented-for-none
                     self._add(_E[502])
-                if self._func.docstring.ret_description_missing:
+                if self._func.docstring.returns.description_missing:
                     self._add(_E[506])
             # return-type is some, so return should be documented
-            elif self._func.signature.returns:
+            elif self._func.signature.returns.returns:
                 # return-missing
                 lines = str(self._func.docstring.string).splitlines()
                 self._add(
@@ -310,7 +310,7 @@ class Failure(_t.List[Failed]):
                         and ":param" not in lines[-1]
                     ),
                 )
-        elif self._func.docstring.returns:
+        elif self._func.docstring.returns.returns:
             # this method is init, so no return should be documented
             if self._func.isinit:
                 # class-return-documented
@@ -322,13 +322,15 @@ class Failure(_t.List[Failed]):
 
     def _sig9xx_error(self) -> None:
         # invalid-syntax
-        if self._func.error == _Error.SYNTAX:
+        if self._func.error is _ast.AstroidSyntaxError:
             self._add(_E[901])
             self._retcode = 123
-        if self._func.error == _Error.UNICODE:
+        if self._func.error is UnicodeDecodeError:
             self._add(_E[902])
-        if self._func.error == _Error.RECURSION:
+        if self._func.error is RecursionError:
             self._add(_E[903])
+        if self._func.error is _ast.DuplicateBasesError:
+            self._add(_E[904])
 
     @property
     def name(self) -> str:

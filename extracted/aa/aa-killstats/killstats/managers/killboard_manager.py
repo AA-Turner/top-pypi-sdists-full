@@ -150,9 +150,7 @@ class KillmailBaseManager(models.Manager):
             attackers_list = []
 
             corporation_id = killmail_body.victim.corporation_id
-            region_id = killmail_body.get_or_create_region_id(
-                killmail_body.solar_system_id
-            )
+            region_id = killmail_body.get_region_id(killmail_body.solar_system_id)
             victim_ship = ItemType.objects.get(id=killmail_body.victim.ship_type_id)
             victim = None
 

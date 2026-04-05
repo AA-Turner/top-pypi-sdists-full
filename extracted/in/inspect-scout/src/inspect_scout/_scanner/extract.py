@@ -138,11 +138,31 @@ async def messages_as_str(
 
 MessagesAsStr: TypeAlias = Callable[[list[ChatMessage]], Awaitable[str]]
 ExtractReferences: TypeAlias = Callable[[str], list[Reference]]
+LabelForId: TypeAlias = Callable[[str], str | None]
+
+
+@overload
+def message_numbering(
+    preprocessor: MessagesPreprocessor[list[ChatMessage]] | None = None,
+) -> tuple[MessagesAsStr, ExtractReferences]: ...
+
+
+@overload
+def message_numbering(
+    preprocessor: MessagesPreprocessor[list[ChatMessage]] | None = None,
+    *,
+    label_for_id: Literal[True],
+) -> tuple[MessagesAsStr, ExtractReferences, LabelForId]: ...
 
 
 def message_numbering(
     preprocessor: MessagesPreprocessor[list[ChatMessage]] | None = None,
-) -> tuple[MessagesAsStr, ExtractReferences]:
+    *,
+    label_for_id: bool = False,
+) -> (
+    tuple[MessagesAsStr, ExtractReferences]
+    | tuple[MessagesAsStr, ExtractReferences, LabelForId]
+):
     """Create a messages_as_str / extract_references pair with shared numbering.
 
     Returns two functions that share a closure-captured counter and id_map.
@@ -156,14 +176,18 @@ def message_numbering(
         preprocessor: Message preprocessing options applied to every call
             (e.g., exclude_system, exclude_reasoning). Defaults to excluding
             system messages when no preprocessor is provided.
+        label_for_id: When True, return a third function that maps real
+            message IDs to their assigned labels (e.g. ``"M3"``).
 
     Returns:
         Tuple of:
             - messages_as_str: takes list[ChatMessage], returns formatted string with globally unique [M1], [M2], etc. prefixes.
             - extract_refs: takes text, returns list of Reference objects for any [M1], [M2], etc. references found across all prior calls.
+            - label_for_id (when requested): takes a real message ID, returns its label (e.g. ``"M3"``) or None if not yet seen.
     """
     counter = [0]
     id_map: dict[str, str] = {}
+    reverse_map: dict[str, str] = {}
 
     async def _messages_as_str(messages: list[ChatMessage]) -> str:
         if preprocessor is not None and preprocessor.transform is not None:
@@ -175,7 +199,9 @@ def message_numbering(
             if content is not None:
                 counter[0] += 1
                 ordinal = f"M{counter[0]}"
-                id_map[ordinal] = _message_id(message)
+                real_id = _message_id(message)
+                id_map[ordinal] = real_id
+                reverse_map[real_id] = ordinal
                 items.append(f"[{ordinal}] {content}")
 
         return "\n".join(items)
@@ -183,7 +209,13 @@ def message_numbering(
     def _extract_refs(text: str) -> list[Reference]:
         return _extract_references(text, id_map)
 
-    return _messages_as_str, _extract_refs
+    def _label_for_id(message_id: str) -> str | None:
+        return reverse_map.get(message_id)
+
+    if label_for_id:
+        return _messages_as_str, _extract_refs, _label_for_id
+    else:
+        return _messages_as_str, _extract_refs
 
 
 def message_as_str(
@@ -226,8 +258,6 @@ def message_as_str(
             else:
                 entry += f"\nTool Call: {func_name}\nArguments: {args}\n"
 
-        return entry
-
     elif isinstance(message, ChatMessageTool):
         if preprocessor.exclude_tool_usage:
             return None
@@ -240,7 +270,16 @@ def message_as_str(
         return f"{message.role.upper()}:\n{content}{error_part}\n"
 
     else:
-        return f"{message.role.upper()}:\n{content}\n"
+        entry = f"{message.role.upper()}:\n{content}\n"
+
+    if (
+        message.role == "assistant"
+        and message.metadata
+        and message.metadata.get("prefill")
+    ):
+        entry = f"<prefill>\n{entry}</prefill>"
+
+    return entry
 
 
 def _text_from_content(
@@ -250,20 +289,17 @@ def _text_from_content(
         case "text":
             return content.text
         case "reasoning":
-            return (
-                None
-                if (
-                    exclude_reasoning
-                    or not (
-                        reasoning := content.summary
-                        if content.redacted
-                        else content.reasoning
-                    )
-                )
-                # We need to bracket it with a start/finish since it could be multiple
-                # lines long, and we need to distinguish it from content text's
-                else f"\n<think>{reasoning}</think>"
-            )
+            if exclude_reasoning:
+                return None
+            if content.redacted:
+                if content.summary:
+                    return f"\n<thinking_summary>{content.summary}</thinking_summary>"
+                else:
+                    return "\n<thinking_redacted/>"
+            elif content.reasoning:
+                return f"\n<thinking>{content.reasoning}</thinking>"
+            else:
+                return None
 
         case "tool_use":
             return (
@@ -296,34 +332,33 @@ def _extract_references(text: str, id_map: dict[str, str]) -> list[Reference]:
     """Extract message and event references from text.
 
     Args:
-        text: Text containing [M{n}], [E{n}], M{n}, or E{n} style references
+        text: Text containing references in bracketed form (e.g., [M1], [M1-M3],
+            [M2, M4], [M1, E2]).
         id_map: Dict mapping ordinal IDs (e.g., "M1", "M2", "E1", "E2") to actual IDs
 
     Returns:
         List of Reference objects with type="message" or type="event"
     """
-    # Match bracketed [M1]/[E1] or bare M1/E1 with word boundaries
-    pattern = r"\[(M|E)\d+\]|\b(M|E)\d+\b"
-    matches = re.finditer(pattern, text)
+    references: list[Reference] = []
+    seen_ids: set[str] = set()
 
-    references = []
-    seen_ids = set()
-
-    for match in matches:
-        cite = match.group(0)
-        # Extract ordinal key: "M1" from "[M1]" or "M1" from bare "M1"
-        ordinal_key = cite[1:-1] if cite.startswith("[") else cite
-
-        # Look up actual ID
+    def _add_ref(ordinal_key: str, cite: str) -> None:
         if ordinal_key in id_map:
             actual_id = id_map[ordinal_key]
-            # Avoid duplicate references
             if actual_id not in seen_ids:
                 ref_type: Literal["message", "event"] = (
                     "message" if ordinal_key.startswith("M") else "event"
                 )
                 references.append(Reference(type=ref_type, cite=cite, id=actual_id))
                 seen_ids.add(actual_id)
+
+    # Find all bracketed expressions containing M/E references,
+    # then extract each M/E token from within them.
+    for bracket_match in re.finditer(r"\[[^\]]*(?:M|E)\d+[^\]]*\]", text):
+        bracket_text = bracket_match.group(0)
+        for ref_match in re.finditer(r"(M|E)\d+", bracket_text):
+            ordinal_key = ref_match.group(0)
+            _add_ref(ordinal_key, f"[{ordinal_key}]")
 
     return references
 

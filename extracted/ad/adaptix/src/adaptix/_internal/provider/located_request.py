@@ -37,6 +37,9 @@ class LocatedRequestChecker(RequestChecker[LocatedRequest]):
     def check_request(self, mediator: DirectMediator, request: LocatedRequest, /) -> bool:
         return self.loc_stack_checker.check_loc_stack(mediator, request.loc_stack)
 
+    def __repr__(self):
+        return f"{type(self).__name__}({self.loc_stack_checker})"
+
 
 class LocatedRequestMethodsProvider(MethodsProvider):
     _loc_stack_checker: LocStackChecker = AnyLocStackChecker()

@@ -1,18 +1,16 @@
 from abc import ABC, abstractmethod
-from collections.abc import Container, Sequence
-from typing import final
+from collections.abc import Sequence
 
 from ..common import Dumper, Loader, TypeHint
-from ..provider.essential import CannotProvide, Mediator, Provider, RequestChecker, RequestHandlerRegisterRecord
+from ..provider.essential import Mediator, Provider, RequestChecker, RequestHandlerRegisterRecord
 from ..provider.loc_stack_filtering import ExactOriginLSC
 from ..provider.loc_stack_tools import format_type
-from ..provider.located_request import LocatedRequestChecker, LocatedRequestMethodsProvider
+from ..provider.located_request import LocatedRequest, LocatedRequestChecker, LocatedRequestMethodsProvider
 from ..provider.methods_provider import method_handler
 from ..provider.request_checkers import AlwaysTrueRequestChecker
 from ..type_tools import get_generic_args, normalize_type
 from .json_schema.definitions import JSONSchema
 from .json_schema.request_cls import JSONSchemaRequest
-from .json_schema.schema_model import JSONSchemaDialect
 from .request_cls import DumperRequest, LoaderRequest
 
 
@@ -31,17 +29,9 @@ class DumperProvider(LocatedRequestMethodsProvider, ABC):
 
 
 class JSONSchemaProvider(LocatedRequestMethodsProvider, ABC):
-    SUPPORTED_JSON_SCHEMA_DIALECTS: Container[str] = (JSONSchemaDialect.DRAFT_2020_12, )
-
-    @final
     @method_handler
-    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
-        if request.ctx.dialect not in self.SUPPORTED_JSON_SCHEMA_DIALECTS:
-            raise CannotProvide(f"Dialect {request.ctx.dialect} is not supported for this type")
-        return self._generate_json_schema(mediator, request)
-
     @abstractmethod
-    def _generate_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
         ...
 
 
@@ -71,7 +61,7 @@ class ProxyProvider(Provider, ABC):
             )
         return result
 
-    def _provide_proxy(self, mediator: Mediator, request: LoaderRequest) -> Loader:
+    def _provide_proxy(self, mediator: Mediator, request: LocatedRequest) -> Loader:
         return mediator.mandatory_provide(
             request.with_loc_stack(
                 request.loc_stack.replace_last_type(

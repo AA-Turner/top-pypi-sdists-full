@@ -88,14 +88,14 @@ def _get_input_shape(tp, attrs_fields, type_hints) -> InputShape:
             fld
             for fld in init_shape.input.fields
         )
-        overriden_types = (
+        overridden_types = (
             frozenset(fld.id for fld in fields)
             if "__attrs_init__" in vars(tp) else
             frozenset()
         )
     else:
         fields = tuple(param_name_to_field_from_attrs.values())
-        overriden_types = frozenset(
+        overridden_types = frozenset(
             attrs_fld.name
             for attrs_fld in attrs_fields
             if not attrs_fld.inherited and attrs_fld.init
@@ -104,7 +104,7 @@ def _get_input_shape(tp, attrs_fields, type_hints) -> InputShape:
     return InputShape(
         constructor=tp,
         fields=fields,
-        overriden_types=overriden_types,
+        overridden_types=overridden_types,
         kwargs=init_shape.input.kwargs,
         params=tuple(
             Param(
@@ -135,7 +135,7 @@ def _get_output_shape(attrs_fields, type_hints) -> OutputShape:
     )
     return OutputShape(
         fields=output_fields,
-        overriden_types=frozenset(
+        overridden_types=frozenset(
             attrs_fld.name for attrs_fld in attrs_fields if not attrs_fld.inherited
         ),
     )

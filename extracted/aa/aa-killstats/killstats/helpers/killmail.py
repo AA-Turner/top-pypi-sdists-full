@@ -94,6 +94,8 @@ class _KillmailBase:
 
 def to_serializable_dict(obj):
     """Recursively convert dataclasses and custom objects to dicts."""
+    if isinstance(obj, datetime):
+        return obj
     if is_dataclass(obj):
         return {k: to_serializable_dict(v) for k, v in asdict(obj).items()}
     if isinstance(obj, dict):
@@ -101,11 +103,12 @@ def to_serializable_dict(obj):
     if isinstance(obj, (list, tuple, set)):
         return [to_serializable_dict(v) for v in obj]
     if hasattr(obj, "__dict__"):
-        return {
-            k: to_serializable_dict(v)
-            for k, v in obj.__dict__.items()
-            if not k.startswith("_")
-        }
+        data = {}
+        for k, v in obj.__dict__.items():
+            if not k.startswith("_"):
+                k = to_serializable_dict(k)
+                data[k] = to_serializable_dict(v)
+        return data
     return obj
 
 
@@ -215,7 +218,7 @@ class KillmailBody(_KillmailBase):
         return json.dumps(to_serializable_dict(self), cls=JSONDateTimeEncoder)
 
     @staticmethod
-    def _process_killmail_data(data):
+    def _process_killmail_data(data: dict) -> dict | None:
         try:
             killmail_id = data["killmail_id"]
             killmail_hash = data["zkb"]["hash"]
@@ -225,17 +228,16 @@ class KillmailBody(_KillmailBase):
             )
 
             # Get killmail data from ESI
-            killmail_item = esi_killmail.result(force_refresh=True)
+            killmail_item = esi_killmail.result(use_etag=False)
             # Convert to dict
-            killmail_item = json.dumps(
-                to_serializable_dict(killmail_item), cls=JSONDateTimeEncoder
-            )
+            killmail_item = to_serializable_dict(killmail_item)
 
-            return {
-                "killID": killmail_id,
-                "killmail": killmail_item,
-                "zkb": data["zkb"],
-            }
+            data["esi"] = killmail_item
+            # Convert killmail_time to ISO format for JSON serialization
+            data["esi"]["killmail_time"] = killmail_item["killmail_time"].strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
+            return data
         # pylint: disable=broad-exception-caught
         except Exception as exc:
             logger.error("Killmail can't fetch %s", exc)
@@ -285,6 +287,14 @@ class KillmailBody(_KillmailBase):
         existing_killmail = Killmail.objects.filter(killmail_id=killmail_id).first()
         if existing_killmail:
             logger.debug("Killmail %s exists already..", killmail_id)
+            return None
+
+        # Convert killmail data to our internal format and save to cache
+        zkb_killmail = cls._process_killmail_data(zkb_killmail)
+        if not zkb_killmail:
+            logger.warning(
+                "Killmail %s could not be processed from zKillboard data.", killmail_id
+            )
             return None
 
         killmail = cls._create_from_dict(zkb_killmail)
@@ -486,10 +496,13 @@ class KillmailBody(_KillmailBase):
         return entity
 
     @staticmethod
-    def get_or_create_region_id(solar_system_id: int) -> int:
+    def get_region_id(solar_system_id: int) -> int:
         """Get or create region ID from solar system ID."""
-        solar_system = SolarSystem.objects.get(id=solar_system_id)
-        region_id = solar_system.constellation.region
+        try:
+            solar_system = SolarSystem.objects.get(id=solar_system_id)
+            region_id = solar_system.constellation.region
+        except SolarSystem.DoesNotExist:
+            return None
         return region_id.id
 
     def get_or_create_attackers(self, killmail, killmail_body):
@@ -597,10 +610,6 @@ class KillmailBody(_KillmailBase):
 
     @classmethod
     def _extract_zkb(cls, package_data):
-        if "zkb" not in package_data:
-            return KillmailZkb()
-
-        zkb_data = package_data["zkb"]
         params = {}
         for prop, mapping in (
             ("locationID", "location_id"),
@@ -614,11 +623,11 @@ class KillmailBody(_KillmailBase):
             ("solo", "is_solo"),
             ("awox", "is_awox"),
         ):
-            if prop in zkb_data:
+            if prop in package_data:
                 if mapping:
-                    params[mapping] = zkb_data[prop]
+                    params[mapping] = package_data[prop]
                 else:
-                    params[prop] = zkb_data[prop]
+                    params[prop] = package_data[prop]
 
         return KillmailZkb(**params)
 
@@ -638,9 +647,9 @@ class KillmailBody(_KillmailBase):
         except KeyError:
             logger.warning("Incomplete Response: %s", package_data)
             return None
-        victim, position = cls._extract_victim_and_position(package_data)
-        attackers = cls._extract_attackers(package_data)
-        zkb = cls._extract_zkb(package_data)
+        victim, position = cls._extract_victim_and_position(esi_data)
+        attackers = cls._extract_attackers(esi_data)
+        zkb = cls._extract_zkb(zkb)
 
         params = {
             "id": killmail_id,

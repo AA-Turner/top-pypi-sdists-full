@@ -1,6 +1,6 @@
 import inspect
-from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Callable, ClassVar, TypeVar, final
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from typing import Any, ClassVar, TypeVar, final
 
 from ..type_tools import get_all_type_hints, is_subclass_soft, normalize_type, strip_tags
 from .essential import Mediator, Provider, Request, RequestChecker, RequestHandlerRegisterRecord

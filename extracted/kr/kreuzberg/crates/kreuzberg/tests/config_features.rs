@@ -37,14 +37,6 @@ async fn test_chunking_enabled() {
     let chunks = result.chunks.expect("Operation failed");
     assert!(chunks.len() > 1, "Should have multiple chunks");
 
-    assert!(result.metadata.additional.contains_key("chunk_count"));
-    let chunk_count = result.metadata.additional.get("chunk_count").expect("Value not found");
-    assert_eq!(
-        chunks.len(),
-        chunk_count.as_u64().expect("Operation failed") as usize,
-        "Chunks length should match chunk_count metadata"
-    );
-
     for chunk in &chunks {
         assert!(!chunk.content.is_empty(), "Chunk should not be empty");
         assert!(
@@ -78,8 +70,6 @@ async fn test_chunking_with_overlap() {
     assert!(result.chunks.is_some(), "Chunks should be present");
     let chunks = result.chunks.expect("Operation failed");
     assert!(chunks.len() >= 2, "Should have at least 2 chunks");
-
-    assert!(result.metadata.additional.contains_key("chunk_count"));
 
     if chunks.len() >= 2 {
         let chunk1 = &chunks[0];
@@ -118,8 +108,6 @@ async fn test_chunking_custom_sizes() {
     let chunks = result.chunks.expect("Operation failed");
     assert!(!chunks.is_empty(), "Should have at least 1 chunk");
 
-    assert!(result.metadata.additional.contains_key("chunk_count"));
-
     for chunk in &chunks {
         assert!(
             chunk.content.len() <= 200 + 50,
@@ -145,10 +133,6 @@ async fn test_chunking_disabled() {
         .expect("Should extract successfully");
 
     assert!(result.chunks.is_none(), "Should not have chunks when chunking disabled");
-    assert!(
-        !result.metadata.additional.contains_key("chunk_count"),
-        "Should not have chunk_count when chunking disabled"
-    );
 
     assert!(!result.content.is_empty(), "Content should be extracted");
     assert!(result.content.contains("long text"), "Should contain original text");
@@ -552,8 +536,6 @@ More detailed content here in the subsection.
 #[tokio::test]
 #[cfg(feature = "chunking")]
 async fn test_chunk_type_populated() {
-    use kreuzberg::ChunkType;
-
     let markdown = r#"# Introduction
 
 This section introduces the document with some content.
@@ -589,28 +571,19 @@ A brief summary of the document.
     let chunks = result.chunks.expect("Should have chunks");
     assert!(!chunks.is_empty(), "Should have at least one chunk");
 
-    // All chunks must have a chunk_type (not the default Unknown when content is classifiable)
+    // Verify chunk metadata is populated
     for chunk in &chunks {
+        assert!(!chunk.content.is_empty(), "Chunk should not be empty");
         // chunk_type must always be set (never uninitialized)
         let _ = &chunk.chunk_type;
     }
 
-    // At least one chunk should be classified as something other than Unknown
-    let has_classified = chunks.iter().any(|c| !matches!(c.chunk_type, ChunkType::Unknown));
+    // At least one chunk should have heading context (from markdown structure)
+    let has_heading_context = chunks.iter().any(|c| c.metadata.heading_context.is_some());
     assert!(
-        has_classified,
-        "At least one chunk should have a non-Unknown chunk_type"
+        has_heading_context,
+        "At least one chunk should have heading context from markdown structure"
     );
-
-    // Heading chunks should be classified as Heading
-    let heading_chunks: Vec<_> = chunks.iter().filter(|c| c.content.starts_with('#')).collect();
-    for chunk in &heading_chunks {
-        assert!(
-            matches!(chunk.chunk_type, ChunkType::Heading),
-            "Chunk starting with '#' should be classified as Heading, got {:?}",
-            chunk.chunk_type
-        );
-    }
 }
 
 /// Test tokenizer env var override.

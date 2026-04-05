@@ -1,3 +1,4 @@
+import math
 from typing import Any, Mapping, Sequence, cast
 
 from inspect_ai._eval.task.results import ScorerInfo, compute_eval_scores
@@ -22,7 +23,9 @@ class MetricsAccumulator:
 
     def add_result(self, value: JsonValue) -> None:
         if value is not None:
-            self._scores.append(SampleScore(score=Score(value=as_score_value(value))))
+            self._scores.append(
+                SampleScore(score=Score(value=_numeric_score_value(value)))
+            )
 
     def compute_metrics(self) -> dict[str, dict[str, float]]:
         scores = compute_eval_scores(
@@ -37,7 +40,14 @@ class MetricsAccumulator:
         # a dict of values returned from the scorer)
         metrics: dict[str, dict[str, float]] = {}
         for score in scores:
-            metrics[score.name] = {k: v.value for k, v in score.metrics.items()}
+            # Filter out NaN values — compute_eval_scores produces NaN when
+            # there are zero successful results (e.g. all errored).  NaN
+            # serialises to JSON null which fails Summary Pydantic validation.
+            metrics[score.name] = {
+                k: v.value
+                for k, v in score.metrics.items()
+                if not (isinstance(v.value, float) and math.isnan(v.value))
+            }
         return metrics
 
     @throttle(3)
@@ -78,6 +88,7 @@ def metrics_for_scanner(
 
 
 def as_score_value(value: JsonValue) -> Value:
+    """Convert a JsonValue to a Score Value, preserving all scalar types."""
     if isinstance(value, list):
         return [
             v if isinstance(v, str | int | float | bool) else to_json_str_safe(v)
@@ -94,3 +105,20 @@ def as_score_value(value: JsonValue) -> Value:
         return value
     else:
         raise AssertionError("None should not be passed to as_score_value")
+
+
+def _numeric_score_value(value: JsonValue) -> Value:
+    """Convert a JsonValue to a Score Value for metric computation.
+
+    Filters out non-numeric values (strings, None, complex objects) from
+    lists and dicts so that metric functions like mean() and stderr() only
+    see values they can aggregate.
+    """
+    if isinstance(value, list):
+        return [v for v in value if isinstance(v, int | float | bool)]
+    elif isinstance(value, dict):
+        return {k: v for k, v in value.items() if isinstance(v, int | float | bool)}
+    elif isinstance(value, str | int | float | bool):
+        return value
+    else:
+        raise AssertionError("None should not be passed to _numeric_score_value")

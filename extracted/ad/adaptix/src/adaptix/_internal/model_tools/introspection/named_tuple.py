@@ -24,9 +24,9 @@ def get_named_tuple_shape(tp) -> FullShape:
 
     type_hints = get_all_type_hints(tp)
     if tuple in tp.__bases__:
-        overriden_types = frozenset(tp._fields)
+        overridden_types = frozenset(tp._fields)
     else:
-        overriden_types = frozenset(tp.__annotations__.keys() & set(tp._fields))
+        overridden_types = frozenset(tp.__annotations__.keys() & set(tp._fields))
 
     # noinspection PyProtectedMember
     input_shape = InputShape(
@@ -55,7 +55,7 @@ def get_named_tuple_shape(tp) -> FullShape:
             )
             for field_id in tp._fields
         ),
-        overriden_types=overriden_types,
+        overridden_types=overridden_types,
     )
 
     return Shape(
@@ -75,6 +75,6 @@ def get_named_tuple_shape(tp) -> FullShape:
                 )
                 for idx, fld in enumerate(input_shape.fields)
             ),
-            overriden_types=overriden_types,
+            overridden_types=overridden_types,
         ),
     )

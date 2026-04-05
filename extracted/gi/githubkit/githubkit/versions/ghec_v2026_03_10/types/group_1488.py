@@ -12,19 +12,19 @@ from __future__ import annotations
 from typing_extensions import TypedDict
 
 
-class UsersUsernameAttestationsDeleteRequestPostBodyOneof0Type(TypedDict):
-    """UsersUsernameAttestationsDeleteRequestPostBodyOneof0"""
+class ReposOwnerRepoTopicsPutBodyType(TypedDict):
+    """ReposOwnerRepoTopicsPutBody"""
 
-    subject_digests: list[str]
+    names: list[str]
 
 
-class UsersUsernameAttestationsDeleteRequestPostBodyOneof0TypeForResponse(TypedDict):
-    """UsersUsernameAttestationsDeleteRequestPostBodyOneof0"""
+class ReposOwnerRepoTopicsPutBodyTypeForResponse(TypedDict):
+    """ReposOwnerRepoTopicsPutBody"""
 
-    subject_digests: list[str]
+    names: list[str]
 
 
 __all__ = (
-    "UsersUsernameAttestationsDeleteRequestPostBodyOneof0Type",
-    "UsersUsernameAttestationsDeleteRequestPostBodyOneof0TypeForResponse",
+    "ReposOwnerRepoTopicsPutBodyType",
+    "ReposOwnerRepoTopicsPutBodyTypeForResponse",
 )

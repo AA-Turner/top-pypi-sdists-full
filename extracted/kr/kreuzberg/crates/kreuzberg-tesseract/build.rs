@@ -702,7 +702,7 @@ mod build_tesseract {
             }
         } else if target_windows {
             if target_msvc {
-                cmake_cxx_flags.push_str("/EHsc /MP /std:c++17 /DTESSERACT_STATIC ");
+                cmake_cxx_flags.push_str("/MP /std:c++17 /DTESSERACT_STATIC ");
                 additional_defines.push(("CMAKE_C_FLAGS_RELEASE".to_string(), "/MD /O2".to_string()));
                 additional_defines.push(("CMAKE_C_FLAGS_DEBUG".to_string(), "/MDd /Od".to_string()));
                 additional_defines.push((

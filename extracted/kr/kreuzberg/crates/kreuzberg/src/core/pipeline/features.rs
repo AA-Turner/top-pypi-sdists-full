@@ -28,8 +28,7 @@ fn recompute_boundaries_from_pages(content: &str, pages: &[crate::types::PageCon
     let mut search_offset = 0usize;
 
     for page in pages {
-        if page.content.is_empty() {
-            // Keep a zero-length marker so page numbers stay sequential.
+        if page.content.trim().is_empty() {
             boundaries.push(PageBoundary {
                 page_number: page.page_number,
                 byte_start: search_offset,
@@ -38,6 +37,7 @@ fn recompute_boundaries_from_pages(content: &str, pages: &[crate::types::PageCon
             continue;
         }
 
+        // Try exact match first
         if let Some(pos) = content[search_offset..].find(&page.content) {
             let byte_start = search_offset + pos;
             let byte_end = byte_start + page.content.len();
@@ -47,9 +47,29 @@ fn recompute_boundaries_from_pages(content: &str, pages: &[crate::types::PageCon
                 byte_end,
             });
             search_offset = byte_end;
+            continue;
         }
-        // If the page content is not found we skip it — partial mismatch is
-        // better than passing an out-of-range offset to the chunker.
+
+        // Fallback: search for first non-empty line of page content
+        if let Some(line) = page.content.lines().find(|l| !l.trim().is_empty()).map(|l| l.trim())
+            && let Some(pos) = content[search_offset..].find(line)
+        {
+            let byte_start = search_offset + pos;
+            let byte_end = (byte_start + page.content.len()).min(content.len());
+            boundaries.push(PageBoundary {
+                page_number: page.page_number,
+                byte_start,
+                byte_end,
+            });
+            search_offset = byte_end;
+            continue;
+        }
+
+        // Last resort: skip this page
+        tracing::debug!(
+            page = page.page_number,
+            "Could not locate page content in rendered text — skipping page boundary"
+        );
     }
 
     boundaries

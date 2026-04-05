@@ -1,6 +1,6 @@
 import itertools
-from collections.abc import Iterable, Mapping
-from typing import Callable, Optional, TypeVar, Union
+from collections.abc import Callable, Iterable, Mapping
+from typing import TypeVar
 
 from ..common import Coercer, OneArgCoercer, VarTuple
 from ..model_tools.definitions import DefaultFactory, DefaultValue, InputField, InputShape, Param, ParamKind
@@ -40,12 +40,12 @@ class DefaultLinkingProvider(LinkingProvider):
 
 
 class MatchingLinkingProvider(LinkingProvider):
-    def __init__(self, src_lsc: LocStackChecker, dst_lsc: LocStackChecker, coercer: Optional[OneArgCoercer]):
+    def __init__(self, src_lsc: LocStackChecker, dst_lsc: LocStackChecker, coercer: OneArgCoercer | None):
         self._src_lsc = src_lsc
         self._dst_lsc = dst_lsc
         self._one_arg_coercer = coercer
 
-    def _get_coercer(self) -> Optional[Coercer]:
+    def _get_coercer(self) -> Coercer | None:
         one_arg_coercer = self._one_arg_coercer
         if one_arg_coercer is None:
             return None
@@ -62,7 +62,7 @@ class MatchingLinkingProvider(LinkingProvider):
 
 
 class ConstantLinkingProvider(LinkingProvider):
-    def __init__(self, dst_lsc: LocStackChecker, default: Union[DefaultValue, DefaultFactory]):
+    def __init__(self, dst_lsc: LocStackChecker, default: DefaultValue | DefaultFactory):
         self._dst_lsc = dst_lsc
         self._default = default
 

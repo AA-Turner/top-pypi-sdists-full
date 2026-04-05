@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from contextlib import suppress
-from typing import Any, Callable, Literal, Optional, TypedDict, TypeVar, Union
+from typing import Any, Literal, Optional, TypedDict, TypeVar
 
 from ...common import Dumper, Loader
 from ...morphing.load_error import LoadError
@@ -15,15 +16,15 @@ with suppress(ImportError):
 
 
 class ValidatePythonParams(TypedDict, total=False):
-    strict: Optional[bool]
-    from_attributes: Optional[bool]
-    context: Optional[Any]
-    self_instance: Optional[Any]
-    allow_partial: Union[bool, Literal["off", "on", "trailing-strings"]]
+    strict: bool | None
+    from_attributes: bool | None
+    context: Any | None
+    self_instance: Any | None
+    allow_partial: bool | Literal["off", "on", "trailing-strings"]
 
 
 class ToPythonParams(TypedDict, total=False):
-    mode: Optional[str]
+    mode: str | None
     include: Optional["IncEx"]
     exclude: Optional["IncEx"]
     by_alias: bool
@@ -31,10 +32,10 @@ class ToPythonParams(TypedDict, total=False):
     exclude_defaults: bool
     exclude_none: bool
     round_trip: bool
-    warnings: Union[bool, Literal["none", "warn", "error"]]
-    fallback: Optional[Callable[[Any], Any]]
+    warnings: bool | Literal["none", "warn", "error"]
+    fallback: Callable[[Any], Any] | None
     serialize_as_any: bool
-    context: Optional[Any]
+    context: Any | None
 
 
 T = TypeVar("T")
@@ -86,8 +87,8 @@ class NativePydanticProvider(LoaderProvider, DumperProvider):
 def native_pydantic(
     *preds: Pred,
     config: Optional["ConfigDict"] = None,
-    validate_python: Optional[ValidatePythonParams] = None,
-    to_python: Optional[ToPythonParams] = None,
+    validate_python: ValidatePythonParams | None = None,
+    to_python: ToPythonParams | None = None,
 ) -> Provider:
     """Provider that represents value via pydantic.
     You can use this function to validate or serialize pydantic models via pydantic itself.

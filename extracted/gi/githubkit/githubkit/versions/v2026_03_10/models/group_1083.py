@@ -9,8 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-import datetime as _dt
-from typing import Literal, Union
+from typing import Literal
 
 from pydantic import Field
 
@@ -19,46 +18,26 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class OrgsOrgSettingsNetworkConfigurationsGetResponse200(GitHubModel):
-    """OrgsOrgSettingsNetworkConfigurationsGetResponse200"""
+class OrgsOrgDependabotSecretsSecretNamePutBody(GitHubModel):
+    """OrgsOrgDependabotSecretsSecretNamePutBody"""
 
-    total_count: int = Field()
-    network_configurations: list[NetworkConfiguration] = Field()
-
-
-class NetworkConfiguration(GitHubModel):
-    """Hosted compute network configuration
-
-    A hosted compute network configuration.
-    """
-
-    id: str = Field(description="The unique identifier of the network configuration.")
-    name: str = Field(description="The name of the network configuration.")
-    compute_service: Missing[Literal["none", "actions", "codespaces"]] = Field(
+    encrypted_value: Missing[str] = Field(
+        pattern="^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{4})$",
         default=UNSET,
-        description="The hosted compute service the network configuration supports.",
+        description="Value for your secret, encrypted with [LibSodium](https://libsodium.gitbook.io/doc/bindings_for_other_languages) using the public key retrieved from the [Get an organization public key](https://docs.github.com/rest/dependabot/secrets#get-an-organization-public-key) endpoint.",
     )
-    network_settings_ids: Missing[list[str]] = Field(
+    key_id: Missing[str] = Field(
+        default=UNSET, description="ID of the key you used to encrypt the secret."
+    )
+    visibility: Literal["all", "private", "selected"] = Field(
+        description="Which type of organization repositories have access to the organization secret. `selected` means only the repositories specified by `selected_repository_ids` can access the secret."
+    )
+    selected_repository_ids: Missing[list[int]] = Field(
         default=UNSET,
-        description="The unique identifier of each network settings in the configuration.",
-    )
-    failover_network_settings_ids: Missing[list[str]] = Field(
-        default=UNSET,
-        description="The unique identifier of each failover network settings in the configuration.",
-    )
-    failover_network_enabled: Missing[bool] = Field(
-        default=UNSET,
-        description="Indicates whether the failover network resource is enabled.",
-    )
-    created_on: Union[_dt.datetime, None] = Field(
-        description="The time at which the network configuration was created, in ISO 8601 format."
+        description="An array of repository ids that can access the organization secret. You can only provide a list of repository ids when the `visibility` is set to `selected`. You can manage the list of selected repositories using the [List selected repositories for an organization secret](https://docs.github.com/rest/dependabot/secrets#list-selected-repositories-for-an-organization-secret), [Set selected repositories for an organization secret](https://docs.github.com/rest/dependabot/secrets#set-selected-repositories-for-an-organization-secret), and [Remove selected repository from an organization secret](https://docs.github.com/rest/dependabot/secrets#remove-selected-repository-from-an-organization-secret) endpoints.",
     )
 
 
-model_rebuild(OrgsOrgSettingsNetworkConfigurationsGetResponse200)
-model_rebuild(NetworkConfiguration)
+model_rebuild(OrgsOrgDependabotSecretsSecretNamePutBody)
 
-__all__ = (
-    "NetworkConfiguration",
-    "OrgsOrgSettingsNetworkConfigurationsGetResponse200",
-)
+__all__ = ("OrgsOrgDependabotSecretsSecretNamePutBody",)

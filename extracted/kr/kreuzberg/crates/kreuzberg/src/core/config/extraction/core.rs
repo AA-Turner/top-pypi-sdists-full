@@ -404,18 +404,25 @@ impl ExtractionConfig {
     /// - Auto-enabling `extract_pages` when `result_format` is `ElementBased`, because
     ///   the element transformation requires per-page data to assign correct page numbers.
     ///   Without this, all elements would incorrectly get `page_number=1`.
+    /// - Auto-enabling `extract_pages` when chunking is configured, because the chunker
+    ///   needs page boundaries to assign correct page numbers to chunks.
     pub fn normalized(&self) -> std::borrow::Cow<'_, Self> {
-        if self.result_format == crate::types::OutputFormat::ElementBased {
-            let needs_pages = match &self.pages {
+        let needs_pages = |cfg: &Self| -> bool {
+            match &cfg.pages {
                 Some(page_config) => !page_config.extract_pages,
                 None => true,
-            };
-            if needs_pages {
-                let mut config = self.clone();
-                let page_config = config.pages.get_or_insert_with(super::super::page::PageConfig::default);
-                page_config.extract_pages = true;
-                return std::borrow::Cow::Owned(config);
             }
+        };
+
+        let needs_pages_for_elements =
+            self.result_format == crate::types::OutputFormat::ElementBased && needs_pages(self);
+        let needs_pages_for_chunking = self.chunking.is_some() && needs_pages(self);
+
+        if needs_pages_for_elements || needs_pages_for_chunking {
+            let mut config = self.clone();
+            let page_config = config.pages.get_or_insert_with(super::super::page::PageConfig::default);
+            page_config.extract_pages = true;
+            return std::borrow::Cow::Owned(config);
         }
         std::borrow::Cow::Borrowed(self)
     }

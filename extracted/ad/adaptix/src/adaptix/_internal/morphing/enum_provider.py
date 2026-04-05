@@ -5,7 +5,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from enum import Enum, EnumMeta, Flag
 from functools import reduce
 from operator import or_
-from typing import Any, Optional, TypeVar, Union, final
+from typing import Any, TypeVar, final
 
 from ..common import Dumper, Loader, TypeHint
 from ..morphing.provider_template import DumperProvider, LoaderProvider
@@ -51,8 +51,8 @@ class BaseEnumMappingGenerator(ABC):
 class ByNameEnumMappingGenerator(BaseEnumMappingGenerator):
     def __init__(
         self,
-        name_style: Optional[NameStyle] = None,
-        map: Optional[Mapping[Union[str, Enum], str]] = None,  # noqa: A002
+        name_style: NameStyle | None = None,
+        map: Mapping[str | Enum, str] | None = None,  # noqa: A002
     ):
         self._name_style = name_style
         self._map = map if map is not None else {}
@@ -225,7 +225,7 @@ class EnumExactValueProvider(BaseEnumProvider):
 
         return enum_exact_loader_v2m
 
-    def _get_exact_value_to_member(self, enum: type[Enum]) -> Optional[Mapping[Any, Any]]:
+    def _get_exact_value_to_member(self, enum: type[Enum]) -> Mapping[Any, Any] | None:
         try:
             value_to_member = {member.value: member for member in enum}
         except TypeError:
@@ -340,7 +340,7 @@ class FlagByListProvider(BaseFlagProvider):
         zero_case = enum(0)
 
         # treat str and Iterable[str] as different types
-        expected_type = Union[str, Iterable[str]] if allow_single_value else Iterable[str]
+        expected_type = str | Iterable[str] if allow_single_value else Iterable[str]
 
         def flag_loader(data) -> Flag:
             data_type = type(data)

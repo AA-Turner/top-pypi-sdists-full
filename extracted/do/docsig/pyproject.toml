@@ -11,7 +11,7 @@ line-length = 79
 allow_dirty = true
 commit = true
 commit_args = "-sS"
-current_version = "0.82.0"
+current_version = "0.82.2"
 message = "bump: version {current_version} → {new_version}"
 sign_tags = true
 tag = true
@@ -122,7 +122,7 @@ maintainers = [
 name = "docsig"
 readme = "README.rst"
 repository = "https://github.com/jshwi/docsig"
-version = "0.82.0"
+version = "0.82.2"
 
 [tool.poetry.dependencies]
 Sphinx = ">=7,<9"
@@ -236,3 +236,14 @@ name = "Removed"
 
 [tool.towncrier.fragment.security]
 name = "Security"
+
+[tool.vulture]
+exclude = [
+  "tests/base_test.py",
+  "tests/conftest.py"
+]
+make_whitelist = true
+paths = [
+  "docsig",
+  "tests"
+]

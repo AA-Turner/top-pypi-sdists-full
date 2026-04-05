@@ -85,6 +85,28 @@ def _external_ref_mapping(value: str) -> str:
     return value
 
 
+def _json_value_or_file(value: str) -> dict[str, object]:
+    """Parse a JSON value or load it from a JSON file path."""
+    path = Path(value).expanduser()
+    if path.is_file():
+        try:
+            json_input = path.read_text(encoding=DEFAULT_ENCODING)
+        except (OSError, UnicodeDecodeError) as e:
+            msg = f"Unable to read JSON file {value!r}: {e}"
+            raise ArgumentTypeError(msg) from e
+    else:
+        json_input = value
+    try:
+        result = json.loads(json_input)
+    except json.JSONDecodeError as e:
+        msg = f"Invalid JSON: {e}"
+        raise ArgumentTypeError(msg) from e
+    if not isinstance(result, dict):
+        msg = f"Expected a JSON object, got {type(result).__name__}"
+        raise ArgumentTypeError(msg)
+    return result
+
+
 class SortingHelpFormatter(RawDescriptionHelpFormatter):
     """Help formatter that sorts arguments, adds color to section headers, and preserves epilog formatting."""
 
@@ -125,6 +147,16 @@ general_options = arg_parser.add_argument_group("General options")
 # ======================================================================================
 # Base options for input/output
 # ======================================================================================
+base_options.add_argument(
+    "--allow-remote-refs",
+    help="Allow fetching remote $ref references over HTTP/HTTPS. "
+    "Currently remote fetching is allowed by default but emits a deprecation warning. "
+    "Pass --allow-remote-refs to opt in without warning, "
+    "or --no-allow-remote-refs to block remote fetching. "
+    "In a future version, remote fetching will be disabled by default.",
+    action=BooleanOptionalAction,
+    default=None,
+)
 base_options.add_argument(
     "--http-headers",
     nargs="+",
@@ -495,10 +527,10 @@ typing_options.add_argument(
 )
 typing_options.add_argument(
     "--base-class-map",
-    help="Model-specific base class mapping (JSON). "
+    help="Model-specific base class mapping (JSON or JSON file path). "
     'Example: \'{"MyModel": "custom.BaseA", "OtherModel": "custom.BaseB"}\'. '
     "Priority: base-class-map > customBasePath (in schema) > base-class.",
-    type=json.loads,
+    type=_json_value_or_file,
     default=None,
 )
 typing_options.add_argument(
@@ -512,11 +544,11 @@ typing_options.add_argument(
 )
 typing_options.add_argument(
     "--enum-field-as-literal-map",
-    help="Per-field override for enum/literal generation. "
+    help="Per-field override for enum/literal generation (JSON or JSON file path). "
     "Format: JSON object mapping field names to 'literal' or 'enum'. "
     'Example: \'{"status": "literal", "priority": "enum"}\'. '
     "Overrides --enum-field-as-literal for matched fields.",
-    type=json.loads,
+    type=_json_value_or_file,
     default=None,
 )
 typing_options.add_argument(

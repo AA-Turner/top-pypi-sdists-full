@@ -1,0 +1,55 @@
+[project]
+name = "validate-docbr"
+version = "2.0.0"
+description = "Validate brazilian documents."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Álvaro Ferreira Pires de Paiva", email = "alvarofepipa@gmail.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/alvarofpp/validate-docbr"
+Documentation = "https://alvarofpp.github.io/validate-docbr"
+Repository = "https://github.com/alvarofpp/validate-docbr"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.1.0",
+    "ty>=0.0.1a7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["validate_docbr"]
+
+[tool.ty.environment]
+python-version = "3.10"
+
+[tool.coverage.run]
+source = ["validate_docbr"]
+disable_warnings = ["no-data-collected"]
+omit = ["validate_docbr/exceptions.py"]
+
+[tool.coverage.report]
+fail_under = 98.00
+precision = 2
+show_missing = true
+exclude_lines = [
+    "raise FunctionNotImplementedError",
+]

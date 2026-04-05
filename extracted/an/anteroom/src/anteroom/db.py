@@ -571,6 +571,23 @@ CREATE TABLE IF NOT EXISTS mission_events (
     FOREIGN KEY (session_id) REFERENCES mission_sessions(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS background_tasks (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    command TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
+    pid INTEGER,
+    exit_code INTEGER,
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    stdout_preview TEXT,
+    stderr_preview TEXT,
+    stdout_path TEXT,
+    stderr_path TEXT,
+    metadata_json TEXT,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+);
+
 """
 
 _FTS_SCHEMA = """
@@ -2379,7 +2396,42 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
                 FOREIGN KEY (session_id) REFERENCES mission_sessions(id) ON DELETE CASCADE
             )"""
         )
+
+    # Background tasks table (#1311)
+    if "background_tasks" not in all_tables:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS background_tasks (
+                id TEXT PRIMARY KEY,
+                conversation_id TEXT NOT NULL,
+                command TEXT NOT NULL,
+                status TEXT NOT NULL CHECK(status IN (
+                    'pending', 'running', 'completed', 'failed', 'cancelled'
+                )),
+                pid INTEGER,
+                exit_code INTEGER,
+                started_at TEXT NOT NULL,
+                completed_at TEXT,
+                stdout_preview TEXT,
+                stderr_preview TEXT,
+                stdout_path TEXT,
+                stderr_path TEXT,
+                metadata_json TEXT,
+                FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+            )"""
+        )
+
     conn.commit()
+
+    # Background task output columns (#1312) — adds stdout/stderr file paths
+    # to the background_tasks table created by #1311.
+    if "background_tasks" in all_tables:
+        bt_cursor = conn.execute("PRAGMA table_info(background_tasks)")
+        bt_cols = {row[1] for row in bt_cursor.fetchall()}
+        if "stdout_path" not in bt_cols:
+            conn.execute("ALTER TABLE background_tasks ADD COLUMN stdout_path TEXT DEFAULT NULL")
+        if "stderr_path" not in bt_cols:
+            conn.execute("ALTER TABLE background_tasks ADD COLUMN stderr_path TEXT DEFAULT NULL")
+        conn.commit()
 
     # Add message-level and source-chunk-level FTS5 tables for hybrid search (#810)
     try:

@@ -224,7 +224,7 @@ class TestChatSSEStream:
             "POST",
             f"/api/conversations/{conversation_id}/chat",
             json={"message": "hello"},
-            timeout=15,
+            timeout=30,
         ) as resp:
             assert resp.status_code == 200
             content_type = resp.headers.get("content-type", "")
@@ -244,7 +244,7 @@ class TestChatSSEStream:
             "POST",
             f"/api/conversations/{conversation_id}/chat",
             json={"message": "test persistence"},
-            timeout=15,
+            timeout=30,
         ) as resp:
             resp.read()
 

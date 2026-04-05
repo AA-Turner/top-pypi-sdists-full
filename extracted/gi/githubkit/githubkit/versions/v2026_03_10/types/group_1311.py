@@ -13,23 +13,23 @@ from typing import Literal
 from typing_extensions import TypedDict
 
 
-class UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0Type(TypedDict):
-    """UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0"""
+class ReposOwnerRepoSecretScanningPushProtectionBypassesPostBodyType(TypedDict):
+    """ReposOwnerRepoSecretScanningPushProtectionBypassesPostBody"""
 
-    name: str
-    data_type: Literal["text", "number", "date"]
+    reason: Literal["false_positive", "used_in_tests", "will_fix_later"]
+    placeholder_id: str
 
 
-class UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0TypeForResponse(
+class ReposOwnerRepoSecretScanningPushProtectionBypassesPostBodyTypeForResponse(
     TypedDict
 ):
-    """UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0"""
+    """ReposOwnerRepoSecretScanningPushProtectionBypassesPostBody"""
 
-    name: str
-    data_type: Literal["text", "number", "date"]
+    reason: Literal["false_positive", "used_in_tests", "will_fix_later"]
+    placeholder_id: str
 
 
 __all__ = (
-    "UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0Type",
-    "UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0TypeForResponse",
+    "ReposOwnerRepoSecretScanningPushProtectionBypassesPostBodyType",
+    "ReposOwnerRepoSecretScanningPushProtectionBypassesPostBodyTypeForResponse",
 )

@@ -1336,3 +1336,83 @@ class TestParseNewConversation:
         from anteroom.cli.commands import _parse_new_conversation
 
         assert _parse_new_conversation("other stuff") == ("chat", "New Conversation")
+
+
+# ---------------------------------------------------------------------------
+# /task dispatch (#1312)
+# ---------------------------------------------------------------------------
+
+
+class TestTaskDispatch:
+    def test_tasks_alias(self) -> None:
+        result = _exec("/tasks")
+        assert result is not None
+        assert result.kind == "show_tasks"
+
+    def test_task_list(self) -> None:
+        result = _exec("/task list")
+        assert result is not None
+        assert result.kind == "show_tasks"
+
+    def test_task_no_sub(self) -> None:
+        result = _exec("/task")
+        assert result is not None
+        assert result.kind == "show_tasks"
+
+    def test_task_show(self) -> None:
+        result = _exec("/task show abc123")
+        assert result is not None
+        assert result.kind == "show_task"
+        assert result.task_target == "abc123"
+
+    def test_task_show_no_id(self) -> None:
+        result = _exec("/task show")
+        assert result is not None
+        assert result.kind == "show_message"
+
+    def test_task_output(self) -> None:
+        result = _exec("/task output abc123")
+        assert result is not None
+        assert result.kind == "show_task_output"
+        assert result.task_target == "abc123"
+        assert result.task_tail_lines is None
+
+    def test_task_tail(self) -> None:
+        result = _exec("/task tail abc123")
+        assert result is not None
+        assert result.kind == "show_task_output"
+        assert result.task_target == "abc123"
+        assert result.task_tail_lines == 50
+
+    def test_task_output_with_lines(self) -> None:
+        result = _exec("/task output abc123 100")
+        assert result is not None
+        assert result.kind == "show_task_output"
+        assert result.task_tail_lines == 100
+
+    def test_task_cancel(self) -> None:
+        result = _exec("/task cancel abc123")
+        assert result is not None
+        assert result.kind == "cancel_task"
+        assert result.task_target == "abc123"
+
+    def test_task_cancel_no_id(self) -> None:
+        result = _exec("/task cancel")
+        assert result is not None
+        assert result.kind == "show_message"
+
+    def test_task_unknown_sub(self) -> None:
+        result = _exec("/task bogus")
+        assert result is not None
+        assert result.kind == "show_message"
+
+    def test_task_in_all_command_names(self) -> None:
+        assert "task" in ALL_COMMAND_NAMES
+        assert "tasks" in ALL_COMMAND_NAMES
+
+    def test_task_in_descriptions(self) -> None:
+        assert "task" in COMMAND_DESCRIPTIONS
+        assert "tasks" in COMMAND_DESCRIPTIONS
+
+    def test_task_in_subcommand_completions(self) -> None:
+        assert "task" in SUBCOMMAND_COMPLETIONS

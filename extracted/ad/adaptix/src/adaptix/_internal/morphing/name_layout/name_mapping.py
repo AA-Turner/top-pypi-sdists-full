@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Callable, Optional, Union
 
 from ...common import EllipsisType
 from ...model_tools.definitions import BaseField, BaseShape, OutputField, is_valid_field_id
@@ -13,30 +12,28 @@ from ...provider.located_request import LocatedRequest
 from ...provider.methods_provider import MethodsProvider, method_handler
 from .base import Key, KeyPath
 
-RawKey = Union[Key, EllipsisType]
+RawKey = Key | EllipsisType
 RawPath = Iterable[RawKey]
-MapResult = Union[RawKey, RawPath, None]
-NameMap = Union[
-    Mapping[str, MapResult],
-    Iterable[
-        Union[
-            Mapping[str, MapResult],
-            tuple[Pred, MapResult],
-            tuple[Pred, Callable[[BaseShape, BaseField], MapResult]],
-            Provider,
-        ]
-    ],
-]
+MapResult = RawKey | RawPath | None
+NameMap = (
+    Mapping[str, MapResult]
+    | Iterable[
+        Mapping[str, MapResult]
+        | tuple[Pred, MapResult]
+        | tuple[Pred, Callable[[BaseShape, BaseField], MapResult]]
+        | Provider
+    ]
+)
 
 
 @dataclass(frozen=True)
-class NameMappingRequest(LocatedRequest[Optional[KeyPath]]):
+class NameMappingRequest(LocatedRequest[KeyPath | None]):
     shape: BaseShape
     field: BaseField
     generated_key: Key
 
 
-def resolve_map_result(generated_key: Key, map_result: MapResult) -> Optional[KeyPath]:
+def resolve_map_result(generated_key: Key, map_result: MapResult) -> KeyPath | None:
     if map_result is None:
         return None
     if isinstance(map_result, (str, int)):
@@ -49,7 +46,7 @@ def resolve_map_result(generated_key: Key, map_result: MapResult) -> Optional[Ke
 class NameMappingProvider(MethodsProvider, ABC):
     @abstractmethod
     @method_handler
-    def provide_name_mapping(self, mediator: Mediator, request: NameMappingRequest) -> Optional[KeyPath]:
+    def provide_name_mapping(self, mediator: Mediator, request: NameMappingRequest) -> KeyPath | None:
         ...
 
 
@@ -66,7 +63,7 @@ class DictNameMappingProvider(NameMappingProvider):
                 f" Keys {invalid_keys!r} does not meet this condition.",
             )
 
-    def provide_name_mapping(self, mediator: Mediator, request: NameMappingRequest) -> Optional[KeyPath]:
+    def provide_name_mapping(self, mediator: Mediator, request: NameMappingRequest) -> KeyPath | None:
         try:
             map_result = self._name_map[request.field.id]
         except KeyError:
@@ -78,7 +75,7 @@ class ConstNameMappingProvider(NameMappingProvider):
     def __init__(self, result: MapResult):
         self._result = result
 
-    def provide_name_mapping(self, mediator: Mediator, request: NameMappingRequest) -> Optional[KeyPath]:
+    def provide_name_mapping(self, mediator: Mediator, request: NameMappingRequest) -> KeyPath | None:
         return resolve_map_result(request.generated_key, self._result)
 
 
@@ -86,13 +83,13 @@ class FuncNameMappingProvider(NameMappingProvider):
     def __init__(self, func: Callable[[BaseShape, BaseField], MapResult]):
         self._func = func
 
-    def provide_name_mapping(self, mediator: Mediator, request: NameMappingRequest) -> Optional[KeyPath]:
+    def provide_name_mapping(self, mediator: Mediator, request: NameMappingRequest) -> KeyPath | None:
         result = self._func(request.shape, request.field)
         return resolve_map_result(request.generated_key, result)
 
 
 class SkipPrivateFieldsNameMappingProvider(NameMappingProvider):
-    def provide_name_mapping(self, mediator: Mediator, request: NameMappingRequest) -> Optional[KeyPath]:
+    def provide_name_mapping(self, mediator: Mediator, request: NameMappingRequest) -> KeyPath | None:
         if not isinstance(request.field, OutputField):
             raise CannotProvide
         if request.field.id.startswith("_"):

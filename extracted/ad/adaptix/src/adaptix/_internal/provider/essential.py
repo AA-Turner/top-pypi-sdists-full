@@ -1,12 +1,12 @@
 import typing
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Generic, Optional, TypeVar, final
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, final
 
 from ..common import VarTuple
 from ..compat import CompatExceptionGroup
-from ..feature_requirement import HAS_NATIVE_EXC_GROUP
+from ..feature_requirement import HAS_NATIVE_EXC_GROUP, IS_PYPY
 from ..utils import with_module
 
 T = TypeVar("T")
@@ -31,7 +31,7 @@ class CannotProvide(Exception):
         *,
         is_terminal: bool = False,
         is_demonstrative: bool = False,
-        parent_notes_gen: Optional[Callable[[], Sequence[str]]] = None,
+        parent_notes_gen: Callable[[], Sequence[str]] | None = None,
     ):
         self.message = message
         self.is_terminal = is_terminal
@@ -46,7 +46,7 @@ class CannotProvide(Exception):
 
 
 @with_module("adaptix")
-class AggregateCannotProvide(CompatExceptionGroup[CannotProvide], CannotProvide):  # type: ignore[misc]
+class AggregateCannotProvide(CompatExceptionGroup[CannotProvide], CannotProvide):  # type: ignore[override]
     def __init__(
         self,
         message: str,
@@ -54,14 +54,14 @@ class AggregateCannotProvide(CompatExceptionGroup[CannotProvide], CannotProvide)
         *,
         is_terminal: bool = False,
         is_demonstrative: bool = False,
-        parent_notes_gen: Optional[Callable[[], Sequence[str]]] = None,
+        parent_notes_gen: Callable[[], Sequence[str]] | None = None,
     ):
         # Parameter `message` is saved by `__new__` of CompatExceptionGroup
         self.is_terminal = is_terminal
         self.is_demonstrative = is_demonstrative
         self.parent_notes_gen = parent_notes_gen
 
-    if not HAS_NATIVE_EXC_GROUP:
+    if not HAS_NATIVE_EXC_GROUP or IS_PYPY:
         def __new__(
             cls,
             message: str,
@@ -69,7 +69,7 @@ class AggregateCannotProvide(CompatExceptionGroup[CannotProvide], CannotProvide)
             *,
             is_terminal: bool = False,
             is_demonstrative: bool = False,
-            parent_notes_gen: Optional[Callable[[], Sequence[str]]] = None,
+            parent_notes_gen: Callable[[], Sequence[str]] | None = None,
         ):
             return super().__new__(cls, message, exceptions)
 
@@ -103,7 +103,7 @@ class AggregateCannotProvide(CompatExceptionGroup[CannotProvide], CannotProvide)
         *,
         is_terminal: bool = False,
         is_demonstrative: bool = False,
-        parent_notes_gen: Optional[Callable[[], Sequence[str]]] = None,
+        parent_notes_gen: Callable[[], Sequence[str]] | None = None,
     ) -> CannotProvide:
         if exceptions:
             return AggregateCannotProvide(
@@ -141,7 +141,7 @@ class DirectMediator(ABC):
     def delegating_provide(
         self,
         request: Request[T],
-        error_describer: Optional[Callable[[CannotProvide], str]] = None,
+        error_describer: Callable[[CannotProvide], str] | None = None,
     ) -> T:
         try:
             return self.provide(request)
@@ -157,7 +157,7 @@ class DirectMediator(ABC):
     def mandatory_provide(
         self,
         request: Request[T],
-        error_describer: Optional[Callable[[CannotProvide], str]] = None,
+        error_describer: Callable[[CannotProvide], str] | None = None,
     ) -> T:
         try:
             return self.provide(request)
@@ -173,7 +173,7 @@ class DirectMediator(ABC):
     def mandatory_provide_by_iterable(
         self,
         requests: Iterable[Request[T]],
-        error_describer: Optional[Callable[[], str]] = None,
+        error_describer: Callable[[], str] | None = None,
     ) -> Sequence[T]:
         results = []
         exceptions = []
@@ -197,7 +197,7 @@ class DirectMediator(ABC):
 def mandatory_apply_by_iterable(
     func: Callable[..., T],
     args_iterable: Iterable[VarTuple[Any]],
-    error_describer: Optional[Callable[[], str]] = None,
+    error_describer: Callable[[], str] | None = None,
 ) -> Iterable[T]:
     results = []
     exceptions = []

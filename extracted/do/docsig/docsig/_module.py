@@ -9,7 +9,6 @@ from __future__ import annotations as _
 
 import re as _re
 import typing as _t
-from enum import Enum as _Enum
 from pathlib import Path as _Path
 
 import astroid as _ast
@@ -23,24 +22,21 @@ from ._stub import Signature as _Signature
 from .messages import Messages as _Messages
 
 
-class _Imports(_t.Dict[str, str]):
-    """Represents python imports."""
+class _Imports(dict[str, str]): ...
 
 
-class _Overloads(_t.Dict[str, "Function"]):
-    """Represents overloaded methods."""
+class _Overloads(dict[str, "Function"]): ...
 
 
-class _Children(_t.List[_t.Union["Parent", "Function"]]):
-    """Represents children of an object."""
+class _Children(list[_t.Union["Parent", "Function"]]): ...
 
 
-class Error(_Enum):
-    """Represents an unrecoverable error."""
-
-    SYNTAX = 1
-    UNICODE = 2
-    RECURSION = 3
+ERRORS = (
+    _ast.AstroidSyntaxError,
+    UnicodeDecodeError,
+    RecursionError,
+    _ast.DuplicateBasesError,
+)
 
 
 class Parent:  # pylint: disable=too-many-instance-attributes
@@ -68,7 +64,7 @@ class Parent:  # pylint: disable=too-many-instance-attributes
         file: _Path | None = None,
         config: _Config | None = None,
         imports: _Imports | None = None,
-        error: Error | None = None,
+        error: type[BaseException] | None = None,
     ) -> None:
         super().__init__()
         self._error = error
@@ -130,14 +126,18 @@ class Parent:  # pylint: disable=too-many-instance-attributes
                     if func.isoverloaded:
                         if (
                             func.name not in self._overloads
-                            or self._overloads[func.name].signature.rettype
+                            or self._overloads[
+                                func.name
+                            ].signature.returns.type
                             == _RetType.NONE
                         ):
                             self._overloads[func.name] = func
                     else:
                         if func.name in self._overloads:
                             func.overload(
-                                self._overloads[func.name].signature.rettype,
+                                self._overloads[
+                                    func.name
+                                ].signature.returns.type,
                             )
 
                         self._children.append(func)
@@ -160,7 +160,7 @@ class Parent:  # pylint: disable=too-many-instance-attributes
         return self._name.startswith("_")
 
     @property
-    def error(self) -> Error | None:
+    def error(self) -> type[BaseException] | None:
         """Unrecoverable error for this scope, if any."""
         return self._error
 
@@ -193,7 +193,7 @@ class Function(Parent):  # pylint: disable=too-many-instance-attributes
         file: _Path | None = None,
         config: _Config | None = None,
         imports: _Imports | None = None,
-        error: Error | None = None,
+        error: type[BaseException] | None = None,
     ) -> None:
         super().__init__(
             node,

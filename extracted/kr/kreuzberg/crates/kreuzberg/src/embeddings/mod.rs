@@ -183,15 +183,7 @@ fn embedding_error(message: String) -> crate::KreuzbergError {
 
 /// Resolve the cache directory for embedding models.
 fn resolve_cache_dir(cache_dir: Option<std::path::PathBuf>) -> std::path::PathBuf {
-    cache_dir.unwrap_or_else(|| {
-        if let Ok(env_path) = std::env::var("KREUZBERG_CACHE_DIR") {
-            return std::path::PathBuf::from(env_path).join("embeddings");
-        }
-        let mut path = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-        path.push(".kreuzberg");
-        path.push("embeddings");
-        path
-    })
+    cache_dir.unwrap_or_else(|| crate::cache_dir::resolve_cache_dir("embeddings"))
 }
 
 /// Resolve model info (repo, model file, pooling) from an EmbeddingModelType config.
@@ -421,8 +413,19 @@ fn get_or_init_engine(
         )?;
 
         // Create ORT session
+        let thread_budget = crate::core::config::concurrency::resolve_thread_budget(None);
         let session = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            ort::session::Session::builder().and_then(|mut builder| builder.commit_from_file(&model_path))
+            let mut builder = ort::session::Session::builder()?;
+            builder = builder
+                .with_optimization_level(ort::session::builder::GraphOptimizationLevel::Level3)
+                .map_err(|e| ort::Error::new(e.message()))?;
+            builder = builder
+                .with_intra_threads(thread_budget)
+                .map_err(|e| ort::Error::new(e.message()))?;
+            builder = builder
+                .with_inter_threads(1)
+                .map_err(|e| ort::Error::new(e.message()))?;
+            builder.commit_from_file(&model_path)
         }))
         .map_err(|panic_payload| {
             let panic_msg = panic_to_string(panic_payload);

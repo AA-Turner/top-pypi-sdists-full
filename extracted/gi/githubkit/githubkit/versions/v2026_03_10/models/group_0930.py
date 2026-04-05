@@ -9,39 +9,56 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0033 import CodeSecurityConfiguration
 
+class AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof0PropCreatorOneof0(GitHubModel):
+    """AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof0PropCreatorOneof0
 
-class EnterprisesEnterpriseCodeSecurityConfigurationsConfigurationIdDefaultsPutResponse200(
-    GitHubModel
-):
-    """EnterprisesEnterpriseCodeSecurityConfigurationsConfigurationIdDefaultsPutRespons
-    e200
+    A GitHub user
     """
 
-    default_for_new_repos: Missing[
-        Literal["all", "none", "private_and_internal", "public"]
-    ] = Field(
-        default=UNSET,
-        description="Specifies which types of repository this security configuration is applied to by default.",
-    )
-    configuration: Missing[CodeSecurityConfiguration] = Field(
-        default=UNSET, description="A code security configuration"
+    id: Missing[int] = Field(
+        default=UNSET, description="The unique identifier of the user"
     )
 
 
+class AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof0PropUserCollaboratorsItems(
+    GitHubModel
+):
+    """AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof0PropUserCollaboratorsItems
+
+    A GitHub user
+    """
+
+    id: Missing[int] = Field(
+        default=UNSET, description="The unique identifier of the user"
+    )
+
+
+class AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof0PropRepository(GitHubModel):
+    """AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof0PropRepository
+
+    The repository this task belongs to
+    """
+
+    id: Missing[int] = Field(
+        default=UNSET, description="The unique identifier of the repository"
+    )
+
+
+model_rebuild(AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof0PropCreatorOneof0)
 model_rebuild(
-    EnterprisesEnterpriseCodeSecurityConfigurationsConfigurationIdDefaultsPutResponse200
+    AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof0PropUserCollaboratorsItems
 )
+model_rebuild(AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof0PropRepository)
 
 __all__ = (
-    "EnterprisesEnterpriseCodeSecurityConfigurationsConfigurationIdDefaultsPutResponse200",
+    "AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof0PropCreatorOneof0",
+    "AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof0PropRepository",
+    "AgentsReposOwnerRepoTasksTaskIdGetResponse200Allof0PropUserCollaboratorsItems",
 )

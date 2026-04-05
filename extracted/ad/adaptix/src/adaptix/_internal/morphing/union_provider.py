@@ -1,6 +1,6 @@
 import collections.abc
 from collections.abc import Iterable, Sequence
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Union
 
 from ..common import Dumper, Loader, TypeHint
 from ..compat import CompatExceptionGroup
@@ -15,15 +15,17 @@ from ..special_cases_optimization import as_is_stub
 from ..type_tools import BaseNormType, is_subclass_soft, strip_tags
 from ..type_tools.normalize_type import NoneType
 from .concrete_provider import none_loader
+from .json_schema.definitions import JSONSchema
+from .json_schema.request_cls import JSONSchemaRequest
 from .load_error import LoadError, TypeLoadError, UnionLoadError
-from .provider_template import DumperProvider, LoaderProvider
+from .provider_template import DumperProvider, JSONSchemaProvider, LoaderProvider
 from .request_cls import DebugTrailRequest, DumperRequest, LoaderRequest
 from .sentinel_provider import check_is_sentinel
 from .utils import try_normalize_type
 
 
 @for_predicate(Union)
-class UnionProvider(LoaderProvider, DumperProvider):
+class UnionProvider(LoaderProvider, DumperProvider, JSONSchemaProvider):
     def _get_loc_stacks_to_request(
         self,
         mediator: Mediator,
@@ -46,7 +48,7 @@ class UnionProvider(LoaderProvider, DumperProvider):
         ]
         if not filtered_loc_stacks:
             raise CannotProvide(
-                f"Cannot create {target} for union consisting only of sentinel",
+                f"Cannot create {target} for union consisting only of sentinels",
                 is_terminal=True,
                 is_demonstrative=True,
             )
@@ -85,7 +87,7 @@ class UnionProvider(LoaderProvider, DumperProvider):
             return mediator.cached_call(self._produce_loader_dt_all, norm.source, tuple(loaders))
         raise ValueError
 
-    def _parse_single_optional_loader(self, loaders: Sequence[Loader]) -> Optional[Loader]:
+    def _parse_single_optional_loader(self, loaders: Sequence[Loader]) -> Loader | None:
         try:
             [first, second] = loaders
         except ValueError:
@@ -192,7 +194,7 @@ class UnionProvider(LoaderProvider, DumperProvider):
 
         types_with_forbidden_origins = [
             case.source for case in norm.args
-            if not self._is_allowed_origin(case.origin)
+            if not self._is_allowed_origin(strip_tags(case).origin)
         ]
         if types_with_forbidden_origins:
             raise AggregateCannotProvide(
@@ -231,9 +233,9 @@ class UnionProvider(LoaderProvider, DumperProvider):
             return NoneType
         return strip_tags(norm).origin
 
-    def _parse_single_optional_dumper(self, norm: BaseNormType, dumpers: Iterable[Dumper]) -> Optional[Dumper]:
+    def _parse_single_optional_dumper(self, norm: BaseNormType, dumpers: Iterable[Dumper]) -> Dumper | None:
         try:
-            [(first_norm, first_dumper), (second_norm, second_dumper)] = zip(norm.args, dumpers)
+            [(first_norm, first_dumper), (second_norm, second_dumper)] = zip(norm.args, dumpers, strict=True)
         except ValueError:
             return None
         if first_norm.origin is None and first_dumper == as_is_stub:
@@ -244,8 +246,8 @@ class UnionProvider(LoaderProvider, DumperProvider):
 
     def _extract_literal(self, args: Iterable[TypeHint], dumpers: Iterable[Dumper]):
         non_literals: list[tuple[BaseNormType, Dumper]] = []
-        literal: Optional[tuple[BaseNormType, Dumper]] = None
-        for arg, dumper in zip(args, dumpers):
+        literal: tuple[BaseNormType, Dumper] | None = None
+        for arg, dumper in zip(args, dumpers, strict=True):
             norm = try_normalize_type(arg)
             if norm.origin == Literal:
                 literal = (norm, dumper)
@@ -280,3 +282,20 @@ class UnionProvider(LoaderProvider, DumperProvider):
             return dumper_class_dispatcher.dispatch(type(data))(data)
 
         return union_dumper
+
+    def provide_json_schema(self, mediator: Mediator, request: JSONSchemaRequest) -> JSONSchema:
+        # TODO: Sync behavior with latest changes and handle corner cases # noqa: TD003
+        norm = try_normalize_type(request.last_loc.type)
+        loc_stacks = self._get_loc_stacks_to_request(
+            mediator=mediator,
+            request=request,
+            norm=norm,
+            target="json schema",
+        )
+        json_schemas = mediator.mandatory_provide_by_iterable(
+            [
+                request.with_loc_stack(loc_stack) for loc_stack in loc_stacks
+            ],
+            lambda: "Cannot create json schema for union. Dumpers for some union cases cannot be created",
+        )
+        return JSONSchema(any_of=json_schemas)

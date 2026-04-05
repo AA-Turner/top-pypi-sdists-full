@@ -1,5 +1,6 @@
 from collections import defaultdict
 from collections.abc import (
+    Callable,
     Collection,
     Hashable,
     Iterable,
@@ -13,7 +14,7 @@ from collections.abc import (
     ValuesView,
 )
 from itertools import islice
-from typing import Callable, Generic, Optional, Protocol, TypeVar, Union, runtime_checkable
+from typing import Generic, Protocol, TypeVar, runtime_checkable
 
 from .common import VarTuple
 from .utils import MappingHashWrapper
@@ -72,7 +73,7 @@ class ClassDispatcher(Generic[K_co, V]):
     """
     __slots__ = ("_mapping",)
 
-    def __init__(self, mapping: Optional[Mapping[type[K_co], V]] = None):
+    def __init__(self, mapping: Mapping[type[K_co], V] | None = None):
         self._mapping: dict[type[K_co], V] = {} if mapping is None else dict(mapping)
 
     def dispatch(self, key: type[K_co]) -> V:
@@ -125,7 +126,7 @@ class ClassDispatcherKeysView(Generic[K_co]):
         """Creates a ClassDispatcher
          whose elements all point to the same value
         """
-        return ClassDispatcher({k: value for k in self._keys})
+        return ClassDispatcher(dict.fromkeys(self._keys, value))
 
     def __len__(self) -> int:
         return len(self._keys)
@@ -174,7 +175,7 @@ class ClassMap(Generic[H]):
     def get_or_raise(
         self,
         key: type[D],
-        exception_factory: Callable[[], Union[BaseException, type[BaseException]]],
+        exception_factory: Callable[[], BaseException | type[BaseException]],
     ) -> D:
         try:
             return self._mapping[key]  # type: ignore[index,return-value]

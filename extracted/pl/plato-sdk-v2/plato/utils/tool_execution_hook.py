@@ -44,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Record pre-tool execution hook data")
     parser.add_argument(
         "mode",
-        choices=("claude-pretooluse", "gemini-beforetool"),
+        choices=("claude-pretooluse", "gemini-beforetool", "codex-pretooluse"),
     )
     args = parser.parse_args(argv)
 
@@ -62,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.mode == "gemini-beforetool":
         sys.stdout.write("{}\n")
+    elif args.mode == "codex-pretooluse":
+        sys.stdout.write(json.dumps({"decision": "approve"}) + "\n")
     return 0
 
 

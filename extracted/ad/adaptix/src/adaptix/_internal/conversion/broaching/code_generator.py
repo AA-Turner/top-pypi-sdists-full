@@ -5,7 +5,6 @@ from ast import AST
 from collections import defaultdict
 from collections.abc import Mapping
 from inspect import Signature
-from typing import Union
 
 from ...code_tools.ast_templater import ast_substitute
 from ...code_tools.cascade_namespace import BuiltinCascadeNamespace, CascadeNamespace
@@ -25,12 +24,12 @@ from .definitions import (
     UnpackMapping,
 )
 
-BroachingPlan = Union[
-    ParameterElement,
-    ConstantElement,
-    FunctionElement["BroachingPlan"],
-    AccessorElement["BroachingPlan"],
-]
+BroachingPlan = (
+    ParameterElement
+    | ConstantElement
+    | FunctionElement["BroachingPlan"]
+    | AccessorElement["BroachingPlan"]
+)
 
 
 class GenState:

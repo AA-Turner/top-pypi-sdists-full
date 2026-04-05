@@ -879,6 +879,7 @@ class ToolExecutorContext:
     rate_limiter: Any = None
     skill_registry: Any = None
     rule_enforcer: Any = None
+    bg_manager: Any = None
     subagent_counter: list[int] = field(default_factory=lambda: [0])
     max_subagent_events: int = 500
 
@@ -999,7 +1000,15 @@ async def _execute_web_tool(ctx: ToolExecutorContext, tool_name: str, arguments:
 
     if ctx.tool_registry.has_tool(tool_name):
         result = await ctx.tool_registry.call_tool(
-            tool_name, arguments, confirm_callback=_confirm, rule_enforcer_override=ctx.rule_enforcer
+            tool_name,
+            arguments,
+            confirm_callback=_confirm,
+            rule_enforcer_override=ctx.rule_enforcer,
+            _extra_context={
+                "bg_manager": ctx.bg_manager,
+                "conversation_id": ctx.conversation_id,
+                "db": ctx.db,
+            },
         )
         if result.get("_approval_decision") == "allowed_once":
             result["_approval_decision"] = _scope_to_decision(ctx.confirm_ctx)
@@ -2182,6 +2191,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
         rate_limiter=_rate_limiter,
         skill_registry=req_skill_reg,
         rule_enforcer=req_rule_enf,
+        bg_manager=getattr(request.app.state, "bg_manager", None),
     )
 
     async def _tool_executor(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:

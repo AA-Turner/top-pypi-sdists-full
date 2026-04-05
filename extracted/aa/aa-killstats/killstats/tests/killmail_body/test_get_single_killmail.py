@@ -1,6 +1,7 @@
 # Standard Library
 import json
-from unittest.mock import MagicMock, Mock, patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 # Third Party
 import requests
@@ -23,10 +24,23 @@ from killstats.helpers.killmail import (
 from killstats.models.general import EveEntity
 from killstats.models.killboard import Killmail
 from killstats.tests import NoSocketsTestCase
+from killstats.tests.testdata.esi_stub_openapi import (
+    EsiEndpoint,
+    create_esi_client_stub,
+)
 from killstats.tests.testdata.eveentity import load_eveentity
 from killstats.tests.testdata.load_allianceauth import load_allianceauth
 
 MODULE_PATH = "killstats.helpers.killmail"
+
+KILLSTATS_ENDPOINTS = [
+    EsiEndpoint(
+        "Killmails",
+        "GetKillmailsKillmailIdKillmailHash",
+        "killmail_id",
+        "killmail_hash",
+    ),
+]
 
 
 class TestKillmailBody(NoSocketsTestCase):
@@ -87,8 +101,9 @@ class TestKillmailBody(NoSocketsTestCase):
         """Clear cache after each test"""
         cache.clear()
 
+    @patch(MODULE_PATH + ".esi")
     @patch(MODULE_PATH + ".requests.get")
-    def test_get_single_killmail_success(self, mock_requests_get):
+    def test_get_single_killmail_success(self, mock_requests_get, mock_esi):
         """Test successful killmail retrieval"""
         killmail_id = 121152845
 
@@ -105,6 +120,7 @@ class TestKillmailBody(NoSocketsTestCase):
             return Mock()
 
         mock_requests_get.side_effect = get_side_effect
+        mock_esi.client = create_esi_client_stub(endpoints=KILLSTATS_ENDPOINTS)
 
         # Call the method
         result = KillmailBody.get_single_killmail(killmail_id)
@@ -223,8 +239,9 @@ class TestKillmailBody(NoSocketsTestCase):
         with self.assertRaises(ValueError):
             KillmailBody.get_single_killmail(killmail_id)
 
+    @patch(MODULE_PATH + ".esi")
     @patch(MODULE_PATH + ".requests.get")
-    def test_get_single_killmail_caches_result(self, mock_requests_get):
+    def test_get_single_killmail_caches_result(self, mock_requests_get, mock_esi):
         """Test that successful killmail is cached after retrieval"""
         killmail_id = 121152845
 
@@ -241,7 +258,7 @@ class TestKillmailBody(NoSocketsTestCase):
             return Mock()
 
         mock_requests_get.side_effect = get_side_effect
-
+        mock_esi.client = create_esi_client_stub(endpoints=KILLSTATS_ENDPOINTS)
         # Ensure cache is empty before test
         cache_key = f"killstats_storage__KILLMAIL_{killmail_id}"
         self.assertIsNone(cache.get(cache_key), "Cache should be empty before test")

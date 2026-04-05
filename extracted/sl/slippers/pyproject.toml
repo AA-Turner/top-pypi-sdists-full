@@ -1,6 +1,6 @@
 [project]
 name = "slippers"
-version = "0.6.3"
+version = "0.7.0"
 description = "Build reusable components in Django without writing a single line of Python."
 authors = [{ name = "Mitchel Cabuloy", email = "mixxorz@gmail.com" }]
 requires-python = ">=3.8.0"
@@ -36,6 +36,9 @@ dependencies = [
     "typing-extensions>=4.4.0",
 ]
 
+[project.entry-points."pygments.lexers"]
+SlippersLexer = "pygments_slippers:SlippersLexer"
+
 [project.urls]
 homepage = "https://github.com/mixxorz/slippers"
 repository = "https://github.com/mixxorz/slippers"
@@ -43,12 +46,13 @@ documentation = "https://mitchel.me/slippers"
 
 [dependency-groups]
 dev = [
-    "black>=23.7.0,<24",
-    "isort>=5.12.0,<6",
-    "flake8>=3.0.0,<4",
+    "ruff>=0.8.0",
     "ipdb>=0.13.13,<0.14",
     "tox>=4.6.4,<5",
     "twine>=4.0.2,<5",
+]
+docs = [
+    "mkdocs-material>=9.0",
 ]
 
 [tool.uv.build-backend]
@@ -62,3 +66,17 @@ source-include = [
 [build-system]
 requires = ["uv_build>=0.10.12,<0.11.0"]
 build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "W",  # pycodestyle warnings
+]
+

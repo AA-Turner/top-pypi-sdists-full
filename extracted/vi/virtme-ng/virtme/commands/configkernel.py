@@ -6,11 +6,13 @@
 # 8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643
 
 import argparse
+import io
 import multiprocessing
 import os
 import platform
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 
@@ -18,10 +20,36 @@ from .. import architectures
 from ..util import SilentError
 
 
-def check_file_arg(filepath):
-    if not os.path.isfile(filepath):
-        raise argparse.ArgumentTypeError(f"'{filepath}' is not a valid file.")
-    return filepath
+def is_readable(path: str) -> str:
+    """Validate path is a readable file (no directories or sockets)."""
+    try:
+        st = os.stat(path)
+    except OSError as error:
+        raise argparse.ArgumentTypeError(
+            f"'{path}' does not exist or is not accessible: {error}"
+        ) from error
+
+    if stat.S_ISDIR(st.st_mode):
+        raise argparse.ArgumentTypeError(f"'{path}' is a directory")
+
+    if stat.S_ISSOCK(st.st_mode):
+        raise argparse.ArgumentTypeError(f"'{path}' is a socket")
+
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+    except OSError as error:
+        raise argparse.ArgumentTypeError(
+            f"'{path}' is not readable via os.open(): {error}"
+        ) from error
+    os.close(fd)
+    return path
+
+
+def check_file_arg(filepath: str) -> str:
+    """Accept a config file path or '-' for stdin."""
+    if filepath == "-":
+        return "-"
+    return is_readable(filepath)
 
 
 def make_parser():
@@ -49,7 +77,7 @@ def make_parser():
         action="append",
         type=check_file_arg,
         metavar="CUSTOM",
-        help="Use a custom config snippet file to override specific config options",
+        help="Use a custom config snippet file (or '-' for stdin) to override config",
     )
 
     parser.add_argument(
@@ -69,6 +97,12 @@ def make_parser():
         "--verbose",
         action="store_true",
         help="get chatty about config assembled",
+    )
+
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the resolved minimal virtme config flags to stdout and exit",
     )
 
     g = parser.add_argument_group(title="Mode").add_mutually_exclusive_group()
@@ -120,6 +154,7 @@ _GENERIC_CONFIG = [
     "CONFIG_NET_CORE=y",
     "CONFIG_NETDEVICES=y",
     "CONFIG_NETWORK_FILESYSTEMS=y",
+    "CONFIG_PACKET=y",
     "CONFIG_INET=y",
     "CONFIG_NET_9P=y",
     "CONFIG_NET_9P_VIRTIO=y",
@@ -251,7 +286,7 @@ _GENERIC_CONFIG_OPTIONAL = [
     "# CONFIG_PPP is not set",
     "# CONFIG_PPPOE is not set",
     "# CONFIG_EXT2_FS is not set",
-    "# CONFIG_REISERFS_FS not set",
+    "# CONFIG_REISERFS_FS is not set",
     "# CONFIG_JFS_FS is not set",
     "# CONFIG_XFS_FS is not set",
     "# CONFIG_BTRFS_FS is not set",
@@ -310,7 +345,7 @@ def do_it():
             os.environ["KBUILD_OUTPUT"] = var[2:]
 
     config_dir = os.environ.get("KBUILD_OUTPUT")
-    if config_dir is not None:
+    if config_dir is not None and not args.dry_run:
         try:
             os.makedirs(config_dir, exist_ok=True)
         except Exception as exc:
@@ -319,17 +354,23 @@ def do_it():
         config = os.path.join(config_dir, config)
         makef = os.path.join(config_dir, makef)
 
-    if os.path.exists(config):
+    if not args.dry_run and os.path.exists(config):
         if args.no_update:
             print(f"{config} file exists: no modifications have been done")
             return 0
 
     # else we make a fresh config
     custom_conf = []
+    stdin_content = None
     if args.custom:
         for conf_chunk in args.custom:
-            with open(conf_chunk, encoding="utf-8") as fd:
-                custom_conf += fd.readlines()
+            if conf_chunk == "-":
+                if stdin_content is None:
+                    stdin_content = sys.stdin.read()
+                custom_conf += io.StringIO(stdin_content).readlines()
+            else:
+                with open(conf_chunk, encoding="utf-8") as fd:
+                    custom_conf += fd.readlines()
 
     if args.verbose:
         print(f"custom:\n{custom_conf}")
@@ -356,6 +397,11 @@ def do_it():
 
     if args.verbose:
         print(f"conf:\n{conf}")
+
+    if args.dry_run:
+        for conf_item in conf:
+            print(conf_item.rstrip("\n"))
+        return 0
 
     linuxname = shlex.quote(arch.linuxname)
     archargs = [f"ARCH={linuxname}"]

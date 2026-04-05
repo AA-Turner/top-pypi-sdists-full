@@ -27,11 +27,11 @@ class MultimodalEmbedder(nn.Module):
         self.embedding_projection = nn.Linear(
             embedding_dim, text_hidden_size, bias=False
         )
-        self.embedding_post_projection_norm = RMSNormNoScale(text_hidden_size, eps=eps)
+        self.embedding_pre_projection_norm = RMSNormNoScale(embedding_dim, eps=eps)
 
     def __call__(self, inputs_embeds: mx.array) -> mx.array:
-        proj = self.embedding_projection(inputs_embeds)
-        return self.embedding_post_projection_norm(proj)
+        normed = self.embedding_pre_projection_norm(inputs_embeds)
+        return self.embedding_projection(normed)
 
 
 class Model(nn.Module):
@@ -82,6 +82,7 @@ class Model(nn.Module):
         if input_features_mask is not None and audio_mask is None:
             audio_mask = ~input_features_mask.astype(mx.bool_)
         inputs_embeds = self.language_model.model.embed_tokens(input_ids)
+        inputs_embeds = inputs_embeds * self.language_model.model.embed_scale
 
         per_layer_inputs = None
         if self.language_model.model.hidden_size_per_layer_input:
@@ -96,9 +97,13 @@ class Model(nn.Module):
             )
 
         if pixel_values is not None:
-            image_features = self.vision_tower(pixel_values)
-            image_features = self.embed_vision(image_features)
-            image_features = image_features.astype(inputs_embeds.dtype)
+            cached = kwargs.get("cached_image_features", None)
+            if cached is not None:
+                image_features = cached.astype(inputs_embeds.dtype)
+            else:
+                image_features = self.vision_tower(pixel_values)
+                image_features = self.embed_vision(image_features)
+                image_features = image_features.astype(inputs_embeds.dtype)
 
             image_mask = input_ids == self.config.image_token_id
             image_mask_expanded = mx.expand_dims(image_mask, -1)
@@ -135,6 +140,16 @@ class Model(nn.Module):
         return InputEmbeddingsFeatures(
             inputs_embeds=inputs_embeds, per_layer_inputs=per_layer_inputs
         )
+
+    def encode_image(self, pixel_values: mx.array) -> mx.array:
+        """Encode pixel_values through vision_tower + embed_vision.
+
+        Returns projected image features suitable for passing as
+        cached_image_features to get_input_embeddings.
+        """
+        image_features = self.vision_tower(pixel_values)
+        image_features = self.embed_vision(image_features)
+        return image_features
 
     def __call__(
         self,
@@ -219,6 +234,10 @@ class Model(nn.Module):
 
             sanitized[new_key] = v
         return sanitized
+
+    @property
+    def quant_predicate(self):
+        return self.language_model.quant_predicate
 
     @property
     def layers(self):

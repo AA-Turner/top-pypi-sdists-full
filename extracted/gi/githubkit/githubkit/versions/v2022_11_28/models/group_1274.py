@@ -9,34 +9,39 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal, Union
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
+from .group_1271 import ReposOwnerRepoPagesPutBodyPropSourceAnyof1
 
-class ReposTemplateOwnerTemplateRepoGeneratePostBody(GitHubModel):
-    """ReposTemplateOwnerTemplateRepoGeneratePostBody"""
 
-    owner: Missing[str] = Field(
+class ReposOwnerRepoPagesPutBodyAnyof2(GitHubModel):
+    """ReposOwnerRepoPagesPutBodyAnyof2"""
+
+    cname: Union[str, None] = Field(
+        description='Specify a custom domain for the repository. Sending a `null` value will remove the custom domain. For more about custom domains, see "[Using a custom domain with GitHub Pages](https://docs.github.com/pages/configuring-a-custom-domain-for-your-github-pages-site)."'
+    )
+    https_enforced: Missing[bool] = Field(
         default=UNSET,
-        description="The organization or person who will own the new repository. To create a new repository in an organization, the authenticated user must be a member of the specified organization.",
+        description="Specify whether HTTPS should be enforced for the repository.",
     )
-    name: str = Field(description="The name of the new repository.")
-    description: Missing[str] = Field(
-        default=UNSET, description="A short description of the new repository."
-    )
-    include_all_branches: Missing[bool] = Field(
+    build_type: Missing[Literal["legacy", "workflow"]] = Field(
         default=UNSET,
-        description="Set to `true` to include the directory structure and files from all branches in the template repository, and not just the default branch. Default: `false`.",
+        description="The process by which the GitHub Pages site will be built. `workflow` means that the site is built by a custom GitHub Actions workflow. `legacy` means that the site is built by GitHub when changes are pushed to a specific branch.",
     )
-    private: Missing[bool] = Field(
-        default=UNSET,
-        description="Either `true` to create a new private repository or `false` to create a new public one.",
-    )
+    source: Missing[
+        Union[
+            Literal["gh-pages", "master", "master /docs"],
+            ReposOwnerRepoPagesPutBodyPropSourceAnyof1,
+        ]
+    ] = Field(default=UNSET)
 
 
-model_rebuild(ReposTemplateOwnerTemplateRepoGeneratePostBody)
+model_rebuild(ReposOwnerRepoPagesPutBodyAnyof2)
 
-__all__ = ("ReposTemplateOwnerTemplateRepoGeneratePostBody",)
+__all__ = ("ReposOwnerRepoPagesPutBodyAnyof2",)

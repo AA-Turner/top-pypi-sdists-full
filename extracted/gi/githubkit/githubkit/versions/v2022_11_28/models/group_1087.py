@@ -9,7 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Union
 
 from pydantic import Field
 
@@ -18,40 +18,47 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class OrgsOrgTeamsPostBody(GitHubModel):
-    """OrgsOrgTeamsPostBody"""
+class OrgsOrgHooksPostBody(GitHubModel):
+    """OrgsOrgHooksPostBody"""
 
-    name: str = Field(description="The name of the team.")
-    description: Missing[str] = Field(
-        default=UNSET, description="The description of the team."
+    name: str = Field(description='Must be passed as "web".')
+    config: OrgsOrgHooksPostBodyPropConfig = Field(
+        description="Key/value pairs to provide settings for this webhook."
     )
-    maintainers: Missing[list[str]] = Field(
+    events: Missing[list[str]] = Field(
         default=UNSET,
-        description="List GitHub usernames for organization members who will become team maintainers.",
+        description='Determines what [events](https://docs.github.com/webhooks/event-payloads) the hook is triggered for. Set to `["*"]` to receive all possible events.',
     )
-    repo_names: Missing[list[str]] = Field(
+    active: Missing[bool] = Field(
         default=UNSET,
-        description='The full name (e.g., "organization-name/repository-name") of repositories to add the team to.',
-    )
-    privacy: Missing[Literal["secret", "closed"]] = Field(
-        default=UNSET,
-        description="The level of privacy this team should have. The options are:  \n**For a non-nested team:**  \n * `secret` - only visible to organization owners and members of this team.  \n * `closed` - visible to all members of this organization.  \nDefault: `secret`  \n**For a parent or child team:**  \n * `closed` - visible to all members of this organization.  \nDefault for child team: `closed`",
-    )
-    notification_setting: Missing[
-        Literal["notifications_enabled", "notifications_disabled"]
-    ] = Field(
-        default=UNSET,
-        description="The notification setting the team has chosen. The options are:  \n * `notifications_enabled` - team members receive notifications when the team is @mentioned.  \n * `notifications_disabled` - no one receives notifications.  \nDefault: `notifications_enabled`",
-    )
-    permission: Missing[Literal["pull", "push"]] = Field(
-        default=UNSET,
-        description="**Closing down notice**. The permission that new repositories will be added to the team with when none is specified.",
-    )
-    parent_team_id: Missing[int] = Field(
-        default=UNSET, description="The ID of a team to set as the parent team."
+        description="Determines if notifications are sent when the webhook is triggered. Set to `true` to send notifications.",
     )
 
 
-model_rebuild(OrgsOrgTeamsPostBody)
+class OrgsOrgHooksPostBodyPropConfig(GitHubModel):
+    """OrgsOrgHooksPostBodyPropConfig
 
-__all__ = ("OrgsOrgTeamsPostBody",)
+    Key/value pairs to provide settings for this webhook.
+    """
+
+    url: str = Field(description="The URL to which the payloads will be delivered.")
+    content_type: Missing[str] = Field(
+        default=UNSET,
+        description="The media type used to serialize the payloads. Supported values include `json` and `form`. The default is `form`.",
+    )
+    secret: Missing[str] = Field(
+        default=UNSET,
+        description="If provided, the `secret` will be used as the `key` to generate the HMAC hex digest value for [delivery signature headers](https://docs.github.com/webhooks/event-payloads/#delivery-headers).",
+    )
+    insecure_ssl: Missing[Union[str, float]] = Field(default=UNSET)
+    username: Missing[str] = Field(default=UNSET)
+    password: Missing[str] = Field(default=UNSET)
+
+
+model_rebuild(OrgsOrgHooksPostBody)
+model_rebuild(OrgsOrgHooksPostBodyPropConfig)
+
+__all__ = (
+    "OrgsOrgHooksPostBody",
+    "OrgsOrgHooksPostBodyPropConfig",
+)

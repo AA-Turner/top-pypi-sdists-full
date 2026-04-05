@@ -13,16 +13,14 @@ from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
-from .group_0256 import Artifact
+
+class OrgsOrgPrivateRegistriesPublicKeyGetResponse200(GitHubModel):
+    """OrgsOrgPrivateRegistriesPublicKeyGetResponse200"""
+
+    key_id: str = Field(description="The identifier for the key.")
+    key: str = Field(description="The Base64 encoded public key.")
 
 
-class ReposOwnerRepoActionsRunsRunIdArtifactsGetResponse200(GitHubModel):
-    """ReposOwnerRepoActionsRunsRunIdArtifactsGetResponse200"""
+model_rebuild(OrgsOrgPrivateRegistriesPublicKeyGetResponse200)
 
-    total_count: int = Field()
-    artifacts: list[Artifact] = Field()
-
-
-model_rebuild(ReposOwnerRepoActionsRunsRunIdArtifactsGetResponse200)
-
-__all__ = ("ReposOwnerRepoActionsRunsRunIdArtifactsGetResponse200",)
+__all__ = ("OrgsOrgPrivateRegistriesPublicKeyGetResponse200",)

@@ -16,66 +16,97 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class ReposOwnerRepoContentsPathPutBody(GitHubModel):
-    """ReposOwnerRepoContentsPathPutBody"""
+class ReposOwnerRepoBranchesBranchProtectionRequiredPullRequestReviewsPatchBody(
+    GitHubModel
+):
+    """ReposOwnerRepoBranchesBranchProtectionRequiredPullRequestReviewsPatchBody"""
 
-    message: str = Field(description="The commit message.")
-    content: str = Field(description="The new file content, using Base64 encoding.")
-    sha: Missing[str] = Field(
+    dismissal_restrictions: Missing[
+        ReposOwnerRepoBranchesBranchProtectionRequiredPullRequestReviewsPatchBodyPropDismissalRestrictions
+    ] = Field(
         default=UNSET,
-        description="**Required if you are updating a file**. The blob SHA of the file being replaced.",
+        description="Specify which users, teams, and apps can dismiss pull request reviews. Pass an empty `dismissal_restrictions` object to disable. User and team `dismissal_restrictions` are only available for organization-owned repositories. Omit this parameter for personal repositories.",
     )
-    branch: Missing[str] = Field(
+    dismiss_stale_reviews: Missing[bool] = Field(
         default=UNSET,
-        description="The branch name. Default: the repository’s default branch.",
+        description="Set to `true` if you want to automatically dismiss approving reviews when someone pushes a new commit.",
     )
-    committer: Missing[ReposOwnerRepoContentsPathPutBodyPropCommitter] = Field(
+    require_code_owner_reviews: Missing[bool] = Field(
         default=UNSET,
-        description="The person that committed the file. Default: the authenticated user.",
+        description="Blocks merging pull requests until [code owners](https://docs.github.com/articles/about-code-owners/) have reviewed.",
     )
-    author: Missing[ReposOwnerRepoContentsPathPutBodyPropAuthor] = Field(
+    required_approving_review_count: Missing[int] = Field(
         default=UNSET,
-        description="The author of the file. Default: The `committer` or the authenticated user if you omit `committer`.",
+        description="Specifies the number of reviewers required to approve pull requests. Use a number between 1 and 6 or 0 to not require reviewers.",
+    )
+    require_last_push_approval: Missing[bool] = Field(
+        default=UNSET,
+        description="Whether the most recent push must be approved by someone other than the person who pushed it. Default: `false`",
+    )
+    bypass_pull_request_allowances: Missing[
+        ReposOwnerRepoBranchesBranchProtectionRequiredPullRequestReviewsPatchBodyPropBypassPullRequestAllowances
+    ] = Field(
+        default=UNSET,
+        description="Allow specific users, teams, or apps to bypass pull request requirements.",
     )
 
 
-class ReposOwnerRepoContentsPathPutBodyPropCommitter(GitHubModel):
-    """ReposOwnerRepoContentsPathPutBodyPropCommitter
+class ReposOwnerRepoBranchesBranchProtectionRequiredPullRequestReviewsPatchBodyPropDismissalRestrictions(
+    GitHubModel
+):
+    """ReposOwnerRepoBranchesBranchProtectionRequiredPullRequestReviewsPatchBodyPropDis
+    missalRestrictions
 
-    The person that committed the file. Default: the authenticated user.
+    Specify which users, teams, and apps can dismiss pull request reviews. Pass an
+    empty `dismissal_restrictions` object to disable. User and team
+    `dismissal_restrictions` are only available for organization-owned repositories.
+    Omit this parameter for personal repositories.
     """
 
-    name: str = Field(
-        description="The name of the author or committer of the commit. You'll receive a `422` status code if `name` is omitted."
+    users: Missing[list[str]] = Field(
+        default=UNSET, description="The list of user `login`s with dismissal access"
     )
-    email: str = Field(
-        description="The email of the author or committer of the commit. You'll receive a `422` status code if `email` is omitted."
+    teams: Missing[list[str]] = Field(
+        default=UNSET, description="The list of team `slug`s with dismissal access"
     )
-    date: Missing[str] = Field(default=UNSET)
+    apps: Missing[list[str]] = Field(
+        default=UNSET, description="The list of app `slug`s with dismissal access"
+    )
 
 
-class ReposOwnerRepoContentsPathPutBodyPropAuthor(GitHubModel):
-    """ReposOwnerRepoContentsPathPutBodyPropAuthor
+class ReposOwnerRepoBranchesBranchProtectionRequiredPullRequestReviewsPatchBodyPropBypassPullRequestAllowances(
+    GitHubModel
+):
+    """ReposOwnerRepoBranchesBranchProtectionRequiredPullRequestReviewsPatchBodyPropByp
+    assPullRequestAllowances
 
-    The author of the file. Default: The `committer` or the authenticated user if
-    you omit `committer`.
+    Allow specific users, teams, or apps to bypass pull request requirements.
     """
 
-    name: str = Field(
-        description="The name of the author or committer of the commit. You'll receive a `422` status code if `name` is omitted."
+    users: Missing[list[str]] = Field(
+        default=UNSET,
+        description="The list of user `login`s allowed to bypass pull request requirements.",
     )
-    email: str = Field(
-        description="The email of the author or committer of the commit. You'll receive a `422` status code if `email` is omitted."
+    teams: Missing[list[str]] = Field(
+        default=UNSET,
+        description="The list of team `slug`s allowed to bypass pull request requirements.",
     )
-    date: Missing[str] = Field(default=UNSET)
+    apps: Missing[list[str]] = Field(
+        default=UNSET,
+        description="The list of app `slug`s allowed to bypass pull request requirements.",
+    )
 
 
-model_rebuild(ReposOwnerRepoContentsPathPutBody)
-model_rebuild(ReposOwnerRepoContentsPathPutBodyPropCommitter)
-model_rebuild(ReposOwnerRepoContentsPathPutBodyPropAuthor)
+model_rebuild(ReposOwnerRepoBranchesBranchProtectionRequiredPullRequestReviewsPatchBody)
+model_rebuild(
+    ReposOwnerRepoBranchesBranchProtectionRequiredPullRequestReviewsPatchBodyPropDismissalRestrictions
+)
+model_rebuild(
+    ReposOwnerRepoBranchesBranchProtectionRequiredPullRequestReviewsPatchBodyPropBypassPullRequestAllowances
+)
 
 __all__ = (
-    "ReposOwnerRepoContentsPathPutBody",
-    "ReposOwnerRepoContentsPathPutBodyPropAuthor",
-    "ReposOwnerRepoContentsPathPutBodyPropCommitter",
+    "ReposOwnerRepoBranchesBranchProtectionRequiredPullRequestReviewsPatchBody",
+    "ReposOwnerRepoBranchesBranchProtectionRequiredPullRequestReviewsPatchBodyPropBypassPullRequestAllowances",
+    "ReposOwnerRepoBranchesBranchProtectionRequiredPullRequestReviewsPatchBodyPropDismissalRestrictions",
 )

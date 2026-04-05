@@ -9,39 +9,34 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 
-class ReposOwnerRepoDeploymentsDeploymentIdStatusesPostBodyType(TypedDict):
-    """ReposOwnerRepoDeploymentsDeploymentIdStatusesPostBody"""
+class ReposOwnerRepoBranchesBranchProtectionRestrictionsTeamsPostBodyOneof0Type(
+    TypedDict
+):
+    """ReposOwnerRepoBranchesBranchProtectionRestrictionsTeamsPostBodyOneof0
 
-    state: Literal[
-        "error", "failure", "inactive", "in_progress", "queued", "pending", "success"
-    ]
-    target_url: NotRequired[str]
-    log_url: NotRequired[str]
-    description: NotRequired[str]
-    environment: NotRequired[str]
-    environment_url: NotRequired[str]
-    auto_inactive: NotRequired[bool]
+    Examples:
+        {'teams': ['my-team']}
+    """
+
+    teams: list[str]
 
 
-class ReposOwnerRepoDeploymentsDeploymentIdStatusesPostBodyTypeForResponse(TypedDict):
-    """ReposOwnerRepoDeploymentsDeploymentIdStatusesPostBody"""
+class ReposOwnerRepoBranchesBranchProtectionRestrictionsTeamsPostBodyOneof0TypeForResponse(
+    TypedDict
+):
+    """ReposOwnerRepoBranchesBranchProtectionRestrictionsTeamsPostBodyOneof0
 
-    state: Literal[
-        "error", "failure", "inactive", "in_progress", "queued", "pending", "success"
-    ]
-    target_url: NotRequired[str]
-    log_url: NotRequired[str]
-    description: NotRequired[str]
-    environment: NotRequired[str]
-    environment_url: NotRequired[str]
-    auto_inactive: NotRequired[bool]
+    Examples:
+        {'teams': ['my-team']}
+    """
+
+    teams: list[str]
 
 
 __all__ = (
-    "ReposOwnerRepoDeploymentsDeploymentIdStatusesPostBodyType",
-    "ReposOwnerRepoDeploymentsDeploymentIdStatusesPostBodyTypeForResponse",
+    "ReposOwnerRepoBranchesBranchProtectionRestrictionsTeamsPostBodyOneof0Type",
+    "ReposOwnerRepoBranchesBranchProtectionRestrictionsTeamsPostBodyOneof0TypeForResponse",
 )

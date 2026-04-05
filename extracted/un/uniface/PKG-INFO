@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uniface
-Version: 3.3.0
+Version: 3.4.0
 Summary: UniFace: A Comprehensive Library for Face Detection, Recognition, Tracking, Landmark Analysis, Face Parsing, Gaze Estimation, Age, and Gender Detection
 Author-email: Yakhyokhuja Valikhujaev <yakhyo9696@gmail.com>
 Maintainer-email: Yakhyokhuja Valikhujaev <yakhyo9696@gmail.com>
@@ -66,7 +66,7 @@ Dynamic: license-file
 ## Features
 
 - **Face Detection** — RetinaFace, SCRFD, YOLOv5-Face, and YOLOv8-Face with 5-point landmarks
-- **Face Recognition** — ArcFace, MobileFace, and SphereFace embeddings
+- **Face Recognition** — AdaFace, ArcFace, EdgeFace, MobileFace, and SphereFace embeddings
 - **Face Tracking** — Multi-object tracking with [BYTETracker](https://github.com/yakhyo/bytetrack-tracker) for persistent IDs across video frames
 - **Facial Landmarks** — 106-point landmark localization module (separate from 5-point detector landmarks)
 - **Face Parsing** — BiSeNet semantic segmentation (19 classes), XSeg face masking
@@ -77,6 +77,36 @@ Dynamic: license-file
 - **Anti-Spoofing** — Face liveness detection with MiniFASNet
 - **Face Anonymization** — 5 blur methods for privacy protection
 - **Hardware Acceleration** — ARM64 (Apple Silicon), CUDA (NVIDIA), CPU
+
+---
+
+## Visual Examples
+
+<table>
+  <tr>
+    <td align="center"><b>Face Detection</b><br><img src="https://raw.githubusercontent.com/yakhyo/uniface/main/assets/demos/detection.jpg" width="100%"></td>
+    <td align="center"><b>Gaze Estimation</b><br><img src="https://raw.githubusercontent.com/yakhyo/uniface/main/assets/demos/gaze.jpg" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Head Pose Estimation</b><br><img src="https://raw.githubusercontent.com/yakhyo/uniface/main/assets/demos/headpose.jpg" width="100%"></td>
+    <td align="center"><b>Age &amp; Gender</b><br><img src="https://raw.githubusercontent.com/yakhyo/uniface/main/assets/demos/age_gender.jpg" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><b>Face Verification</b><br><img src="https://raw.githubusercontent.com/yakhyo/uniface/main/assets/demos/verification.jpg" width="80%"></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><b>106-Point Landmarks</b><br><img src="https://raw.githubusercontent.com/yakhyo/uniface/main/assets/demos/landmarks.jpg" width="36%"></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><b>Face Parsing</b><br><img src="https://raw.githubusercontent.com/yakhyo/uniface/main/assets/demos/parsing.jpg" width="80%"></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><b>Face Segmentation</b><br><img src="https://raw.githubusercontent.com/yakhyo/uniface/main/assets/demos/segmentation.jpg" width="80%"></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><b>Face Anonymization</b><br><img src="https://raw.githubusercontent.com/yakhyo/uniface/main/assets/demos/anonymization.jpg" width="100%"></td>
+  </tr>
+</table>
 
 ---
 
@@ -252,6 +282,7 @@ https://yakhyo.github.io/uniface/concepts/execution-providers/
 | Recognition | MS1MV2 | MobileFace, SphereFace |
 | Recognition | WebFace600K | ArcFace |
 | Recognition | WebFace4M / 12M | AdaFace |
+| Recognition | MS1MV2 | EdgeFace |
 | Gaze | Gaze360 | MobileGaze |
 | Head Pose | 300W-LP | HeadPose (ResNet, MobileNet) |
 | Parsing | CelebAMask-HQ | BiSeNet |
@@ -283,6 +314,7 @@ If you plan commercial use, verify model license compatibility.
 | Detection | [yolov8-face-onnx-inference](https://github.com/yakhyo/yolov8-face-onnx-inference) | - | YOLOv8-Face ONNX Inference |
 | Tracking | [bytetrack-tracker](https://github.com/yakhyo/bytetrack-tracker) | - | BYTETracker Multi-Object Tracking |
 | Recognition | [face-recognition](https://github.com/yakhyo/face-recognition) | ✓ | MobileFace, SphereFace Training |
+| Recognition | [edgeface-onnx](https://github.com/yakhyo/edgeface-onnx) | - | EdgeFace ONNX Inference |
 | Parsing | [face-parsing](https://github.com/yakhyo/face-parsing) | ✓ | BiSeNet Face Parsing |
 | Parsing | [face-segmentation](https://github.com/yakhyo/face-segmentation) | - | XSeg Face Segmentation |
 | Gaze | [gaze-estimation](https://github.com/yakhyo/gaze-estimation) | ✓ | MobileGaze Training |

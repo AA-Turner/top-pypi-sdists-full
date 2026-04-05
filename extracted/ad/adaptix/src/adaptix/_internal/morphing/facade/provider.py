@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from datetime import timezone
 from enum import Enum, EnumMeta
 from types import MappingProxyType
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import Any, TypeVar
 
 from ...common import Catchable, Dumper, Loader, TypeHint, VarTuple
 from ...model_tools.definitions import Default, DescriptorAccessor, NoDefault, OutputField
@@ -22,7 +22,7 @@ from ...provider.loc_stack_filtering import (
     create_loc_stack_checker,
 )
 from ...provider.overlay_schema import OverlayProvider
-from ...provider.provider_wrapper import Chain, ChainingProvider
+from ...provider.provider_wrapper import Chain, ChainingProvider, ConcatProvider
 from ...provider.shape_provider import PropertyExtender
 from ...provider.value_provider import ValueProvider
 from ...special_cases_optimization import as_is_stub
@@ -36,6 +36,15 @@ from ..enum_provider import (
     EnumValueProvider,
     FlagByExactValueProvider,
     FlagByListProvider,
+)
+from ..json_schema.definitions import JSONSchema
+from ..json_schema.providers import (
+    ConstantInlineJSONSchemaProvider,
+    ConstantJSONSchemaRefProvider,
+    EraseJSONSchema,
+    JSONSchemaOverride,
+    JSONSchemaOverrideProvider,
+    KeepJSONSchema,
 )
 from ..load_error import LoadError, ValidationLoadError
 from ..model.loader_provider import InlinedShapeModelLoaderProvider
@@ -53,14 +62,20 @@ from ..sentinel_provider import SentinelProvider
 T = TypeVar("T")
 
 
-def make_chain(chain: Optional[Chain], provider: Provider) -> Provider:
+def make_chain(chain: Chain | None, provider: Provider) -> Provider:
     if chain is None:
         return provider
 
     return ChainingProvider(chain, provider)
 
 
-def loader(pred: Pred, func: Loader, chain: Optional[Chain] = None) -> Provider:
+def loader(
+    pred: Pred,
+    func: Loader,
+    chain: Chain | None = None,
+    *,
+    json_schema: JSONSchemaOverride = EraseJSONSchema(),
+) -> Provider:
     """Basic provider to define custom loader.
 
     :param pred: Predicate specifying where loader should be used. See :ref:`predicate-system` for details.
@@ -74,19 +89,34 @@ def loader(pred: Pred, func: Loader, chain: Optional[Chain] = None) -> Provider:
         the specified function will take raw data and its result will be passed to previous loader.
 
         If the parameter is ``Chain.LAST``, the specified function gets result of the previous loader.
+    :param json_schema: JSON schema value associated with the loader.
+        By default, when the loader is overridden, the previous schema is erased.
+        You can preserve the existing schema by using ``KeepJSONSchema()``,
+        pass your own schema or patch the previous schema.
 
     :return: Desired provider
     """
     return bound(
         pred,
-        make_chain(
-            chain,
-            ValueProvider(LoaderRequest, func),
+        ConcatProvider(
+            make_chain(
+                chain,
+                ValueProvider(LoaderRequest, func),
+            ),
+            JSONSchemaOverrideProvider(
+                override=json_schema,
+            ),
         ),
     )
 
 
-def dumper(pred: Pred, func: Dumper, chain: Optional[Chain] = None) -> Provider:
+def dumper(
+    pred: Pred,
+    func: Dumper,
+    chain: Chain | None = None,
+    *,
+    json_schema: JSONSchemaOverride = EraseJSONSchema(),
+) -> Provider:
     """Basic provider to define custom dumper.
 
     :param pred: Predicate specifying where dumper should be used. See :ref:`predicate-system` for details.
@@ -100,15 +130,50 @@ def dumper(pred: Pred, func: Dumper, chain: Optional[Chain] = None) -> Provider:
         the specified function will take raw data and its result will be passed to previous dumper.
 
         If the parameter is ``Chain.LAST``, the specified function gets result of the previous dumper.
+    :param json_schema: JSON schema value associated with the dumper.
+        By default, when the loader is overridden, the previous schema is erased.
+        You can preserve the existing schema by using ``KeepJSONSchema()``,
+        pass your own schema or patch the previous schema.
 
     :return: Desired provider
     """
     return bound(
         pred,
-        make_chain(
-            chain,
-            ValueProvider(DumperRequest, func),
+        ConcatProvider(
+            make_chain(
+                chain,
+                ValueProvider(DumperRequest, func),
+            ),
+            JSONSchemaOverrideProvider(
+                override=json_schema,
+            ),
         ),
+    )
+
+
+def json_schema(
+    pred: Pred,
+    value: Omittable[JSONSchemaOverride] = Omitted(),
+    *,
+    inline: Omittable[bool] = Omitted(),
+    ref: Omittable[str] = Omitted(),
+) -> Provider:
+    providers: list[Provider] = []
+    if not isinstance(value, Omitted):
+        providers.append(
+            JSONSchemaOverrideProvider(override=value),
+        )
+    if not isinstance(inline, Omitted):
+        providers.append(
+            ConstantInlineJSONSchemaProvider(inline=inline),
+        )
+    if not isinstance(ref, Omitted):
+        providers.append(
+            ConstantJSONSchemaRefProvider(ref=ref),
+        )
+    return bound(
+        pred,
+        ConcatProvider(*providers),
     )
 
 
@@ -118,7 +183,7 @@ def as_is_loader(pred: Pred) -> Provider:
     :param pred: Predicate specifying where loader should be used. See :ref:`predicate-system` for details.
     :return: Desired provider
     """
-    return loader(pred, as_is_stub)
+    return loader(pred, as_is_stub, json_schema=JSONSchema())
 
 
 def as_is_dumper(pred: Pred) -> Provider:
@@ -127,7 +192,7 @@ def as_is_dumper(pred: Pred) -> Provider:
     :param pred: Predicate specifying where dumper should be used. See :ref:`predicate-system` for details.
     :return: Desired provider
     """
-    return dumper(pred, as_is_stub)
+    return dumper(pred, as_is_stub, json_schema=JSONSchema())
 
 
 def constructor(pred: Pred, func: Callable) -> Provider:
@@ -163,7 +228,7 @@ def _name_mapping_convert_map(name_map: Omittable[NameMap]) -> VarTuple[Provider
     return tuple(result)
 
 
-def _name_mapping_convert_preds(value: Omittable[Union[Iterable[Pred], Pred]]) -> Omittable[LocStackChecker]:
+def _name_mapping_convert_preds(value: Omittable[Iterable[Pred] | Pred]) -> Omittable[LocStackChecker]:
     if isinstance(value, Omitted):
         return value
     if isinstance(value, Iterable) and not isinstance(value, str):
@@ -172,14 +237,14 @@ def _name_mapping_convert_preds(value: Omittable[Union[Iterable[Pred], Pred]]) -
 
 
 def _name_mapping_convert_omit_default(
-    value: Omittable[Union[Iterable[Pred], Pred, bool]],
+    value: Omittable[Iterable[Pred] | Pred | bool],
 ) -> Omittable[LocStackChecker]:
     if isinstance(value, bool):
         return AnyLocStackChecker() if value else ~AnyLocStackChecker()
     return _name_mapping_convert_preds(value)
 
 
-def _name_mapping_extra(value: Union[str, Iterable[str], T]) -> Union[str, Iterable[str], T]:
+def _name_mapping_extra(value: str | Iterable[str] | T) -> str | Iterable[str] | T:
     if isinstance(value, str):
         return value
     if isinstance(value, Iterable):
@@ -191,20 +256,20 @@ def name_mapping(
     pred: Omittable[Pred] = Omitted(),
     *,
     # filtering which fields are presented
-    skip: Omittable[Union[Iterable[Pred], Pred]] = Omitted(),
-    only: Omittable[Union[Iterable[Pred], Pred]] = Omitted(),
+    skip: Omittable[Iterable[Pred] | Pred] = Omitted(),
+    only: Omittable[Iterable[Pred] | Pred] = Omitted(),
     # mutating names of presented fields
     map: Omittable[NameMap] = Omitted(),  # noqa: A002
     as_list: Omittable[bool] = Omitted(),
     trim_trailing_underscore: Omittable[bool] = Omitted(),
-    name_style: Omittable[Optional[NameStyle]] = Omitted(),
+    name_style: Omittable[NameStyle | None] = Omitted(),
     # filtering of dumped data
-    omit_default: Omittable[Union[Iterable[Pred], Pred, bool]] = Omitted(),
+    omit_default: Omittable[Iterable[Pred] | Pred | bool] = Omitted(),
     # policy for data that does not map to fields
     extra_in: Omittable[ExtraIn] = Omitted(),
     extra_out: Omittable[ExtraOut] = Omitted(),
     # chaining with next matching provider
-    chain: Optional[Chain] = Chain.FIRST,
+    chain: Chain | None = Chain.FIRST,
 ) -> Provider:
     """A name mapping decides which fields will be presented
     to the outside world and how they will look.
@@ -259,16 +324,13 @@ def name_mapping(
     )
 
 
-NameOrProp = Union[str, property]
-
-
 def with_property(
     pred: Pred,
-    prop: NameOrProp,
+    prop: str | property,
     tp: Omittable[TypeHint] = Omitted(),
     /, *,
     default: Default = NoDefault(),
-    access_error: Optional[Catchable] = None,
+    access_error: Catchable | None = None,
     metadata: Mapping[Any, Any] = MappingProxyType({}),
 ) -> Provider:
     """Provider registering property for a model for dumping.
@@ -303,7 +365,7 @@ def with_property(
     )
 
 
-def _ensure_attr_name(prop: NameOrProp) -> str:
+def _ensure_attr_name(prop: str | property) -> str:
     if isinstance(prop, str):
         return prop
 
@@ -314,13 +376,13 @@ def _ensure_attr_name(prop: NameOrProp) -> str:
     return fget.__name__
 
 
-EnumPred = Union[TypeHint, str, EnumMeta, LocStackPattern]
+EnumPred = TypeHint | str | EnumMeta | LocStackPattern
 
 
 def enum_by_name(
     *preds: EnumPred,
-    name_style: Optional[NameStyle] = None,
-    map: Optional[Mapping[Union[str, Enum], str]] = None,  # noqa: A002
+    name_style: NameStyle | None = None,
+    map: Mapping[str | Enum, str] | None = None,  # noqa: A002
 ) -> Provider:
     """Provider that represents enum members to the outside world by their name.
 
@@ -389,8 +451,8 @@ def flag_by_member_names(
     allow_single_value: bool = False,
     allow_duplicates: bool = True,
     allow_compound: bool = True,
-    name_style: Optional[NameStyle] = None,
-    map: Optional[Mapping[Union[str, Enum], str]] = None,  # noqa: A002
+    name_style: NameStyle | None = None,
+    map: Mapping[str | Enum, str] | None = None,  # noqa: A002
 ) -> Provider:
     """Provider that represents flag members to the outside world by list of their names.
 
@@ -404,7 +466,7 @@ def flag_by_member_names(
         if no predicates are passed, the provider will be used for all Flags.
         See :ref:`predicate-system` for details.
     :param allow_single_value: Allows calling the loader with a single value.
-        If this is allowed, singlular values are treated as one element list.
+        If this is allowed, singular values are treated as one element list.
     :param allow_duplicates: Allows calling the loader with a list containing non-unique elements.
         Unless this is allowed, loader will raise :exc:`.DuplicatedValuesLoadError` in that case.
     :param allow_compound: Allows the loader to accept names of compound members
@@ -431,7 +493,7 @@ def flag_by_member_names(
 def validator(
     pred: Pred,
     func: Callable[[Any], bool],
-    error: Union[str, Callable[[Any], LoadError], None] = None,
+    error: str | Callable[[Any], LoadError] | None = None,
     chain: Chain = Chain.LAST,
 ) -> Provider:
     exception_factory = (
@@ -445,7 +507,7 @@ def validator(
             return data
         raise exception_factory(data)
 
-    return loader(pred, validating_loader, chain)
+    return loader(pred, validating_loader, chain, json_schema=KeepJSONSchema())
 
 
 def default_dict(pred: Pred, default_factory: Callable) -> Provider:
@@ -458,7 +520,7 @@ def default_dict(pred: Pred, default_factory: Callable) -> Provider:
     return bound(pred, DefaultDictProvider(default_factory))
 
 
-def datetime_by_timestamp(pred: Pred = P.ANY, *, tz: Optional[timezone] = timezone.utc) -> Provider:
+def datetime_by_timestamp(pred: Pred = P.ANY, *, tz: timezone | None = timezone.utc) -> Provider:
     """Provider that can load/dump datetime object from/to UNIX timestamp.
 
     :param pred: Predicate specifying where the provider should be used.

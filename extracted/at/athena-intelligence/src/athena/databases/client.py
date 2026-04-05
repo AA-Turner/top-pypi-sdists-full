@@ -33,6 +33,45 @@ class DatabasesClient:
         """
         return self._raw_client
 
+    def get_status(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DatabaseStatusResponse:
+        """
+        Check if a database is running, suspended, or starting up. Poll this endpoint to determine when a serverless database is ready.
+
+        **Status Values:**
+        - `running` - Database is active and accepting connections
+        - `suspended` - Database is suspended (scale-to-zero), will auto-resume on first query
+        - `starting` - Database is waking up
+        - `failed` - Database failed to start
+        - `unknown` - Status could not be determined
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DatabaseStatusResponse
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.databases.get_status(
+            asset_id="asset_id",
+        )
+        """
+        _response = self._raw_client.get_status(asset_id, request_options=request_options)
+        return _response.data
+
     def list_tables(
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DatabaseTablesResponse:
@@ -411,7 +450,23 @@ class DatabasesClient:
         _response = self._raw_client.execute_sql(asset_id, sql=sql, request_options=request_options)
         return _response.data
 
-    def get_status(
+
+class AsyncDatabasesClient:
+    def __init__(self, *, client_wrapper: AsyncClientWrapper):
+        self._raw_client = AsyncRawDatabasesClient(client_wrapper=client_wrapper)
+
+    @property
+    def with_raw_response(self) -> AsyncRawDatabasesClient:
+        """
+        Retrieves a raw implementation of this client that returns raw responses.
+
+        Returns
+        -------
+        AsyncRawDatabasesClient
+        """
+        return self._raw_client
+
+    async def get_status(
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> DatabaseStatusResponse:
         """
@@ -438,33 +493,25 @@ class DatabasesClient:
 
         Examples
         --------
-        from athena import Athena
+        import asyncio
 
-        client = Athena(
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
             api_key="YOUR_API_KEY",
         )
-        client.databases.get_status(
-            asset_id="asset_id",
-        )
+
+
+        async def main() -> None:
+            await client.databases.get_status(
+                asset_id="asset_id",
+            )
+
+
+        asyncio.run(main())
         """
-        _response = self._raw_client.get_status(asset_id, request_options=request_options)
+        _response = await self._raw_client.get_status(asset_id, request_options=request_options)
         return _response.data
-
-
-class AsyncDatabasesClient:
-    def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._raw_client = AsyncRawDatabasesClient(client_wrapper=client_wrapper)
-
-    @property
-    def with_raw_response(self) -> AsyncRawDatabasesClient:
-        """
-        Retrieves a raw implementation of this client that returns raw responses.
-
-        Returns
-        -------
-        AsyncRawDatabasesClient
-        """
-        return self._raw_client
 
     async def list_tables(
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -898,51 +945,4 @@ class AsyncDatabasesClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.execute_sql(asset_id, sql=sql, request_options=request_options)
-        return _response.data
-
-    async def get_status(
-        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> DatabaseStatusResponse:
-        """
-        Check if a database is running, suspended, or starting up. Poll this endpoint to determine when a serverless database is ready.
-
-        **Status Values:**
-        - `running` - Database is active and accepting connections
-        - `suspended` - Database is suspended (scale-to-zero), will auto-resume on first query
-        - `starting` - Database is waking up
-        - `failed` - Database failed to start
-        - `unknown` - Status could not be determined
-
-        Parameters
-        ----------
-        asset_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        DatabaseStatusResponse
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from athena import AsyncAthena
-
-        client = AsyncAthena(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.databases.get_status(
-                asset_id="asset_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.get_status(asset_id, request_options=request_options)
         return _response.data

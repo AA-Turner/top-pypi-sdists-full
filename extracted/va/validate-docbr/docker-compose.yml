@@ -1,0 +1,9 @@
+---
+services:
+  app:
+    build:
+      context: .
+    image: alvarofpp/validate-docbr
+    container_name: validate-docbr
+    volumes:
+      - .:/app

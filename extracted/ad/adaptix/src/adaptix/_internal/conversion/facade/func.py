@@ -1,5 +1,5 @@
-from collections.abc import Iterable
-from typing import Any, Callable, Optional, TypeVar, overload
+from collections.abc import Callable, Iterable
+from typing import Any, TypeVar, overload
 
 from ...common import TypeHint
 from ...provider.essential import Provider
@@ -29,7 +29,7 @@ def get_converter(
     dst: type[DstT],
     *,
     recipe: Iterable[Provider] = (),
-    name: Optional[str] = None,
+    name: str | None = None,
 ) -> Callable[[SrcT], DstT]:
     ...
 
@@ -40,12 +40,12 @@ def get_converter(
     dst: TypeHint,
     *,
     recipe: Iterable[Provider] = (),
-    name: Optional[str] = None,
+    name: str | None = None,
 ) -> Callable[[Any], Any]:
     ...
 
 
-def get_converter(src: TypeHint, dst: TypeHint, *, recipe: Iterable[Provider] = (), name: Optional[str] = None):
+def get_converter(src: TypeHint, dst: TypeHint, *, recipe: Iterable[Provider] = (), name: str | None = None):
     """Factory producing basic converter.
 
     :param src: A type of converter input data.
@@ -67,7 +67,7 @@ def impl_converter(*, recipe: Iterable[Provider] = ()) -> Callable[[CallableT], 
     ...
 
 
-def impl_converter(stub_function: Optional[Callable] = None, *, recipe: Iterable[Provider] = ()):
+def impl_converter(stub_function: Callable | None = None, *, recipe: Iterable[Provider] = ()):
     """Decorator producing converter with signature of stub function.
 
     :param stub_function: A function that signature is used to generate converter.

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
-from typing import Any, Callable, Generic, Optional, TypeVar
+from collections.abc import Callable, Iterable
+from typing import Any, Generic, TypeVar
 
 from ..provider.essential import (
     AggregateCannotProvide,
@@ -31,7 +31,7 @@ class RequestRouter(ABC, Generic[RequestT]):
     """An offset of each element must belong to [0; max_offset)"""
 
     @abstractmethod
-    def route_handler(
+    def find_handler(
         self,
         mediator: DirectMediator,
         request: RequestT,
@@ -74,12 +74,12 @@ class BasicRequestBus(RequestBus[RequestT, ResponseT], Generic[RequestT, Respons
         mediator = self._mediator_factory(request, next_offset)
         while True:
             try:
-                handler, next_offset = self._router.route_handler(mediator, request, next_offset)
+                handler, next_offset = self._router.find_handler(mediator, request, next_offset)
             except StopIteration:
                 exc = AggregateCannotProvide.make(
                     self._error_representor.get_provider_not_found_description(request),
                     exceptions,
-                    is_demonstrative=True,
+                    is_demonstrative=search_offset == 0,
                 )
                 self._attach_request_context_notes(exc, request)
                 self._attach_sub_exceptions_notes(exc, exceptions)
@@ -92,7 +92,7 @@ class BasicRequestBus(RequestBus[RequestT, ResponseT], Generic[RequestT, Respons
                 response = handler(mediator, request)
             except CannotProvide as e:
                 if e.is_terminal:
-                    raise self._attach_request_context_notes(e, request)
+                    raise self._attach_request_context_notes(e, request) if search_offset == 0 else e
                 exceptions.append(e)
                 continue
 
@@ -114,7 +114,7 @@ class BasicRequestBus(RequestBus[RequestT, ResponseT], Generic[RequestT, Respons
 
 class RecursionResolver(ABC, Generic[RequestT, ResponseT]):
     @abstractmethod
-    def track_request(self, request: RequestT) -> Optional[ResponseT]:
+    def track_request(self, request: RequestT) -> ResponseT | None:
         ...
 
     @abstractmethod
@@ -140,6 +140,6 @@ class RecursiveRequestBus(BasicRequestBus[RequestT, ResponseT], Generic[RequestT
         if stub is not None:
             return stub
 
-        result = self._send_inner(request, 0)
+        result = super().send(request)
         self._recursion_resolver.track_response(request, result)
         return result

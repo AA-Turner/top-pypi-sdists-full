@@ -645,6 +645,7 @@ async def run_agent_loop(
             len(tool_calls_pending),
             [tc["function_name"] for tc in tool_calls_pending],
         )
+        _end_turn_requested = False  # (#1311) background task turn-yield
         if cancel_event and cancel_event.is_set():
             for tc in tool_calls_pending:
                 cancelled_result = {"error": "Cancelled by user"}
@@ -694,8 +695,11 @@ async def run_agent_loop(
                     "_new_content",
                     "_context_trust",
                     "_context_origin",
+                    "_end_turn",
                 }
                 if isinstance(result, dict):
+                    if result.get("_end_turn"):
+                        _end_turn_requested = True
                     if injection_detector is not None and injection_detector.enabled:
                         _tool_text = "\n".join(
                             v for k, v in result.items() if isinstance(v, str) and not k.startswith("_")
@@ -757,14 +761,18 @@ async def run_agent_loop(
                 # _approval_decision: safety gate audit field
                 # _old_content/_new_content: large strings for diff rendering only
                 # _context_trust/_context_origin: trust classification metadata
+                # _end_turn: background task turn-yield signal (#1311)
                 internal_keys = {
                     "_approval_decision",
                     "_old_content",
                     "_new_content",
                     "_context_trust",
                     "_context_origin",
+                    "_end_turn",
                 }
                 if isinstance(result, dict):
+                    if result.get("_end_turn"):
+                        _end_turn_requested = True
                     # Scan untrusted tool output for prompt injection
                     if injection_detector is not None and injection_detector.enabled:
                         # Collect all string values from the result (covers content,
@@ -820,6 +828,27 @@ async def run_agent_loop(
 
         if cancel_event and cancel_event.is_set():
             yield AgentEvent(kind="done", data={})
+            return
+
+        # Background task turn-yield (#1311): if any tool result had
+        # _end_turn, emit done and break to the queue checkpoint instead
+        # of calling the LLM again.
+        if _end_turn_requested:
+            logger.debug("_end_turn requested — yielding turn to queue checkpoint")
+            yield AgentEvent(kind="done", data={})
+            if message_queue is not None:
+                try:
+                    queued_msg = message_queue.get_nowait()
+                    queue_depth = message_queue.qsize()
+                    messages.append(queued_msg)
+                    yield AgentEvent(
+                        kind="queued_message",
+                        data={**queued_msg, "position": 1, "queue_depth": queue_depth},
+                    )
+                    _end_turn_requested = False
+                    continue
+                except asyncio.QueueEmpty:
+                    pass
             return
 
         # Auto-plan suggestion: one-shot event when tool calls cross the threshold.

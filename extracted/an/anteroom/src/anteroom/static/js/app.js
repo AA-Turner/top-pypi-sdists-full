@@ -9,6 +9,7 @@ const App = (() => {
         isStreaming: false,
         isPlanMode: false,
         isReadOnly: false,
+        bgTaskCount: 0,
         availableModels: [],
         databases: [],
         clientId: crypto.randomUUID(),
@@ -606,6 +607,8 @@ const App = (() => {
             Chat.abortStream();
             Chat.setStreaming(false);
             state.currentConversationId = id;
+            state.bgTaskCount = 0;
+            Chat.updateBgIndicator(0);
             const detail = await api(`/api/conversations/${id}`);
             state.currentConversationType = detail.type || 'chat';
             Chat.setConversationType(state.currentConversationType);
@@ -778,7 +781,43 @@ const App = (() => {
             }
         });
 
+        // Background task events (#1311 + #1313)
+        _eventSource.addEventListener('task_started', (e) => {
+            const data = JSON.parse(e.data);
+            if (data.conversation_id === state.currentConversationId || !data.conversation_id) {
+                Chat.renderTaskChip(data.task_id, data.command, 'running');
+                state.bgTaskCount = Math.max(0, state.bgTaskCount) + 1;
+                Chat.updateBgIndicator(state.bgTaskCount);
+            }
+        });
+
+        _eventSource.addEventListener('task_completed', (e) => {
+            const data = JSON.parse(e.data);
+            if (data.conversation_id === state.currentConversationId || !data.conversation_id) {
+                Chat.renderTaskChip(data.task_id, data.command, data.status, data.exit_code);
+                state.bgTaskCount = Math.max(0, state.bgTaskCount - 1);
+                Chat.updateBgIndicator(state.bgTaskCount);
+            }
+        });
+
+        _eventSource.addEventListener('task_failed', (e) => {
+            const data = JSON.parse(e.data);
+            if (data.conversation_id === state.currentConversationId) {
+                state.bgTaskCount = Math.max(0, state.bgTaskCount - 1);
+                Chat.updateBgIndicator(state.bgTaskCount);
+            }
+        });
+
+        _eventSource.addEventListener('task_cancelled', (e) => {
+            const data = JSON.parse(e.data);
+            if (data.conversation_id === state.currentConversationId) {
+                state.bgTaskCount = Math.max(0, state.bgTaskCount - 1);
+                Chat.updateBgIndicator(state.bgTaskCount);
+            }
+        });
         _eventSource.onopen = () => {
+            state.bgTaskCount = 0;
+            Chat.updateBgIndicator(0);
             _esConnectedAt = Date.now();
             _esFailCount = 0;
             _debugLog('sse', 'EventSource connected');

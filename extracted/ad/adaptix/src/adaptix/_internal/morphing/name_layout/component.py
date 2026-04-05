@@ -1,7 +1,7 @@
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Callable, Optional, TypeVar, Union
+from typing import TypeVar
 
 from ...common import VarTuple
 from ...model_tools.definitions import (
@@ -68,7 +68,7 @@ class StructureSchema(Schema):
 
     map: VarTuple[Provider]
     trim_trailing_underscore: bool
-    name_style: Optional[NameStyle]
+    name_style: NameStyle | None
     as_list: bool
 
 
@@ -79,18 +79,18 @@ class StructureOverlay(Overlay[StructureSchema]):
 
     map: Omittable[VarTuple[Provider]]
     trim_trailing_underscore: Omittable[bool]
-    name_style: Omittable[Optional[NameStyle]]
+    name_style: Omittable[NameStyle | None]
     as_list: Omittable[bool]
 
     def _merge_map(self, old: VarTuple[Provider], new: VarTuple[Provider]) -> VarTuple[Provider]:
         return new + old
 
 
-AnyField = Union[InputField, OutputField]
+AnyField = InputField | OutputField
 LeafCr = TypeVar("LeafCr", bound=LeafBaseCrown)
 FieldCr = TypeVar("FieldCr", bound=BaseFieldCrown)
 F = TypeVar("F", bound=BaseField)
-FieldAndPath = tuple[F, Optional[KeyPath]]
+FieldAndPath = tuple[F, KeyPath | None]
 
 
 def apply_lsc(
@@ -104,7 +104,7 @@ def apply_lsc(
 
 
 class NameMappingRetort(OperatingRetort):
-    def provide_name_mapping(self, request: NameMappingRequest) -> Optional[KeyPath]:
+    def provide_name_mapping(self, request: NameMappingRequest) -> KeyPath | None:
         return self._provide_from_recipe(request)
 
 
@@ -128,7 +128,7 @@ class BuiltinStructureMaker(StructureMaker):
         mediator: Mediator,
         request: BaseNameLayoutRequest,
         schema: StructureSchema,
-        extra_move: Union[InpExtraMove, OutExtraMove],
+        extra_move: InpExtraMove | OutExtraMove,
     ) -> Iterable[FieldAndPath]:
         extra_targets = extra_move.fields if isinstance(extra_move, ExtraTargets) else ()
         retort = self._create_name_mapping_retort(schema)
@@ -270,8 +270,8 @@ class BuiltinStructureMaker(StructureMaker):
         fields_to_paths: Iterable[FieldAndPath],
         field_crown: Callable[[str], FieldCr],
         gaps_filler: Callable[[KeyPath], LeafCr],
-    ) -> PathsTo[Union[FieldCr, LeafCr]]:
-        paths_to_leaves: dict[KeyPath, Union[FieldCr, LeafCr]] = {
+    ) -> PathsTo[FieldCr | LeafCr]:
+        paths_to_leaves: dict[KeyPath, FieldCr | LeafCr] = {
             path: field_crown(field.id)
             for field, path in fields_to_paths
             if path is not None
@@ -404,7 +404,7 @@ class ExtraMoveAndPoliciesOverlay(Overlay[ExtraMoveAndPoliciesSchema]):
 
 
 class BuiltinExtraMoveAndPoliciesMaker(ExtraMoveMaker, ExtraPoliciesMaker):
-    def _create_extra_targets(self, extra: Union[str, Sequence[str]]) -> ExtraTargets:
+    def _create_extra_targets(self, extra: str | Sequence[str]) -> ExtraTargets:
         if isinstance(extra, str):
             return ExtraTargets((extra,))
         return ExtraTargets(tuple(extra))

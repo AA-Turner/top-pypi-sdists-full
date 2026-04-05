@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-regex"
-version = "2026.3.32.20260329"
+version = "2026.4.4.20260405"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for regex"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`regex`](https://github.com/mrabarnett/mrab-regex) package. It can be used by type checkers
 to check code that uses `regex`. This version of
 `types-regex` aims to provide accurate annotations for
-`regex==2026.3.32`.
+`regex==2026.4.4`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.19.1
+* [mypy](https://github.com/python/mypy/) 1.20.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`2ded3a24a15ed58fa6ccc61fd770c8ffc3ba0aca`](https://github.com/python/typeshed/commit/2ded3a24a15ed58fa6ccc61fd770c8ffc3ba0aca).
+[`72b73680a27b8c92e6fdc6886c2f20448b273a36`](https://github.com/python/typeshed/commit/72b73680a27b8c92e6fdc6886c2f20448b273a36).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

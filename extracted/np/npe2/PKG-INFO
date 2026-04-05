@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: npe2
-Version: 0.8.1
+Version: 0.8.2
 Summary: napari plugin engine v2
 Project-URL: homepage, https://github.com/napari/npe2
 Project-URL: repository, https://github.com/napari/npe2
@@ -23,8 +23,8 @@ Requires-Python: >=3.10
 Requires-Dist: build>=1
 Requires-Dist: platformdirs>=4.3.0
 Requires-Dist: psygnal>=0.3.0
+Requires-Dist: pydantic!=2.11.*,>=2.8
 Requires-Dist: pydantic-extra-types>=2.8
-Requires-Dist: pydantic>=2.8
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: rich>=14.0.0
 Requires-Dist: tomli-w>=1.0.0

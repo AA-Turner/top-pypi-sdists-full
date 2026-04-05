@@ -9,57 +9,48 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
 
 
-class OrgsOrgArtifactsMetadataStorageRecordPostBody(GitHubModel):
-    """OrgsOrgArtifactsMetadataStorageRecordPostBody"""
+class OrgsOrgActionsHostedRunnersImagesCustomGetResponse200(GitHubModel):
+    """OrgsOrgActionsHostedRunnersImagesCustomGetResponse200"""
 
-    name: str = Field(
-        min_length=1, max_length=256, description="The name of the artifact."
+    total_count: int = Field()
+    images: list[ActionsHostedRunnerCustomImage] = Field()
+
+
+class ActionsHostedRunnerCustomImage(GitHubModel):
+    """GitHub-hosted runner custom image details
+
+    Provides details of a custom runner image
+    """
+
+    id: int = Field(
+        description="The ID of the image. Use this ID for the `image` parameter when creating a new larger runner."
     )
-    digest: str = Field(
-        min_length=71,
-        max_length=71,
-        pattern="^sha256:[a-f0-9]{64}$",
-        description="The digest of the artifact (algorithm:hex-encoded-digest).",
+    platform: str = Field(description="The operating system of the image.")
+    total_versions_size: int = Field(
+        description="Total size of all the image versions in GB."
     )
-    version: Missing[str] = Field(
-        min_length=1, max_length=100, default=UNSET, description="The artifact version."
+    name: str = Field(description="Display name for this image.")
+    source: str = Field(description="The image provider.")
+    versions_count: int = Field(
+        description="The number of image versions associated with the image."
     )
-    artifact_url: Missing[str] = Field(
-        pattern="^https://",
-        default=UNSET,
-        description="The URL where the artifact is stored.",
+    latest_version: str = Field(
+        description="The latest image version associated with the image."
     )
-    path: Missing[str] = Field(default=UNSET, description="The path of the artifact.")
-    registry_url: str = Field(
-        min_length=1,
-        pattern="^https://",
-        description="The base URL of the artifact registry.",
-    )
-    repository: Missing[str] = Field(
-        default=UNSET, description="The repository name within the registry."
-    )
-    status: Missing[Literal["active", "eol", "deleted"]] = Field(
-        default=UNSET,
-        description="The status of the artifact (e.g., active, inactive).",
-    )
-    github_repository: Missing[str] = Field(
-        min_length=1,
-        max_length=100,
-        pattern="^[A-Za-z0-9.\\-_]+$",
-        default=UNSET,
-        description="The name of the GitHub repository associated with the artifact. This should be used\nwhen there are no provenance attestations available for the artifact. The repository\nmust belong to the organization specified in the path parameter.\n\nIf a provenance attestation is available for the artifact, the API will use\nthe repository information from the attestation instead of this parameter.",
+    state: str = Field(
+        description="The number of image versions associated with the image."
     )
 
 
-model_rebuild(OrgsOrgArtifactsMetadataStorageRecordPostBody)
+model_rebuild(OrgsOrgActionsHostedRunnersImagesCustomGetResponse200)
+model_rebuild(ActionsHostedRunnerCustomImage)
 
-__all__ = ("OrgsOrgArtifactsMetadataStorageRecordPostBody",)
+__all__ = (
+    "ActionsHostedRunnerCustomImage",
+    "OrgsOrgActionsHostedRunnersImagesCustomGetResponse200",
+)

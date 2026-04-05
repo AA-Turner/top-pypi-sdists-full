@@ -52,8 +52,28 @@ DEFINITION: dict[str, Any] = {
                 "description": "Timeout in seconds (default 120, max 600)",
                 "default": 120,
             },
+            "background": {
+                "type": "boolean",
+                "description": (
+                    "Run in background and return immediately with a task ID. "
+                    "Use for long-running commands like test suites."
+                ),
+                "default": False,
+            },
         },
         "required": ["command"],
+    },
+}
+
+BACKGROUND_STATUS_DEFINITION: dict[str, Any] = {
+    "name": "bash_background_status",
+    "description": "Check the status and output preview of a background shell task.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "task_id": {"type": "string", "description": "Background task ID to check"},
+        },
+        "required": ["task_id"],
     },
 }
 
@@ -134,6 +154,10 @@ async def handle(
     _bypass_hard_block: bool = False,
     _sandbox_config: BashSandboxConfig | None = None,
     _env: dict[str, str] | None = None,
+    _background: bool = False,
+    _bg_manager: Any = None,
+    _conversation_id: str = "",
+    _db: Any = None,
     **_: Any,
 ) -> dict[str, Any]:
     # Null byte check runs unconditionally — never bypassable.
@@ -167,6 +191,27 @@ async def handle(
     if sys.platform == "win32":
         command = _resolve_python_binary(command)
         command, tmp_script = _rewrite_python_c_for_windows(command)
+
+    # Background execution (#1311) — runs AFTER all safety checks and
+    # Windows rewrites above, so the detached subprocess matches the
+    # foreground path in every respect except output collection.
+    if _background:
+        if _bg_manager is None:
+            return {"error": "Background execution not available in this context", "exit_code": -1}
+        try:
+            task = _bg_manager.start_task(
+                _conversation_id,
+                command,
+                timeout=timeout,
+                env=_env,
+                cwd=_working_dir,
+                db=_db,
+                sandbox_config=_sandbox_config,
+            )
+            task["_end_turn"] = True
+            return task
+        except ValueError as exc:
+            return {"error": str(exc), "exit_code": -1}
 
     # Set up OS-level sandbox (Win32 Job Object) if configured
     use_os_sandbox = sys.platform == "win32" and _sandbox_config is not None and _sandbox_config.sandbox.is_enabled
@@ -230,3 +275,95 @@ async def handle(
                 os.unlink(tmp_script)
             except OSError:
                 pass
+
+
+async def handle_background_status(
+    task_id: str,
+    _bg_manager: Any = None,
+    _db: Any = None,
+    **_: Any,
+) -> dict[str, Any]:
+    """Check status and output preview of a background task (#1311)."""
+    if _bg_manager is None:
+        return {"error": "Background task inspection not available in this context"}
+    task = _bg_manager.get_task(task_id, db=_db)
+    if task is None:
+        return {"error": f"Background task not found: {task_id}"}
+    return {
+        "task_id": task["id"],
+        "command": task["command"],
+        "status": task["status"],
+        "exit_code": task.get("exit_code"),
+        "stdout_preview": task.get("stdout_preview", ""),
+        "stderr_preview": task.get("stderr_preview", ""),
+        "started_at": task.get("started_at"),
+        "completed_at": task.get("completed_at"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Background task output inspection (#1312)
+# ---------------------------------------------------------------------------
+
+TASK_OUTPUT_DEFINITION: dict[str, Any] = {
+    "name": "bash_task_output",
+    "description": (
+        "Retrieve stdout or stderr output from a completed or running background task. "
+        "Use tail_lines to get only the last N lines. Use stream='stderr' for error output."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "task_id": {"type": "string", "description": "The background task ID"},
+            "stream": {
+                "type": "string",
+                "enum": ["stdout", "stderr"],
+                "description": "Which output stream to read (default: stdout)",
+                "default": "stdout",
+            },
+            "tail_lines": {
+                "type": "integer",
+                "description": "Return only the last N lines (optional, returns all if omitted)",
+            },
+        },
+        "required": ["task_id"],
+    },
+}
+
+
+async def handle_task_output(
+    task_id: str,
+    stream: str = "stdout",
+    tail_lines: int | None = None,
+    _bg_manager: Any = None,
+    _db: Any = None,
+    **_: Any,
+) -> dict[str, Any]:
+    """Read output from a background task's captured stdout/stderr file."""
+    if _bg_manager is None:
+        return {"error": "Background task manager not available"}
+
+    from ..services.task_output import read_task_output, stderr_path, stdout_path
+
+    # Validate task exists
+    task = _bg_manager.get_task(task_id, db=_db)
+    if task is None:
+        return {"error": f"Task '{task_id}' not found"}
+
+    conversation_id = task.get("conversation_id", "")
+    data_dir = _bg_manager.data_dir
+
+    if stream == "stderr":
+        file_path = stderr_path(data_dir, conversation_id, task_id)
+    else:
+        file_path = stdout_path(data_dir, conversation_id, task_id)
+
+    content = read_task_output(file_path, tail_lines=tail_lines)
+
+    return {
+        "task_id": task_id,
+        "stream": stream,
+        "content": content,
+        "status": task.get("status", "unknown"),
+        "lines": content.count("\n") if content else 0,
+    }

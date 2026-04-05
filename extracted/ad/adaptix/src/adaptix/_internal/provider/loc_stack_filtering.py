@@ -8,7 +8,7 @@ from dataclasses import dataclass, replace
 from functools import reduce
 from inspect import isabstract, isgenerator
 from re import Pattern
-from typing import Any, ClassVar, Optional, TypeVar, Union, final
+from typing import Any, ClassVar, TypeVar, Union, final
 
 from ..common import TypeHint, VarTuple
 from ..datastructures import ImmutableStack
@@ -49,6 +49,10 @@ class LocStackChecker(ABC):
     @final
     def __and__(self, other: Any) -> "LocStackChecker":
         if isinstance(other, LocStackChecker):
+            if isinstance(self, AnyLocStackChecker):
+                return other
+            if isinstance(other, AnyLocStackChecker):
+                return self
             return AndLocStackChecker([self, other])
         return NotImplemented
 
@@ -209,7 +213,7 @@ class AnyLocStackChecker(LocStackChecker):
 Pred = Union[str, re.Pattern, type, TypeHint, LocStackChecker, "LocStackPattern"]
 
 
-def _create_non_type_hint_loc_stack_checker(pred: Pred) -> Optional[LocStackChecker]:
+def _create_non_type_hint_loc_stack_checker(pred: Pred) -> LocStackChecker | None:
     if isinstance(pred, str):
         if pred.isidentifier():
             return ExactFieldNameLSC(pred)  # this is only an optimization
@@ -291,44 +295,44 @@ class LocStackPattern:
             raise AttributeError
         return self[item]
 
-    def __getitem__(self: Pat, item: Union[Pred, VarTuple[Pred]]) -> Pat:
+    def __getitem__(self: Pat, item: Pred | VarTuple[Pred]) -> Pat:
         if isinstance(item, tuple) or isgenerator(item):
             return self._extend_stack(
                 [OrLocStackChecker([self._ensure_loc_stack_checker_from_pred(el) for el in item])],
             )
         return self._extend_stack([self._ensure_loc_stack_checker_from_pred(item)])
 
-    def _ensure_loc_stack_checker(self: Pat, other: Union[Pat, LocStackChecker]) -> LocStackChecker:
+    def _ensure_loc_stack_checker(self: Pat, other: Pat | LocStackChecker) -> LocStackChecker:
         if isinstance(other, LocStackChecker):
             return other
         return other.build_loc_stack_checker()
 
-    def __or__(self: Pat, other: Union[Pat, LocStackChecker]) -> Pat:
+    def __or__(self: Pat, other: Pat | LocStackChecker) -> Pat:
         return self._from_lsc(
             self.build_loc_stack_checker() | self._ensure_loc_stack_checker(other),
         )
 
-    def __ror__(self: Pat, other: Union[Pat, LocStackChecker]) -> Pat:
+    def __ror__(self: Pat, other: Pat | LocStackChecker) -> Pat:
         return self._from_lsc(
             self._ensure_loc_stack_checker(other) | self.build_loc_stack_checker(),
         )
 
-    def __and__(self: Pat, other: Union[Pat, LocStackChecker]) -> Pat:
+    def __and__(self: Pat, other: Pat | LocStackChecker) -> Pat:
         return self._from_lsc(
             self.build_loc_stack_checker() & self._ensure_loc_stack_checker(other),
         )
 
-    def __rand__(self: Pat, other: Union[Pat, LocStackChecker]) -> Pat:
+    def __rand__(self: Pat, other: Pat | LocStackChecker) -> Pat:
         return self._from_lsc(
             self._ensure_loc_stack_checker(other) & self.build_loc_stack_checker(),
         )
 
-    def __xor__(self: Pat, other: Union[Pat, LocStackChecker]) -> Pat:
+    def __xor__(self: Pat, other: Pat | LocStackChecker) -> Pat:
         return self._from_lsc(
             self.build_loc_stack_checker() ^ self._ensure_loc_stack_checker(other),
         )
 
-    def __rxor__(self: Pat, other: Union[Pat, LocStackChecker]) -> Pat:
+    def __rxor__(self: Pat, other: Pat | LocStackChecker) -> Pat:
         return self._from_lsc(
             self._ensure_loc_stack_checker(other) ^ self.build_loc_stack_checker(),
         )

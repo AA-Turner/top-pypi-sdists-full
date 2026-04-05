@@ -1,8 +1,8 @@
 import itertools
 from abc import ABC, abstractmethod
-from collections.abc import Collection, Container, Iterable, Mapping, Set
+from collections.abc import Callable, Collection, Container, Iterable, Mapping, Set
 from dataclasses import dataclass
-from typing import Any, Callable, TypeVar, Union
+from typing import Any, TypeVar
 
 from ...code_tools.code_builder import CodeBuilder
 from ...code_tools.compiler import ClosureCompiler
@@ -89,15 +89,15 @@ def _concatenate_iters(args: Iterable[Iterable[T]]) -> Collection[T]:
     return list(itertools.chain.from_iterable(args))
 
 
-def _inner_collect_used_direct_fields(crown: BaseCrown) -> Iterable[str]:
+def _inner_collect_used_fields(crown: BaseCrown) -> Iterable[str]:
     if isinstance(crown, BaseDictCrown):
         return _concatenate_iters(
-            _inner_collect_used_direct_fields(sub_crown)
+            _inner_collect_used_fields(sub_crown)
             for sub_crown in crown.map.values()
         )
     if isinstance(crown, BaseListCrown):
         return _concatenate_iters(
-            _inner_collect_used_direct_fields(sub_crown)
+            _inner_collect_used_fields(sub_crown)
             for sub_crown in crown.map
         )
     if isinstance(crown, BaseFieldCrown):
@@ -107,8 +107,8 @@ def _inner_collect_used_direct_fields(crown: BaseCrown) -> Iterable[str]:
     raise TypeError
 
 
-def _collect_used_direct_fields(crown: BaseCrown) -> set[str]:
-    lst = _inner_collect_used_direct_fields(crown)
+def _collect_used_fields(crown: BaseCrown) -> Set[str]:
+    lst = _inner_collect_used_fields(crown)
 
     used_set = set()
     for f_name in lst:
@@ -120,11 +120,11 @@ def _collect_used_direct_fields(crown: BaseCrown) -> set[str]:
 
 
 def get_skipped_fields(shape: BaseShape, name_layout: BaseNameLayout) -> Set[str]:
-    used_direct_fields = _collect_used_direct_fields(name_layout.crown)
+    used_fields = _collect_used_fields(name_layout.crown)
     extra_targets = name_layout.extra_move.fields if isinstance(name_layout.extra_move, ExtraTargets) else ()
     return {
         field.id for field in shape.fields
-        if field.id not in used_direct_fields and field.id not in extra_targets
+        if field.id not in used_fields and field.id not in extra_targets
     }
 
 
@@ -154,7 +154,7 @@ def get_extra_targets_at_crown(name_layout: BaseNameLayout) -> Collection[str]:
 
 
 def get_optional_fields_at_list_crown(
-    fields_map: Mapping[str, Union[InputField, OutputField]],
+    fields_map: Mapping[str, InputField | OutputField],
     crown: BaseCrown,
 ) -> Collection[str]:
     if isinstance(crown, BaseDictCrown):
@@ -178,7 +178,7 @@ def get_optional_fields_at_list_crown(
     raise TypeError
 
 
-def get_wild_extra_targets(shape: BaseShape, extra_move: Union[InpExtraMove, OutExtraMove]) -> Collection[str]:
+def get_wild_extra_targets(shape: BaseShape, extra_move: InpExtraMove | OutExtraMove) -> Collection[str]:
     if not isinstance(extra_move, ExtraTargets):
         return []
 

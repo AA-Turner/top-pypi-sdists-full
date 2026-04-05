@@ -1,8 +1,8 @@
 import inspect
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from functools import partial
 from inspect import Parameter, Signature
-from typing import Any, Callable, Optional, TypeVar, overload
+from typing import Any, TypeVar, overload
 
 from ...common import Converter, TypeHint
 from ...provider.essential import Provider
@@ -15,6 +15,7 @@ from ...utils import Omittable, Omitted
 from ..coercer_provider import (
     DictCoercerProvider,
     DstAnyCoercerProvider,
+    ForwardRefEvaluatingProvider,
     IterableCoercerProvider,
     OptionalCoercerProvider,
     SameTypeCoercerProvider,
@@ -38,6 +39,7 @@ class FilledConversionRetort(OperatingRetort):
 
         DefaultLinkingProvider(),
 
+        ForwardRefEvaluatingProvider(),
         ModelCoercerProvider(),
         IterableCoercerProvider(),
         DictCoercerProvider(),
@@ -62,12 +64,12 @@ CallableT = TypeVar("CallableT", bound=Callable)
 class AdornedConversionRetort(OperatingRetort):
     def _calculate_derived(self) -> None:
         super()._calculate_derived()
-        self._simple_converter_cache: dict[tuple[TypeHint, TypeHint, Optional[str]], Converter] = {}
+        self._simple_converter_cache: dict[tuple[TypeHint, TypeHint, str | None], Converter] = {}
 
     def replace(
         self: AR,
         *,
-        error_renderer: Omittable[Optional[ErrorRenderer]] = Omitted(),
+        error_renderer: Omittable[ErrorRenderer | None] = Omitted(),
     ) -> AR:
         with self._clone() as clone:
             if not isinstance(error_renderer, Omitted):
@@ -85,8 +87,8 @@ class AdornedConversionRetort(OperatingRetort):
     def _produce_converter(
         self,
         signature: Signature,
-        stub_function: Optional[Callable],
-        function_name: Optional[str],
+        stub_function: Callable | None,
+        function_name: str | None,
     ) -> Callable[..., Any]:
         return self._facade_provide(
             ConverterRequest(
@@ -97,7 +99,7 @@ class AdornedConversionRetort(OperatingRetort):
             error_message=f"Cannot produce converter for {signature!r}",
         )
 
-    def _make_simple_converter(self, src: TypeHint, dst: TypeHint, name: Optional[str]) -> Converter:
+    def _make_simple_converter(self, src: TypeHint, dst: TypeHint, name: str | None) -> Converter:
         return self._produce_converter(
             signature=Signature(
                 parameters=[Parameter("src", kind=Parameter.POSITIONAL_ONLY, annotation=src)],
@@ -123,7 +125,7 @@ class AdornedConversionRetort(OperatingRetort):
         src: TypeHint,
         dst: TypeHint,
         *,
-        name: Optional[str] = None,
+        name: str | None = None,
         recipe: Iterable[Provider] = (),
     ) -> Callable[[Any], Any]:
         ...
@@ -133,7 +135,7 @@ class AdornedConversionRetort(OperatingRetort):
         src: TypeHint,
         dst: TypeHint,
         *,
-        name: Optional[str] = None,
+        name: str | None = None,
         recipe: Iterable[Provider] = (),
     ):
         """Method producing basic converter.
@@ -162,7 +164,7 @@ class AdornedConversionRetort(OperatingRetort):
     def impl_converter(self, *, recipe: Iterable[Provider] = ()) -> Callable[[CallableT], CallableT]:
         ...
 
-    def impl_converter(self, stub_function: Optional[Callable] = None, *, recipe: Iterable[Provider] = ()):
+    def impl_converter(self, stub_function: Callable | None = None, *, recipe: Iterable[Provider] = ()):
         """Decorator producing converter with signature of stub function.
 
         :param stub_function: A function that signature is used to generate converter.
@@ -174,8 +176,9 @@ class AdornedConversionRetort(OperatingRetort):
 
         ensure_function_is_stub(stub_function)
         retort = self.extend(recipe=recipe) if recipe else self
+        signature = inspect.signature(stub_function, eval_str=True)
         return retort._produce_converter(
-            signature=inspect.signature(stub_function),
+            signature=signature,
             stub_function=stub_function,
             function_name=None,
         )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.24.16
+Version: 0.24.17
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -38,7 +38,7 @@ Requires-Dist: xmltodict>=0.14.2
 Requires-Dist: tiktoken>=0.9.0
 Requires-Dist: psutil>=5.9
 Requires-Dist: navconfig[default]>=2.1.2
-Requires-Dist: navigator-auth>=0.18.5
+Requires-Dist: navigator-auth>=0.19.0
 Requires-Dist: navigator-session>=0.6.5
 Requires-Dist: navigator-api[locale,uvloop]>=2.13.5
 Requires-Dist: asyncdb>=2.11.6
@@ -223,7 +223,7 @@ Requires-Dist: branca==0.8.2; extra == "mcp"
 Requires-Dist: folium==0.20.0; extra == "mcp"
 Requires-Dist: opensearch-py==3.1.0; extra == "mcp"
 Provides-Extra: images
-Requires-Dist: torchvision==0.21.0; extra == "images"
+Requires-Dist: torchvision>=0.21.0; extra == "images"
 Requires-Dist: timm==1.0.15; extra == "images"
 Requires-Dist: ultralytics==8.4.14; extra == "images"
 Requires-Dist: albumentations==2.0.6; extra == "images"
@@ -236,7 +236,7 @@ Requires-Dist: pillow-avif-plugin==1.5.2; extra == "images"
 Requires-Dist: pillow-heif==0.22.0; extra == "images"
 Requires-Dist: python-xmp-toolkit==2.1.0; extra == "images"
 Requires-Dist: exifread==3.5.1; extra == "images"
-Requires-Dist: transformers<=4.51.3,>=4.51.1; extra == "images"
+Requires-Dist: transformers>=4.53.0; extra == "images"
 Requires-Dist: ffmpeg==1.4; extra == "images"
 Requires-Dist: holoviews==1.21.0; extra == "images"
 Requires-Dist: bokeh==3.7.3; extra == "images"

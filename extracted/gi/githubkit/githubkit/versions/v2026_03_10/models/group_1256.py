@@ -18,17 +18,17 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class ReposOwnerRepoPullsPullNumberReviewsReviewIdEventsPostBody(GitHubModel):
-    """ReposOwnerRepoPullsPullNumberReviewsReviewIdEventsPostBody"""
+class ReposOwnerRepoIssuesIssueNumberLockPutBody(GitHubModel):
+    """ReposOwnerRepoIssuesIssueNumberLockPutBody"""
 
-    body: Missing[str] = Field(
-        default=UNSET, description="The body text of the pull request review"
+    lock_reason: Missing[Literal["off-topic", "too heated", "resolved", "spam"]] = (
+        Field(
+            default=UNSET,
+            description="The reason for locking the issue or pull request conversation. Lock will fail if you don't use one of these reasons:  \n * `off-topic`  \n * `too heated`  \n * `resolved`  \n * `spam`",
+        )
     )
-    event: Literal["APPROVE", "REQUEST_CHANGES", "COMMENT"] = Field(
-        description="The review action you want to perform. The review actions include: `APPROVE`, `REQUEST_CHANGES`, or `COMMENT`. When you leave this blank, the API returns _HTTP 422 (Unrecognizable entity)_ and sets the review action state to `PENDING`, which means you will need to re-submit the pull request review using a review action."
-    )
 
 
-model_rebuild(ReposOwnerRepoPullsPullNumberReviewsReviewIdEventsPostBody)
+model_rebuild(ReposOwnerRepoIssuesIssueNumberLockPutBody)
 
-__all__ = ("ReposOwnerRepoPullsPullNumberReviewsReviewIdEventsPostBody",)
+__all__ = ("ReposOwnerRepoIssuesIssueNumberLockPutBody",)

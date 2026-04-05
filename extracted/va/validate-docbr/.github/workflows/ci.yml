@@ -1,0 +1,41 @@
+---
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container:
+      image: alvarofpp/linter:latest
+      volumes:
+        - ./:/app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory $GITHUB_WORKSPACE
+      - run: lint-commit origin/main
+      - run: lint-markdown
+      - run: lint-dockerfile
+      - run: lint-yaml
+      - run: lint-shell-script
+      - run: lint-python
+
+  tests:
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --locked --dev
+      - run: uv run pytest --cov=validate_docbr/

@@ -9,26 +9,61 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Union
 
 from pydantic import Field
 
-from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.compat import ExtraGitHubModel, GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class ReposOwnerRepoIssuesIssueNumberLockPutBody(GitHubModel):
-    """ReposOwnerRepoIssuesIssueNumberLockPutBody"""
+class ReposOwnerRepoDeploymentsPostBody(GitHubModel):
+    """ReposOwnerRepoDeploymentsPostBody"""
 
-    lock_reason: Missing[Literal["off-topic", "too heated", "resolved", "spam"]] = (
-        Field(
-            default=UNSET,
-            description="The reason for locking the issue or pull request conversation. Lock will fail if you don't use one of these reasons:  \n * `off-topic`  \n * `too heated`  \n * `resolved`  \n * `spam`",
-        )
+    ref: str = Field(
+        description="The ref to deploy. This can be a branch, tag, or SHA."
+    )
+    task: Missing[str] = Field(
+        default=UNSET,
+        description="Specifies a task to execute (e.g., `deploy` or `deploy:migrations`).",
+    )
+    auto_merge: Missing[bool] = Field(
+        default=UNSET,
+        description="Attempts to automatically merge the default branch into the requested ref, if it's behind the default branch.",
+    )
+    required_contexts: Missing[list[str]] = Field(
+        default=UNSET,
+        description="The [status](https://docs.github.com/rest/commits/statuses) contexts to verify against commit status checks. If you omit this parameter, GitHub verifies all unique contexts before creating a deployment. To bypass checking entirely, pass an empty array. Defaults to all unique contexts.",
+    )
+    payload: Missing[Union[ReposOwnerRepoDeploymentsPostBodyPropPayloadOneof0, str]] = (
+        Field(default=UNSET)
+    )
+    environment: Missing[str] = Field(
+        default=UNSET,
+        description="Name for the target deployment environment (e.g., `production`, `staging`, `qa`).",
+    )
+    description: Missing[Union[str, None]] = Field(
+        default=UNSET, description="Short description of the deployment."
+    )
+    transient_environment: Missing[bool] = Field(
+        default=UNSET,
+        description="Specifies if the given environment is specific to the deployment and will no longer exist at some point in the future. Default: `false`",
+    )
+    production_environment: Missing[bool] = Field(
+        default=UNSET,
+        description="Specifies if the given environment is one that end-users directly interact with. Default: `true` when `environment` is `production` and `false` otherwise.",
     )
 
 
-model_rebuild(ReposOwnerRepoIssuesIssueNumberLockPutBody)
+class ReposOwnerRepoDeploymentsPostBodyPropPayloadOneof0(ExtraGitHubModel):
+    """ReposOwnerRepoDeploymentsPostBodyPropPayloadOneof0"""
 
-__all__ = ("ReposOwnerRepoIssuesIssueNumberLockPutBody",)
+
+model_rebuild(ReposOwnerRepoDeploymentsPostBody)
+model_rebuild(ReposOwnerRepoDeploymentsPostBodyPropPayloadOneof0)
+
+__all__ = (
+    "ReposOwnerRepoDeploymentsPostBody",
+    "ReposOwnerRepoDeploymentsPostBodyPropPayloadOneof0",
+)

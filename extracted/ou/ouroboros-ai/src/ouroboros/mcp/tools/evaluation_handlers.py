@@ -399,16 +399,6 @@ class EvaluateHandler:
             # Use acceptance_criterion or derive from seed
             current_ac = acceptance_criterion or "Verify execution output meets requirements"
 
-            context = EvaluationContext(
-                execution_id=session_id,
-                seed_id=seed_id,
-                current_ac=current_ac,
-                artifact=artifact,
-                artifact_type=artifact_type,
-                goal=goal,
-                constraints=constraints,
-            )
-
             # Use injected or create services.
             # Evaluation reads multiple spec files (one Read call per AC), so
             # max_turns must be well above 1.
@@ -418,6 +408,24 @@ class EvaluateHandler:
             )
             working_dir_str = arguments.get("working_dir")
             working_dir = Path(working_dir_str).resolve() if working_dir_str else Path.cwd()
+
+            # Collect file-based artifacts for richer semantic evaluation.
+            # working_dir is used as the project root for artifact resolution.
+            from ouroboros.evaluation.artifact_collector import ArtifactCollector
+
+            artifact_bundle = ArtifactCollector().collect(artifact, str(working_dir))
+
+            context = EvaluationContext(
+                execution_id=session_id,
+                seed_id=seed_id,
+                current_ac=current_ac,
+                artifact=artifact,
+                artifact_type=artifact_type,
+                goal=goal,
+                constraints=constraints,
+                trigger_consensus=trigger_consensus,
+                artifact_bundle=artifact_bundle,
+            )
             mechanical_config = build_mechanical_config(working_dir)
             config = PipelineConfig(
                 mechanical=mechanical_config,
@@ -471,11 +479,21 @@ class EvaluateHandler:
                     meta=meta,
                 )
             )
-        except Exception as e:
-            log.error("mcp.tool.evaluate.error", error=str(e))
+        except (ValueError, RuntimeError) as e:
+            # Configuration/bootstrap errors (unsupported backend, missing
+            # provider install) — actionable by the user, safe to surface.
+            log.warning("mcp.tool.evaluate.config_error", error=str(e))
             return Result.err(
                 MCPToolError(
-                    f"Evaluation failed: {e}",
+                    f"Evaluation setup failed: {e}",
+                    tool_name="ouroboros_evaluate",
+                )
+            )
+        except Exception:
+            log.exception("mcp.tool.evaluate.error")
+            return Result.err(
+                MCPToolError(
+                    "Evaluation failed due to an internal error. Check server logs for details.",
                     tool_name="ouroboros_evaluate",
                 )
             )

@@ -50,20 +50,30 @@ logger = get_logger(__name__)
 
 # ── Singleton registry ───────────────────────────────────────────────────────
 
+import threading
+
 _registry: Optional[ApprovalRegistry] = None
+_registry_lock = threading.Lock()
 
 def get_approval_registry() -> ApprovalRegistry:
     """Return the global singleton :class:`ApprovalRegistry`."""
     global _registry
-    if _registry is None:
-        _registry = ApprovalRegistry()
-    return _registry
+    with _registry_lock:
+        if _registry is None:
+            _registry = ApprovalRegistry()
+        return _registry
 
 # ── Backward-compatible API (delegates to registry) ─────────────────────────
 
 # These globals are kept for code that imports them directly.
-APPROVAL_REQUIRED_TOOLS: Set[str] = get_approval_registry()._required_tools
-TOOL_RISK_LEVELS: Dict[str, str] = get_approval_registry()._risk_levels
+# NOTE: Accessing these will trigger lazy initialization of the registry
+def __getattr__(name):
+    """Module-level attribute access for lazy initialization."""
+    if name == "APPROVAL_REQUIRED_TOOLS":
+        return get_approval_registry()._required_tools
+    elif name == "TOOL_RISK_LEVELS":
+        return get_approval_registry()._risk_levels
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 # Legacy global callback holder — set_approval_callback wraps it into a backend
 approval_callback: Optional[Callable] = None
@@ -114,14 +124,16 @@ def configure_default_approvals() -> None:
         reg.add_requirement(tool_name, risk_level)
 
 def add_approval_requirement(tool_name: str, risk_level: str = "high") -> None:
-    get_approval_registry().add_requirement(tool_name, risk_level)
-    APPROVAL_REQUIRED_TOOLS.add(tool_name)
-    TOOL_RISK_LEVELS[tool_name] = risk_level
+    reg = get_approval_registry()
+    reg.add_requirement(tool_name, risk_level)
+    reg._required_tools.add(tool_name)
+    reg._risk_levels[tool_name] = risk_level
 
 def remove_approval_requirement(tool_name: str) -> None:
-    get_approval_registry().remove_requirement(tool_name)
-    APPROVAL_REQUIRED_TOOLS.discard(tool_name)
-    TOOL_RISK_LEVELS.pop(tool_name, None)
+    reg = get_approval_registry()
+    reg.remove_requirement(tool_name)
+    reg._required_tools.discard(tool_name)
+    reg._risk_levels.pop(tool_name, None)
 
 def is_approval_required(tool_name: str) -> bool:
     return get_approval_registry().is_required(tool_name)
@@ -157,8 +169,8 @@ def require_approval(risk_level: RiskLevel = "high"):
         tool_name = getattr(func, '__name__', str(func))
         reg = get_approval_registry()
         reg.add_requirement(tool_name, risk_level)
-        APPROVAL_REQUIRED_TOOLS.add(tool_name)
-        TOOL_RISK_LEVELS[tool_name] = risk_level
+        reg._required_tools.add(tool_name)
+        reg._risk_levels[tool_name] = risk_level
 
         @wraps(func)
         def wrapper(*args, **kwargs):

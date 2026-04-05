@@ -22,51 +22,60 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import ctypes
+import functools
 import warnings
 from contextlib import contextmanager
 from datetime import datetime, timezone
-import functools
-import ctypes
-from typing import Callable, Iterator, Iterable, Optional, Tuple, Union, Sequence
-
+from typing import Callable, Iterable, Iterator, Optional, Sequence, Tuple, Union
 
 import numpy
 from numpy import ndarray, str_
 
-
-from .utils import support_types as stypes
-from .utils.libspicehelper import libspice
-from .utils.exceptions import *
+from . import config
 from .found_catcher import (
+    found_check,
     found_check_off,
     found_check_on,
-    found_check,
-    no_found_check,
     get_found_catch_state,
+    no_found_check,
     spice_found_exception_thrower,
 )
-from . import config
-
+from .utils import support_types as stypes
 from .utils.callbacks import (
+    UDBAIL,
+    UDFUNB,
     UDFUNC,
     UDFUNS,
-    UDFUNB,
-    UDSTEP,
     UDREFN,
+    UDREPF,
     UDREPI,
     UDREPU,
-    UDREPF,
-    UDBAIL,
-    SpiceUDFUNS,
+    UDSTEP,
     SpiceUDFUNB,
+    SpiceUDFUNS,
 )
-
+from .utils.exceptions import (
+    NotFoundError,
+    SpiceyError,
+    SpiceyPyError,
+    SpiceyPyIndexError,
+    SpiceyPyIOError,
+    SpiceyPyKeyError,
+    SpiceyPyMemoryError,
+    SpiceyPyRuntimeError,
+    SpiceyPyTypeError,
+    SpiceyPyValueError,
+    SpiceyPyZeroDivisionError,
+    dynamically_instantiate_spiceyerror,
+)
+from .utils.libspicehelper import cspice_flavor, libspice
 from .utils.support_types import (
-    Cell_Char,
     Cell_Bool,
-    Cell_Time,
+    Cell_Char,
     Cell_Double,
     Cell_Int,
+    Cell_Time,
     Ellipse,
     Plane,
     SpiceCell,
@@ -2503,7 +2512,7 @@ def dasdc(handle: int) -> None:
 @spice_error_check
 def dasec(
     handle: int, bufsiz: int = _default_len_out, buflen: int = _default_len_out
-) -> Tuple[int, Iterable[str], int]:
+) -> Tuple[int, Iterable[str], bool]:
     """
     Extract comments from the comment area of a binary DAS file.
 
@@ -2531,7 +2540,7 @@ def dasec(
         ctypes.byref(buffer),
         ctypes.byref(done),
     )
-    return n.value, stypes.c_vector_to_python(buffer), done.value
+    return n.value, stypes.c_vector_to_python(buffer), bool(done.value)
 
 
 @spice_error_check
@@ -3164,7 +3173,7 @@ def dnearp(
     :param c: Length on semi axis parallel to Z axis.
     :return: State of the nearest point on the ellipsoid, Altitude and derivative of altitude
     """
-    _state = stypes.to_double_matrix(state)
+    _state = stypes.to_double_vector(state)
     _a = ctypes.c_double(a)
     _b = ctypes.c_double(b)
     _c = ctypes.c_double(c)
@@ -3204,7 +3213,7 @@ def dp2hx(number: float, lenout: int = _default_len_out) -> str:
 
 
 @spice_error_check
-def dpgrdr(body: str, x: float, y: float, z: int, re: float, f: float) -> ndarray:
+def dpgrdr(body: str, x: float, y: float, z: float, re: float, f: float) -> ndarray:
     """
     This routine computes the Jacobian matrix of the transformation
     from rectangular to planetographic coordinates.
@@ -3362,7 +3371,9 @@ def drdlat(r: float, lon: float, lat: float) -> ndarray:
 
 
 @spice_error_check
-def drdpgr(body: str, lon: float, lat: float, alt: int, re: float, f: float) -> ndarray:
+def drdpgr(
+    body: str, lon: float, lat: float, alt: float, re: float, f: float
+) -> ndarray:
     """
     This routine computes the Jacobian matrix of the transformation
     from planetographic to rectangular coordinates.
@@ -3505,7 +3516,7 @@ def dskd02(
     n = ctypes.c_int(0)
     values = stypes.empty_double_vector(room)
     libspice.dskd02_c(handle, dladsc, item, start, room, ctypes.byref(n), values)
-    return stypes.c_vector_to_python(values)
+    return stypes.c_vector_to_python(values)[: n.value]
 
 
 @spice_error_check
@@ -3565,7 +3576,7 @@ def dski02(
     n = ctypes.c_int()
     values = stypes.empty_int_vector(room)
     libspice.dski02_c(handle, dladsc, item, start, room, ctypes.byref(n), values)
-    return stypes.c_matrix_to_numpy(values)
+    return stypes.c_vector_to_python(values)[: n.value]
 
 
 @spice_error_check
@@ -3643,7 +3654,7 @@ def dskn02(handle: int, dladsc: SpiceDLADescr, plid: int) -> ndarray:
     :param handle: DSK file handle.
     :param dladsc: DLA descriptor.
     :param plid: Plate ID.
-    :return: late's unit normal vector.
+    :return: Plate's unit normal vector.
     """
     handle = ctypes.c_int(handle)
     plid = ctypes.c_int(plid)
@@ -3709,7 +3720,7 @@ def dskp02(handle: int, dladsc: SpiceDLADescr, start: int, room: int) -> ndarray
     n = ctypes.c_int(0)
     plates = stypes.empty_int_matrix(3, room)
     libspice.dskp02_c(handle, dladsc, start, room, ctypes.byref(n), plates)
-    return stypes.c_matrix_to_numpy(plates)
+    return stypes.c_matrix_to_numpy(plates)[: n.value]
 
 
 @spice_error_check
@@ -5357,7 +5368,7 @@ def ekuced(
     nvals = ctypes.c_int(nvals)
     dvals = stypes.to_double_vector(dvals)
     isnull = ctypes.c_int(isnull)
-    libspice.ekaced_c(handle, segno, recno, column, nvals, dvals, isnull)
+    libspice.ekuced_c(handle, segno, recno, column, nvals, dvals, isnull)
 
 
 @spice_error_check
@@ -5616,7 +5627,7 @@ def errint(marker: str, number: int) -> None:
     libspice.errint_c(marker, number)
 
 
-def errprt(op: str, lenout: int, inlist: str) -> str:
+def errprt(op: str, lislen: int, inlist: str) -> str:
     """
     Retrieve or set the list of error message items to be output when an
     error is detected.
@@ -5624,15 +5635,15 @@ def errprt(op: str, lenout: int, inlist: str) -> str:
     https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/errprt_c.html
 
     :param op: The operation, "GET" or "SET".
-    :param lenout: Length of list for output.
+    :param lislen: Length of list for output.
     :param inlist: Specification of error messages to be output.
     :return: A list of error message items.
     """
-    lenout = ctypes.c_int(lenout)
+    lislen = ctypes.c_int(lislen)
     op = stypes.string_to_char_p(op)
-    inlist = ctypes.create_string_buffer(str.encode(inlist), lenout.value)
+    inlist = ctypes.create_string_buffer(str.encode(inlist), lislen.value)
     inlistptr = ctypes.c_char_p(ctypes.addressof(inlist))
-    libspice.errdev_c(op, lenout, inlistptr)
+    libspice.errprt_c(op, lislen, inlistptr)
     return stypes.to_python_string(inlistptr)
 
 
@@ -7187,7 +7198,7 @@ def gfrr(
     step: float,
     nintvls: int,
     cnfine: SpiceCell,
-    result: SpiceCell,
+    result: Optional[SpiceCell] = None,
 ) -> SpiceCell:
     """
     Determine time intervals for which a specified constraint
@@ -7461,7 +7472,7 @@ def gfsubc(
     step: float,
     nintvls: int,
     cnfine: SpiceCell,
-    result: SpiceCell,
+    result: Optional[SpiceCell] = None,
 ) -> SpiceCell:
     """
     Determine time intervals for which a coordinate of an
@@ -7598,6 +7609,7 @@ def gfudb(
     """
     step = ctypes.c_double(step)
     libspice.gfudb_c(udfuns, udfunb, step, ctypes.byref(cnfine), ctypes.byref(result))
+    return result
 
 
 @spice_error_check
@@ -7743,7 +7755,7 @@ def hrmesp(first: float, step: float, yvals: ndarray, x: float) -> Tuple[float, 
 
 @spice_error_check
 def hrmint(
-    xvals: Sequence[float], yvals: Sequence[float], x: int
+    xvals: Sequence[float], yvals: Sequence[float], x: float
 ) -> Tuple[float, float]:
     """
     Evaluate a Hermite interpolating polynomial at a specified
@@ -8230,7 +8242,7 @@ def inter(a: SpiceCell, b: SpiceCell) -> SpiceCell:
     assert isinstance(a, stypes.SpiceCell)
     assert isinstance(b, stypes.SpiceCell)
     assert a.dtype == b.dtype
-    # Next line was redundant with [raise NotImpImplementedError] below
+    # Next line was redundant with [raise NotImplementedError] below
     # assert a.dtype == 0 or a.dtype == 1 or a.dtype == 2
     if a.dtype == 0:
         c = stypes.SPICECHAR_CELL(max(a.size, b.size), max(a.length, b.length))
@@ -10276,7 +10288,8 @@ def oscelt(state: ndarray, et: float, mu: Union[float, int]) -> ndarray:
     return stypes.c_vector_to_python(elts)
 
 
-def oscltx(state: ndarray, et: float, mu: int) -> ndarray:
+@spice_error_check
+def oscltx(state: ndarray, et: float, mu: float) -> ndarray:
     """
     Determine the set of osculating conic orbital elements that
     corresponds to the state (position, velocity) of a body at some
@@ -10493,7 +10506,9 @@ def pdpool(name: str, dvals: Union[ndarray, Iterable[float]]) -> None:
 
 
 @spice_error_check
-def pgrrec(body: str, lon: float, lat: float, alt: int, re: float, f: float) -> ndarray:
+def pgrrec(
+    body: str, lon: float, lat: float, alt: float, re: float, f: float
+) -> ndarray:
     """
     Convert planetographic coordinates to rectangular coordinates.
 
@@ -10765,7 +10780,7 @@ def pltvol(vrtces: Sequence[Iterable[float]], plates: Sequence[Iterable[int]]) -
 
 @spice_error_check
 def polyds(
-    coeffs: Union[ndarray, Iterable[float]], deg: int, nderiv: int, t: int
+    coeffs: Union[ndarray, Iterable[float]], deg: int, nderiv: int, t: float
 ) -> ndarray:
     """
     Compute the value of a polynomial and it's first
@@ -11310,7 +11325,7 @@ def recsph(rectan: ndarray) -> Tuple[float, float, float]:
     """
     Convert from rectangular coordinates to spherical coordinates.
 
-    https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/recrad_c.html
+    https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/recsph_c.html
 
     :param rectan: Rectangular coordinates of a point.
     :return:
@@ -11499,7 +11514,7 @@ def repmct(
     Replace a marker with the text representation of a
     cardinal number.
 
-    https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/repmc_c.html
+    https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/repmct_c.html
 
     :param instr: Input string.
     :param marker: Marker to be replaced.
@@ -12032,12 +12047,13 @@ def sdiff(a: SpiceCell, b: SpiceCell) -> SpiceCell:
     assert a.dtype == b.dtype
     # The next line was redundant with the [raise NotImplementedError] line below
     # assert a.dtype == 0 or a.dtype == 1 or a.dtype == 2
+    s = a.size + b.size
     if a.dtype == 0:
-        c = stypes.SPICECHAR_CELL(a.size, a.length)
+        c = stypes.SPICECHAR_CELL(s, max(a.length, b.length))
     elif a.dtype == 1:
-        c = stypes.SPICEDOUBLE_CELL(a.size)
+        c = stypes.SPICEDOUBLE_CELL(s)
     elif a.dtype == 2:
-        c = stypes.SPICEINT_CELL(a.size)
+        c = stypes.SPICEINT_CELL(s)
     else:
         raise NotImplementedError
     libspice.sdiff_c(ctypes.byref(a), ctypes.byref(b), ctypes.byref(c))
@@ -12780,7 +12796,7 @@ def spkcvt(
             State of target with respect to observer in km and km/sec,
             One way light time between target and observer.
     """
-    trgpos = stypes.to_double_vector(trgsta)
+    trgsta = stypes.to_double_vector(trgsta)
     trgepc = ctypes.c_double(trgepc)
     trgctr = stypes.string_to_char_p(trgctr)
     trgref = stypes.string_to_char_p(trgref)
@@ -12792,7 +12808,7 @@ def spkcvt(
     state = stypes.empty_double_vector(6)
     lt = ctypes.c_double()
     libspice.spkcvt_c(
-        trgpos,
+        trgsta,
         trgepc,
         trgctr,
         trgref,
@@ -12809,11 +12825,7 @@ def spkcvt(
 
 @spice_error_check
 def spkez(
-    targ: int, 
-    et: float, 
-    ref: str, 
-    abcorr: str, 
-    obs: int
+    targ: int, et: float, ref: str, abcorr: str, obs: int
 ) -> Tuple[ndarray, float]:
     """
     Return the state (position and velocity) of a target body
@@ -12844,11 +12856,7 @@ def spkez(
 
 @spice_error_check
 def spkezp(
-    targ: int, 
-    et: float, 
-    ref: str, 
-    abcorr: str, 
-    obs: int
+    targ: int, et: float, ref: str, abcorr: str, obs: int
 ) -> Tuple[ndarray, float]:
     """
     Return the position of a target body relative to an observing
@@ -12879,11 +12887,7 @@ def spkezp(
 
 @spice_error_check
 def spkezr(
-    targ: str, 
-    et: Union[ndarray, float], 
-    ref: str, 
-    abcorr: str, 
-    obs: str
+    targ: str, et: Union[ndarray, float], ref: str, abcorr: str, obs: str
 ) -> Union[Tuple[ndarray, float], Tuple[Iterable[ndarray], Iterable[float]]]:
     """
     Return the state (position and velocity) of a target body
@@ -13117,11 +13121,7 @@ def spkpds(
 
 @spice_error_check
 def spkpos(
-    targ: str, 
-    et: Union[float, ndarray], 
-    ref: str, 
-    abcorr: str, 
-    obs: str
+    targ: str, et: Union[float, ndarray], ref: str, abcorr: str, obs: str
 ) -> Union[Tuple[ndarray, float], Tuple[ndarray, ndarray]]:
     """
     Return the position of a target body relative to an observing
@@ -14457,6 +14457,7 @@ if hasattr(datetime, "fromisoformat"):
 
     def fromisoformat(s):
         return datetime.fromisoformat(s + "+00:00")
+
 else:
 
     def fromisoformat(s):
@@ -15599,12 +15600,13 @@ def union(a: SpiceCell, b: SpiceCell) -> SpiceCell:
     assert a.dtype == b.dtype
     # Next line was redundant with [raise NotImpImplementedError] below
     # assert a.dtype == 0 or a.dtype == 1 or a.dtype == 2
+    s = a.size + b.size
     if a.dtype == 0:
-        c = stypes.SPICECHAR_CELL(max(a.size, b.size), max(a.length, b.length))
+        c = stypes.SPICECHAR_CELL(s, s)
     elif a.dtype == 1:
-        c = stypes.SPICEDOUBLE_CELL(max(a.size, b.size))
+        c = stypes.SPICEDOUBLE_CELL(s)
     elif a.dtype == 2:
-        c = stypes.SPICEINT_CELL(max(a.size, b.size))
+        c = stypes.SPICEINT_CELL(s)
     else:
         raise NotImplementedError
     libspice.union_c(ctypes.byref(a), ctypes.byref(b), ctypes.byref(c))
@@ -16125,7 +16127,7 @@ def vprjp(vin: Union[ndarray, Iterable[float]], plane: Plane) -> ndarray:
     https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/vprjp_c.html
 
     :param vin: Vector to be projected.
-    :param plane: A Plane onto which `vin' is projected.
+    :param plane: A Plane onto which vin is projected.
     :return: Vector resulting from projection.
     """
     vin = stypes.to_double_vector(vin)
@@ -16736,7 +16738,7 @@ def wnreld(a: SpiceCell, op: str, b: SpiceCell) -> bool:
     assert isinstance(b, stypes.SpiceCell)
     assert a.dtype == 1
     assert isinstance(op, str)
-    op = stypes.string_to_char_p(op.encode(encoding="UTF-8"))
+    op = stypes.string_to_char_p(op)
     return bool(libspice.wnreld_c(ctypes.byref(a), op, ctypes.byref(b)))
 
 

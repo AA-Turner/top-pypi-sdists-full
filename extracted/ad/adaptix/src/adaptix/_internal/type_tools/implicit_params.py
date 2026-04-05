@@ -1,10 +1,10 @@
 import sys
 import typing
 from itertools import chain
-from typing import Any, ForwardRef, TypeVar
+from typing import Any, ForwardRef, ParamSpec, TypeVar
 
 from ..common import TypeHint, VarTuple
-from ..feature_requirement import HAS_PARAM_SPEC, HAS_TV_DEFAULT, HAS_TV_TUPLE
+from ..feature_requirement import HAS_TV_DEFAULT, HAS_TV_TUPLE
 from .basic_utils import create_union, eval_forward_ref, is_user_defined_generic, strip_alias
 from .constants import BUILTIN_ORIGIN_TO_TYPEVARS
 
@@ -16,7 +16,7 @@ class ImplicitParamsGetter:
         return tp
 
     def _derive_default(self, type_var) -> TypeHint:
-        if HAS_PARAM_SPEC and isinstance(type_var, typing.ParamSpec):
+        if isinstance(type_var, ParamSpec):
             return ...
         if HAS_TV_TUPLE and isinstance(type_var, typing.TypeVarTuple):
             return typing.Unpack[tuple[Any, ...]]

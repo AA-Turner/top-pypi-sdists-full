@@ -1,8 +1,8 @@
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
-from typing import Callable
 
 
 class NameStyle(Enum):

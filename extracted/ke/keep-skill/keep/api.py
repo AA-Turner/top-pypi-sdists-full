@@ -67,6 +67,7 @@ from .types import (
     repair_surrogate_text,
 )
 from .context_cache import ContextCache
+from .const import STATE_PROMPT
 from .flow_client import (
     delete_item as flow_delete_item,
     find_items as flow_find_items,
@@ -420,8 +421,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         if name in self._SYMMETRIC_PROVIDERS:
             return False
 
-        # Always asymmetric (Voyage, Gemini)
-        if name in ("voyage", "gemini"):
+        # Always asymmetric (Voyage, Gemini, OpenRouter)
+        if name in ("voyage", "gemini", "openrouter"):
             return True
 
         # Model-specific: check if model name matches known asymmetric prefixes
@@ -756,7 +757,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         finally:
             recon_ds.close()
 
-    def _ensure_sysdocs(self) -> None:
+    def ensure_sysdocs(self) -> None:
         """Run deferred system-doc migration if needed (idempotent, best-effort)."""
         if not self._needs_sysdoc_migration:
             return
@@ -1009,7 +1010,19 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             save_config(self._config)
             self._store.reset_embedding_dimension(current.dimension)
         else:
-            # Check for provider change
+            if stored.compatibility_key == current.compatibility_key:
+                if (stored.provider != current.provider or
+                    stored.model != current.model):
+                    logger.info(
+                        "Embedding provider changed compatibly: %s/%s (%dd) → %s/%s (%dd)",
+                        stored.provider, stored.model, stored.dimension,
+                        current.provider, current.model, current.dimension,
+                    )
+                    self._config.embedding_identity = current
+                    save_config(self._config)
+                return
+
+            # Check for provider change requiring a reindex
             if (stored.provider != current.provider or
                 stored.model != current.model or
                 stored.dimension != current.dimension):
@@ -1879,7 +1892,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         chroma_coll = self._resolve_chroma_collection()
 
         # Deferred init tasks (best-effort — don't block user writes)
-        self._ensure_sysdocs()
+        self.ensure_sysdocs()
 
         # Get existing item to preserve tags (check document store first, fall back to ChromaDB)
         existing_tags = {}
@@ -2664,7 +2677,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         # enqueued edge-backfill tasks, process them synchronously so
         # edges are available for this query.
         if deep and self._needs_sysdoc_migration:
-            self._ensure_sysdocs()
+            self.ensure_sysdocs()
             if not self._needs_sysdoc_migration:
                 # Migration succeeded — drain edge-backfill tasks so
                 # edges are ready for this search.
@@ -3949,7 +3962,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         chroma_coll = self._resolve_chroma_collection()
 
         # Deferred system doc migration (normally runs on first _upsert)
-        self._ensure_sysdocs()
+        self.ensure_sysdocs()
 
         # Validate inputs
         id = normalize_id(id)
@@ -5037,7 +5050,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             run_flow,
         )
 
-        self._ensure_sysdocs()
+        self.ensure_sysdocs()
         env = LocalFlowEnvironment(self)
         if query_embedding is not None:
             env._query_embedding = query_embedding
@@ -5110,7 +5123,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         )
 
         # Prompt rendering: render_prompt + expand_prompt as a flow command
-        if state == "prompt":
+        if state == STATE_PROMPT:
             p = params or {}
             name = p.get("name", "")
             # list mode: return available prompts
@@ -5150,8 +5163,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         if budget is None:
             budget = self._config.budget_per_flow
 
-        if state_doc_yaml is None and state != "prompt":
-            self._ensure_sysdocs()
+        if state_doc_yaml is None and state != STATE_PROMPT:
+            self.ensure_sysdocs()
 
         env = LocalFlowEnvironment(self)
         base_runner = make_action_runner(env, writable=writable)

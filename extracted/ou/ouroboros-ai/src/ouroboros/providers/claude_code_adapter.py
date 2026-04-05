@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from copy import deepcopy
+from dataclasses import replace
 import json
 import os
 from pathlib import Path
@@ -314,8 +316,13 @@ class ClaudeCodeAdapter:
             return result
         extracted = extract_json_payload(result.value.content)
         if extracted:
-            result.value.content = extracted
-            return result
+            response = result.value
+            normalized_response = replace(
+                response,
+                content=extracted,
+                raw_response=deepcopy(response.raw_response),
+            )
+            return Result.ok(normalized_response)
         return None
 
     async def _enforce_json(

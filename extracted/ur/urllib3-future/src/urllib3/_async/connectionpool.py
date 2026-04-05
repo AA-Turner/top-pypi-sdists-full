@@ -204,7 +204,9 @@ async def idle_conn_watch_task(
                                     await conn.peek_and_react(expect_frame=True)
             except AttributeError:
                 return
-    except (ReferenceError, asyncio.CancelledError):
+    except asyncio.CancelledError:
+        raise
+    except ReferenceError:
         return
 
 
@@ -1314,17 +1316,11 @@ class AsyncHTTPConnectionPool(AsyncConnectionPool, AsyncRequestMethods):
             if extension_headers:
                 if headers is None:
                     headers = extension_headers
-                elif hasattr(headers, "copy"):
-                    headers = headers.copy()
-                    headers.update(extension_headers)  # type: ignore[union-attr]
                 else:
-                    merged_headers = HTTPHeaderDict()
-
-                    for k, v in headers.items():
-                        merged_headers.add(k, v)
-                    for k, v in extension_headers.items():
-                        merged_headers.add(k, v)
-
+                    # User-provided headers take precedence over
+                    # extension defaults (case-insensitive merge).
+                    merged_headers = HTTPHeaderDict(extension_headers)
+                    merged_headers.update(headers)
                     headers = merged_headers
         else:
             extension = None
@@ -2136,7 +2132,7 @@ class AsyncHTTPSConnectionPool(AsyncHTTPConnectionPool):
         ):
             self._background_monitoring = asyncio.create_task(
                 idle_conn_watch_task(
-                    self,
+                    proxy(self),
                     self._background_watch_delay,
                     self._keepalive_delay,
                     self._keepalive_idle_window,

@@ -9,40 +9,24 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
-from typing_extensions import NotRequired, TypedDict
-
-from .group_1229 import (
-    ReposOwnerRepoPagesPutBodyPropSourceAnyof1Type,
-    ReposOwnerRepoPagesPutBodyPropSourceAnyof1TypeForResponse,
-)
+from typing_extensions import TypedDict
 
 
-class ReposOwnerRepoPagesPutBodyAnyof1Type(TypedDict):
-    """ReposOwnerRepoPagesPutBodyAnyof1"""
+class ReposOwnerRepoGitRefsPostBodyType(TypedDict):
+    """ReposOwnerRepoGitRefsPostBody"""
 
-    cname: NotRequired[Union[str, None]]
-    https_enforced: NotRequired[bool]
-    build_type: NotRequired[Literal["legacy", "workflow"]]
-    source: Union[
-        Literal["gh-pages", "master", "master /docs"],
-        ReposOwnerRepoPagesPutBodyPropSourceAnyof1Type,
-    ]
+    ref: str
+    sha: str
 
 
-class ReposOwnerRepoPagesPutBodyAnyof1TypeForResponse(TypedDict):
-    """ReposOwnerRepoPagesPutBodyAnyof1"""
+class ReposOwnerRepoGitRefsPostBodyTypeForResponse(TypedDict):
+    """ReposOwnerRepoGitRefsPostBody"""
 
-    cname: NotRequired[Union[str, None]]
-    https_enforced: NotRequired[bool]
-    build_type: NotRequired[Literal["legacy", "workflow"]]
-    source: Union[
-        Literal["gh-pages", "master", "master /docs"],
-        ReposOwnerRepoPagesPutBodyPropSourceAnyof1TypeForResponse,
-    ]
+    ref: str
+    sha: str
 
 
 __all__ = (
-    "ReposOwnerRepoPagesPutBodyAnyof1Type",
-    "ReposOwnerRepoPagesPutBodyAnyof1TypeForResponse",
+    "ReposOwnerRepoGitRefsPostBodyType",
+    "ReposOwnerRepoGitRefsPostBodyTypeForResponse",
 )

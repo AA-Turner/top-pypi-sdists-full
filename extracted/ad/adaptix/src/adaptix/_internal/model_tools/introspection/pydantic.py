@@ -121,7 +121,7 @@ def _get_input_shape(tp: "type[BaseModel]") -> InputShape:
             )
             for field_id, field_info in tp.model_fields.items()
         ),
-        overriden_types=frozenset(
+        overridden_types=frozenset(
             field_id for field_id in tp.model_fields
             if field_id in tp.__annotations__
         ),
@@ -197,7 +197,7 @@ def _get_output_shape(tp: "type[BaseModel]") -> OutputShape:
     )
     return OutputShape(
         fields=tuple(fields),
-        overriden_types=frozenset(
+        overridden_types=frozenset(
             itertools.chain(
                 (
                     field_id for field_id in tp.model_fields

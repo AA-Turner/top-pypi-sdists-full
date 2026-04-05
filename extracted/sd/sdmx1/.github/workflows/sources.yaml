@@ -47,6 +47,7 @@ jobs:
         - NB
         - NBB
         - OECD
+        - OECD3
         - OECD_JSON
         - SGR
         - SPC
@@ -66,9 +67,9 @@ jobs:
     - uses: actions/checkout@v6
 
     - name: Set up uv, Python
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@v8.0.0
       with:
-        activate-enviroment: true
+        activate-environment: true
         python-version: ${{ env.python-version }}
 
     - name: Install the package and dependencies
@@ -92,7 +93,7 @@ jobs:
         compression-level: 1
 
     - name: Upload test coverage to Codecov.io
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v6
 
   collect:
     needs: source
@@ -103,7 +104,7 @@ jobs:
     - uses: actions/checkout@v6
 
     - name: Set up uv, Python
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@v8.0.0
       with:
         activate-environment: true
         python-version: ${{ env.python-version }}
@@ -139,7 +140,7 @@ jobs:
     steps:
     - name: Deploy to GitHub Pages
       id: deployment
-      uses: actions/deploy-pages@v4
+      uses: actions/deploy-pages@v5
 
     # Deploy to the gh-pages environment
     environment:

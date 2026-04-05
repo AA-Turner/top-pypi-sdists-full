@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from itertools import groupby
-from typing import Generic, TypeVar, Union, cast
+from typing import Generic, TypeVar, cast
 
 from ..model.crown_definitions import (
     BaseDictCrown,
@@ -41,17 +41,17 @@ class BaseCrownBuilder(ABC, Generic[LeafCr, DictCr, ListCr]):
         self._paths_to_leaves = paths_to_leaves
         self._paths_to_order = {path: i for i, path in enumerate(paths_to_leaves)}
 
-    def build_empty_crown(self, *, as_list: bool) -> Union[DictCr, ListCr]:
+    def build_empty_crown(self, *, as_list: bool) -> DictCr | ListCr:
         if as_list:
             return self._make_list_crown(current_path=(), paths_with_leaves=[])
         return self._make_dict_crown(current_path=(), paths_with_leaves=[])
 
-    def build_crown(self) -> Union[DictCr, ListCr]:
+    def build_crown(self) -> DictCr | ListCr:
         paths_with_leaves = [PathWithLeaf(path, leaf) for path, leaf in self._paths_to_leaves.items()]
         paths_with_leaves.sort(key=lambda x: x.path)
-        return cast(Union[DictCr, ListCr], self._build_crown(paths_with_leaves, 0))
+        return cast(DictCr | ListCr, self._build_crown(paths_with_leaves, 0))
 
-    def _build_crown(self, paths_with_leaves: PathedLeaves[LeafCr], path_offset: int) -> Union[LeafCr, DictCr, ListCr]:
+    def _build_crown(self, paths_with_leaves: PathedLeaves[LeafCr], path_offset: int) -> LeafCr | DictCr | ListCr:
         if not paths_with_leaves:
             raise ValueError
 
@@ -72,7 +72,7 @@ class BaseCrownBuilder(ABC, Generic[LeafCr, DictCr, ListCr]):
         self,
         current_path: KeyPath,
         paths_with_leaves: PathedLeaves[LeafCr],
-    ) -> Mapping[str, Union[LeafCr, DictCr, ListCr]]:
+    ) -> Mapping[str, LeafCr | DictCr | ListCr]:
         dict_crown_map = {
             key: self._build_crown(list(path_group), len(current_path) + 1)
             for key, path_group in groupby(paths_with_leaves, lambda x: x.path[len(current_path)])
@@ -91,7 +91,7 @@ class BaseCrownBuilder(ABC, Generic[LeafCr, DictCr, ListCr]):
         self,
         current_path: KeyPath,
         paths_with_leaves: PathedLeaves[LeafCr],
-    ) -> Sequence[Union[LeafCr, DictCr, ListCr]]:
+    ) -> Sequence[LeafCr | DictCr | ListCr]:
         grouped_paths = [
             list(grouped_paths)
             for key, grouped_paths in groupby(paths_with_leaves, lambda x: x.path[len(current_path)])

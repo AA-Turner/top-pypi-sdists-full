@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapling
-Version: 0.4.3
+Version: 0.4.4
 Summary: Scrapling is an undetectable, powerful, flexible, high-performance Python library that makes Web Scraping easy and effortless as it should be!
 Home-page: https://github.com/D4Vinci/Scrapling
 Author: Karim Shoair
@@ -70,19 +70,20 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: lxml>=6.0.2
 Requires-Dist: cssselect>=1.4.0
-Requires-Dist: orjson>=3.11.7
+Requires-Dist: orjson>=3.11.8
 Requires-Dist: tld>=0.13.2
 Requires-Dist: w3lib>=2.4.1
 Requires-Dist: typing_extensions
 Provides-Extra: fetchers
 Requires-Dist: click>=8.3.0; extra == "fetchers"
-Requires-Dist: curl_cffi>=0.14.0; extra == "fetchers"
+Requires-Dist: curl_cffi>=0.15.0; extra == "fetchers"
 Requires-Dist: playwright==1.58.0; extra == "fetchers"
 Requires-Dist: patchright==1.58.2; extra == "fetchers"
 Requires-Dist: browserforge>=1.2.4; extra == "fetchers"
-Requires-Dist: apify-fingerprint-datapoints>=0.11.0; extra == "fetchers"
+Requires-Dist: apify-fingerprint-datapoints>=0.12.0; extra == "fetchers"
 Requires-Dist: msgspec>=0.20.0; extra == "fetchers"
 Requires-Dist: anyio>=4.12.1; extra == "fetchers"
+Requires-Dist: protego>=0.6.0; extra == "fetchers"
 Provides-Extra: ai
 Requires-Dist: mcp>=1.26.0; extra == "ai"
 Requires-Dist: markdownify>=1.2.0; extra == "ai"
@@ -270,6 +271,16 @@ MySpider().start()
     <a href="https://proxy-seller.com/?partner=CU9CAA5TBYFFT2" target="_blank">Proxy-Seller</a> provides reliable proxy infrastructure for web scraping, offering IPv4, IPv6, ISP, Residential, and Mobile proxies with stable performance, broad geo coverage, and flexible plans for business-scale data collection.
     </td>
   </tr>
+  <tr>
+    <td width="200">
+      <a href="http://mangoproxy.com/?utm_source=D4Vinci&utm_medium=GitHub&utm_campaign=D4Vinci" target="_blank" title="Proxies You Can Rely On: Residential, Server, and Mobile">
+        <img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/MangoProxy.png">
+      </a>
+    </td>
+    <td>
+    <a href="http://mangoproxy.com/?utm_source=D4Vinci&utm_medium=GitHub&utm_campaign=D4Vinci" target="_blank">Stable proxies</a> for scraping, automation, and multi-accounting. Clean IPs, fast response, and reliable performance under load. Built for scalable workflows.
+    </td>
+  </tr>
 </table>
 
 <i><sub>Do you want to show your ad here? Click [here](https://github.com/sponsors/D4Vinci/sponsorships?tier_id=586646)</sub></i>
@@ -283,6 +294,7 @@ MySpider().start()
 <a href="https://hasdata.com/?utm_source=github&utm_medium=banner&utm_campaign=D4Vinci" target="_blank" title="The web scraping service that actually beats anti-bot systems!"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/hasdata.png"></a>
 <a href="https://proxyempire.io/?ref=scrapling&utm_source=scrapling" target="_blank" title="Collect The Data Your Project Needs with the Best Residential Proxies"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/ProxyEmpire.png"></a>
 <a href="https://www.webshare.io/?referral_code=48r2m2cd5uz1" target="_blank" title="The Most Reliable Proxy with Unparalleled Performance"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/webshare.png"></a>
+<a href="https://www.crawleo.dev/?utm_source=github&utm_medium=sponsor&utm_campaign=scrapling" target="_blank" title="Supercharge your AI with Real-Time Web Intelligence"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/crawleo.png"></a>
 <a href="https://browser.cash/?utm_source=D4Vinci&utm_medium=referral" target="_blank" title="Browser Automation & AI Browser Agent Platform"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/browserCash.png"></a>
 
 <!-- /sponsors -->
@@ -300,6 +312,7 @@ MySpider().start()
 - 💾 **Pause & Resume**: Checkpoint-based crawl persistence. Press Ctrl+C for a graceful shutdown; restart to resume from where you left off.
 - 📡 **Streaming Mode**: Stream scraped items as they arrive via `async for item in spider.stream()` with real-time stats - ideal for UI, pipelines, and long-running crawls.
 - 🛡️ **Blocked Request Detection**: Automatic detection and retry of blocked requests with customizable logic.
+- 🤖 **Robots.txt Compliance**: Optional `robots_txt_obey` flag that respects `Disallow`, `Crawl-delay`, and `Request-rate` directives with per-domain caching.
 - 📦 **Built-in Export**: Export results through hooks and your own pipeline or the built-in JSON/JSONL with `result.items.to_json()` / `result.items.to_jsonl()` respectively.
 
 ### Advanced Websites Fetching with Session Support

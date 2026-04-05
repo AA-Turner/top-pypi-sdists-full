@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/django_coverage_plugin/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/django_coverage_plugin/blob/main/NOTICE.txt
 
 [build-system]
 requires = ["setuptools>=77.0", "wheel"]
@@ -17,9 +17,8 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Framework :: Django",
-    "Framework :: Django :: 3.2",
-    "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.10",
@@ -40,9 +39,9 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-"Homepage" = "https://github.com/nedbat/django_coverage_plugin"
-"Bug Tracker" = "https://github.com/nedbat/django_coverage_plugin/issues"
-"Source" = "https://github.com/nedbat/django_coverage_plugin"
+"Homepage" = "https://github.com/coveragepy/django_coverage_plugin"
+"Bug Tracker" = "https://github.com/coveragepy/django_coverage_plugin/issues"
+"Source" = "https://github.com/coveragepy/django_coverage_plugin"
 
 [tool.setuptools.dynamic]
 version = {attr = "django_coverage_plugin.__version__"}

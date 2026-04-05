@@ -306,6 +306,7 @@ def add_specimens(target: list[tuple[Path, str, str | None]], base: Path) -> Non
             ("INSEE", "CNA-2010-CONSO-SI-A17.xml"),
             ("INSEE", "IPI-2010-A21.xml"),
             ("IMF", "PCPS.xml"),
+            ("IMF_RES", "WEO-data.xml"),  # khaeru/sdmx#266
             ("ESTAT", "demography-xs.xml"),
             ("ESTAT", "esms.xml"),
             ("ESTAT", "footer.xml"),
@@ -325,6 +326,7 @@ def add_specimens(target: list[tuple[Path, str, str | None]], base: Path) -> Non
             ("ESTAT", "apro_mk_cola-structure.xml"),
             ("ESTAT", "demography-structure.xml"),
             ("ESTAT", "esms-structure.xml"),
+            ("ESTAT", "CL_FREQ.xml"),
             ("ESTAT", "GOV_10Q_GGNFA.xml"),
             ("ESTAT", "HCL_WSTATUS_SCL_BNSPART.xml"),
             ("ESTAT", "HCL_WSTATUS_SCL_WSTATUSPR.xml"),
@@ -340,7 +342,9 @@ def add_specimens(target: list[tuple[Path, str, str | None]], base: Path) -> Non
             ("IMF", "hierarchicalcodelist-0.xml"),
             ("IMF", "hierarchicalcodelist-1.xml"),
             ("IMF", "structureset-0.xml"),
+            ("IMF_RES", "WEO-structure.xml"),  # khaeru/sdmx#266
             ("IMF_STA", "availableconstraint_CPI.xml"),  # khaeru/sdmx#161
+            ("IMF_STA", "DSD_BOP.xml"),  # khaeru/sdmx#271
             ("IMF_STA", "DSD_GFS.xml"),  # khaeru/sdmx#164
             ("INSEE", "CNA-2010-CONSO-SI-A17-structure.xml"),
             ("INSEE", "dataflow.xml"),

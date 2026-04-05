@@ -9,27 +9,23 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
 
-class ReposOwnerRepoPagesPutBodyPropSourceAnyof1(GitHubModel):
-    """ReposOwnerRepoPagesPutBodyPropSourceAnyof1
+class ReposOwnerRepoGitBlobsPostBody(GitHubModel):
+    """ReposOwnerRepoGitBlobsPostBody"""
 
-    Update the source for the repository. Must include the branch name and path.
-    """
-
-    branch: str = Field(
-        description="The repository branch used to publish your site's source files."
-    )
-    path: Literal["/", "/docs"] = Field(
-        description="The repository directory that includes the source files for the Pages site. Allowed paths are `/` or `/docs`."
+    content: str = Field(description="The new blob's content.")
+    encoding: Missing[str] = Field(
+        default=UNSET,
+        description='The encoding used for `content`. Currently, `"utf-8"` and `"base64"` are supported.',
     )
 
 
-model_rebuild(ReposOwnerRepoPagesPutBodyPropSourceAnyof1)
+model_rebuild(ReposOwnerRepoGitBlobsPostBody)
 
-__all__ = ("ReposOwnerRepoPagesPutBodyPropSourceAnyof1",)
+__all__ = ("ReposOwnerRepoGitBlobsPostBody",)

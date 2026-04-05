@@ -1,7 +1,6 @@
 import inspect
 from dataclasses import MISSING as DC_MISSING, Field as DCField, fields as dc_fields, is_dataclass
 
-from ...feature_requirement import HAS_PY_310
 from ...type_tools import get_all_type_hints, is_class_var, normalize_type
 from ..definitions import (
     Default,
@@ -49,14 +48,6 @@ def _create_inp_field_from_dc_field(dc_field: DCField, type_hints):
     )
 
 
-if HAS_PY_310:
-    def _get_param_kind(dc_field: DCField) -> ParamKind:
-        return ParamKind.KW_ONLY if dc_field.kw_only else ParamKind.POS_OR_KW
-else:
-    def _get_param_kind(dc_field: DCField) -> ParamKind:
-        return ParamKind.POS_OR_KW
-
-
 def get_dataclass_shape(tp) -> FullShape:
     """This function does not work properly if __init__ signature differs from
     that would be created by dataclass decorator.
@@ -90,12 +81,12 @@ def get_dataclass_shape(tp) -> FullShape:
                 Param(
                     field_id=field_id,
                     name=field_id,
-                    kind=_get_param_kind(name_to_dc_field[field_id]),
+                    kind=ParamKind.KW_ONLY if name_to_dc_field[field_id].kw_only else ParamKind.POS_OR_KW,
                 )
                 for field_id in init_params
             ),
             kwargs=None,
-            overriden_types=frozenset(
+            overridden_types=frozenset(
                 field_id for field_id in init_params
                 if field_id in tp.__annotations__
             ),
@@ -112,7 +103,7 @@ def get_dataclass_shape(tp) -> FullShape:
                 )
                 for dc_field in dc_fields_public
             ),
-            overriden_types=frozenset(
+            overridden_types=frozenset(
                 dc_field.name for dc_field in dc_fields_public
                 if dc_field.name in tp.__annotations__
             ),

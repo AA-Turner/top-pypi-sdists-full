@@ -34,6 +34,106 @@ class RawDatabasesClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
+    def get_status(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[DatabaseStatusResponse]:
+        """
+        Check if a database is running, suspended, or starting up. Poll this endpoint to determine when a serverless database is ready.
+
+        **Status Values:**
+        - `running` - Database is active and accepting connections
+        - `suspended` - Database is suspended (scale-to-zero), will auto-resume on first query
+        - `starting` - Database is waking up
+        - `failed` - Database failed to start
+        - `unknown` - Status could not be determined
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[DatabaseStatusResponse]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v0/databases/{jsonable_encoder(asset_id)}/compute-status",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DatabaseStatusResponse,
+                    parse_obj_as(
+                        type_=DatabaseStatusResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 501:
+                raise NotImplementedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def list_tables(
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DatabaseTablesResponse]:
@@ -927,9 +1027,14 @@ class RawDatabasesClient:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def get_status(
+
+class AsyncRawDatabasesClient:
+    def __init__(self, *, client_wrapper: AsyncClientWrapper):
+        self._client_wrapper = client_wrapper
+
+    async def get_status(
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[DatabaseStatusResponse]:
+    ) -> AsyncHttpResponse[DatabaseStatusResponse]:
         """
         Check if a database is running, suspended, or starting up. Poll this endpoint to determine when a serverless database is ready.
 
@@ -949,11 +1054,11 @@ class RawDatabasesClient:
 
         Returns
         -------
-        HttpResponse[DatabaseStatusResponse]
+        AsyncHttpResponse[DatabaseStatusResponse]
             Successful Response
         """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/v0/databases/{jsonable_encoder(asset_id)}/status",
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v0/databases/{jsonable_encoder(asset_id)}/compute-status",
             method="GET",
             request_options=request_options,
         )
@@ -966,7 +1071,7 @@ class RawDatabasesClient:
                         object_=_response.json(),
                     ),
                 )
-                return HttpResponse(response=_response, data=_data)
+                return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 400:
                 raise BadRequestError(
                     headers=dict(_response.headers),
@@ -1026,11 +1131,6 @@ class RawDatabasesClient:
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-
-class AsyncRawDatabasesClient:
-    def __init__(self, *, client_wrapper: AsyncClientWrapper):
-        self._client_wrapper = client_wrapper
 
     async def list_tables(
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -1911,106 +2011,6 @@ class AsyncRawDatabasesClient:
                 )
             if _response.status_code == 503:
                 raise ServiceUnavailableError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Optional[typing.Any],
-                        parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def get_status(
-        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[DatabaseStatusResponse]:
-        """
-        Check if a database is running, suspended, or starting up. Poll this endpoint to determine when a serverless database is ready.
-
-        **Status Values:**
-        - `running` - Database is active and accepting connections
-        - `suspended` - Database is suspended (scale-to-zero), will auto-resume on first query
-        - `starting` - Database is waking up
-        - `failed` - Database failed to start
-        - `unknown` - Status could not be determined
-
-        Parameters
-        ----------
-        asset_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[DatabaseStatusResponse]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/v0/databases/{jsonable_encoder(asset_id)}/status",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    DatabaseStatusResponse,
-                    parse_obj_as(
-                        type_=DatabaseStatusResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Optional[typing.Any],
-                        parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Optional[typing.Any],
-                        parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Optional[typing.Any],
-                        parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Optional[typing.Any],
-                        parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 501:
-                raise NotImplementedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Optional[typing.Any],

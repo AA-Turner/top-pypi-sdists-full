@@ -28,9 +28,9 @@ pub fn validate_page_boundaries(boundaries: &[PageBoundary]) -> Result<()> {
     }
 
     for (idx, boundary) in boundaries.iter().enumerate() {
-        if boundary.byte_start >= boundary.byte_end {
+        if boundary.byte_start > boundary.byte_end {
             return Err(KreuzbergError::validation(format!(
-                "Invalid boundary range at index {}: byte_start ({}) must be < byte_end ({})",
+                "Invalid boundary range at index {}: byte_start ({}) must be <= byte_end ({})",
                 idx, boundary.byte_start, boundary.byte_end
             )));
         }
@@ -287,6 +287,7 @@ mod tests {
 
     #[test]
     fn test_chunk_with_same_start_and_end() {
+        // Zero-length boundaries are valid (empty pages)
         let boundaries = vec![PageBoundary {
             byte_start: 10,
             byte_end: 10,
@@ -294,8 +295,28 @@ mod tests {
         }];
 
         let result = validate_page_boundaries(&boundaries);
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.to_string().contains("Invalid boundary range"));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_zero_length_boundary_is_valid() {
+        let boundaries = vec![
+            PageBoundary {
+                byte_start: 0,
+                byte_end: 100,
+                page_number: 1,
+            },
+            PageBoundary {
+                byte_start: 100,
+                byte_end: 100,
+                page_number: 2,
+            }, // empty page
+            PageBoundary {
+                byte_start: 100,
+                byte_end: 200,
+                page_number: 3,
+            },
+        ];
+        assert!(validate_page_boundaries(&boundaries).is_ok());
     }
 }

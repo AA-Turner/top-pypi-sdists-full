@@ -916,7 +916,11 @@ def test_reset_config_field_sensitive_blocked() -> None:
 def test_get_available_scopes_no_space() -> None:
     app = _make_app()
     client = TestClient(app)
-    resp = client.get("/api/config/scopes")
+    with patch(
+        "anteroom.routers.config_api._resolve_project_dir",
+        return_value=Path("/tmp/project"),
+    ):
+        resp = client.get("/api/config/scopes")
     assert resp.status_code == 200
     scopes = resp.json()
     assert any(s["name"] == "personal" and s["available"] for s in scopes)

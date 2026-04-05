@@ -51,7 +51,9 @@ TIMELINE_DEFAULT_EVENTS: list[EventType] = [
     "tool",
     "approval",
     "compaction",
+    "branch",
     "error",
+    "info",
     "span_begin",
     "span_end",
 ]
@@ -88,6 +90,7 @@ def validate_events_filter(filter: list[EventType] | None) -> None:
         "store",
         "approval",
         "compaction",
+        "branch",
         "input",
         "score",
         "error",

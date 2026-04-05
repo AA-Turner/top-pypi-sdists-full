@@ -16,15 +16,17 @@ from pydantic import Field
 from githubkit.compat import GitHubModel, model_rebuild
 
 
-class UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0(GitHubModel):
-    """UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0"""
+class ReposOwnerRepoSecretScanningPushProtectionBypassesPostBody(GitHubModel):
+    """ReposOwnerRepoSecretScanningPushProtectionBypassesPostBody"""
 
-    name: str = Field(description="The name of the field.")
-    data_type: Literal["text", "number", "date"] = Field(
-        description="The field's data type."
+    reason: Literal["false_positive", "used_in_tests", "will_fix_later"] = Field(
+        description="The reason for bypassing push protection."
+    )
+    placeholder_id: str = Field(
+        description="The ID of the push protection bypass placeholder. This value is returned on any push protected routes."
     )
 
 
-model_rebuild(UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0)
+model_rebuild(ReposOwnerRepoSecretScanningPushProtectionBypassesPostBody)
 
-__all__ = ("UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0",)
+__all__ = ("ReposOwnerRepoSecretScanningPushProtectionBypassesPostBody",)

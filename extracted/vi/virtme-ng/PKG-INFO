@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: virtme-ng
-Version: 1.40
+Version: 1.41
 Summary: Build and run a kernel inside a virtualized snapshot of your live system
 Home-page: https://github.com/arighi/virtme-ng
 Author: Andrea Righi
@@ -15,7 +15,6 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: argcomplete
 Requires-Dist: requests
-Requires-Dist: setuptools
 Provides-Extra: mcp
 Requires-Dist: anyio>=4.0.0; extra == "mcp"
 Requires-Dist: mcp>=0.9.0; extra == "mcp"
@@ -194,9 +193,20 @@ Configuration
   ```json
   {
       "default_opts": {},
+      "clean_exclude": [],
       "systemd": {
-          "masks": ["getty@"]
+          "masks": ["getty@"],
+          "fstab": "/dev/null"
       }
+  }
+  ```
+
+* `clean_exclude` is a list of patterns to exclude from `vng --clean`. Each
+  pattern is passed as a `-e <pattern>` argument to `git clean`. For example,
+  to preserve a `.semcode.db` file when running `vng --clean`:
+  ```json
+  {
+      "clean_exclude": [".semcode.db"]
   }
   ```
 
@@ -218,6 +228,11 @@ Examples
  - Generate a minimal kernel `.config` in the current kernel build directory:
    ```shell
    $ vng --kconfig
+   ```
+
+ - Print to stdout the kernel config flags set by virtme-ng:
+   ```shell
+   $ vng --kconfig --dry-run
    ```
 
  - Run a kernel previously compiled from a local git repository in the current
@@ -626,7 +641,7 @@ inside a build chroot called `chroot:lunar-amd64`). To do so, add the
     "default_opts": {
         "build_host": "kathleen",
         "build_host_exec_prefix": "schroot -c chroot:lunar-amd64 --"
-    },
+    }
 }
 ```
 
@@ -697,6 +712,10 @@ Once configured, you can ask your AI assistant:
 - "Recompile and test the kernel with KASAN enabled"
 - "Test this kernel by running my test script at /path/to/test.sh"
 - "Compare the behavior of this kernel with the mainline kernel v6.12"
+- "Validate that each commit in this patch series builds and boots correctly"
+- "Apply the patch from lore.kernel.org with message ID xyz and test it"
+- "Verify commit HEAD~3 builds and boots correctly"
+- "Validate commits with KASAN enabled using the build server 'builder'"
 
 The AI will use the appropriate MCP tools to accomplish these tasks.
 

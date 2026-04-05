@@ -1,10 +1,9 @@
-# Copyright (c) 2023 - 2026, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
+# Copyright (c) 2026, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import annotations
-
 from collections.abc import Iterable, Sequence
+from itertools import chain
 from typing import Any, Literal, TypedDict
 
 import httpx
@@ -25,9 +24,10 @@ from autogen.beta.events import (
     ToolCallEvent,
     ToolCallsEvent,
 )
+from autogen.beta.response import ResponseProto
 from autogen.beta.tools.schemas import ToolSchema
 
-from .mappers import convert_messages, tool_to_api
+from .mappers import convert_messages, normalize_usage, response_proto_to_schema, tool_to_api
 
 ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
 
@@ -39,7 +39,6 @@ class CreateOptions(TypedDict, total=False):
     top_p: float | None | Omit
     max_tokens: int | None | Omit
     max_completion_tokens: int | None | Omit
-    response_format: dict[str, Any] | None | Omit
     frequency_penalty: float | None | Omit
     presence_penalty: float | None | Omit
     seed: int | None | Omit
@@ -55,7 +54,6 @@ class CreateOptions(TypedDict, total=False):
     modalities: list[str] | None | Omit
     prediction: dict[str, Any] | None | Omit
     prompt_cache_key: str | Omit
-    prompt_cache_retention: str | None | Omit
     safety_identifier: str | Omit
     service_tier: str | None | Omit
     store: bool | None | Omit
@@ -103,13 +101,24 @@ class OpenAIClient(LLMClient):
         context: Context,
         *,
         tools: Iterable[ToolSchema],
+        response_schema: ResponseProto | None,
     ) -> ModelResponse:
-        openai_messages = convert_messages(context.prompt, messages)
+        if response_schema and response_schema.system_prompt:
+            prompt: Iterable[str] = chain(context.prompt, (response_schema.system_prompt,))
+        else:
+            prompt = context.prompt
+
+        openai_messages = convert_messages(prompt, messages)
 
         openai_tools = [tool_to_api(t) for t in tools]
 
+        kwargs = {}
+        if r := response_proto_to_schema(response_schema):
+            kwargs["response_format"] = r
+
         response = await self._client.chat.completions.create(
             **self._create_options,
+            **kwargs,
             messages=openai_messages,
             tools=openai_tools,
         )
@@ -149,7 +158,10 @@ class OpenAIClient(LLMClient):
             return ModelResponse(
                 message=model_msg,
                 tool_calls=ToolCallsEvent(calls=calls),
-                usage=completion.usage.model_dump() if completion.usage else {},
+                usage=normalize_usage(completion.usage.model_dump() if completion.usage else {}),
+                model=completion.model,
+                provider="openai",
+                finish_reason=choice.finish_reason,
             )
 
     async def _process_stream(
@@ -159,6 +171,8 @@ class OpenAIClient(LLMClient):
     ) -> ModelResponse:
         full_content: str = ""
         usage: dict[str, Any] = {}
+        finish_reason: str | None = None
+        resolved_model: str | None = None
 
         # Accumulate tool calls by index (streaming sends partial updates per index)
         full_tool_calls: list[dict[str, str]] = []
@@ -168,7 +182,12 @@ class OpenAIClient(LLMClient):
             if chunk.usage:
                 usage = chunk.usage.model_dump()
 
+            if chunk.model:
+                resolved_model = chunk.model
+
             for choice in chunk.choices:
+                if choice.finish_reason:
+                    finish_reason = choice.finish_reason
                 delta = choice.delta
 
                 if r := getattr(delta, "reasoning_content", None):
@@ -214,5 +233,8 @@ class OpenAIClient(LLMClient):
         return ModelResponse(
             message=message,
             tool_calls=ToolCallsEvent(calls=calls),
-            usage=usage,
+            usage=normalize_usage(usage),
+            model=resolved_model,
+            provider="openai",
+            finish_reason=finish_reason,
         )

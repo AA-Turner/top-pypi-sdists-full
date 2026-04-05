@@ -13,15 +13,16 @@ from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
-
-class ReposOwnerRepoMergeUpstreamPostBody(GitHubModel):
-    """ReposOwnerRepoMergeUpstreamPostBody"""
-
-    branch: str = Field(
-        description="The name of the branch which should be updated to match upstream."
-    )
+from .group_0264 import ActionsSecret
 
 
-model_rebuild(ReposOwnerRepoMergeUpstreamPostBody)
+class ReposOwnerRepoEnvironmentsEnvironmentNameSecretsGetResponse200(GitHubModel):
+    """ReposOwnerRepoEnvironmentsEnvironmentNameSecretsGetResponse200"""
 
-__all__ = ("ReposOwnerRepoMergeUpstreamPostBody",)
+    total_count: int = Field()
+    secrets: list[ActionsSecret] = Field()
+
+
+model_rebuild(ReposOwnerRepoEnvironmentsEnvironmentNameSecretsGetResponse200)
+
+__all__ = ("ReposOwnerRepoEnvironmentsEnvironmentNameSecretsGetResponse200",)

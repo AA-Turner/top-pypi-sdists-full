@@ -75,8 +75,6 @@ from datamodel_code_generator.model.base import (
     ConstraintsBase,
     DataModel,
     DataModelFieldBase,
-    ValidatedDefault,
-    WrappedDefault,
 )
 from datamodel_code_generator.model.enum import Enum, Member
 from datamodel_code_generator.model.type_alias import TypeAliasBase, TypeStatement
@@ -84,7 +82,7 @@ from datamodel_code_generator.parser import DefaultPutDict, LiteralType
 from datamodel_code_generator.parser._graph import stable_toposort
 from datamodel_code_generator.parser._scc import find_circular_sccs, strongly_connected_components
 from datamodel_code_generator.reference import ModelResolver, ModelType, Reference
-from datamodel_code_generator.types import ANY, NONE, DataType, DataTypeManager, _remove_none_from_union
+from datamodel_code_generator.types import ANY, DataType, DataTypeManager
 from datamodel_code_generator.util import camel_to_snake
 
 if TYPE_CHECKING:
@@ -112,6 +110,7 @@ ModelName: TypeAlias = str
 ModelNames: TypeAlias = set[ModelName]
 ModelDeps: TypeAlias = dict[ModelName, set[ModelName]]
 OrderIndex: TypeAlias = dict[ModelName, int]
+DiscriminatorValue: TypeAlias = str | int | bool
 
 _BUILTIN_NAMES: frozenset[str] = frozenset(name for name in builtins.__dict__ if not name.startswith("_"))
 _BUILTIN_NAMES_INTRODUCED_IN: dict[PythonVersion, frozenset[str]] = {
@@ -402,6 +401,7 @@ def iter_models_field_data_types(
 
 
 def _unwrap_type_alias(data_type: DataType) -> DataType:
+    """Follow type alias references to the underlying data type."""
     current = data_type
     seen: set[int] = set()
     while current.reference and isinstance(current.reference.source, TypeAliasBase):
@@ -413,83 +413,33 @@ def _unwrap_type_alias(data_type: DataType) -> DataType:
     return current
 
 
-def _supports_validated_default_model(source: object) -> bool:
-    return isinstance(source, DataModel) and source.SUPPORTS_VALIDATED_DEFAULT and not source.is_alias
-
-
 def _contains_model_reference(data_type: DataType) -> bool:
+    """Check if a data type tree contains any reference to a non-alias model."""
     stack = [data_type]
     seen: set[int] = set()
-
     while stack:
         resolved = _unwrap_type_alias(stack.pop())
         resolved_id = id(resolved)
         if resolved_id in seen:
             continue
         seen.add(resolved_id)
-
-        if resolved.reference and _supports_validated_default_model(resolved.reference.source):
+        if (
+            resolved.reference
+            and isinstance(resolved.reference.source, DataModel)
+            and not isinstance(resolved.reference.source, Enum)
+            and not resolved.reference.source.is_alias
+        ):
             return True
-
         if resolved.dict_key:
             stack.append(resolved.dict_key)
         stack.extend(resolved.data_types)
-
     return False
 
 
-def _uses_existing_model_factory_path(data_type: DataType) -> bool:
-    for candidate in data_type.data_types or (data_type,):
-        if candidate.reference and _supports_validated_default_model(candidate.reference.source):
-            return True
-        if (
-            candidate.is_list
-            and len(candidate.data_types) == 1
-            and candidate.data_types[0].reference
-            and _supports_validated_default_model(candidate.data_types[0].reference.source)
-        ):
-            return True
-        if (
-            candidate.is_dict
-            and len(candidate.data_types) == 1
-            and candidate.data_types[0].reference
-            and _supports_validated_default_model(candidate.data_types[0].reference.source)
-        ):
-            return True
-    return False
-
-
-def _default_matches_plain_container_branch(default: Any, data_type: DataType) -> bool:
+def _needs_validate_default(data_type: DataType) -> bool:
+    """Check if a field needs validate_default=True to coerce defaults into model instances."""
     resolved = _unwrap_type_alias(data_type)
-    return (isinstance(default, dict) and resolved.is_dict and not _contains_model_reference(resolved)) or (
-        isinstance(default, list) and resolved.is_list and not _contains_model_reference(resolved)
-    )
-
-
-def _get_validated_default_type_name(data_type: DataType) -> str:
-    type_name = data_type.type_hint
-    if data_type.is_optional:
-        return _remove_none_from_union(type_name, use_union_operator=data_type.use_union_operator)
-    return type_name
-
-
-def _needs_validated_default(default: Any, data_type: DataType) -> bool:
-    if not isinstance(default, (dict, list)):
-        return False
-
-    resolved = _unwrap_type_alias(data_type)
-    if not _contains_model_reference(resolved):
-        return False
-
-    if resolved.is_union:
-        non_none_branches = tuple(branch for branch in resolved.data_types if branch.type_hint != NONE)
-        # This must use the declared field type, not the unwrapped branch: alias-backed
-        # unions like `type Alias = A | None` only get the correct factory via `Alias`.
-        if len(non_none_branches) == 1 and _uses_existing_model_factory_path(data_type):
-            return False
-        return not any(_default_matches_plain_container_branch(default, branch) for branch in resolved.data_types)
-
-    return not _uses_existing_model_factory_path(data_type)
+    return _contains_model_reference(resolved)
 
 
 def _alias_base_class_imports(
@@ -1152,6 +1102,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         )
         self.class_name: str | None = config.class_name
         self.wrap_string_literal: bool | None = config.wrap_string_literal
+        self.allow_remote_refs: bool | None = config.allow_remote_refs
         self.http_headers: Sequence[tuple[str, str]] | None = config.http_headers
         self.http_query_parameters: Sequence[tuple[str, str]] | None = config.http_query_parameters
         self.http_ignore_tls: bool = config.http_ignore_tls
@@ -1564,7 +1515,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
     def _create_discriminator_data_type(
         self,
         enum_source: Enum | None,
-        type_names: list[str],
+        discriminator_values: list[DiscriminatorValue],
         discriminator_model: DataModel,
         imports: Imports,
     ) -> DataType:
@@ -1572,17 +1523,17 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         if enum_source:
             enum_class_name = enum_source.reference.short_name
             enum_member_literals: list[tuple[str, str]] = []
-            for value in type_names:
+            for value in discriminator_values:
                 member = enum_source.find_member(value)
                 if member and member.field.name:
                     enum_member_literals.append((enum_class_name, member.field.name))
                 else:  # pragma: no cover
-                    enum_member_literals.append((enum_class_name, value))
+                    enum_member_literals.append((enum_class_name, str(value)))
             data_type = self.data_type(enum_member_literals=enum_member_literals)
             if enum_source.module_path != discriminator_model.module_path:  # pragma: no cover
                 imports.append(Import.from_full_path(enum_source.name))
         else:
-            data_type = self.data_type(literals=type_names)
+            data_type = self.data_type(literals=discriminator_values)
         return data_type
 
     def __apply_discriminator_type(  # noqa: PLR0912, PLR0914, PLR0915
@@ -1622,12 +1573,12 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                     ):  # pragma: no cover
                         continue
 
-                    type_names: list[str] = []
+                    discriminator_values: list[DiscriminatorValue] = []
 
                     def check_paths(
                         model: pydantic_model_v2.BaseModel | Reference,
                         mapping: dict[str, str],
-                        type_names: list[str] = type_names,
+                        discriminator_values: list[DiscriminatorValue] = discriminator_values,
                     ) -> None:
                         """Validate discriminator mapping paths for a model."""
                         for name, path in mapping.items():
@@ -1639,50 +1590,49 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                                 t_disc_2 = "/".join(t_disc.split("/")[1:])
                                 if t_path not in {t_disc, t_disc_2}:  # pragma: no branch
                                     continue
-                            type_names.append(name)
+                            discriminator_values.append(name)
 
-                    # First try to get the discriminator value from the const field
+                    def get_discriminator_field_value(
+                        discriminator_field: DataModelFieldBase,
+                    ) -> DiscriminatorValue | None:
+                        const_value = discriminator_field.extras.get("const")
+                        if const_value is not None:
+                            return const_value
+
+                        literals = discriminator_field.data_type.literals
+                        if len(literals) == 1:
+                            return literals[0]
+
+                        enum_source = discriminator_field.data_type.find_source(Enum)
+                        if enum_source and len(enum_source.fields) == 1:
+                            raw_default = enum_source.fields[0].default
+                            if isinstance(raw_default, str):
+                                return raw_default.strip("'\"")
+                            return raw_default
+                        return None
+
                     for discriminator_field in discriminator_model.fields:
                         if field_name not in {discriminator_field.original_name, discriminator_field.name}:
                             continue
-                        if discriminator_field.extras.get("const"):
-                            type_names = [discriminator_field.extras["const"]]
+                        discriminator_value = get_discriminator_field_value(discriminator_field)
+                        if discriminator_value is not None:
+                            discriminator_values = [discriminator_value]
                             break
 
-                    # If no const value found, try to get it from the mapping
-                    if not type_names:
-                        # Check the main discriminator model path
-                        if mapping:
-                            check_paths(discriminator_model, mapping)  # ty: ignore
+                    if not discriminator_values and mapping:
+                        check_paths(discriminator_model, mapping)  # ty: ignore
 
-                            # Check the base_classes if they exist
-                            if len(type_names) == 0:
-                                for base_class in discriminator_model.base_classes:
-                                    check_paths(base_class.reference, mapping)  # ty: ignore
-                        else:
-                            for discriminator_field in discriminator_model.fields:
-                                if field_name not in {discriminator_field.original_name, discriminator_field.name}:
-                                    continue
+                        if len(discriminator_values) == 0:
+                            for base_class in discriminator_model.base_classes:
+                                check_paths(base_class.reference, mapping)  # ty: ignore
 
-                                literals = discriminator_field.data_type.literals
-                                if literals and len(literals) == 1:  # pragma: no cover
-                                    type_names = [str(v) for v in literals]
-                                    break
+                        if not discriminator_values:
+                            discriminator_values = [discriminator_model.path.split("/")[-1]]
 
-                                enum_source = discriminator_field.data_type.find_source(Enum)
-                                if enum_source and len(enum_source.fields) == 1:
-                                    first_field = enum_source.fields[0]
-                                    raw_default = first_field.default
-                                    if isinstance(raw_default, str):
-                                        type_names = [raw_default.strip("'\"")]
-                                    else:  # pragma: no cover
-                                        type_names = [str(raw_default)]
-                                    break
+                    if not discriminator_values:
+                        discriminator_values = [discriminator_model.path.split("/")[-1]]
 
-                            if not type_names:
-                                type_names = [discriminator_model.path.split("/")[-1]]
-
-                    if not type_names:  # pragma: no cover
+                    if not discriminator_values:  # pragma: no cover
                         msg = f"Discriminator type is not found. {data_type.reference.path}"
                         raise RuntimeError(msg)
 
@@ -1716,7 +1666,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                             continue
                         literals = discriminator_field.data_type.literals
                         const_value = discriminator_field.extras.get("const")
-                        expected_value = type_names[0] if type_names else None
+                        expected_value = discriminator_values[0] if discriminator_values else None
 
                         # Check if literals match (existing behavior)
                         literals_match = len(literals) == 1 and literals[0] == expected_value
@@ -1751,7 +1701,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                                 field_data_type.remove_reference()
 
                         discriminator_field.data_type = self._create_discriminator_data_type(
-                            enum_source, type_names, discriminator_model, imports
+                            enum_source, discriminator_values, discriminator_model, imports
                         )
                         discriminator_field.data_type.parent = discriminator_field
                         discriminator_field.required = True
@@ -1759,7 +1709,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                         has_one_literal = True
                     if not has_one_literal:
                         new_data_type = self._create_discriminator_data_type(
-                            enum_from_base, type_names, discriminator_model, imports
+                            enum_from_base, discriminator_values, discriminator_model, imports
                         )
                         # Handle multiple aliases (Pydantic v2 AliasChoices)
                         single_alias: str | None = None
@@ -2219,57 +2169,22 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                     else:
                         enum_member.alias = data_type.alias
 
-    def __wrap_root_model_default_values(
+    def __set_validate_default_on_fields(  # noqa: PLR6301
         self,
         models: list[DataModel],
     ) -> None:
-        """Wrap RootModel reference default values with their type constructors."""
-        if not self.use_annotated or not self.data_model_type.SUPPORTS_WRAPPED_DEFAULT:
-            return
-        for model, model_field, data_type in iter_models_field_data_types(models):
-            if isinstance(model, (Enum, self.data_model_root_type)):
-                continue
-            if model_field.default is None:
-                continue
-            if isinstance(model_field.default, (WrappedDefault, Member)):
-                continue
-            if isinstance(model_field.default, list):
-                continue
-            if (
-                data_type.reference
-                and isinstance(data_type.reference.source, self.data_model_root_type)
-                and not isinstance(data_type.reference.source, TypeAliasBase)
-            ):
-                type_name = data_type.alias or data_type.reference.short_name
-                model_field.default = WrappedDefault(
-                    value=model_field.default,
-                    type_name=type_name,
-                )
-
-    def __wrap_validated_default_values(
-        self,
-        models: list[DataModel],
-    ) -> None:
-        """Wrap structured defaults that must be validated through the declared field type."""
-        if not self.data_model_type.SUPPORTS_VALIDATED_DEFAULT:
-            return
+        """Set validate_default=True on fields with structured defaults needing validation."""
         for model in models:
-            if isinstance(model, (Enum, self.data_model_root_type)):
+            if isinstance(model, Enum):
                 continue
             for model_field in model.fields:
-                if model_field.default is None:
+                if model_field.default is None or model_field.default is UNDEFINED:
                     continue
-                if isinstance(model_field.default, (Member, WrappedDefault)):
+                if isinstance(model_field.default, Member):
                     continue
-                if isinstance(model_field.default, ValidatedDefault):
-                    model_field.default.type_name = _get_validated_default_type_name(model_field.data_type)
+                if not _needs_validate_default(model_field.data_type):
                     continue
-                if not _needs_validated_default(model_field.default, model_field.data_type):
-                    continue
-                model_field.default = ValidatedDefault(
-                    value=model_field.default,
-                    type_name=_get_validated_default_type_name(model_field.data_type),
-                )
+                model_field.extras["validate_default"] = True
 
     def __override_required_field(
         self,
@@ -3306,7 +3221,6 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.__reuse_model(models, require_update_action_models)
         self.__collapse_root_models(models, unused_models, imports, scoped_model_resolver)
         self.__set_default_enum_member(models)
-        self.__wrap_root_model_default_values(models)
         self.__sort_models(models, imports, use_deferred_annotations=config.use_deferred_annotations)
         self.__change_field_name(models)
         self.__apply_discriminator_type(models, imports)
@@ -3315,7 +3229,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         models = self.__remove_overridden_models(models)
         self.__apply_type_overrides(models)
         self.__update_type_aliases(models)
-        self.__wrap_validated_default_values(models)
+        self.__set_validate_default_on_fields(models)
 
         return ModuleContext(module, module_, models, is_init, imports, scoped_model_resolver)
 
@@ -3348,7 +3262,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
 
         for ctx in contexts:
             self.__change_imported_model_name(ctx.models, ctx.imports, ctx.scoped_model_resolver)
-            self.__wrap_validated_default_values(ctx.models)
+            self.__set_validate_default_on_fields(ctx.models)
 
     def _generate_module_output(  # noqa: PLR0913, PLR0917
         self,

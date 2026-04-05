@@ -2224,3 +2224,14 @@ def render_context_footer(
         parts.append(f"compact in {_format_tokens(max(0, tokens_remaining))}")
 
     console.print(f"[{color}]  ▪ {' · '.join(parts)}[/{color}]")
+
+
+def format_bg_indicator(count: int) -> str:
+    """Return a Rich-markup string for background task count, or empty when zero.
+
+    Used by the CLI prompt to show how many background tasks are running
+    while the foreground is idle (#1313).
+    """
+    if count <= 0:
+        return ""
+    return f"[dim] [{count} bg][/dim]"

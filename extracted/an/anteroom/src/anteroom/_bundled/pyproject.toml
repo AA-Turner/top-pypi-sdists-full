@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "anteroom"
-version = "1.152.0"
+version = "1.156.0"
 description = "Anteroom - your gateway to AI conversation"
 readme = "README.md"
 license = "Apache-2.0"
@@ -81,6 +81,7 @@ kitchensink = [
     "pytest>=8.3.5",
     "pytest-asyncio>=0.26.0",
     "pytest-cov>=6.1.1",
+    "pytest-xdist>=3.5.0",
     "httpx>=0.25.0",
     "ruff>=0.15.4",
     "mypy>=1.15.0",
@@ -90,6 +91,7 @@ dev = [
     "pytest>=8.3.5",
     "pytest-asyncio>=0.26.0",
     "pytest-cov>=6.1.1",
+    "pytest-xdist>=3.5.0",
     "httpx>=0.25.0",
     "ruff>=0.15.4",
     "mypy>=1.15.0",
@@ -168,6 +170,8 @@ testpaths = ["tests"]
 markers = [
     "e2e: end-to-end tests requiring real services",
     "real_ai: tests that call a real AI backend (require API key)",
+    "unix_only: test requires Unix-specific features (signals, fcntl, /proc) with no Windows equivalent",
+    "windows_only: test requires Windows-specific features (Win32 Job Objects, COM)",
 ]
 
 [tool.mypy]

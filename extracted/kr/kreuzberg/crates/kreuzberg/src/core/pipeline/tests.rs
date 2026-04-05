@@ -856,3 +856,46 @@ async fn test_run_pipeline_applies_output_format_last() {
     // The result should have gone through the pipeline successfully
     assert_eq!(processed.metadata.output_format, Some("djot".to_string()));
 }
+
+#[tokio::test]
+#[serial]
+#[cfg(feature = "pdf")]
+async fn test_chunking_populates_page_numbers_for_pdf() {
+    use crate::core::config::ChunkingConfig;
+
+    let pdf_path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test_documents/pdf/issue-636-chunk-pages.pdf");
+
+    if !pdf_path.exists() {
+        // Skip if test document not available
+        return;
+    }
+
+    let pdf_bytes = std::fs::read(&pdf_path).unwrap();
+
+    // Configure chunking WITHOUT explicit pages config (the default user scenario)
+    let config = ExtractionConfig {
+        chunking: Some(ChunkingConfig {
+            max_characters: 500,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    let result = crate::core::extractor::extract_bytes(&pdf_bytes, "application/pdf", &config)
+        .await
+        .unwrap();
+
+    // Chunks should exist
+    assert!(result.chunks.is_some(), "Chunks should be produced");
+    let chunks = result.chunks.as_ref().unwrap();
+    assert!(!chunks.is_empty(), "Should have at least one chunk");
+
+    // At least some chunks should have page numbers
+    let chunks_with_pages = chunks.iter().filter(|c| c.metadata.first_page.is_some()).count();
+    assert!(
+        chunks_with_pages > 0,
+        "At least some chunks should have page numbers, but none do. Total chunks: {}",
+        chunks.len()
+    );
+}

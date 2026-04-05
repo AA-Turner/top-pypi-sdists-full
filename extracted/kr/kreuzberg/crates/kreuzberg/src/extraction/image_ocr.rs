@@ -13,19 +13,12 @@
 //! # Concurrency
 //!
 //! Image OCR tasks are processed with a bounded concurrency limit
-//! (default 8) to prevent resource exhaustion when documents contain
-//! many embedded images.
+//! derived from the configured thread budget to prevent resource
+//! exhaustion when documents contain many embedded images.
 
 #[cfg(all(feature = "ocr", feature = "tokio-runtime"))]
 use crate::ocr::OcrProcessor;
 use crate::types::{ExtractedImage, ExtractionResult, Metadata};
-
-/// Maximum number of concurrent OCR tasks for image processing.
-///
-/// Limits parallelism to prevent thread pool and memory exhaustion
-/// when processing documents with many embedded images.
-#[cfg(all(feature = "ocr", feature = "tokio-runtime"))]
-const MAX_CONCURRENT_OCR_TASKS: usize = 8;
 
 /// Process extracted images with OCR if configured.
 ///
@@ -44,8 +37,8 @@ const MAX_CONCURRENT_OCR_TASKS: usize = 8;
 ///
 /// # Concurrency
 ///
-/// At most [`MAX_CONCURRENT_OCR_TASKS`] images are OCR'd concurrently
-/// using a semaphore to bound resource usage.
+/// Concurrency is bounded by the configured thread budget
+/// using a semaphore to prevent resource exhaustion.
 #[cfg(all(feature = "ocr", feature = "tokio-runtime"))]
 pub async fn process_images_with_ocr(
     mut images: Vec<ExtractedImage>,
@@ -64,7 +57,8 @@ pub async fn process_images_with_ocr(
     use tokio::task::JoinSet;
 
     // Bound concurrency to prevent resource exhaustion with many images.
-    let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_OCR_TASKS));
+    let max_tasks = crate::core::config::concurrency::resolve_thread_budget(config.concurrency.as_ref());
+    let semaphore = Arc::new(Semaphore::new(max_tasks));
 
     // Each spawned task returns `(image_index, spawn_blocking_result)`.
     // `spawn_blocking` itself may fail if the thread panics; we carry that

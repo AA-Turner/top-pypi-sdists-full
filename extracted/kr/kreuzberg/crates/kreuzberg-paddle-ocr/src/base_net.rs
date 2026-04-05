@@ -23,7 +23,7 @@ pub trait BaseNet {
                 .map_err(|e| OcrError::Ort(ort::Error::new(e.message())))?
                 .with_intra_threads(num_thread)
                 .map_err(|e| OcrError::Ort(ort::Error::new(e.message())))?
-                .with_inter_threads(num_thread)
+                .with_inter_threads(1)
                 .map_err(|e| OcrError::Ort(ort::Error::new(e.message())))?,
         };
 

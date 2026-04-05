@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dependence
-Version: 1.4.0
+Version: 1.4.1
 Summary: A dependency management tool for python projects
 Project-URL: Documentation, https://dependence.enorganic.org
 Project-URL: Repository, https://github.com/enorganic/dependence

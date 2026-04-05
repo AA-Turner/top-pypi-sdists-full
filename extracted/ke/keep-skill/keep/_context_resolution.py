@@ -190,7 +190,7 @@ class ContextResolutionMixin:
             attributes={"item_id": id},
         ) as span:
             # Ensure state docs are in the store for the read flow.
-            self._ensure_sysdocs()
+            self.ensure_sysdocs()
 
             # Parse @V{N} version ref from ID (explicit version= takes precedence)
             base_id, id_version = parse_version_ref(id)
@@ -449,7 +449,7 @@ class ContextResolutionMixin:
             PromptResult with prompt template and optional flow bindings,
             or None if the prompt doc doesn't exist.
         """
-        self._ensure_sysdocs()
+        self.ensure_sysdocs()
         doc_id = f".prompt/agent/{name}"
         doc = self.get(doc_id)
         if doc is None:
@@ -501,18 +501,10 @@ class ContextResolutionMixin:
         deep: bool = False,
     ) -> PromptResult:
         """Run a state-doc flow and return a PromptResult with bindings."""
-        if state_doc == "query-resolve" and (text is None or text == ""):
-            return PromptResult(
-                context=None,
-                search_results=None,
-                prompt=prompt_body,
-                text=text,
-                since=since,
-                until=until,
-                token_budget=token_budget,
-                flow_bindings=None,
-            )
-
+        # No early return for empty text — state docs handle missing params
+        # via their own `when` guards, and short-circuiting here would bypass
+        # context assembly (e.g. `get` note-first rendering) for prompts that
+        # use non-query state docs.
         params: dict[str, Any] = {}
         context_id = id or "now"
         if context_id == "now":
@@ -570,7 +562,7 @@ class ContextResolutionMixin:
             List of PromptInfo with name and summary for each
             ``.prompt/agent/*`` doc in the store.
         """
-        self._ensure_sysdocs()
+        self.ensure_sysdocs()
         prefix = ".prompt/agent/"
         items = self.list_items(
             prefix=prefix, include_hidden=True, limit=100,

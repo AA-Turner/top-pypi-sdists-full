@@ -5,7 +5,15 @@ from typing import TYPE_CHECKING, Annotated, ForwardRef, TypeVar
 
 
 def _get_caller_module(stack_offset: int):
-    return sys.modules[inspect.stack()[stack_offset].frame.f_globals["__name__"]]
+    frame = inspect.currentframe()
+    if frame is None:
+        raise RuntimeError("This python implementation does not support inspect.currentframe()")
+
+    for _ in range(stack_offset):
+        frame = frame.f_back
+        if frame is None:
+            raise RuntimeError("Unexpected end of call stack")
+    return sys.modules[frame.f_globals["__name__"]]
 
 
 class FwdRefMarker(Enum):

@@ -9,6 +9,8 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
@@ -16,33 +18,28 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class ReposOwnerRepoPagesDeploymentsPostBody(GitHubModel):
-    """ReposOwnerRepoPagesDeploymentsPostBody
+class ReposOwnerRepoImportPutBody(GitHubModel):
+    """ReposOwnerRepoImportPutBody"""
 
-    The object used to create GitHub Pages deployment
-    """
-
-    artifact_id: Missing[float] = Field(
+    vcs_url: str = Field(description="The URL of the originating repository.")
+    vcs: Missing[Literal["subversion", "git", "mercurial", "tfvc"]] = Field(
         default=UNSET,
-        description="The ID of an artifact that contains the .zip or .tar of static assets to deploy. The artifact belongs to the repository. Either `artifact_id` or `artifact_url` are required.",
+        description="The originating VCS type. Without this parameter, the import job will take additional time to detect the VCS type before beginning the import. This detection step will be reflected in the response.",
     )
-    artifact_url: Missing[str] = Field(
+    vcs_username: Missing[str] = Field(
         default=UNSET,
-        description="The URL of an artifact that contains the .zip or .tar of static assets to deploy. The artifact belongs to the repository. Either `artifact_id` or `artifact_url` are required.",
+        description="If authentication is required, the username to provide to `vcs_url`.",
     )
-    environment: Missing[str] = Field(
+    vcs_password: Missing[str] = Field(
         default=UNSET,
-        description="The target environment for this GitHub Pages deployment.",
+        description="If authentication is required, the password to provide to `vcs_url`.",
     )
-    pages_build_version: str = Field(
-        default="GITHUB_SHA",
-        description="A unique string that represents the version of the build for this deployment.",
-    )
-    oidc_token: str = Field(
-        description="The OIDC token issued by GitHub Actions certifying the origin of the deployment."
+    tfvc_project: Missing[str] = Field(
+        default=UNSET,
+        description="For a tfvc import, the name of the project that is being imported.",
     )
 
 
-model_rebuild(ReposOwnerRepoPagesDeploymentsPostBody)
+model_rebuild(ReposOwnerRepoImportPutBody)
 
-__all__ = ("ReposOwnerRepoPagesDeploymentsPostBody",)
+__all__ = ("ReposOwnerRepoImportPutBody",)

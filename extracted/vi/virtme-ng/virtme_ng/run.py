@@ -35,7 +35,7 @@ from virtme_ng.utils import get_conf, spinner_decorator
 from virtme_ng.version import VERSION
 
 
-def check_call_cmd(command, quiet=False, dry_run=False):
+def check_call_cmd(command, quiet=False, dry_run=False, pass_stdin=False):
     if dry_run:
         print(shlex.join(command))
         return
@@ -44,7 +44,7 @@ def check_call_cmd(command, quiet=False, dry_run=False):
         command,
         stdout=PIPE,
         stderr=PIPE,
-        stdin=DEVNULL,
+        stdin=None if pass_stdin else DEVNULL,
     ) as process:
         process.stdout.flush()
         process.stderr.flush()
@@ -172,13 +172,6 @@ virtme-ng is based on virtme, written by Andy Lutomirski <luto@kernel.org>.
     )
 
     parser.add_argument(
-        "--skip-config",
-        "-s",
-        action="store_true",
-        help="[deprecated] Do not re-generate kernel .config",
-    )
-
-    parser.add_argument(
         "--no-virtme-ng-init",
         action="store_true",
         help="Fallback to the bash virtme-init (useful for debugging/development)",
@@ -218,7 +211,10 @@ virtme-ng is based on virtme, written by Andy Lutomirski <luto@kernel.org>.
     parser.add_argument(
         "--debug",
         action="store_true",
-        help="Start the instance with debugging enabled (allow to generate crash dumps)",
+        help=(
+            "Start the instance with debugging enabled: allow to generate "
+            "crash dumps, attach a debugging session with GDB, etc."
+        ),
     )
 
     parser.add_argument(
@@ -248,8 +244,7 @@ virtme-ng is based on virtme, written by Andy Lutomirski <luto@kernel.org>.
         "--custom",
         "-f",
         action="append",
-        help="Use one (or more) specific kernel .config snippet "
-        "to override default config settings",
+        help="Use one (or more) kernel .config snippet files, or '-' for stdin",
     )
 
     parser.add_argument(
@@ -257,13 +252,6 @@ virtme-ng is based on virtme, written by Andy Lutomirski <luto@kernel.org>.
         action="append",
         help="add a CONFIG_ITEM=val, after --config <fragments>, "
         "these override previous config settings",
-    )
-
-    parser.add_argument(
-        "--compiler",
-        action="store",
-        help="[deprecated] Compiler to be used as CC when building the kernel. "
-        "Please set CC= and HOSTCC= variables in the virtme-ng command line instead.",
     )
 
     parser.add_argument(
@@ -340,12 +328,6 @@ virtme-ng is based on virtme, written by Andy Lutomirski <luto@kernel.org>.
         action="store",
         help="Change guest working directory "
         + "(default is current working directory when possible)",
-    )
-
-    parser.add_argument(
-        "--pwd",
-        action="store_true",
-        help="[deprecated] --pwd is set implicitly by default",
     )
 
     parser.add_argument(
@@ -541,6 +523,14 @@ virtme-ng is based on virtme, written by Andy Lutomirski <luto@kernel.org>.
         help="Add a passthrough NVIDIA GPU",
     )
 
+    parser.add_argument(
+        "--vfio-pci",
+        action="append",
+        metavar="PCI_ADDRESS",
+        help="Pass through a PCI device using vfio-pci (can be used multiple times), "
+        "e.g. --vfio-pci 0000:ce:00.0",
+    )
+
     g_remote = parser.add_argument_group(title="Remote Console")
 
     g_remote.add_argument(
@@ -639,7 +629,7 @@ ARCH_MAPPING = {
         "cross_compile": "arm-linux-gnueabihf-",
         "kernel_target": "",
         "kernel_image": "zImage",
-        "max-cpus": 4,
+        "max-cpus": 1,
     },
     "ppc64el": {
         "qemu_name": "ppc64",
@@ -654,6 +644,7 @@ ARCH_MAPPING = {
         "cross_compile": "s390x-linux-gnu-",
         "kernel_target": "bzImage",
         "kernel_image": "bzImage",
+        "max-cpus": 8,
     },
     "riscv64": {
         "qemu_name": "riscv64",
@@ -755,6 +746,9 @@ class KernelSource:
         """Perform a make config operation on a kernel source directory."""
         arch = args.arch
         cmd = ["virtme-configkernel", "--defconfig"]
+        configkernel_dry_run = args.kconfig and args.dry_run
+        if configkernel_dry_run:
+            cmd.append("--dry-run")
         if args.verbose:
             cmd.append("--verbose")
         if not args.force and not args.kconfig:
@@ -777,7 +771,13 @@ class KernelSource:
         cmd += args.envs
         if args.verbose:
             print(f"cmd: {shlex.join(cmd)}")
-        check_call_cmd(cmd, quiet=not args.verbose, dry_run=args.dry_run)
+        quiet = not args.verbose and not configkernel_dry_run
+        check_call_cmd(
+            cmd,
+            quiet=quiet,
+            dry_run=args.dry_run and not configkernel_dry_run,
+            pass_stdin="-" in (args.config or []),
+        )
 
     def _make_remote(self, args, make_command):
         check_call_cmd(
@@ -894,8 +894,6 @@ class KernelSource:
         if args.skip_modules:
             make_command += [target]
         make_command += ["LOCALVERSION=-virtme"]
-        if args.compiler:
-            make_command += [f"HOSTCC={args.compiler}", f"CC={args.compiler}"]
         if cross_compile and cross_arch:
             make_command += [f"CROSS_COMPILE={cross_compile}", f"ARCH={cross_arch}"]
         # Propagate additional Makefile variables
@@ -942,11 +940,21 @@ class KernelSource:
         self.virtme_param["user"] = ""
         if args.exec and not args.graphics:
             self.virtme_param["user"] = ""
+        elif args.ssh_client is not None:
+            # In SSH client mode, prefer the user recorded in the generated
+            # ssh config unless --user is explicitly provided.
+            self.virtme_param["user"] = ""
         else:
             self.virtme_param["user"] = "--user " + get_username()
         # Override default user, if specified by the --user argument.
         if args.user is not None:
             self.virtme_param["user"] = "--user " + args.user
+
+    def _get_virtme_shell(self, args):
+        if args.shell is not None:
+            self.virtme_param["shell"] = "--shell " + args.shell
+        else:
+            self.virtme_param["shell"] = ""
 
     def _get_virtme_arch(self, args):
         if args.arch is not None:
@@ -990,8 +998,6 @@ class KernelSource:
 
     def _get_virtme_cwd(self, args):
         if args.cwd is not None:
-            if args.pwd:
-                arg_fail("--pwd and --cwd are mutually exclusive")
             self.virtme_param["cwd"] = "--cwd " + args.cwd
         elif args.root is None:
             self.virtme_param["cwd"] = "--pwd"
@@ -1009,26 +1015,26 @@ class KernelSource:
             self.virtme_param["rwdir"] += f"--rwdir {item} "
 
     def _get_virtme_overlay_rwdir(self, args):
-        # Set default overlays if rootfs is mounted in read-only mode.
         if args.rw:
-            self.virtme_param["overlay_rwdir"] = ""
+            dirs = ["/tmp"]
         else:
-            self.virtme_param["overlay_rwdir"] = " ".join(
-                f"--overlay-rwdir {d}"
-                for d in (
-                    "/etc",
-                    "/lib",
-                    "/home",
-                    "/opt",
-                    "/srv",
-                    "/usr",
-                    "/var",
-                    "/tmp",
-                )
-            )
+            dirs = [
+                "/etc",
+                "/lib",
+                "/home",
+                "/opt",
+                "/srv",
+                "/usr",
+                "/var",
+                "/tmp",
+            ]
         # Add user-specified overlays.
-        for item in args.overlay_rwdir:
-            self.virtme_param["overlay_rwdir"] += " --overlay-rwdir " + item
+        dirs += args.overlay_rwdir
+        # De-duplicate
+        dirs = list(dict.fromkeys(dirs))
+        self.virtme_param["overlay_rwdir"] = " ".join(
+            f"--overlay-rwdir {d}" for d in dirs
+        )
 
     def _get_virtme_run(self, args):
         if args.run is not None:
@@ -1233,13 +1239,7 @@ class KernelSource:
             for item in args.append:
                 split_items = shlex.split(item)
                 for split_item in split_items:
-                    append += ["-a", split_item]
-        if args.debug:
-            append += ["-a", "nokaslr"]
-
-        # Set default user's shell override, if specified.
-        if args.shell is not None:
-            append += ["-a", "virtme_shell=" + args.shell]
+                    append += ["--kopt", split_item]
 
         self.virtme_param["append"] = shlex.join(append)
 
@@ -1294,8 +1294,17 @@ class KernelSource:
 
             signal.signal(signal.SIGINT, signal_handler)
             self.virtme_param["gdb"] = "--gdb"
+        elif args.debug:
+            self.virtme_param["gdb"] = "--gdb-server"
         else:
             self.virtme_param["gdb"] = ""
+
+    def _get_virtme_qmp(self, args):
+        # QMP is needed for --debug (GDB/monitor) and for --pin (query-cpus-fast).
+        if args.debug or args.pin:
+            self.virtme_param["qmp"] = "--qmp"
+        else:
+            self.virtme_param["qmp"] = ""
 
     def _get_virtme_snaps(self, args):
         if args.snaps:
@@ -1333,15 +1342,18 @@ class KernelSource:
         else:
             self.virtme_param["nvgpu"] = ""
 
+    def _get_virtme_vfio_pci(self, args):
+        if args.vfio_pci is not None:
+            vfio_str = " ".join(
+                f"--vfio-pci {shlex.quote(addr)}" for addr in args.vfio_pci
+            )
+            self.virtme_param["vfio_pci"] = vfio_str
+        else:
+            self.virtme_param["vfio_pci"] = ""
+
     def _get_virtme_qemu_opts(self, args):
-        qemu_args = ""
-        if args.debug or args.pin:
-            # Enable debug mode and QMP (to trigger memory dump via `vng --dump`)
-            qemu_args += "-s -qmp tcp:localhost:3636,server,nowait "
         if args.qemu_opts is not None:
-            qemu_args += " ".join(args.qemu_opts)
-        if qemu_args != "":
-            self.virtme_param["qemu_opts"] = "--qemu-opts " + qemu_args
+            self.virtme_param["qemu_opts"] = "--qemu-opts " + " ".join(args.qemu_opts)
         else:
             self.virtme_param["qemu_opts"] = ""
 
@@ -1350,6 +1362,7 @@ class KernelSource:
         self._get_virtme_name(args)
         self._get_virtme_exec(args)
         self._get_virtme_user(args)
+        self._get_virtme_shell(args)
         self._get_virtme_arch(args)
         self._get_virtme_root(args)
         self._get_virtme_systemd(args)
@@ -1388,10 +1401,12 @@ class KernelSource:
         self._get_virtme_numa_distance(args)
         self._get_virtme_balloon(args)
         self._get_virtme_gdb(args)
+        self._get_virtme_qmp(args)
         self._get_virtme_snaps(args)
         self._get_virtme_empty_passwords(args)
         self._get_virtme_busybox(args)
         self._get_virtme_nvgpu(args)
+        self._get_virtme_vfio_pci(args)
         self._get_virtme_qemu(args)
         self._get_virtme_qemu_opts(args)
 
@@ -1401,6 +1416,7 @@ class KernelSource:
             + f"{self.virtme_param['name']} "
             + f"{self.virtme_param['exec']} "
             + f"{self.virtme_param['user']} "
+            + f"{self.virtme_param['shell']} "
             + f"{self.virtme_param['arch']} "
             + f"{self.virtme_param['root']} "
             + f"{self.virtme_param['systemd']} "
@@ -1440,9 +1456,11 @@ class KernelSource:
             + f"{self.virtme_param['numa_distance']} "
             + f"{self.virtme_param['balloon']} "
             + f"{self.virtme_param['gdb']} "
+            + f"{self.virtme_param['qmp']} "
             + f"{self.virtme_param['snaps']} "
             + f"{self.virtme_param['busybox']} "
             + f"{self.virtme_param['nvgpu']} "
+            + f"{self.virtme_param['vfio_pci']} "
             + f"{self.virtme_param['qemu']} "
             + f"{self.virtme_param['qemu_opts']} "
             # Important: qemu_opts has to be the last one
@@ -1635,12 +1653,15 @@ class KernelSource:
         """Clean a local or remote git repository."""
         if not os.path.exists(".git"):
             arg_fail("error: must run from a kernel git repository", show_usage=False)
+        excludes = ""
+        for pattern in get_conf("clean_exclude"):
+            excludes += f" -e {shlex.quote(pattern)}"
         if args.build_host is None:
-            cmd = self._format_cmd("git clean -xdf")
+            cmd = self._format_cmd(f"git clean -xdf{excludes}")
         else:
             cmd = f"ssh {args.build_host} --"
             cmd = self._format_cmd(cmd)
-            cmd.append("cd ~/.virtme && git clean -xdf")
+            cmd.append(f"cd ~/.virtme && git clean -xdf{excludes}")
         check_call_cmd(cmd, quiet=not args.verbose, dry_run=args.dry_run)
 
 

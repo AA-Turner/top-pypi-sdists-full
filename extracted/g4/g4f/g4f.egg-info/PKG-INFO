@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: g4f
-Version: 7.3.8
+Version: 7.3.9
 Summary: The official gpt4free repository | various collection of powerful language models
 Home-page: https://github.com/xtekky/gpt4free
 Author: Tekky
@@ -35,7 +35,7 @@ Requires-Dist: werkzeug; extra == "all"
 Requires-Dist: flask[async]; extra == "all"
 Requires-Dist: fastapi; extra == "all"
 Requires-Dist: uvicorn; extra == "all"
-Requires-Dist: nodriver; extra == "all"
+Requires-Dist: zendriver; extra == "all"
 Requires-Dist: python-multipart; extra == "all"
 Requires-Dist: a2wsgi; extra == "all"
 Requires-Dist: setuptools; extra == "all"
@@ -58,7 +58,7 @@ Requires-Dist: werkzeug; extra == "slim"
 Requires-Dist: flask[async]; extra == "slim"
 Requires-Dist: fastapi; extra == "slim"
 Requires-Dist: uvicorn; extra == "slim"
-Requires-Dist: nodriver; extra == "slim"
+Requires-Dist: zendriver; extra == "slim"
 Requires-Dist: python-multipart; extra == "slim"
 Requires-Dist: a2wsgi; extra == "slim"
 Requires-Dist: pypdf2; extra == "slim"

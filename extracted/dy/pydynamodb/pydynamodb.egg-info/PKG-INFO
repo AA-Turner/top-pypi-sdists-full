@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydynamodb
-Version: 0.8.1
+Version: 0.8.2
 Summary: Python DB API 2.0 (PEP 249) client for Amazon DynamoDB
 Home-page: https://github.com/passren/PyDynamoDB
 Author: Peng Ren

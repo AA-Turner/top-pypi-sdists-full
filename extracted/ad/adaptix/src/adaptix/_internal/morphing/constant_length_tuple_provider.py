@@ -113,7 +113,7 @@ class ConstantLengthTupleProvider(LoaderProvider, DumperProvider):
             idx = 0
             errors = []
             has_unexpected_error = False
-            for loader, field in zip(loaders, data):
+            for loader, field in zip(loaders, data, strict=True):
                 try:
                     yield loader(field)
                 except LoadError as e:
@@ -153,7 +153,7 @@ class ConstantLengthTupleProvider(LoaderProvider, DumperProvider):
                     raise NoRequiredItemsLoadError(loaders_len, data)
 
             idx = 0
-            for loader, field in zip(loaders, data):
+            for loader, field in zip(loaders, data, strict=True):
                 try:
                     yield loader(field)
                 except Exception as e:
@@ -180,7 +180,7 @@ class ConstantLengthTupleProvider(LoaderProvider, DumperProvider):
 
             return tuple(
                 loader(field)
-                for loader, field in zip(loaders, data)
+                for loader, field in zip(loaders, data, strict=True)
             )
 
         return dt_disable_non_sc_loader
@@ -207,7 +207,7 @@ class ConstantLengthTupleProvider(LoaderProvider, DumperProvider):
 
             return tuple(
                 loader(field)
-                for loader, field in zip(loaders, data)
+                for loader, field in zip(loaders, data, strict=True)
             )
 
         return dt_disable_sc_loader
@@ -262,7 +262,7 @@ class ConstantLengthTupleProvider(LoaderProvider, DumperProvider):
 
             idx = 0
             errors = []
-            for dumper, field in zip(dumpers, data):
+            for dumper, field in zip(dumpers, data, strict=True):
                 try:
                     yield dumper(field)
                 except Exception as e:
@@ -294,7 +294,7 @@ class ConstantLengthTupleProvider(LoaderProvider, DumperProvider):
                     raise NoRequiredItemsLoadError(dumpers_len, data)
 
             idx = 0
-            for dumper, field in zip(dumpers, data):
+            for dumper, field in zip(dumpers, data, strict=True):
                 try:
                     yield dumper(field)
                 except Exception as e:
@@ -327,7 +327,7 @@ class ConstantLengthTupleProvider(LoaderProvider, DumperProvider):
 
             return tuple(
                 dumper(field)
-                for dumper, field in zip(dumpers, data)
+                for dumper, field in zip(dumpers, data, strict=True)
             )
 
         return tuple_dumper

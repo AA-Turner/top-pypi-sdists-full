@@ -9,13 +9,17 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from pydantic import Field
+
 from githubkit.compat import GitHubModel, model_rebuild
 
 
-class UserInteractionLimitsGetResponse200Anyof1(GitHubModel):
-    """UserInteractionLimitsGetResponse200Anyof1"""
+class ReposOwnerRepoPullsPullNumberReviewsReviewIdPutBody(GitHubModel):
+    """ReposOwnerRepoPullsPullNumberReviewsReviewIdPutBody"""
+
+    body: str = Field(description="The body text of the pull request review.")
 
 
-model_rebuild(UserInteractionLimitsGetResponse200Anyof1)
+model_rebuild(ReposOwnerRepoPullsPullNumberReviewsReviewIdPutBody)
 
-__all__ = ("UserInteractionLimitsGetResponse200Anyof1",)
+__all__ = ("ReposOwnerRepoPullsPullNumberReviewsReviewIdPutBody",)

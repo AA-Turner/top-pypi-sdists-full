@@ -28,6 +28,8 @@ from typing import Any, NoReturn
 from virtme_ng.utils import (
     CACHE_DIR,
     DEFAULT_VIRTME_SSH_HOSTNAME_CID_SEPARATOR,
+    KERNEL_CMDLINE_MAX,
+    SERIAL_GETTY_DIR,
     SERIAL_GETTY_FILE,
     SSH_CONF_FILE,
     SSH_DIR,
@@ -113,8 +115,30 @@ def make_parser() -> argparse.ArgumentParser:
     )
     g.add_argument(
         "--gdb",
-        action="store_true",
-        help="Attach a gdb session to a running instance started with --debug",
+        action="store",
+        nargs="?",
+        type=int,
+        const=1234,
+        metavar="PORT",
+        help="Attach a GDB session to a running instance started with --gdb-server",
+    )
+    g.add_argument(
+        "--gdb-server",
+        action="store",
+        nargs="?",
+        type=int,
+        const=1234,
+        metavar="PORT",
+        help="Open a GDB server on TCP to connect to the guest",
+    )
+    g.add_argument(
+        "--qmp",
+        action="store",
+        nargs="?",
+        type=int,
+        const=3636,
+        metavar="PORT",
+        help="Enable QMP (QEMU Machine Protocol) support on TCP",
     )
     g.add_argument(
         "--graphics",
@@ -207,6 +231,13 @@ def make_parser() -> argparse.ArgumentParser:
         help="Set guest hostname and qemu -name flag.",
     )
     g.add_argument("--user", action="store", help="Change guest user")
+    g.add_argument(
+        "--shell",
+        metavar="BINARY",
+        action="store",
+        default=None,
+        help="Override the default user shell",
+    )
 
     g = parser.add_argument_group(
         title="Scripting",
@@ -358,6 +389,13 @@ def make_parser() -> argparse.ArgumentParser:
         "--nvgpu", action="store", default=None, help="Set guest NVIDIA GPU."
     )
 
+    g.add_argument(
+        "--vfio-pci",
+        action="append",
+        default=[],
+        help="Pass through a PCI device using vfio-pci (can be used multiple times).",
+    )
+
     g = parser.add_argument_group(title="Remote Console")
     cli_srv_choices = ["console", "ssh"]
     g.add_argument(
@@ -452,11 +490,15 @@ class Kernel:
 
 def get_rootfs_from_kernel_path(path):
     while path and path != "/" and not os.path.exists(path + "/lib/modules"):
+        # Some packages (e.g. .debs) might use /usr without /lib
+        if os.path.exists(path + "/usr/lib/modules"):
+            path += "/usr"
+            break
         path, _ = os.path.split(path)
     # If a distro, like openSUSE Tumbleweed, has /lib symlinked to /usr/lib,
     # the rootfs may be mistakenly identified as /usr. In such cases, ensure to
     # get the rootfs from one level higher.
-    if path.endswith("/usr"):
+    if path.endswith("/usr") and os.path.islink(path + "/../lib"):
         path, _ = os.path.split(path)
     return os.path.abspath(path)
 
@@ -586,6 +628,9 @@ def find_kernel_and_mods(arch, args) -> Kernel:
                 mod_file = os.path.join(kernel.moddir, "modules.dep")
                 if not os.path.exists(mod_file):
                     depmod = find_binary_or_raise(["depmod"])
+
+                    if args.verbose:
+                        sys.stderr.write("virtme: generating modules.dep file\n")
 
                     # Try to refresh modules directory. Some packages (e.g., debs)
                     # don't ship all the required modules information, so we
@@ -738,7 +783,7 @@ class VirtioFS:
                     pass
         return None
 
-    def start(self, path, verbose=True, cache="always"):
+    def start(self, path, verbose=True, cache="always", posix_acl=False):
         virtiofsd_path = self._get_virtiofsd_path()
         if virtiofsd_path is None:
             return False
@@ -757,8 +802,13 @@ class VirtioFS:
             stderr = "2>/dev/null"
         else:
             stderr = ""
+        # Only enable --posix-acl when using an external root filesystem.
+        # When sharing the host root (/), --posix-acl breaks UID/GID translation
+        # which causes authentication failures (e.g., unix_chkpwd cannot obtain
+        # user info).
+        acl_opt = "--posix-acl " if posix_acl else ""
         os.system(
-            f"{virtiofsd_path} --syslog --no-announce-submounts "
+            f"{virtiofsd_path} --syslog --no-announce-submounts {acl_opt}"
             + f"--socket-path {self.sock} --shared-dir {path} "
             + f"--sandbox none -o cache={cache} {stderr} &"
         )
@@ -783,13 +833,20 @@ class VirtioFS:
 class VirtioFSConfig:
     # allow more than 4 arguments: pylint: disable=R0917
     def __init__(
-        self, path: str, mount_tag: str, guest_tools_path=None, memory=None, rw=False
+        self,
+        path: str,
+        mount_tag: str,
+        guest_tools_path=None,
+        memory=None,
+        rw=False,
+        posix_acl=False,
     ):
         self.path = path
         self.mount_tag = mount_tag
         self.guest_tools_path = guest_tools_path
         self.memory = memory
         self.rw = rw
+        self.posix_acl = posix_acl
 
 
 def export_virtiofs(
@@ -805,7 +862,7 @@ def export_virtiofs(
 
     # Try to start virtiofsd daemon
     virtio_fs = VirtioFS(config.guest_tools_path)
-    ret = virtio_fs.start(config.path, verbose, cache)
+    ret = virtio_fs.start(config.path, verbose, cache, config.posix_acl)
     if not ret:
         return False
 
@@ -877,6 +934,25 @@ def quote_karg(arg: str) -> str:
     if " " in arg:
         return f'"{arg}"'
     return arg
+
+
+def create_guest_init_script(root: str, initsh: str) -> str | None:
+    try:
+        script_fd, script_host_path = tempfile.mkstemp(
+            prefix="virtme-init-",
+            dir=root,
+            text=True,
+        )
+        with os.fdopen(script_fd, "w", encoding="utf-8") as script_file:
+            script_file.write(f"{initsh}\n")
+        os.chmod(script_host_path, 0o644)
+        atexit.register(
+            lambda path=script_host_path: os.path.exists(path) and os.unlink(path)
+        )
+    except OSError:
+        return None
+
+    return f"/{os.path.basename(script_host_path)}"
 
 
 # Validate name=path arguments from --disk and --blk-disk
@@ -981,6 +1057,13 @@ def get_console_path(port):
     return os.path.join(tempfile.gettempdir(), "virtme-console", f"{port}.sh")
 
 
+def get_guest_relative_path(path, root):
+    relpath = os.path.relpath(path, root)
+    if relpath.startswith(".."):
+        return None
+    return relpath
+
+
 def console_client(args):
     if which("socat") is None:
         arg_fail("socat tool is required, but not available")
@@ -997,6 +1080,11 @@ def console_client(args):
 
     user = args.user if args.user else "${virtme_user:-root}"
 
+    if args.shell is not None:
+        shell = f'-s "{args.shell}"'
+    else:
+        shell = '${virtme_shell:+-s "${virtme_shell}"}'
+
     if args.pwd:
         cwd = os.path.relpath(os.getcwd(), args.root)
     elif args.cwd is not None:
@@ -1005,12 +1093,12 @@ def console_client(args):
         cwd = '${virtme_chdir:+"${virtme_chdir}"}'
 
     # use 'su' only if needed: another use, or to get a prompt
-    cmd = f'if [ "{user}" != "root" ]; then\n' + f'  exec su "{user}"'
+    cmd = f'if [ "{user}" != "root" ]; then\n' + f'  exec su {shell} "{user}"'
     if args.remote_cmd is not None:
         exec_escaped = args.remote_cmd.replace('"', '\\"')
         cmd += f' -c "{exec_escaped}"' + "\nelse\n" + f"  {args.remote_cmd}\n"
     else:
-        cmd += "\nelse\n" + "  exec su\n"
+        cmd += "\nelse\n" + f"  exec su {shell}\n"
     cmd += "fi"
 
     console_script_path = get_console_path(args.port)
@@ -1077,13 +1165,40 @@ def ssh_client(args):
         ssh_destination = f"{VIRTME_SSH_DESTINATION_NAME}{DEFAULT_VIRTME_SSH_HOSTNAME_CID_SEPARATOR}{args.port}"
     else:
         ssh_destination = f"ssh://{VIRTME_SSH_DESTINATION_NAME}:{args.port}"
-    if args.remote_cmd is not None:
+
+    force_tty = False
+    if args.cwd is not None:
+        cwd = get_guest_relative_path(args.cwd, args.root)
+        if cwd is None:
+            arg_fail("specified working directory is not contained in the root")
+    else:
+        cwd = get_guest_relative_path(os.getcwd(), args.root)
+
+    if cwd is not None:
+        guest_cwd = "/" if cwd == "." else f"/{cwd}"
+        remote_cmd_str = f"cd -- {shlex.quote(guest_cwd)}" + (
+            f" && {args.remote_cmd}"
+            if args.remote_cmd is not None
+            else ' && exec "${SHELL:-/bin/sh}" -i'
+        )
+        remote_cmd = [
+            "--",
+            "/bin/sh",
+            "-c",
+            shlex.quote(remote_cmd_str),
+        ]
+        force_tty = args.remote_cmd is None and sys.stdin.isatty()
+    elif args.remote_cmd is not None:
         exec_escaped = shlex.quote(args.remote_cmd)
-        remote_cmd = ["--", "bash", "-c", exec_escaped]
+        remote_cmd = ["--", "/bin/sh", "-c", exec_escaped]
     else:
         remote_cmd = []
 
     cmd = ["ssh", "-F", f"{SSH_CONF_FILE}"]
+    if args.verbose:
+        cmd += ["-v"]
+    if force_tty:
+        cmd += ["-t"]
     if args.user:
         cmd += ["-l", f"{args.user}"]
     cmd += [ssh_destination] + remote_cmd
@@ -1099,9 +1214,21 @@ def ssh_server(args, arch, qemuargs, kernelargs):
     SSH_ETC_SSH_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
     subprocess.check_call(["ssh-keygen", "-A", "-f", f"{SSH_DIR}"])
 
-    # Tell virtme-ng-init / virtme-init to start sshd and use the current
-    # username keys/credentials.
-    username = get_username()
+    # Follow --user when specified for SSH logins and otherwise default
+    # to the host username.
+    username = args.user if args.user is not None else get_username()
+
+    identity_file = SSH_DIR.joinpath("id_virtme")
+    if not identity_file.exists() or not identity_file.with_suffix(".pub").exists():
+        subprocess.check_call(
+            ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", f"{identity_file}"]
+        )
+
+    if args.root == "/":
+        ssh_cache = str(SSH_DIR)
+    else:
+        ssh_cache = "/run/virtme/cache/.ssh"
+
     if can_use_ssh_over_vsock(args.ssh_tcp):
         qemuargs.extend(
             [
@@ -1113,12 +1240,23 @@ def ssh_server(args, arch, qemuargs, kernelargs):
     else:
         # Implicitly enable dhcp to automatically get an IP on the network
         # interface and prevent interface renaming.
-        kernelargs.extend(["virtme.dhcp", "net.ifnames=0", "biosdevname=0"])
-        # Setup a port forward network interface for the guest.
-        qemuargs.extend(["-device", f"{arch.virtio_dev_type('net')},netdev=ssh"])
-        qemuargs.extend(
-            ["-netdev", f"user,id=ssh,hostfwd=tcp:127.0.0.1:{args.port}-:22"]
-        )
+        for arg in ("virtme.dhcp", "net.ifnames=0", "biosdevname=0"):
+            if arg not in kernelargs:
+                kernelargs.append(arg)
+        hostfwd = f"hostfwd=tcp:127.0.0.1:{args.port}-:22"
+        # Reuse an existing user-mode NIC when available so DHCP and routing
+        # do not race across two slirp interfaces on the same default subnet.
+        for index, arg in enumerate(qemuargs):
+            if arg != "-netdev" or index + 1 >= len(qemuargs):
+                continue
+            netdev = qemuargs[index + 1]
+            if not netdev.startswith("user,") or "hostfwd=" in netdev:
+                continue
+            qemuargs[index + 1] = f"{netdev},{hostfwd}"
+            break
+        else:
+            qemuargs.extend(["-device", f"{arch.virtio_dev_type('net')},netdev=ssh"])
+            qemuargs.extend(["-netdev", f"user,id=ssh,{hostfwd}"])
         ssh_channel_type = "tcp"
 
     if ssh_channel_type != "vsock" and args.empty_passwords:
@@ -1131,7 +1269,7 @@ def ssh_server(args, arch, qemuargs, kernelargs):
         [
             "virtme.ssh",
             f"virtme_ssh_channel={ssh_channel_type}",
-            f"virtme_ssh_user={username}",
+            f"virtme_ssh_cache={ssh_cache}",
         ]
     )
 
@@ -1139,6 +1277,9 @@ def ssh_server(args, arch, qemuargs, kernelargs):
     with open(SSH_CONF_FILE, "w", encoding="utf-8") as f:
         f.write(f"""Host {VIRTME_SSH_DESTINATION_NAME}*
     CheckHostIP no
+    User {username}
+    IdentityFile {identity_file}
+    IdentitiesOnly yes
 
     # Disable all kinds of host identity checks, since these addresses are generally ephemeral.
     StrictHostKeyChecking no
@@ -1193,7 +1334,7 @@ def do_it() -> int:
     if config.modfiles:
         need_initramfs = True
 
-    if args.gdb:
+    if args.gdb is not None:
         if kernel.version:
             print(f"kernel version = {kernel.version}")
         vmlinux = ""
@@ -1203,7 +1344,7 @@ def do_it() -> int:
             vmlinux = "vmlinux"
         elif os.path.exists(f"/usr/lib/debug/boot/vmlinux-{kernel.version}"):
             vmlinux = f"/usr/lib/debug/boot/vmlinux-{kernel.version}"
-        command = ["gdb", "-q", "-ex", "target remote localhost:1234", vmlinux]
+        command = ["gdb", "-q", "-ex", f"target remote localhost:{args.gdb}", vmlinux]
         if args.dry_run:
             print(shlex.join(command))
         else:
@@ -1217,6 +1358,8 @@ def do_it() -> int:
     if args.name:
         qemuargs.extend(["-name", args.name])
         kernelargs.append(f"virtme_hostname={args.name}")
+        if args.systemd:
+            kernelargs.append(f"systemd.hostname={args.name}")
 
     if args.memory:
         # If no memory suffix is specified, assume it's MB.
@@ -1314,6 +1457,10 @@ def do_it() -> int:
             # the memory.
             memory=0 if args.numa else args.memory,
             rw=args.rw,
+            # Only enable POSIX ACLs when using an external root filesystem.
+            # When sharing the host root (/), --posix-acl breaks UID/GID
+            # translation which causes authentication failures.
+            posix_acl=(args.root != "/"),
         )
         use_virtiofs = export_virtiofs(
             virt_arch,
@@ -1344,8 +1491,6 @@ def do_it() -> int:
         virtme_init_cmd = "virtme-init"
 
     if args.systemd:
-        # disable systemd-fstab-generator so boot does not freeze while waiting for disks
-        kernelargs.append("fstab=no")
         # disable systemd-cryptsetup-generator so it doesn't wait for encrypted disks
         kernelargs.append("luks=no")
         # disable auditd so there are no errors if the user lacks `--rw`
@@ -1359,17 +1504,30 @@ def do_it() -> int:
             [f"systemd.mask={unit}" for unit in get_conf("systemd.masks") or []]
         )
 
+    host_busybox = None
+    busybox_guest_path = None
+    if args.busybox is not None:
+        host_busybox = os.path.realpath(os.path.abspath(args.busybox))
+        if not os.path.isfile(host_busybox):
+            print(f"busybox {host_busybox} does not exist", file=sys.stderr)
+            raise SilentError()
+        rel_busybox = get_guest_relative_path(host_busybox, args.root)
+        if rel_busybox is not None:
+            busybox_guest_path = os.path.join("/", rel_busybox)
+
     if args.root == "/":
         if args.systemd:
+            fstab_path = get_conf("systemd.fstab")
             initcmds = [
                 "init=/bin/sh",
                 "--",
                 "-c",
-                f"SYSTEMD_UNIT_PATH={CACHE_DIR}: exec /sbin/init;",
+                f"mount --bind {fstab_path} /etc/fstab && SYSTEMD_UNIT_PATH={CACHE_DIR}: exec /sbin/init;",
             ]
         else:
             initcmds = [f"init={guest_tools_path}/{virtme_init_cmd}"]
     else:
+        os.makedirs(CACHE_DIR, exist_ok=True)
         virtfs_config = VirtFSConfig(
             path=str(CACHE_DIR),
             mount_tag="virtme.cache",
@@ -1380,16 +1538,35 @@ def do_it() -> int:
             path=guest_tools_path,
             mount_tag="virtme.guesttools",
         )
+        fstab_path = get_conf("systemd.fstab")
         export_virtfs(qemu, arch, qemuargs, virtfs_config)
         initsh = [
             "mount -t tmpfs run /run",
             "mkdir -p /run/virtme/cache",
-            "/bin/mount -n -t 9p -o rw,version=9p2000.L,trans=virtio,access=any "
+            "/bin/mount -n -t 9p -o rw,version=9p2000.L,trans=virtio,access=any,msize=524288 "
             + "virtme.cache /run/virtme/cache",
             "mkdir -p /run/virtme/guesttools",
-            "/bin/mount -n -t 9p -o ro,version=9p2000.L,trans=virtio,access=any "
+            "/bin/mount -n -t 9p -o ro,version=9p2000.L,trans=virtio,access=any,msize=524288 "
             + "virtme.guesttools /run/virtme/guesttools",
+            f"mount --bind {fstab_path} /etc/fstab",
         ]
+        if host_busybox is not None and busybox_guest_path is None:
+            export_virtfs(
+                qemu,
+                arch,
+                qemuargs,
+                VirtFSConfig(os.path.dirname(host_busybox), "virtme.busybox"),
+            )
+            initsh.extend(
+                [
+                    "mkdir -p /run/virtme/busybox",
+                    "/bin/mount -n -t 9p -o ro,version=9p2000.L,trans=virtio,access=any,msize=524288 "
+                    + "virtme.busybox /run/virtme/busybox",
+                ]
+            )
+            busybox_guest_path = os.path.join(
+                "/run/virtme/busybox", os.path.basename(host_busybox)
+            )
         if args.systemd:
             initsh.extend(
                 [
@@ -1437,8 +1614,9 @@ def do_it() -> int:
         # Check if paths are accessible both on the host and the guest.
         if not os.path.exists(hostpath):
             arg_fail(f"error: cannot access {hostpath} on the host")
-        # Guest path must be defined inside one of the overlays
-        guest_path_ok = False
+        # Guest path must be defined inside a valid overlay (root or overlay_rwdir).
+        # The root is always mounted in the guest, so any path under root is valid.
+        guest_path_ok = not os.path.normpath(guestpath).startswith("..")
         for d in args.overlay_rwdir:
             if os.path.exists(guestpath) or is_subpath(guestpath, d):
                 guest_path_ok = True
@@ -1481,6 +1659,8 @@ def do_it() -> int:
     qemuargs.extend(["-parallel", "none"])
     qemuargs.extend(["-net", "none"])
 
+    kernelargs.extend(["virtme_console=" + arg for arg in arch.serial_console_args()])
+
     if args.graphics is None and not args.script_sh and not args.script_exec:
         qemuargs.extend(["-echr", "1"])
 
@@ -1522,10 +1702,6 @@ def do_it() -> int:
         qemuargs.extend(["-serial", "chardev:console"])
         if not args.disable_monitor:
             qemuargs.extend(["-mon", "chardev=console"])
-
-        kernelargs.extend(
-            ["virtme_console=" + arg for arg in arch.serial_console_args()]
-        )
 
         if args.nvgpu is None:
             qemuargs.extend(arch.qemu_nodisplay_args())
@@ -1596,6 +1772,13 @@ def do_it() -> int:
                 ]
             )
 
+    if args.gdb_server is not None:
+        qemuargs.extend(["-gdb", f"tcp:localhost:{args.gdb_server}"])
+        kernelargs.extend(["-a", "nokaslr"])
+
+    if args.qmp is not None:
+        qemuargs.extend(["-qmp", f"tcp:localhost:{args.qmp},server,nowait"])
+
     ret_path = None
 
     def cleanup_script_retcode():
@@ -1613,80 +1796,103 @@ def do_it() -> int:
         except FileNotFoundError:
             return None
 
+    def add_serial_port(chardev_spec: str, chardev_id: str, port_name: str) -> None:
+        """Add a chardev, virtio-serial device, and virtserialport for script I/O."""
+        qemuargs.extend(["-chardev", chardev_spec])
+        qemuargs.extend(["-device", arch.virtio_dev_type("serial")])
+        qemuargs.extend(
+            ["-device", f"virtserialport,name={port_name},chardev={chardev_id}"]
+        )
+
     def do_script(shellcmd: str, ret_path=None, show_boot_console=False) -> None:
         if args.graphics is None:
-            # Turn off default I/O
             if args.nvgpu is None:
                 qemuargs.extend(arch.qemu_nodisplay_args())
             else:
                 qemuargs.extend(arch.qemu_nodisplay_nvgpu_args())
 
-        # Check if we can redirect stdin/stdout/stderr.
-        if (
-            not can_access_file("/proc/self/fd/0")
-            or not can_access_file("/proc/self/fd/1")
-            or not can_access_file("/proc/self/fd/2")
-        ):
-            print(
-                "ERROR: not a valid pts, try to run vng with a valid PTS "
-                "(e.g., inside tmux or screen)",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-        # Configure kernel console output
+        # Kernel console: where to send boot/console output.
         if show_boot_console:
-            output = "/proc/self/fd/2"
+            console_output = "/proc/self/fd/2"
             console_args = ()
         else:
-            output = "/dev/null"
+            console_output = "/dev/null"
             console_args = ["quiet", "loglevel=0"]
-        qemuargs.extend(arch.qemu_serial_console_args())
-        qemuargs.extend(["-chardev", f"file,id=console,path={output}"])
 
-        kernelargs.extend(["console=" + arg for arg in arch.serial_console_args()])
-        kernelargs.extend(arch.earlyconsole_args())
-        kernelargs.extend(console_args)
+        fds_accessible = all(can_access_file(f"/proc/self/fd/{i}") for i in (0, 1, 2))
+        if fds_accessible:
+            # Valid stdin/stdout/stderr: console & script I/O use host fds.
+            qemuargs.extend(arch.qemu_serial_console_args())
+            qemuargs.extend(["-chardev", f"file,id=console,path={console_output}"])
+            kernelargs.extend(["console=" + arg for arg in arch.serial_console_args()])
+            kernelargs.extend(arch.earlyconsole_args())
+            kernelargs.extend(console_args)
 
-        # Set up a virtserialport for script I/O
-        #
-        # NOTE: we need two additional I/O ports for /dev/stdout and
-        # /dev/stderr in the guest.
-        #
-        # This is needed because virtio serial ports are designed to support a
-        # single writer at a time, so any attempt to write directly to
-        # /dev/stdout or /dev/stderr in the guest will result in an -EBUSY
-        # error.
-        qemuargs.extend(["-chardev", "stdio,id=stdin,signal=on,mux=off"])
-        qemuargs.extend(["-device", arch.virtio_dev_type("serial")])
-        qemuargs.extend(["-device", "virtserialport,name=virtme.stdin,chardev=stdin"])
+            # Script I/O ports (guest /dev/stdout, /dev/stderr). Virtio serial
+            # allows only one writer per port, so we need separate ports for
+            # script stdout/stderr and for direct /dev/stdout/err writes.
+            add_serial_port("stdio,id=stdin,signal=on,mux=off", "stdin", "virtme.stdin")
+            add_serial_port(
+                "file,id=stdout,path=/proc/self/fd/1", "stdout", "virtme.stdout"
+            )
+            add_serial_port(
+                "file,id=stderr,path=/proc/self/fd/2", "stderr", "virtme.stderr"
+            )
+            add_serial_port(
+                "file,id=dev_stdout,path=/proc/self/fd/1",
+                "dev_stdout",
+                "virtme.dev_stdout",
+            )
+            add_serial_port(
+                "file,id=dev_stderr,path=/proc/self/fd/2",
+                "dev_stderr",
+                "virtme.dev_stderr",
+            )
+        else:
+            # No valid stdin/stdout/stderr: warn and use console only. QEMU
+            # allows one stdio chardev; with -v we use it for the console
+            # (guest uses console fallback). Without -v we use /dev/null
+            # for console and optionally add script I/O with stdio for
+            # stdout so command output is visible.
+            print(
+                "WARNING: stdin/stdout/stderr not accessible via /proc/self/fd, "
+                "falling back to limited redirection (stderr may be lost).\n"
+                "If full redirection is needed, run vng with: \n"
+                "script -q -c 'vng -- <command>'\n"
+                "(or use tmux/screen)",
+                file=sys.stderr,
+                flush=True,
+            )
+            if show_boot_console:
+                qemuargs.extend(["-chardev", "stdio,id=console,signal=off,mux=off"])
+            else:
+                qemuargs.extend(["-chardev", "file,id=console,path=/dev/null"])
+            qemuargs.extend(["-serial", "chardev:console"])
+            kernelargs.extend(["console=" + arg for arg in arch.serial_console_args()])
+            kernelargs.extend(arch.earlyconsole_args())
+            kernelargs.extend(console_args)
 
-        qemuargs.extend(["-chardev", "file,id=stdout,path=/proc/self/fd/1"])
-        qemuargs.extend(["-device", arch.virtio_dev_type("serial")])
-        qemuargs.extend(["-device", "virtserialport,name=virtme.stdout,chardev=stdout"])
+            if not show_boot_console:
+                add_serial_port("file,id=stdin,path=/dev/null", "stdin", "virtme.stdin")
+                add_serial_port(
+                    "stdio,id=stdout,signal=off,mux=off", "stdout", "virtme.stdout"
+                )
+                add_serial_port(
+                    "file,id=dev_stdout,path=/dev/null",
+                    "dev_stdout",
+                    "virtme.dev_stdout",
+                )
+                add_serial_port(
+                    "file,id=stderr,path=/dev/null", "stderr", "virtme.stderr"
+                )
+                add_serial_port(
+                    "file,id=dev_stderr,path=/dev/null",
+                    "dev_stderr",
+                    "virtme.dev_stderr",
+                )
 
-        qemuargs.extend(["-chardev", "file,id=stderr,path=/proc/self/fd/2"])
-        qemuargs.extend(["-device", arch.virtio_dev_type("serial")])
-        qemuargs.extend(["-device", "virtserialport,name=virtme.stderr,chardev=stderr"])
-
-        qemuargs.extend(["-chardev", "file,id=dev_stdout,path=/proc/self/fd/1"])
-        qemuargs.extend(["-device", arch.virtio_dev_type("serial")])
-        qemuargs.extend(
-            ["-device", "virtserialport,name=virtme.dev_stdout,chardev=dev_stdout"]
-        )
-
-        qemuargs.extend(["-chardev", "file,id=dev_stderr,path=/proc/self/fd/2"])
-        qemuargs.extend(["-device", arch.virtio_dev_type("serial")])
-        qemuargs.extend(
-            ["-device", "virtserialport,name=virtme.dev_stderr,chardev=dev_stderr"]
-        )
-
-        # Create a virtio serial device to channel the retcode of the script
-        # executed in the guest to the host.
         if ret_path is not None:
-            qemuargs.extend(["-chardev", f"file,id=ret,path={ret_path}"])
-            qemuargs.extend(["-device", arch.virtio_dev_type("serial")])
-            qemuargs.extend(["-device", "virtserialport,name=virtme.ret,chardev=ret"])
+            add_serial_port(f"file,id=ret,path={ret_path}", "ret", "virtme.ret")
 
         # Scripts shouldn't reboot and shouldn't hang on panic: make sure to
         # force an exit condition if a panic happens.
@@ -1732,8 +1938,11 @@ def do_it() -> int:
         )
 
     if args.script_exec is not None:
+        _, ret_path = tempfile.mkstemp(prefix="virtme_ret")
+        atexit.register(cleanup_script_retcode)
         do_script(
             shlex.quote(args.script_exec),
+            ret_path=ret_path,
             show_boot_console=args.show_boot_console,
         )
 
@@ -1812,8 +2021,8 @@ def do_it() -> int:
             ssh_server(args, arch, qemuargs, kernelargs)
 
     if args.pwd:
-        rel_pwd = os.path.relpath(os.getcwd(), args.root)
-        if rel_pwd.startswith(".."):
+        rel_pwd = get_guest_relative_path(os.getcwd(), args.root)
+        if rel_pwd is None:
             print("current working directory is not contained in the root")
             return 1
         kernelargs.append(f"virtme_chdir={rel_pwd}")
@@ -1821,8 +2030,8 @@ def do_it() -> int:
     if args.cwd is not None:
         if args.pwd:
             arg_fail("--pwd and --cwd are mutually exclusive")
-        rel_cwd = os.path.relpath(args.cwd, args.root)
-        if rel_cwd.startswith(".."):
+        rel_cwd = get_guest_relative_path(args.cwd, args.root)
+        if rel_cwd is None:
             print("specified working directory is not contained in the root")
             return 1
         kernelargs.append(f"virtme_chdir={rel_cwd}")
@@ -1830,8 +2039,14 @@ def do_it() -> int:
     if args.user and args.user != "root":
         kernelargs.append(f"virtme_user={args.user}")
 
+    if args.shell is not None:
+        kernelargs.append(f"virtme_shell={args.shell}")
+
     if args.nvgpu:
         qemuargs.extend(["-device", args.nvgpu])
+
+    for addr in args.vfio_pci:
+        qemuargs.extend(["-device", f"vfio-pci,host={addr}"])
 
     # If we are running as root on the host, or using root user within an
     # external root filesystem, pass this information to the guest (this can be
@@ -1842,6 +2057,8 @@ def do_it() -> int:
         and os.access(os.path.join(args.root, "root"), os.R_OK | os.W_OK | os.X_OK)
     ):
         kernelargs.append("virtme_root_user=1")
+    if busybox_guest_path is not None:
+        kernelargs.append(f"virtme_busybox={busybox_guest_path}")
 
     initrdpath: str | None
 
@@ -1902,7 +2119,7 @@ def do_it() -> int:
             kernelargs.extend(
                 [
                     "rootfstype=9p",
-                    "rootflags=version=9p2000.L,trans=virtio,access=any",
+                    "rootflags=version=9p2000.L,trans=virtio,access=any,msize=524288",
                 ]
             )
         kernelargs.extend(
@@ -1923,6 +2140,20 @@ def do_it() -> int:
     # and then initargs
     kernelargs.extend(args.kopt)
 
+    # Check if kernel cmdline exceed limit when using external roots.
+    # This can happen quite easily in architectures such as legacy s390:
+    #   qemu-system-s390x: kernel command line exceeds maximum size: 1232 > 896
+    # Other architectures such as riscv and arm have 1024 (which currently makes most
+    # sense to be used with --root, too), while the rest will have at least 2048.
+    # This should be safe overall for the regular x86_64 args.root == / workflow,
+    # otherwise this guard could be lifted in the future.
+    if args.root != "/":
+        projected_cmdline = " ".join(quote_karg(arg) for arg in kernelargs + initcmds)
+        if len(projected_cmdline.encode("utf-8")) > KERNEL_CMDLINE_MAX:
+            guest_initsh = create_guest_init_script(args.root, "; ".join(initsh))
+            if guest_initsh is not None:
+                initcmds = ["init=/bin/sh", guest_initsh]
+
     # Unknown options get turned into arguments to init, which is annoying
     # because we're explicitly passing '--' to set the arguments directly.
     # Fortunately, 'init=' will clear any arguments parsed so far, so make
@@ -1939,7 +2170,7 @@ def do_it() -> int:
                 if not match:
                     continue
                 init_environment_vars.append(f"{match.group(1)}={match.group(2)}")
-            os.makedirs(CACHE_DIR, exist_ok=True)
+            os.makedirs(SERIAL_GETTY_DIR, exist_ok=True)
             with open(SERIAL_GETTY_FILE, "w", encoding="utf-8") as f:
                 f.write(
                     f"""[Service]
@@ -1948,7 +2179,8 @@ StandardOutput=tty
 TTYPath=/dev/%I
 TTYReset=yes
 TTYVHangup=yes
-Environment={shlex.join(init_environment_vars)}"""
+Environment={shlex.join(init_environment_vars)}
+ExecStart="""
                 )
                 if args.root == "/":
                     f.write(f"\nExecStart={guest_tools_path}/{virtme_init_cmd}")
@@ -2000,7 +2232,11 @@ def save_terminal_settings():
 
 def restore_terminal_settings(settings):
     if settings is not None:
-        termios.tcsetattr(sys.stdin, termios.TCSAFLUSH, settings)
+        old = signal.signal(signal.SIGTTOU, signal.SIG_IGN)
+        try:
+            termios.tcsetattr(sys.stdin, termios.TCSAFLUSH, settings)
+        finally:
+            signal.signal(signal.SIGTTOU, old)
 
 
 def signal_handler(_signum, _frame):

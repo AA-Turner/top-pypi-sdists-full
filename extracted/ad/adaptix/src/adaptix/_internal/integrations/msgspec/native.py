@@ -1,6 +1,6 @@
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from contextlib import suppress
-from typing import Any, Callable, Optional, TypedDict
+from typing import Any, TypedDict
 
 from ...common import Dumper, Loader
 from ...morphing.load_error import LoadError
@@ -68,8 +68,8 @@ class NativeMsgspecProvider(LoaderProvider, DumperProvider):
 
 def native_msgspec(
     *preds: Pred,
-    convert: Optional[ConvertParams] = None,
-    to_builtins: Optional[ToBuiltinsParams] = None,
+    convert: ConvertParams | None = None,
+    to_builtins: ToBuiltinsParams | None = None,
 ) -> Provider:
     """Provider that represents value via msgspec.
     You can use this function to validate or serialize msgspec structs via msgspec itself.

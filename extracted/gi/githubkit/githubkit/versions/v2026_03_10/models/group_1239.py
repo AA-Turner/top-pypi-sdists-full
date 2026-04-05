@@ -12,18 +12,17 @@ from __future__ import annotations
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-
-from .group_0178 import CustomPropertyValue
-
-
-class ReposOwnerRepoPropertiesValuesPatchBody(GitHubModel):
-    """ReposOwnerRepoPropertiesValuesPatchBody"""
-
-    properties: list[CustomPropertyValue] = Field(
-        description="A list of custom property names and associated values to apply to the repositories."
-    )
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
 
-model_rebuild(ReposOwnerRepoPropertiesValuesPatchBody)
+class ReposOwnerRepoImportAuthorsAuthorIdPatchBody(GitHubModel):
+    """ReposOwnerRepoImportAuthorsAuthorIdPatchBody"""
 
-__all__ = ("ReposOwnerRepoPropertiesValuesPatchBody",)
+    email: Missing[str] = Field(default=UNSET, description="The new Git author email.")
+    name: Missing[str] = Field(default=UNSET, description="The new Git author name.")
+
+
+model_rebuild(ReposOwnerRepoImportAuthorsAuthorIdPatchBody)
+
+__all__ = ("ReposOwnerRepoImportAuthorsAuthorIdPatchBody",)

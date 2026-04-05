@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any
 
 from sqlalchemy import JSON, Dialect, TypeDecorator, null
 from sqlalchemy.dialects import postgresql
@@ -21,7 +21,7 @@ class AdaptixJSON(TypeDecorator):
         retort: AdornedRetort,
         tp: TypeHint,
         *,
-        impl: Optional[TypeEngine] = None,
+        impl: TypeEngine | None = None,
     ):
         super().__init__()
         self.retort = retort
@@ -37,7 +37,7 @@ class AdaptixJSON(TypeDecorator):
             return self._custom_impl
         return to_instance(self._load_default_dialect_impl(dialect))
 
-    def _load_default_dialect_impl(self, dialect: Dialect) -> Union[TypeEngine[Any], type[TypeEngine[Any]]]:
+    def _load_default_dialect_impl(self, dialect: Dialect) -> TypeEngine[Any] | type[TypeEngine[Any]]:
         if isinstance(dialect, PGDialect):
             return postgresql.JSONB
         return JSON

@@ -347,6 +347,24 @@ class TestRetentionWorker:
         assert len(rows) == 0
 
 
+class TestRetentionPurgesTaskOutput:
+    @pytest.mark.asyncio
+    async def test_run_once_purges_orphaned_task_output(self, tmp_path: Path) -> None:
+        conn = _create_test_db(tmp_path)
+        _insert_conversation(conn, "active", "2026-06-01T00:00:00")
+
+        orphan_id = "b2c3d4e5-5555-6666-7777-888888888888"
+        orphan_dir = tmp_path / "task_output" / orphan_id
+        orphan_dir.mkdir(parents=True)
+        (orphan_dir / "task.stdout").write_text("orphaned output")
+
+        worker = RetentionWorker(conn, tmp_path, retention_days=30)
+        count = await worker.run_once()
+
+        assert count >= 1
+        assert not orphan_dir.exists()
+
+
 class TestPurgeOrphanedSkipsFiles:
     def test_skips_non_directory_entries(self, tmp_path: Path) -> None:
         """Files directly in attachments root are not counted as orphaned dirs."""

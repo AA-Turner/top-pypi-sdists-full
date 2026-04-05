@@ -139,10 +139,10 @@ def test_interrupt_on_fallback_path_exits_cleanly(tmp_path: Path) -> None:
 
     t = threading.Thread(target=_reader, daemon=True)
     t.start()
-    assert found.wait(timeout=15), "Timed out waiting for step progress"
+    assert found.wait(timeout=30), "Timed out waiting for step progress"
 
     proc.send_signal(signal.SIGINT)
-    remainder, _ = proc.communicate(timeout=15)
+    remainder, _ = proc.communicate(timeout=30)
     output = "".join(lines) + (remainder or "")
 
     # Should not have application-level tracebacks

@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
     from .actions import ActionsClient
     from .activity import ActivityClient
+    from .agent_tasks import AgentTasksClient
     from .apps import AppsClient
     from .billing import BillingClient
     from .campaigns import CampaignsClient
@@ -85,6 +86,12 @@ class RestNamespace:
         return SecurityAdvisoriesClient(self._github)
 
     @cached_property
+    def agent_tasks(self) -> "AgentTasksClient":
+        from .agent_tasks import AgentTasksClient
+
+        return AgentTasksClient(self._github)
+
+    @cached_property
     def apps(self) -> "AppsClient":
         from .apps import AppsClient
 
@@ -131,6 +138,12 @@ class RestNamespace:
         from .code_security import CodeSecurityClient
 
         return CodeSecurityClient(self._github)
+
+    @cached_property
+    def copilot(self) -> "CopilotClient":
+        from .copilot import CopilotClient
+
+        return CopilotClient(self._github)
 
     @cached_property
     def dependabot(self) -> "DependabotClient":
@@ -221,12 +234,6 @@ class RestNamespace:
         from .codespaces import CodespacesClient
 
         return CodespacesClient(self._github)
-
-    @cached_property
-    def copilot(self) -> "CopilotClient":
-        from .copilot import CopilotClient
-
-        return CopilotClient(self._github)
 
     @cached_property
     def packages(self) -> "PackagesClient":

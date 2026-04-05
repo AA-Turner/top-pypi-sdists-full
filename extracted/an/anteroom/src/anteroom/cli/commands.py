@@ -94,6 +94,11 @@ CommandKind = Literal[
     # File operations (CLI-specific intent)
     "upload_file",
     "reprocess_source",
+    # Tasks
+    "show_tasks",
+    "show_task",
+    "show_task_output",
+    "cancel_task",
     # Forwarding
     "forward_prompt",
 ]
@@ -201,6 +206,9 @@ class CommandResult:
     # Config
     config_subcommand: str | None = None
     config_arg: str | None = None
+    # Task
+    task_target: str | None = None
+    task_tail_lines: int | None = None
     # Upload / reprocess
     upload_path: str | None = None
     reprocess_arg: str | None = None
@@ -245,6 +253,8 @@ COMMAND_DESCRIPTIONS: dict[str, str] = {
     "artifact": "manage artifacts",
     "artifacts": "list artifacts",
     "artifact-check": "artifact health check",
+    "task": "background task status and output",
+    "tasks": "list background tasks",
     "config": "view/edit scoped config",
     "clear": "clear screen",
     "copy": "copy last response",
@@ -294,6 +304,7 @@ SUBCOMMAND_COMPLETIONS: dict[str, list[str]] = {
     "plan": ["on", "off", "status", "approve", "edit", "reject"],
     "reprocess": ["all"],
     "mission": ["list", "status", "talk"],
+    "task": ["list", "show", "output", "tail", "cancel"],
 }
 
 ALL_COMMAND_NAMES: list[str] = [
@@ -334,6 +345,8 @@ ALL_COMMAND_NAMES: list[str] = [
     "copy",
     "spec",
     "specs",
+    "task",
+    "tasks",
     "mission",
     "missions",
     "quit",
@@ -645,6 +658,10 @@ def execute_slash_command(prompt: str, context: CommandContext) -> CommandResult
     # -- Plan --
     if parsed.name == "/plan":
         return _dispatch_plan(parsed, context)
+
+    # -- Tasks --
+    if parsed.name in {"/task", "/tasks"}:
+        return _dispatch_task(parsed)
 
     # -- Skill resolution (fallback) --
     if context.skill_registry is not None:
@@ -1048,6 +1065,61 @@ def _dispatch_plan(parsed: ParsedSlashCommand, context: CommandContext) -> Comma
         kind="show_message",
         command=parsed,
         message="Usage: `/plan on|off|status|approve|edit|reject` or `/plan <prompt>`.",
+    )
+
+
+def _dispatch_task(parsed: ParsedSlashCommand) -> CommandResult:
+    """Route ``/task <subcommand>`` to the correct result."""
+    parts = parsed.arg.split(maxsplit=2)
+    sub = parts[0].lower() if parts else ""
+
+    if parsed.name == "/tasks" or sub in {"", "list"}:
+        return CommandResult(kind="show_tasks", command=parsed)
+
+    if sub == "show":
+        target = parts[1].strip() if len(parts) >= 2 else ""
+        if not target:
+            return CommandResult(
+                kind="show_message",
+                command=parsed,
+                message="Usage: `/task show <task_id>`",
+            )
+        return CommandResult(kind="show_task", command=parsed, task_target=target)
+
+    if sub in {"output", "tail"}:
+        target = parts[1].strip() if len(parts) >= 2 else ""
+        if not target:
+            return CommandResult(
+                kind="show_message",
+                command=parsed,
+                message=f"Usage: `/task {sub} <task_id> [lines]`",
+            )
+        tail_lines: int | None = None
+        if len(parts) >= 3 and parts[2].strip().isdigit():
+            tail_lines = int(parts[2].strip())
+        elif sub == "tail":
+            tail_lines = 50
+        return CommandResult(
+            kind="show_task_output",
+            command=parsed,
+            task_target=target,
+            task_tail_lines=tail_lines,
+        )
+
+    if sub == "cancel":
+        target = parts[1].strip() if len(parts) >= 2 else ""
+        if not target:
+            return CommandResult(
+                kind="show_message",
+                command=parsed,
+                message="Usage: `/task cancel <task_id>`",
+            )
+        return CommandResult(kind="cancel_task", command=parsed, task_target=target)
+
+    return CommandResult(
+        kind="show_message",
+        command=parsed,
+        message="Usage: `/task {list,show,output,tail,cancel} [args]`",
     )
 
 

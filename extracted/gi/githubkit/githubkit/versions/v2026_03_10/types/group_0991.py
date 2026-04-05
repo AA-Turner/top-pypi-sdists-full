@@ -10,28 +10,24 @@ See https://github.com/github/rest-api-description for more information.
 from __future__ import annotations
 
 from typing import Literal
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 
-class OrgsOrgActionsVariablesNamePatchBodyType(TypedDict):
-    """OrgsOrgActionsVariablesNamePatchBody"""
+class OrganizationsOrgDependabotRepositoryAccessDefaultLevelPutBodyType(TypedDict):
+    """OrganizationsOrgDependabotRepositoryAccessDefaultLevelPutBody"""
 
-    name: NotRequired[str]
-    value: NotRequired[str]
-    visibility: NotRequired[Literal["all", "private", "selected"]]
-    selected_repository_ids: NotRequired[list[int]]
+    default_level: Literal["public", "internal"]
 
 
-class OrgsOrgActionsVariablesNamePatchBodyTypeForResponse(TypedDict):
-    """OrgsOrgActionsVariablesNamePatchBody"""
+class OrganizationsOrgDependabotRepositoryAccessDefaultLevelPutBodyTypeForResponse(
+    TypedDict
+):
+    """OrganizationsOrgDependabotRepositoryAccessDefaultLevelPutBody"""
 
-    name: NotRequired[str]
-    value: NotRequired[str]
-    visibility: NotRequired[Literal["all", "private", "selected"]]
-    selected_repository_ids: NotRequired[list[int]]
+    default_level: Literal["public", "internal"]
 
 
 __all__ = (
-    "OrgsOrgActionsVariablesNamePatchBodyType",
-    "OrgsOrgActionsVariablesNamePatchBodyTypeForResponse",
+    "OrganizationsOrgDependabotRepositoryAccessDefaultLevelPutBodyType",
+    "OrganizationsOrgDependabotRepositoryAccessDefaultLevelPutBodyTypeForResponse",
 )

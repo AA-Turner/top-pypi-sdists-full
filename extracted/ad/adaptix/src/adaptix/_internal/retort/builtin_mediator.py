@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
-from typing import Any, Callable, Generic, TypeVar
+from collections.abc import Callable, Mapping
+from typing import Any, Generic, TypeVar
 
 from ..provider.essential import CannotProvide, Mediator, Request
 

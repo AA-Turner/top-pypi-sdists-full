@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/django_coverage_plugin/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/django_coverage_plugin/blob/main/NOTICE.txt
 
 """The Django template coverage plugin."""
 
@@ -348,6 +348,13 @@ class FileReporter(coverage.plugin.FileReporter):
                 num_lines = len(lines)
                 if lines[0].isspace():
                     lineno += 1
+                    num_lines -= 1
+                # When a tag is not at the start of a line, the preceding
+                # TEXT token ends with whitespace and no newline.
+                # That partial line is not executable content.
+                if num_lines > 0 and (
+                    lines[-1].isspace() and not lines[-1].endswith(("\n", "\r"))
+                ):
                     num_lines -= 1
                 source_lines.update(range(lineno, lineno+num_lines))
 

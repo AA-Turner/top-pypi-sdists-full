@@ -13,12 +13,12 @@ use ort::{
 };
 
 // PP-LCNet_x1_0_textline_ori preprocessing (ImageNet normalization).
-// Input: resize to 160×80, normalize with ImageNet mean/std.
+// Input: resize to 160×80 (W×H), normalize with ImageNet mean/std.
 // Formula in substract_mean_normalize: (pixel - MEAN) * NORM
 // For ImageNet: (pixel/255 - mean) / std = (pixel - mean*255) * (1/(std*255))
-// PP-OCR angle classifier expects [3, 48, 192] input (cls_image_shape in PaddleOCR Python).
-const ANGLE_DST_WIDTH: u32 = 192;
-const ANGLE_DST_HEIGHT: u32 = 48;
+// V2 PP-LCNet angle classifier expects [3, 80, 160] input (NCHW).
+const ANGLE_DST_WIDTH: u32 = 160;
+const ANGLE_DST_HEIGHT: u32 = 80;
 const ANGLE_COLS: usize = 2;
 
 #[derive(Debug)]

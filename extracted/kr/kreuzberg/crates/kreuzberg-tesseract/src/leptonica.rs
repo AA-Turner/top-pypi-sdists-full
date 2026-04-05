@@ -140,6 +140,12 @@ unsafe extern "C" {
     /// Returns 0 on success.
     fn pixCountConnComp(pix: *mut c_void, connectivity: i32, pcount: *mut i32) -> i32;
 
+    /// Retrieves the horizontal and vertical resolution (DPI) from a Pix.
+    ///
+    /// Writes the x-resolution into `*pxres` and y-resolution into `*pyres`.
+    /// Returns 0 on success, non-zero on error.
+    fn pixGetResolution(pix: *const c_void, pxres: *mut i32, pyres: *mut i32) -> i32;
+
 }
 
 // ---------------------------------------------------------------------------
@@ -408,6 +414,54 @@ impl Pix {
         Ok(Pix { ptr: result })
     }
 
+    /// Returns the horizontal and vertical resolution (DPI) of this image.
+    ///
+    /// # Errors
+    ///
+    /// Returns `TesseractError::OcrError` if `pixGetResolution` fails.
+    pub fn get_resolution(&self) -> Result<(i32, i32)> {
+        let mut xres: i32 = 0;
+        let mut yres: i32 = 0;
+        // SAFETY: self.ptr is a valid non-null Pix. xres and yres are valid
+        // stack-allocated i32 values. pixGetResolution reads the Pix header.
+        let status = unsafe { pixGetResolution(self.ptr, &mut xres, &mut yres) };
+        if status != 0 {
+            Err(TesseractError::OcrError)
+        } else {
+            Ok((xres, yres))
+        }
+    }
+
+    /// Sets the horizontal and vertical resolution (DPI) on this image.
+    ///
+    /// # Errors
+    ///
+    /// Returns `TesseractError::OcrError` if `pixSetResolution` fails.
+    pub fn set_resolution(&mut self, xres: i32, yres: i32) -> Result<()> {
+        // SAFETY: self.ptr is a valid non-null Pix. pixSetResolution only
+        // writes two integer fields in the Pix header.
+        let status = unsafe { pixSetResolution(self.ptr, xres, yres) };
+        if status != 0 {
+            Err(TesseractError::OcrError)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Ensures the image has a valid (non-zero) DPI resolution.
+    ///
+    /// If both x and y resolution are zero, sets them to 72 DPI as a
+    /// safe fallback. This prevents Leptonica operations that depend on
+    /// resolution metadata from producing incorrect results.
+    fn ensure_valid_resolution(&self) {
+        if let Ok((xres, yres)) = self.get_resolution()
+            && (xres == 0 || yres == 0)
+        {
+            // SAFETY: self.ptr is valid. We set a safe default DPI.
+            unsafe { pixSetResolution(self.ptr, 72, 72) };
+        }
+    }
+
     /// Normalises the background of this image using morphological operations.
     ///
     /// Useful as a preprocessing step when the document has uneven illumination
@@ -428,6 +482,7 @@ impl Pix {
     /// let normalised = gray.background_normalize().unwrap();
     /// ```
     pub fn background_normalize(&self) -> Result<Pix> {
+        self.ensure_valid_resolution();
         // SAFETY: self.ptr is a valid non-null Pix. We pass null for pixim
         // (no mask image). pixBackgroundNormMorph() returns a newly allocated
         // Pix or null on failure.
@@ -467,6 +522,7 @@ impl Pix {
     /// let sharpened = pix.unsharp_mask(2, 0.4).unwrap();
     /// ```
     pub fn unsharp_mask(&self, halfwidth: i32, fract: f32) -> Result<Pix> {
+        self.ensure_valid_resolution();
         // SAFETY: self.ptr is valid and non-null. pixUnsharpMasking() returns
         // a new Pix without modifying or taking ownership of the source.
         let result = unsafe { pixUnsharpMasking(self.ptr, halfwidth, fract) };
@@ -574,6 +630,7 @@ impl Pix {
     /// assert_eq!(gray.depth(), 8);
     /// ```
     pub fn to_grayscale(&self) -> Result<Pix> {
+        self.ensure_valid_resolution();
         // SAFETY: self.ptr is valid and non-null. pixConvertRGBToGray() returns
         // a new 8 bpp Pix; the source is not modified.
         let result = unsafe { pixConvertRGBToGray(self.ptr, 0.0, 0.0, 0.0) };

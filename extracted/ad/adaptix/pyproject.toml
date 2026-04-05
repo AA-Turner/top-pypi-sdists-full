@@ -1,13 +1,15 @@
 [build-system]
-requires = ['setuptools==75.6.0']
-build-backend = 'setuptools.build_meta'
+requires = ["uv_build == 0.8.22"]
+build-backend = "uv_build"
 
 [project]
 name = 'adaptix'
-version = '3.0.0b11'
+version = '3.0.0b12'
 description = 'An extremely flexible and configurable data model conversion library'
 readme = 'README.md'
-requires-python = '>=3.9'
+requires-python = '>=3.10'
+license = 'Apache-2.0'
+license-files = ['LICENSE']
 dependencies = [
     'exceptiongroup>=1.1.3; python_version<"3.11"',
 ]
@@ -15,11 +17,11 @@ dependencies = [
 classifiers = [
     'Development Status :: 3 - Alpha',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
     'Programming Language :: Python :: Implementation :: CPython',
     'Programming Language :: Python :: Implementation :: PyPy',
     'Operating System :: OS Independent',
@@ -36,11 +38,11 @@ classifiers = [
 attrs = ['attrs >= 21.3.0']
 attrs-strict = ['attrs >= 21.3.0, <= 24.2.0']
 sqlalchemy = ['sqlalchemy >= 2.0.0']
-sqlalchemy-strict = ['sqlalchemy >= 2.0.0, <= 2.0.40']
-pydantic = ['pydantic >= 2.0.0']
-pydantic-strict = ['pydantic >= 2.0.0, <= 2.11.3']
+sqlalchemy-strict = ['sqlalchemy >= 2.0.0, <= 2.0.46']
+pydantic = ['pydantic >= 2.1.0']
+pydantic-strict = ['pydantic >= 2.1.0, <= 2.12.5']
 msgspec = ['msgspec >= 0.18.5']
-msgspec-strict = ['msgspec >= 0.18.5, <= 0.19.0']
+msgspec-strict = ['msgspec >= 0.18.5, <= 0.20.0']
 
 [project.urls]
 'Homepage' = 'https://github.com/reagento/adaptix'
@@ -50,11 +52,6 @@ msgspec-strict = ['msgspec >= 0.18.5, <= 0.19.0']
 'Source' = 'https://github.com/reagento/adaptix/'
 'Download' = 'https://github.com/reagento/adaptix/#files'
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.package-data]
-adaptix = ['py.typed']
 
 [[project.authors]]
 name = 'A. Tikhonov'
@@ -74,6 +71,9 @@ python_files = [
   'local_helpers.py',
 ]
 testpaths = ['tests', 'examples']
+
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 branch = true
@@ -121,6 +121,9 @@ ignore_decorators = ['@_aspect_storage.add', '@overload', '@abstractmethod']
 line-length = 120
 output-format = "concise"
 
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
 [tool.ruff.lint]
 
 allowed-confusables = ['×', '‹', '›']
@@ -134,14 +137,17 @@ fixable = [
   'PT001',
   'RUF023',
   'RUF022',
+  'I001',
 ]
 ignore = [
-  # Rules that should be turned on in the near future
+  # Rules that should be turned on soon
   'D',
   'N818',
   'B904',
   'FIX002',
   'RUF012',
+
+  'PYI019',  # turn on after 3.11
 
   # Rules emitting false alerts
   'N804',
@@ -172,15 +178,40 @@ ignore = [
   'RSE102',
   'TC003',
   'PYI025',
-
-  # Rules conflictin with other tools
-  'I001',
+  'TC006',
+  'C420',
+  'PYI061',
+  'PLW1641',
+  'FURB157',
 ]
+
+[tool.ruff.per-file-target-version]
+"tests/*_312.py" = "py312"
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ['F401']
 
-"test_*" = ['S101', 'PLR2004', 'PLC0105', 'N806', 'FA102', 'UP035', 'UP006', 'E501']
+"tests/*" = [
+  'S101',
+  'PLR2004',
+  'N806',
+  'FA102',
+
+  'E501',
+  'PLC0105',
+  'PLC0415',
+  'PYI061',
+  'PLW1641',
+  'FURB157',
+
+  # Test must keep old type hints
+  'UP006',
+  'UP007',
+  'UP035',
+  'UP044',
+  'UP045',
+  'UP049',
+]
 "tests/*/local_helpers.py" = ['S101', 'PLR2004', 'PLC0105', 'N806', 'FA102']
 "tests/*/data_*.py" = ['F821']
 "tests/tests_helpers/*" = ['INP001', 'S101']
@@ -192,7 +223,12 @@ ignore = [
   'SLOT000', 'S106', 'DTZ001'
 ]
 
-"scripts/*" = ['INP001']
+"examples/*" = [
+  'UP035',
+  'PLW1641', 'S101'
+]
+
+"scripts/*" = ['INP001', 'PT028']
 
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = true

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: efoli
-Version: 2.2.0
+Version: 2.3.0
 Summary: Enums and related helper functions that model EDIFACT relevant data for German utilities
 Project-URL: Changelog, https://github.com/Hochfrequenz/efoli/releases
 Project-URL: Homepage, https://github.com/Hochfrequenz/efoli

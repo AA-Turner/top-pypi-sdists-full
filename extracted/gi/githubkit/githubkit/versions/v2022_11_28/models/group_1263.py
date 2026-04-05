@@ -9,8 +9,6 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
@@ -18,36 +16,22 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class ReposOwnerRepoReleasesReleaseIdPatchBody(GitHubModel):
-    """ReposOwnerRepoReleasesReleaseIdPatchBody"""
+class ReposOwnerRepoLabelsPostBody(GitHubModel):
+    """ReposOwnerRepoLabelsPostBody"""
 
-    tag_name: Missing[str] = Field(default=UNSET, description="The name of the tag.")
-    target_commitish: Missing[str] = Field(
-        default=UNSET,
-        description="Specifies the commitish value that determines where the Git tag is created from. Can be any branch or commit SHA. Unused if the Git tag already exists. Default: the repository's default branch.",
+    name: str = Field(
+        description='The name of the label. Emoji can be added to label names, using either native emoji or colon-style markup. For example, typing `:strawberry:` will render the emoji ![:strawberry:](https://github.githubassets.com/images/icons/emoji/unicode/1f353.png ":strawberry:"). For a full list of available emoji and codes, see "[Emoji cheat sheet](https://github.com/ikatyang/emoji-cheat-sheet)."'
     )
-    name: Missing[str] = Field(default=UNSET, description="The name of the release.")
-    body: Missing[str] = Field(
-        default=UNSET, description="Text describing the contents of the tag."
-    )
-    draft: Missing[bool] = Field(
+    color: Missing[str] = Field(
         default=UNSET,
-        description="`true` makes the release a draft, and `false` publishes the release.",
+        description="The [hexadecimal color code](http://www.color-hex.com/) for the label, without the leading `#`.",
     )
-    prerelease: Missing[bool] = Field(
+    description: Missing[str] = Field(
         default=UNSET,
-        description="`true` to identify the release as a prerelease, `false` to identify the release as a full release.",
-    )
-    make_latest: Missing[Literal["true", "false", "legacy"]] = Field(
-        default=UNSET,
-        description="Specifies whether this release should be set as the latest release for the repository. Drafts and prereleases cannot be set as latest. Defaults to `true` for newly published releases. `legacy` specifies that the latest release should be determined based on the release creation date and higher semantic version.",
-    )
-    discussion_category_name: Missing[str] = Field(
-        default=UNSET,
-        description='If specified, a discussion of the specified category is created and linked to the release. The value must be a category that already exists in the repository. If there is already a discussion linked to the release, this parameter is ignored. For more information, see "[Managing categories for discussions in your repository](https://docs.github.com/discussions/managing-discussions-for-your-community/managing-categories-for-discussions-in-your-repository)."',
+        description="A short description of the label. Must be 100 characters or fewer.",
     )
 
 
-model_rebuild(ReposOwnerRepoReleasesReleaseIdPatchBody)
+model_rebuild(ReposOwnerRepoLabelsPostBody)
 
-__all__ = ("ReposOwnerRepoReleasesReleaseIdPatchBody",)
+__all__ = ("ReposOwnerRepoLabelsPostBody",)

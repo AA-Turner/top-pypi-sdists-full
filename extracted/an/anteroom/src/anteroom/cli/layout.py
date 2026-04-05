@@ -37,6 +37,7 @@ _APPROVAL_PROMPT_STYLES = {
 }
 
 _current_approval_mode: str = ""
+_bg_task_count: int = 0
 
 
 def set_approval_mode(mode: str) -> None:
@@ -45,14 +46,24 @@ def set_approval_mode(mode: str) -> None:
     _current_approval_mode = mode
 
 
+def set_bg_task_count(count: int) -> None:
+    """Update the background task count shown in the prompt prefix (#1313)."""
+    global _bg_task_count
+    _bg_task_count = max(0, count)
+
+
 def input_line_prefix(line_number: int, wrap_count: int) -> "StyleAndTextTuples":
     """Prompt prefix for the input area: ``> `` on line 0, ``  `` after.
 
-    Color varies by approval mode when set.
+    Color varies by approval mode when set. When background tasks are
+    running and the foreground is idle, appends a dim indicator (#1313).
     """
     if line_number == 0:
         style = _APPROVAL_PROMPT_STYLES.get(_current_approval_mode, "class:prompt")
-        return [(style, "> ")]
+        parts: StyleAndTextTuples = [(style, "> ")]
+        if _bg_task_count > 0:
+            parts.append(("class:prompt.bg", f"[{_bg_task_count} bg] "))
+        return parts
     return [("class:prompt.continuation", ". ")]
 
 

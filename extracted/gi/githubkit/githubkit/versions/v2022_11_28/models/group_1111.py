@@ -9,20 +9,25 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
-from .group_0262 import ActionsSecret
+from .group_0175 import ProjectsV2FieldIterationConfiguration
 
 
-class ReposOwnerRepoActionsSecretsGetResponse200(GitHubModel):
-    """ReposOwnerRepoActionsSecretsGetResponse200"""
+class OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof3(GitHubModel):
+    """OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof3"""
 
-    total_count: int = Field()
-    secrets: list[ActionsSecret] = Field()
+    name: str = Field(description="The name of the field.")
+    data_type: Literal["iteration"] = Field(description="The field's data type.")
+    iteration_configuration: ProjectsV2FieldIterationConfiguration = Field(
+        description="The configuration for iteration fields."
+    )
 
 
-model_rebuild(ReposOwnerRepoActionsSecretsGetResponse200)
+model_rebuild(OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof3)
 
-__all__ = ("ReposOwnerRepoActionsSecretsGetResponse200",)
+__all__ = ("OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof3",)

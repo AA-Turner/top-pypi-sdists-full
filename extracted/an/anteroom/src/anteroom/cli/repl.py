@@ -64,6 +64,10 @@ logger = logging.getLogger(__name__)
 
 _IS_WINDOWS = platform.system() == "Windows"
 
+# Module-level mutable ref for background task manager (#1311).
+# Populated in _run_repl, read by tool_executor in run_cli.
+_bg_manager_ref: list[Any] = [None]
+
 
 def _add_signal_handler(loop: asyncio.AbstractEventLoop, sig: int, callback: Any) -> bool:
     """Add a signal handler, returning False on Windows where it's unsupported."""
@@ -2722,7 +2726,15 @@ async def run_cli(
                 "_runtime_info": _rt_info,
             }
         if tool_registry.has_tool(tool_name):
-            result = await tool_registry.call_tool(tool_name, arguments)
+            result = await tool_registry.call_tool(
+                tool_name,
+                arguments,
+                _extra_context={
+                    "bg_manager": _bg_manager_ref[0],
+                    "conversation_id": conversation_id,
+                    "db": db,
+                },
+            )
             _audit_tool_call(audit_writer, tool_name, arguments, result, conversation_id)
             return result
         if mcp_manager:
@@ -3920,6 +3932,11 @@ async def _run_repl(
     # Instead of blocking on prompt_async then running agent loop sequentially,
     # we use two coroutines: one collects input, one processes agent responses.
     # prompt_toolkit's patch_stdout keeps the input prompt anchored at the bottom.
+
+    # Background task manager (#1311)
+    from anteroom.services.background_tasks import BackgroundTaskManager
+
+    _bg_manager_ref[0] = BackgroundTaskManager(db=db, data_dir=config.app.data_dir)
 
     input_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=10)
     agent_busy = asyncio.Event()  # set while agent loop is running
@@ -5840,6 +5857,49 @@ async def _run_repl(
                     )
                     continue
 
+                elif cmd in ("/task", "/tasks"):
+                    _bg_mgr = locals().get("bg_manager")
+                    if _bg_mgr is None:
+                        renderer.console.print("[dim]Background task manager not available.[/dim]\n")
+                    else:
+                        from .task_cli import (
+                            handle_task_cancel,
+                            handle_task_list,
+                            handle_task_output,
+                            handle_task_show,
+                        )
+
+                        _t_parts = user_input.split(maxsplit=3)
+                        _t_sub = _t_parts[1].lower() if len(_t_parts) >= 2 else ""
+                        if cmd == "/tasks":
+                            _t_sub = "list"
+                        if _t_sub in ("", "list"):
+                            handle_task_list(_bg_mgr, conv["id"])
+                        elif _t_sub == "show":
+                            _t_id = _t_parts[2].strip() if len(_t_parts) >= 3 else ""
+                            if _t_id:
+                                handle_task_show(_bg_mgr, _t_id)
+                            else:
+                                renderer.console.print("[dim]Usage: /task show <task_id>[/dim]\n")
+                        elif _t_sub in ("output", "tail"):
+                            _t_id = _t_parts[2].strip() if len(_t_parts) >= 3 else ""
+                            if _t_id:
+                                _t_tail = 50 if _t_sub == "tail" else None
+                                if len(_t_parts) >= 4 and _t_parts[3].strip().isdigit():
+                                    _t_tail = int(_t_parts[3].strip())
+                                handle_task_output(_bg_mgr, _t_id, tail_lines=_t_tail)
+                            else:
+                                renderer.console.print(f"[dim]Usage: /task {_t_sub} <task_id> [lines][/dim]\n")
+                        elif _t_sub == "cancel":
+                            _t_id = _t_parts[2].strip() if len(_t_parts) >= 3 else ""
+                            if _t_id:
+                                handle_task_cancel(_bg_mgr, _t_id)
+                            else:
+                                renderer.console.print("[dim]Usage: /task cancel <task_id>[/dim]\n")
+                        else:
+                            renderer.console.print("[dim]Usage: /task {list,show,output,tail,cancel} [args][/dim]\n")
+                    continue
+
                 elif cmd in ("/mission", "/missions"):
                     await _handle_mission_command(
                         user_input,
@@ -6714,7 +6774,31 @@ async def _run_repl(
         input_task = asyncio.create_task(_collect_input_simple())
         runner_task = asyncio.create_task(_agent_runner())
 
-        done_tasks, pending_tasks = await asyncio.wait({input_task, runner_task}, return_when=asyncio.FIRST_COMPLETED)
+        # Background task completion poller (#1311)
+        async def _bg_task_poller() -> None:
+            from .layout import set_bg_task_count
+
+            while not exit_flag.is_set():
+                try:
+                    if _bg_manager_ref[0] is None:
+                        await asyncio.sleep(2)
+                        continue
+                    completed = _bg_manager_ref[0].poll_completed()
+                    for task in completed:
+                        status = task.get("status", "unknown")
+                        exit_code = task.get("exit_code", "?")
+                        tid = task.get("id", "")[:8]
+                        renderer.console.print(f"[dim]\\[bg] Task {tid} {status} (exit {exit_code})[/dim]")
+                    set_bg_task_count(_bg_manager_ref[0].count_running())
+                except Exception:
+                    pass
+                await asyncio.sleep(2)
+
+        bg_poller_task = asyncio.create_task(_bg_task_poller())
+
+        done_tasks, pending_tasks = await asyncio.wait(
+            {input_task, runner_task, bg_poller_task}, return_when=asyncio.FIRST_COMPLETED
+        )
         # Surface exceptions from completed tasks so they aren't silently lost (#937)
         for t in done_tasks:
             try:

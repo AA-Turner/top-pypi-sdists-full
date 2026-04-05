@@ -1,19 +1,25 @@
 """
 pylibftdi - python wrapper for libftdi
 
-Copyright (c) 2010-2024 Ben Bass <benbass@codedstructure.net>
+Copyright (c) 2010-2026 Ben Bass <benbass@codedstructure.net>
 See LICENSE file for details and (absence of) warranty
 
 pylibftdi: https://github.com/codedstructure/pylibftdi
 
-libftdi can be found at: http://www.intra2net.com/en/developer/libftdi/
+libftdi can be found at: https://www.intra2net.com/en/developer/libftdi/
 
 Neither libftdi nor Intra2net are associated with this project;
 if something goes wrong here, it's almost definitely my fault
 rather than a problem with the libftdi library.
 """
 
-__VERSION__ = "0.23.0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __VERSION__ = version("pylibftdi")
+except PackageNotFoundError:
+    __VERSION__ = "0.23.0"  # fallback for editable / uninstalled
+
 __AUTHOR__ = "Ben Bass"
 
 
@@ -31,15 +37,7 @@ __all__ = [
     "USB_PID_LIST",
 ]
 
-import sys
-
 from pylibftdi import _base, bitbang, device, driver, serial_device, util
-
-if sys.version_info < (3, 7, 0):  # noqa
-    import warnings
-
-    warnings.warn("Python version < 3.7.0: untested; expect issues.", stacklevel=0)
-
 
 # Bring them in to package scope so we can treat pylibftdi
 # as a module if we want.

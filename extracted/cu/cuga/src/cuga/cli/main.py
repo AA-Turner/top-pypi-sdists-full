@@ -1057,6 +1057,7 @@ def start(
     if service == "demo_health":
         os.environ["CUGA_DEMO_ADVANCED"] = "true"
         os.environ["CUGA_MANAGER_MODE"] = "true"
+        os.environ["CUGA_DEMO_MODE"] = "health"
         os.environ["DYNACONF_POLICY__FILESYSTEM_SYNC"] = "false"
         os.environ["MCP_SERVERS_FILE"] = "none"
         ensure_managed_mcp_file_exists(get_managed_mcp_path())

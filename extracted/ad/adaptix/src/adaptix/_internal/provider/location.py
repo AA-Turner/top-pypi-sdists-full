@@ -1,6 +1,6 @@
-from collections.abc import Container, Mapping
+from collections.abc import Callable, Container, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Callable, TypeVar, Union
+from typing import Any, TypeVar
 
 from ..common import TypeHint
 from ..model_tools.definitions import Accessor, Default
@@ -12,7 +12,7 @@ class _BaseLoc:
     def cast_or_raise(
         self,
         tp: type[T],
-        exception_factory: Callable[[], Union[BaseException, type[BaseException]]],
+        exception_factory: Callable[[], BaseException | type[BaseException]],
     ) -> T:
         if type(self) in _CAST_SOURCES[tp]:
             return self  # type: ignore[return-value]
@@ -97,4 +97,4 @@ _CAST_SOURCES: dict[Any, Container[Any]] = {
     GenericParamLoc: {GenericParamLoc},
 }
 
-AnyLoc = Union[TypeHintLoc, FieldLoc, InputFieldLoc, InputFuncFieldLoc, OutputFieldLoc, GenericParamLoc]
+AnyLoc = TypeHintLoc | FieldLoc | InputFieldLoc | InputFuncFieldLoc | OutputFieldLoc | GenericParamLoc

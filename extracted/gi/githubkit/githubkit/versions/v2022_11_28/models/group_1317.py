@@ -9,36 +9,34 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
 
-class UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBody(GitHubModel):
-    """UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBody"""
+class ReposTemplateOwnerTemplateRepoGeneratePostBody(GitHubModel):
+    """ReposTemplateOwnerTemplateRepoGeneratePostBody"""
 
-    fields: list[
-        UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBodyPropFieldsItems
-    ] = Field(description="A list of field updates to apply.")
-
-
-class UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBodyPropFieldsItems(
-    GitHubModel
-):
-    """UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBodyPropFieldsItems"""
-
-    id: int = Field(description="The ID of the project field to update.")
-    value: Union[str, float, None] = Field(
-        description="The new value for the field:\n- For text, number, and date fields, provide the new value directly.\n- For single select and iteration fields, provide the ID of the option or iteration.\n- To clear the field, set this to null."
+    owner: Missing[str] = Field(
+        default=UNSET,
+        description="The organization or person who will own the new repository. To create a new repository in an organization, the authenticated user must be a member of the specified organization.",
+    )
+    name: str = Field(description="The name of the new repository.")
+    description: Missing[str] = Field(
+        default=UNSET, description="A short description of the new repository."
+    )
+    include_all_branches: Missing[bool] = Field(
+        default=UNSET,
+        description="Set to `true` to include the directory structure and files from all branches in the template repository, and not just the default branch. Default: `false`.",
+    )
+    private: Missing[bool] = Field(
+        default=UNSET,
+        description="Either `true` to create a new private repository or `false` to create a new public one.",
     )
 
 
-model_rebuild(UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBody)
-model_rebuild(UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBodyPropFieldsItems)
+model_rebuild(ReposTemplateOwnerTemplateRepoGeneratePostBody)
 
-__all__ = (
-    "UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBody",
-    "UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBodyPropFieldsItems",
-)
+__all__ = ("ReposTemplateOwnerTemplateRepoGeneratePostBody",)

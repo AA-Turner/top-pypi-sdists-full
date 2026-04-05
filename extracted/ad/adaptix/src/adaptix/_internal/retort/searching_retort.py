@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Callable, Optional, TypeVar
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from typing import Any, TypeVar
 
 from ..compat import CompatBaseExceptionGroup
 from ..provider.essential import (
@@ -24,7 +24,7 @@ from .routers import CheckerAndHandler
 
 @with_module("adaptix")
 class ProviderNotFoundError(Exception):
-    def __init__(self, message: str, description: Optional[str] = None):
+    def __init__(self, message: str, description: str | None = None):
         self.message = message
         self.description = description
 
@@ -48,7 +48,7 @@ class SearchingRetort(BaseRetort, Provider, ABC):
         self,
         *,
         recipe: Iterable[Provider] = (),
-        error_renderer: Optional[ErrorRenderer] = default_error_renderer,
+        error_renderer: ErrorRenderer | None = default_error_renderer,
     ):
         self._error_renderer = error_renderer
         super().__init__(recipe=recipe)
@@ -106,12 +106,12 @@ class SearchingRetort(BaseRetort, Provider, ABC):
         exception.__cause__ = cause
         return exception
 
-    def _get_exception_cause(self, exc: CannotProvide) -> Optional[CannotProvide]:
+    def _get_exception_cause(self, exc: CannotProvide) -> CannotProvide | None:
         if isinstance(exc, AggregateCannotProvide):
             return self._extract_demonstrative_exc(exc)
         return exc if exc.is_demonstrative else None
 
-    def _extract_demonstrative_exc(self, exc: AggregateCannotProvide) -> Optional[CannotProvide]:
+    def _extract_demonstrative_exc(self, exc: AggregateCannotProvide) -> CannotProvide | None:
         demonstrative_exc_list: list[CannotProvide] = []
         for sub_exc in exc.exceptions:
             if isinstance(sub_exc, AggregateCannotProvide):
@@ -160,7 +160,7 @@ class SearchingRetort(BaseRetort, Provider, ABC):
         ...
 
     @abstractmethod
-    def _create_recursion_resolver(self, request_cls: type[RequestT]) -> Optional[RecursionResolver[RequestT, Any]]:
+    def _create_recursion_resolver(self, request_cls: type[RequestT]) -> RecursionResolver[RequestT, Any] | None:
         ...
 
     def _create_request_bus(

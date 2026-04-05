@@ -12,19 +12,17 @@ from __future__ import annotations
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
+
+from .group_0294 import CheckRun
 
 
-class ReposOwnerRepoIssuesIssueNumberAssigneesDeleteBody(GitHubModel):
-    """ReposOwnerRepoIssuesIssueNumberAssigneesDeleteBody"""
+class ReposOwnerRepoCommitsRefCheckRunsGetResponse200(GitHubModel):
+    """ReposOwnerRepoCommitsRefCheckRunsGetResponse200"""
 
-    assignees: Missing[list[str]] = Field(
-        default=UNSET,
-        description="Usernames of assignees to remove from an issue. _NOTE: Only users with push access can remove assignees from an issue. Assignees are silently ignored otherwise._",
-    )
+    total_count: int = Field()
+    check_runs: list[CheckRun] = Field()
 
 
-model_rebuild(ReposOwnerRepoIssuesIssueNumberAssigneesDeleteBody)
+model_rebuild(ReposOwnerRepoCommitsRefCheckRunsGetResponse200)
 
-__all__ = ("ReposOwnerRepoIssuesIssueNumberAssigneesDeleteBody",)
+__all__ = ("ReposOwnerRepoCommitsRefCheckRunsGetResponse200",)

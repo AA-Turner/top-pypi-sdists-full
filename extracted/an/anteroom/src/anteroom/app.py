@@ -143,6 +143,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.event_bus = event_bus
     event_bus.start_polling(db_manager)
 
+    # Background task manager (#1311)
+    from .services.background_tasks import BackgroundTaskManager
+
+    app.state.bg_manager = BackgroundTaskManager(db=app.state.db, data_dir=config.app.data_dir, event_bus=event_bus)
+
     mcp_manager = None
     if config.mcp_servers:
         _write_progress(_progress_path, "mcp_servers", "running", detail=f"{len(config.mcp_servers)} servers")
@@ -985,6 +990,10 @@ def create_app(config: AppConfig | None = None, enforced_fields: list[str] | Non
     app.include_router(packs_router.router, prefix="/api")
     app.include_router(spaces_router.router, prefix="/api")
     app.include_router(workflows_router.router, prefix="/api")
+
+    from .routers import tasks as tasks_router
+
+    app.include_router(tasks_router.router, prefix="/api")
 
     # Specs router — stale/diff endpoints use {fqn:path} so must come before
     # the catch-all show endpoint. Route ordering within the router handles this.

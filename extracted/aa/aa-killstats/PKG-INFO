@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aa-killstats
-Version: 2.0.3
+Version: 2.0.4
 Summary: Killboard Stats shows Hall of Shame/Fame, Kills, Top Kills,Loss,etc.
 Project-URL: Changelog, https://github.com/Geuthur/aa-killstats/blob/master/CHANGELOG.md
 Project-URL: Documentation, https://github.com/Geuthur/aa-killstats/blob/master/README.md
@@ -704,7 +704,7 @@ Requires-Dist: django-esi<=9,>=8
 Requires-Dist: django-eveonline-sde
 Requires-Dist: django-ninja
 Provides-Extra: tests-allianceauth-development
-Requires-Dist: allianceauth==5.0.0b1; extra == 'tests-allianceauth-development'
+Requires-Dist: allianceauth==5.0.0b2; extra == 'tests-allianceauth-development'
 Requires-Dist: coverage; extra == 'tests-allianceauth-development'
 Requires-Dist: factory-boy; extra == 'tests-allianceauth-development'
 Provides-Extra: tests-allianceauth-latest

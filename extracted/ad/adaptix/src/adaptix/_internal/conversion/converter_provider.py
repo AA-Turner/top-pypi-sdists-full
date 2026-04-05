@@ -1,8 +1,8 @@
 import itertools
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from functools import update_wrapper
 from inspect import Parameter, Signature
-from typing import Any, Callable, Optional
+from typing import Any
 
 from ..code_tools.cascade_namespace import BuiltinCascadeNamespace, CascadeNamespace
 from ..code_tools.code_builder import CodeBuilder
@@ -82,7 +82,7 @@ class BuiltinConverterProvider(ConverterProvider):
     def _produce_code(
         self,
         signature: Signature,
-        stub_function: Optional[Callable],
+        stub_function: Callable | None,
         closure_name: str,
         coercer: Coercer,
     ) -> tuple[str, Mapping[str, object]]:

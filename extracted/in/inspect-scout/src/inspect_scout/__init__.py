@@ -8,6 +8,7 @@ from ._llm_scanner import (
     AnswerStructured,
     ResultReducer,
     answer_type,
+    extract_references,
     generate_answer,
     llm_scanner,
     parse_answer,
@@ -31,6 +32,7 @@ from ._scanjob import ScanJob, scanjob
 from ._scanjob_config import ScanJobConfig
 from ._scanlist import scan_list
 from ._scanner.extract import (
+    LabelForId,
     MessageFormatOptions,
     MessagesPreprocessor,
     message_numbering,
@@ -159,6 +161,7 @@ __all__ = [
     "MessageType",
     "TranscriptContent",
     "as_scorer",
+    "LabelForId",
     "message_numbering",
     "messages_as_str",
     "span_messages",
@@ -178,6 +181,7 @@ __all__ = [
     "answer_type",
     "generate_answer",
     "parse_answer",
+    "extract_references",
     "scanner_prompt",
     "grep_scanner",
     # validation

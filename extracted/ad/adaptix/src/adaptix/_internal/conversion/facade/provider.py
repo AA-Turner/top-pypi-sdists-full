@@ -1,4 +1,5 @@
-from typing import Any, Callable, Optional, overload
+from collections.abc import Callable
+from typing import Any, overload
 
 from ...common import OneArgCoercer
 from ...model_tools.definitions import DefaultFactory, DefaultValue
@@ -11,7 +12,7 @@ from ..policy_provider import UnlinkedOptionalPolicyProvider
 from ..request_filtering import FromCtxParam
 
 
-def link(src: Pred, dst: Pred, *, coercer: Optional[OneArgCoercer] = None) -> Provider:
+def link(src: Pred, dst: Pred, *, coercer: OneArgCoercer | None = None) -> Provider:
     """Basic provider to define custom linking between fields.
 
     :param src: Predicate specifying source point of linking. See :ref:`predicate-system` for details.

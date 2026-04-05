@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Set
-from typing import Optional
 
 from .utils import NAME_TO_BUILTIN
 
@@ -28,9 +27,9 @@ class BuiltinCascadeNamespace(CascadeNamespace):
 
     def __init__(
         self,
-        constants: Optional[Mapping[str, object]] = None,
-        outer_constants: Optional[Mapping[str, object]] = None,
-        occupied: Optional[Set[str]] = None,
+        constants: Mapping[str, object] | None = None,
+        outer_constants: Mapping[str, object] | None = None,
+        occupied: Set[str] | None = None,
         *,
         allow_builtins: bool = False,
     ):
