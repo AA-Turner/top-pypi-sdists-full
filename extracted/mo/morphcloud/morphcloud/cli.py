@@ -212,6 +212,22 @@ def unix_timestamp_to_datetime(timestamp):
             return "Invalid Timestamp"
 
 
+def _validate_positive_snapshot_ttl(ctx, param, value):
+    if value is None:
+        return value
+    if value <= 0:
+        raise click.BadParameter("must be greater than 0")
+    return value
+
+
+def _validate_snapshot_ttl_or_clear(ctx, param, value):
+    if value is None:
+        return value
+    if value == -1 or value > 0:
+        return value
+    raise click.BadParameter("must be greater than 0, or -1 to clear")
+
+
 # ─────────────────────────────────────────────────────────────
 #  Profiles
 # ─────────────────────────────────────────────────────────────
@@ -277,6 +293,9 @@ def profile_show(name):
 @click.option(
     "--service-base-url", default=None, help="Override the services API base URL."
 )
+@click.option(
+    "--volumes-base-url", default=None, help="Override the volumes API base URL."
+)
 @click.option("--admin-base-url", default=None, help="Override the admin API base URL.")
 @click.option("--db-base-url", default=None, help="Override the db API base URL.")
 def profile_set(
@@ -287,6 +306,7 @@ def profile_set(
     ssh_hostname,
     ssh_port,
     service_base_url,
+    volumes_base_url,
     admin_base_url,
     db_base_url,
 ):
@@ -297,6 +317,7 @@ def profile_set(
         "ssh_hostname": ssh_hostname,
         "ssh_port": ssh_port,
         "service_base_url": service_base_url,
+        "volumes_base_url": volumes_base_url,
         "admin_base_url": admin_base_url,
         "db_base_url": db_base_url,
     }
@@ -1001,9 +1022,15 @@ def list_snapshots(metadata, interactive, page, limit, json_mode):
 
             def format_item(snap):
                 created = unix_timestamp_to_datetime(snap.created)
+                ttl_seconds = (
+                    str(snap.ttl.ttl_seconds)
+                    if snap.ttl.ttl_seconds is not None
+                    else "-"
+                )
                 return (
                     f"   📸 {snap.id:<24} | {created:<22} | "
-                    f"{snap.status:<8} | vCPU {snap.spec.vcpus:<2} | Mem {snap.spec.memory:<6} | Disk {snap.spec.disk_size:<6} | img {snap.refs.image_id}"
+                    f"{snap.status:<8} | TTL {ttl_seconds:<6} | "
+                    f"vCPU {snap.spec.vcpus:<2} | Mem {snap.spec.memory:<6} | Disk {snap.spec.disk_size:<6} | img {snap.refs.image_id}"
                 )
 
             def on_search():
@@ -1066,6 +1093,7 @@ def list_snapshots(metadata, interactive, page, limit, json_mode):
                 "ID",
                 "Created At",
                 "Status",
+                "TTL (s)",
                 "VCPUs",
                 "Memory (MB)",
                 "Disk Size (MB)",
@@ -1078,6 +1106,11 @@ def list_snapshots(metadata, interactive, page, limit, json_mode):
                         snap.id,
                         unix_timestamp_to_datetime(snap.created),
                         snap.status,
+                        (
+                            snap.ttl.ttl_seconds
+                            if snap.ttl.ttl_seconds is not None
+                            else ""
+                        ),
                         snap.spec.vcpus,
                         snap.spec.memory,
                         snap.spec.disk_size,
@@ -1098,6 +1131,13 @@ def list_snapshots(metadata, interactive, page, limit, json_mode):
 )
 @click.option("--digest", help="Optional unique digest for caching/identification.")
 @click.option(
+    "--ttl-seconds",
+    type=int,
+    required=False,
+    help="Optional snapshot retention period in seconds.",
+    callback=_validate_positive_snapshot_ttl,
+)
+@click.option(
     "--metadata",
     "-m",
     "metadata_options",
@@ -1108,7 +1148,14 @@ def list_snapshots(metadata, interactive, page, limit, json_mode):
     "--json", "json_mode", is_flag=True, default=False, help="Output result as JSON."
 )
 def create_snapshot(
-    image_id, vcpus, memory, disk_size, digest, metadata_options, json_mode
+    image_id,
+    vcpus,
+    memory,
+    disk_size,
+    digest,
+    ttl_seconds,
+    metadata_options,
+    json_mode,
 ):
     """Create a new snapshot from a base image and specifications."""
     client = get_client()
@@ -1131,6 +1178,7 @@ def create_snapshot(
                 memory=memory,
                 disk_size=disk_size,
                 digest=digest,
+                ttl_seconds=ttl_seconds,
                 metadata=metadata_dict if metadata_dict else None,
             )
 
@@ -1140,6 +1188,8 @@ def create_snapshot(
             click.secho(f"Snapshot created: {new_snapshot.id}", fg="green")
             if new_snapshot.digest:
                 click.echo(f"Digest: {new_snapshot.digest}")
+            if new_snapshot.ttl.ttl_seconds is not None:
+                click.echo(f"TTL: {new_snapshot.ttl.ttl_seconds} seconds")
     except Exception as e:
         handle_api_error(e)
 
@@ -1226,6 +1276,53 @@ def set_snapshot_metadata(snapshot_id, metadata, metadata_args):
 
         updated = client.snapshots.get(snapshot_id)
         click.echo(format_json(updated))
+    except api.ApiError as e:
+        if e.status_code == 404:
+            click.echo(f"Error: Snapshot '{snapshot_id}' not found.", err=True)
+            sys.exit(1)
+        else:
+            handle_api_error(e)
+    except Exception as e:
+        handle_api_error(e)
+
+
+@snapshot.command("set-ttl")
+@click.argument("snapshot_id")
+@click.option(
+    "--ttl-seconds",
+    type=int,
+    required=True,
+    help="Snapshot TTL in seconds. Use -1 to remove TTL.",
+    callback=_validate_snapshot_ttl_or_clear,
+)
+def set_snapshot_ttl(snapshot_id, ttl_seconds):
+    """Set or remove a time-to-live (TTL) for a snapshot."""
+    client = get_client()
+    try:
+        snapshot_obj = client.snapshots.get(snapshot_id)
+
+        removing = ttl_seconds == -1
+        spinner_text = (
+            f"Removing TTL for {snapshot_id}..."
+            if removing
+            else f"Setting TTL for {snapshot_id} to {ttl_seconds} seconds..."
+        )
+        success_text = (
+            "Snapshot TTL removed successfully!"
+            if removing
+            else "Snapshot TTL set successfully!"
+        )
+        with Spinner(
+            text=spinner_text,
+            success_text=success_text,
+            success_emoji="⏳",
+        ):
+            snapshot_obj.set_ttl(None if removing else ttl_seconds)
+
+        if removing:
+            click.echo(f"TTL removed for {snapshot_id}")
+        else:
+            click.echo(f"TTL set for {snapshot_id}: {ttl_seconds} seconds")
     except api.ApiError as e:
         if e.status_code == 404:
             click.echo(f"Error: Snapshot '{snapshot_id}' not found.", err=True)
@@ -1626,6 +1723,13 @@ def get_instance(instance_id):
 @click.argument("instance_id")
 @click.option("--digest", help="Optional unique digest.")
 @click.option(
+    "--ttl-seconds",
+    type=int,
+    required=False,
+    help="Optional snapshot retention period in seconds.",
+    callback=_validate_positive_snapshot_ttl,
+)
+@click.option(
     "--metadata",
     "-m",
     help="Metadata to attach (format: key=value)",
@@ -1634,7 +1738,7 @@ def get_instance(instance_id):
 @click.option(
     "--json", "json_mode", is_flag=True, default=False, help="Output result as JSON."
 )
-def snapshot_instance(instance_id, digest, metadata, json_mode):
+def snapshot_instance(instance_id, digest, ttl_seconds, metadata, json_mode):
     """Create a new snapshot from an instance."""
     client = get_client()
 
@@ -1650,12 +1754,9 @@ def snapshot_instance(instance_id, digest, metadata, json_mode):
 
     try:
         instance_obj = client.instances.get(instance_id)
-        if instance_obj.status not in [
-            api.InstanceStatus.READY,
-            api.InstanceStatus.PAUSED,
-        ]:
+        if instance_obj.status != api.InstanceStatus.READY:
             click.echo(
-                f"Error: Instance must be READY or PAUSED. Current: {instance_obj.status.value}",
+                f"Error: Instance must be READY. Current: {instance_obj.status.value}",
                 err=True,
             )
             sys.exit(1)
@@ -1665,7 +1766,11 @@ def snapshot_instance(instance_id, digest, metadata, json_mode):
             success_text="Instance snapshot complete!",
             success_emoji="📸",
         ):
-            new_snapshot = instance_obj.snapshot(digest=digest, metadata=metadata_dict)
+            new_snapshot = instance_obj.snapshot(
+                digest=digest,
+                metadata=metadata_dict,
+                ttl_seconds=ttl_seconds,
+            )
 
         if json_mode:
             click.echo(format_json(new_snapshot))
@@ -1673,6 +1778,8 @@ def snapshot_instance(instance_id, digest, metadata, json_mode):
             click.secho(f"Snapshot created: {new_snapshot.id}", fg="green")
             if new_snapshot.digest:
                 click.echo(f"Digest: {new_snapshot.digest}")
+            if new_snapshot.ttl.ttl_seconds is not None:
+                click.echo(f"TTL: {new_snapshot.ttl.ttl_seconds} seconds")
     except api.ApiError as e:
         if e.status_code == 404:
             click.echo(f"Error: Instance '{instance_id}' not found.", err=True)
@@ -2592,10 +2699,24 @@ def cleanup_instances(
 # Load CLI plugins
 load_cli_plugins(cli)
 
-# Register built-in devbox commands last (so they win over any external plugin).
-from morphcloud.devbox.cli import devbox as devbox_group
 
-cli.add_command(devbox_group)
+def _register_builtin_cli_extensions() -> None:
+    # Register built-in volumes commands after external plugins so the
+    # first-party command wins if a duplicate name is present.
+    from morphcloud.volumes.cli import (
+        register_cli_plugin as register_volumes_cli_plugin,
+    )
+
+    register_volumes_cli_plugin(cli)
+
+    # Register built-in devbox commands last (so they win over any external
+    # plugin).
+    from morphcloud.devbox.cli import devbox as devbox_group
+
+    cli.add_command(devbox_group)
+
+
+_register_builtin_cli_extensions()
 
 
 if __name__ == "__main__":

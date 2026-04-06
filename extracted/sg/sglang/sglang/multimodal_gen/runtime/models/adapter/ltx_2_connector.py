@@ -34,7 +34,7 @@ def apply_split_rotary_emb(
         # The cos/sin batch dim may only be broadcastable, so take batch size from x
         b = x.shape[0]
         _, h, t, _ = cos.shape
-        x = x.reshape(b, t, h, -1).swapaxes(1, 2)
+        x = x.reshape(b, t, h, -1).transpose(1, 2)
         needs_reshape = True
 
     # Split last dim (2*r) into (d=2, r)
@@ -46,7 +46,7 @@ def apply_split_rotary_emb(
     r = last // 2
 
     # (..., 2, r)
-    split_x = x.reshape(*x.shape[:-1], 2, r).float()  # Explicitly upcast to float
+    split_x = x.reshape(*x.shape[:-1], 2, r).float()
     first_x = split_x[..., :1, :]  # (..., 1, r)
     second_x = split_x[..., 1:, :]  # (..., 1, r)
 
@@ -63,7 +63,7 @@ def apply_split_rotary_emb(
     out = out.reshape(*out.shape[:-2], last)
 
     if needs_reshape:
-        out = out.swapaxes(1, 2).reshape(b, t, -1)
+        out = out.transpose(1, 2).reshape(b, t, -1)
 
     out = out.to(dtype=x_dtype)
     return out
@@ -153,12 +153,6 @@ class LTX2Attention(torch.nn.Module):
         query_rotary_emb: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         key_rotary_emb: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
     ) -> torch.Tensor:
-        batch_size, sequence_length, _ = (
-            hidden_states.shape
-            if encoder_hidden_states is None
-            else encoder_hidden_states.shape
-        )
-
         if encoder_hidden_states is None:
             encoder_hidden_states = hidden_states
 
@@ -183,16 +177,26 @@ class LTX2Attention(torch.nn.Module):
                     key_rotary_emb if key_rotary_emb is not None else query_rotary_emb,
                 )
 
-        query = query.unflatten(2, (self.heads, -1))
-        key = key.unflatten(2, (self.heads, -1))
-        value = value.unflatten(2, (self.heads, -1))
+        query = query.unflatten(2, (self.heads, -1)).transpose(1, 2)
+        key = key.unflatten(2, (self.heads, -1)).transpose(1, 2)
+        value = value.unflatten(2, (self.heads, -1)).transpose(1, 2)
 
-        hidden_states = self.attn(
+        if attention_mask is not None:
+            if attention_mask.ndim == 2:
+                attention_mask = attention_mask[:, None, None, :]
+            elif attention_mask.ndim == 3:
+                attention_mask = attention_mask[:, None, :, :]
+            attention_mask = attention_mask.to(dtype=query.dtype)
+
+        hidden_states = F.scaled_dot_product_attention(
             query,
             key,
             value,
+            attn_mask=attention_mask,
+            dropout_p=0.0,
+            is_causal=False,
         )
-        hidden_states = hidden_states.flatten(2, 3)
+        hidden_states = hidden_states.transpose(1, 2).flatten(2, 3)
         hidden_states = hidden_states.to(query.dtype)
 
         hidden_states = self.to_out[0](hidden_states)
@@ -232,6 +236,7 @@ class LTX2RotaryPosEmbed1d(nn.Module):
         batch_size: int,
         pos: int,
         device: Union[str, torch.device],
+        dtype: Optional[torch.dtype] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         # 1. Get 1D position ids
         grid_1d = torch.arange(pos, dtype=torch.float32, device=device)
@@ -297,6 +302,9 @@ class LTX2RotaryPosEmbed1d(nn.Module):
             cos_freqs = torch.swapaxes(cos_freq, 1, 2)  # (B,H,T,D//2)
             sin_freqs = torch.swapaxes(sin_freq, 1, 2)  # (B,H,T,D//2)
 
+        if dtype is not None:
+            cos_freqs = cos_freqs.to(dtype)
+            sin_freqs = sin_freqs.to(dtype)
         return cos_freqs, sin_freqs
 
 

@@ -64,9 +64,29 @@ DEFINITION: dict[str, Any] = {
                     "'gpt-4o' for complex reasoning). Defaults to the parent's model."
                 ),
             },
+            "detach": {
+                "type": "boolean",
+                "description": (
+                    "Run as a detached background agent. Returns a run ID immediately "
+                    "and the agent continues independently. Use for fire-and-forget work."
+                ),
+                "default": False,
+            },
         },
         "required": ["prompt"],
         "additionalProperties": False,
+    },
+}
+
+AGENT_RUN_STATUS_DEFINITION: dict[str, Any] = {
+    "name": "agent_run_status",
+    "description": "Check the status and result of a detached subagent run.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "run_id": {"type": "string", "description": "Detached agent run ID to check"},
+        },
+        "required": ["run_id"],
     },
 }
 
@@ -127,6 +147,11 @@ async def handle(
     _limiter: SubagentLimiter | None = None,
     _confirm_callback: Any | None = None,
     _config: SubagentConfig | None = None,
+    _detach: bool = False,
+    _detach_manager: Any | None = None,
+    _conversation_id: str = "",
+    _db: Any = None,
+    **_extra: Any,
 ) -> dict[str, Any]:
     """Execute a sub-agent with an isolated conversation context."""
     if _ai_service is None:
@@ -141,6 +166,27 @@ async def handle(
 
     if model is not None and not _MODEL_PATTERN.match(model):
         return {"error": "Invalid model identifier"}
+
+    # Detached mode (#1314) — launch as background agent and return immediately
+    if _detach:
+        if _detach_manager is None:
+            return {"error": "Detached subagents are not supported in this context", "exit_code": -1}
+        try:
+            result = _detach_manager.start(
+                _conversation_id,
+                prompt,
+                ai_service=_ai_service,
+                tool_registry=_tool_registry,
+                mcp_manager=_mcp_manager,
+                cancel_event=_cancel_event,
+                config=_config,
+                limiter=_limiter,
+                db=_db,
+            )
+            result["_end_turn"] = True
+            return result
+        except ValueError as exc:
+            return {"error": str(exc), "exit_code": -1}
 
     max_depth = _config.max_depth if _config else MAX_SUBAGENT_DEPTH
     if _depth >= max_depth:
@@ -377,3 +423,30 @@ async def _run_subagent(
         result["error"] = error_message
 
     return result
+
+
+async def handle_run_status(
+    run_id: str,
+    _detach_manager: Any = None,
+    _db: Any = None,
+    **_: Any,
+) -> dict[str, Any]:
+    """Check status and result of a detached subagent run (#1314)."""
+    if _detach_manager is None:
+        return {"error": "Detached agent inspection not available in this context"}
+    run = _detach_manager.get_run(run_id, db=_db)
+    if run is None:
+        return {"error": f"Detached agent run not found: {run_id}"}
+    metadata = run.get("metadata") or {}
+    return {
+        "run_id": run["id"],
+        "status": run["status"],
+        "title": run.get("title", ""),
+        "started_at": run.get("started_at"),
+        "completed_at": run.get("completed_at"),
+        "duration_ms": run.get("duration_ms"),
+        "output": metadata.get("output", "")[:2000],
+        "tool_calls_made": metadata.get("tool_calls_made", []),
+        "error": metadata.get("error"),
+        "parent_run_id": run.get("parent_run_id"),
+    }

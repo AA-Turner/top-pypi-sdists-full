@@ -6,8 +6,7 @@ use satkit::tle::TLE;
 use crate::pyinstant::ToTimeVec;
 use anyhow::{bail, Result};
 
-// Import PyMPSuccess from its module (adjust the path if needed)
-use crate::pympsuccess::PyMPSuccess;
+use crate::pytlefitstatus::PyTleFitStatus;
 
 use std::fs::File;
 use std::io;
@@ -81,6 +80,37 @@ impl PyTLE {
             })
             .map_err(|e| e.into())
         })
+    }
+
+    /// Load TLE(s) from a URL
+    ///
+    /// Fetches the content at the given URL and parses it as TLE lines.
+    /// Works with any URL that returns plain-text TLE data (2-line or 3-line format).
+    ///
+    /// Args:
+    ///     url (str): URL to fetch TLE data from
+    ///
+    /// Returns:
+    ///     TLE or list[TLE]: Single TLE or list of TLEs parsed from the response
+    ///
+    /// Example:
+    ///     ```python
+    ///     tles = sk.TLE.from_url("https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle")
+    ///     ```
+    #[staticmethod]
+    fn from_url(url: String) -> Result<Py<PyAny>> {
+        let tles = TLE::from_url(&url)?;
+        pyo3::Python::attach(|py| -> PyResult<Py<PyAny>> {
+            if tles.len() > 1 {
+                tles.into_iter()
+                    .map(|t| tle_into_py(t, py))
+                    .collect::<Vec<_>>()
+                    .into_py_any(py)
+            } else {
+                Ok(tle_into_py(tles.into_iter().next().unwrap(), py))
+            }
+        })
+        .map_err(|e| e.into())
     }
 
     /// Satellite NORAD Catalog Number
@@ -236,24 +266,22 @@ impl PyTLE {
         if epoch.len() != 1 {
             bail!("epoch must be a single time value");
         }
-        let (tle, status) = TLE::fit_from_states(&states, &times, epoch[0])?;
+        let (tle, result) = TLE::fit_from_states(&states, &times, epoch[0])?;
 
         Ok((
             Self(tle),
             pyo3::Python::attach(|py| -> PyResult<Py<PyAny>> {
                 let dict = pyo3::types::PyDict::new(py);
-                dict.set_item("success", PyMPSuccess::from(status.success))?;
-                dict.set_item("best_norm", status.best_norm)?;
-                dict.set_item("orig_norm", status.orig_norm)?;
-                dict.set_item("n_iter", status.n_iter)?;
-                dict.set_item("n_fev", status.n_fev)?;
-                dict.set_item("n_par", status.n_par)?;
-                dict.set_item("n_free", status.n_free)?;
-                dict.set_item("n_pegged", status.n_pegged)?;
-                dict.set_item("n_func", status.n_func)?;
-                dict.set_item("resid", status.resid)?;
-                dict.set_item("xerror", status.xerror)?;
-                dict.set_item("covar", status.covar)?;
+                dict.set_item("status", PyTleFitStatus::from(result.status))?;
+                dict.set_item("converged", {
+                    let s: PyTleFitStatus = result.status.into();
+                    s.converged()
+                })?;
+                dict.set_item("orig_norm", result.orig_norm)?;
+                dict.set_item("best_norm", result.best_norm)?;
+                dict.set_item("grad_norm", result.grad_norm)?;
+                dict.set_item("n_iter", result.n_iter)?;
+                dict.set_item("n_res_evals", result.n_res_evals)?;
 
                 Ok(dict.into())
             })?,

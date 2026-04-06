@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: uv-secure
-Version: 0.17.0
+Version: 0.17.1
 Summary: Scan your uv.lock file for dependencies with known vulnerabilities
 Keywords: uv,uv.lock,vulnerabilities
 Author: Owen Lamont

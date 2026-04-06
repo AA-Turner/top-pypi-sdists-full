@@ -11,7 +11,7 @@ from schemathesis.checks import load_all_checks
 from schemathesis.cli.commands.run import executor
 from schemathesis.cli.commands.run.filters import with_filters
 from schemathesis.cli.constants import COLOR_OPTIONS_INVALID_USAGE_MESSAGE
-from schemathesis.cli.core import ensure_color
+from schemathesis.cli.core import ensure_color, resolve_color
 from schemathesis.cli.ext.groups import group, grouped_option
 from schemathesis.cli.ext.options import CsvChoice
 from schemathesis.cli.options import (
@@ -235,6 +235,9 @@ def run(
 ) -> None:
     """Generate and run property-based tests against your API.
 
+    Runs configured test phases in order and exits on completion.
+    Use --phases to select which phases to run.
+
     \b
     LOCATION can be:
         - Local file: ./openapi.json, ./schema.yaml, ./schema.graphql
@@ -247,13 +250,7 @@ def run(
     config: SchemathesisConfig = ctx.obj.config
 
     # First, set the right color
-    color: bool | None
-    if force_color:
-        color = True
-    elif no_color:
-        color = False
-    else:
-        color = config.color
+    color = resolve_color(force_color, no_color, config.color)
     ensure_color(ctx, color)
 
     validate_auth_overlap(auth, headers)

@@ -1,9 +1,22 @@
 use crate::{
     classes::{
-        date::Date, date_delta::DateDelta, datetime_delta::set_units_from_kwargs, instant::Instant,
-        offset_datetime::check_ignore_dst_kwarg, time::Time, zoned_datetime::ZonedDateTime,
+        date::Date,
+        date_delta::DateDelta,
+        instant::Instant,
+        itemized_date_delta::ItemizedDateDelta,
+        itemized_delta::{ItemizedDelta, handle_delta_unit_kwargs},
+        time::Time,
+        time_delta::TimeDelta,
+        zoned_datetime::ZonedDateTime,
     },
-    common::{ambiguity::*, fmt, parse::Scan, round, scalar::*},
+    common::{
+        ambiguity::*,
+        fmt,
+        math::{self, DateRoundIncrement, DeltaUnit, DeltaUnitSet, SinceUntilKwargs},
+        parse::Scan,
+        pattern, round,
+        scalar::*,
+    },
     docstrings as doc,
     py::*,
     pymodule::State,
@@ -13,6 +26,7 @@ use core::{
     ptr::null_mut as NULL,
 };
 use pyo3_ffi::*;
+use std::cmp::Ordering;
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Copy, Clone)]
 pub struct DateTime {
@@ -56,23 +70,31 @@ pub(crate) const SINGLETONS: &[(&CStr, DateTime); 2] = &[
 ];
 
 impl DateTime {
+    pub(crate) fn assume_utc(self) -> Instant {
+        Instant {
+            epoch: self.date.epoch_at(self.time),
+            subsec: self.time.subsec,
+        }
+    }
+
+    pub(crate) fn diff(self, other: Self) -> TimeDelta {
+        self.assume_utc().diff(other.assume_utc())
+    }
+
+    pub(crate) fn with_date(self, date: Date) -> Self {
+        DateTime {
+            date,
+            time: self.time,
+        }
+    }
+
     pub(crate) fn shift_date(self, months: DeltaMonths, days: DeltaDays) -> Option<Self> {
         let DateTime { date, time } = self;
         date.shift(months, days).map(|date| DateTime { date, time })
     }
 
-    pub(crate) fn shift_nanos(self, nanos: i128) -> Option<Self> {
-        let DateTime { mut date, time } = self;
-        let new_time = i128::from(time.total_nanos()).checked_add(nanos)?;
-        let days_delta = i32::try_from(new_time.div_euclid(NS_PER_DAY)).ok()?;
-        let nano_delta = new_time.rem_euclid(NS_PER_DAY) as u64;
-        if days_delta != 0 {
-            date = DeltaDays::new(days_delta).and_then(|d| date.shift_days(d))?;
-        }
-        Some(DateTime {
-            date,
-            time: Time::from_total_nanos_unchecked(nano_delta),
-        })
+    pub(crate) fn shift(self, t: TimeDelta) -> Option<Self> {
+        self.assume_utc().shift(t).map(|i| i.utc_datetime())
     }
 
     // FUTURE: is this actually worth it?
@@ -95,6 +117,199 @@ impl DateTime {
                 secs_since_midnight.rem_euclid(S_PER_DAY) as u32,
                 time.subsec,
             ),
+        })
+    }
+
+    /// Compute the start-of-unit DateTime. Returns `(DateTime, bool)` where
+    /// the bool indicates whether the result needs DST-aware resolution
+    /// (true for year/month/day, false for sub-day units that stay in the same day).
+    pub(crate) fn start_of_unit(
+        self,
+        unit_obj: PyObj,
+        state: &State,
+    ) -> PyResult<(DateTime, bool)> {
+        let &State {
+            str_year,
+            str_month,
+            str_day,
+            str_hour,
+            str_minute,
+            str_second,
+            ..
+        } = state;
+        let d = self.date;
+        match_interned_str("unit", unit_obj, |v, eq| {
+            if eq(v, str_year) {
+                Some((
+                    DateTime {
+                        date: Date {
+                            year: d.year,
+                            month: Month::January,
+                            day: 1,
+                        },
+                        time: Time::MIDNIGHT,
+                    },
+                    true,
+                ))
+            } else if eq(v, str_month) {
+                Some((
+                    DateTime {
+                        date: Date {
+                            year: d.year,
+                            month: d.month,
+                            day: 1,
+                        },
+                        time: Time::MIDNIGHT,
+                    },
+                    true,
+                ))
+            } else if eq(v, str_day) {
+                Some((
+                    DateTime {
+                        date: d,
+                        time: Time::MIDNIGHT,
+                    },
+                    true,
+                ))
+            } else if eq(v, str_hour) {
+                Some((
+                    DateTime {
+                        date: d,
+                        time: Time {
+                            hour: self.time.hour,
+                            minute: 0,
+                            second: 0,
+                            subsec: SubSecNanos::MIN,
+                        },
+                    },
+                    false,
+                ))
+            } else if eq(v, str_minute) {
+                Some((
+                    DateTime {
+                        date: d,
+                        time: Time {
+                            hour: self.time.hour,
+                            minute: self.time.minute,
+                            second: 0,
+                            subsec: SubSecNanos::MIN,
+                        },
+                    },
+                    false,
+                ))
+            } else if eq(v, str_second) {
+                Some((
+                    DateTime {
+                        date: d,
+                        time: Time {
+                            hour: self.time.hour,
+                            minute: self.time.minute,
+                            second: self.time.second,
+                            subsec: SubSecNanos::MIN,
+                        },
+                    },
+                    false,
+                ))
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Compute the end-of-unit DateTime. Returns `(DateTime, bool)` where
+    /// the bool indicates whether the result needs DST-aware resolution.
+    pub(crate) fn end_of_unit(self, unit_obj: PyObj, state: &State) -> PyResult<(DateTime, bool)> {
+        let &State {
+            str_year,
+            str_month,
+            str_day,
+            str_hour,
+            str_minute,
+            str_second,
+            ..
+        } = state;
+        let d = self.date;
+        let max_time = Time {
+            hour: 23,
+            minute: 59,
+            second: 59,
+            subsec: SubSecNanos::MAX,
+        };
+        match_interned_str("unit", unit_obj, |v, eq| {
+            if eq(v, str_year) {
+                Some((
+                    DateTime {
+                        date: Date {
+                            year: d.year,
+                            month: Month::December,
+                            day: 31,
+                        },
+                        time: max_time,
+                    },
+                    true,
+                ))
+            } else if eq(v, str_month) {
+                Some((
+                    DateTime {
+                        date: Date {
+                            year: d.year,
+                            month: d.month,
+                            day: d.year.days_in_month(d.month),
+                        },
+                        time: max_time,
+                    },
+                    true,
+                ))
+            } else if eq(v, str_day) {
+                Some((
+                    DateTime {
+                        date: d,
+                        time: max_time,
+                    },
+                    true,
+                ))
+            } else if eq(v, str_hour) {
+                Some((
+                    DateTime {
+                        date: d,
+                        time: Time {
+                            hour: self.time.hour,
+                            minute: 59,
+                            second: 59,
+                            subsec: SubSecNanos::MAX,
+                        },
+                    },
+                    false,
+                ))
+            } else if eq(v, str_minute) {
+                Some((
+                    DateTime {
+                        date: d,
+                        time: Time {
+                            hour: self.time.hour,
+                            minute: self.time.minute,
+                            second: 59,
+                            subsec: SubSecNanos::MAX,
+                        },
+                    },
+                    false,
+                ))
+            } else if eq(v, str_second) {
+                Some((
+                    DateTime {
+                        date: d,
+                        time: Time {
+                            hour: self.time.hour,
+                            minute: self.time.minute,
+                            second: self.time.second,
+                            subsec: SubSecNanos::MAX,
+                        },
+                    },
+                    false,
+                ))
+            } else {
+                None
+            }
         })
     }
 
@@ -140,7 +355,11 @@ impl std::fmt::Display for DateTime {
 
 fn __new__(cls: HeapType<DateTime>, args: PyTuple, kwargs: Option<PyDict>) -> PyReturn {
     if args.len() == 1 && kwargs.map_or(0, |d| d.len()) == 0 {
-        return parse_iso(cls, args.iter().next().unwrap());
+        let arg = args.iter().next().unwrap();
+        if let Some(dt) = arg.cast_allow_subclass::<PyDateTime>() {
+            return DateTime::from_py(dt)?.to_obj(cls);
+        }
+        return parse_iso(cls, arg);
     }
     let mut year: c_long = 0;
     let mut month: c_long = 0;
@@ -164,8 +383,8 @@ fn __new__(cls: HeapType<DateTime>, args: PyTuple, kwargs: Option<PyDict>) -> Py
     );
 
     DateTime {
-        date: Date::from_longs(year, month, day).ok_or_value_err("Invalid date")?,
-        time: Time::from_longs(hour, minute, second, nanosecond).ok_or_value_err("Invalid time")?,
+        date: Date::from_longs(year, month, day).ok_or_value_err("invalid date")?,
+        time: Time::from_longs(hour, minute, second, nanosecond).ok_or_value_err("invalid time")?,
     }
     .to_obj(cls)
 }
@@ -206,26 +425,11 @@ fn parse_iso(cls: HeapType<DateTime>, arg: PyObj) -> PyReturn {
         arg.cast_allow_subclass::<PyStr>()
             // NOTE: this exception message also needs to make sense when
             // called through the constructor
-            .ok_or_type_err("When parsing from ISO format, the argument must be str")?
+            .ok_or_type_err("when parsing from ISO format, the argument must be str")?
             .as_utf8()?,
     )
     .ok_or_else_value_err(|| format!("Invalid format: {arg}"))?
     .to_obj(cls)
-}
-
-fn format_common_iso(
-    cls: HeapType<DateTime>,
-    slf: DateTime,
-    args: &[PyObj],
-    kwargs: &mut IterKwargs,
-) -> PyReturn {
-    deprecation_warn(c"format_common_iso() has been renamed to format_iso()")?;
-    format_iso(cls, slf, args, kwargs)
-}
-
-fn parse_common_iso(cls: HeapType<DateTime>, arg: PyObj) -> PyReturn {
-    deprecation_warn(c"parse_common_iso() has been renamed to parse_iso()")?;
-    parse_iso(cls, arg)
 }
 
 fn __richcmp__(cls: HeapType<DateTime>, slf: DateTime, other: PyObj, op: c_int) -> PyReturn {
@@ -252,26 +456,27 @@ extern "C" fn __hash__(slf: PyObj) -> Py_hash_t {
 }
 
 fn __add__(a: PyObj, b: PyObj) -> PyReturn {
-    _shift_operator(a, b, false)
+    shift_operator(a, b, false)
 }
 
 fn __sub__(a: PyObj, b: PyObj) -> PyReturn {
     // easy case: subtracting two PlainDateTime objects
     if a.type_() == b.type_() {
         // SAFETY: at least one of the args is a PlainDateTime so both are.
-        let (dt_type, _) = unsafe { a.assume_heaptype::<DateTime>() };
-        raise(
-            dt_type.state().exc_implicitly_ignoring_dst.as_ptr(),
-            doc::DIFF_OPERATOR_LOCAL_MSG,
-        )?
+        let (dt_type, slf) = unsafe { a.assume_heaptype::<DateTime>() };
+        let (_, other) = unsafe { b.assume_heaptype::<DateTime>() };
+        let state = dt_type.state();
+        warn_with_class(state.warn_naive_arithmetic, doc::PLAIN_DIFF_UNAWARE_MSG, 1)?;
+        slf.assume_utc()
+            .diff(other.assume_utc())
+            .to_obj(state.time_delta_type)
     } else {
-        _shift_operator(a, b, true)
+        shift_operator(a, b, true)
     }
 }
 
-#[inline]
-fn _shift_operator(obj_a: PyObj, obj_b: PyObj, negate: bool) -> PyReturn {
-    let opname = if negate { "-" } else { "+" };
+#[inline(never)]
+fn shift_operator(obj_a: PyObj, obj_b: PyObj, negate: bool) -> PyReturn {
     let type_a = obj_a.type_();
     let type_b = obj_b.type_();
 
@@ -285,24 +490,33 @@ fn _shift_operator(obj_a: PyObj, obj_b: PyObj, negate: bool) -> PyReturn {
             mut days,
         }) = obj_b.extract(state.date_delta_type)
         {
+            months = months.negate_if(negate);
+            days = days.negate_if(negate);
+            a.shift_date(months, days)
+                .ok_or_range_err()?
+                .to_obj(dt_type)
+        } else if let Some(mut tdelta) = obj_b.extract(state.time_delta_type) {
+            warn_with_class(state.warn_naive_arithmetic, doc::PLAIN_SHIFT_UNAWARE_MSG, 1)?;
+            tdelta = tdelta.negate_if(negate);
+            a.shift(tdelta).ok_or_range_err()?.to_obj(dt_type)
+        } else if let Some(dt) = obj_b.extract(state.datetime_delta_type) {
+            let mut months = dt.ddelta.months;
+            let mut days = dt.ddelta.days;
+            let mut tdelta = dt.tdelta;
             if negate {
                 months = -months;
                 days = -days;
+                tdelta = -tdelta;
+            }
+            if !tdelta.is_zero() {
+                warn_with_class(state.warn_naive_arithmetic, doc::PLAIN_SHIFT_UNAWARE_MSG, 1)?;
             }
             a.shift_date(months, days)
-                .ok_or_else_value_err(|| format!("Result of {opname} out of range"))?
+                .and_then(|dt| dt.shift(tdelta))
+                .ok_or_range_err()?
                 .to_obj(dt_type)
-        } else if type_b == state.datetime_delta_type.into()
-            || type_b == state.time_delta_type.into()
-        {
-            raise(
-                state.exc_implicitly_ignoring_dst.as_ptr(),
-                doc::SHIFT_LOCAL_MSG,
-            )?
         } else {
-            raise_type_err(format!(
-                "unsupported operand type(s) for {opname}: 'PlainDateTime' and {type_b}"
-            ))?
+            not_implemented()
         }
     } else {
         not_implemented()
@@ -453,8 +667,8 @@ fn replace(
         )
     })?;
     DateTime {
-        date: Date::from_longs(year, month, day).ok_or_value_err("Invalid date")?,
-        time: Time::from_longs(hour, minute, second, nanos).ok_or_value_err("Invalid time")?,
+        date: Date::from_longs(year, month, day).ok_or_value_err("invalid date")?,
+        time: Time::from_longs(hour, minute, second, nanos).ok_or_value_err("invalid time")?,
     }
     .to_obj(cls)
 }
@@ -465,7 +679,7 @@ fn add(
     args: &[PyObj],
     kwargs: &mut IterKwargs,
 ) -> PyReturn {
-    _shift_method(cls, slf, args, kwargs, false)
+    shift_method(cls, slf, args, kwargs, false)
 }
 
 fn subtract(
@@ -474,11 +688,11 @@ fn subtract(
     args: &[PyObj],
     kwargs: &mut IterKwargs,
 ) -> PyReturn {
-    _shift_method(cls, slf, args, kwargs, true)
+    shift_method(cls, slf, args, kwargs, true)
 }
 
-#[inline]
-fn _shift_method(
+#[inline(never)]
+fn shift_method(
     cls: HeapType<DateTime>,
     slf: DateTime,
     args: &[PyObj],
@@ -486,58 +700,101 @@ fn _shift_method(
     negate: bool,
 ) -> PyReturn {
     let fname = if negate { "subtract" } else { "add" };
-    // FUTURE: get fields all at once from State (this is faster)
     let state = cls.state();
+    let &State {
+        str_years,
+        str_months,
+        str_weeks,
+        str_days,
+        str_hours,
+        str_minutes,
+        str_seconds,
+        str_milliseconds,
+        str_microseconds,
+        str_nanoseconds,
+        str_ignore_dst,
+        str_naive_arithmetic_ok,
+        time_delta_type,
+        date_delta_type,
+        datetime_delta_type,
+        itemized_date_delta_type,
+        itemized_delta_type,
+        warn_deprecation,
+        warn_naive_arithmetic,
+        ..
+    } = state;
     let mut months = DeltaMonths::ZERO;
     let mut days = DeltaDays::ZERO;
-    let mut nanos = 0;
-    let mut ignore_dst = false;
+    let mut tdelta = TimeDelta::ZERO;
+    let mut got_ignore_dst = false;
+    let mut suppress_unaware = false;
 
     match *args {
         [arg] => {
-            match kwargs.next() {
-                Some((key, value)) if kwargs.len() == 1 && key.py_eq(state.str_ignore_dst)? => {
-                    ignore_dst = value.is_true();
+            for (key, value) in kwargs.by_ref() {
+                if key.py_eq(str_ignore_dst)? {
+                    got_ignore_dst = true;
+                } else if key.py_eq(str_naive_arithmetic_ok)? {
+                    suppress_unaware = value.is_truthy();
+                } else {
+                    raise_type_err(format!(
+                        "{fname}() can't mix positional and keyword arguments"
+                    ))?;
                 }
-                Some(_) => raise_type_err(format!(
-                    "{fname}() can't mix positional and keyword arguments"
-                ))?,
-                None => {}
-            };
-            if let Some(tdelta) = arg.extract(state.time_delta_type) {
-                nanos = tdelta.total_nanos();
-            } else if let Some(ddelta) = arg.extract(state.date_delta_type) {
+            }
+            if let Some(t) = arg.extract(time_delta_type) {
+                tdelta = t;
+            } else if let Some(ddelta) = arg.extract(date_delta_type) {
                 months = ddelta.months;
                 days = ddelta.days;
-            } else if let Some(dt) = arg.extract(state.datetime_delta_type) {
+            } else if let Some(dt) = arg.extract(datetime_delta_type) {
                 months = dt.ddelta.months;
                 days = dt.ddelta.days;
-                nanos = dt.tdelta.total_nanos();
+                tdelta = dt.tdelta;
+            } else if let Some(d) = arg.extract(itemized_date_delta_type) {
+                let (m, dy) = d.to_months_days().ok_or_range_err()?;
+                months = m;
+                days = dy;
+            } else if let Some(d) = arg.extract(itemized_delta_type) {
+                let (m, dy, td) = d.to_components().ok_or_range_err()?;
+                months = m;
+                days = dy;
+                tdelta = td;
             } else {
                 raise_type_err(format!("{fname}() argument must be a delta"))?
             }
         }
         [] => {
-            let mut raw_months = 0;
-            let mut raw_days = 0;
+            let mut units = DeltaUnitSet::EMPTY; // not used, but need to pass
             handle_kwargs(fname, kwargs, |key, value, eq| {
-                if eq(key, state.str_ignore_dst) {
-                    ignore_dst = value.is_true();
+                if eq(key, str_ignore_dst) {
+                    got_ignore_dst = true;
+                    Ok(true)
+                } else if eq(key, str_naive_arithmetic_ok) {
+                    suppress_unaware = value.is_truthy();
                     Ok(true)
                 } else {
-                    set_units_from_kwargs(
+                    handle_delta_unit_kwargs(
                         key,
                         value,
-                        &mut raw_months,
-                        &mut raw_days,
-                        &mut nanos,
-                        state,
+                        &mut months,
+                        &mut days,
+                        &mut tdelta,
+                        &mut units,
                         eq,
+                        str_years,
+                        str_months,
+                        str_weeks,
+                        str_days,
+                        str_hours,
+                        str_minutes,
+                        str_seconds,
+                        Some(str_milliseconds),
+                        Some(str_microseconds),
+                        str_nanoseconds,
                     )
                 }
             })?;
-            months = DeltaMonths::new(raw_months).ok_or_value_err("Months out of range")?;
-            days = DeltaDays::new(raw_days).ok_or_value_err("Days out of range")?;
         }
         _ => raise_type_err(format!(
             "{}() takes at most 1 positional argument, got {}",
@@ -546,20 +803,20 @@ fn _shift_method(
         ))?,
     }
 
-    if negate {
-        months = -months;
-        days = -days;
-        nanos = -nanos;
+    if got_ignore_dst {
+        warn_with_class(warn_deprecation, doc::IGNORE_DST_DEPRECATED_MSG, 1)?;
     }
-    if nanos != 0 && !ignore_dst {
-        raise(
-            state.exc_implicitly_ignoring_dst.as_ptr(),
-            doc::ADJUST_LOCAL_DATETIME_MSG,
-        )?
+
+    months = months.negate_if(negate);
+    days = days.negate_if(negate);
+    tdelta = tdelta.negate_if(negate);
+
+    if !tdelta.is_zero() && !suppress_unaware {
+        warn_with_class(warn_naive_arithmetic, doc::PLAIN_SHIFT_UNAWARE_MSG, 1)?;
     }
     slf.shift_date(months, days)
-        .and_then(|dt| dt.shift_nanos(nanos))
-        .ok_or_else_value_err(|| format!("Result of {fname}() out of range"))?
+        .and_then(|dt| dt.shift(tdelta))
+        .ok_or_range_err()?
         .to_obj(cls)
 }
 
@@ -570,13 +827,26 @@ fn difference(
     kwargs: &mut IterKwargs,
 ) -> PyReturn {
     let state = cls.state();
-    check_ignore_dst_kwarg(kwargs, state, doc::DIFF_LOCAL_MSG)?;
+    let mut suppress_unaware = false;
+    // Accept deprecated ignore_dst kwarg and new naive_arithmetic_ok kwarg
+    for (key, value) in kwargs.by_ref() {
+        if key.py_eq(state.str_ignore_dst)? {
+            warn_with_class(state.warn_deprecation, doc::IGNORE_DST_DEPRECATED_MSG, 1)?;
+        } else if key.py_eq(state.str_naive_arithmetic_ok)? {
+            suppress_unaware = value.is_truthy();
+        } else {
+            raise_type_err(format!("Unknown keyword argument: {key}"))?;
+        }
+    }
     let [arg] = *args else {
         raise_type_err("difference() takes exactly 1 argument")?
     };
     if let Some(dt) = arg.extract(cls) {
-        Instant::from_datetime(slf.date, slf.time)
-            .diff(Instant::from_datetime(dt.date, dt.time))
+        if !suppress_unaware {
+            warn_with_class(state.warn_naive_arithmetic, doc::PLAIN_DIFF_UNAWARE_MSG, 1)?;
+        }
+        slf.assume_utc()
+            .diff(dt.assume_utc())
             .to_obj(state.time_delta_type)
     } else {
         raise_type_err("difference() argument must be a PlainDateTime")?
@@ -613,11 +883,11 @@ fn __reduce__(cls: HeapType<DateTime>, slf: DateTime) -> PyResult<Owned<PyTuple>
 pub(crate) fn unpickle(state: &State, arg: PyObj) -> PyReturn {
     let py_bytes = arg
         .cast_exact::<PyBytes>()
-        .ok_or_type_err("Invalid pickle data")?;
+        .ok_or_type_err("invalid pickle data")?;
 
     let mut packed = py_bytes.as_bytes()?;
     if packed.len() != 11 {
-        raise_type_err("Invalid pickle data")?
+        raise_type_err("invalid pickle data")?
     }
     DateTime {
         date: Date {
@@ -636,13 +906,21 @@ pub(crate) fn unpickle(state: &State, arg: PyObj) -> PyReturn {
 }
 
 fn from_py_datetime(cls: HeapType<DateTime>, arg: PyObj) -> PyReturn {
+    let &State {
+        warn_deprecation, ..
+    } = cls.state();
+    warn_with_class(
+        warn_deprecation,
+        c"from_py_datetime() is deprecated. Use PlainDateTime() constructor instead.",
+        1,
+    )?;
     let Some(dt) = arg.cast_allow_subclass::<PyDateTime>() else {
         raise_type_err("argument must be datetime.datetime")?
     };
     DateTime::from_py(dt)?.to_obj(cls)
 }
 
-fn py_datetime(cls: HeapType<DateTime>, slf: DateTime) -> *mut PyObject {
+fn to_stdlib(cls: HeapType<DateTime>, slf: DateTime) -> PyReturn {
     let DateTime {
         date: Date { year, month, day },
         time:
@@ -672,6 +950,19 @@ fn py_datetime(cls: HeapType<DateTime>, slf: DateTime) -> *mut PyObject {
             DateTimeType,
         )
     }
+    .rust_owned()
+}
+
+fn py_datetime(cls: HeapType<DateTime>, slf: DateTime) -> PyReturn {
+    let &State {
+        warn_deprecation, ..
+    } = cls.state();
+    warn_with_class(
+        warn_deprecation,
+        c"py_datetime() is deprecated. Use to_stdlib() instead.",
+        1,
+    )?;
+    to_stdlib(cls, slf)
 }
 
 fn date(cls: HeapType<DateTime>, slf: DateTime) -> PyReturn {
@@ -682,6 +973,39 @@ fn time(cls: HeapType<DateTime>, slf: DateTime) -> PyReturn {
     slf.time.to_obj(cls.state().time_type)
 }
 
+fn day_of_year(_: HeapType<DateTime>, slf: DateTime) -> PyReturn {
+    let d = slf.date;
+    (d.year.days_before_month(d.month) + d.day as u16).to_py()
+}
+
+fn days_in_month(_: HeapType<DateTime>, slf: DateTime) -> PyReturn {
+    let d = slf.date;
+    d.year.days_in_month(d.month).to_py()
+}
+
+fn days_in_year(_: HeapType<DateTime>, slf: DateTime) -> PyReturn {
+    (if slf.date.year.is_leap() {
+        366_u16
+    } else {
+        365_u16
+    })
+    .to_py()
+}
+
+fn in_leap_year(_: HeapType<DateTime>, slf: DateTime) -> PyReturn {
+    slf.date.year.is_leap().to_py()
+}
+
+fn start_of(cls: HeapType<DateTime>, slf: DateTime, unit_obj: PyObj) -> PyReturn {
+    let (dt, _) = slf.start_of_unit(unit_obj, cls.state())?;
+    dt.to_obj(cls)
+}
+
+fn end_of(cls: HeapType<DateTime>, slf: DateTime, unit_obj: PyObj) -> PyReturn {
+    let (dt, _) = slf.end_of_unit(unit_obj, cls.state())?;
+    dt.to_obj(cls)
+}
+
 fn is_datetime_sep(c: u8) -> bool {
     c == b'T' || c == b' ' || c == b't'
 }
@@ -690,8 +1014,14 @@ fn parse_strptime(cls: HeapType<DateTime>, args: &[PyObj], kwargs: &mut IterKwar
     let &State {
         str_format,
         strptime,
+        warn_deprecation,
         ..
     } = cls.state();
+    warn_with_class(
+        warn_deprecation,
+        c"parse_strptime() is deprecated; use parse() with a format pattern instead.",
+        1,
+    )?;
     let format_obj = match kwargs.next() {
         Some((key, value)) if kwargs.len() == 1 && key.py_eq(str_format)? => value,
         _ => raise_type_err("parse_strptime() requires exactly one keyword argument `format`")?,
@@ -712,8 +1042,8 @@ fn parse_strptime(cls: HeapType<DateTime>, args: &[PyObj], kwargs: &mut IterKwar
     DateTime::from_py(*parsed)?.to_obj(cls)
 }
 
-fn assume_utc(cls: HeapType<DateTime>, DateTime { date, time }: DateTime) -> PyReturn {
-    Instant::from_datetime(date, time).to_obj(cls.state().instant_type)
+fn assume_utc(cls: HeapType<DateTime>, d: DateTime) -> PyReturn {
+    d.assume_utc().to_obj(cls.state().instant_type)
 }
 
 fn assume_fixed_offset(cls: HeapType<DateTime>, slf: DateTime, arg: PyObj) -> PyReturn {
@@ -723,7 +1053,7 @@ fn assume_fixed_offset(cls: HeapType<DateTime>, slf: DateTime, arg: PyObj) -> Py
         ..
     } = cls.state();
     slf.with_offset(Offset::from_obj(arg, time_delta_type)?)
-        .ok_or_value_err("Datetime out of range")?
+        .ok_or_range_err()?
         .to_obj(offset_datetime_type)
 }
 
@@ -821,25 +1151,362 @@ fn replace_time(cls: HeapType<DateTime>, slf: DateTime, arg: PyObj) -> PyReturn 
     DateTime { time, ..slf }.to_obj(cls)
 }
 
+fn since(
+    cls: HeapType<DateTime>,
+    slf: DateTime,
+    args: &[PyObj],
+    kwargs: &mut IterKwargs,
+) -> PyReturn {
+    plain_since(cls, slf, args, kwargs, false)
+}
+
+fn until(
+    cls: HeapType<DateTime>,
+    slf: DateTime,
+    args: &[PyObj],
+    kwargs: &mut IterKwargs,
+) -> PyReturn {
+    plain_since(cls, slf, args, kwargs, true)
+}
+
+#[inline(never)]
+fn plain_since(
+    cls: HeapType<DateTime>,
+    slf: DateTime,
+    args: &[PyObj],
+    kwargs: &mut IterKwargs,
+    flip: bool,
+) -> PyReturn {
+    let fname = if flip { "until" } else { "since" };
+    let state = cls.state();
+
+    let other = handle_one_arg(fname, args)?
+        .extract(cls)
+        .ok_or_type_err("argument must be a whenever.PlainDateTime")?;
+
+    let mut suppress_unaware = false;
+    let mut got_ignore_dst = false;
+    let since_kwargs = SinceUntilKwargs::parse_with(fname, state, kwargs, |key, value, eq| {
+        if eq(key, state.str_naive_arithmetic_ok) {
+            suppress_unaware = value.is_truthy();
+            Ok(true)
+        } else if eq(key, state.str_ignore_dst) {
+            got_ignore_dst = true;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    })?;
+
+    if got_ignore_dst {
+        warn_with_class(state.warn_deprecation, doc::IGNORE_DST_DEPRECATED_MSG, 1)?;
+    }
+
+    // Warn only when the output contains exact time units (hours/min/sec/ns).
+    // Calendar-only output (years/months/weeks/days) doesn't involve clock time,
+    // so there's no DST ambiguity in that case.
+    if since_kwargs.has_exact_output() && !suppress_unaware {
+        warn_with_class(state.warn_naive_arithmetic, doc::PLAIN_DIFF_UNAWARE_MSG, 1)?;
+    }
+
+    plain_since_inner(state, slf, other, since_kwargs, flip)
+}
+
+/// Resolve a non-ZonedDateTime `relative_to` argument to a `DateTime`,
+/// emitting the appropriate warning if the condition is met.
+///
+/// - `warn_plain`: emit `TZUnawareArithmetic` warning for PlainDateTime
+/// - `warn_offset`: emit `PotentiallyStaleOffset` warning for OffsetDateTime
+///
+/// The caller is responsible for handling the ZonedDateTime case before calling
+/// this function (which always returns `Err` for ZonedDateTime args).
+pub(crate) fn resolve_local_relative_to(
+    arg: PyObj,
+    state: &State,
+    warn_plain: bool,
+    warn_offset: bool,
+) -> PyResult<DateTime> {
+    if let Some(pdt) = arg.extract(state.plain_datetime_type) {
+        if warn_plain {
+            warn_with_class(
+                state.warn_naive_arithmetic,
+                doc::PLAIN_RELATIVE_TO_UNAWARE_MSG,
+                1,
+            )?;
+        }
+        Ok(pdt)
+    } else if let Some(odt) = arg.extract(state.offset_datetime_type) {
+        if warn_offset {
+            warn_with_class(
+                state.warn_potentially_stale_offset,
+                doc::STALE_OFFSET_CALENDAR_MSG,
+                1,
+            )?;
+        }
+        Ok(odt.without_offset())
+    } else {
+        raise_type_err("relative_to must be a ZonedDateTime, PlainDateTime, or OffsetDateTime")
+    }
+}
+
+pub(crate) fn plain_since_float(
+    a: DateTime,
+    b: DateTime,
+    target_date: Date,
+    unit: DeltaUnit,
+    neg: bool,
+) -> PyReturn {
+    match unit.to_exact(true) {
+        Ok(u) => {
+            // Exact unit (including weeks/days as 24h): divide by unit nanoseconds.
+            // For nanoseconds (in_nanos == 1), return int to preserve full precision.
+            let nanos = a.diff(b).total_nanos();
+            let unit_nanos = u.in_nanos();
+            if unit_nanos == 1 {
+                nanos.to_py()
+            } else {
+                (nanos as f64 / unit_nanos as f64).to_py()
+            }
+        }
+        Err(cal_unit) => total_cal_plain(neg, cal_unit, a.assume_utc(), b, target_date),
+    }
+}
+
+/// Calendar-unit fractional total for PlainDateTime/OffsetDateTime, treating
+/// the reference datetime as UTC (no DST transitions).
+///
+/// This mirrors `zoned_datetime::total_cal` but works with raw `Instant` and
+/// `DateTime` values instead of `ZonedDateTime`, avoiding the need for a UTC
+/// `TzPtr`.
+pub(crate) fn total_cal_plain(
+    neg: bool,
+    unit: math::CalUnit,
+    a_inst: Instant,
+    b_dt: DateTime,
+    target_date: Date,
+) -> PyReturn {
+    let (result, trunc_raw, expand_raw) =
+        math::date_diff_single_unit(target_date, b_dt.date, DateRoundIncrement::MIN, unit, neg)
+            .ok_or_range_err()?;
+    let trunc = b_dt.with_date(trunc_raw.into()).assume_utc();
+    let expand = b_dt.with_date(expand_raw.into()).assume_utc();
+    let num = a_inst.diff(trunc).total_nanos() as f64;
+    let denom = expand.diff(trunc).total_nanos() as f64;
+    let sign: f64 = if neg { -1.0 } else { 1.0 };
+    ((result.abs() as f64 + num / denom) * sign).to_py()
+}
+
+/// Shared since() implementation for PlainDateTime (and OffsetDateTime).
+/// Days are always 24 hours (no DST adjustments).
+pub(crate) fn plain_since_inner(
+    state: &State,
+    slf: DateTime,
+    other: DateTime,
+    kwargs: SinceUntilKwargs,
+    flip: bool,
+) -> PyReturn {
+    let (a, b) = if flip { (other, slf) } else { (slf, other) };
+
+    let neg = a < b;
+
+    let target_date = match (neg, b.with_date(a.date).cmp(&a)) {
+        (false, Ordering::Greater) => a.date.yesterday(),
+        (true, Ordering::Less) => a.date.tomorrow(),
+        _ => Some(a.date),
+    }
+    .ok_or_range_err()?;
+    match kwargs {
+        SinceUntilKwargs::Total(unit) => plain_since_float(a, b, target_date, unit, neg),
+        SinceUntilKwargs::InUnits(units, round_mode, round_increment) => plain_since_in_units(
+            state,
+            a,
+            b,
+            target_date,
+            units,
+            round_mode,
+            round_increment,
+            neg,
+        ),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn plain_since_in_units(
+    state: &State,
+    a: DateTime,
+    b: DateTime,
+    target_date: Date,
+    units: DeltaUnitSet,
+    round_mode: round::Mode,
+    round_increment: math::RoundIncrement,
+    neg: bool,
+) -> PyReturn {
+    let smallest_unit = units.smallest();
+    let (cal_units, exact_units) = units.split_cal_exact();
+
+    let (mut cal_results, trunc_date, expand_date) = if cal_units.is_empty() {
+        (ItemizedDateDelta::UNSET, b.date.into(), a.date.into())
+    } else {
+        let inc = if smallest_unit.to_exact(false).is_err() {
+            round_increment.to_date().ok_or_range_err()?
+        } else {
+            DateRoundIncrement::MIN
+        };
+        math::date_diff(target_date, b.date, inc, cal_units, neg).ok_or_range_err()?
+    };
+
+    let trunc_dt = b.with_date(trunc_date.into());
+    let expand_dt = b.with_date(expand_date.into());
+
+    // If there are no time units, round the calendar units.
+    // Otherwise, calculate the time delta remainder
+    let mut result = if exact_units.is_empty() {
+        cal_results.round_by_time(
+            cal_units.smallest(),
+            // This UTC conversion is a bit weird, but it allows us to reuse
+            // the logic since plain and UTC datetimes both have no timezone
+            // adjustments.
+            a.assume_utc(),
+            trunc_dt.assume_utc(),
+            expand_dt.assume_utc(),
+            round_mode.to_abs_trunc(neg),
+            round_increment.to_date().ok_or_range_err()?,
+            neg,
+        );
+        ItemizedDelta::UNSET
+    } else {
+        a.diff(trunc_dt)
+            .in_exact_units(exact_units, round_increment, round_mode.to_abs_euclid(neg))
+            .ok_or_range_err()?
+    };
+
+    result.fill_cal_units(cal_results);
+    result.to_obj(state.itemized_delta_type)
+}
+
 fn round(
     cls: HeapType<DateTime>,
     slf: DateTime,
     args: &[PyObj],
     kwargs: &mut IterKwargs,
 ) -> PyReturn {
-    let (_, increment, mode) = round::parse_args(cls.state(), args, kwargs, false, false)?;
+    let round::Args {
+        increment, mode, ..
+    } = round::Args::parse(cls.state(), args, kwargs, false)?;
+    let round_nanos = match increment {
+        round::RoundIncrement::Day => NS_PER_DAY,
+        round::RoundIncrement::Exact(ns) => ns.get(),
+    };
     let DateTime { mut date, time } = slf;
-    let (time_rounded, next_day) = time.round(increment as u64, mode);
+    let (time_rounded, next_day) = time.round(round_nanos, mode);
     if next_day == 1 {
-        date = date
-            .tomorrow()
-            .ok_or_value_err("Resulting date out of range")?;
+        date = date.tomorrow().ok_or_range_err()?;
     }
     DateTime {
         date,
         time: time_rounded,
     }
     .to_obj(cls)
+}
+
+fn format(_cls: HeapType<DateTime>, slf: DateTime, pattern_obj: PyObj) -> PyReturn {
+    let pattern_pystr = pattern_obj
+        .cast_exact::<PyStr>()
+        .ok_or_type_err("format() argument must be str")?;
+    let pattern_str = pattern_pystr.as_utf8()?;
+    let elements = pattern::compile(pattern_str).into_value_err()?;
+    pattern::validate_fields(&elements, pattern::CategorySet::DATE_TIME, "PlainDateTime")?;
+    if pattern::has_12h_without_ampm(&elements) {
+        warn_with_class(
+            // SAFETY: PyExc_UserWarning is always valid
+            unsafe { PyObj::from_ptr_unchecked(PyExc_UserWarning) },
+            c"12-hour format (ii) without AM/PM designator (a/aa) may be ambiguous",
+            1,
+        )?;
+    }
+    let vals = pattern::FormatValues {
+        year: slf.date.year,
+        month: slf.date.month,
+        day: slf.date.day,
+        weekday: slf.date.day_of_week(),
+        hour: slf.time.hour,
+        minute: slf.time.minute,
+        second: slf.time.second,
+        nanos: slf.time.subsec,
+        offset_secs: None,
+        tz_id: None,
+        tz_abbrev: None,
+    };
+    pattern::format_to_py(&elements, &vals)
+}
+
+fn __format__(cls: HeapType<DateTime>, slf: DateTime, spec_obj: PyObj) -> PyReturn {
+    if spec_obj.is_truthy() {
+        format(cls, slf, spec_obj)
+    } else {
+        __str__(cls.into(), slf)
+    }
+}
+
+fn parse(cls: HeapType<DateTime>, args: &[PyObj], kwargs: &mut IterKwargs) -> PyReturn {
+    let &[s_obj] = args else {
+        raise_type_err(format!(
+            "parse() takes exactly 1 positional argument ({} given)",
+            args.len()
+        ))?
+    };
+    let s_pystr = s_obj
+        .cast_exact::<PyStr>()
+        .ok_or_type_err("parse() argument must be str")?;
+    let s = s_pystr.as_utf8()?;
+
+    let fmt_obj = handle_one_kwarg("parse", cls.state().str_format, kwargs)?.ok_or_else(|| {
+        raise_type_err::<(), _>("parse() requires 'format' keyword argument").unwrap_err()
+    })?;
+    let fmt_pystr = fmt_obj
+        .cast_exact::<PyStr>()
+        .ok_or_type_err("format must be str")?;
+    let fmt_bytes = fmt_pystr.as_utf8()?;
+
+    let elements = pattern::compile(fmt_bytes).into_value_err()?;
+    pattern::validate_fields(&elements, pattern::CategorySet::DATE_TIME, "PlainDateTime")?;
+
+    let state = pattern::parse_to_state(&elements, s).into_value_err()?;
+
+    let year = state.year.ok_or_value_err(
+        "Pattern must include year (YYYY/YY), month (MM/MMM/MMMM), and day (DD) fields",
+    )?;
+    let month = state.month.ok_or_value_err(
+        "Pattern must include year (YYYY/YY), month (MM/MMM/MMMM), and day (DD) fields",
+    )?;
+    let day = state.day.ok_or_value_err(
+        "Pattern must include year (YYYY/YY), month (MM/MMM/MMMM), and day (DD) fields",
+    )?;
+
+    let date = Date::new(year, month, day).ok_or_value_err("Invalid date")?;
+
+    if let Some(wd) = state.weekday
+        && date.day_of_week() != wd
+    {
+        raise_value_err("Parsed weekday does not match the date")?;
+    }
+
+    let hour = state.hour.unwrap_or(0);
+    let minute = state.minute.unwrap_or(0);
+    let second = state.second.unwrap_or(0);
+
+    if hour >= 24 || minute >= 60 || second >= 60 {
+        raise_value_err("Invalid time")?;
+    }
+
+    let time = Time {
+        hour,
+        minute,
+        second,
+        subsec: state.nanos,
+    };
+
+    DateTime { date, time }.to_obj(cls)
 }
 
 static mut METHODS: &[PyMethodDef] = &[
@@ -849,15 +1516,20 @@ static mut METHODS: &[PyMethodDef] = &[
     classmethod1!(
         DateTime,
         from_py_datetime,
-        doc::PLAINDATETIME_FROM_PY_DATETIME
+        doc::BASICCONVERSIONS_FROM_PY_DATETIME
     ),
+    method0!(DateTime, to_stdlib, doc::BASICCONVERSIONS_TO_STDLIB),
     method0!(DateTime, py_datetime, doc::BASICCONVERSIONS_PY_DATETIME),
     method0!(DateTime, date, doc::LOCALTIME_DATE),
     method0!(DateTime, time, doc::LOCALTIME_TIME),
+    method0!(DateTime, day_of_year, doc::LOCALTIME_DAY_OF_YEAR),
+    method0!(DateTime, days_in_month, doc::LOCALTIME_DAYS_IN_MONTH),
+    method0!(DateTime, days_in_year, doc::LOCALTIME_DAYS_IN_YEAR),
+    method0!(DateTime, in_leap_year, doc::LOCALTIME_IN_LEAP_YEAR),
+    method1!(DateTime, start_of, doc::PLAINDATETIME_START_OF),
+    method1!(DateTime, end_of, doc::PLAINDATETIME_END_OF),
     method_kwargs!(DateTime, format_iso, doc::PLAINDATETIME_FORMAT_ISO),
-    method_kwargs!(DateTime, format_common_iso, c""), // deprecated alias
     classmethod1!(DateTime, parse_iso, doc::PLAINDATETIME_PARSE_ISO),
-    classmethod1!(DateTime, parse_common_iso, c""), // deprecated alias
     classmethod_kwargs!(DateTime, parse_strptime, doc::PLAINDATETIME_PARSE_STRPTIME),
     method_kwargs!(DateTime, replace, doc::PLAINDATETIME_REPLACE),
     method0!(DateTime, assume_utc, doc::PLAINDATETIME_ASSUME_UTC),
@@ -877,7 +1549,12 @@ static mut METHODS: &[PyMethodDef] = &[
     method_kwargs!(DateTime, add, doc::PLAINDATETIME_ADD),
     method_kwargs!(DateTime, subtract, doc::PLAINDATETIME_SUBTRACT),
     method_kwargs!(DateTime, difference, doc::PLAINDATETIME_DIFFERENCE),
+    method_kwargs!(DateTime, since, doc::PLAINDATETIME_SINCE),
+    method_kwargs!(DateTime, until, doc::PLAINDATETIME_UNTIL),
     method_kwargs!(DateTime, round, doc::PLAINDATETIME_ROUND),
+    method1!(DateTime, format, doc::PLAINDATETIME_FORMAT),
+    method1!(DateTime, __format__, c""),
+    classmethod_kwargs!(DateTime, parse, doc::PLAINDATETIME_PARSE),
     classmethod_kwargs!(DateTime, __get_pydantic_core_schema__, doc::PYDANTIC_SCHEMA),
     PyMethodDef::zeroed(),
 ];
@@ -911,13 +1588,13 @@ fn nanosecond(_: PyType, slf: DateTime) -> PyReturn {
 }
 
 static mut GETSETTERS: &[PyGetSetDef] = &[
-    getter!(DateTime, year, "The year component"),
-    getter!(DateTime, month, "The month component"),
-    getter!(DateTime, day, "The day component"),
-    getter!(DateTime, hour, "The hour component"),
-    getter!(DateTime, minute, "The minute component"),
-    getter!(DateTime, second, "The second component"),
-    getter!(DateTime, nanosecond, "The nanosecond component"),
+    getter!(DateTime, year, doc::LOCALTIME_YEAR),
+    getter!(DateTime, month, doc::LOCALTIME_MONTH),
+    getter!(DateTime, day, doc::LOCALTIME_DAY),
+    getter!(DateTime, hour, doc::LOCALTIME_HOUR),
+    getter!(DateTime, minute, doc::LOCALTIME_MINUTE),
+    getter!(DateTime, second, doc::LOCALTIME_SECOND),
+    getter!(DateTime, nanosecond, doc::LOCALTIME_NANOSECOND),
     PyGetSetDef {
         name: NULL(),
         get: None,

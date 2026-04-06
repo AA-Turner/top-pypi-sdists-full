@@ -147,7 +147,16 @@ def test_b(case, a):
 """,
     )
     # When a test is run with treating warnings as errors
-    result = testdir.runpytest("-Werror", "--asyncio-mode=strict")
+    # The socket/MemoryObject ignores must come AFTER -Werror on the command line so they
+    # get higher priority (warning filters are a stack; last-inserted = first-checked).
+    result = testdir.runpytest(
+        "-Werror",
+        "-W",
+        "ignore:unclosed <socket.socket:ResourceWarning",
+        "-W",
+        "ignore:Exception ignored in.*socket.socket:pytest.PytestUnraisableExceptionWarning",
+        "--asyncio-mode=strict",
+    )
     # There should be no errors. There are no warnings from Schemathesis pytest plugin.
     result.assert_outcomes(passed=3)
 
@@ -1606,3 +1615,105 @@ def add(a, b):
     )
     result = testdir.runpytest("--doctest-modules", "mymodule.py")
     result.assert_outcomes(passed=1)
+
+
+def test_range_strategy_discovers_server_bug(testdir, ctx):
+    schema = ctx.openapi.build_schema(
+        {
+            "/files": {
+                "get": {
+                    "parameters": [{"name": "Range", "in": "header", "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    testdir.make_test(
+        """
+from flask import Flask, request, jsonify
+import re
+
+app = Flask(__name__)
+
+@app.route("/openapi.json")
+def openapi_spec():
+    return jsonify(raw_schema)
+
+@app.route("/files")
+def get_files():
+    range_header = request.headers.get("Range", "")
+    # Bug: only handles single int-range; fails on suffix-range and multi-range
+    if range_header and not re.match(r'^bytes=\\d+-\\d+$', range_header):
+        return jsonify({"error": "unsupported range"}), 500
+    return jsonify([])
+
+schema = schemathesis.openapi.from_wsgi("/openapi.json", app)
+
+@schema.parametrize()
+@settings(max_examples=10)
+def test_(case):
+    case.call_and_validate()
+""",
+        schema=schema,
+        generation_modes=[GenerationMode.POSITIVE],
+    )
+    result = testdir.runpytest()
+    result.assert_outcomes(failed=1)
+    assert "[500] Internal Server Error" in result.stdout.str()
+
+
+def test_reuse_test_function_across_schemas(testdir):
+    # The same base function should be reusable with multiple schemas
+    testdir.make_test(
+        """
+def _test_body(case):
+    pass
+
+schema2 = schemathesis.openapi.from_dict(raw_schema)
+test_a = schema.parametrize()(_test_body)
+test_b = schema2.parametrize()(_test_body)
+""",
+        paths={"/users": {"get": {"responses": {"200": {"description": "OK"}}}}},
+    )
+    result = testdir.runpytest("-v")
+    result.assert_outcomes(passed=2)
+
+
+def test_pytest_parametrize_multiple_schemas(testdir):
+    # When `schemathesis.pytest.parametrize` is called with named schemas (sync and async)
+    testdir.make_test(
+        """
+import asyncio
+
+users_schema = schemathesis.openapi.from_dict({
+    "openapi": "3.0.0",
+    "info": {"title": "Users", "description": "", "version": "0.1.0"},
+    "paths": {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}}
+})
+orders_schema = schemathesis.openapi.from_dict({
+    "openapi": "3.0.0",
+    "info": {"title": "Orders", "description": "", "version": "0.1.0"},
+    "paths": {"/orders": {"get": {"responses": {"200": {"description": "OK"}}}}}
+})
+
+@schemathesis.pytest.parametrize(users=users_schema, orders=orders_schema)
+def test_sync(case):
+    pass
+
+@schemathesis.pytest.parametrize(users=users_schema, orders=orders_schema)
+@pytest.mark.asyncio
+async def test_async(case):
+    await asyncio.sleep(0)
+""",
+    )
+    # Then each schema contributes its own test items delimited by square brackets
+    result = testdir.runpytest("-v", "-p", "no:randomly", "--asyncio-mode=auto")
+    result.assert_outcomes(passed=4)
+    result.stdout.re_match_lines(
+        [
+            r"test_pytest_parametrize_multiple_schemas.py::test_sync\[users\]\[GET /users\]",
+            r"test_pytest_parametrize_multiple_schemas.py::test_sync\[orders\]\[GET /orders\]",
+            r"test_pytest_parametrize_multiple_schemas.py::test_async\[users\]\[GET /users\]",
+            r"test_pytest_parametrize_multiple_schemas.py::test_async\[orders\]\[GET /orders\]",
+        ]
+    )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schemathesis
-Version: 4.14.3
+Version: 4.15.0
 Summary: Property-based testing framework for Open API and GraphQL based apps
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -185,7 +185,7 @@ TestAPI = APIWorkflow.TestCase
 
 **CI/CD:**
 ```yaml
-- uses: schemathesis/action@v2
+- uses: schemathesis/action@v3
   with:
     schema: "https://your-api.com/openapi.json"
 ```

@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import atexit
 import functools
 import hmac
 import json
@@ -63,7 +64,7 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     # Diffs & Embeddings
     "get_symbol_diff", "embed_repo",
     # Utilities
-    "get_session_stats", "invalidate_cache", "test_summarizer",
+    "get_session_stats", "get_session_context", "plan_turn", "register_edit", "invalidate_cache", "test_summarizer",
     "audit_agent_config",
 )
 
@@ -72,6 +73,7 @@ _EXCLUDED_FROM_STRICT = frozenset({
     "list_repos",
     "resolve_repo",
     "get_session_stats",
+    "get_session_context",
     "test_summarizer",
     "index_repo",
     "index_folder",
@@ -95,6 +97,103 @@ def _default_use_ai_summaries() -> bool:
     if isinstance(raw, bool):
         return raw
     return str(raw).strip().lower() not in ("false", "0", "no", "off")
+
+
+# ---------------------------------------------------------------------------
+# Session state persistence (Feature 10: Session-Aware Routing)
+# ---------------------------------------------------------------------------
+
+_session_state_restored = False
+
+
+def _restore_session_state() -> None:
+    """Load and restore session state on server startup.
+    
+    Called from run_stdio_server / run_sse_server / run_streamable_http_server.
+    Restores journal entries and search cache from previous session.
+    """
+    global _session_state_restored
+    if _session_state_restored:
+        return
+    
+    if not config_module.get("session_resume", False):
+        return
+    
+    try:
+        from .tools.session_state import get_session_state
+        from .tools.session_journal import get_journal
+        from .tools.search_symbols import _result_cache, _result_cache_lock
+        from .storage import SQLiteIndexStore
+        
+        state = get_session_state()
+        max_age = config_module.get("session_max_age_minutes", 30)
+        
+        loaded = state.load(max_age_minutes=max_age)
+        if not loaded:
+            logger.debug("No session state to restore")
+            return
+        
+        # Restore journal
+        journal = get_journal()
+        count = state.restore_journal(journal, loaded)
+        logger.info("Restored %d session journal entries", count)
+        
+        # Build current_indexes for cache restoration
+        storage_path = os.environ.get("CODE_INDEX_PATH", "")
+        store = SQLiteIndexStore(base_path=storage_path)
+        current_indexes = {}
+        try:
+            repos = store.list_repos()
+            for r in repos:
+                # list_repos already returns indexed_at — no need to load full index
+                repo_id = r.get("repo", f"{r.get('owner', '')}/{r.get('name', '')}")
+                indexed_at = r.get("indexed_at", "")
+                if indexed_at:
+                    current_indexes[repo_id] = indexed_at
+        except Exception:
+            pass
+        
+        # Restore search cache
+        with _result_cache_lock:
+            count = state.restore_search_cache(_result_cache, loaded, current_indexes)
+        logger.info("Restored %d search cache entries", count)
+        
+        _session_state_restored = True
+        
+    except Exception as e:
+        logger.warning("Failed to restore session state: %s", e)
+
+
+def _save_session_state() -> None:
+    """Save session state on server shutdown.
+    
+    Registered with atexit for clean shutdown.
+    """
+    if not config_module.get("session_resume", False):
+        return
+    
+    try:
+        from .tools.session_state import get_session_state
+        from .tools.session_journal import get_journal
+        from .tools.search_symbols import _result_cache, _result_cache_lock
+        
+        state = get_session_state()
+        journal = get_journal()
+        max_queries = config_module.get("session_max_queries", 50)
+        
+        neg_log = journal.get_negative_evidence_log()
+        with _result_cache_lock:
+            state.save(journal, _result_cache, max_queries=max_queries,
+                       negative_evidence_log=neg_log)
+        
+        logger.info("Saved session state")
+        
+    except Exception as e:
+        logger.warning("Failed to save session state: %s", e)
+
+
+# Register atexit handler for session state persistence
+atexit.register(_save_session_state)
 
 
 def _parse_watcher_flag(value: Optional[str]) -> bool:
@@ -769,6 +868,72 @@ def _build_tools_list() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {},
+            }
+        ),
+        Tool(
+            name="get_session_context",
+            description="Get the current session context — files accessed, searches performed, and edits registered during this MCP session. Use to avoid re-reading the same files.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "max_files": {
+                        "type": "integer",
+                        "description": "Maximum number of files to return in files_accessed.",
+                        "default": 50,
+                    },
+                    "max_queries": {
+                        "type": "integer",
+                        "description": "Maximum number of queries to return in recent_searches.",
+                        "default": 20,
+                    },
+                },
+            }
+        ),
+        Tool(
+            name="plan_turn",
+            description="Plan the next turn by analyzing query against the codebase. Returns confidence level (high/medium/low), recommended symbols/files, and guidance. Use as opening move for any task.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Repository identifier.",
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "What you're looking for (task description or symbol name).",
+                    },
+                    "max_recommended": {
+                        "type": "integer",
+                        "description": "Maximum number of symbols to recommend.",
+                        "default": 5,
+                    },
+                },
+                "required": ["repo", "query"],
+            }
+        ),
+        Tool(
+            name="register_edit",
+            description="Register file edits to invalidate caches. Call after editing files to clear BM25 cache and search result cache for the repo.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Repository identifier.",
+                    },
+                    "file_paths": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of file paths that were edited.",
+                    },
+                    "reindex": {
+                        "type": "boolean",
+                        "description": "If True, also reindex the files.",
+                        "default": False,
+                    },
+                },
+                "required": ["repo", "file_paths"],
             }
         ),
         Tool(
@@ -1878,6 +2043,38 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     storage_path=storage_path,
                 )
             )
+        elif name == "get_session_context":
+            from .tools.get_session_context import get_session_context
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_session_context,
+                    max_files=arguments.get("max_files", 50),
+                    max_queries=arguments.get("max_queries", 20),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "plan_turn":
+            from .tools.plan_turn import plan_turn
+            result = await asyncio.to_thread(
+                functools.partial(
+                    plan_turn,
+                    repo=arguments["repo"],
+                    query=arguments["query"],
+                    max_recommended=arguments.get("max_recommended", 5),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "register_edit":
+            from .tools.register_edit import register_edit
+            result = await asyncio.to_thread(
+                functools.partial(
+                    register_edit,
+                    repo=arguments["repo"],
+                    file_paths=arguments["file_paths"],
+                    reindex=arguments.get("reindex", False),
+                    storage_path=storage_path,
+                )
+            )
         elif name == "test_summarizer":
             from .tools.test_summarizer import test_summarizer
             result = await asyncio.to_thread(
@@ -2152,7 +2349,79 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             )
         else:
             result = {"error": f"Unknown tool: {name}"}
-        
+
+        # Feature 2: Session journal recording
+        if config_module.get("session_journal", True):
+            try:
+                from .tools.session_journal import get_journal
+                journal = get_journal()
+                journal.record_tool_call(name)
+                # Record file reads for relevant tools
+                if name in {"get_file_content", "get_file_outline", "get_symbol_source", "get_context_bundle"}:
+                    if isinstance(result, dict):
+                        # Extract file paths from result
+                        if name == "get_file_content" and "content" in result:
+                            journal.record_read(arguments.get("file_path", ""), name)
+                        elif name == "get_file_outline" and "symbols" in result:
+                            journal.record_read(arguments.get("file_path", ""), name)
+                        elif name == "get_symbol_source":
+                            # Single symbol_id → flat result with "source"
+                            sym_id = arguments.get("symbol_id", "")
+                            if sym_id and "::" in sym_id:
+                                journal.record_read(sym_id.split("::")[0], name)
+                            # Batch symbol_ids → result has "symbols" list
+                            for sym in result.get("symbols", []):
+                                if "file" in sym:
+                                    journal.record_read(sym["file"], name)
+                        elif name == "get_context_bundle" and "symbols" in result:
+                            # Record all files from the bundle
+                            for sym in result.get("symbols", []):
+                                if "file" in sym:
+                                    journal.record_read(sym["file"], name)
+                # Record searches
+                elif name in {"search_symbols", "search_text"}:
+                    if isinstance(result, dict):
+                        result_count = result.get("result_count", 0)
+                        query = arguments.get("query", "")
+                        if query:
+                            journal.record_search(query, result_count)
+                        # Collect negative evidence for session state persistence
+                        ne = result.get("negative_evidence")
+                        if ne and isinstance(ne, dict):
+                            import time as _t
+                            journal.record_negative_evidence({
+                                "query": query,
+                                "repo": arguments.get("repo", ""),
+                                "verdict": ne.get("verdict", ""),
+                                "scanned_symbols": ne.get("scanned_symbols", 0),
+                                "timestamp": _t.time(),
+                            })
+            except Exception:
+                logger.debug("Journal recording failed", exc_info=True)
+
+        # Feature 7: Turn budget — record output and inject warnings
+        try:
+            budget_tokens = config_module.get("turn_budget_tokens", 20000)
+            if budget_tokens > 0 and isinstance(result, dict):
+                from .tools.turn_budget import get_turn_budget
+                tb = get_turn_budget()
+                # Reconfigure if config changed (thread-safe)
+                tb.configure(budget_tokens, config_module.get("turn_gap_seconds", 30.0))
+                # Auto-compact: downgrade detail_level before dispatch would be ideal,
+                # but result is already computed. Inject warning + flag instead.
+                result_bytes = len(json.dumps(result, default=str))
+                token_count = result_bytes // 4  # ~4 bytes per token
+                budget_info = tb.record_output(token_count)
+                if budget_info.get("budget_warning"):
+                    meta = result.setdefault("_meta", {})
+                    meta["budget_warning"] = budget_info["budget_warning"]
+                    meta["turn_tokens_used"] = budget_info["turn_tokens_used"]
+                    meta["turn_budget_remaining"] = budget_info["turn_budget_remaining"]
+                    if tb.should_compact():
+                        meta["auto_compacted"] = True
+        except Exception:
+            logger.debug("Turn budget recording failed", exc_info=True)
+
         if isinstance(result, dict):
             meta_fields = config_module.get("meta_fields")
             if meta_fields == [] or arguments.get("suppress_meta"):
@@ -2255,6 +2524,8 @@ async def run_stdio_server():
         os.path.expanduser(os.environ.get("CODE_INDEX_PATH", "~/.code-index/")),
         _default_use_ai_summaries(),
     )
+    # Feature 10: Restore session state on startup
+    _restore_session_state()
     try:
         async with stdio_server() as (read_stream, write_stream):
             await server.run(
@@ -2389,6 +2660,8 @@ async def run_sse_server(host: str, port: int):
         __version__, host, port,
         os.path.expanduser(os.environ.get("CODE_INDEX_PATH", "~/.code-index/")),
     )
+    # Feature 10: Restore session state on startup
+    _restore_session_state()
     config = uvicorn.Config(starlette_app, host=host, port=port, log_level="warning")
     await uvicorn.Server(config).serve()
 
@@ -2396,8 +2669,8 @@ async def run_sse_server(host: str, port: int):
 async def run_streamable_http_server(host: str, port: int):
     """Run the MCP server with streamable-http transport (persistent HTTP mode)."""
     import sys
+    import uuid
     try:
-        import anyio
         import uvicorn
         from starlette.applications import Starlette
         from starlette.requests import Request
@@ -2407,21 +2680,74 @@ async def run_streamable_http_server(host: str, port: int):
             f"Streamable-http transport requires additional packages: {e}. "
             'Install them with: pip install "jcodemunch-mcp[http]"'
         ) from e
-    from mcp.server.streamable_http import StreamableHTTPServerTransport
+    from mcp.server.streamable_http import StreamableHTTPServerTransport, MCP_SESSION_ID_HEADER
+
+    # Session registry: session_id -> (transport, background_task)
+    # Keeps server.run() alive across multiple HTTP requests from the same client.
+    _sessions: dict[str, StreamableHTTPServerTransport] = {}
+    _session_tasks: dict[str, asyncio.Task] = {}  # type: ignore[type-arg]
 
     async def handle_mcp(request: Request):
-        transport = StreamableHTTPServerTransport(mcp_session_id=None)
-        async with transport.connect() as (read_stream, write_stream):
-            async with anyio.create_task_group() as tg:
-                tg.start_soon(
-                    server.run,
-                    read_stream,
-                    write_stream,
-                    server.create_initialization_options(),
-                )
-                await transport.handle_request(
-                    request.scope, request.receive, request._send
-                )
+        session_id = request.headers.get(MCP_SESSION_ID_HEADER)
+
+        # Route to existing session if client sent a session ID we recognise.
+        if session_id and session_id in _sessions:
+            transport = _sessions[session_id]
+            await transport.handle_request(request.scope, request.receive, request._send)
+            # Clean up terminated sessions (e.g. after DELETE).
+            if transport._terminated:
+                _sessions.pop(session_id, None)
+                task = _session_tasks.pop(session_id, None)
+                if task and not task.done():
+                    task.cancel()
+            return
+
+        # New session — generate a unique ID so the transport enforces it on
+        # all subsequent requests, preventing cross-session pollution.
+        new_id = uuid.uuid4().hex
+        transport = StreamableHTTPServerTransport(mcp_session_id=new_id)
+        _sessions[new_id] = transport
+
+        # streams_ready is set once transport.connect() has initialised its
+        # internal memory streams.  We must wait for it before calling
+        # handle_request(), which writes to those streams.
+        streams_ready: asyncio.Event = asyncio.Event()
+
+        async def _session_runner() -> None:
+            try:
+                async with transport.connect() as (read_stream, write_stream):
+                    streams_ready.set()
+                    await server.run(
+                        read_stream,
+                        write_stream,
+                        server.create_initialization_options(),
+                    )
+            except asyncio.CancelledError:
+                pass
+            finally:
+                _sessions.pop(new_id, None)
+                _session_tasks.pop(new_id, None)
+
+        task = asyncio.create_task(_session_runner())
+        _session_tasks[new_id] = task
+
+        try:
+            # Wait up to 10 s for the transport to be ready.
+            await asyncio.wait_for(streams_ready.wait(), timeout=10.0)
+        except asyncio.TimeoutError:
+            task.cancel()
+            _sessions.pop(new_id, None)
+            _session_tasks.pop(new_id, None)
+            from starlette.responses import Response as StarletteResponse
+            err = StarletteResponse("Session setup timed out", status_code=500)
+            await err(request.scope, request.receive, request._send)
+            return
+
+        try:
+            await transport.handle_request(request.scope, request.receive, request._send)
+        except Exception:
+            task.cancel()
+            raise
 
     middleware = []
     auth_mw = _make_auth_middleware()
@@ -2447,6 +2773,8 @@ async def run_streamable_http_server(host: str, port: int):
         __version__, host, port,
         os.path.expanduser(os.environ.get("CODE_INDEX_PATH", "~/.code-index/")),
     )
+    # Feature 10: Restore session state on startup
+    _restore_session_state()
     config = uvicorn.Config(starlette_app, host=host, port=port, log_level="warning")
     await uvicorn.Server(config).serve()
 
@@ -2531,6 +2859,7 @@ def _generate_claude_md_snippet(missing_only: bool = False) -> str:
                                 "get_repo_health", "get_symbol_importance",
                                 "find_dead_code", "get_dead_code_v2"]),
         ("Diffs & Embeddings", ["get_symbol_diff", "embed_repo"]),
+        ("Session-Aware Routing", ["plan_turn", "get_session_context", "register_edit"]),
         ("Utilities", ["get_session_stats", "invalidate_cache", "test_summarizer",
                         "audit_agent_config"]),
     ]

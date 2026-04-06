@@ -77,7 +77,7 @@ class DataFrameSummary:
 
     @property
     def columns_stats(self):
-        if self._columns_stats:
+        if self._columns_stats is not None:
             return self._columns_stats
         self._columns_stats = df_processors.get_df_column_stats(self.df)
         return self._columns_stats

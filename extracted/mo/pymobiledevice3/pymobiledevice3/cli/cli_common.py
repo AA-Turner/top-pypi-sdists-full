@@ -34,6 +34,8 @@ from pymobiledevice3.utils import get_asyncio_loop
 UDID_ENV_VAR = "PYMOBILEDEVICE3_UDID"
 TUNNEL_ENV_VAR = "PYMOBILEDEVICE3_TUNNEL"
 USBMUX_ENV_VAR = "PYMOBILEDEVICE3_USBMUX"
+USBMUXD_SOCKET_ADDRESS_ENV_VAR = "USBMUXD_SOCKET_ADDRESS"
+USBMUX_ENV_VARS = [USBMUX_ENV_VAR, USBMUXD_SOCKET_ADDRESS_ENV_VAR]
 USBMUX_OPTION_HELP = (
     "Address of the usbmuxd daemon (unix socket path or HOST:PORT). Defaults to the platform usbmuxd if omitted."
 )
@@ -239,7 +241,7 @@ def any_service_provider_dependency(
     usbmux: Annotated[
         Optional[str],
         typer.Option(
-            envvar=USBMUX_ENV_VAR,
+            envvar=USBMUX_ENV_VARS,
             help=USBMUX_OPTION_HELP,
             rich_help_panel=DEVICE_OPTIONS_PANEL_TITLE,
         ),

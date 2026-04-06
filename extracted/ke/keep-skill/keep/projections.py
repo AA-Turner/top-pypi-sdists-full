@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .types import SYSTEM_TAG_PREFIX, Item
+from .types import SYSTEM_TAG_PREFIX, Item, note_display_name
 
 
 def _tok(text: str) -> int:
@@ -347,7 +347,8 @@ def plan_find_context_render(
             break
 
         focus = item.tags.get("_focus_summary")
-        display_summary = focus if focus else item.summary
+        display_summary = focus if focus else note_display_name(item.tags, item.summary)
+        budget_summary = focus if focus else (item.summary or "").strip()
         line = f"- {item.id}"
         if item.score is not None:
             line += f" ({item.score:.2f})"
@@ -356,11 +357,19 @@ def plan_find_context_render(
             line += f"  [{date}]"
         line += f"  {display_summary}"
 
+        budget_line = f"- {item.id}"
+        if item.score is not None:
+            budget_line += f" ({item.score:.2f})"
+        if date:
+            budget_line += f"  [{date}]"
+        budget_line += f"  {budget_summary}"
+
         block = FindContextBlockPlan(item=item)
         block.sections.append(budget.force_section(
             kind="summary",
             phase="summary",
             lines=[line],
+            line_costs=[_tok(budget_line)],
         ))
         blocks.append(block)
 
@@ -565,7 +574,10 @@ def plan_find_context_render(
                     continue
                 ddate = (deep_item.tags.get("_created") or deep_item.tags.get("_updated", ""))[:10]
                 ddate_part = f"  [{ddate}]" if ddate else ""
-                deep_summary = deep_item.tags.get("_focus_summary", deep_item.summary)
+                deep_summary = deep_item.tags.get(
+                    "_focus_summary",
+                    note_display_name(deep_item.tags, deep_item.summary),
+                )
                 line = f"    - {deep_item.id}{ddate_part}  {deep_summary}"
                 if not _append_line(block, "deep-anchor", line):
                     break

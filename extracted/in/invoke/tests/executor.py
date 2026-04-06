@@ -1,11 +1,10 @@
 from unittest.mock import Mock
+
 import pytest
+from _util import expect
 
 from invoke import Collection, Config, Context, Executor, Task, call, task
 from invoke.parser import ParserContext, ParseResult
-
-from _util import expect
-
 
 # TODO: why does this not work as a decorator? probably relaxed's fault - but
 # how?
@@ -50,8 +49,8 @@ class Executor_:
             assert e.core[0].name == "mytask"
             assert len(e.core[0].args) == 0
 
-        def core_arg_parse_result_defaults_to_None(self):
-            assert Executor(collection=Collection()).core is None
+        def core_arg_parse_result_defaults_to_empty_ParseResult(self):
+            assert Executor(collection=Collection()).core == ParseResult()
 
     class execute:
         def base_case(self):

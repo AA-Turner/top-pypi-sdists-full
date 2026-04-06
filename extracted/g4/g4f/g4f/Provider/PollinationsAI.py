@@ -30,7 +30,7 @@ from .template.OpenaiTemplate import read_response
 from .. import debug
 
 class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
-    label = "Pollinations AI 🌸"
+    label = "Pollinations 🌸"
     url = "https://pollinations.ai"
     login_url = "https://enter.pollinations.ai"
     active_by_default = True
@@ -46,7 +46,7 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
     gen_text_api_endpoint = "https://gen.pollinations.ai/v1/chat/completions"
     gen_image_models_endpoint = "https://gen.pollinations.ai/image/models"
     text_models_endpoint = "https://gen.pollinations.ai/text/models"
-    quota_url = "https://g4f.space/api/pollinations/account/balance"
+    quota_url = "https://g4f.space/api/pollinations/quota"
     worker_api_endpoint = "https://g4f.space/api/pollinations/chat/completions"
     worker_models_endpoint = "https://g4f.space/api/pollinations/models"
 
@@ -85,7 +85,7 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
             response.raise_for_status()
             data = response.json()
             cls.balance = float(data.get("balance", 0.0))
-            debug.log(f"Pollinations AI balance: {cls.balance:.2f} Pollen")
+            debug.log(f"Pollinations balance: {cls.balance:.2f} Pollen")
             return cls.balance
         except Exception as e:
             debug.error(f"Failed to get balance:", e)

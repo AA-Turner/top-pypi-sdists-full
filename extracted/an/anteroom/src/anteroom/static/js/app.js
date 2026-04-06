@@ -815,6 +815,21 @@ const App = (() => {
                 Chat.updateBgIndicator(state.bgTaskCount);
             }
         });
+        // Detached subagent events (#1314)
+        _eventSource.addEventListener('agent_run_started', (e) => {
+            const data = JSON.parse(e.data);
+            if (data.conversation_id === state.currentConversationId || !data.conversation_id) {
+                Chat.renderDetachedChip(data.run_id, data.prompt, 'running');
+            }
+        });
+
+        _eventSource.addEventListener('agent_run_completed', (e) => {
+            const data = JSON.parse(e.data);
+            if (data.conversation_id === state.currentConversationId || !data.conversation_id) {
+                Chat.renderDetachedChip(data.run_id, data.summary || '', data.status);
+            }
+        });
+
         _eventSource.onopen = () => {
             state.bgTaskCount = 0;
             Chat.updateBgIndicator(0);

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: sqloxide
-Version: 0.1.56
+Version: 0.61.1
 Classifier: Development Status :: 3 - Alpha
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Database
 Classifier: License :: OSI Approved :: MIT License
 License-File: LICENSE
 Summary: Python bindings for sqlparser-rs
-Author: Will Eaton <me@wseaton.com>
 Author-email: Will Eaton <<me@wseaton.com>>
-License: MIT
-Requires-Python: >=3.7
+License-Expression: MIT
+Requires-Python: >=3.9
+Project-URL: Repository, https://github.com/wseaton/sqloxide

@@ -1841,6 +1841,32 @@ const Chat = (() => {
         }
     }
 
+    function renderDetachedChip(runId, text, status) {
+        const chatMessages = document.getElementById('chat-messages');
+        if (!chatMessages) return;
+        const chipId = `detached-${runId.slice(0, 8)}`;
+        let chip = document.getElementById(chipId);
+        if (!chip) {
+            chip = document.createElement('div');
+            chip.id = chipId;
+            chip.className = 'tool-call detached-agent-chip';
+            const summary = document.createElement('div');
+            summary.className = 'tool-summary';
+            chip.appendChild(summary);
+            chatMessages.appendChild(chip);
+            _scrollToBottom();
+        }
+        const summary = chip.querySelector('.tool-summary');
+        if (status === 'running') {
+            summary.innerHTML = `<span class="tool-spinner"></span> Agent: <code>${_escapeHtml(text || '')}</code>`;
+        } else {
+            const icon = (status === 'completed') ? '\u2713' : '\u2717';
+            const cls = (status === 'completed') ? 'tool-status-success' : 'tool-status-error';
+            chip.classList.add(cls);
+            summary.innerHTML = `<span>${icon}</span> Agent ${runId.slice(0, 8)}: ${status} \u2014 ${_escapeHtml(text || '')}`;
+        }
+    }
+
     function renderSubagentEvent(data) {
         if (!currentAssistantEl) return;
         const contentEl = currentAssistantEl.querySelector('.message-content');
@@ -2478,6 +2504,7 @@ const Chat = (() => {
         showApprovalPrompt, resolveApprovalCard, showAskUserPrompt, resolveAskUserCard, showThinkingFromEvent: showThinking,
         renderMarkdown, highlightCode, showToast, sendPlanExecution, cleanupPendingPrompts,
         renderTaskChip,
+        renderDetachedChip,
         renderTaskOutputChip,
         updateBgIndicator,
     };

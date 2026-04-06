@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ua-parser-rs
-Version: 0.1.4
+Version: 0.1.5
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11

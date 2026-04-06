@@ -52,7 +52,6 @@ from schemathesis.schemas import APIOperation
 
 if TYPE_CHECKING:
     from _pytest.fixtures import FuncFixtureInfo
-    from _pytest.terminal import TerminalReporter
 
     from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.pytest.reporting import PytestReportDispatcher
@@ -76,7 +75,14 @@ def _is_schema(value: object) -> bool:
     return isinstance(value, BaseSchema)
 
 
+def _is_schema_dict(value: object) -> bool:
+    from schemathesis.schemas import BaseSchema
+
+    return isinstance(value, dict) and all(isinstance(v, BaseSchema) for v in value.values())
+
+
 SchemaHandleMark = Mark["BaseSchema"](attr_name="schema", check=_is_schema)
+MultiSchemaHandleMark = Mark["dict[str, BaseSchema]"](attr_name="multi_schema", check=_is_schema_dict)
 
 
 class SchemathesisFunction(Function):
@@ -285,32 +291,62 @@ class SchemathesisCase(PyCollector):
             pytest.fail("Error during collection")
 
 
+class SchemathesisPrefixedCase(SchemathesisCase):
+    """A collector that prefixes each test name with a schema label."""
+
+    def __init__(
+        self, test_function: Callable, schema: BaseSchema, schema_name: str, *args: Any, **kwargs: Any
+    ) -> None:
+        self._schema_name = schema_name
+        super().__init__(test_function, schema, *args, **kwargs)
+
+    def _get_test_name(self, operation: APIOperation) -> str:
+        return f"{self.name}[{self._schema_name}][{operation.label}]"
+
+
+class SchemathesisMultiCase(PyCollector):
+    """A collector that produces test items from multiple named schemas."""
+
+    def __init__(self, test_function: Callable, schemas: dict[str, BaseSchema], *args: Any, **kwargs: Any) -> None:
+        self.test_function = test_function
+        self.schemas = schemas
+        super().__init__(*args, **kwargs)
+
+    def collect(self) -> list[Function]:  # type: ignore[return]
+        try:
+            items = []
+            for schema_name, schema in self.schemas.items():
+                case = SchemathesisPrefixedCase.from_parent(
+                    self.parent,
+                    test_function=self.test_function,
+                    name=self.name,
+                    schema=schema,
+                    schema_name=schema_name,
+                )
+                items.extend(case.collect())
+            if not items:
+                fail_on_no_matches(self.nodeid)
+            return items
+        except Exception:
+            pytest.fail("Error during collection")
+
+
 @hookimpl(hookwrapper=True)  # type: ignore[untyped-decorator]
 def pytest_pycollect_makeitem(collector: nodes.Collector, name: str, obj: Any) -> Generator[None, Any, None]:
     """Switch to a different collector if the test is parametrized marked by schemathesis."""
     outcome = yield
     try:
+        schemas = MultiSchemaHandleMark.get(obj)
+        if schemas is not None:
+            outcome.force_result(
+                SchemathesisMultiCase.from_parent(collector, test_function=obj, name=name, schemas=schemas)
+            )
+            return
         schema = SchemaHandleMark.get(obj)
         assert schema is not None
         outcome.force_result(SchemathesisCase.from_parent(collector, test_function=obj, name=name, schema=schema))
     except Exception:
         outcome.get_result()
-
-
-@hookimpl(tryfirst=True)  # type: ignore[untyped-decorator]
-def pytest_runtest_logreport(report: pytest.TestReport) -> None:
-    if isinstance(report, SubtestReport) and report.passed:
-        report._schemathesis_ignore_in_summary = True
-
-
-@hookimpl(tryfirst=True, hookwrapper=True)  # type: ignore[untyped-decorator]
-def pytest_terminal_summary(terminalreporter: TerminalReporter) -> Generator[None, None, None]:
-    passed = terminalreporter.stats.get("passed", [])
-    if passed:
-        terminalreporter.stats["passed"] = [
-            report for report in passed if not getattr(report, "_schemathesis_ignore_in_summary", False)
-        ]
-    yield
 
 
 @hookimpl(hookwrapper=True, trylast=True)  # type: ignore[untyped-decorator]
@@ -322,15 +358,14 @@ def pytest_report_teststatus(
     result = cast(PluggyResult[tuple[str, str, str] | None], outcome)
     if not isinstance(report, SubtestReport):
         return
-
-    description = report._sub_test_description()
-
-    if report.passed:
-        result.force_result(("passed", ",", f"{description} SUBPASS"))
-    elif report.skipped:
-        result.force_result(("skipped", "-", f"{description} SUBSKIP"))
-    elif report.outcome == "failed":
-        result.force_result(("failed", "u", f"{description} SUBFAIL"))
+    r = result.get_result()
+    if r is not None:
+        category, short, verbose = r
+        if isinstance(verbose, str):
+            for prefix in ("SUBPASSED", "SUBFAILED", "SUBSKIPPED", "SUBXFAIL"):
+                if verbose.startswith(prefix):
+                    result.force_result((category, short, prefix))
+                    break
 
 
 @pytest.hookimpl(tryfirst=True)  # type: ignore[untyped-decorator]

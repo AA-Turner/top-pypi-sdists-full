@@ -28,7 +28,7 @@ impl PyObj {
     pub(crate) fn new(ptr: *mut PyObject) -> PyResult<Self> {
         match NonNull::new(ptr) {
             Some(x) => Ok(Self { inner: x }),
-            None => Err(PyErrMarker()),
+            None => Err(PyErrMarker),
         }
     }
 
@@ -80,7 +80,15 @@ impl PyObj {
     }
 
     pub(crate) fn is_none(&self) -> bool {
-        self.as_ptr() == unsafe { Py_None() }
+        unsafe { Py_IsNone(self.as_ptr()) != 0 }
+    }
+
+    pub(crate) fn to_tuple(self) -> PyResult<Owned<PyTuple>> {
+        Ok(unsafe {
+            pyo3_ffi::PySequence_Tuple(self.as_ptr())
+                .rust_owned()?
+                .cast_unchecked::<PyTuple>()
+        })
     }
 }
 
@@ -158,7 +166,7 @@ pub(crate) trait PyBase: FromPy {
         if unsafe { PyObject_SetAttrString(self.as_ptr(), name.as_ptr(), v.as_ptr()) } == 0 {
             Ok(())
         } else {
-            Err(PyErrMarker())
+            Err(PyErrMarker)
         }
     }
 
@@ -185,17 +193,21 @@ pub(crate) trait PyBase: FromPy {
         match unsafe { PyObject_RichCompareBool(self.as_ptr(), other.as_ptr(), Py_EQ) } {
             1 => Ok(true),
             0 => Ok(false),
-            _ => Err(PyErrMarker()),
+            _ => Err(PyErrMarker),
         }
+    }
+
+    fn is_truthy(&self) -> bool {
+        unsafe { PyObject_IsTrue(self.as_ptr()) != 0 }
     }
 
     /// Determine if the object is *exactly equal* to `True`.
     fn is_true(&self) -> bool {
-        unsafe { self.as_ptr() == Py_True() }
+        unsafe { Py_IsTrue(self.as_ptr()) != 0 }
     }
 
     fn is_false(&self) -> bool {
-        unsafe { self.as_ptr() == Py_False() }
+        unsafe { Py_IsFalse(self.as_ptr()) != 0 }
     }
 }
 

@@ -417,20 +417,6 @@ class GemmSm90:
         varlen_m = varlen_args.mCuSeqlensM is not None
         varlen_k = varlen_args.mCuSeqlensK is not None
 
-        # Assume all strides are divisible by 128 bits except the last stride
-        def new_stride(t: cute.Tensor):
-            return tuple(
-                cute.assume(s, divby=128 // t.element_type.width) if not cute.is_static(s) else s
-                for s in t.stride
-            )
-
-        mA, mD = [
-            cute.make_tensor(t.iterator, cute.make_layout(t.shape, stride=new_stride(t)))
-            if t is not None
-            else None
-            for t in (mA, mD)
-        ]
-
         self._setup_attributes(epilogue_args)
 
         a_smem_layout = cute.slice_(self.a_smem_layout_staged, (None, None, 0))
@@ -779,7 +765,8 @@ class GemmSm90:
                     if is_scheduler_warp:
                         tile_scheduler.write_work_tile_to_smem(work_tile)
                     work_tile = tile_scheduler.get_current_work()
-                ab_pipeline.producer_tail(ab_producer_state)
+                if warp_idx == self.ab_load_warp_id:
+                    ab_pipeline.producer_tail(ab_producer_state)
                 if is_scheduler_warp:
                     tile_scheduler.producer_tail()
 
@@ -1053,9 +1040,7 @@ class GemmSm90:
             prefetch_out = ()
             if const_expr(prefetch_A is not None):  # Prefetch early, even before smem is free
                 prefetch_out = (prefetch_A(k_tile, pred=True),)
-            is_tma_warp = warp_idx == self.ab_load_warp_id + (
-                (k_tile % self.num_ab_load_warps) if const_expr(varlen_m) else 0
-            )
+            is_tma_warp = warp_idx == self.ab_load_warp_id + k_tile % self.num_ab_load_warps
             ab_pipeline.producer_acquire(ab_producer_state, peek_ab_empty_status, is_tma_warp)
             smem_idx = ab_producer_state.index
             if is_tma_warp:

@@ -1446,13 +1446,8 @@ fn is_instance_truthiness<'db>(
     class: ClassLiteral<'db>,
 ) -> Truthiness {
     let is_instance = |ty: &Type<'_>| {
-        ty.as_nominal_instance().is_some_and(|instance| {
-            instance
-                .class(db)
-                .iter_mro(db)
-                .filter_map(ClassBase::into_class)
-                .any(|mro_class| mro_class.class_literal(db) == class)
-        })
+        ty.as_nominal_instance()
+            .is_some_and(|instance| instance.class(db).is_subtype_of_class_literal(db, class))
     };
 
     let always_true_if = |test: bool| {
@@ -1775,6 +1770,8 @@ pub enum KnownFunction {
     RevealMro,
     /// `struct.unpack`
     Unpack,
+    /// `types.new_class`
+    NewClass,
 }
 
 impl KnownFunction {
@@ -1859,6 +1856,9 @@ impl KnownFunction {
             Self::ImportModule => module.is_importlib(),
             Self::Unpack => {
                 matches!(module, KnownModule::Struct)
+            }
+            Self::NewClass => {
+                matches!(module, KnownModule::Types)
             }
 
             Self::TypeCheckOnly => matches!(module, KnownModule::Typing),
@@ -2364,6 +2364,7 @@ pub(crate) mod tests {
                 KnownFunction::NamedTuple => KnownModule::Collections,
                 KnownFunction::TotalOrdering => KnownModule::Functools,
                 KnownFunction::Unpack => KnownModule::Struct,
+                KnownFunction::NewClass => KnownModule::Types,
             };
 
             let function_definition = known_module_symbol(&db, module, function_name)

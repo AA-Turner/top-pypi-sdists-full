@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sglang
-Version: 0.5.9
+Version: 0.5.10
 Summary: SGLang is a fast serving framework for large language models and vision language models.
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -215,27 +215,24 @@ Requires-Dist: IPython
 Requires-Dist: aiohttp
 Requires-Dist: apache-tvm-ffi<0.2,>=0.1.5
 Requires-Dist: anthropic>=0.20.0
-Requires-Dist: av; sys_platform == "linux" and (platform_machine == "aarch64" or platform_machine == "arm64" or platform_machine == "armv7l")
 Requires-Dist: blobfile==3.0.0
 Requires-Dist: build
 Requires-Dist: compressed-tensors
 Requires-Dist: cuda-python==12.9
-Requires-Dist: decord2
+Requires-Dist: decord2; sys_platform == "linux" and (platform_machine == "aarch64" or platform_machine == "arm64" or platform_machine == "armv7l")
 Requires-Dist: datasets
 Requires-Dist: einops
 Requires-Dist: fastapi
-Requires-Dist: flashinfer_python==0.6.3
-Requires-Dist: flashinfer_cubin==0.6.3
+Requires-Dist: flashinfer_python==0.6.7.post2
+Requires-Dist: flashinfer_cubin==0.6.7.post2
 Requires-Dist: gguf
-Requires-Dist: hf_transfer
-Requires-Dist: huggingface_hub
 Requires-Dist: interegular
 Requires-Dist: llguidance<0.8.0,>=0.7.11
 Requires-Dist: modelscope
 Requires-Dist: msgspec
 Requires-Dist: ninja
 Requires-Dist: numpy
-Requires-Dist: nvidia-cutlass-dsl>=4.3.4
+Requires-Dist: nvidia-cutlass-dsl>=4.4.1
 Requires-Dist: nvidia-ml-py
 Requires-Dist: openai-harmony==0.0.4
 Requires-Dist: openai==2.6.1
@@ -251,12 +248,13 @@ Requires-Dist: pybase64
 Requires-Dist: pydantic
 Requires-Dist: python-multipart
 Requires-Dist: pyzmq>=25.1.2
-Requires-Dist: quack-kernels==0.2.4
+Requires-Dist: quack-kernels>=0.3.0
 Requires-Dist: requests
 Requires-Dist: scipy
 Requires-Dist: sentencepiece
 Requires-Dist: setproctitle
-Requires-Dist: sgl-kernel==0.3.21
+Requires-Dist: flash-attn-4>=4.0.0b4
+Requires-Dist: sglang-kernel==0.4.1
 Requires-Dist: soundfile==0.13.1
 Requires-Dist: tiktoken
 Requires-Dist: timm==1.0.16
@@ -264,33 +262,41 @@ Requires-Dist: torch_memory_saver==0.0.9
 Requires-Dist: torch==2.9.1
 Requires-Dist: torchao==0.9.0
 Requires-Dist: torchaudio==2.9.1
-Requires-Dist: torchcodec==0.8.0; sys_platform != "linux" or (sys_platform == "linux" and platform_machine != "aarch64" and platform_machine != "arm64" and platform_machine != "armv7l")
+Requires-Dist: torchcodec==0.9.1; sys_platform != "linux" or (sys_platform == "linux" and platform_machine != "aarch64" and platform_machine != "arm64" and platform_machine != "armv7l")
+Requires-Dist: av; sys_platform == "linux" and (platform_machine == "aarch64" or platform_machine == "arm64" or platform_machine == "armv7l")
 Requires-Dist: torchvision
 Requires-Dist: tqdm
-Requires-Dist: transformers==4.57.1
+Requires-Dist: mistral_common>=1.9.0
+Requires-Dist: transformers==5.3.0
 Requires-Dist: uvicorn
 Requires-Dist: uvloop
-Requires-Dist: xgrammar==0.1.27
-Requires-Dist: smg-grpc-proto>=0.3.3
-Requires-Dist: grpcio>=1.78.0
-Requires-Dist: grpcio-reflection>=1.78.0
-Requires-Dist: grpcio-health-checking>=1.78.0
+Requires-Dist: watchfiles
+Requires-Dist: xgrammar==0.1.32
+Requires-Dist: smg-grpc-servicer>=0.5.0
 Provides-Extra: checkpoint-engine
 Requires-Dist: checkpoint-engine==0.1.2; extra == "checkpoint-engine"
+Provides-Extra: runai
+Requires-Dist: runai-model-streamer[azure,gcs,s3]>=0.15.7; extra == "runai"
 Provides-Extra: diffusion
 Requires-Dist: PyYAML==6.0.1; extra == "diffusion"
-Requires-Dist: cloudpickle; extra == "diffusion"
-Requires-Dist: diffusers==0.36.0; extra == "diffusion"
+Requires-Dist: cloudpickle==3.1.2; extra == "diffusion"
+Requires-Dist: diffusers==0.37.0; extra == "diffusion"
 Requires-Dist: imageio==2.36.0; extra == "diffusion"
 Requires-Dist: imageio-ffmpeg==0.5.1; extra == "diffusion"
 Requires-Dist: moviepy>=2.0.0; extra == "diffusion"
 Requires-Dist: opencv-python-headless==4.10.0.84; extra == "diffusion"
-Requires-Dist: remote-pdb; extra == "diffusion"
+Requires-Dist: remote-pdb==2.1.0; extra == "diffusion"
 Requires-Dist: st_attn==0.0.7; (platform_machine != "aarch64" and platform_machine != "arm64") and extra == "diffusion"
 Requires-Dist: vsa==0.0.4; (platform_machine != "aarch64" and platform_machine != "arm64") and extra == "diffusion"
-Requires-Dist: runai_model_streamer>=0.15.5; extra == "diffusion"
-Requires-Dist: cache-dit==1.2.0; extra == "diffusion"
-Requires-Dist: addict; extra == "diffusion"
+Requires-Dist: runai_model_streamer>=0.15.7; extra == "diffusion"
+Requires-Dist: cache-dit==1.3.0; extra == "diffusion"
+Requires-Dist: addict==2.4.0; extra == "diffusion"
+Requires-Dist: av==16.1.0; extra == "diffusion"
+Requires-Dist: scikit-image==0.25.2; extra == "diffusion"
+Requires-Dist: trimesh>=4.0.0; extra == "diffusion"
+Requires-Dist: xatlas; extra == "diffusion"
+Provides-Extra: ray
+Requires-Dist: ray[default]>=2.54.0; extra == "ray"
 Provides-Extra: tracing
 Requires-Dist: opentelemetry-api; extra == "tracing"
 Requires-Dist: opentelemetry-exporter-otlp; extra == "tracing"
@@ -298,6 +304,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-grpc; extra == "tracing"
 Requires-Dist: opentelemetry-sdk; extra == "tracing"
 Provides-Extra: test
 Requires-Dist: accelerate; extra == "test"
+Requires-Dist: addict; extra == "test"
 Requires-Dist: bitsandbytes; extra == "test"
 Requires-Dist: expecttest; extra == "test"
 Requires-Dist: jsonlines; extra == "test"
@@ -305,8 +312,11 @@ Requires-Dist: lm-eval[api]>=0.4.9.2; extra == "test"
 Requires-Dist: matplotlib; extra == "test"
 Requires-Dist: pandas; extra == "test"
 Requires-Dist: parameterized; extra == "test"
-Requires-Dist: peft; extra == "test"
+Requires-Dist: peft>=0.18.0; extra == "test"
+Requires-Dist: polars; extra == "test"
 Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: diff-cover; extra == "test"
 Requires-Dist: sentence_transformers; extra == "test"
 Requires-Dist: tabulate; extra == "test"
 Provides-Extra: dev
@@ -340,6 +350,7 @@ Dynamic: license-file
 </p>
 
 ## News
+- [2026/02] 🔥 Unlocking 25x Inference Performance with SGLang on NVIDIA GB300 NVL72 ([blog](https://lmsys.org/blog/2026-02-20-gb300-inferencex/)).
 - [2026/01] 🔥 SGLang Diffusion accelerates video and image generation ([blog](https://lmsys.org/blog/2026-01-16-sglang-diffusion/)).
 - [2025/12] SGLang provides day-0 support for latest open models ([MiMo-V2-Flash](https://lmsys.org/blog/2025-12-16-mimo-v2-flash/), [Nemotron 3 Nano](https://lmsys.org/blog/2025-12-15-run-nvidia-nemotron-3-nano/), [Mistral Large 3](https://github.com/sgl-project/sglang/pull/14213), [LLaDA 2.0 Diffusion LLM](https://lmsys.org/blog/2025-12-19-diffusion-llm/), [MiniMax M2](https://lmsys.org/blog/2025-11-04-miminmax-m2/)).
 - [2025/10] 🔥 SGLang now runs natively on TPU with the SGLang-Jax backend ([blog](https://lmsys.org/blog/2025-10-29-sglang-jax/)).
@@ -378,9 +389,9 @@ Its core features include:
 
 - **Fast Runtime**: Provides efficient serving with RadixAttention for prefix caching, a zero-overhead CPU scheduler, prefill-decode disaggregation, speculative decoding, continuous batching, paged attention, tensor/pipeline/expert/data parallelism, structured outputs, chunked prefill, quantization (FP4/FP8/INT4/AWQ/GPTQ), and multi-LoRA batching.
 - **Broad Model Support**: Supports a wide range of language models (Llama, Qwen, DeepSeek, Kimi, GLM, GPT, Gemma, Mistral, etc.), embedding models (e5-mistral, gte, mcdse), reward models (Skywork), and diffusion models (WAN, Qwen-Image), with easy extensibility for adding new models. Compatible with most Hugging Face models and OpenAI APIs.
-- **Extensive Hardware Support**: Runs on NVIDIA GPUs (GB200/B300/H100/A100/Spark), AMD GPUs (MI355/MI300), Intel Xeon CPUs, Google TPUs, Ascend NPUs, and more.
+- **Extensive Hardware Support**: Runs on NVIDIA GPUs (GB200/B300/H100/A100/Spark/5090), AMD GPUs (MI355/MI300), Intel Xeon CPUs, Google TPUs, Ascend NPUs, and more.
 - **Active Community**: SGLang is open-source and supported by a vibrant community with widespread industry adoption, powering over 400,000 GPUs worldwide.
-- **RL & Post-Training Backbone**: SGLang is a proven rollout backend across the world, with native RL integrations and adoption by well-known post-training frameworks such as [**AReaL**](https://github.com/inclusionAI/AReaL), [**Miles**](https://github.com/radixark/miles), [**slime**](https://github.com/THUDM/slime), [**Tunix**](https://github.com/google/tunix), [**verl**](https://github.com/volcengine/verl) and more.
+- **RL & Post-Training Backbone**: SGLang is a proven rollout backend used for training many frontier models, with native RL integrations and adoption by well-known post-training frameworks such as [**AReaL**](https://github.com/inclusionAI/AReaL), [**Miles**](https://github.com/radixark/miles), [**slime**](https://github.com/THUDM/slime), [**Tunix**](https://github.com/google/tunix), [**verl**](https://github.com/volcengine/verl) and more.
 
 ## Getting Started
 - [Install SGLang](https://docs.sglang.io/get_started/install.html)
@@ -390,17 +401,19 @@ Its core features include:
 - [Contribution Guide](https://docs.sglang.io/developer_guide/contribution_guide.html)
 
 ## Benchmark and Performance
-Learn more in the release blogs: [v0.2 blog](https://lmsys.org/blog/2024-07-25-sglang-llama3/), [v0.3 blog](https://lmsys.org/blog/2024-09-04-sglang-v0-3/), [v0.4 blog](https://lmsys.org/blog/2024-12-04-sglang-v0-4/), [Large-scale expert parallelism](https://lmsys.org/blog/2025-05-05-large-scale-ep/), [GB200 rack-scale parallelism](https://lmsys.org/blog/2025-09-25-gb200-part-2/).
+Learn more in the release blogs: [v0.2 blog](https://lmsys.org/blog/2024-07-25-sglang-llama3/), [v0.3 blog](https://lmsys.org/blog/2024-09-04-sglang-v0-3/), [v0.4 blog](https://lmsys.org/blog/2024-12-04-sglang-v0-4/), [Large-scale expert parallelism](https://lmsys.org/blog/2025-05-05-large-scale-ep/), [GB200 rack-scale parallelism](https://lmsys.org/blog/2025-09-25-gb200-part-2/), [GB300 long context](https://lmsys.org/blog/2026-02-19-gb300-longctx/).
 
 ## Adoption and Sponsorship
-SGLang has been deployed at large scale, generating trillions of tokens in production each day. It is trusted and adopted by a wide range of leading enterprises and institutions, including xAI, AMD, NVIDIA, Intel, LinkedIn, Cursor, Oracle Cloud, Google Cloud, Microsoft Azure, AWS, Atlas Cloud, Voltage Park, Nebius, DataCrunch, Novita, InnoMatrix, MIT, UCLA, the University of Washington, Stanford, UC Berkeley, Tsinghua University, Jam & Tea Studios, Baseten, and other major technology organizations across North America and Asia.
+SGLang has been deployed at large scale, generating trillions of tokens in production each day. It is trusted and adopted by a wide range of leading enterprises and institutions, including xAI, AMD, NVIDIA, Intel, LinkedIn, Cursor, Oracle Cloud, Google Cloud, Microsoft Azure, AWS, Atlas Cloud, Voltage Park, Nebius, DataCrunch, Novita, InnoMatrix, MIT, UCLA, the University of Washington, Stanford, UC Berkeley, Tsinghua University, Jam & Tea Studios, Baseten, and other major technology organizations.
 As an open-source LLM inference engine, SGLang has become the de facto industry standard, with deployments running on over 400,000 GPUs worldwide.
 SGLang is currently hosted under the non-profit open-source organization [LMSYS](https://lmsys.org/about/).
 
 <img src="https://raw.githubusercontent.com/sgl-project/sgl-learning-materials/refs/heads/main/slides/adoption.png" alt="logo" width="800" margin="10px"></img>
 
 ## Contact Us
-For enterprises interested in adopting or deploying SGLang at scale, including technical consulting, sponsorship opportunities, or partnership inquiries, please contact us at sglang@lmsys.org
+For enterprises interested in adopting or deploying SGLang at scale, including technical consulting, sponsorship opportunities, or partnership inquiries, please contact us at [sglang@lmsys.org](mailto:sglang@lmsys.org).
+
+Long-term active SGLang contributors are eligible for coding agent sponsorship, such as Cursor, Claude Code, or OpenAI Codex. Email [sglang@lmsys.org](mailto:sglang@lmsys.org) with your most important commits or pull requests.
 
 ## Acknowledgment
 We learned the design and reused code from the following projects: [Guidance](https://github.com/guidance-ai/guidance), [vLLM](https://github.com/vllm-project/vllm), [LightLLM](https://github.com/ModelTC/lightllm), [FlashInfer](https://github.com/flashinfer-ai/flashinfer), [Outlines](https://github.com/outlines-dev/outlines), and [LMQL](https://github.com/eth-sri/lmql).

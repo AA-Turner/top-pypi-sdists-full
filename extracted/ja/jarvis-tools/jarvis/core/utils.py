@@ -10,6 +10,7 @@ import math
 import xmltodict
 import re
 import requests
+import os
 
 
 def xml_to_dict(fname):
@@ -380,6 +381,18 @@ def recast_array(
         y_new[closest_index] = y_val
     # y_new[y_new<tol]=0
     return x_new, y_new
+
+
+def get_cache_dir(subdir=""):
+    """Get or create cache directory, respecting ATOMGPTLAB_CACHE env var."""
+    base = os.environ.get(
+        "ATOMGPTLAB_CACHE",
+        os.path.join(os.path.expanduser("~"), ".cache", "atomgptlab"),
+    )
+    if subdir:
+        base = os.path.join(base, subdir)
+    os.makedirs(base, exist_ok=True)
+    return base
 
 
 # def is_xml_valid(xsd="jarvisdft.xsd", xml="JVASP-1002.xml"):

@@ -24,14 +24,16 @@ from whenever import (
     TimeDelta,
     YearMonth,
     ZonedDateTime,
-    hours,
     patch_current_time,
     reset_system_tz,
-    seconds,
 )
 from whenever._tz.system import _tzid_from_path, get_tz
 
 from .common import system_tz_ams
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore::whenever.WheneverDeprecationWarning"
+)
 
 
 @pytest.mark.skipif(
@@ -48,6 +50,15 @@ def test_multiple_interpreters():
             "from whenever import Instant; Instant.now()",
         )
         interpreters.destroy(interp_id)
+
+
+def test_type_aliases():
+    from whenever import DateDeltaUnitStr  # noqa
+    from whenever import DeltaUnitStr  # noqa
+    from whenever import DisambiguateStr  # noqa
+    from whenever import ExactDeltaUnitStr  # noqa
+    from whenever import OffsetMismatchStr  # noqa
+    from whenever import RoundModeStr  # noqa
 
 
 def test_exceptions():
@@ -98,15 +109,15 @@ def test_patch_time():
     with patch_current_time(
         i.to_tz("Europe/Amsterdam"), keep_ticking=True
     ) as p:
-        assert (Instant.now() - i) < seconds(1)
+        assert (Instant.now() - i).total("seconds") < 1
         p.shift(hours=2)
         sleep(0.000001)
-        assert hours(2) < (Instant.now() - i) < hours(2.1)
+        assert 2 < (Instant.now() - i).total("hours") < 2.1
         p.shift(days=2, disambiguate="raise")
         sleep(0.000001)
-        assert hours(50) < (Instant.now() - i) < hours(50.1)
+        assert 50 < (Instant.now() - i).total("hours") < 50.1
 
-    assert Instant.now() - i > hours(40_000)
+    assert Instant.now() - i > TimeDelta(hours=40_000)
 
 
 @pytest.mark.skipif(
@@ -130,7 +141,7 @@ def test_text_signature():
         DateDelta,
         DateTimeDelta,
     ]
-    deprecated = ["format_common_iso", "parse_common_iso"]
+    deprecated: list[str] = []
     methods = (
         m
         for m in chain.from_iterable(cls.__dict__.values() for cls in classes)
@@ -344,7 +355,7 @@ def test_pydantic():
 
 def test_get_system_tz():
 
-    (tz_type, tz_value) = get_tz()
+    tz_type, tz_value = get_tz()
     assert tz_type in (0, 1, 2)
     assert isinstance(tz_value, str)
 

@@ -6,7 +6,7 @@ import os.path  # NOTE: we don't use pathlib here to keep our imports light
 import sysconfig
 from contextlib import contextmanager
 from functools import partial
-from typing import Any, Iterable, Iterator, Union, no_type_check
+from typing import Any, Iterable, Iterator, no_type_check
 
 from ._core import (
     Instant,
@@ -22,7 +22,7 @@ from ._core import (
 
 # Maintainer's notes:
 # - Yes I dislike the name `utils` too, but it seems to fit OK in this case.
-# - These functions are implemented in Python regardless of whether the rust
+# - These functions are implemented in Python regardless of whether the Rust
 #   extension is active. This is fine because they are not performance-critical,
 #   and build upon the core API.
 
@@ -36,12 +36,12 @@ __all__ = [
 
 
 class _TimePatch:
-    _pin: Union[Instant, ZonedDateTime, OffsetDateTime]
+    _pin: Instant | ZonedDateTime | OffsetDateTime
     _keep_ticking: bool
 
     def __init__(
         self,
-        pin: Union[Instant, ZonedDateTime, OffsetDateTime],
+        pin: Instant | ZonedDateTime | OffsetDateTime,
         keep_ticking: bool,
     ):
         self._pin = pin
@@ -50,9 +50,9 @@ class _TimePatch:
     # NOTE: permissively typechecked, but that's OK for a testing utility
     def shift(self, *args: Any, **kwargs: Any) -> None:
         if self._keep_ticking:
-            self._pin = new = (
-                self._pin + (Instant.now() - self._pin)  # type: ignore[operator]
-            ).add(*args, **kwargs)
+            self._pin = new = (self._pin + (Instant.now() - self._pin)).add(
+                *args, **kwargs
+            )
             _patch_time_keep_ticking(
                 new if isinstance(new, Instant) else new.to_instant()
             )
@@ -65,7 +65,7 @@ class _TimePatch:
 
 @contextmanager
 def patch_current_time(
-    dt: Union[Instant, ZonedDateTime, OffsetDateTime],
+    dt: Instant | ZonedDateTime | OffsetDateTime,
     /,
     *,
     keep_ticking: bool,
@@ -84,8 +84,7 @@ def patch_current_time(
       Use the ``time_machine`` package if you also want to patch other libraries.
     * It doesn't affect the system timezone.
       If you need to patch the system timezone, set the ``TZ`` environment
-      variable in combination with ``time.tzset``. Be aware that this only
-      works on Unix-like systems.
+      variable in combination with :func:`~whenever.reset_system_tz`.
 
     Example
     -------

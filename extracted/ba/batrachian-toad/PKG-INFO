@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: batrachian-toad
-Version: 0.6.14
+Version: 0.6.15
 Summary: A unified experience for AI in your terminal.
 License-File: LICENSE
 Requires-Python: >=3.14
@@ -18,7 +18,7 @@ Requires-Dist: rich>=14.3.3
 Requires-Dist: setproctitle>=1.3.7
 Requires-Dist: textual-serve>=1.1.2
 Requires-Dist: textual-speedups==0.2.1
-Requires-Dist: textual[syntax]>=8.2.1
+Requires-Dist: textual[syntax]>=8.2.3
 Requires-Dist: tree-sitter>=0.24.0
 Requires-Dist: typeguard==4.4.4
 Requires-Dist: watchdog>=6.0.0
@@ -328,7 +328,9 @@ Before an issue is created, there must be a post in Discussions, approved by a T
 By allowing the discussions to happen in the Discussion tabs, issues can be reserved for actionable tasks with a clear description and goal.
 
 
+## Licensing
 
+Toad is licensed under the [AGPL](./LICENSE) license. Commercial licenses are available. See [COMMERCIAL_LICENSE.md](./COMMERCIAL_LICENSE.md).
 
 
 

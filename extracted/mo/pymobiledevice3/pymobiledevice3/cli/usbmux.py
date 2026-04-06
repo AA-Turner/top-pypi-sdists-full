@@ -7,7 +7,7 @@ import typer
 from typer_injector import InjectingTyper
 
 from pymobiledevice3 import usbmux
-from pymobiledevice3.cli.cli_common import USBMUX_ENV_VAR, USBMUX_OPTION_HELP, async_command, print_json
+from pymobiledevice3.cli.cli_common import USBMUX_ENV_VARS, USBMUX_OPTION_HELP, async_command, print_json
 from pymobiledevice3.lockdown import create_using_usbmux
 from pymobiledevice3.tcp_forwarder import UsbmuxTcpForwarder
 
@@ -37,7 +37,7 @@ async def usbmux_forward(
         Optional[str],
         typer.Option(
             "--usbmux",
-            envvar=USBMUX_ENV_VAR,
+            envvar=USBMUX_ENV_VARS,
             help=USBMUX_OPTION_HELP,
         ),
     ] = None,
@@ -81,7 +81,7 @@ async def usbmux_list(
         Optional[str],
         typer.Option(
             "--usbmux",
-            envvar=USBMUX_ENV_VAR,
+            envvar=USBMUX_ENV_VARS,
             help=USBMUX_OPTION_HELP,
         ),
     ] = None,

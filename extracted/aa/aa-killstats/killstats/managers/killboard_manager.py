@@ -12,6 +12,7 @@ from eve_sde.models import ItemType
 if TYPE_CHECKING:
     # AA Killstats
     from killstats.helpers.killmail import KillmailBody
+    from killstats.models.killboard import Killmail as KillmailContext
 
 # Alliance Auth
 from allianceauth.services.hooks import get_extension_logger
@@ -133,12 +134,24 @@ class KillmailQuerySet(KillmailQueryMining):
         return self.none()
 
 
-class KillmailBaseManager(models.Manager):
+class KillmailManager(models.Manager["KillmailContext"]):
     def get_queryset(self):
         return KillmailQuerySet(self.model, using=self._db)
 
     def visible_to(self, user):
         return self.get_queryset().visible_to(user)
+
+    def filter_entities_kills(self, entities):
+        return self.get_queryset().filter_entities_kills(entities)
+
+    def filter_entities_losses(self, entities):
+        return self.get_queryset().filter_entities_losses(entities)
+
+    def filter_entities(self, entities):
+        return self.get_queryset().filter_entities(entities)
+
+    def filter_structure(self, exclude=False):
+        return self.get_queryset().filter_structure(exclude=exclude)
 
     def create_from_killmail(self, killmail_body: "KillmailBody"):
         """create a new EveKillmail from a Killmail object and returns it"""
@@ -214,6 +227,3 @@ class KillmailBaseManager(models.Manager):
                 created = True
             obj = self.create_from_killmail(killmail)
         return obj, created
-
-
-EveKillmailManager = KillmailBaseManager.from_queryset(KillmailQuerySet)

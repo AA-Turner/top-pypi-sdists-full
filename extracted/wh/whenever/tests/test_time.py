@@ -8,9 +8,19 @@ from datetime import (
 
 import pytest
 
-from whenever import Date, PlainDateTime, Time
+from whenever import (
+    Date,
+    PlainDateTime,
+    Time,
+    TimeDelta,
+    WheneverDeprecationWarning,
+)
 
 from .common import AlwaysEqual, AlwaysLarger, AlwaysSmaller, NeverEqual
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore::whenever.WheneverDeprecationWarning"
+)
 
 
 class TestInit:
@@ -43,9 +53,17 @@ class TestInit:
     def test_iso(self):
         assert Time("01:02:03.000004") == Time(1, 2, 3, nanosecond=4_000)
 
+    def test_leap_seconds_parsing(self):
+        # Leap second (60) should be parsed and normalized to 59
+        assert Time("01:02:60") == Time(1, 2, 59)
+        assert Time("01:02:60.123456") == Time(
+            1, 2, 59, nanosecond=123_456_000
+        )
+        # Basic format
+        assert Time("010260") == Time(1, 2, 59)
+
 
 class TestFormatIso:
-
     @pytest.mark.parametrize(
         "t, expect",
         [
@@ -109,11 +127,11 @@ class TestFormatIso:
             t.format_iso(sep="T")  # type: ignore[call-arg]
 
 
-def test_py_time():
+def test_to_stdlib():
     t = Time(1, 2, 3, nanosecond=4_000_000)
-    assert t.py_time() == py_time(1, 2, 3, 4_000)
+    assert t.to_stdlib() == py_time(1, 2, 3, 4_000)
     # truncation
-    assert Time(nanosecond=999).py_time() == py_time(0)
+    assert Time(nanosecond=999).to_stdlib() == py_time(0)
 
 
 def test_repr():
@@ -160,6 +178,20 @@ class TestParseIso:
             ("010203,03", Time(1, 2, 3, nanosecond=30_000_000)),
             ("0102", Time(1, 2)),
             ("13", Time(13)),
+            # leap second cases: 60 is normalized to 59
+            ("01:02:60", Time(1, 2, 59)),
+            ("23:59:60", Time(23, 59, 59)),
+            ("00:00:60", Time(0, 0, 59)),
+            ("23:59:60.999999999", Time(23, 59, 59, nanosecond=999_999_999)),
+            ("12:34:60.123456", Time(12, 34, 59, nanosecond=123_456_000)),
+            ("12:34:60.5", Time(12, 34, 59, nanosecond=500_000_000)),
+            ("12:34:60,5", Time(12, 34, 59, nanosecond=500_000_000)),
+            ("12:34:60,123456789", Time(12, 34, 59, nanosecond=123_456_789)),
+            ("010260", Time(1, 2, 59)),
+            ("235960.999999999", Time(23, 59, 59, nanosecond=999_999_999)),
+            ("123460.123456", Time(12, 34, 59, nanosecond=123_456_000)),
+            ("123460.5", Time(12, 34, 59, nanosecond=500_000_000)),
+            ("123460,5", Time(12, 34, 59, nanosecond=500_000_000)),
         ],
     )
     def test_valid(self, input, expect):
@@ -209,6 +241,12 @@ class TestParseIso:
             # non-ascii
             "23:59:59.99999𝟙",
             "2𝟙:23",
+            # invalid leap second cases
+            "01:02:61",
+            "010261",
+            "23:60",
+            "12:60:00",
+            "0160",
         ],
     )
     def test_invalid(self, input):
@@ -238,21 +276,19 @@ def test_eq():
     assert hash(t) != hash(different)
 
 
-class TestFromPyTime:
+class TestInitFromPy:
     def test_valid(self):
-        assert Time.from_py_time(py_time(1, 2, 3, 4)) == Time(
-            1, 2, 3, nanosecond=4_000
-        )
+        assert Time(py_time(1, 2, 3, 4)) == Time(1, 2, 3, nanosecond=4_000)
 
     def test_tzinfo(self):
-        assert Time.from_py_time(
+        assert Time(
             py_time(
                 1, 2, 3, 4, tzinfo=py_timezone(py_timedelta(hours=1)), fold=1
             )
         ) == Time(1, 2, 3, nanosecond=4_000)
 
     def test_fold_ignored(self):
-        assert Time.from_py_time(py_time(1, 2, 3, 4, fold=1)) == Time(
+        assert Time(py_time(1, 2, 3, 4, fold=1)) == Time(
             1, 2, 3, nanosecond=4_000
         )
 
@@ -260,42 +296,61 @@ class TestFromPyTime:
         class SubclassTime(py_time):
             pass
 
-        assert Time.from_py_time(SubclassTime(1, 2, 3, 4)) == Time(
+        assert Time(SubclassTime(1, 2, 3, 4)) == Time(
             1, 2, 3, nanosecond=4_000
         )
 
-    def test_invalid(self):
-        with pytest.raises(TypeError):
-            Time.from_py_time(234)  # type: ignore[arg-type]
+
+class TestDeprecations:
+    def test_py_time(self):
+        t = Time(1, 2, 3, nanosecond=4_000_000)
+        with pytest.warns(WheneverDeprecationWarning):
+            result = t.py_time()
+        assert result == py_time(1, 2, 3, 4_000)
+
+    def test_from_py_time(self):
+        with pytest.warns(WheneverDeprecationWarning):
+            result = Time.from_py_time(py_time(1, 2, 3, 4))
+        assert result == Time(1, 2, 3, nanosecond=4_000)
 
 
 def test_comparison():
     t = Time(1, 2, 3, nanosecond=4_000)
     same = Time(1, 2, 3, nanosecond=4_000)
-    bigger = Time(2, 2, 3, nanosecond=4_000)
-    smaller = Time(1, 2, 3, nanosecond=3_999)
+    bigger1 = Time(2, 2, 3, nanosecond=4_000)
+    bigger2 = Time(1, 2, 3, nanosecond=4_001)
+    smaller1 = Time(1, 2, 3, nanosecond=3_999)
+    smaller2 = Time(1, 2, 2, nanosecond=999_999_999)
 
     assert t <= same
-    assert t <= bigger
-    assert not t <= smaller
+    assert t <= bigger1
+    assert t <= bigger2
+    assert not t <= smaller1
+    assert not t <= smaller2
     assert t <= AlwaysLarger()
     assert not t <= AlwaysSmaller()
 
     assert not t < same
-    assert t < bigger
-    assert not t < smaller
+    assert t < bigger1
+    assert t < bigger2
+    assert not t < smaller1
+    assert not t < smaller2
     assert t < AlwaysLarger()
     assert not t < AlwaysSmaller()
 
     assert t >= same
-    assert not t >= bigger
-    assert t >= smaller
+    assert not t >= bigger1
+    assert not t >= bigger2
+    assert t >= smaller1
+    assert t >= smaller2
     assert not t >= AlwaysLarger()
     assert t >= AlwaysSmaller()
 
     assert not t > same
-    assert not t > bigger
-    assert t > smaller
+    assert not t > bigger1
+    assert not t > bigger2
+    assert t > smaller1
+    assert t > smaller2
     assert not t > AlwaysLarger()
     assert t > AlwaysSmaller()
 
@@ -466,12 +521,20 @@ class TestRound:
     ):
         assert t.round(unit, increment=increment) == half_even
         assert t.round(unit, increment=increment, mode="floor") == floor
+        assert t.round(unit, increment=increment, mode="trunc") == floor
         assert t.round(unit, increment=increment, mode="ceil") == ceil
+        assert t.round(unit, increment=increment, mode="expand") == ceil
         assert (
             t.round(unit, increment=increment, mode="half_floor") == half_floor
         )
         assert (
+            t.round(unit, increment=increment, mode="half_trunc") == half_floor
+        )
+        assert (
             t.round(unit, increment=increment, mode="half_ceil") == half_ceil
+        )
+        assert (
+            t.round(unit, increment=increment, mode="half_expand") == half_ceil
         )
         assert (
             t.round(unit, increment=increment, mode="half_even") == half_even
@@ -484,15 +547,15 @@ class TestRound:
     def test_invalid_mode(self):
         t = Time(1, 2, 3, nanosecond=4_000)
         with pytest.raises(ValueError, match="Invalid.*mode.*foo"):
-            t.round("second", mode="foo")  # type: ignore[arg-type]
+            t.round("second", mode="foo")  # type: ignore[call-overload]
 
     @pytest.mark.parametrize(
         "unit, increment",
         [
-            ("minute", 8),
+            ("minute", 7),
             ("second", 14),
-            ("millisecond", 15),
-            ("millisecond", 2000),
+            ("millisecond", 17),
+            ("millisecond", 2001),
             ("hour", 48),
             ("hour", 20),
         ],
@@ -505,18 +568,44 @@ class TestRound:
     def test_invalid_unit(self):
         t = Time(1, 2, 3, nanosecond=4_000)
         with pytest.raises(ValueError, match="Invalid.*unit.*foo"):
-            t.round("foo")  # type: ignore[arg-type]
+            t.round("foo")  # type: ignore[call-overload]
 
     def test_no_day_unit(self):
         t = Time(1, 2, 3, nanosecond=4_000)
         with pytest.raises(ValueError, match="day"):
-            t.round("day")  # type: ignore[arg-type]
+            t.round("day")  # type: ignore[call-overload]
+
+    def test_round_by_timedelta(self):
+        t = Time(12, 39, 59)
+        assert t.round(TimeDelta(minutes=15)) == Time(12, 45)
+        assert t.round(TimeDelta(hours=1)) == Time(13)
+        assert t.round(TimeDelta(minutes=15), mode="floor") == Time(12, 30)
+
+    def test_round_by_timedelta_half_even(self):
+        assert Time(12, 30).round(TimeDelta(hours=1)) == Time(12)
+        assert Time(13, 30).round(TimeDelta(hours=1)) == Time(14)
+
+    def test_round_by_timedelta_invalid_not_divides_day(self):
+        with pytest.raises(ValueError, match="24.hour"):
+            Time(12, 0).round(TimeDelta(hours=7))
+
+    def test_round_by_timedelta_negative(self):
+        with pytest.raises(ValueError, match="positive"):
+            Time(12, 0).round(TimeDelta(hours=-1))
+
+    def test_round_by_timedelta_zero(self):
+        with pytest.raises(ValueError, match="positive"):
+            Time(12, 0).round(TimeDelta())
+
+    def test_round_by_timedelta_with_increment(self):
+        with pytest.raises(TypeError):
+            Time(12, 0).round(TimeDelta(hours=1), increment=2)  # type: ignore[call-overload]
 
 
 def test_pickling():
     t = Time(1, 2, 3, nanosecond=4_000)
     dumped = pickle.dumps(t)
-    assert len(dumped) < len(pickle.dumps(t.py_time())) + 10
+    assert len(dumped) < len(pickle.dumps(t.to_stdlib())) + 10
     assert pickle.loads(dumped) == t
 
 

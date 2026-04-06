@@ -1,16 +1,15 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm", "PyYaml"]
+requires = ["setuptools", "PyYaml"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ua-parser"
 description = "Python port of Browserscope's user agent parser"
-version = "1.0.1"
+version = "1.0.2"
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ["ua-parser-builtins"]
-
-license = {text = "Apache 2.0"}
+license = "Apache-2.0"
 
 authors = [
    { name = "Stephen Lamm", email = "slamm@google.com"},
@@ -28,19 +27,18 @@ classifiers = [
         "Environment :: Web Environment",
         "Intended Audience :: Developers",
         "Operating System :: OS Independent",
-        "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python",
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
-        # no graalpy classifier yet (pypa/trove-classifiers#188)
-        # "Programming Language :: Python :: Implementation :: GraalPy",
+        "Programming Language :: Python :: Implementation :: GraalPy",
 ]
 
 [project.urls]
@@ -77,8 +75,11 @@ classes = ["OS"]
 known-first-party = ["ua_parser"]
 combine-as-imports = true
 
+[tool.ruff.lint.per-file-ignores]
+"tests/test_legacy.py" = ["PT030"]
+
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 files = "src,tests"
 
 # can't use strict because it's only global

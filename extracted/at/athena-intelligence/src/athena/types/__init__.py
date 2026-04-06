@@ -9,6 +9,7 @@ if typing.TYPE_CHECKING:
     from .aop_async_execute_response_out import AopAsyncExecuteResponseOut
     from .aop_execute_request_in import AopExecuteRequestIn
     from .aop_execute_response_out import AopExecuteResponseOut
+    from .archive_asset_response_out import ArchiveAssetResponseOut
     from .asset_content_request_out import AssetContentRequestOut
     from .asset_node import AssetNode
     from .asset_screenshot_response_out import AssetScreenshotResponseOut
@@ -89,6 +90,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AopAsyncExecuteResponseOut": ".aop_async_execute_response_out",
     "AopExecuteRequestIn": ".aop_execute_request_in",
     "AopExecuteResponseOut": ".aop_execute_response_out",
+    "ArchiveAssetResponseOut": ".archive_asset_response_out",
     "AssetContentRequestOut": ".asset_content_request_out",
     "AssetNode": ".asset_node",
     "AssetScreenshotResponseOut": ".asset_screenshot_response_out",
@@ -195,6 +197,7 @@ __all__ = [
     "AopAsyncExecuteResponseOut",
     "AopExecuteRequestIn",
     "AopExecuteResponseOut",
+    "ArchiveAssetResponseOut",
     "AssetContentRequestOut",
     "AssetNode",
     "AssetScreenshotResponseOut",

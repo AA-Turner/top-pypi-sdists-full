@@ -1,10 +1,37 @@
 import os
+import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Literal
 from unittest.mock import patch
 
-from whenever import PlainDateTime, ZonedDateTime, reset_system_tz
+from whenever import (
+    PlainDateTime,
+    ZonedDateTime,
+    reset_system_tz,
+)
+
+
+@contextmanager
+def suppress(*warning_classes):
+    """Suppress specific warning classes in a block.
+
+    Usage::
+
+        with suppress(StaleOffsetWarning):
+            ...
+
+    Can also be used as a decorator::
+
+        @suppress(StaleOffsetWarning)
+        def test_something():
+            ...
+    """
+    with warnings.catch_warnings():
+        for cls in warning_classes:
+            warnings.simplefilter("ignore", cls)
+        yield
+
 
 # The POSIX TZ string for the Amsterdam timezone.
 AMS_TZ_POSIX = "CET-1CEST,M3.5.0,M10.5.0/3"

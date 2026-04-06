@@ -12,15 +12,51 @@ use std::num::{NonZeroU8, NonZeroU16};
 
 const DEFAULT_DST: OffsetDelta = OffsetDelta::new_unchecked(3_600);
 
+/// Result of a timezone metadata query.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct TzMetaResult {
+    pub(crate) dst_saving: i32,
+    pub(crate) abbrev: TzAbbrev,
+}
+
 // RFC 9636: the transition time may range from -167 to 167 hours! (not just 24)
 pub(crate) type TransitionTime = i32;
 const DEFAULT_RULE_TIME: i32 = 2 * 3_600; // 2 AM
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TzAbbrev {
+    data: [u8; 8],
+    len: u8,
+}
+
+impl TzAbbrev {
+    pub(crate) const EMPTY: Self = TzAbbrev {
+        data: [0; 8],
+        len: 0,
+    };
+
+    pub(crate) fn from_bytes(b: &[u8]) -> Option<Self> {
+        if b.len() > 8 || !b.is_ascii() {
+            return None;
+        }
+        let mut data = [0u8; 8];
+        data[..b.len()].copy_from_slice(b);
+        Some(TzAbbrev {
+            data,
+            len: b.len() as u8,
+        })
+    }
+
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        &self.data[..self.len as usize]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TzStr {
     std: Offset,
     dst: Option<Dst>,
-    // We don't store the TZ names since we don't use them (yet)
+    std_abbrev: TzAbbrev,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,6 +64,7 @@ pub(crate) struct Dst {
     offset: Offset,
     start: (Rule, TransitionTime),
     end: (Rule, TransitionTime),
+    abbrev: TzAbbrev,
 }
 
 /// A rule for the date when DST starts or ends
@@ -41,41 +78,11 @@ pub(crate) enum Rule {
 
 impl TzStr {
     pub(crate) fn offset_for_instant(&self, epoch: EpochSecs) -> Offset {
-        match self.dst {
-            None => self.std, // No DST rule means a fixed offset
-            Some(Dst {
-                start: (start_rule, start_time),
-                end: (end_rule, end_time),
-                offset: dst_offset,
-            }) => {
-                // To determine the exact instant of DST start/end,
-                // we need to know the *local* year.
-                // However, this is theoretically difficult to determine
-                // since we don't *strictly* know the if DST is active,
-                // and thus what the offset should be.
-                // However, in practice, we can assume that the year of
-                // the transition isn't affected by the DST change.
-                // This is what Python's `zoneinfo` does anyway...
-                let year = epoch.saturating_offset(self.std).date().year;
-                // Below are some saturing_add_i32 calls to prevent overflow.
-                // These should only affect DST calculations at the extreme MIN/MAX
-                // boundaries. This situation is exceedingly rare, but at least we don't crash.
-                let start = start_rule
-                    .for_year(year)
-                    .epoch()
-                    .saturating_add_i32(start_time - self.std.get());
-                let end = end_rule
-                    .for_year(year)
-                    .epoch()
-                    .saturating_add_i32(end_time - dst_offset.get());
-
-                // Q: Why so complicated? A: Because end may be before start
-                if (epoch >= end || epoch < start) && start < end || epoch < start && epoch >= end {
-                    self.std
-                } else {
-                    dst_offset
-                }
-            }
+        if self.is_dst_at(epoch) {
+            // SAFETY: is_dst_at only returns true when self.dst is Some
+            self.dst.unwrap().offset
+        } else {
+            self.std
         }
     }
 
@@ -87,6 +94,7 @@ impl TzStr {
                 start: (start_rule, start_time),
                 end: (end_rule, end_time),
                 offset: dst,
+                ..
             }) => {
                 // Below are some saturing_add_i32 calls to prevent overflow.
                 // These should only affect DST calculations at the extreme MIN/MAX
@@ -135,16 +143,111 @@ impl TzStr {
         }
     }
 
+    /// Timezone metadata: (dst_saving, abbreviation)
+    pub(crate) fn meta_for_instant(&self, epoch: EpochSecs) -> TzMetaResult {
+        match self.dst {
+            Some(Dst {
+                offset: dst_offset,
+                abbrev: dst_abbrev,
+                ..
+            }) if self.is_dst_at(epoch) => TzMetaResult {
+                dst_saving: dst_offset.get() - self.std.get(),
+                abbrev: dst_abbrev,
+            },
+            _ => TzMetaResult {
+                dst_saving: 0,
+                abbrev: self.std_abbrev,
+            },
+        }
+    }
+
+    /// Compute the two DST transition instants (in UTC) for a given year,
+    /// each paired with the offset that becomes active at that transition.
+    fn utc_transitions_for_year(
+        &self,
+        year: Year,
+    ) -> Option<((EpochSecs, Offset), (EpochSecs, Offset))> {
+        let Dst {
+            start: (start_rule, start_time),
+            end: (end_rule, end_time),
+            offset: dst_offset,
+            ..
+        } = self.dst?;
+        let start = start_rule
+            .for_year(year)
+            .epoch()
+            .saturating_add_i32(start_time - self.std.get());
+        let end = end_rule
+            .for_year(year)
+            .epoch()
+            .saturating_add_i32(end_time - dst_offset.get());
+        Some(((start, dst_offset), (end, self.std)))
+    }
+
+    /// Whether DST is active at the given UTC epoch.
+    fn is_dst_at(&self, epoch: EpochSecs) -> bool {
+        let Some(((start, _), (end, _))) =
+            self.utc_transitions_for_year(epoch.saturating_offset(self.std).date().year)
+        else {
+            return false;
+        };
+        if start < end {
+            start <= epoch && epoch < end
+        } else {
+            !(end <= epoch && epoch < start)
+        }
+    }
+
+    /// The next UTC offset transition after `epoch`, or None if no DST rule.
+    pub(crate) fn next_transition(&self, epoch: EpochSecs) -> Option<(EpochSecs, Offset)> {
+        let year = epoch.saturating_offset(self.std).date().year;
+        let ((se, so), (ee, eo)) = self.utc_transitions_for_year(year)?;
+        let result = match (se > epoch, ee > epoch) {
+            (true, true) if se <= ee => Some((se, so)),
+            (true, true) => Some((ee, eo)),
+            (true, false) => Some((se, so)),
+            (false, true) => Some((ee, eo)),
+            (false, false) => None,
+        };
+        result.or_else(|| {
+            let next_year = Year::new(year.get() + 1)?;
+            let ((se, so), (ee, eo)) = self.utc_transitions_for_year(next_year)?;
+            Some(if se <= ee { (se, so) } else { (ee, eo) })
+        })
+    }
+
+    /// The previous UTC offset transition before `epoch`, or None if no DST rule.
+    pub(crate) fn prev_transition(&self, epoch: EpochSecs) -> Option<(EpochSecs, Offset)> {
+        let year = epoch.saturating_offset(self.std).date().year;
+        let ((se, so), (ee, eo)) = self.utc_transitions_for_year(year)?;
+        let result = match (se < epoch, ee < epoch) {
+            (true, true) if se >= ee => Some((se, so)),
+            (true, true) => Some((ee, eo)),
+            (true, false) => Some((se, so)),
+            (false, true) => Some((ee, eo)),
+            (false, false) => None,
+        };
+        result.or_else(|| {
+            let prev_year = Year::new(year.get() - 1)?;
+            let ((se, so), (ee, eo)) = self.utc_transitions_for_year(prev_year)?;
+            Some(if se >= ee { (se, so) } else { (ee, eo) })
+        })
+    }
+
     pub fn parse(s: &[u8]) -> Option<Self> {
         let mut scan = Scan::new(s);
-        skip_tzname(&mut scan)?;
+        let std_abbrev = parse_tzname(&mut scan)?;
         let std = parse_offset(&mut scan)?;
 
         // If there's nothing else, it's a fixed offset without DST
         if scan.is_done() {
-            return Some(TzStr { std, dst: None });
+            return Some(TzStr {
+                std,
+                dst: None,
+                std_abbrev,
+            });
         };
-        skip_tzname(&mut scan)?;
+        let dst_abbrev = parse_tzname(&mut scan)?;
 
         let dst_offset = match scan.peek()? {
             // If the offset is omitted, the default is 1 hour ahead
@@ -174,7 +277,9 @@ impl TzStr {
                 offset: dst_offset,
                 start,
                 end,
+                abbrev: dst_abbrev,
             }),
+            std_abbrev,
         })
     }
 }
@@ -202,33 +307,22 @@ impl Rule {
                 .date(),
 
             Self::LastWeekday(w, m) => {
-                // Try the last day of the month, and adjust from there
-                let day_last = Date::last_of_month(y, m);
-                Date {
-                    day: day_last.day
-                        - (day_last.day_of_week().sunday_is_0() + 7 - w.sunday_is_0()) % 7,
-                    ..day_last
-                }
+                // SAFETY: -1 always produces a valid result (every month has
+                // at least one occurrence of every weekday)
+                Date::nth_weekday_in_month(y, m, -1, w).unwrap()
             }
             Self::NthWeekday(n, w, m) => {
-                // Try the first day of the month, and adjust from there
                 debug_assert!(n.get() <= 4);
-                let day1 = Date::first_of_month(y, m);
-                Date {
-                    day: ((w.sunday_is_0() + 7 - day1.day_of_week().sunday_is_0()) % 7)
-                        + 7 * (n.get() - 1)
-                        + 1,
-                    ..day1
-                }
+                // SAFETY: n in 1..=4 always fits in a month
+                Date::nth_weekday_in_month(y, m, n.get() as i32, w).unwrap()
             }
         }
     }
 }
 
-/// Skip the TZ name
-fn skip_tzname(s: &mut Scan) -> Option<()> {
+/// Parse the TZ name and return it as a TzAbbrev
+fn parse_tzname(s: &mut Scan) -> Option<TzAbbrev> {
     // Note also that in Tzif files, TZ names are limited to 6 characters.
-    // This might be useful in the future for optimization
     let tzname = match s.peek() {
         Some(b'<') => {
             let name = s.take_until_inclusive(|c| c == b'>')?;
@@ -236,7 +330,10 @@ fn skip_tzname(s: &mut Scan) -> Option<()> {
         }
         _ => s.take_until(|c| matches!(c, b'+' | b'-' | b',' | b'0'..=b'9'))?,
     };
-    (!tzname.is_empty() && tzname.is_ascii()).then_some(())
+    if tzname.is_empty() || !tzname.is_ascii() {
+        return None;
+    }
+    TzAbbrev::from_bytes(tzname)
 }
 
 /// Parse an offset like `[+|-]h[h][:mm[:ss]]`
@@ -437,12 +534,13 @@ mod tests {
 
     #[test]
     fn fixed_offset() {
-        fn test(s: &[u8], expected: i32) {
+        fn test(s: &[u8], expected: i32, abbrev: &[u8]) {
             assert_eq!(
                 TzStr::parse(s).unwrap(),
                 TzStr {
                     std: expected.try_into().unwrap(),
-                    dst: None
+                    dst: None,
+                    std_abbrev: TzAbbrev::from_bytes(abbrev).unwrap(),
                 },
                 "{:?} -> {}",
                 unsafe { std::str::from_utf8_unchecked(s) },
@@ -450,27 +548,27 @@ mod tests {
             );
         }
 
-        let cases: &[(&[u8], i32)] = &[
-            (b"FOO1", -3600),
-            (b"FOOS0", 0),
-            (b"FOO+01", -3600),
-            (b"FOO+01:30", -3600 - 30 * 60),
-            (b"FOO+01:30:59", -3600 - 30 * 60 - 59),
-            (b"FOOM+23:59:59", -86_399),
-            (b"FOOS-23:59:59", 86_399),
-            (b"FOOBLA-23:59", 23 * 3600 + 59 * 60),
-            (b"FOO-23", 23 * 3600),
-            (b"FOO-01", 3600),
-            (b"FOO-01:30", 3600 + 30 * 60),
-            (b"FOO-01:30:59", 3600 + 30 * 60 + 59),
-            (b"FOO+23:59:59", -86_399),
-            (b"FOO+23:59", -23 * 3600 - 59 * 60),
-            (b"FOO+23", -23 * 3600),
-            (b"<FOO>-3", 3 * 3600),
+        let cases: &[(&[u8], i32, &[u8])] = &[
+            (b"FOO1", -3600, b"FOO"),
+            (b"FOOS0", 0, b"FOOS"),
+            (b"FOO+01", -3600, b"FOO"),
+            (b"FOO+01:30", -3600 - 30 * 60, b"FOO"),
+            (b"FOO+01:30:59", -3600 - 30 * 60 - 59, b"FOO"),
+            (b"FOOM+23:59:59", -86_399, b"FOOM"),
+            (b"FOOS-23:59:59", 86_399, b"FOOS"),
+            (b"FOOBLA-23:59", 23 * 3600 + 59 * 60, b"FOOBLA"),
+            (b"FOO-23", 23 * 3600, b"FOO"),
+            (b"FOO-01", 3600, b"FOO"),
+            (b"FOO-01:30", 3600 + 30 * 60, b"FOO"),
+            (b"FOO-01:30:59", 3600 + 30 * 60 + 59, b"FOO"),
+            (b"FOO+23:59:59", -86_399, b"FOO"),
+            (b"FOO+23:59", -23 * 3600 - 59 * 60, b"FOO"),
+            (b"FOO+23", -23 * 3600, b"FOO"),
+            (b"<FOO>-3", 3 * 3600, b"FOO"),
         ];
 
-        for &(s, expected) in cases {
-            test(s, expected);
+        for &(s, expected, abbrev) in cases {
+            test(s, expected, abbrev);
         }
     }
 
@@ -494,8 +592,10 @@ mod tests {
                             10.try_into().unwrap()
                         ),
                         DEFAULT_RULE_TIME
-                    )
-                })
+                    ),
+                    abbrev: TzAbbrev::from_bytes(b"FOOS").unwrap(),
+                }),
+                std_abbrev: TzAbbrev::from_bytes(b"FOO").unwrap(),
             }
         );
         // Explicit DST offset
@@ -516,8 +616,10 @@ mod tests {
                             10.try_into().unwrap()
                         ),
                         DEFAULT_RULE_TIME
-                    )
-                })
+                    ),
+                    abbrev: TzAbbrev::from_bytes(b"FOOS").unwrap(),
+                }),
+                std_abbrev: TzAbbrev::from_bytes(b"FOO").unwrap(),
             }
         );
         // Explicit time, weekday rule
@@ -538,8 +640,10 @@ mod tests {
                             10.try_into().unwrap()
                         ),
                         DEFAULT_RULE_TIME
-                    )
-                })
+                    ),
+                    abbrev: TzAbbrev::from_bytes(b"FOOS").unwrap(),
+                }),
+                std_abbrev: TzAbbrev::from_bytes(b"FOO").unwrap(),
             }
         );
         // Explicit time, Julian day rule
@@ -560,8 +664,10 @@ mod tests {
                             10.try_into().unwrap()
                         ),
                         3 * 3_600
-                    )
-                })
+                    ),
+                    abbrev: TzAbbrev::from_bytes(b"FOOS").unwrap(),
+                }),
+                std_abbrev: TzAbbrev::from_bytes(b"FOO").unwrap(),
             }
         );
         // Explicit time, day-of-year rule
@@ -575,8 +681,10 @@ mod tests {
                         Rule::DayOfYear(24.try_into().unwrap()),
                         8 * 3_600 + 34 * 60 + 1
                     ),
-                    end: (Rule::JulianDayOfYear(1.try_into().unwrap()), 0)
-                })
+                    end: (Rule::JulianDayOfYear(1.try_into().unwrap()), 0),
+                    abbrev: TzAbbrev::from_bytes(b"FOOS").unwrap(),
+                }),
+                std_abbrev: TzAbbrev::from_bytes(b"FOO").unwrap(),
             }
         );
         // Explicit time, zeroth day of year
@@ -590,8 +698,10 @@ mod tests {
                         Rule::DayOfYear(1.try_into().unwrap()),
                         8 * 3_600 + 34 * 60 + 1
                     ),
-                    end: (Rule::JulianDayOfYear(1.try_into().unwrap()), 0)
-                })
+                    end: (Rule::JulianDayOfYear(1.try_into().unwrap()), 0),
+                    abbrev: TzAbbrev::from_bytes(b"FOOS").unwrap(),
+                }),
+                std_abbrev: TzAbbrev::from_bytes(b"FOO").unwrap(),
             }
         );
         // 24:00:00 is a valid time for a rule
@@ -612,8 +722,10 @@ mod tests {
                             10.try_into().unwrap()
                         ),
                         DEFAULT_RULE_TIME
-                    )
-                })
+                    ),
+                    abbrev: TzAbbrev::from_bytes(b"FOOS").unwrap(),
+                }),
+                std_abbrev: TzAbbrev::from_bytes(b"FOO").unwrap(),
             }
         );
         // Anything between -167 and 167 hours is also valid!
@@ -634,8 +746,10 @@ mod tests {
                             10.try_into().unwrap()
                         ),
                         100 * 3_600
-                    )
-                })
+                    ),
+                    abbrev: TzAbbrev::from_bytes(b"FOOS").unwrap(),
+                }),
+                std_abbrev: TzAbbrev::from_bytes(b"FOO").unwrap(),
             }
         );
     }
@@ -771,6 +885,7 @@ mod tests {
         let tz_fixed = TzStr {
             std: 1234.try_into().unwrap(),
             dst: None,
+            std_abbrev: TzAbbrev::EMPTY,
         };
         // A TZ with random-ish DST rules
         let tz = TzStr {
@@ -785,7 +900,9 @@ mod tests {
                     Rule::JulianDayOfYear(281.try_into().unwrap()),
                     DEFAULT_RULE_TIME,
                 ),
+                abbrev: TzAbbrev::from_bytes(b"DST").unwrap(),
             }),
+            std_abbrev: TzAbbrev::EMPTY,
         };
         // A TZ with DST time rules that are very large, or negative!
         let tz_weirdtime = TzStr {
@@ -797,7 +914,9 @@ mod tests {
                     50 * 3_600,
                 ),
                 end: (Rule::JulianDayOfYear(281.try_into().unwrap()), -2 * 3_600),
+                abbrev: TzAbbrev::from_bytes(b"DST").unwrap(),
             }),
+            std_abbrev: TzAbbrev::EMPTY,
         };
         // A TZ with DST rules that are 00:00:00
         let tz00 = TzStr {
@@ -806,7 +925,9 @@ mod tests {
                 offset: 9300.try_into().unwrap(),
                 start: (Rule::LastWeekday(Weekday::Sunday, 3.try_into().unwrap()), 0),
                 end: (Rule::JulianDayOfYear(281.try_into().unwrap()), 0),
+                abbrev: TzAbbrev::from_bytes(b"DST").unwrap(),
             }),
+            std_abbrev: TzAbbrev::EMPTY,
         };
         // A TZ with a DST offset smaller than the standard offset (theoretically possible)
         let tz_neg = TzStr {
@@ -818,7 +939,9 @@ mod tests {
                     DEFAULT_RULE_TIME,
                 ),
                 end: (Rule::JulianDayOfYear(281.try_into().unwrap()), 4 * 3_600),
+                abbrev: TzAbbrev::from_bytes(b"DST").unwrap(),
             }),
+            std_abbrev: TzAbbrev::EMPTY,
         };
         // Some timezones have DST end before start
         let tz_inverted = TzStr {
@@ -829,8 +952,10 @@ mod tests {
                     Rule::LastWeekday(Weekday::Sunday, 3.try_into().unwrap()),
                     DEFAULT_RULE_TIME,
                 ),
-                start: (Rule::JulianDayOfYear(281.try_into().unwrap()), 4 * 3_600), // oct 8th
+                start: (Rule::JulianDayOfYear(281.try_into().unwrap()), 4 * 3_600), // oct 8th,
+                abbrev: TzAbbrev::from_bytes(b"DST").unwrap(),
             }),
+            std_abbrev: TzAbbrev::EMPTY,
         };
         // Some timezones appear to be "always DST", like Africa/Casablanca
         let tz_always_dst = TzStr {
@@ -839,7 +964,9 @@ mod tests {
                 offset: 3600.try_into().unwrap(),
                 start: (Rule::DayOfYear(1.try_into().unwrap()), 0),
                 end: (Rule::JulianDayOfYear(365.try_into().unwrap()), 23 * 3600),
+                abbrev: TzAbbrev::from_bytes(b"DST").unwrap(),
             }),
+            std_abbrev: TzAbbrev::EMPTY,
         };
 
         fn to_epoch_s(d: Date, t: Time, offset: Offset) -> EpochSecs {

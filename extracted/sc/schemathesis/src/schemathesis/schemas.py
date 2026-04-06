@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Generator, Iterator, Mapping
 from dataclasses import dataclass, field
-from functools import cached_property, lru_cache, partial
+from functools import cached_property, lru_cache, partial, wraps
+from inspect import iscoroutinefunction
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
@@ -18,6 +19,7 @@ from schemathesis.config import ProjectConfig
 from schemathesis.core import NOT_SET, NotSet, media_types
 from schemathesis.core.adapter import OperationParameter, ResponsesContainer
 from schemathesis.core.errors import IncorrectUsage, InvalidSchema
+from schemathesis.core.failures import FailureGroup
 from schemathesis.core.result import Ok, Result
 from schemathesis.core.transport import Response
 from schemathesis.generation import GenerationMode
@@ -322,13 +324,14 @@ class BaseSchema(Mapping):
         """Return a decorator that marks a test function for `pytest` parametrization.
 
         The decorated test function will be parametrized with test cases generated
-        from the schema's API operations.
+        from the schema's API operations. The same base function can be reused with
+        multiple schemas by assigning the result of each call to a distinct name.
 
         Returns:
             Decorator function for test parametrization.
 
         Raises:
-            IncorrectUsage: If applied to the same function multiple times.
+            IncorrectUsage: If applied on top of another `parametrize()` call on the same function.
 
         """
 
@@ -345,10 +348,23 @@ class BaseSchema(Mapping):
                     )
 
                 return wrapped_test
-            HookDispatcher.add_dispatcher(func)
-            cloned = self.clone(test_function=func)
-            SchemaHandleMark.set(func, cloned)
-            return func
+
+            if iscoroutinefunction(func):
+
+                @wraps(func)
+                async def test_wrapper(*args: Any, **kwargs: Any) -> Any:
+                    return await func(*args, **kwargs)
+
+            else:
+
+                @wraps(func)
+                def test_wrapper(*args: Any, **kwargs: Any) -> Any:
+                    return func(*args, **kwargs)
+
+            HookDispatcher.add_dispatcher(test_wrapper)
+            cloned = self.clone(test_function=test_wrapper)
+            SchemaHandleMark.set(test_wrapper, cloned)
+            return test_wrapper
 
         return wrapper
 
@@ -803,7 +819,7 @@ class APIOperation(Generic[P, R, S]):
         try:
             self.validate_response(response)
             return True
-        except AssertionError:
+        except (AssertionError, FailureGroup):
             return False
 
     def Case(

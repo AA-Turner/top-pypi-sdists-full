@@ -104,6 +104,7 @@ from xrspatial.hydro import stream_link  # noqa: unified wrapper
 from xrspatial.hydro import stream_link_d8, stream_link_dinf, stream_link_mfd  # noqa
 from xrspatial.hydro import stream_order  # noqa: unified wrapper
 from xrspatial.hydro import stream_order_d8, stream_order_dinf, stream_order_mfd  # noqa
+from xrspatial.sieve import sieve  # noqa
 from xrspatial.sky_view_factor import sky_view_factor  # noqa
 from xrspatial.slope import slope  # noqa
 from xrspatial.surface_distance import surface_allocation  # noqa
@@ -119,6 +120,9 @@ from xrspatial.hydro import twi  # noqa: unified wrapper
 from xrspatial.hydro import twi_d8  # noqa
 from xrspatial.polygonize import polygonize  # noqa
 from xrspatial.viewshed import viewshed  # noqa
+from xrspatial.visibility import cumulative_viewshed  # noqa
+from xrspatial.visibility import line_of_sight  # noqa
+from xrspatial.visibility import visibility_frequency  # noqa
 from xrspatial.hydro import basin  # noqa: unified wrapper
 from xrspatial.hydro import basin_d8  # noqa
 from xrspatial.hydro import basins  # noqa: backward-compat alias

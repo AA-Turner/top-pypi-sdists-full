@@ -4,6 +4,7 @@ import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
+from ..types.archive_asset_response_out import ArchiveAssetResponseOut
 from ..types.creatable_asset_type import CreatableAssetType
 from ..types.create_asset_response_out import CreateAssetResponseOut
 from ..types.create_project_response_out import CreateProjectResponseOut
@@ -239,6 +240,38 @@ class AssetsClient:
         )
         """
         _response = self._raw_client.get(asset_id, request_options=request_options)
+        return _response.data
+
+    def archive(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ArchiveAssetResponseOut:
+        """
+        Archive an asset by its ID. The asset will be hidden from active listings (e.g. GET /assets with default filters) but can still be retrieved directly by ID. For folders, all children are also archived recursively. For meetings, associated sub-assets (recordings, transcripts) are archived as well. Only the creator of the asset can archive it.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ArchiveAssetResponseOut
+            Asset successfully archived
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.assets.archive(
+            asset_id="asset_id",
+        )
+        """
+        _response = self._raw_client.archive(asset_id, request_options=request_options)
         return _response.data
 
 
@@ -498,4 +531,44 @@ class AsyncAssetsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get(asset_id, request_options=request_options)
+        return _response.data
+
+    async def archive(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ArchiveAssetResponseOut:
+        """
+        Archive an asset by its ID. The asset will be hidden from active listings (e.g. GET /assets with default filters) but can still be retrieved directly by ID. For folders, all children are also archived recursively. For meetings, associated sub-assets (recordings, transcripts) are archived as well. Only the creator of the asset can archive it.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ArchiveAssetResponseOut
+            Asset successfully archived
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.assets.archive(
+                asset_id="asset_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.archive(asset_id, request_options=request_options)
         return _response.data

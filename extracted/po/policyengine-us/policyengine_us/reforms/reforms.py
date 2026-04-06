@@ -187,6 +187,12 @@ from .congress.watca import (
 from .states.wa.sb6346.sb6346 import (
     create_wa_sb6346_reform,
 )
+from .states.nj.stay_nj import (
+    create_nj_stay_nj_reform,
+)
+from .states.nj.anchor import (
+    create_nj_anchor_reform,
+)
 
 
 from .states.ga.sb520 import (
@@ -430,6 +436,8 @@ def create_structural_reforms_from_parameters(parameters, period):
     ut_fully_refundable_eitc = create_ut_fully_refundable_eitc_reform(
         parameters, period
     )
+    nj_stay_nj = create_nj_stay_nj_reform(parameters, period)
+    nj_anchor = create_nj_anchor_reform(parameters, period)
 
     reforms = [
         afa_reform,
@@ -534,6 +542,8 @@ def create_structural_reforms_from_parameters(parameters, period):
         mo_refundable_eitc,
         oh_refundable_eitc,
         ut_fully_refundable_eitc,
+        nj_stay_nj,
+        nj_anchor,
     ]
     reforms = tuple(filter(lambda x: x is not None, reforms))
 

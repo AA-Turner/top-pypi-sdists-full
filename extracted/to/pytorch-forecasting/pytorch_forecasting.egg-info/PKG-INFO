@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytorch-forecasting
-Version: 1.6.1
+Version: 1.7.0
 Summary: Forecasting timeseries with PyTorch - dataloaders, normalizers, metrics and models
 Author: Jan Beitner
 Classifier: Intended Audience :: Developers
@@ -25,7 +25,7 @@ Requires-Dist: numpy<=3.0.0
 Requires-Dist: torch!=2.0.1,<3.0.0,>=2.0.0
 Requires-Dist: lightning<2.7.0,>=2.0.0
 Requires-Dist: scipy<2.0,>=1.8
-Requires-Dist: pandas<3.0.0,>=1.3.0
+Requires-Dist: pandas<3.1.0,>=1.3.0
 Requires-Dist: scikit-learn<2.0,>=1.2
 Requires-Dist: scikit-base<0.14.0
 Provides-Extra: all-extras
@@ -112,8 +112,8 @@ Specifically, the package provides
 
 - A timeseries dataset class which abstracts handling variable transformations, missing values,
   randomized subsampling, multiple history lengths, etc.
-- A base model class which provides basic training of timeseries models along with logging in tensorboard
-  and generic visualizations such actual vs predictions and dependency plots
+- A base model class which provides basic training of timeseries models along with logging in TensorBoard
+  and generic visualizations such as actual vs predictions and dependency plots
 - Multiple neural network architectures for timeseries forecasting that have been enhanced
   for real-world deployment and come with in-built interpretation capabilities
 - Multi-horizon timeseries metrics

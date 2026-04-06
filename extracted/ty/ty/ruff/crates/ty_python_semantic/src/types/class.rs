@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 pub(crate) use self::dynamic_literal::{
-    DynamicClassAnchor, DynamicClassLiteral, DynamicMetaclassConflict,
+    DynamicClassAnchor, DynamicClassLiteral, DynamicMetaclassConflict, dynamic_class_bases_argument,
 };
 pub use self::known::KnownClass;
 use self::named_tuple::synthesize_namedtuple_class_member;
@@ -924,6 +924,17 @@ impl<'db> ClassType<'db> {
     /// Return `true` if this class is a `TypedDict`.
     pub(crate) fn is_typed_dict(self, db: &'db dyn Db) -> bool {
         self.class_literal(db).is_typed_dict(db)
+    }
+
+    /// Return `true` if this class is a subtype of (any specialization of) `class_literal`.
+    pub(crate) fn is_subtype_of_class_literal(
+        self,
+        db: &'db dyn Db,
+        class_literal: ClassLiteral<'db>,
+    ) -> bool {
+        self.iter_mro(db)
+            .filter_map(ClassBase::into_class)
+            .any(|base| base.class_literal(db) == class_literal)
     }
 
     pub(super) fn apply_type_mapping_impl<'a>(

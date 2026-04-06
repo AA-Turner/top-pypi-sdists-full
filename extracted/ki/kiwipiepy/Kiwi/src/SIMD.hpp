@@ -622,7 +622,11 @@ namespace kiwi
                 {
                     pa = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&a[i]));
                     pb = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&b[i]));
+#ifdef _MSC_VER
+                    acc = _mm256_dpbusd_avx_epi32(acc, pa, pb);
+#else
                     acc = _mm256_dpbusd_epi32(acc, pa, pb);
+#endif
                 }
 				// reduce sum of eight int32_t to one int32_t
 				__m256i sum = _mm256_hadd_epi32(acc, acc);
@@ -892,11 +896,18 @@ namespace kiwi
             static STRONG_INLINE int32_t dotprod(const uint8_t* a, const int8_t* b, size_t size)
             {
                 int32x4_t sum = vdupq_n_s32(0);
-				uint16x8_t pa;
-				int8x16_t pb;
                 for (size_t i = 0; i < size; i += 16)
                 {
-					//
+					uint8x16_t pa = vld1q_u8(a + i);
+					int8x16_t pb = vld1q_s8(b + i);
+					// Extend a (uint8, 0-255) to int16 via zero-extend, b (int8) via sign-extend
+					// Product range: 0*(-128) to 255*127 = [-32640, 32385], fits in int16
+					int16x8_t pa_lo = vreinterpretq_s16_u16(vmovl_u8(vget_low_u8(pa)));
+					int16x8_t pa_hi = vreinterpretq_s16_u16(vmovl_u8(vget_high_u8(pa)));
+					int16x8_t pb_lo = vmovl_s8(vget_low_s8(pb));
+					int16x8_t pb_hi = vmovl_s8(vget_high_s8(pb));
+					sum = vpadalq_s16(sum, vmulq_s16(pa_lo, pb_lo));
+					sum = vpadalq_s16(sum, vmulq_s16(pa_hi, pb_hi));
                 }
 				sum = vpaddq_s32(sum, sum);
 				sum = vpaddq_s32(sum, sum);

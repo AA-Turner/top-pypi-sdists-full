@@ -22,17 +22,17 @@ TestInitializer _global_initializer;
 
 using namespace kiwi;
 
-inline testing::AssertionResult testTokenization(Kiwi& kiwi, const std::u16string& s)
+inline testing::AssertionResult testTokenization(Kiwi& kiwi, const std::u16string& s, AnalyzeOption option)
 {
-	auto tokens = kiwi.analyze(s, Match::all).first;
-	if (tokens.empty()) return testing::AssertionFailure() << "kiwi.analyze(" << testing::PrintToString(s) << ") yields an empty result.";
+	auto tokens = kiwi.analyze(s, option).first;
+	if (tokens.empty()) return testing::AssertionFailure() << "kiwi.analyze(" << utf16To8(s) << ") yields an empty result.";
 	if (tokens.back().position + tokens.back().length == s.size())
 	{
 		return testing::AssertionSuccess();
 	}
 	else
 	{
-		return testing::AssertionFailure() << "the result of kiwi.analyze(" << testing::PrintToString(s) << ") ends at " << (tokens.back().position + tokens.back().length);
+		return testing::AssertionFailure() << "the result of kiwi.analyze(" << utf16To8(s) << ") ends at " << (tokens.back().position + tokens.back().length);
 	}
 }
 
@@ -234,10 +234,21 @@ TEST(KiwiCpp, EmptyResult)
 		u"스틸블루",
 		u"15살이었므로",
 		u"타란튤라",
+		u"꽃게 맛이 가장 좋다는 봄철에는 알이 통통하게 든 암 꽃게가 많이 잡히며, 게 딱지 속에 노란 알과 내장이  가득하여 게장으로 담그면 좋고, 가을에는 살이 통통하게 오른 숫 꽃게가 많이 잡히는데 살이 많고 찌더라도 퍽퍽하지 않고 부드러워 찜으로 요리하면 좋다.",
 	};
 	for (auto s : testCases)
 	{
-		EXPECT_TRUE(testTokenization(kiwi, s));
+		EXPECT_TRUE(testTokenization(kiwi, s, Match::all));
+	}
+
+	AnalyzeOption option = Match::allWithNormalizing | Match::oovChrFreqModel | Match::mergeSaisiot;
+	option.typoTransformer = getDefaultPreparedTypoSet(DefaultTypoSet::basicTypoSetWithContinualAndLengthening);
+	auto testCases2 = {
+		u"해물톳짜장 나왔습니당 쫄깃한 면발 위에 듬뿍 얹어진 톳 그 위에 방풍나물 마라도 짜장면 맛집 인정!",
+	};
+	for (auto s : testCases2)
+	{
+		EXPECT_TRUE(testTokenization(kiwi, s, option));
 	}
 }
 
@@ -2141,4 +2152,20 @@ TEST(KiwiCpp, Issue231)
 	auto tokens = kiwi.analyze(u"숫", Match::allWithNormalizing).first;
 	EXPECT_EQ(tokens.size(), 1);
 	EXPECT_EQ(tokens[0].str, u"숫");
+}
+
+TEST(KiwiCpp, Issue246)
+{
+	auto& kiwi = reuseKiwiInstance();
+	for (auto s : {
+		u"1. 분석",
+		u"1. 해야 하는 일",
+		u"1. 해야 하는 업무",
+		u"1. 수학적 증명",
+		u"1. Dataset"
+	})
+	{
+		auto res = kiwi.analyze(s, 5, Match::allWithNormalizing);
+		EXPECT_EQ(res[0].first[0].tag, POSTag::sb) << " for input: " << utf16To8(s);
+	}
 }

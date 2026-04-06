@@ -1,10 +1,10 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: ua-parser
-Version: 1.0.1
+Version: 1.0.2
 Summary: Python port of Browserscope's user agent parser
 Author-email: Stephen Lamm <slamm@google.com>, PBS <no-reply@pbs.org>, Selwin Ong <selwin.ong@gmail.com>, Matt Robenolt <matt@ydekproductions.com>, Lindsey Simon <lsimon@commoner.com>
 Maintainer-email: masklinn <uap@masklinn.net>
-License: Apache 2.0
+License-Expression: Apache-2.0
 Project-URL: documentation, https://uap-python.readthedocs.io
 Project-URL: repository, https://github.com/ua-parser/uap-python
 Project-URL: issues, https://github.com/ua-parser/uap-python/issues
@@ -12,18 +12,19 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: Implementation :: GraalPy
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: ua-parser-builtins
@@ -33,6 +34,7 @@ Provides-Extra: re2
 Requires-Dist: google-re2; extra == "re2"
 Provides-Extra: regex
 Requires-Dist: ua-parser-rs; extra == "regex"
+Dynamic: license-file
 
 uap-python
 ==========
@@ -62,18 +64,14 @@ Add ``ua-parser[regex]`` to your project's dependencies, or run
 
 to install in the current environment.
 
-ua-parser supports CPython 3.9 and newer, recent pypy (supporting
-3.10), and GraalPy 24.
+ua-parser supports CPython 3.10 and newer, recent pypy (supporting
+3.10), and GraalPy 25.
 
 .. note::
 
-   The ``[regex]`` feature is *strongly* recommended:
-
-   - ``[re2]`` is slightly slower and only works with cpython, though
-     it is still a great option then (and is more memory-efficient).
-   - Pure python (no feature) is *significantly* slower, especially on
-     non-cpython runtimes, but it is the most memory efficient even
-     with caches.
+   The ``[regex]`` feature is *strongly* recommended, the Pure python
+   (no feature) is *significantly* slower, especially on non-cpython
+   runtimes, though it is the most memory efficient.
 
    See `builtin resolvers`_ for more explanation of the tradeoffs
    between the different options.

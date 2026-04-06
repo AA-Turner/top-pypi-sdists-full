@@ -3,7 +3,7 @@ use crate::{
     common::{
         fmt::{self, Sink, format_2_digits},
         parse::Scan,
-        round,
+        pattern, round,
         scalar::*,
     },
     docstrings as doc,
@@ -64,9 +64,9 @@ impl Time {
 
     pub(crate) fn from_total_nanos_unchecked(nanos: u64) -> Self {
         Time {
-            hour: (nanos / 3_600_000_000_000) as u8,
-            minute: ((nanos % 3_600_000_000_000) / 60_000_000_000) as u8,
-            second: ((nanos % 60_000_000_000) / 1_000_000_000) as u8,
+            hour: (nanos / NS_PER_HOUR) as u8,
+            minute: ((nanos % NS_PER_HOUR) / NS_PER_MINUTE) as u8,
+            second: ((nanos % NS_PER_MINUTE) / 1_000_000_000) as u8,
             subsec: SubSecNanos::from_remainder(nanos),
         }
     }
@@ -99,7 +99,7 @@ impl Time {
                 let min = s.digits00_59()?;
                 // seconds are still optional at this point
                 let (sec, subsec) = match s.advance_on(b':') {
-                    Some(true) => s.digits00_59().zip(s.subsec())?,
+                    Some(true) => s.digits00_60_leap().zip(s.subsec())?,
                     _ => (0, SubSecNanos::MIN),
                 };
                 (min, sec, subsec)
@@ -119,7 +119,7 @@ impl Time {
         let hour = s.digits00_23()?;
         let (minute, second, subsec) = match s.digits00_59() {
             Some(m) => {
-                let (sec, sub) = match s.digits00_59() {
+                let (sec, sub) = match s.digits00_60_leap() {
                     Some(n) => (n, s.subsec().unwrap_or(SubSecNanos::MIN)),
                     None => (0, SubSecNanos::MIN),
                 };
@@ -165,23 +165,24 @@ impl Time {
     /// Returns the rounded time and whether it has wrapped around to the next day (0 or 1)
     /// The increment is given in ns must be a divisor of 24 hours
     pub(crate) fn round(self, increment: u64, mode: round::Mode) -> (Self, u64) {
-        debug_assert!(86_400_000_000_000 % increment == 0);
+        debug_assert!(NS_PER_DAY.is_multiple_of(increment));
         let total_nanos = self.total_nanos();
         let quotient = total_nanos / increment;
         let remainder = total_nanos % increment;
 
+        // Time is always non-negative, so trunc=floor and expand=ceil
         let threshold = match mode {
-            round::Mode::HalfEven => 1.max(increment / 2 + (quotient.is_multiple_of(2)) as u64),
-            round::Mode::Ceil => 1,
-            round::Mode::Floor => increment + 1,
-            round::Mode::HalfFloor => increment / 2 + 1,
-            round::Mode::HalfCeil => 1.max(increment / 2),
+            round::Mode::HalfEven => 1.max(increment / 2 + quotient.is_multiple_of(2) as u64),
+            round::Mode::Ceil | round::Mode::Expand => 1,
+            round::Mode::Floor | round::Mode::Trunc => increment + 1,
+            round::Mode::HalfFloor | round::Mode::HalfTrunc => increment / 2 + 1,
+            round::Mode::HalfCeil | round::Mode::HalfExpand => 1.max(increment / 2),
         };
         let round_up = remainder >= threshold;
         let ns_since_midnight = (quotient + round_up as u64) * increment;
         (
-            Self::from_total_nanos_unchecked(ns_since_midnight % 86_400_000_000_000),
-            ns_since_midnight / 86_400_000_000_000,
+            Self::from_total_nanos_unchecked(ns_since_midnight % NS_PER_DAY),
+            ns_since_midnight / NS_PER_DAY,
         )
     }
 
@@ -324,8 +325,11 @@ pub(crate) const SINGLETONS: &[(&CStr, Time); 4] = &[
 fn __new__(cls: HeapType<Time>, args: PyTuple, kwargs: Option<PyDict>) -> PyReturn {
     if args.len() == 1 && kwargs.map_or(0, |d| d.len()) == 0 {
         let obj = args.iter().next().unwrap();
+        if let Some(t) = obj.cast_allow_subclass::<PyTime>() {
+            return Time::from_py(t).to_obj(cls);
+        }
         if PyStr::isinstance(obj) {
-            return parse_iso(cls, args.iter().next().unwrap());
+            return parse_iso(cls, obj);
         }
     }
     let mut hour: c_long = 0;
@@ -344,7 +348,7 @@ fn __new__(cls: HeapType<Time>, args: PyTuple, kwargs: Option<PyDict>) -> PyRetu
     );
 
     Time::from_longs(hour, minute, second, nanosecond)
-        .ok_or_value_err("Invalid time component value")?
+        .ok_or_value_err("invalid time component value")?
         .to_obj(cls)
 }
 
@@ -409,7 +413,7 @@ static mut SLOTS: &[PyType_Slot] = &[
     },
 ];
 
-fn py_time(cls: HeapType<Time>, slf: Time) -> PyReturn {
+fn to_stdlib(cls: HeapType<Time>, slf: Time) -> PyReturn {
     let Time {
         hour,
         minute,
@@ -435,7 +439,27 @@ fn py_time(cls: HeapType<Time>, slf: Time) -> PyReturn {
     .rust_owned()
 }
 
+fn py_time(cls: HeapType<Time>, slf: Time) -> PyReturn {
+    let &State {
+        warn_deprecation, ..
+    } = cls.state();
+    warn_with_class(
+        warn_deprecation,
+        c"py_time() is deprecated. Use to_stdlib() instead.",
+        1,
+    )?;
+    to_stdlib(cls, slf)
+}
+
 fn from_py_time(cls: HeapType<Time>, arg: PyObj) -> PyReturn {
+    let &State {
+        warn_deprecation, ..
+    } = cls.state();
+    warn_with_class(
+        warn_deprecation,
+        c"from_py_time() is deprecated. Use Time() constructor instead.",
+        1,
+    )?;
     Time::from_py(
         arg.cast_allow_subclass::<PyTime>()
             .ok_or_type_err("argument must be a datetime.time")?,
@@ -497,26 +521,11 @@ fn parse_iso(cls: HeapType<Time>, s: PyObj) -> PyReturn {
         s.cast_allow_subclass::<PyStr>()
             // NOTE: this exception message also needs to make sense when
             // called through the constructor
-            .ok_or_type_err("When parsing from ISO format, the argument must be str")?
+            .ok_or_type_err("when parsing from ISO format, the argument must be str")?
             .as_utf8()?,
     )
     .ok_or_else_value_err(|| format!("Invalid format: {s}"))?
     .to_obj(cls)
-}
-
-fn format_common_iso(
-    cls: HeapType<Time>,
-    slf: Time,
-    args: &[PyObj],
-    kwargs: &mut IterKwargs,
-) -> PyReturn {
-    deprecation_warn(c"format_common_iso() has been renamed to format_iso()")?;
-    format_iso(cls, slf, args, kwargs)
-}
-
-fn parse_common_iso(cls: HeapType<Time>, arg: PyObj) -> PyReturn {
-    deprecation_warn(c"parse_common_iso() has been renamed to parse_iso()")?;
-    parse_iso(cls, arg)
 }
 
 fn __reduce__(cls: HeapType<Time>, slf: Time) -> PyResult<Owned<PyTuple>> {
@@ -589,34 +598,118 @@ fn replace(cls: HeapType<Time>, slf: Time, args: &[PyObj], kwargs: &mut IterKwar
             Ok(true)
         })?;
         Time::from_longs(hour, minute, second, nanos)
-            .ok_or_value_err("Invalid time component value")?
+            .ok_or_value_err("invalid time component value")?
             .to_obj(cls)
     }
 }
 
 fn round(cls: HeapType<Time>, slf: Time, args: &[PyObj], kwargs: &mut IterKwargs) -> PyReturn {
-    let (unit, increment, mode) = round::parse_args(cls.state(), args, kwargs, false, false)?;
-    if unit == round::Unit::Day {
-        raise_value_err("Cannot round Time to day")?;
-    } else if unit == round::Unit::Hour && 86_400_000_000_000 % increment != 0 {
-        raise_value_err("increment must be a divisor of 24")?;
+    let round::Args {
+        increment, mode, ..
+    } = round::Args::parse(cls.state(), args, kwargs, false)?;
+    let increment_ns = match increment {
+        round::RoundIncrement::Day => raise_value_err("cannot round Time to day")?,
+        round::RoundIncrement::Exact(incr) => incr.get(),
+    };
+    slf.round(increment_ns, mode).0.to_obj(cls)
+}
+
+fn format(_cls: HeapType<Time>, slf: Time, pattern_obj: PyObj) -> PyReturn {
+    let pattern_pystr = pattern_obj
+        .cast_exact::<PyStr>()
+        .ok_or_type_err("format() argument must be str")?;
+    let pattern_str = pattern_pystr.as_utf8()?;
+    let elements = pattern::compile(pattern_str).into_value_err()?;
+    pattern::validate_fields(&elements, pattern::CategorySet::TIME, "Time")?;
+    if pattern::has_12h_without_ampm(&elements) {
+        warn_with_class(
+            // SAFETY: PyExc_UserWarning is always valid
+            unsafe { PyObj::from_ptr_unchecked(PyExc_UserWarning) },
+            c"12-hour format (ii) without AM/PM designator (a/aa) may be ambiguous",
+            1,
+        )?;
     }
-    slf.round(increment as u64, mode).0.to_obj(cls)
+    let vals = pattern::FormatValues {
+        year: Year::MIN,
+        month: Month::MIN,
+        day: 1,
+        weekday: Weekday::Monday,
+        hour: slf.hour,
+        minute: slf.minute,
+        second: slf.second,
+        nanos: slf.subsec,
+        offset_secs: None,
+        tz_id: None,
+        tz_abbrev: None,
+    };
+    pattern::format_to_py(&elements, &vals)
+}
+
+fn __format__(cls: HeapType<Time>, slf: Time, spec_obj: PyObj) -> PyReturn {
+    if spec_obj.is_truthy() {
+        format(cls, slf, spec_obj)
+    } else {
+        __str__(cls.into(), slf)
+    }
+}
+
+fn parse(cls: HeapType<Time>, args: &[PyObj], kwargs: &mut IterKwargs) -> PyReturn {
+    let &[s_obj] = args else {
+        raise_type_err(format!(
+            "parse() takes exactly 1 positional argument ({} given)",
+            args.len()
+        ))?
+    };
+    let s_pystr = s_obj
+        .cast_exact::<PyStr>()
+        .ok_or_type_err("parse() argument must be str")?;
+    let s = s_pystr.as_utf8()?;
+
+    let fmt_obj = handle_one_kwarg("parse", cls.state().str_format, kwargs)?.ok_or_else(|| {
+        raise_type_err::<(), _>("parse() requires 'format' keyword argument").unwrap_err()
+    })?;
+    let fmt_pystr = fmt_obj
+        .cast_exact::<PyStr>()
+        .ok_or_type_err("format must be str")?;
+    let fmt_bytes = fmt_pystr.as_utf8()?;
+
+    let elements = pattern::compile(fmt_bytes).into_value_err()?;
+    pattern::validate_fields(&elements, pattern::CategorySet::TIME, "Time")?;
+
+    let state = pattern::parse_to_state(&elements, s).into_value_err()?;
+
+    let hour = state.hour.unwrap_or(0);
+    let minute = state.minute.unwrap_or(0);
+    let second = state.second.unwrap_or(0);
+
+    if hour >= 24 || minute >= 60 || second >= 60 {
+        raise_value_err("Invalid time")?;
+    }
+
+    Time {
+        hour,
+        minute,
+        second,
+        subsec: state.nanos,
+    }
+    .to_obj(cls)
 }
 
 static mut METHODS: &[PyMethodDef] = &[
     method0!(Time, __copy__, c""),
     method1!(Time, __deepcopy__, c""),
     method0!(Time, __reduce__, c""),
+    method0!(Time, to_stdlib, doc::TIME_TO_STDLIB),
     method0!(Time, py_time, doc::TIME_PY_TIME),
     method_kwargs!(Time, replace, doc::TIME_REPLACE),
     method_kwargs!(Time, format_iso, doc::TIME_FORMAT_ISO),
-    method_kwargs!(Time, format_common_iso, c""), // deprecated alias
     classmethod1!(Time, parse_iso, doc::TIME_PARSE_ISO),
-    classmethod1!(Time, parse_common_iso, c""), // deprecated alias
     classmethod1!(Time, from_py_time, doc::TIME_FROM_PY_TIME),
     method1!(Time, on, doc::TIME_ON),
     method_kwargs!(Time, round, doc::TIME_ROUND),
+    method1!(Time, format, doc::TIME_FORMAT),
+    method1!(Time, __format__, c""),
+    classmethod_kwargs!(Time, parse, doc::TIME_PARSE),
     classmethod_kwargs!(Time, __get_pydantic_core_schema__, doc::PYDANTIC_SCHEMA),
     PyMethodDef::zeroed(),
 ];
@@ -624,11 +717,11 @@ static mut METHODS: &[PyMethodDef] = &[
 pub(crate) fn unpickle(state: &State, arg: PyObj) -> PyReturn {
     let py_bytes = arg
         .cast_exact::<PyBytes>()
-        .ok_or_type_err("Invalid pickle data")?;
+        .ok_or_type_err("invalid pickle data")?;
 
     let mut data = py_bytes.as_bytes()?;
     if data.len() != 7 {
-        raise_type_err("Invalid pickle data")?
+        raise_type_err("invalid pickle data")?
     }
     Time {
         hour: unpack_one!(data, u8),
@@ -656,10 +749,10 @@ fn nanosecond(_: PyType, slf: Time) -> PyReturn {
 }
 
 static mut GETSETTERS: &[PyGetSetDef] = &[
-    getter!(Time, hour, "The hour component"),
-    getter!(Time, minute, "The minute component"),
-    getter!(Time, second, "The second component"),
-    getter!(Time, nanosecond, "The nanosecond component"),
+    getter!(Time, hour, doc::TIME_HOUR),
+    getter!(Time, minute, doc::TIME_MINUTE),
+    getter!(Time, second, doc::TIME_SECOND),
+    getter!(Time, nanosecond, doc::TIME_NANOSECOND),
     PyGetSetDef {
         name: NULL(),
         get: None,
@@ -744,5 +837,148 @@ mod tests {
         testcase(t4, false, fmt::Unit::Minute, b"12:34");
         testcase(t4, false, fmt::Unit::Hour, b"12");
         testcase(t4, true, fmt::Unit::Hour, b"12");
+    }
+
+    #[test]
+    fn parse_leap_seconds_extended_format() {
+        // Leap second normalization in extended format
+        let t = Time::parse_iso(b"01:02:60").unwrap();
+        assert_eq!(t.hour, 1);
+        assert_eq!(t.minute, 2);
+        assert_eq!(t.second, 59);
+        assert_eq!(t.subsec, SubSecNanos::MIN);
+
+        // With fractional seconds
+        let t = Time::parse_iso(b"23:59:60.999999999").unwrap();
+        assert_eq!(t.hour, 23);
+        assert_eq!(t.minute, 59);
+        assert_eq!(t.second, 59);
+        assert_eq!(t.subsec, SubSecNanos::new_unchecked(999_999_999));
+
+        let t = Time::parse_iso(b"12:34:60.123456").unwrap();
+        assert_eq!(t.hour, 12);
+        assert_eq!(t.minute, 34);
+        assert_eq!(t.second, 59);
+        assert_eq!(t.subsec, SubSecNanos::new_unchecked(123_456_000));
+
+        // Comma as decimal separator
+        let t = Time::parse_iso(b"12:34:60,5").unwrap();
+        assert_eq!(t.hour, 12);
+        assert_eq!(t.minute, 34);
+        assert_eq!(t.second, 59);
+        assert_eq!(t.subsec, SubSecNanos::new_unchecked(500_000_000));
+    }
+
+    #[test]
+    fn parse_leap_seconds_basic_format() {
+        // Leap second normalization in basic format
+        let t = Time::parse_iso(b"010260").unwrap();
+        assert_eq!(t.hour, 1);
+        assert_eq!(t.minute, 2);
+        assert_eq!(t.second, 59);
+        assert_eq!(t.subsec, SubSecNanos::MIN);
+
+        // With fractional seconds
+        let t = Time::parse_iso(b"235960.999999999").unwrap();
+        assert_eq!(t.hour, 23);
+        assert_eq!(t.minute, 59);
+        assert_eq!(t.second, 59);
+        assert_eq!(t.subsec, SubSecNanos::new_unchecked(999_999_999));
+
+        let t = Time::parse_iso(b"123460.123456").unwrap();
+        assert_eq!(t.hour, 12);
+        assert_eq!(t.minute, 34);
+        assert_eq!(t.second, 59);
+        assert_eq!(t.subsec, SubSecNanos::new_unchecked(123_456_000));
+
+        // Comma as decimal separator
+        let t = Time::parse_iso(b"123460,5").unwrap();
+        assert_eq!(t.hour, 12);
+        assert_eq!(t.minute, 34);
+        assert_eq!(t.second, 59);
+        assert_eq!(t.subsec, SubSecNanos::new_unchecked(500_000_000));
+    }
+
+    #[test]
+    fn parse_leap_seconds_edge_cases() {
+        // Midnight leap second
+        let t = Time::parse_iso(b"00:00:60").unwrap();
+        assert_eq!(t.hour, 0);
+        assert_eq!(t.minute, 0);
+        assert_eq!(t.second, 59);
+
+        // End of day leap second
+        let t = Time::parse_iso(b"23:59:60").unwrap();
+        assert_eq!(t.hour, 23);
+        assert_eq!(t.minute, 59);
+        assert_eq!(t.second, 59);
+
+        // Various minutes with leap seconds
+        for minute in 0..60 {
+            let input = format!("12:{:02}:60", minute);
+            let t = Time::parse_iso(input.as_bytes()).unwrap();
+            assert_eq!(t.hour, 12);
+            assert_eq!(t.minute, minute);
+            assert_eq!(t.second, 59);
+        }
+    }
+
+    #[test]
+    fn parse_invalid_seconds() {
+        // 61 and above should be rejected
+        assert!(Time::parse_iso(b"01:02:61").is_none());
+        assert!(Time::parse_iso(b"01:02:62").is_none());
+        assert!(Time::parse_iso(b"01:02:99").is_none());
+        assert!(Time::parse_iso(b"010261").is_none());
+        assert!(Time::parse_iso(b"010262").is_none());
+        assert!(Time::parse_iso(b"010299").is_none());
+    }
+
+    #[test]
+    fn parse_normal_seconds_still_work() {
+        // Ensure normal seconds 00-59 still parse correctly
+        for sec in 0..60 {
+            let input = format!("12:34:{:02}", sec);
+            let t = Time::parse_iso(input.as_bytes()).unwrap();
+            assert_eq!(t.hour, 12);
+            assert_eq!(t.minute, 34);
+            assert_eq!(t.second, sec);
+
+            let input = format!("1234{:02}", sec);
+            let t = Time::parse_iso(input.as_bytes()).unwrap();
+            assert_eq!(t.hour, 12);
+            assert_eq!(t.minute, 34);
+            assert_eq!(t.second, sec);
+        }
+    }
+
+    #[test]
+    fn read_iso_extended_leap_seconds() {
+        // Test the read_iso_extended function directly
+        let mut scan = Scan::new(b"12:34:60");
+        let t = Time::read_iso_extended(&mut scan).unwrap();
+        assert_eq!(t.second, 59);
+        assert!(scan.is_done());
+
+        let mut scan = Scan::new(b"12:34:60.123");
+        let t = Time::read_iso_extended(&mut scan).unwrap();
+        assert_eq!(t.second, 59);
+        assert_eq!(t.subsec, SubSecNanos::new_unchecked(123_000_000));
+        assert!(scan.is_done());
+    }
+
+    #[test]
+    fn read_iso_basic_leap_seconds() {
+        // Test the read_iso_basic function directly
+        let mut scan = Scan::new(b"123460");
+        let t = Time::read_iso_basic(&mut scan).unwrap();
+        assert_eq!(t.second, 59);
+        assert!(scan.is_done());
+
+        let mut scan = Scan::new(b"123460.123");
+        let t = Time::read_iso_basic(&mut scan).unwrap();
+        assert_eq!(t.second, 59);
+        assert_eq!(t.subsec, SubSecNanos::new_unchecked(123_000_000));
+        assert!(scan.is_done());
     }
 }

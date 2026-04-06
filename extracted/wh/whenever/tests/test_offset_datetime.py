@@ -1,6 +1,8 @@
 import pickle
 import re
+import warnings
 from datetime import datetime as py_datetime, timedelta, timezone, tzinfo
+from typing import Any, Literal, Sequence
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -9,13 +11,16 @@ from hypothesis.strategies import floats, integers, text
 
 from whenever import (
     Date,
-    ImplicitlyIgnoringDST,
     Instant,
+    InvalidOffsetError,
+    ItemizedDelta,
     OffsetDateTime,
     PlainDateTime,
+    StaleOffsetWarning,
     Time,
     TimeDelta,
     TimeZoneNotFoundError,
+    WheneverDeprecationWarning,
     ZonedDateTime,
     days,
     hours,
@@ -31,8 +36,13 @@ from .common import (
     AlwaysLarger,
     AlwaysSmaller,
     NeverEqual,
+    suppress,
     system_tz_ams,
     system_tz_nyc,
+)
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore::whenever.WheneverDeprecationWarning"
 )
 
 
@@ -123,7 +133,6 @@ def test_immutable():
 
 
 class TestFormatIso:
-
     @pytest.mark.parametrize(
         "d, expected",
         [
@@ -285,6 +294,9 @@ INVALID_ISO_STRINGS = [
     # unsupported ISO features (weekdays, ordinal dates)
     "2020-W08-1T23:12:09-01",
     "2020-123T23:12:09-01",
+    # invalid seconds (61 and above should be rejected)
+    "2020-08-15T12:34:61+00:00",
+    "2020-08-15T12:34:99+00:00",
 ]
 
 VALID_ISO_STRINGS = [
@@ -375,6 +387,41 @@ VALID_ISO_STRINGS = [
             2020, 8, 15, 12, 0, 12, nanosecond=311_200_000, offset=minutes(-30)
         ),
     ),
+    # Leap second (60) should be parsed and normalized to 59
+    (
+        "2020-08-15T05:12:60+05:00",
+        OffsetDateTime(2020, 8, 15, 5, 12, 59, offset=5),
+    ),
+    (
+        "2020-08-15T05:12:60.123456+05:00",
+        OffsetDateTime(
+            2020, 8, 15, 5, 12, 59, nanosecond=123_456_000, offset=5
+        ),
+    ),
+    # Leap second with basic format
+    (
+        "20200815T051260+0500",
+        OffsetDateTime(2020, 8, 15, 5, 12, 59, offset=5),
+    ),
+    # Leap second with negative offset
+    (
+        "2020-08-15T23:59:60-08:00",
+        OffsetDateTime(2020, 8, 15, 23, 59, 59, offset=-8),
+    ),
+    # Leap second with fractional seconds and various offsets
+    (
+        "2020-08-15T12:34:60.5+00:00",
+        OffsetDateTime(
+            2020, 8, 15, 12, 34, 59, nanosecond=500_000_000, offset=0
+        ),
+    ),
+    # Leap second with comma as decimal separator
+    (
+        "2020-08-15T12:34:60,5+00:00",
+        OffsetDateTime(
+            2020, 8, 15, 12, 34, 59, nanosecond=500_000_000, offset=0
+        ),
+    ),
 ]
 
 
@@ -382,6 +429,11 @@ class TestParseIso:
     @pytest.mark.parametrize("s, expect", VALID_ISO_STRINGS)
     def test_valid(self, s, expect):
         assert OffsetDateTime.parse_iso(s).exact_eq(expect)
+
+    def test_direct_construction_rejects_leap_second(self):
+        # Direct construction should still reject 60
+        with pytest.raises(ValueError):
+            OffsetDateTime(2020, 8, 15, 5, 12, 60, offset=5)
 
     @pytest.mark.parametrize("s", INVALID_ISO_STRINGS)
     def test_invalid(self, s):
@@ -408,38 +460,42 @@ class TestParseIso:
             OffsetDateTime.parse_iso(s)
 
 
+@suppress(StaleOffsetWarning)
 def test_exact_equality():
     d = OffsetDateTime(2020, 8, 15, 12, offset=5)
-    same = d.replace(ignore_dst=True)
-    utc_same = d.replace(hour=13, offset=hours(6), ignore_dst=True)
-    different = d.replace(offset=hours(6), ignore_dst=True)
+    same = d.replace()
+    utc_same = d.replace(hour=13, offset=hours(6))
+    different = d.replace(offset=hours(6))
     assert d.exact_eq(same)
     assert not d.exact_eq(utc_same)
     assert not d.exact_eq(different)
-    assert not d.exact_eq(d.replace(nanosecond=1, ignore_dst=True))
+    assert not d.exact_eq(d.replace(nanosecond=1))
 
     with pytest.raises(TypeError):
         d.exact_eq(d.to_instant())  # type: ignore[arg-type]
 
 
 class TestEquality:
+    @suppress(StaleOffsetWarning)
     def test_same_exact(self):
         d = OffsetDateTime(2020, 8, 15, 12, offset=5)
-        same = d.replace(ignore_dst=True)
+        same = d.replace()
         assert d == same
         assert not d != same
         assert hash(d) == hash(same)
 
+    @suppress(StaleOffsetWarning)
     def test_different(self):
         d = OffsetDateTime(2020, 8, 15, 12, offset=5)
-        different = d.replace(offset=hours(6), ignore_dst=True)
+        different = d.replace(offset=hours(6))
         assert d != different
         assert not d == different
         assert hash(d) != hash(different)
 
+    @suppress(StaleOffsetWarning)
     def test_same_time(self):
         d = OffsetDateTime(2020, 8, 15, 12, offset=5)
-        same_time = d.replace(hour=11, offset=hours(4), ignore_dst=True)
+        same_time = d.replace(hour=11, offset=hours(4))
         assert d == same_time
         assert not d != same_time
         assert hash(d) == hash(same_time)
@@ -473,6 +529,10 @@ class TestEquality:
 
         assert hash(d) == hash(utc_same)
         assert hash(d) != hash(utc_different)
+
+        # important: check typing errors in case of strict-comparison mode
+        d2 = OffsetDateTime(2020, 8, 15, 12, offset=5)
+        assert d2 == d2.to_instant()  # type: ignore[comparison-overlap]
 
     def test_not_implemented(self):
         d = OffsetDateTime(2020, 8, 15, 12, offset=5)
@@ -526,108 +586,104 @@ class TestFromTimestamp:
             (OffsetDateTime.from_timestamp_nanos, 1_000_000_000),
         ],
     )
+    @suppress(StaleOffsetWarning)
     def test_all(self, method, factor):
-        assert method(0, offset=3, ignore_dst=True).exact_eq(
+
+        assert method(0, offset=3).exact_eq(
             OffsetDateTime(1970, 1, 1, 3, offset=3)
         )
-        assert method(
-            1_597_493_310 * factor, offset=hours(-2), ignore_dst=True
-        ).exact_eq(OffsetDateTime(2020, 8, 15, 10, 8, 30, offset=-2))
+        assert method(1_597_493_310 * factor, offset=hours(-2)).exact_eq(
+            OffsetDateTime(2020, 8, 15, 10, 8, 30, offset=-2)
+        )
         with pytest.raises((OSError, OverflowError, ValueError)):
-            method(
-                1_000_000_000_000_000_000 * factor, offset=3, ignore_dst=True
-            )
+            method(1_000_000_000_000_000_000 * factor, offset=3)
 
         with pytest.raises((OSError, OverflowError, ValueError)):
-            method(
-                -1_000_000_000_000_000_000 * factor, offset=3, ignore_dst=True
-            )
+            method(-1_000_000_000_000_000_000 * factor, offset=3)
 
         with pytest.raises(TypeError):
-            method(0, offset="3", ignore_dst=True)
+            method(0, offset="3")
 
         with pytest.raises(TypeError):
-            method("0", offset=3, ignore_dst=True)
+            method("0", offset=3)
 
         with pytest.raises(ValueError):
-            method(0, offset=hours(31), ignore_dst=True)
+            method(0, offset=hours(31))
 
         with pytest.raises(TypeError, match="got 3|foo"):
-            method(0, offset=3, foo="bar", ignore_dst=True)
+            method(0, offset=3, foo="bar")
 
         with pytest.raises(TypeError):
-            method(0, foo="bar", ignore_dst=True)
+            method(0, foo="bar")
 
         with pytest.raises(TypeError):
-            method(0, ignore_dst=True)
+            method(0)
 
         with pytest.raises(TypeError):
-            method(0, 3, ignore_dst=True)
-
-        with pytest.raises(ImplicitlyIgnoringDST):
-            method(0, offset=3)
+            method(0, 3)
 
         assert OffsetDateTime.from_timestamp_millis(
-            -4, offset=1, ignore_dst=True
+            -4, offset=1
         ).to_instant() == Instant.from_timestamp(0) - milliseconds(4)
 
         assert OffsetDateTime.from_timestamp_nanos(
-            -4, offset=-3, ignore_dst=True
+            -4, offset=-3
         ).to_instant() == Instant.from_timestamp(0) - nanoseconds(4)
 
+        # ignore_dst deprecated
+        with pytest.warns(WheneverDeprecationWarning, match="ignore_dst"):
+            method(0, offset=3, ignore_dst=True)
+
+        with pytest.warns(StaleOffsetWarning):
+            method(0, offset=3)
+
+    @suppress(StaleOffsetWarning)
     def test_float(self):
-        assert OffsetDateTime.from_timestamp(
-            1.0, offset=1, ignore_dst=True
-        ).exact_eq(OffsetDateTime.from_timestamp(1, offset=1, ignore_dst=True))
+        assert OffsetDateTime.from_timestamp(1.0, offset=1).exact_eq(
+            OffsetDateTime.from_timestamp(1, offset=1)
+        )
+
+        assert OffsetDateTime.from_timestamp(1.000_000_001, offset=1).exact_eq(
+            OffsetDateTime.from_timestamp(1, offset=1).add(nanoseconds=1)
+        )
 
         assert OffsetDateTime.from_timestamp(
-            1.000_000_001, offset=1, ignore_dst=True
+            -9.000_000_100, offset=-2
         ).exact_eq(
-            OffsetDateTime.from_timestamp(1, offset=1, ignore_dst=True).add(
-                nanoseconds=1, ignore_dst=True
+            OffsetDateTime.from_timestamp(-9, offset=-2).subtract(
+                nanoseconds=100
             )
         )
 
-        assert OffsetDateTime.from_timestamp(
-            -9.000_000_100, offset=-2, ignore_dst=True
-        ).exact_eq(
-            OffsetDateTime.from_timestamp(
-                -9, offset=-2, ignore_dst=True
-            ).subtract(nanoseconds=100, ignore_dst=True)
-        )
-
         with pytest.raises((ValueError, OverflowError)):
-            OffsetDateTime.from_timestamp(9e200, ignore_dst=True, offset=0)
+            OffsetDateTime.from_timestamp(9e200, offset=0)
 
         with pytest.raises((ValueError, OverflowError, OSError)):
             OffsetDateTime.from_timestamp(
                 float(Instant.MAX.timestamp()) + 0.99999999,
-                ignore_dst=True,
                 offset=0,
             )
 
         with pytest.raises((ValueError, OverflowError)):
-            OffsetDateTime.from_timestamp(
-                float("inf"), ignore_dst=True, offset=0
-            )
+            OffsetDateTime.from_timestamp(float("inf"), offset=0)
 
         with pytest.raises((ValueError, OverflowError)):
-            OffsetDateTime.from_timestamp(
-                float("nan"), ignore_dst=True, offset=0
-            )
+            OffsetDateTime.from_timestamp(float("nan"), offset=0)
 
+    @suppress(StaleOffsetWarning)
     def test_nanos(self):
         assert OffsetDateTime.from_timestamp_nanos(
-            1_597_493_310_123_456_789, offset=-2, ignore_dst=True
+            1_597_493_310_123_456_789, offset=-2
         ).exact_eq(
             OffsetDateTime(
                 2020, 8, 15, 10, 8, 30, nanosecond=123_456_789, offset=-2
             )
         )
 
+    @suppress(StaleOffsetWarning)
     def test_millis(self):
         assert OffsetDateTime.from_timestamp_millis(
-            1_597_493_310_123, offset=-2, ignore_dst=True
+            1_597_493_310_123, offset=-2
         ).exact_eq(
             OffsetDateTime(
                 2020, 8, 15, 10, 8, 30, nanosecond=123_000_000, offset=-2
@@ -654,9 +710,10 @@ def test_repr():
 
 
 class TestComparison:
+    @suppress(StaleOffsetWarning)
     def test_offset(self):
         d = OffsetDateTime(2020, 8, 15, 12, 30, offset=5)
-        later = d.replace(nanosecond=13, ignore_dst=True)
+        later = d.replace(nanosecond=13)
         assert d < later
         assert d <= later
         assert later > d
@@ -771,71 +828,20 @@ class TestComparison:
         ),
     ],
 )
-def test_py_datetime(d: OffsetDateTime, expect: py_datetime):
-    assert d.py_datetime() == expect
+def test_to_stdlib(d: OffsetDateTime, expect: py_datetime):
+    assert d.to_stdlib() == expect
 
 
-class TestFromPyDatetime:
+class _MyDatetime(py_datetime):
+    pass
 
-    def test_offset(self):
 
-        d = py_datetime(
-            2020,
-            8,
-            15,
-            23,
-            12,
-            9,
-            987_654,
-            tzinfo=timezone(timedelta(hours=2)),
-        )
-        assert OffsetDateTime.from_py_datetime(d).exact_eq(
-            OffsetDateTime(
-                2020, 8, 15, 23, 12, 9, nanosecond=987_654_000, offset=2
-            )
-        )
+class TestInitFromPy:
 
-    def test_zoneinfo(self):
-
-        d = py_datetime(
-            2020,
-            8,
-            15,
-            23,
-            12,
-            9,
-            987_654,
-            tzinfo=ZoneInfo("Europe/Amsterdam"),
-        )
-        assert OffsetDateTime.from_py_datetime(d).exact_eq(
-            OffsetDateTime(
-                2020, 8, 15, 23, 12, 9, nanosecond=987_654_000, offset=2
-            )
-        )
-
-    def test_naive(self):
-        with pytest.raises(ValueError, match="naive"):
-            OffsetDateTime.from_py_datetime(py_datetime(12, 3, 4, 12))
-
-    def test_out_of_range(self):
-        d = py_datetime(1, 1, 1, tzinfo=timezone(timedelta(hours=5)))
-        with pytest.raises(ValueError, match="range"):
-            OffsetDateTime.from_py_datetime(d)
-
-    def test_utcoffset_none(self):
-
-        class MyTz(tzinfo):
-            def utcoffset(self, _):
-                return None
-
-        with pytest.raises(ValueError, match="naive"):
-            OffsetDateTime.from_py_datetime(
-                py_datetime(2020, 8, 15, tzinfo=MyTz())  # type: ignore[abstract]
-            )
-
-    def test_subsecond_offset(self):
-        with pytest.raises(ValueError, match="Sub-second"):
-            OffsetDateTime.from_py_datetime(
+    @pytest.mark.parametrize(
+        "d, expect",
+        [
+            (
                 py_datetime(
                     2020,
                     8,
@@ -844,55 +850,120 @@ class TestFromPyDatetime:
                     12,
                     9,
                     987_654,
-                    tzinfo=timezone(timedelta(hours=2, microseconds=30)),
-                )
-            )
+                    tzinfo=timezone(timedelta(hours=2)),
+                ),
+                OffsetDateTime(
+                    2020, 8, 15, 23, 12, 9, nanosecond=987_654_000, offset=2
+                ),
+            ),
+            # zoneinfo
+            (
+                py_datetime(
+                    2020,
+                    8,
+                    15,
+                    23,
+                    12,
+                    9,
+                    987_654,
+                    tzinfo=ZoneInfo("Europe/Amsterdam"),
+                ),
+                OffsetDateTime(
+                    2020, 8, 15, 23, 12, 9, nanosecond=987_654_000, offset=2
+                ),
+            ),
+            # subclass of datetime should work
+            (
+                _MyDatetime(
+                    2020, 8, 15, 23, 12, 9, 987_654, tzinfo=timezone.utc
+                ),
+                OffsetDateTime(
+                    2020, 8, 15, 23, 12, 9, nanosecond=987_654_000, offset=0
+                ),
+            ),
+        ],
+    )
+    def test_valid(self, d: py_datetime, expect: OffsetDateTime):
+        assert OffsetDateTime(d).exact_eq(expect)
 
-    def test_subclass(self):
-        class MyDatetime(py_datetime):
-            pass
+    def test_naive(self):
+        with pytest.raises(ValueError, match="naive"):
+            OffsetDateTime(py_datetime(12, 3, 4, 12))
 
-        d = MyDatetime(2020, 8, 15, 23, 12, 9, 987_654, tzinfo=timezone.utc)
-        assert OffsetDateTime.from_py_datetime(d).exact_eq(
+    def test_out_of_range(self):
+        d = py_datetime(1, 1, 1, tzinfo=timezone(timedelta(hours=5)))
+        with pytest.raises(ValueError, match="range"):
+            OffsetDateTime(d)
+
+    def test_utcoffset_none(self):
+
+        class MyTz(tzinfo):
+            def utcoffset(self, _):
+                return None
+
+        with pytest.raises(ValueError, match="naive"):
             OffsetDateTime(
-                2020, 8, 15, 23, 12, 9, nanosecond=987_654_000, offset=0
+                py_datetime(2020, 8, 15, tzinfo=MyTz())  # type: ignore[abstract]
             )
+
+    def test_subsecond_offset(self):
+        py_dt = py_datetime(
+            2020,
+            8,
+            15,
+            23,
+            12,
+            9,
+            987_654,
+            tzinfo=timezone(timedelta(hours=2, microseconds=30)),
         )
+        with pytest.raises(ValueError, match="[Ss]ub-second"):
+            OffsetDateTime(py_dt)
 
 
 def test_replace_date():
     d = OffsetDateTime(2020, 8, 15, 3, 12, 9, offset=5)
-    assert d.replace_date(Date(1996, 2, 19), ignore_dst=True).exact_eq(
-        OffsetDateTime(1996, 2, 19, 3, 12, 9, offset=5)
-    )
 
-    with pytest.raises(ValueError, match="range"):
-        d.replace_date(Date(1, 1, 1), ignore_dst=True)
+    with suppress(StaleOffsetWarning):
+        assert d.replace_date(Date(1996, 2, 19)).exact_eq(
+            OffsetDateTime(1996, 2, 19, 3, 12, 9, offset=5)
+        )
 
-    with pytest.raises((TypeError, AttributeError), match="date"):
-        d.replace_date(42, ignore_dst=True)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="range"):
+            d.replace_date(Date(1, 1, 1))
 
-    # ignore_dst required
-    with pytest.raises(ImplicitlyIgnoringDST):
-        d.replace_date(Date(1996, 2, 19))  # type: ignore[call-arg]
+        with pytest.raises((TypeError, AttributeError), match="date"):
+            d.replace_date(42)  # type: ignore[arg-type]
+
+        # ignore_dst deprecated
+        with pytest.warns(WheneverDeprecationWarning, match="ignore_dst"):
+            d.replace_date(Date(1996, 2, 19), ignore_dst=True)
+
+    with pytest.warns(StaleOffsetWarning):
+        d.replace_date(Date(1996, 2, 19))
 
 
 def test_replace_time():
     d = OffsetDateTime(2020, 8, 15, 3, 12, 9, offset=5)
-    assert d.replace_time(Time(1, 2, 3), ignore_dst=True).exact_eq(
-        OffsetDateTime(2020, 8, 15, 1, 2, 3, offset=5)
-    )
 
-    d2 = OffsetDateTime(1, 1, 1, 3, 12, 9, offset=3)
-    with pytest.raises(ValueError, match="range"):
-        d2.replace_time(Time(1), ignore_dst=True)
+    with suppress(StaleOffsetWarning):
+        assert d.replace_time(Time(1, 2, 3)).exact_eq(
+            OffsetDateTime(2020, 8, 15, 1, 2, 3, offset=5)
+        )
 
-    with pytest.raises((TypeError, AttributeError)):
-        d.replace_time(42, ignore_dst=True)  # type: ignore[arg-type]
+        d2 = OffsetDateTime(1, 1, 1, 3, 12, 9, offset=3)
+        with pytest.raises(ValueError, match="range"):
+            d2.replace_time(Time(1))
 
-    # ignore_dst required
-    with pytest.raises(ImplicitlyIgnoringDST):
-        d.replace_time(Time(1, 2, 3))  # type: ignore[call-arg]
+        with pytest.raises((TypeError, AttributeError)):
+            d.replace_time(42)  # type: ignore[arg-type]
+
+        # ignore_dst deprecated
+        with pytest.warns(WheneverDeprecationWarning, match="ignore_dst"):
+            d.replace_time(Time(1, 2, 3), ignore_dst=True)
+
+    with pytest.warns(StaleOffsetWarning):
+        d.replace_time(Time(1, 2, 3))
 
 
 def test_components():
@@ -904,84 +975,150 @@ def test_components():
 
 class TestNow:
 
+    @suppress(StaleOffsetWarning)
     def test_timedelta(self):
-        now = OffsetDateTime.now(hours(5), ignore_dst=True)
+        now = OffsetDateTime.now(hours(5))
         assert now.offset == hours(5)
         py_now = py_datetime.now(timezone.utc)
-        assert py_now - now.py_datetime() < timedelta(seconds=1)
+        assert py_now - now.to_stdlib() < timedelta(seconds=1)
 
-        # ignore_dst required
-        with pytest.raises(ImplicitlyIgnoringDST):
-            OffsetDateTime.now(3)  # type: ignore[call-arg]
+        # ignore_dst deprecated
+        with pytest.warns(WheneverDeprecationWarning, match="ignore_dst"):
+            OffsetDateTime.now(3, ignore_dst=True)
 
+        with pytest.warns(StaleOffsetWarning):
+            OffsetDateTime.now(hours(5))
+
+    @suppress(StaleOffsetWarning)
     def test_int(self):
-        now = OffsetDateTime.now(-5, ignore_dst=True)
+        now = OffsetDateTime.now(-5)
         assert now.offset == hours(-5)
         py_now = py_datetime.now(timezone.utc)
-        assert py_now - now.py_datetime() < timedelta(seconds=1)
+        assert py_now - now.to_stdlib() < timedelta(seconds=1)
 
 
 def test_replace():
     d = OffsetDateTime(2020, 8, 15, 23, 12, 9, nanosecond=987_654, offset=5)
-    assert d.replace(year=2021, ignore_dst=True).exact_eq(
-        OffsetDateTime(2021, 8, 15, 23, 12, 9, nanosecond=987_654, offset=5)
-    )
-    assert d.replace(month=9, ignore_dst=True).exact_eq(
-        OffsetDateTime(2020, 9, 15, 23, 12, 9, nanosecond=987_654, offset=5)
-    )
-    assert d.replace(day=16, ignore_dst=True).exact_eq(
-        OffsetDateTime(2020, 8, 16, 23, 12, 9, nanosecond=987_654, offset=5)
-    )
-    assert d.replace(hour=1, ignore_dst=True).exact_eq(
-        OffsetDateTime(2020, 8, 15, 1, 12, 9, nanosecond=987_654, offset=5)
-    )
-    assert d.replace(minute=59, ignore_dst=True).exact_eq(
-        OffsetDateTime(2020, 8, 15, 23, 59, 9, nanosecond=987_654, offset=5)
-    )
-    assert d.replace(second=2, ignore_dst=True).exact_eq(
-        OffsetDateTime(2020, 8, 15, 23, 12, 2, nanosecond=987_654, offset=5)
-    )
-    assert d.replace(nanosecond=3, ignore_dst=True).exact_eq(
-        OffsetDateTime(2020, 8, 15, 23, 12, 9, nanosecond=3, offset=5)
-    )
-    assert d.replace(offset=hours(6), ignore_dst=True).exact_eq(
-        OffsetDateTime(2020, 8, 15, 23, 12, 9, nanosecond=987_654, offset=6)
-    )
-    assert d.replace(offset=-6, ignore_dst=True).exact_eq(
-        OffsetDateTime(2020, 8, 15, 23, 12, 9, nanosecond=987_654, offset=-6)
-    )
 
-    with pytest.raises(TypeError, match="tzinfo"):
-        d.replace(tzinfo=timezone.utc, ignore_dst=True)  # type: ignore[call-arg]
+    with suppress(StaleOffsetWarning):
+        assert d.replace(year=2021).exact_eq(
+            OffsetDateTime(
+                2021, 8, 15, 23, 12, 9, nanosecond=987_654, offset=5
+            )
+        )
+        assert d.replace(month=9).exact_eq(
+            OffsetDateTime(
+                2020, 9, 15, 23, 12, 9, nanosecond=987_654, offset=5
+            )
+        )
+        assert d.replace(day=16).exact_eq(
+            OffsetDateTime(
+                2020, 8, 16, 23, 12, 9, nanosecond=987_654, offset=5
+            )
+        )
+        assert d.replace(hour=1).exact_eq(
+            OffsetDateTime(2020, 8, 15, 1, 12, 9, nanosecond=987_654, offset=5)
+        )
+        assert d.replace(minute=59).exact_eq(
+            OffsetDateTime(
+                2020, 8, 15, 23, 59, 9, nanosecond=987_654, offset=5
+            )
+        )
+        assert d.replace(second=2).exact_eq(
+            OffsetDateTime(
+                2020, 8, 15, 23, 12, 2, nanosecond=987_654, offset=5
+            )
+        )
+        assert d.replace(nanosecond=3).exact_eq(
+            OffsetDateTime(2020, 8, 15, 23, 12, 9, nanosecond=3, offset=5)
+        )
+        assert d.replace(offset=hours(6)).exact_eq(
+            OffsetDateTime(
+                2020, 8, 15, 23, 12, 9, nanosecond=987_654, offset=6
+            )
+        )
+        assert d.replace(offset=-6).exact_eq(
+            OffsetDateTime(
+                2020, 8, 15, 23, 12, 9, nanosecond=987_654, offset=-6
+            )
+        )
 
-    with pytest.raises(ValueError, match="range"):
-        d.replace(year=1, month=1, day=1, hour=4, offset=5, ignore_dst=True)
+        with pytest.raises(TypeError, match="tzinfo"):
+            d.replace(tzinfo=timezone.utc)  # type: ignore[call-arg]
 
-    with pytest.raises(TypeError, match="nano"):
-        d.replace(nanosecond="0", ignore_dst=True)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="range"):
+            d.replace(year=1, month=1, day=1, hour=4, offset=5)
 
-    # ignore_dst required
-    with pytest.raises(ImplicitlyIgnoringDST):
-        d.replace(year=2021)  # type: ignore[call-arg]
+        with pytest.raises(TypeError, match="nano"):
+            d.replace(nanosecond="0")  # type: ignore[arg-type]
+
+        # ignore_dst parameter is deprecated
+        with pytest.warns(WheneverDeprecationWarning):
+            d.replace(year=2021, ignore_dst=True)
+
+    # warning expected if not filtered
+    with pytest.warns(StaleOffsetWarning):
+        d.replace(year=2021)
 
 
-def test_add_operator_not_allowed():
-    d = OffsetDateTime(2020, 8, 15, 23, 12, 9, nanosecond=987_654, offset=5)
-    with pytest.raises(TypeError, match="unsupported operand type"):
-        d + hours(4)  # type: ignore[operator]
+class TestAddSubtractOperators:
 
-    with pytest.raises(TypeError, match="unsupported operand type"):
-        d + 32  # type: ignore[operator]
+    @suppress(StaleOffsetWarning)
+    def test_same_as_method(self):
+        d = OffsetDateTime(
+            2020, 8, 15, 23, 12, 9, nanosecond=987_654, offset=5
+        )
 
-    with pytest.raises(TypeError, match="unsupported operand type"):
-        32 + d  # type: ignore[operator]
+        assert d + hours(4) == d.add(hours=4)
+        assert d + milliseconds(500) == d.subtract(milliseconds=-500)
 
-    with pytest.raises(TypeError, match="unsupported operand type"):
-        hours(4) + d  # type: ignore[operator]
+        assert d - hours(4) == d.subtract(hours=4)
+        assert d - milliseconds(500) == d.add(milliseconds=-500)
+
+    def test_warns(self):
+        d = OffsetDateTime(
+            2020, 8, 15, 23, 12, 9, nanosecond=987_654, offset=5
+        )
+        with pytest.warns(StaleOffsetWarning) as w:
+            d + hours(4)
+        assert len(w) == 1
+
+        with pytest.warns(StaleOffsetWarning) as w:
+            d - hours(4)
+        assert len(w) == 1
+
+    @suppress(StaleOffsetWarning)
+    def test_invalid(self):
+        # UTC equivalent must stay within bounds even when local time is in range
+        with pytest.raises(ValueError, match="range"):
+            OffsetDateTime(9999, 12, 31, 19, 0, offset=-4) + hours(2)
+        with pytest.raises(ValueError, match="range"):
+            OffsetDateTime(1, 1, 1, 5, 0, offset=+5) - hours(2)
 
 
 class TestShiftMethods:
 
+    def test_warnings(self):
+        d = OffsetDateTime(
+            2020, 8, 15, 23, 12, 9, nanosecond=987_654, offset=5
+        )
+        with pytest.warns(StaleOffsetWarning) as w:
+            assert d.add(hours=4)
+        assert len(w) == 1
+
+        with pytest.warns(StaleOffsetWarning) as w:
+            assert d.subtract(hours=4)
+        assert len(w) == 1
+
+        with suppress(StaleOffsetWarning):
+
+            with pytest.warns(WheneverDeprecationWarning, match="ignore_dst"):
+                d.add(hours=4, ignore_dst=True)
+
+            with pytest.warns(WheneverDeprecationWarning, match="ignore_dst"):
+                d.subtract(hours=4, ignore_dst=True)
+
+    @suppress(StaleOffsetWarning)
     def test_valid(self):
         d = OffsetDateTime(
             2020, 8, 15, 23, 12, 9, nanosecond=987_654, offset=-5
@@ -989,7 +1126,7 @@ class TestShiftMethods:
         shifted = OffsetDateTime(
             2020, 5, 27, 23, 12, 14, nanosecond=987_651, offset=-5
         )
-        assert d.add(ignore_dst=True).exact_eq(d)
+        assert d.add().exact_eq(d)
 
         assert d.add(
             months=-3,
@@ -997,14 +1134,13 @@ class TestShiftMethods:
             hours=48,
             seconds=5,
             nanoseconds=-3,
-            ignore_dst=True,
         ).exact_eq(shifted)
 
         # same result with deltas
         assert (
-            d.add(hours(48) + seconds(5) + nanoseconds(-3), ignore_dst=True)
-            .add(months(-3), ignore_dst=True)
-            .add(days(10), ignore_dst=True)
+            d.add(hours(48) + seconds(5) + nanoseconds(-3))
+            .add(months(-3))
+            .add(days(10))
             .exact_eq(shifted)
         )
 
@@ -1015,43 +1151,43 @@ class TestShiftMethods:
             hours=-48,
             seconds=-5,
             nanoseconds=3,
-            ignore_dst=True,
         ).exact_eq(shifted)
 
         # same result with deltas
         assert (
-            d.subtract(
-                hours(-48) + seconds(-5) + nanoseconds(3), ignore_dst=True
-            )
-            .subtract(months(3), ignore_dst=True)
-            .subtract(days(-10), ignore_dst=True)
+            d.subtract(hours(-48) + seconds(-5) + nanoseconds(3))
+            .subtract(months(3))
+            .subtract(days(-10))
             .exact_eq(shifted)
         )
 
+    @suppress(StaleOffsetWarning)
     def test_invalid(self):
         d = OffsetDateTime(
             2020, 8, 15, 23, 12, 9, nanosecond=987_654, offset=4
         )
         with pytest.raises((ValueError, OverflowError), match="range|year"):
-            d.add(hours=24 * 365 * 8000, ignore_dst=True)
+            d.add(hours=24 * 365 * 8000)
 
         with pytest.raises((ValueError, OverflowError), match="range|year"):
-            d.add(hours=-24 * 365 * 3000, ignore_dst=True)
+            d.add(hours=-24 * 365 * 3000)
 
         with pytest.raises((TypeError, AttributeError)):
-            d.add(4, ignore_dst=True)  # type: ignore[call-overload]
-
-        # ignore_dst is required
-        with pytest.raises(ImplicitlyIgnoringDST):
-            d.add(hours=48, seconds=5)  # type: ignore[call-overload]
+            d.add(4)  # type: ignore[call-overload]
 
         # no mixing args/kwargs
         with pytest.raises(TypeError):
-            d.add(seconds(4), hours=48, seconds=5, ignore_dst=True)  # type: ignore[call-overload]
+            d.add(seconds(4), hours=48, seconds=5)  # type: ignore[call-overload]
 
         # tempt a i128 overflow
         with pytest.raises((ValueError, OverflowError), match="range|year"):
-            d.add(nanoseconds=1 << 127 - 1, ignore_dst=True)
+            d.add(nanoseconds=1 << 127 - 1)
+
+        # UTC equivalent must stay within bounds even when local time is in range
+        with pytest.raises(ValueError, match="out of range"):
+            OffsetDateTime(9999, 12, 31, 19, 0, offset=-4).add(hours=2)
+        with pytest.raises(ValueError, match="out of range"):
+            OffsetDateTime(1, 1, 1, 5, 0, offset=+5).subtract(hours=2)
 
     @given(
         years=integers(),
@@ -1064,14 +1200,112 @@ class TestShiftMethods:
         microseconds=floats(),
         nanoseconds=integers(),
     )
+    @suppress(StaleOffsetWarning)
     def test_fuzzing(self, **kwargs):
         d = OffsetDateTime(
             2020, 8, 15, 23, 12, 9, nanosecond=987_654_321, offset=2
         )
         try:
-            d.add(**kwargs, ignore_dst=True)
+            d.add(**kwargs)
         except (ValueError, OverflowError):
             pass
+
+
+class TestAssumeTz:
+    @pytest.mark.parametrize(
+        "dt, tz, kwargs, expect",
+        [
+            # no DST
+            (
+                "2020-08-15 23:12:09.987654321+02:00",
+                "Europe/Paris",
+                {},
+                ZonedDateTime(
+                    "2020-08-15 23:12:09.987654321+02:00[Europe/Paris]"
+                ),
+            ),
+            # DST
+            (
+                "2020-01-15 23:12:09.987654321+01:00",
+                "Europe/Berlin",
+                {},
+                ZonedDateTime(
+                    "2020-01-15 23:12:09.987654321+01:00[Europe/Berlin]"
+                ),
+            ),
+            # the offset disambiguates
+            (
+                "2023-10-29 02:30:00+02:00",
+                "Europe/Paris",
+                {},
+                ZonedDateTime("2023-10-29 02:30:00+02:00[Europe/Paris]"),
+            ),
+            (
+                "2023-10-29 02:30:00+01:00",
+                "Europe/Paris",
+                {},
+                ZonedDateTime("2023-10-29 02:30:00+01:00[Europe/Paris]"),
+            ),
+            # the offset is incorrect
+            (
+                "2023-05-01 12:30:00+03:00",
+                "Europe/Paris",
+                {"offset_mismatch": "keep_instant"},
+                ZonedDateTime("2023-05-01 11:30:00+02:00[Europe/Paris]"),
+            ),
+            (
+                "2023-05-01 12:30:00+03:00",
+                "Europe/Paris",
+                {"offset_mismatch": "keep_local"},
+                ZonedDateTime("2023-05-01 12:30:00+02:00[Europe/Paris]"),
+            ),
+            # incorrect offset, during a DST transition
+            (
+                "2023-10-29 02:30:00-09:00",
+                "Europe/Paris",
+                {"offset_mismatch": "keep_local"},
+                ZonedDateTime("2023-10-29 02:30:00+02:00[Europe/Paris]"),
+            ),
+            (
+                "2023-03-26 02:30:00-09:00",
+                "Europe/Paris",
+                {"offset_mismatch": "keep_local"},
+                ZonedDateTime("2023-03-26 03:30:00+02:00[Europe/Paris]"),
+            ),
+        ],
+    )
+    def test_valid(
+        self, dt: str, tz: str, kwargs: dict[str, Any], expect: ZonedDateTime
+    ):
+        d = OffsetDateTime(dt)
+        assert d.assume_tz(tz, **kwargs).exact_eq(expect)
+
+    def test_invalid_offset_raises(self):
+        with pytest.raises(InvalidOffsetError, match="-04:00.*-09:00"):
+            OffsetDateTime("2023-05-01 12:30:00-09:00").assume_tz(
+                "America/New_York"
+            )
+
+    def test_skipped_time(self):
+        with pytest.raises(InvalidOffsetError):
+            OffsetDateTime("2023-03-26 02:30:00+01:00").assume_tz(
+                "Europe/Paris"
+            )
+
+        with pytest.raises(InvalidOffsetError):
+            OffsetDateTime("2023-03-26 02:30:00+02:00").assume_tz(
+                "Europe/Paris"
+            )
+
+    def test_invalid_arguments(self):
+
+        with pytest.raises(ValueError, match="foo"):
+            OffsetDateTime("2020-08-15 23:12:09+02:00").assume_tz(
+                "Europe/Paris", offset_mismatch="foo"  # type: ignore[arg-type]
+            )
+
+        with pytest.raises(TimeZoneNotFoundError, match="Foo"):
+            OffsetDateTime("2020-08-15 23:12:09+02:00").assume_tz("Europe/Foo")
 
 
 class TestDifference:
@@ -1122,17 +1356,13 @@ class TestDifference:
         with pytest.raises(TypeError, match="unsupported operand type"):
             d - 42  # type: ignore[operator]
 
-        # subtracting a delta hints at the ignore_dst way
-        with pytest.raises(ImplicitlyIgnoringDST):
-            d - hours(2)  # type: ignore[operator]
-
 
 def test_pickle():
     d = OffsetDateTime(
         2020, 8, 15, 23, 12, 9, nanosecond=987_654_321, offset=3
     )
     dumped = pickle.dumps(d)
-    assert len(dumped) <= len(pickle.dumps(d.py_datetime()))
+    assert len(dumped) <= len(pickle.dumps(d.to_stdlib()))
     assert pickle.loads(pickle.dumps(d)).exact_eq(d)
 
 
@@ -1530,6 +1760,11 @@ VALID_RFC2822 = [
         "5 Aug 20 23:12 UT",
         OffsetDateTime(2020, 8, 5, 23, 12, offset=0),
     ),
+    # Leap second normalization (60 -> 59)
+    (
+        "Sat, 31 Dec 2016 23:59:60 +0000",
+        OffsetDateTime(2016, 12, 31, 23, 59, 59, offset=0),
+    ),
 ]
 
 INVALID_RFC2822 = [
@@ -1605,6 +1840,8 @@ INVALID_RFC2822 = [
     "Sat, 1 Jan 1989 23:23:01 +03 00",
     "Sat, 1 Jan 1989 23:23:01 +0300 ,",
     "Sat, 1 Jan 1989 23:23:01 +0300 MST",
+    # leap second out of range
+    "Sat, 31 Dec 2016 23:59:61 +0000",
 ]
 
 
@@ -1728,7 +1965,7 @@ class TestRound:
             ),
         ],
     )
-    def test_round(
+    def test_valid(
         self,
         d: OffsetDateTime,
         increment,
@@ -1739,87 +1976,332 @@ class TestRound:
         half_ceil,
         half_even,
     ):
-        assert d.round(unit, increment=increment, ignore_dst=True) == half_even
-        assert (
-            d.round(unit, increment=increment, mode="floor", ignore_dst=True)
-            == floor
-        )
-        assert (
-            d.round(unit, increment=increment, mode="ceil", ignore_dst=True)
-            == ceil
-        )
-        assert (
-            d.round(
-                unit, increment=increment, mode="half_floor", ignore_dst=True
+        with suppress(StaleOffsetWarning):
+            assert d.round(unit, increment=increment) == half_even
+            assert d.round(unit, increment=increment, mode="floor") == floor
+            assert d.round(unit, increment=increment, mode="trunc") == floor
+            assert d.round(unit, increment=increment, mode="ceil") == ceil
+            assert d.round(unit, increment=increment, mode="expand") == ceil
+            assert (
+                d.round(unit, increment=increment, mode="half_floor")
+                == half_floor
             )
-            == half_floor
-        )
-        assert (
-            d.round(
-                unit, increment=increment, mode="half_ceil", ignore_dst=True
+            assert (
+                d.round(unit, increment=increment, mode="half_trunc")
+                == half_floor
             )
-            == half_ceil
-        )
-        assert (
-            d.round(
-                unit, increment=increment, mode="half_even", ignore_dst=True
+            assert (
+                d.round(unit, increment=increment, mode="half_ceil")
+                == half_ceil
             )
-            == half_even
-        )
+            assert (
+                d.round(unit, increment=increment, mode="half_expand")
+                == half_ceil
+            )
+            assert (
+                d.round(unit, increment=increment, mode="half_even")
+                == half_even
+            )
 
+    def test_warnings(self):
+        d = OffsetDateTime(2023, 7, 14, 1, 2, 3, nanosecond=4_000, offset=2)
+        with pytest.warns(StaleOffsetWarning):
+            assert d.round("second") == OffsetDateTime(
+                2023, 7, 14, 1, 2, 3, offset=2
+            )
+
+        # ignore_dst param is deprecated
+        with suppress(StaleOffsetWarning):
+            with pytest.warns(WheneverDeprecationWarning, match="ignore_dst"):
+                assert d.round("second", ignore_dst=True) == OffsetDateTime(
+                    2023, 7, 14, 1, 2, 3, offset=2
+                )
+
+    @suppress(StaleOffsetWarning)
     def test_default(self):
         d = OffsetDateTime(
             2023, 7, 14, 1, 2, 3, nanosecond=500_000_000, offset=2
         )
-        assert d.round(ignore_dst=True) == OffsetDateTime(
-            2023, 7, 14, 1, 2, 4, offset=2
+        assert d.round() == OffsetDateTime(2023, 7, 14, 1, 2, 4, offset=2)
+        assert d.replace(second=8).round() == OffsetDateTime(
+            2023, 7, 14, 1, 2, 8, offset=2
         )
-        assert d.replace(second=8, ignore_dst=True).round(
-            ignore_dst=True
-        ) == OffsetDateTime(2023, 7, 14, 1, 2, 8, offset=2)
 
-        # ignore_dst is required
-        with pytest.raises(ImplicitlyIgnoringDST):
-            d.round()  # type: ignore[call-arg]
-
+    @suppress(StaleOffsetWarning)
     def test_invalid_mode(self):
         d = OffsetDateTime(2023, 7, 14, 1, 2, 3, nanosecond=4_000, offset=2)
         with pytest.raises(ValueError, match="Invalid.*mode.*foo"):
-            d.round("second", mode="foo", ignore_dst=True)  # type: ignore[arg-type]
+            d.round("second", mode="foo")  # type: ignore[call-overload]
 
     @pytest.mark.parametrize(
         "unit, increment",
         [
-            ("minute", 8),
+            ("minute", 21),
             ("second", 14),
-            ("millisecond", 15),
+            ("millisecond", 5432),
             ("day", 2),
             ("hour", 48),
-            ("microsecond", 2000),
+            ("microsecond", 2001),
         ],
     )
+    @suppress(StaleOffsetWarning)
     def test_invalid_increment(self, unit, increment):
         d = OffsetDateTime(2023, 7, 14, 1, 2, 3, nanosecond=4_000, offset=2)
         with pytest.raises(ValueError, match="[Ii]ncrement"):
-            d.round(unit, increment=increment, ignore_dst=True)
+            d.round(unit, increment=increment)
 
+    @suppress(StaleOffsetWarning)
     def test_default_increment(self):
         d = OffsetDateTime(2023, 7, 14, 1, 2, 3, nanosecond=800_000, offset=-9)
-        assert d.round("millisecond", ignore_dst=True).exact_eq(
+        assert d.round("millisecond").exact_eq(
             OffsetDateTime(
                 2023, 7, 14, 1, 2, 3, nanosecond=1_000_000, offset=-9
             )
         )
 
+    @suppress(StaleOffsetWarning)
     def test_invalid_unit(self):
         d = OffsetDateTime(2023, 7, 14, 1, 2, 3, nanosecond=4_000, offset=2)
         with pytest.raises(ValueError, match="Invalid.*unit.*foo"):
-            d.round("foo", ignore_dst=True)  # type: ignore[arg-type]
+            d.round("foo")  # type: ignore[call-overload]
 
+    @suppress(StaleOffsetWarning)
     def test_out_of_range(self):
         d = PlainDateTime.MAX.replace(nanosecond=0).assume_fixed_offset(0)
         with pytest.raises((ValueError, OverflowError), match="range"):
-            d.round("second", increment=5, ignore_dst=True)
+            d.round("second", increment=5)
+
+    @suppress(StaleOffsetWarning)
+    def test_round_by_timedelta(self):
+        d = OffsetDateTime(2020, 8, 15, 23, 24, 18, offset=+4)
+        assert d.round(TimeDelta(minutes=15)) == OffsetDateTime(
+            2020, 8, 15, 23, 30, offset=+4
+        )
+        assert d.round(TimeDelta(hours=1)) == OffsetDateTime(
+            2020, 8, 15, 23, offset=+4
+        )
+
+    @suppress(StaleOffsetWarning)
+    def test_round_by_timedelta_invalid_not_divides_day(self):
+        d = OffsetDateTime(2020, 8, 15, 12, offset=+4)
+        with pytest.raises(ValueError, match="24.hour"):
+            d.round(TimeDelta(hours=7))
+
+    @suppress(StaleOffsetWarning)
+    def test_round_by_timedelta_negative(self):
+        d = OffsetDateTime(2020, 8, 15, 12, offset=+4)
+        with pytest.raises(ValueError, match="positive"):
+            d.round(TimeDelta(hours=-1))
+
+    @suppress(StaleOffsetWarning)
+    def test_round_by_timedelta_with_increment(self):
+        d = OffsetDateTime(2020, 8, 15, 12, offset=+4)
+        with pytest.raises(TypeError):
+            d.round(TimeDelta(hours=1), increment=2)  # type: ignore[call-overload]
+
+
+class TestSince:
+    # The underlying calendar/exact diff logic is thoroughly tested
+    # in PlainDateTime. Here we only test OffsetDateTime-specific behavior:
+    # offset validation, no-warning guarantees, and cross-offset exact diffs.
+
+    @pytest.mark.parametrize(
+        "a, b, units, kwargs, expect",
+        [
+            # same offset, calendar units
+            (
+                OffsetDateTime(2023, 10, 29, hour=11, offset=2),
+                OffsetDateTime(2023, 10, 28, hour=11, offset=2),
+                ["days"],
+                {},
+                ItemizedDelta(days=1),
+            ),
+            # same offset, mixed calendar + exact
+            (
+                OffsetDateTime(2025, 3, 15, hour=14, minute=30, offset=-5),
+                OffsetDateTime(2023, 1, 10, hour=8, minute=15, offset=-5),
+                ["years", "months", "days", "hours", "minutes"],
+                {},
+                ItemizedDelta(years=2, months=2, days=5, hours=6, minutes=15),
+            ),
+            # same offset, exact units only
+            (
+                OffsetDateTime(2025, 3, 15, hour=14, offset=0),
+                OffsetDateTime(2025, 3, 15, hour=10, offset=0),
+                ["hours", "minutes"],
+                {},
+                ItemizedDelta(hours=4, minutes=0),
+            ),
+            # negative result
+            (
+                OffsetDateTime(2022, 2, 2, offset=1),
+                OffsetDateTime(2022, 2, 5, offset=1),
+                ["days"],
+                {},
+                ItemizedDelta(days=-3),
+            ),
+            # different offset, exact units only
+            (
+                OffsetDateTime(2020, 1, 1, hour=12, offset=2),
+                OffsetDateTime(2020, 1, 1, hour=12, offset=5),
+                ["hours", "minutes"],
+                {},
+                ItemizedDelta(hours=3, minutes=0),
+            ),
+            # different offset, exact units with rounding
+            (
+                OffsetDateTime(2020, 1, 1, hour=12, minute=37, offset=0),
+                OffsetDateTime(2020, 1, 1, hour=12, offset=3),
+                ["hours", "minutes"],
+                {"round_increment": 15, "round_mode": "ceil"},
+                ItemizedDelta(hours=3, minutes=45),
+            ),
+        ],
+    )
+    def test_examples(
+        self,
+        a: OffsetDateTime,
+        b: OffsetDateTime,
+        units: Sequence[
+            Literal[
+                "years",
+                "months",
+                "days",
+                "hours",
+                "minutes",
+                "seconds",
+                "nanoseconds",
+            ]
+        ],
+        kwargs: dict[str, Any],
+        expect: ItemizedDelta,
+    ):
+        assert a.since(b, in_units=units, **kwargs).exact_eq(expect)
+
+    def test_calendar_units_different_offset_raises(self):
+        a = OffsetDateTime(2023, 10, 29, offset=2)
+        b = OffsetDateTime(2023, 10, 28, offset=5)
+        with pytest.raises(ValueError, match="same offset"):
+            a.since(b, in_units=["days"])
+        with pytest.raises(ValueError, match="same offset"):
+            a.until(b, total="months")
+
+    def test_no_warning(self):
+        """No warning should be emitted for OffsetDateTime since/until."""
+        import warnings
+
+        a = OffsetDateTime(2023, 2, 15, hour=13, offset=2)
+        b = OffsetDateTime(2021, 7, 3, hour=1, offset=2)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            a.since(b, in_units=["hours", "minutes"])
+            a.until(b, total="hours")
+
+    def test_until_is_inverse(self):
+        a = OffsetDateTime(2023, 2, 15, hour=3, offset=-5)
+        b = OffsetDateTime(2021, 7, 3, offset=-5)
+        assert a.since(
+            b, in_units=["years", "months", "days", "hours"]
+        ).exact_eq(b.until(a, in_units=["years", "months", "days", "hours"]))
+
+    def test_single_unit_returns_float(self):
+        import warnings as _warnings
+
+        a = OffsetDateTime(2025, 3, 15, offset=1)
+        b = OffsetDateTime(2023, 3, 15, offset=1)
+        # OffsetDateTime.since() never warns — calendar and exact units alike
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error")
+            result = a.since(b, total="years")
+        assert isinstance(result, float)
+        assert result == 2.0
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error")
+            a.since(b, total="hours")
+
+    def test_very_large_increment(self):
+        a = OffsetDateTime(2023, 2, 15, offset=9)
+        b = OffsetDateTime(2021, 7, 3, offset=9)
+        # round_increment=1<<65 ns exceeds i64::MAX; ceil mode rounds up to 1*(1<<65)
+        assert a.since(
+            b,
+            in_units=["seconds", "nanoseconds"],
+            round_increment=1 << 65,
+            round_mode="ceil",
+        ) == ItemizedDelta(seconds=36_893_488_147, nanoseconds=419_103_232)
+
+    def test_total_and_in_units_both_raises(self):
+        a = OffsetDateTime(2023, 2, 15, offset=2)
+        b = OffsetDateTime(2021, 7, 3, offset=2)
+        with pytest.raises(TypeError, match="total.*in_units|in_units.*total"):
+            a.since(
+                b,
+                total="hours",  # type: ignore[call-overload]
+                in_units=["hours"],
+            )
+
+    def test_total_with_round_mode_raises(self):
+        a = OffsetDateTime(2023, 2, 15, offset=2)
+        b = OffsetDateTime(2021, 7, 3, offset=2)
+        with pytest.raises(TypeError, match="round_mode.*total|total.*round"):
+            a.since(
+                b,
+                total="hours",
+                round_mode="floor",  # type: ignore[call-overload]
+            )
+
+    def test_total_nanoseconds_returns_int(self):
+        a = OffsetDateTime(2023, 2, 15, offset=9)
+        b = OffsetDateTime(2023, 2, 14, offset=9)
+        result = a.since(b, total="nanoseconds")
+        assert isinstance(result, int)
+        assert result == 86_400_000_000_000
+
+    def test_no_units_raises(self):
+        a = OffsetDateTime(2023, 2, 15, offset=2)
+        b = OffsetDateTime(2021, 7, 3, offset=2)
+        with pytest.raises(TypeError, match="in_units"):
+            a.since(b)  # type: ignore[call-overload]
+
+
+class TestDeprecations:
+    def test_py_datetime(self):
+        d = OffsetDateTime(
+            2020, 8, 15, 23, 12, 9, nanosecond=987_654_000, offset=2
+        )
+        with pytest.warns(WheneverDeprecationWarning):
+            result = d.py_datetime()
+        assert result == py_datetime(
+            2020,
+            8,
+            15,
+            23,
+            12,
+            9,
+            987_654,
+            tzinfo=timezone(timedelta(hours=2)),
+        )
+
+    def test_from_py_datetime(self):
+        with pytest.warns(WheneverDeprecationWarning):
+            result = OffsetDateTime.from_py_datetime(
+                py_datetime(
+                    2020,
+                    8,
+                    15,
+                    23,
+                    12,
+                    9,
+                    987_654,
+                    tzinfo=timezone(timedelta(hours=2)),
+                )
+            )
+        assert result.exact_eq(
+            OffsetDateTime(
+                2020, 8, 15, 23, 12, 9, nanosecond=987_654_000, offset=2
+            )
+        )
 
 
 def test_cannot_subclass():
@@ -1827,3 +2309,405 @@ def test_cannot_subclass():
 
         class Subclass(OffsetDateTime):  # type: ignore[misc]
             pass
+
+
+class TestDayOfYear:
+
+    def test_basic(self):
+        odt = OffsetDateTime(2024, 2, 29, 12, offset=hours(5))
+        assert odt.day_of_year() == 60
+
+    def test_jan1(self):
+        odt = OffsetDateTime(2023, 1, 1, 0, offset=hours(5))
+        assert odt.day_of_year() == 1
+
+    def test_dec31_nonleap(self):
+        odt = OffsetDateTime(2023, 12, 31, 12, offset=hours(5))
+        assert odt.day_of_year() == 365
+
+    def test_dec31_leap(self):
+        odt = OffsetDateTime(2024, 12, 31, 12, offset=hours(5))
+        assert odt.day_of_year() == 366
+
+
+class TestDaysInMonth:
+
+    def test_feb_leap(self):
+        odt = OffsetDateTime(2024, 2, 29, 12, offset=hours(5))
+        assert odt.days_in_month() == 29
+
+    def test_feb_nonleap(self):
+        odt = OffsetDateTime(2023, 2, 15, 12, offset=hours(5))
+        assert odt.days_in_month() == 28
+
+    def test_jan(self):
+        odt = OffsetDateTime(2023, 1, 15, 12, offset=hours(5))
+        assert odt.days_in_month() == 31
+
+    def test_feb_century_nonleap(self):
+        odt = OffsetDateTime(1900, 2, 15, 12, offset=hours(5))
+        assert odt.days_in_month() == 28
+
+    def test_feb_century_leap(self):
+        odt = OffsetDateTime(2000, 2, 15, 12, offset=hours(5))
+        assert odt.days_in_month() == 29
+
+
+class TestDaysInYear:
+
+    def test_leap(self):
+        odt = OffsetDateTime(2024, 2, 29, 12, offset=hours(5))
+        assert odt.days_in_year() == 366
+
+    def test_nonleap(self):
+        odt = OffsetDateTime(2023, 6, 15, 12, offset=hours(5))
+        assert odt.days_in_year() == 365
+
+    def test_century_nonleap(self):
+        odt = OffsetDateTime(1900, 6, 15, 12, offset=hours(5))
+        assert odt.days_in_year() == 365
+
+    def test_century_leap(self):
+        odt = OffsetDateTime(2000, 6, 15, 12, offset=hours(5))
+        assert odt.days_in_year() == 366
+
+
+class TestInLeapYear:
+
+    def test_leap(self):
+        odt = OffsetDateTime(2024, 2, 29, 12, offset=hours(5))
+        assert odt.in_leap_year() is True
+
+    def test_nonleap(self):
+        odt = OffsetDateTime(2023, 6, 15, 12, offset=hours(5))
+        assert odt.in_leap_year() is False
+
+    def test_century_nonleap(self):
+        odt = OffsetDateTime(1900, 6, 15, 12, offset=hours(5))
+        assert odt.in_leap_year() is False
+
+    def test_century_leap(self):
+        odt = OffsetDateTime(2000, 6, 15, 12, offset=hours(5))
+        assert odt.in_leap_year() is True
+
+
+class TestStartOf:
+
+    @suppress(StaleOffsetWarning)
+    def test_year(self):
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.start_of("year")
+        assert result.exact_eq(OffsetDateTime(2024, 1, 1, offset=hours(5)))
+        assert result.nanosecond == 0
+
+    @suppress(StaleOffsetWarning)
+    def test_month(self):
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.start_of("month")
+        assert result.exact_eq(OffsetDateTime(2024, 8, 1, offset=hours(5)))
+        assert result.nanosecond == 0
+
+    @suppress(StaleOffsetWarning)
+    def test_day(self):
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.start_of("day")
+        assert result.exact_eq(OffsetDateTime(2024, 8, 15, offset=hours(5)))
+        assert result.nanosecond == 0
+
+    @suppress(StaleOffsetWarning)
+    def test_hour(self):
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.start_of("hour")
+        assert result.exact_eq(
+            OffsetDateTime(2024, 8, 15, 14, offset=hours(5))
+        )
+        assert result.nanosecond == 0
+
+    @suppress(StaleOffsetWarning)
+    def test_minute(self):
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.start_of("minute")
+        assert result.exact_eq(
+            OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))
+        )
+        assert result.nanosecond == 0
+
+    @suppress(StaleOffsetWarning)
+    def test_second(self):
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.start_of("second")
+        assert result.exact_eq(
+            OffsetDateTime(2024, 8, 15, 14, 30, 45, offset=hours(5))
+        )
+        assert result.nanosecond == 0
+
+    @suppress(StaleOffsetWarning)
+    def test_offset_preserved(self):
+        odt = OffsetDateTime(2024, 8, 15, 14, 30, 45, offset=hours(-7))
+        result = odt.start_of("day")
+        assert result.offset == hours(-7)
+
+    @suppress(StaleOffsetWarning)
+    def test_invalid_unit(self):
+        with pytest.raises(ValueError, match="Invalid (unit|value for unit)"):
+            OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5)).start_of(
+                "week"  # type: ignore[arg-type]
+            )
+
+    def test_emits_stale_offset_warning(self):
+        odt = OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))
+        with pytest.warns(StaleOffsetWarning):
+            odt.start_of("day")
+
+    def test_stale_offset_ok_suppresses_warning(self):
+        odt = OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            odt.start_of("day", stale_offset_ok=True)
+
+
+class TestEndOf:
+
+    @suppress(StaleOffsetWarning)
+    def test_year(self):
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.end_of("year")
+        assert result.exact_eq(
+            OffsetDateTime(
+                2024,
+                12,
+                31,
+                23,
+                59,
+                59,
+                nanosecond=999_999_999,
+                offset=hours(5),
+            )
+        )
+
+    @suppress(StaleOffsetWarning)
+    def test_month_31_days(self):
+        odt = OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))
+        result = odt.end_of("month")
+        assert result.exact_eq(
+            OffsetDateTime(
+                2024,
+                8,
+                31,
+                23,
+                59,
+                59,
+                nanosecond=999_999_999,
+                offset=hours(5),
+            )
+        )
+
+    @suppress(StaleOffsetWarning)
+    def test_month_feb_leap(self):
+        odt = OffsetDateTime(2024, 2, 10, 12, offset=hours(5))
+        result = odt.end_of("month")
+        assert result.exact_eq(
+            OffsetDateTime(
+                2024,
+                2,
+                29,
+                23,
+                59,
+                59,
+                nanosecond=999_999_999,
+                offset=hours(5),
+            )
+        )
+
+    @suppress(StaleOffsetWarning)
+    def test_month_feb_non_leap(self):
+        odt = OffsetDateTime(2023, 2, 10, 12, offset=hours(5))
+        result = odt.end_of("month")
+        assert result.exact_eq(
+            OffsetDateTime(
+                2023,
+                2,
+                28,
+                23,
+                59,
+                59,
+                nanosecond=999_999_999,
+                offset=hours(5),
+            )
+        )
+
+    @suppress(StaleOffsetWarning)
+    def test_day(self):
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.end_of("day")
+        assert result.exact_eq(
+            OffsetDateTime(
+                2024,
+                8,
+                15,
+                23,
+                59,
+                59,
+                nanosecond=999_999_999,
+                offset=hours(5),
+            )
+        )
+
+    @suppress(StaleOffsetWarning)
+    def test_hour(self):
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.end_of("hour")
+        assert result.exact_eq(
+            OffsetDateTime(
+                2024,
+                8,
+                15,
+                14,
+                59,
+                59,
+                nanosecond=999_999_999,
+                offset=hours(5),
+            )
+        )
+
+    @suppress(StaleOffsetWarning)
+    def test_minute(self):
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.end_of("minute")
+        assert result.exact_eq(
+            OffsetDateTime(
+                2024,
+                8,
+                15,
+                14,
+                30,
+                59,
+                nanosecond=999_999_999,
+                offset=hours(5),
+            )
+        )
+
+    @suppress(StaleOffsetWarning)
+    def test_second(self):
+        odt = OffsetDateTime(
+            2024, 8, 15, 14, 30, 45, nanosecond=123, offset=hours(5)
+        )
+        result = odt.end_of("second")
+        assert result.exact_eq(
+            OffsetDateTime(
+                2024,
+                8,
+                15,
+                14,
+                30,
+                45,
+                nanosecond=999_999_999,
+                offset=hours(5),
+            )
+        )
+
+    @suppress(StaleOffsetWarning)
+    def test_offset_preserved(self):
+        odt = OffsetDateTime(2024, 8, 15, 14, 30, 45, offset=hours(-7))
+        result = odt.end_of("day")
+        assert result.offset == hours(-7)
+
+    @suppress(StaleOffsetWarning)
+    def test_invalid_unit(self):
+        with pytest.raises(ValueError, match="Invalid (unit|value for unit)"):
+            OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5)).end_of("week")  # type: ignore[arg-type]
+
+    def test_emits_stale_offset_warning(self):
+        odt = OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))
+        with pytest.warns(StaleOffsetWarning):
+            odt.end_of("day")
+
+    def test_stale_offset_ok_suppresses_warning(self):
+        odt = OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            odt.end_of("day", stale_offset_ok=True)
+
+
+class TestStaleOffsetOkKwarg:
+    def test_now(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            OffsetDateTime.now(hours(5), stale_offset_ok=True)
+
+    def test_from_timestamp(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            OffsetDateTime.from_timestamp(
+                0, offset=hours(5), stale_offset_ok=True
+            )
+
+    def test_from_timestamp_millis(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            OffsetDateTime.from_timestamp_millis(
+                0, offset=hours(5), stale_offset_ok=True
+            )
+
+    def test_from_timestamp_nanos(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            OffsetDateTime.from_timestamp_nanos(
+                0, offset=hours(5), stale_offset_ok=True
+            )
+
+    def test_add(self):
+        odt = OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            odt.add(hours=1, stale_offset_ok=True)
+
+    def test_subtract(self):
+        odt = OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            odt.subtract(hours=1, stale_offset_ok=True)
+
+    def test_replace(self):
+        odt = OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            odt.replace(year=2025, stale_offset_ok=True)
+
+    def test_replace_date(self):
+        odt = OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            odt.replace_date(Date(2025, 1, 1), stale_offset_ok=True)
+
+    def test_replace_time(self):
+        odt = OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            odt.replace_time(Time(12, 0), stale_offset_ok=True)
+
+    def test_round(self):
+        odt = OffsetDateTime(2024, 8, 15, 14, 30, offset=hours(5))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            odt.round("hour", stale_offset_ok=True)

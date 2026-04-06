@@ -4,7 +4,7 @@ version = "0.1.0"  # Dummy value. Isn't actually used in distribution of the Pyt
 authors = []
 description = "Rust extension module for whenever"
 edition = "2024"
-rust-version = "1.92"
+rust-version = "1.93"
 license = "MIT"
 readme = "README.md"
 keywords = []
@@ -25,17 +25,19 @@ crate-type = ["cdylib", "rlib"]
 lto = "fat"
 codegen-units = 1
 strip = true
+# FUTURE: consider `opt-level = "s"`.
+# It reduces binary size by about 10%, at about 10% slower performance
 
 [dependencies]
 ahash = "^0.8.12"
 
 [dependencies.pyo3-ffi]
-version = "^0.27.2"
+version = "^0.28.2"
 default-features = false
 features = ["extension-module", "generate-import-lib"]
 
 [build-dependencies]
-pyo3-build-config = { version = "^0.27.2" }
+pyo3-build-config = { version = "^0.28.2" }
 
 [dev-dependencies]
 criterion = "^0.8.1"

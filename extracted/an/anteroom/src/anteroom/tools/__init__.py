@@ -303,9 +303,19 @@ class ToolRegistry:
                 extra_kwargs["_conversation_id"] = _extra_context["conversation_id"]
             if "db" in _extra_context:
                 extra_kwargs["_db"] = _extra_context["db"]
-        # Strip 'background' from LLM arguments before passing to handler
+        # Detached subagent manager injection (#1314)
+        if name in ("run_agent", "agent_run_status") and _extra_context:
+            if "detach_manager" in _extra_context:
+                extra_kwargs["_detach_manager"] = _extra_context["detach_manager"]
+            if "conversation_id" in _extra_context:
+                extra_kwargs["_conversation_id"] = _extra_context["conversation_id"]
+            if "db" in _extra_context:
+                extra_kwargs["_db"] = _extra_context["db"]
+        # Strip 'background'/'detach' from LLM arguments before passing to handler
         if name == "bash" and "background" in arguments:
             extra_kwargs["_background"] = arguments.pop("background")
+        if name == "run_agent" and "detach" in arguments:
+            extra_kwargs["_detach"] = arguments.pop("detach")
         result = await handler(**arguments, **extra_kwargs)
         result["_approval_decision"] = approval_decision
         result["_context_trust"] = "untrusted" if name in _UNTRUSTED_TOOLS else "trusted"
@@ -394,6 +404,13 @@ def register_default_tools(registry: ToolRegistry, working_dir: str | None = Non
         bash.BACKGROUND_STATUS_DEFINITION["name"],
         bash.handle_background_status,
         bash.BACKGROUND_STATUS_DEFINITION,
+    )
+
+    # Detached agent run status tool (#1314)
+    registry.register(
+        subagent.AGENT_RUN_STATUS_DEFINITION["name"],
+        subagent.handle_run_status,
+        subagent.AGENT_RUN_STATUS_DEFINITION,
     )
 
     # Background task output tool (#1312) — registered alongside defaults;

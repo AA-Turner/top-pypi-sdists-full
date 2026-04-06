@@ -211,6 +211,15 @@ fn finalize_paragraph(
 
     // Join line texts with newlines (preserving full_text content exactly).
     let text: String = lines.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n");
+
+    // Convert embedded HTML to markdown if detected (e.g., PDFs with HTML in text layer).
+    #[cfg(feature = "html")]
+    let text = if crate::pdf::text::contains_html_markup(&text) {
+        crate::pdf::text::convert_html_page_text(&text)
+    } else {
+        text
+    };
+
     let trimmed = text.trim();
     if trimmed.is_empty() {
         return None;
@@ -546,6 +555,13 @@ struct CharFontInfo {
 fn extract_page_blocks(page: &PdfPage) -> Option<(Vec<SegmentData>, String, Vec<f32>)> {
     let text_api = page.text().ok()?;
     let full_text = text_api.all();
+    // Convert embedded HTML to markdown if detected (PDFs with HTML in text layer).
+    #[cfg(feature = "html")]
+    let full_text = if crate::pdf::text::contains_html_markup(&full_text) {
+        crate::pdf::text::convert_html_page_text(&full_text)
+    } else {
+        full_text
+    };
     if full_text.trim().is_empty() {
         return None;
     }

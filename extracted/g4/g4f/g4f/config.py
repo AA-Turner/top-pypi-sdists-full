@@ -3,24 +3,21 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from functools import lru_cache
 from typing import Optional
 
-@lru_cache(maxsize=1)
 def get_config_dir() -> Path:
     """Get platform-appropriate config directory."""
     def get_fallback_config_dir() -> Path:
         if sys.platform == "win32":
-            return Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+            return Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")) / "g4f"
         elif sys.platform == "darwin":
-            return Path.home() / "Library" / "Application Support"
-        return Path.home() / ".config"
+            return Path.home() / "Library" / "Application Support" / "g4f"
+        return Path.home() / ".config" / "g4f"
     config_dir = Path.home() / ".g4f"
     if not config_dir.exists():
         config_dir = get_fallback_config_dir()
         if not config_dir.exists():
             config_dir = Path.home() / ".g4f"
-        config_dir = config_dir / "g4f"
     return config_dir
 
 DEFAULT_PORT = 1337

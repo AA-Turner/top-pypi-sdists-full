@@ -1,9 +1,5 @@
-from typing import Literal, Union
-
-Disambiguate = Literal["compatible", "earlier", "later", "raise"]
-
-
 class Unambiguous:
+    __match_args__ = ("offset",)
     offset: int
 
     def __init__(self, offset: int):
@@ -19,6 +15,7 @@ class Unambiguous:
 
 
 class Gap:
+    __match_args__ = ("before", "after")
     before: int
     after: int
 
@@ -36,6 +33,7 @@ class Gap:
 
 
 class Fold:
+    __match_args__ = ("before", "after")
     before: int
     after: int
 
@@ -52,4 +50,4 @@ class Fold:
         return f"Fold({self.before}, {self.after})"
 
 
-Ambiguity = Union[Unambiguous, Gap, Fold]
+Ambiguity = Unambiguous | Gap | Fold

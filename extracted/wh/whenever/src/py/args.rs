@@ -74,7 +74,7 @@ macro_rules! parse_args_kwargs {
                 },
                 $(&mut $var,)*
             ) == 0 {
-                return Err(PyErrMarker());
+                return Err(PyErrMarker);
             }
         }
     };
@@ -109,6 +109,48 @@ where
     Ok(())
 }
 
+/// Parse one (optional) kwarg from the kwargs, and raise an error if any other kwargs are present.
+pub(crate) fn handle_one_kwarg<K>(fname: &str, key: PyObj, kwargs: K) -> PyResult<Option<PyObj>>
+where
+    K: IntoIterator<Item = (PyObj, PyObj)>,
+{
+    let mut result = None;
+    for (k, v) in kwargs {
+        if k.py_eq(key)? {
+            result = Some(v);
+        } else {
+            raise_type_err(format!("{fname}() got an unexpected keyword argument: {k}"))?;
+        }
+    }
+    Ok(result)
+}
+
+/// Parse one (optional) positional argument, and raise an error if the number of arguments is more
+/// than one.
+pub(crate) fn handle_opt_arg(fname: &str, args: &[PyObj]) -> PyResult<Option<PyObj>> {
+    match *args {
+        [] => Ok(None),
+        [arg_obj] => Ok(Some(arg_obj)),
+        _ => raise_type_err(format!(
+            "{fname}() takes at most one positional argument ({} given)",
+            args.len()
+        )),
+    }
+}
+
+/// Parse one positional argument, and raise an error if the number of arguments is not exactly
+/// one.
+pub(crate) fn handle_one_arg(fname: &str, args: &[PyObj]) -> PyResult<PyObj> {
+    if let [arg_obj] = args {
+        Ok(*arg_obj)
+    } else {
+        raise_type_err(format!(
+            "{fname}() takes exactly one positional argument ({} given)",
+            args.len()
+        ))
+    }
+}
+
 /// Helper to efficiently match a value against a set of known interned strings.
 /// The handler closure is called twice, first with pointer equality (very fast),
 /// and only if that fails, with value equality (slower).
@@ -124,6 +166,24 @@ where
     handler(value, ptr_eq)
         .or_else(|| handler(value, value_eq))
         .ok_or_else_value_err(|| format!("Invalid value for {name}: {value}"))
+}
+
+/// Like `match_interned_str`, but returns `None` if no match is found
+/// instead of raising an error.
+pub(crate) fn find_interned<T, F>(value: PyObj, mut handler: F) -> Option<T>
+where
+    F: FnMut(PyObj, fn(PyObj, PyObj) -> bool) -> Option<T>,
+{
+    handler(value, ptr_eq).or_else(|| handler(value, value_eq))
+}
+
+/// Like find_interned, but for boolean checks.
+/// The closure returns true if a match was found. Tries ptr_eq first, then value_eq.
+pub(crate) fn check_interned<F>(value: PyObj, mut handler: F) -> bool
+where
+    F: FnMut(PyObj, fn(PyObj, PyObj) -> bool) -> bool,
+{
+    handler(value, ptr_eq) || handler(value, value_eq)
 }
 
 pub(crate) use parse_args_kwargs;

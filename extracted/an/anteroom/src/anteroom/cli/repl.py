@@ -67,6 +67,7 @@ _IS_WINDOWS = platform.system() == "Windows"
 # Module-level mutable ref for background task manager (#1311).
 # Populated in _run_repl, read by tool_executor in run_cli.
 _bg_manager_ref: list[Any] = [None]
+_detach_manager_ref: list[Any] = [None]
 
 
 def _add_signal_handler(loop: asyncio.AbstractEventLoop, sig: int, callback: Any) -> bool:
@@ -2731,6 +2732,7 @@ async def run_cli(
                 arguments,
                 _extra_context={
                     "bg_manager": _bg_manager_ref[0],
+                    "detach_manager": _detach_manager_ref[0],
                     "conversation_id": conversation_id,
                     "db": db,
                 },
@@ -3937,6 +3939,11 @@ async def _run_repl(
     from anteroom.services.background_tasks import BackgroundTaskManager
 
     _bg_manager_ref[0] = BackgroundTaskManager(db=db, data_dir=config.app.data_dir)
+
+    # Detached subagent manager (#1314)
+    from anteroom.services.detached_subagent_manager import DetachedSubagentManager
+
+    _detach_manager_ref[0] = DetachedSubagentManager(db=db)
 
     input_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=10)
     agent_busy = asyncio.Event()  # set while agent loop is running
@@ -5900,6 +5907,50 @@ async def _run_repl(
                             renderer.console.print("[dim]Usage: /task {list,show,output,tail,cancel} [args][/dim]\n")
                     continue
 
+                elif cmd in ("/agent", "/agents"):
+                    from .agent_cli import (
+                        handle_agent_cancel,
+                        handle_agent_list,
+                        handle_agent_retry,
+                        handle_agent_status,
+                    )
+
+                    _a_parts = user_input.strip().split()
+                    _a_sub = _a_parts[1].lower() if len(_a_parts) >= 2 else ""
+                    if cmd == "/agents":
+                        _a_sub = "list"
+                    if _a_sub in ("", "list"):
+                        handle_agent_list(db, conv["id"], renderer)
+                    elif _a_sub == "status":
+                        _a_id = _a_parts[2].strip() if len(_a_parts) >= 3 else ""
+                        if _a_id:
+                            handle_agent_status(db, _a_id, renderer)
+                        else:
+                            renderer.console.print("[dim]Usage: /agent status <run_id>[/dim]\n")
+                    elif _a_sub == "cancel":
+                        _a_id = _a_parts[2].strip() if len(_a_parts) >= 3 else ""
+                        if _a_id:
+                            handle_agent_cancel(db, _a_id, renderer)
+                        else:
+                            renderer.console.print("[dim]Usage: /agent cancel <run_id>[/dim]\n")
+                    elif _a_sub == "retry":
+                        _a_id = _a_parts[2].strip() if len(_a_parts) >= 3 else ""
+                        if _a_id:
+                            handle_agent_retry(
+                                db,
+                                _a_id,
+                                renderer,
+                                ai_service=ai_service,
+                                tool_registry=tool_registry,
+                                mcp_manager=mcp_manager,
+                                config=getattr(config.safety, "subagent", None) if config.safety else None,
+                            )
+                        else:
+                            renderer.console.print("[dim]Usage: /agent retry <run_id>[/dim]\n")
+                    else:
+                        renderer.console.print("[dim]Usage: /agent {list,status,cancel,retry} [args][/dim]\n")
+                    continue
+
                 elif cmd in ("/mission", "/missions"):
                     await _handle_mission_command(
                         user_input,
@@ -6790,6 +6841,21 @@ async def _run_repl(
                         tid = task.get("id", "")[:8]
                         renderer.console.print(f"[dim]\\[bg] Task {tid} {status} (exit {exit_code})[/dim]")
                     set_bg_task_count(_bg_manager_ref[0].count_running())
+                except Exception:
+                    pass
+                # Poll detached subagent completions (#1314)
+                try:
+                    if _detach_manager_ref[0] is not None:
+                        detach_completed = _detach_manager_ref[0].poll_completed()
+                        for run in detach_completed:
+                            rid = run.get("id", "")[:8]
+                            rstatus = run.get("status", "unknown")
+                            meta = run.get("metadata") or {}
+                            tcalls = len(meta.get("tool_calls_made", []))
+                            dur = meta.get("elapsed_seconds", 0)
+                            renderer.console.print(
+                                f"[dim]\\[agent] Run {rid} {rstatus} ({tcalls} calls, {dur:.1f}s)[/dim]"
+                            )
                 except Exception:
                     pass
                 await asyncio.sleep(2)

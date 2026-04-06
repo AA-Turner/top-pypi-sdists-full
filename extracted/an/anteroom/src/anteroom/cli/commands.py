@@ -262,6 +262,8 @@ COMMAND_DESCRIPTIONS: dict[str, str] = {
     "specs": "list specs",
     "mission": "manage missions",
     "missions": "list missions",
+    "agent": "manage detached agents",
+    "agents": "list detached agents",
     "quit": "exit",
     "exit": "exit",
 }
@@ -304,6 +306,7 @@ SUBCOMMAND_COMPLETIONS: dict[str, list[str]] = {
     "plan": ["on", "off", "status", "approve", "edit", "reject"],
     "reprocess": ["all"],
     "mission": ["list", "status", "talk"],
+    "agent": ["list", "status", "cancel", "retry"],
     "task": ["list", "show", "output", "tail", "cancel"],
 }
 
@@ -349,6 +352,8 @@ ALL_COMMAND_NAMES: list[str] = [
     "tasks",
     "mission",
     "missions",
+    "agent",
+    "agents",
     "quit",
     "exit",
 ]

@@ -32,8 +32,11 @@ from werkzeug.test import TestResponse
 
 import schemathesis.cli
 from schemathesis import auths, hooks
-from schemathesis.cli.commands.run.executor import CUSTOM_HANDLERS
+from schemathesis.cli.commands import fuzz as fuzz_command
+from schemathesis.cli.commands import run as run_command
 from schemathesis.cli.commands.run.handlers import output
+from schemathesis.cli.ext.groups import GROUPS, GroupedOption
+from schemathesis.cli.ext.handlers import CUSTOM_HANDLERS
 from schemathesis.core import deserialization
 from schemathesis.core.hooks import HOOKS_MODULE_ENV_VAR
 from schemathesis.core.transport import Response
@@ -75,6 +78,7 @@ def reset_hooks():
     # Store built-in deserializers to restore after test
     builtin_deserializers = deserialization.deserializers().copy()
     builtin_string_formats = set(STRING_FORMATS.keys())
+    builtin_groups = set(GROUPS.keys())
 
     CUSTOM_HANDLERS.clear()
     hooks.unregister_all()
@@ -98,6 +102,14 @@ def reset_hooks():
     for name in list(STRING_FORMATS.keys()):
         if name not in builtin_string_formats:
             del STRING_FORMATS[name]
+    # Remove any CLI option groups registered during the test
+    for name in list(GROUPS.keys()):
+        if name not in builtin_groups:
+            del GROUPS[name]
+    for command in (run_command, fuzz_command):
+        command.params[:] = [
+            p for p in command.params if not (isinstance(p, GroupedOption) and p.group not in builtin_groups)
+        ]
 
 
 @pytest.fixture(scope="session")
@@ -306,6 +318,7 @@ def keep_cwd():
 
 FLASK_MARKERS = ("* Serving Flask app", "* Debug mode")
 PACKAGE_ROOT = Path(schemathesis.__file__).parent
+TEST_ROOT = Path(__file__).parent
 SITE_PACKAGES = requests.__file__.split("requests")[0]
 IS_WINDOWS = platform.system() == "Windows"
 
@@ -343,25 +356,18 @@ class CliSnapshotConfig:
         if not self.replace:
             return data
         if self.replace_test_cases:
-            data = re.sub(r"Test cases:\n  (\d+) generated, \1 skipped", "Test cases:\n  N generated, N skipped", data)
-            # Cases with failures and skips
+            # All-skipped case
+            data = re.sub(r"Test cases:\n  (\d+) generated, \1 skipped", "Test cases:\n  N generated", data)
+            # Cases with failures (skip count optional — non-deterministic, so not snapshot-tested)
             data = re.sub(
-                r"Test cases:\n  (\d+) generated, (\d+) found (\d+) unique failures, (\d+) skipped",
-                "Test cases:\n  N generated, N found N unique failures, N skipped",
-                data,
-            )
-            # Cases with passed and skips
-            data = re.sub(
-                r"Test cases:\n  (\d+) generated, (\d+) passed, (\d+) skipped",
-                "Test cases:\n  N generated, N passed, N skipped",
-                data,
-            )
-            # Only passed cases
-            data = re.sub(r"Test cases:\n  (\d+) generated, (\d+) passed", "Test cases:\n  N generated, N passed", data)
-            # Cases with failures but no skips
-            data = re.sub(
-                r"Test cases:\n  (\d+) generated, (\d+) found (\d+) unique failures",
+                r"Test cases:\n  (\d+) generated, (\d+) found (\d+) unique failures(?:, \d+ skipped)?",
                 "Test cases:\n  N generated, N found N unique failures",
+                data,
+            )
+            # Cases with passed (skip count optional)
+            data = re.sub(
+                r"Test cases:\n  (\d+) generated, (\d+) passed(?:, \d+ skipped)?",
+                "Test cases:\n  N generated, N passed",
                 data,
             )
         if self.replace_server_host:
@@ -394,6 +400,7 @@ class CliSnapshotConfig:
         package_root = "/package-root"
         site_packages = "/site-packages/"
         data = data.replace(str(PACKAGE_ROOT), package_root)
+        data = data.replace(str(TEST_ROOT), "/test-root")
         data = re.sub(
             "❌  Failed to load configuration file from .*toml$",
             "❌  Failed to load configuration file from config.toml",
@@ -406,6 +413,12 @@ class CliSnapshotConfig:
         data = data.replace(str(SITE_PACKAGES), site_packages)
         data = re.sub(", line [0-9]+,", ", line XXX,", data)
         data = re.sub(r"Scenarios:.*\d+", r"Scenarios:    N", data)
+        if "Stop reason:" in data:
+            # Fuzz-specific output: scenario count and counters vary with time and machine speed
+            data = re.sub(r"✅ \d+ scenarios", "✅ N scenarios", data)
+            data = re.sub(r"❌ \d+ unique failures", "❌ N unique failures", data)
+            data = re.sub(r"🚫 \d+ errors?", "🚫 N errors", data)
+            data = re.sub(r"Tested: \d+", "Tested: N", data)
         if self.replace_phase_statistic:
             data = re.sub("🚫 [0-9]+ errors", "🚫 1 error", data)
         if "Stateful" in data:
@@ -485,35 +498,50 @@ class CliSnapshotConfig:
                 continue
             if IS_WINDOWS and ("Loading specification" in line or "Loaded specification" in line):
                 line = line.replace("\\", "/")
-            if any(marker in line for marker in FLASK_MARKERS) or line.lstrip().startswith(
-                (
-                    "🕛 ",
-                    "🕐 ",
-                    "🕑 ",
-                    "🕒 ",
-                    "🕓 ",
-                    "🕔 ",
-                    "🕕 ",
-                    "🕖 ",
-                    "🕗 ",
-                    "🕘 ",
-                    "🕙 ",
-                    "🕚 ",
-                    "⠋",
-                    "⠙",
-                    "⠹",
-                    "⠸",
-                    "⠼",
-                    "⠴",
-                    "⠦",
-                    "⠧",
-                    "⠇",
-                    "⠏",
-                    "0:0",
+            if (
+                any(marker in line for marker in FLASK_MARKERS)
+                or line.lstrip().startswith(
+                    (
+                        "🕛 ",
+                        "🕐 ",
+                        "🕑 ",
+                        "🕒 ",
+                        "🕓 ",
+                        "🕔 ",
+                        "🕕 ",
+                        "🕖 ",
+                        "🕗 ",
+                        "🕘 ",
+                        "🕙 ",
+                        "🕚 ",
+                        "⠋",
+                        "⠙",
+                        "⠹",
+                        "⠸",
+                        "⠼",
+                        "⠴",
+                        "⠦",
+                        "⠧",
+                        "⠇",
+                        "⠏",
+                        "0:0",
+                        # Fuzz live-display lines (transient, not cleared on non-TTY)
+                        "No issues found yet",
+                        "Last new failure:",
+                    )
                 )
+                or re.match(r"    [❌🚫]", line)
             ):
                 continue
             lines.append(line.rstrip())
+        if "Stop reason:" in data:
+            # Fuzz live-display leaves extra blank lines on non-TTY; collapse consecutive blanks to one
+            collapsed = []
+            for line in lines:
+                if line == "" and collapsed and collapsed[-1] == "":
+                    continue
+                collapsed.append(line)
+            lines = collapsed
         lines = clean_unit_tests(lines)
         lines = clean_stateful_tests(lines)
         return "\n".join(lines).strip() + "\n"
@@ -1084,6 +1112,18 @@ def testdir(testdir):
             config.addinivalue_line(
                 "filterwarnings",
                 "ignore:.*Unclosed <MemoryObject.*:pytest.PytestUnraisableExceptionWarning",
+            )
+            config.addinivalue_line(
+                "filterwarnings",
+                "ignore:Exception ignored in.*<function MemoryObject.*.__del__.*:pytest.PytestUnraisableExceptionWarning",
+            )
+            config.addinivalue_line(
+                "filterwarnings",
+                "ignore:Exception ignored in.*<socket.socket.*:pytest.PytestUnraisableExceptionWarning",
+            )
+            config.addinivalue_line(
+                "filterwarnings",
+                "ignore:unclosed <socket.socket.*:ResourceWarning",
             )
         def pytest_unconfigure(config):
             print(f"Hypothesis calls: {{config.HYPOTHESIS_CASES}}")

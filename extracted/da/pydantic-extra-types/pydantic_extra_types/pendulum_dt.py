@@ -8,6 +8,7 @@ try:
     from pendulum import Date as _Date
     from pendulum import DateTime as _DateTime
     from pendulum import Duration as _Duration
+    from pendulum import Interval as _Interval
     from pendulum import Time as _Time
     from pendulum import parse
 except ModuleNotFoundError as e:  # pragma: no cover
@@ -266,15 +267,18 @@ class Duration(_Duration):
         Returns:
             The ISO 8601 string representation of the duration.
         """
-        # Extracting components from the Duration object
-        years = self.years
-        months = self.months
-        days = self._days
-        hours = self.hours
-        minutes = self.minutes
-        seconds = self.remaining_seconds
-        milliseconds = self.microseconds // 1000
-        microseconds = self.microseconds % 1000
+        # Determine if the duration is negative
+        is_negative = self.total_seconds() < 0
+
+        # Extracting components from the Duration object (use abs for negative durations)
+        years = abs(self.years) if is_negative else self.years
+        months = abs(self.months) if is_negative else self.months
+        days = abs(self._days) if is_negative else self._days
+        hours = abs(self.hours) if is_negative else self.hours
+        minutes = abs(self.minutes) if is_negative else self.minutes
+        seconds = abs(self.remaining_seconds) if is_negative else self.remaining_seconds
+        milliseconds = abs(self.microseconds) // 1000 if is_negative else self.microseconds // 1000
+        microseconds = abs(self.microseconds) % 1000 if is_negative else self.microseconds % 1000
 
         # Constructing the ISO 8601 duration string
         iso_duration = 'P'
@@ -301,7 +305,7 @@ class Duration(_Duration):
                 iso_duration += 'S'
 
         # Prefix with '-' if the duration is negative
-        if self.total_seconds() < 0:
+        if is_negative:
             iso_duration = '-' + iso_duration
 
         if iso_duration == 'P':
@@ -368,3 +372,66 @@ class Duration(_Duration):
             )
         except Exception as exc:
             raise PydanticCustomError('value_error', 'value is not a valid duration') from exc
+
+
+class Interval(_Interval[Any]):
+    """A `pendulum.Interval` object. At runtime, this type decomposes into pendulum.Interval automatically.
+    This type exists because Pydantic throws a fit on unknown types.
+
+    ```python
+    from pydantic import BaseModel
+    from pydantic_extra_types.pendulum_dt import Interval
+
+
+    class test_model(BaseModel):
+        interval: Interval
+
+
+    print(test_model(interval='2021-01-01T00:00:00+00:00/2021-01-02T00:00:00+00:00'))
+
+    # > test_model(interval=<Interval [2021-01-01 00:00:00+00:00 -> 2021-01-02 00:00:00+00:00]>)
+    ```
+    """
+
+    __slots__: list[str] = []
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source: type[Any], handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
+        """Return a Pydantic CoreSchema with the Interval validation.
+
+        Args:
+            source: The source type to be converted.
+            handler: The handler to get the CoreSchema.
+
+        Returns:
+            A Pydantic CoreSchema with the Interval validation.
+        """
+        return core_schema.no_info_wrap_validator_function(cls._validate, core_schema.str_schema())
+
+    @classmethod
+    def _instance(cls, value: _Interval[Any]) -> Interval:
+        return Interval(value.start, value.end, absolute=getattr(value, '_absolute', False))
+
+    @classmethod
+    def _validate(cls, value: Any, handler: core_schema.ValidatorFunctionWrapHandler) -> Interval:
+        """Validate the interval object and return it.
+
+        Args:
+            value: The value to validate.
+            handler: The handler to get the CoreSchema.
+
+        Returns:
+            The validated value or raises a PydanticCustomError.
+        """
+        # if we are passed an existing instance, pass it straight through.
+        if isinstance(value, _Interval):
+            return cls._instance(value)
+
+        # otherwise, parse it.
+        try:
+            parsed = parse(value)
+            if isinstance(parsed, _Interval):
+                return cls._instance(parsed)
+            raise ValueError(f'value is not a valid interval it is a {type(parsed)}')
+        except Exception as exc:
+            raise PydanticCustomError('value_error', 'value is not a valid interval') from exc

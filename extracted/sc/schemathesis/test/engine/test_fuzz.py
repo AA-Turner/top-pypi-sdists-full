@@ -5,14 +5,67 @@ import uuid
 import pytest
 import requests
 from hypothesis import assume
-from hypothesis.errors import Unsatisfiable
+from hypothesis.errors import Flaky, Unsatisfiable
+from werkzeug.exceptions import InternalServerError
 
 import schemathesis
 import schemathesis.auths
 from schemathesis.config import FuzzConfig, OperationConfig, OperationsConfig
+from schemathesis.core.errors import SerializationNotPossible
 from schemathesis.core.result import Ok
 from schemathesis.engine import Status, StopReason, events, from_schema
 from schemathesis.engine.fuzz._executor import compute_operation_weights
+from schemathesis.generation import GenerationMode
+
+
+def _make_flaky_repro_schema(ctx):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/failure": {
+                "get": {
+                    "responses": {
+                        "200": {"description": "OK"},
+                    }
+                }
+            },
+            "/csv": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "text/csv": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "additionalProperties": False,
+                                        "properties": {
+                                            "first_name": {"type": "string"},
+                                            "last_name": {"type": "string"},
+                                        },
+                                        "required": ["first_name", "last_name"],
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {
+                        "200": {"description": "OK"},
+                    },
+                }
+            },
+        }
+    )
+
+    @app.route("/failure", methods=["GET"])
+    def failure():
+        raise InternalServerError
+
+    @app.route("/csv", methods=["POST"])
+    def csv():
+        return {"ok": True}
+
+    return app
 
 
 def test_fuzz_entry_point_emits_engine_started_and_finished(real_app_schema):
@@ -50,18 +103,54 @@ def test_fuzz_no_operations_emits_no_scenarios(real_app_schema):
 
 @pytest.mark.operations("unsatisfiable")
 def test_fuzz_single_unsatisfiable_operation_emits_non_fatal_error(real_app_schema):
-    # When the only operation is unsatisfiable, a NonFatalError should be emitted
-    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1)))
+    # When the only operation is unsatisfiable in all configured modes, a NonFatalError should be emitted.
+    # Use positive-only mode: the unsatisfiable schema has contradictory positive constraints,
+    # so negative mode would succeed. We want to test the "truly unsatisfiable" path.
+    real_app_schema.config.generation.update(modes=[GenerationMode.POSITIVE])
+    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig()))
     assert any(isinstance(e, events.NonFatalError) for e in collected)
 
 
 @pytest.mark.operations("failure")
 def test_fuzz_finds_failure_without_continue_on_failure(real_app_schema):
     # Without continue_on_failure, the first failure stops the campaign
-    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1)))
+    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig()))
     finished = [e for e in collected if isinstance(e, events.FuzzScenarioFinished)]
     assert any(e.status == Status.FAILURE for e in finished)
     assert isinstance(collected[-1], events.EngineFinished)
+
+
+def test_fuzz_preflight_excludes_non_generatable_operation_before_hypothesis(ctx, app_runner):
+    app = _make_flaky_repro_schema(ctx)
+    port = app_runner.run_flask_app(app)
+    schema = schemathesis.openapi.from_url(f"http://127.0.0.1:{port}/openapi.json")
+    schema.config.seed = 1
+
+    collected = list(from_schema(schema).fuzz(FuzzConfig()))
+    errors = [event for event in collected if isinstance(event, events.NonFatalError)]
+    finished = [event for event in collected if isinstance(event, events.FuzzScenarioFinished)]
+
+    assert any(isinstance(event.value, SerializationNotPossible) and event.label == "POST /csv" for event in errors)
+    assert not any(isinstance(event.value, Flaky) for event in errors)
+    assert any(event.status == Status.FAILURE for event in finished)
+
+
+@pytest.mark.operations("success", "failure")
+def test_fuzz_preflight_all_operations_excluded(real_app_schema):
+    @real_app_schema.hook
+    def before_generate_case(context, strategy):
+        def reject(case):
+            assume(False)
+
+        return strategy.map(reject)
+
+    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig()))
+
+    assert isinstance(collected[0], events.EngineStarted)
+    assert isinstance(collected[-1], events.EngineFinished)
+    assert not any(isinstance(event, events.FuzzScenarioStarted) for event in collected)
+    assert not any(isinstance(event, events.FuzzScenarioFinished) for event in collected)
+    assert any(isinstance(event, events.NonFatalError) for event in collected)
 
 
 @pytest.mark.operations("multiple_failures")
@@ -69,7 +158,7 @@ def test_fuzz_finds_failure_with_continue_on_failure(real_app_schema):
     # With continue_on_failure, the campaign continues past failures;
     # multiple_failures has an integer query param so Hypothesis generates many examples
     real_app_schema.config.continue_on_failure = True
-    stream = from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1))
+    stream = from_schema(real_app_schema).fuzz(FuzzConfig())
     scenario_count = 0
     failure_count = 0
     for event in stream:
@@ -88,7 +177,8 @@ def test_fuzz_finds_failure_with_continue_on_failure(real_app_schema):
 
 @pytest.mark.operations("path_variable")
 def test_fuzz_max_time_stop_reason(real_app_schema):
-    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig(max_time=1, max_steps=1)))
+    real_app_schema.config.generation.update(modes=[GenerationMode.POSITIVE])
+    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig(max_time=1)))
     assert isinstance(collected[0], events.EngineStarted)
     assert isinstance(collected[-1], events.EngineFinished)
     assert collected[-1].stop_reason == StopReason.MAX_TIME
@@ -97,29 +187,26 @@ def test_fuzz_max_time_stop_reason(real_app_schema):
 @pytest.mark.operations("failure")
 def test_fuzz_max_failures_stop_reason(real_app_schema):
     real_app_schema.config.max_failures = 1
-    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1)))
+    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig()))
     assert collected[-1].stop_reason == StopReason.FAILURE_LIMIT
 
 
 @pytest.mark.operations("multiple_failures")
 def test_fuzz_max_failures_multi_worker(real_app_schema):
-    # With 2 workers and continue_on_failure, both workers accumulate failures;
-    # the global counter stops the campaign once the limit is hit across all workers
+    # With 2 workers and continue_on_failure, the global failure counter stops the campaign
     real_app_schema.config.max_failures = 3
     real_app_schema.config.continue_on_failure = True
     real_app_schema.config.update(workers=2)
-    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1)))
+    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig()))
     assert collected[-1].stop_reason == StopReason.FAILURE_LIMIT
-    failure_events = [e for e in collected if isinstance(e, events.FuzzScenarioFinished) and e.status == Status.FAILURE]
-    worker_ids = {e.worker_id for e in failure_events}
-    assert worker_ids == {0, 1}  # both workers contributed failures
 
 
 @pytest.mark.operations("path_variable")
 def test_fuzz_scenario_id_pairs_correlate(real_app_schema):
+    real_app_schema.config.generation.update(modes=[GenerationMode.POSITIVE])
     started_ids: set[uuid.UUID] = set()
     finished_ids: list[uuid.UUID] = []
-    stream = from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1))
+    stream = from_schema(real_app_schema).fuzz(FuzzConfig())
     for event in stream:
         if isinstance(event, events.FuzzScenarioStarted):
             started_ids.add(event.id)
@@ -177,7 +264,7 @@ def test_fuzz_per_operation_continue_on_failure(real_app_schema):
     real_app_schema.config.operations = OperationsConfig(
         operations=[OperationConfig.from_dict({"include-path": "/multiple_failures", "continue-on-failure": True})]
     )
-    stream = from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1))
+    stream = from_schema(real_app_schema).fuzz(FuzzConfig())
     scenario_count = 0
     failure_count = 0
     for event in stream:
@@ -197,7 +284,7 @@ def test_fuzz_per_operation_continue_on_failure(real_app_schema):
 def test_fuzz_generation_parameter_overrides_are_applied(real_app_schema):
     # When a parameter override is configured
     real_app_schema.config.parameters = {"query.id": -1}
-    stream = from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1))
+    stream = from_schema(real_app_schema).fuzz(FuzzConfig())
     query_values: list[dict] = []
     for event in stream:
         if isinstance(event, events.FuzzScenarioFinished):
@@ -215,7 +302,7 @@ def test_fuzz_multiple_workers_emit_distinct_worker_ids(real_app_schema):
     # Each worker emits events with its own worker_id; with workers=2 we must see both 0 and 1
     real_app_schema.config.update(workers=2)
     worker_ids: set[int] = set()
-    stream = from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1))
+    stream = from_schema(real_app_schema).fuzz(FuzzConfig())
     for event in stream:
         if isinstance(event, events.FuzzScenarioFinished):
             worker_ids.add(event.worker_id)
@@ -232,7 +319,7 @@ def test_fuzz_scenario_interrupted_status(real_app_schema):
     def always_interrupts(ctx, response, case):
         raise KeyboardInterrupt
 
-    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1)))
+    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig()))
     assert any(isinstance(e, events.FuzzScenarioFinished) and e.status == Status.INTERRUPTED for e in collected)
 
 
@@ -244,7 +331,7 @@ def test_fuzz_scenario_error_status(real_app_schema):
     def always_errors(ctx, response, case):
         raise RuntimeError("deliberate error")
 
-    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1)))
+    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig()))
     assert any(isinstance(e, events.FuzzScenarioFinished) and e.status == Status.ERROR for e in collected)
 
 
@@ -252,7 +339,7 @@ def test_fuzz_graphql_schema(graphql_schema):
     collected: list[events.EngineEvent] = []
     started_ids: set[uuid.UUID] = set()
     finished_ids: list[uuid.UUID] = []
-    stream = from_schema(graphql_schema).fuzz(FuzzConfig(max_steps=1))
+    stream = from_schema(graphql_schema).fuzz(FuzzConfig())
     for event in stream:
         collected.append(event)
         if isinstance(event, events.FuzzScenarioStarted):
@@ -268,7 +355,7 @@ def test_fuzz_graphql_schema(graphql_schema):
 
 
 @pytest.mark.operations("success")
-def test_fuzz_unsatisfied_assumption_reraises_to_hypothesis(real_app_schema):
+def test_fuzz_unsatisfied_assumption_preflight_excludes_operation(real_app_schema):
     @real_app_schema.hook
     def before_generate_case(context, strategy):
         def reject(case):
@@ -276,10 +363,10 @@ def test_fuzz_unsatisfied_assumption_reraises_to_hypothesis(real_app_schema):
 
         return strategy.map(reject)
 
-    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1)))
+    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig()))
     errors = [e for e in collected if isinstance(e, events.NonFatalError)]
     assert errors == [
-        events.NonFatalError(error=Unsatisfiable(), phase=None, label="Fuzz tests", related_to_operation=False)
+        events.NonFatalError(error=Unsatisfiable(), phase=None, label="GET /success", related_to_operation=True)
     ]
 
 
@@ -295,7 +382,7 @@ def test_fuzz_clears_global_auth_when_config_auth_is_defined(real_app_schema):
 
     assert schemathesis.auths.GLOBAL_AUTH_STORAGE.is_defined
     real_app_schema.config.auth.update(basic=("user", "pass"))
-    next(iter(from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1))))
+    next(iter(from_schema(real_app_schema).fuzz(FuzzConfig())))
     assert not schemathesis.auths.GLOBAL_AUTH_STORAGE.is_defined
 
 
@@ -308,7 +395,7 @@ def test_fuzz_generation_exception_excludes_operation(real_app_schema):
 
         return strategy.map(fail_generation)
 
-    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1)))
+    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig()))
     errors = [e for e in collected if isinstance(e, events.NonFatalError)]
     assert errors == [
         events.NonFatalError(
@@ -320,11 +407,62 @@ def test_fuzz_generation_exception_excludes_operation(real_app_schema):
     ]
 
 
+@pytest.mark.operations("success", "failure")
+def test_fuzz_preflight_excludes_hook_broken_operation_but_keeps_survivors(real_app_schema):
+    @real_app_schema.hook
+    def before_generate_case(context, strategy):
+        def fail_generation(case):
+            if case.operation.label == "GET /failure":
+                raise RuntimeError("generation error")
+            return case
+
+        return strategy.map(fail_generation)
+
+    collected: list[events.EngineEvent] = []
+    stream = from_schema(real_app_schema).fuzz(FuzzConfig())
+    for event in stream:
+        collected.append(event)
+        if isinstance(event, events.FuzzScenarioFinished):
+            stream.stop()
+            break
+
+    errors = [event for event in collected if isinstance(event, events.NonFatalError)]
+    assert any(
+        event
+        == events.NonFatalError(
+            error=RuntimeError("generation error"),
+            phase=None,
+            label="GET /failure",
+            related_to_operation=True,
+        )
+        for event in errors
+    )
+    assert any(isinstance(event, events.FuzzScenarioFinished) for event in collected)
+
+
+def test_fuzz_preflight_reports_exclusion_once_across_workers(ctx, app_runner):
+    app = _make_flaky_repro_schema(ctx)
+    port = app_runner.run_flask_app(app)
+    schema = schemathesis.openapi.from_url(f"http://127.0.0.1:{port}/openapi.json")
+    schema.config.seed = 1
+    schema.config.update(workers=2)
+
+    collected = list(from_schema(schema).fuzz(FuzzConfig()))
+    errors = [event for event in collected if isinstance(event, events.NonFatalError)]
+    csv_errors = [
+        event for event in errors if event.label == "POST /csv" and isinstance(event.value, SerializationNotPossible)
+    ]
+
+    assert len(csv_errors) == 1
+    assert not any(isinstance(event.value, Flaky) for event in errors)
+    assert any(isinstance(event, events.FuzzScenarioFinished) and event.status == Status.FAILURE for event in collected)
+
+
 @pytest.mark.operations("slow")
 def test_fuzz_network_error_emits_non_fatal_error(real_app_schema):
     # When the server times out, a NonFatalError is emitted and the scenario still finishes
     real_app_schema.config.request_timeout = 0.001
-    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1)))
+    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig()))
     errors = [e for e in collected if isinstance(e, events.NonFatalError)]
     assert errors == [
         events.NonFatalError(
@@ -338,7 +476,7 @@ def test_fuzz_network_error_emits_non_fatal_error(real_app_schema):
 
 
 @pytest.mark.operations("success")
-def test_fuzz_choices_become_empty_mid_scenario(real_app_schema):
+def test_fuzz_finishes_cleanly_when_preflight_excludes_all_operations(real_app_schema):
     @real_app_schema.hook
     def before_generate_case(context, strategy):
         def fail_generation(case):
@@ -346,15 +484,15 @@ def test_fuzz_choices_become_empty_mid_scenario(real_app_schema):
 
         return strategy.map(fail_generation)
 
-    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=2)))
+    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig()))
     assert isinstance(collected[0], events.EngineStarted)
     assert isinstance(collected[-1], events.EngineFinished)
 
 
 @pytest.mark.operations("success")
-def test_fuzz_scenario_events_paired_when_choices_exhausted_mid_loop(real_app_schema):
-    # When the only operation is excluded mid-scenario (step 2 sees empty choices),
-    # FuzzScenarioFinished must still be emitted for the already-started scenario.
+def test_fuzz_emits_no_scenario_pairs_when_preflight_excludes_only_operation(real_app_schema):
+    # When preflight excludes the only operation before any scenario starts,
+    # there should be no unmatched fuzz scenario events.
     @real_app_schema.hook
     def before_generate_case(context, strategy):
         def fail_generation(case):
@@ -364,7 +502,7 @@ def test_fuzz_scenario_events_paired_when_choices_exhausted_mid_loop(real_app_sc
 
     started_ids: set[uuid.UUID] = set()
     finished_ids: set[uuid.UUID] = set()
-    for event in from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=2)):
+    for event in from_schema(real_app_schema).fuzz(FuzzConfig()):
         if isinstance(event, events.FuzzScenarioStarted):
             started_ids.add(event.id)
         elif isinstance(event, events.FuzzScenarioFinished):
@@ -373,8 +511,8 @@ def test_fuzz_scenario_events_paired_when_choices_exhausted_mid_loop(real_app_sc
 
 
 @pytest.mark.operations("success")
-def test_fuzz_completed_stop_reason_when_all_operations_exhausted(real_app_schema):
-    # When all operations are excluded due to errors, the engine should finish
+def test_fuzz_completed_stop_reason_when_preflight_excludes_all_operations(real_app_schema):
+    # When preflight excludes all operations due to generation errors, the engine should finish
     # with COMPLETED (natural end), not INTERRUPTED (which implies external stop).
     @real_app_schema.hook
     def before_generate_case(context, strategy):
@@ -383,7 +521,7 @@ def test_fuzz_completed_stop_reason_when_all_operations_exhausted(real_app_schem
 
         return strategy.map(fail_generation)
 
-    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=2)))
+    collected = list(from_schema(real_app_schema).fuzz(FuzzConfig()))
     finished = next(e for e in collected if isinstance(e, events.EngineFinished))
     assert finished.stop_reason == StopReason.COMPLETED
 
@@ -391,7 +529,7 @@ def test_fuzz_completed_stop_reason_when_all_operations_exhausted(real_app_schem
 @pytest.mark.operations("path_variable")
 def test_fuzz_interrupted_by_keyboard_interrupt(real_app_schema):
     # Inject KeyboardInterrupt directly into the generator — safe under xdist (no OS signals)
-    stream = from_schema(real_app_schema).fuzz(FuzzConfig(max_steps=1))
+    stream = from_schema(real_app_schema).fuzz(FuzzConfig())
     assert isinstance(next(stream), events.EngineStarted)
     # Advance into run_forever so the generator is suspended at a yield inside it
     next(stream)

@@ -28,13 +28,13 @@ from keep.hermes.const import (
     FLOW_SCHEMA,
     HELP_SCHEMA,
     KEEP_SKILL_MISSING_ERROR,
-    PROMPT_QUERY,
+    PROMPT_HERMES_ASSEMBLE,
     PROMPT_SCHEMA,
+    PROMPT_SYSTEM,
     ROLE_ASSISTANT,
     ROLE_USER,
     SETUP_COMMAND,
     SUMMARIZATION_LABEL,
-    SYSTEM_PROMPT_HEADER,
     SYSTEM_PROMPT_SETUP_REQUIRED,
     TOOL_ERROR_INACTIVE,
     TOOL_ERROR_SETUP_HINT,
@@ -67,6 +67,13 @@ def _display_path(path: Path) -> str:
         return str(Path("~") / path.resolve().relative_to(Path.home()))
     except Exception:
         return str(path)
+
+
+def _contact_ref(*, platform: str, user_id: str, user_name: str = "") -> str:
+    """Build a canonical contact ref, optionally labeled with a display name."""
+    target_id = f"contact:{platform}:{user_id}"
+    label = (user_name or "").strip()
+    return f"{target_id}[[{label}]]" if label else target_id
 
 
 # ---------------------------------------------------------------------------
@@ -247,24 +254,51 @@ class KeepMemoryProvider:
         if self._keeper is None:
             return ""
 
+        # Read the stable system prompt doc — persistent instructions for the
+        # agent, not volatile session state.  This is cached for the session
+        # by the host (Hermes), so it must not contain per-turn data.
         try:
-            now = self._keeper.get_now()
-            if now and now.summary and now.summary.strip():
-                body = now.summary
-                # Respect the configured token budget to prevent prompt bloat
+            result = self._keeper.render_prompt(PROMPT_SYSTEM)
+            body_raw = (result.text if result and result.text
+                        else result.prompt if result and result.prompt
+                        else None)
+            if body_raw and body_raw.strip():
+                body = body_raw.strip()
                 max_chars = int(self._system_prompt_token_budget * _MEMORY_CHARS_PER_TOKEN)
-                header_chars = len(SYSTEM_PROMPT_HEADER) + 2  # + "\n\n"
-                remaining = max(200, max_chars - header_chars)
-                if len(body) > remaining:
-                    body = body[:remaining].rsplit("\n", 1)[0] + "\n…"
-                return (
-                    f"{SYSTEM_PROMPT_HEADER}\n\n"
-                    f"{body}"
-                )
+                if len(body) > max_chars:
+                    body = body[:max_chars].rsplit("\n", 1)[0] + "\n…"
+                return body
         except Exception as e:
             logger.debug("Keep system_prompt_block failed: %s", e)
 
-        return SYSTEM_PROMPT_HEADER
+        return ""
+
+    def _enrich_query(self, user_message: str) -> str:
+        """Prepend session context to the user message for better similarity search.
+
+        Short or generic user messages ("yes", "ok do it") produce poor
+        embedding queries.  Enriching with the session item's analysis
+        (top part) or most recent turn summary gives the search vector
+        enough signal to surface relevant notes.
+        """
+        if not self._keeper or not self._session_item_id:
+            return user_message
+        try:
+            item = self._keeper.peek(self._session_item_id)
+            if not item:
+                return user_message
+            # Prefer the topmost analysis part (concise session theme)
+            parts = self._keeper.list_parts(self._session_item_id)
+            if parts:
+                context = parts[0].summary
+            elif item.summary:
+                # Fall back to latest turn summary
+                context = item.summary[:200]
+            else:
+                return user_message
+            return f"{context}\n{user_message}"
+        except Exception:
+            return user_message
 
     def prefetch(self, query: str, *, session_id: str = "") -> str:
         if self._keeper is None:
@@ -278,9 +312,14 @@ class KeepMemoryProvider:
             self._prefetch_result = ""
 
         if not result:
+            enriched = self._enrich_query(query)
+            # Use session item as context anchor so meta-docs resolve
+            # from session tags (topic, user_id) instead of the `now` note.
+            ctx_id = self._session_item_id or "now"
             result = self._render_prompt(
-                PROMPT_QUERY,
-                text=query,
+                PROMPT_HERMES_ASSEMBLE,
+                text=enriched,
+                id=ctx_id,
                 token_budget=self._prefetch_token_budget,
             )
             if not result:
@@ -293,9 +332,12 @@ class KeepMemoryProvider:
 
         def _run():
             try:
+                enriched = self._enrich_query(query)
+                ctx_id = self._session_item_id or "now"
                 text = self._render_prompt(
-                    PROMPT_QUERY,
-                    text=query,
+                    PROMPT_HERMES_ASSEMBLE,
+                    text=enriched,
+                    id=ctx_id,
                     token_budget=self._prefetch_token_budget,
                 )
                 if text and text.strip():
@@ -310,7 +352,13 @@ class KeepMemoryProvider:
         self._prefetch_thread.start()
 
     def sync_turn(
-        self, user_content: str, assistant_content: str, *, session_id: str = ""
+        self,
+        user_content: str,
+        assistant_content: str,
+        *,
+        session_id: str = "",
+        user_id: str = "",
+        user_name: str = "",
     ) -> None:
         if self._keeper is None:
             return
@@ -319,6 +367,17 @@ class KeepMemoryProvider:
         turn = self._turn_count
         item_id = self._session_item_id or f"hermes:{self._session_id}"
         tags = dict(self._session_tags)
+        platform = str(tags.get("platform") or "").strip()
+        raw_user_id = str(user_id or "").strip()
+        turn_user_name = str(user_name or "").strip()
+        if raw_user_id:
+            tags["user_id"] = _contact_ref(
+                platform=platform or "hermes",
+                user_id=raw_user_id,
+                user_name=turn_user_name,
+            )
+        if turn_user_name:
+            tags["user_name"] = turn_user_name
 
         def _sync():
             try:
@@ -598,8 +657,10 @@ class KeepMemoryProvider:
 
     def _build_session_tags(self, session_id: str, **kwargs) -> Dict[str, str]:
         tags = {"source": "hermes"}
+        # user_id / user_name are not set here — they vary per message
+        # and are overlaid by sync_turn on each version instead.
         for key in (
-            "platform", "user_id", "agent_identity",
+            "platform", "agent_identity",
         ):
             value = kwargs.get(key)
             if value:

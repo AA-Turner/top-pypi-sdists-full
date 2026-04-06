@@ -880,6 +880,7 @@ class ToolExecutorContext:
     skill_registry: Any = None
     rule_enforcer: Any = None
     bg_manager: Any = None
+    detach_manager: Any = None
     subagent_counter: list[int] = field(default_factory=lambda: [0])
     max_subagent_events: int = 500
 
@@ -1006,6 +1007,7 @@ async def _execute_web_tool(ctx: ToolExecutorContext, tool_name: str, arguments:
             rule_enforcer_override=ctx.rule_enforcer,
             _extra_context={
                 "bg_manager": ctx.bg_manager,
+                "detach_manager": ctx.detach_manager,
                 "conversation_id": ctx.conversation_id,
                 "db": ctx.db,
             },
@@ -2192,6 +2194,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
         skill_registry=req_skill_reg,
         rule_enforcer=req_rule_enf,
         bg_manager=getattr(request.app.state, "bg_manager", None),
+        detach_manager=getattr(request.app.state, "detach_manager", None),
     )
 
     async def _tool_executor(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:

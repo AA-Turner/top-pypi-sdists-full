@@ -11,7 +11,7 @@ from eve_sde.models.types import ItemType
 
 # AA Killstats
 from killstats import __title__
-from killstats.managers.killboard_manager import EveKillmailManager
+from killstats.managers.killboard_manager import KillmailManager
 from killstats.models.general import EveEntity
 from killstats.providers import AppLogger
 
@@ -19,6 +19,11 @@ logger = AppLogger(get_extension_logger(__name__), __title__)
 
 
 class Killmail(models.Model):
+    class Meta:
+        default_permissions = ()
+
+    objects: KillmailManager = KillmailManager()
+
     killmail_id = models.PositiveIntegerField(primary_key=True)
     killmail_date = models.DateTimeField(null=True, blank=True, max_length=0)
     victim = models.ForeignKey(EveEntity, on_delete=models.CASCADE, null=True)
@@ -37,8 +42,6 @@ class Killmail(models.Model):
     victim_position_x = models.FloatField(null=True, blank=True)
     victim_position_y = models.FloatField(null=True, blank=True)
     victim_position_z = models.FloatField(null=True, blank=True)
-
-    objects = EveKillmailManager()
 
     def __str__(self):
         return f"Killmail {self.killmail_id} - {self.killmail_date} - {self.victim} - {self.victim_ship}"
@@ -67,9 +70,6 @@ class Killmail(models.Model):
         except ObjectDoesNotExist:
             zkb = _("Unknown")
         return zkb
-
-    class Meta:
-        default_permissions = ()
 
 
 class Attacker(models.Model):

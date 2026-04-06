@@ -87,6 +87,7 @@ class TunneldCore:
         wifi_monitor: bool = True,
         usb_monitor: bool = True,
         usbmux_monitor: bool = True,
+        usbmux_address: Optional[str] = None,
         mobdev2_monitor: bool = True,
     ) -> None:
         self.protocol = protocol
@@ -95,6 +96,7 @@ class TunneldCore:
         self.usb_monitor = usb_monitor
         self.wifi_monitor = wifi_monitor
         self.usbmux_monitor = usbmux_monitor
+        self.usbmux_address = usbmux_address
         self.mobdev2_monitor = mobdev2_monitor
 
     def start(self) -> None:
@@ -216,7 +218,7 @@ class TunneldCore:
         while True:
             mux = None
             try:
-                mux = await usbmux.create_mux()
+                mux = await usbmux.create_mux(usbmux_address=self.usbmux_address)
                 await mux.listen()
 
                 while True:
@@ -232,7 +234,9 @@ class TunneldCore:
                             continue
                         service = None
                         try:
-                            async with await create_using_usbmux(mux_device.serial) as lockdown:
+                            async with await create_using_usbmux(
+                                mux_device.serial, usbmux_address=self.usbmux_address
+                            ) as lockdown:
                                 service = await CoreDeviceTunnelProxy.create(lockdown)
                         except (
                             MuxException,
@@ -473,6 +477,7 @@ class TunneldRunner:
         usb_monitor: bool = True,
         wifi_monitor: bool = True,
         usbmux_monitor: bool = True,
+        usbmux_address: Optional[str] = None,
         mobdev2_monitor: bool = True,
     ) -> None:
         cls(
@@ -482,6 +487,7 @@ class TunneldRunner:
             usb_monitor=usb_monitor,
             wifi_monitor=wifi_monitor,
             usbmux_monitor=usbmux_monitor,
+            usbmux_address=usbmux_address,
             mobdev2_monitor=mobdev2_monitor,
         )._run_app()
 
@@ -493,6 +499,7 @@ class TunneldRunner:
         usb_monitor: bool = True,
         wifi_monitor: bool = True,
         usbmux_monitor: bool = True,
+        usbmux_address: Optional[str] = None,
         mobdev2_monitor: bool = True,
     ):
         @asynccontextmanager
@@ -511,6 +518,7 @@ class TunneldRunner:
             wifi_monitor=wifi_monitor,
             usb_monitor=usb_monitor,
             usbmux_monitor=usbmux_monitor,
+            usbmux_address=usbmux_address,
             mobdev2_monitor=mobdev2_monitor,
         )
 
@@ -581,7 +589,9 @@ class TunneldRunner:
                 if not created_task and connection_type in ("usbmux", None):
                     task_identifier = f"usbmux-{udid}"
                     try:
-                        async with await create_using_usbmux(udid) as lockdown:
+                        async with await create_using_usbmux(
+                            udid, usbmux_address=self._tunneld_core.usbmux_address
+                        ) as lockdown:
                             service = await CoreDeviceTunnelProxy.create(lockdown)
                         task = asyncio.create_task(
                             self._tunneld_core.start_tunnel_task(

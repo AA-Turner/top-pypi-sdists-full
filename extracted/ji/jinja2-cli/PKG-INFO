@@ -1,7 +1,7 @@
 Metadata-Version: 2.3
 Name: jinja2-cli
-Version: 1.0.0
-Summary: The CLI interface to Jinja2
+Version: 1.0.1
+Summary: The CLI for Jinja2
 Author: Matt Robenolt
 Author-email: Matt Robenolt <m@robenolt.com>
 License: Copyright (c) 2017-2026, Matt Robenolt

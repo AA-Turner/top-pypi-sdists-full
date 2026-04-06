@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pycoin
-Version: 0.92.20241201
+Version: 0.92718.20260405
 Summary: Utilities for Bitcoin and altcoin addresses and transaction manipulation.
 Home-page: https://github.com/richardkiss/pycoin
 Author: Richard Kiss
@@ -18,6 +18,15 @@ Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 [![GitHub Actions Status](https://github.com/richardkiss/pycoin/actions/workflows/test.yml/badge.svg)](https://github.com/richardkiss/pycoin/actions/workflows/test.yml)
 [![codecov.io](https://codecov.io/github/richardkiss/pycoin/coverage.svg?branch=master)](https://codecov.io/github/richardkiss/pycoin)

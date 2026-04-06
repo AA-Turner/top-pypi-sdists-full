@@ -2,8 +2,8 @@
  * @file Form.h
  * @author bab2min (bab2min@gmail.com)
  * @brief 형태 및 형태소에 관한 정보를 담는 구조체들이 선언된 헤더
- * @version 0.22.1
- * @date 2025-11-21
+ * @version 0.23.1
+ * @date 2026-04-05
  * 
  * 
  */
@@ -239,7 +239,8 @@ namespace kiwi
 		uint8_t zCodaAppendable : 1;
 		uint8_t zSiotAppendable : 1;
 		uint8_t hasJClass : 1;
-		uint8_t _reserved : 5;
+		uint8_t hasAnyFullMorphemes : 1;
+		uint8_t _reserved : 4;
 		Dialect dialect = Dialect::standard;
 
 		Form();

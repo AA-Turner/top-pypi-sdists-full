@@ -235,7 +235,6 @@ def get_killstats_halls(request, month, year, entity_type: str, entity_id: int):
 
     for killmail in fame:
         zkillboard = killmail.killmail.evaluate_zkb_link()
-        portrait = ""
 
         try:
             character_id = killmail.character.id
@@ -246,7 +245,6 @@ def get_killstats_halls(request, month, year, entity_type: str, entity_id: int):
                     main_name = data["main"].character_name
                     # Hauptcharaktername verwenden
                     character_name = f"{character_name} ({main_name})"
-                    portrait = killmail.character.icon_url(512)
                     break
         except (AttributeError, ObjectDoesNotExist):
             character_id = 0
@@ -260,7 +258,9 @@ def get_killstats_halls(request, month, year, entity_type: str, entity_id: int):
                 "ship": killmail.killmail.get_or_unknown_victim_ship_id(),
                 "ship_name": killmail.killmail.get_or_unknown_victim_ship_name(),
                 "totalValue": killmail.killmail.victim_total_value,
-                "portrait": portrait,
+                "portrait": (
+                    killmail.character.icon_url(512) if killmail.character else ""
+                ),
                 "zkb_link": zkillboard,
             }
         )

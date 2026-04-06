@@ -5,6 +5,7 @@ use crate::{
         fmt::{self, Sink, format_2_digits},
         round,
     },
+    py::{PyInt, PyObj, PyResult, PyReturn, base::ToPy, exc::OptionExt, none, raise_value_err},
 };
 use std::{ffi::c_long, num::NonZeroU16, ops::Neg};
 
@@ -141,7 +142,7 @@ impl std::fmt::Display for Offset {
         } else {
             ('+', self.0)
         };
-        if secs % 60 == 0 {
+        if (secs as u32).is_multiple_of(60) {
             write!(f, "{}{:02}:{:02}", sign, secs / 3600, (secs % 3600) / 60)
         } else {
             write!(
@@ -388,7 +389,7 @@ const MAX_MONTH_DAYS: [[u8; 13]; 2] = [
         31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
     ],
 ];
-const DAYS_BEFORE_MONTH: [[u16; 13]; 2] = [
+pub(crate) const DAYS_BEFORE_MONTH: [[u16; 13]; 2] = [
     // non-leap years
     [
         0, // 1-indexed
@@ -461,6 +462,12 @@ impl Year {
         let y = (self.get() - 1) as i32;
         y * 365 + y / 4 - y / 100 + y / 400
     }
+
+    pub(crate) fn add_i32(self, years: i32) -> Option<Self> {
+        (self.get() as i32)
+            .checked_add(years)
+            .and_then(Self::from_i32)
+    }
 }
 
 impl From<Year> for u16 {
@@ -512,6 +519,22 @@ impl Month {
     pub(crate) const fn get(self) -> u8 {
         self as u8
     }
+
+    pub(crate) fn shift(self, year: Year, delta: DeltaMonths) -> Option<(Year, Month)> {
+        // SAFETY: both values well within i32::MIN/MAX, and the resulting month will be in range
+        // due to modulo
+        let new_month_unclamped = self.get() as i32 + delta.get() - 1;
+
+        Some((
+            Year::from_i32(
+                // SAFETY: both values are will within i32::MIN/MAX, and the resulting year will be
+                // in range due to division
+                year.get() as i32 + new_month_unclamped.div_euclid(12),
+            )?,
+            // SAFETY: remainder of division by 12 is always in range
+            Month::new_unchecked(new_month_unclamped.rem_euclid(12) as u8 + 1),
+        ))
+    }
 }
 
 impl TryFrom<u8> for Month {
@@ -523,6 +546,14 @@ impl TryFrom<u8> for Month {
 }
 
 pub(crate) const S_PER_DAY: i32 = 86_400;
+pub(crate) const S_PER_HOUR: u32 = 3_600;
+pub(crate) const NS_PER_MICROSEC: u32 = 1_000;
+pub(crate) const NS_PER_MILLISEC: u32 = 1_000_000;
+pub(crate) const NS_PER_SEC: u32 = 1_000_000_000;
+pub(crate) const NS_PER_MINUTE: u64 = 60_000_000_000;
+pub(crate) const NS_PER_HOUR: u64 = 3_600_000_000_000;
+pub(crate) const NS_PER_DAY: u64 = 86_400_000_000_000;
+pub(crate) const NS_PER_WEEK: u64 = 604_800_000_000_000;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct DeltaMonths(i32);
@@ -548,6 +579,16 @@ impl DeltaMonths {
             .then(|| Self::new_unchecked(months as i32))
     }
 
+    pub(crate) fn from_i64(months: i64) -> Option<Self> {
+        (months >= Self::MIN.get() as i64 && months <= Self::MAX.get() as i64)
+            .then(|| Self::new_unchecked(months as i32))
+    }
+
+    pub(crate) fn from_i64_years(years: i64) -> Option<Self> {
+        (years <= Year::MAX.get() as i64 && years >= -(Year::MAX.get() as i64))
+            .then(|| Self::new_unchecked((years * 12) as i32))
+    }
+
     pub(crate) fn get(self) -> i32 {
         self.0
     }
@@ -564,8 +605,15 @@ impl DeltaMonths {
         // Safety: both values well within i32::MIN/MAX
         Self::new(self.0 + d.get())
     }
+
     pub(crate) fn is_zero(self) -> bool {
         self.0 == 0
+    }
+}
+
+impl Default for DeltaMonths {
+    fn default() -> Self {
+        Self::ZERO
     }
 }
 
@@ -606,6 +654,16 @@ impl DeltaDays {
             .then(|| Self::new_unchecked(days as i32))
     }
 
+    pub(crate) fn from_i64(days: i64) -> Option<Self> {
+        (days >= Self::MIN.get() as i64 && days <= Self::MAX.get() as i64)
+            .then(|| Self::new_unchecked(days as i32))
+    }
+
+    pub(crate) fn from_i64_weeks(weeks: i64) -> Option<Self> {
+        (weeks >= DeltaDays::MIN.get() as i64 / 7 && weeks <= DeltaDays::MAX.get() as i64 / 7)
+            .then(|| Self::new_unchecked((weeks * 7) as i32))
+    }
+
     pub(crate) fn abs(self) -> Self {
         Self(self.0.abs())
     }
@@ -615,12 +673,18 @@ impl DeltaDays {
     }
 
     pub(crate) fn add(self, d: DeltaDays) -> Option<Self> {
-        // Safety: both values well within i32::MIN/MAX
+        // SAFETY: both values well within i32::MIN/MAX
         Self::new(self.0 + d.get())
     }
 
     pub(crate) fn is_zero(self) -> bool {
         self.0 == 0
+    }
+}
+
+impl Default for DeltaDays {
+    fn default() -> Self {
+        Self::ZERO
     }
 }
 
@@ -711,7 +775,7 @@ impl DeltaNanos {
     }
 }
 
-/// Number of nanoseconds within a second (< 1_000_000_000)
+/// Number of nanoseconds within a second (>= 0 && < 1_000_000_000)
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 // Even though it's always positive, we use i32 over u32 to simplify arithmetic
 pub(crate) struct SubSecNanos(i32);
@@ -732,6 +796,11 @@ impl SubSecNanos {
 
     pub(crate) const fn get(self) -> i32 {
         self.0
+    }
+
+    /// Cast to `u32`. Safe because `SubSecNanos` is always in `0..1_000_000_000`.
+    pub(crate) const fn as_u32(self) -> u32 {
+        self.0 as u32
     }
 
     pub(crate) fn negate(self) -> (DeltaSeconds, Self) {
@@ -771,23 +840,24 @@ impl SubSecNanos {
         )
     }
 
-    pub(crate) fn round(self, increment: i32, mode: round::Mode) -> (DeltaSeconds, Self) {
+    pub(crate) fn round(self, increment: u32, mode: round::AbsMode) -> (DeltaSeconds, Self) {
+        debug_assert!(increment > 0);
         debug_assert!(increment < 1_000_000_000);
-        debug_assert!(1_000_000_000 % increment == 0);
-        let quotient = self.0 / increment;
-        let remainder = self.0 % increment;
+        debug_assert!(1_000_000_000_u32.is_multiple_of(increment));
+        let tot = self.as_u32();
+        let quotient = tot / increment;
+        let remainder = tot % increment;
         let threshold = match mode {
-            round::Mode::HalfEven => 1.max(increment / 2 + (quotient % 2 == 0) as i32),
-            round::Mode::Ceil => 1,
-            round::Mode::Floor => increment + 1,
-            round::Mode::HalfFloor => increment / 2 + 1,
-            round::Mode::HalfCeil => 1.max(increment / 2),
+            round::AbsMode::HalfEven => 1.max(increment / 2 + quotient.is_multiple_of(2) as u32),
+            round::AbsMode::Expand => 1,
+            round::AbsMode::Trunc => increment + 1,
+            round::AbsMode::HalfTrunc => increment / 2 + 1,
+            round::AbsMode::HalfExpand => 1.max(increment / 2),
         };
         let round_up = remainder >= threshold;
-        let rounded = (quotient + i32::from(round_up)) * increment;
+        let rounded = (quotient + round_up as u32) * increment;
         (
-            // Safety: No range check since we're dealing with at most 1 second here
-            DeltaSeconds::new_unchecked((rounded / 1_000_000_000) as _),
+            DeltaSeconds::new_unchecked((rounded / 1_000_000_000).into()),
             SubSecNanos::from_remainder(rounded),
         )
     }
@@ -822,6 +892,12 @@ impl SubSecNanos {
     }
 }
 
+impl Default for SubSecNanos {
+    fn default() -> Self {
+        Self::MIN
+    }
+}
+
 // Display sub-second nanos in a way that:
 // - only shows the decimal point when necessary (i.e. nanos > 0)
 // - doesn't show trailing zeros
@@ -852,6 +928,12 @@ impl NanosRemainder for i32 {
     }
 }
 
+impl NanosRemainder for u32 {
+    fn subsec_nanos(self) -> i32 {
+        self.rem_euclid(1_000_000_000) as _
+    }
+}
+
 impl NanosRemainder for u64 {
     fn subsec_nanos(self) -> i32 {
         self.rem_euclid(1_000_000_000) as _
@@ -859,6 +941,12 @@ impl NanosRemainder for u64 {
 }
 
 impl NanosRemainder for i128 {
+    fn subsec_nanos(self) -> i32 {
+        self.rem_euclid(1_000_000_000) as _
+    }
+}
+
+impl NanosRemainder for u128 {
     fn subsec_nanos(self) -> i32 {
         self.rem_euclid(1_000_000_000) as _
     }
@@ -887,13 +975,220 @@ impl Weekday {
     pub(crate) const fn iso(self) -> u8 {
         self as u8
     }
+}
 
-    pub(crate) const fn sunday_is_0(self) -> u8 {
-        self.iso() % 7
+/// Trait for types that can be used as delta field values with a sentinel
+pub(crate) trait DeltaFieldInner:
+    Copy + Eq + std::fmt::Debug + PartialOrd + Neg<Output = Self>
+{
+    const SENTINEL: Self;
+    const ZERO: Self;
+    fn unsigned_abs(self) -> u64;
+    fn from_i64(val: i64) -> Self;
+    fn from_u64(val: u64) -> Self;
+    fn neg_from_u64(val: u64) -> Self;
+    fn to_i64(self) -> i64;
+}
+
+impl DeltaFieldInner for i32 {
+    const SENTINEL: Self = i32::MIN;
+    const ZERO: Self = 0;
+    fn unsigned_abs(self) -> u64 {
+        self.unsigned_abs() as u64
+    }
+    // FUTURE: make these casts more obviously safe
+    fn from_i64(val: i64) -> Self {
+        val as i32
+    }
+    fn from_u64(val: u64) -> Self {
+        val as i32
+    }
+    fn neg_from_u64(val: u64) -> Self {
+        -(val as i32)
+    }
+    fn to_i64(self) -> i64 {
+        self as i64
     }
 }
 
-pub(crate) static NS_PER_DAY: i128 = S_PER_DAY as i128 * 1_000_000_000;
+impl DeltaFieldInner for i64 {
+    const SENTINEL: Self = i64::MIN;
+    const ZERO: Self = 0;
+    fn unsigned_abs(self) -> u64 {
+        self.unsigned_abs()
+    }
+    fn from_i64(val: i64) -> Self {
+        val
+    }
+    fn from_u64(val: u64) -> Self {
+        val as i64
+    }
+    fn neg_from_u64(val: u64) -> Self {
+        -(val as i64)
+    }
+    fn to_i64(self) -> i64 {
+        self
+    }
+}
+
+/// An optional signed integer component of an itemized delta.
+/// Uses a sentinel value for "missing", avoiding the overhead of `Option<T>`.
+/// Construction through `parse()` ensures that the value is range-checked.
+#[derive(Copy, Clone, PartialEq, Eq)]
+#[repr(transparent)]
+pub(crate) struct DeltaField<T: DeltaFieldInner>(T);
+
+impl<T: DeltaFieldInner> std::fmt::Debug for DeltaField<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_set() {
+            self.0.fmt(f)
+        } else {
+            f.write_str("<unset>")
+        }
+    }
+}
+
+impl<T: DeltaFieldInner> DeltaField<T> {
+    pub(crate) const UNSET: Self = Self(T::SENTINEL);
+
+    /// Create a new field with the given value.
+    /// Caller must ensure the value has been range-checked and is not the sentinel.
+    pub(crate) fn new_unchecked(val: T) -> Self {
+        debug_assert!(val != T::SENTINEL);
+        Self(val)
+    }
+
+    pub(crate) fn is_set(self) -> bool {
+        self.0 != T::SENTINEL
+    }
+
+    pub(crate) fn unwrap(self) -> T {
+        debug_assert!(self.is_set());
+        self.0
+    }
+
+    pub(crate) fn replace_unchecked(&mut self, val: T) {
+        debug_assert!(val != T::SENTINEL);
+        self.0 = val;
+    }
+
+    pub(crate) fn get_or(self, default: T) -> T {
+        if self.is_set() { self.0 } else { default }
+    }
+
+    pub(crate) fn neg(self) -> Self {
+        if self.is_set() {
+            Self(-self.0)
+        } else {
+            Self::UNSET
+        }
+    }
+
+    pub(crate) fn sign(self) -> i8 {
+        if !self.is_set() || self.0 == T::ZERO {
+            0
+        } else if self.0 > T::ZERO {
+            1
+        } else {
+            -1
+        }
+    }
+
+    pub(crate) fn unsigned_abs(self) -> u64 {
+        debug_assert!(self.is_set());
+        self.0.unsigned_abs()
+    }
+
+    /// Parse a Python integer into a range-checked field value.
+    /// Updates `sign` for mixed-sign detection.
+    pub(crate) fn parse(value: PyObj, sign: &mut i8, max: u64) -> PyResult<Self> {
+        let val = value
+            .cast_allow_subclass::<PyInt>()
+            .ok_or_type_err("field must be an integer")?
+            .to_i64()?;
+        if val == 0 {
+            return Ok(Self::new_unchecked(T::ZERO));
+        }
+        let abs = val.unsigned_abs();
+        if abs > max {
+            raise_value_err("delta out of range")?;
+        }
+        if val > 0 {
+            if *sign == -1 {
+                raise_value_err("mixed sign in delta")?;
+            }
+            *sign = 1;
+        } else {
+            if *sign == 1 {
+                raise_value_err("mixed sign in delta")?;
+            }
+            *sign = -1;
+        }
+        // Safe: range check guarantees val fits in T
+        Ok(Self::new_unchecked(T::from_i64(val)))
+    }
+
+    /// Parse a Python integer or None into a range-checked field.
+    /// For use in replace() and unpickle.
+    pub(crate) fn parse_opt(value: PyObj, max: u64) -> PyResult<Self> {
+        if value.is_none() {
+            Ok(Self::UNSET)
+        } else {
+            let val = value
+                .cast_allow_subclass::<PyInt>()
+                .ok_or_type_err("field must be an integer or None")?
+                .to_i64()?;
+            let abs = val.unsigned_abs();
+            if abs > max {
+                raise_value_err("delta out of range")?;
+            }
+            Ok(Self::new_unchecked(T::from_i64(val)))
+        }
+    }
+
+    /// Create a range-checked field. Returns None if `abs_val > max`.
+    pub(crate) fn new_checked(abs_val: u64, negated: bool, max: u64) -> Option<Self> {
+        if abs_val > max {
+            return None;
+        }
+        let val = if negated && abs_val != 0 {
+            T::neg_from_u64(abs_val)
+        } else {
+            T::from_u64(abs_val)
+        };
+        Some(Self::new_unchecked(val))
+    }
+
+    /// If set, return Some(Python int). If unset, return None.
+    /// For use in __getitem__ (where unset means key not present).
+    pub(crate) fn to_py_if_set(self) -> Option<PyReturn> {
+        self.is_set().then(|| self.0.to_i64().to_py())
+    }
+}
+
+impl<T: DeltaFieldInner> ToPy for DeltaField<T> {
+    /// Convert to Python int (if set) or Python None (if unset).
+    fn to_py(self) -> PyReturn {
+        if self.is_set() {
+            self.0.to_i64().to_py()
+        } else {
+            Ok(none())
+        }
+    }
+}
+
+pub(crate) trait NegateIf {
+    fn negate_if(self, condition: bool) -> Self;
+}
+
+impl<T> NegateIf for T
+where
+    T: Neg<Output = T>,
+{
+    fn negate_if(self, condition: bool) -> Self {
+        if condition { -self } else { self }
+    }
+}
 
 #[cfg(test)]
 mod tests {

@@ -169,12 +169,11 @@ class StoreConfig:
     default_tags: dict[str, str] = field(default_factory=dict)
 
     # Maximum length for summaries (used for smart remember and validation)
-    max_summary_length: int = 2000
+    max_summary_length: int = 3000
 
     # Maximum length for inline content (CLI put with text or stdin).
     # Content longer than this must be stored as a file (keep put file://...).
-    # Default 2000; increase for benchmarks or bulk ingestion of larger documents.
-    max_inline_length: int = 2000
+    max_inline_length: int = 3000
 
     # Maximum file size in bytes for document fetching (default 100MB)
     max_file_size: int = 100_000_000
@@ -704,10 +703,10 @@ def load_config(config_dir: Path) -> StoreConfig:
     default_tags = {k: str(v) for k, v in raw_tags.items()
                     if not k.startswith("_")}
 
-    # Parse max_summary_length (default 2000)
-    max_summary_length = data.get("store", {}).get("max_summary_length", 2000)
+    # Parse max_summary_length (default 3000)
+    max_summary_length = data.get("store", {}).get("max_summary_length", 3000)
 
-    # Parse max_inline_length (default 2000; falls back to max_summary_length for compat)
+    # Parse max_inline_length (default 3000; falls back to max_summary_length for compat)
     max_inline_length = data.get("store", {}).get(
         "max_inline_length",
         max_summary_length,  # backward compat: if not set, use max_summary_length
@@ -874,7 +873,7 @@ def save_config(config: StoreConfig) -> None:
     if config.store_path:
         store_section["path"] = config.store_path
     # Only write max_summary_length if not default
-    if config.max_summary_length != 2000:
+    if config.max_summary_length != 3000:
         store_section["max_summary_length"] = config.max_summary_length
     # Only write max_inline_length if not default (and differs from max_summary_length)
     if config.max_inline_length != config.max_summary_length:
@@ -956,14 +955,24 @@ def save_config(config: StoreConfig) -> None:
             remote_data["project"] = config.remote.project
         data["remote"] = remote_data
 
-    has_secrets = bool(config.remote or config.backend_params)
+    # Security: detect any secrets (API keys, tokens) in the config so we
+    # can enforce restrictive file permissions (0o600) to prevent other users
+    # on the system from reading plaintext credentials.
+    _secret_providers = [
+        config.embedding, config.summarization, config.document,
+        config.media, config.analyzer, config.content_extractor,
+    ]
+    has_provider_secrets = any(
+        p and p.params.get("api_key") for p in _secret_providers
+    )
+    has_secrets = bool(config.remote or config.backend_params or has_provider_secrets)
     if has_secrets:
-        # Atomic creation with restricted permissions to prevent race condition
-        fd = os.open(
-            str(config.config_path),
-            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-            0o600,
-        )
+        # Config may contain plaintext API keys — ensure only the owning
+        # user can read/write.  os.open mode only applies to new files;
+        # chmod is needed for pre-existing files with permissive modes.
+        path_str = str(config.config_path)
+        fd = os.open(path_str, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.chmod(path_str, 0o600)
         with os.fdopen(fd, "wb") as f:
             tomli_w.dump(data, f)
     else:

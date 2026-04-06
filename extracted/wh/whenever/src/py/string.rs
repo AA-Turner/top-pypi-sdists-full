@@ -1,5 +1,6 @@
 //! Functionality for working with Python's `str` and `bytes` objects.
 use crate::common::fmt;
+use core::ffi::CStr;
 
 use super::{base::*, exc::*, refs::*};
 use pyo3_ffi::*;
@@ -15,7 +16,7 @@ impl PyStr {
         let mut size = 0;
         let p = unsafe { PyUnicode_AsUTF8AndSize(self.as_ptr(), &mut size) };
         if p.is_null() {
-            return Err(PyErrMarker());
+            return Err(PyErrMarker);
         };
         Ok(unsafe { std::slice::from_raw_parts(p.cast::<u8>(), size as usize) })
     }
@@ -24,7 +25,7 @@ impl PyStr {
         let mut size = 0;
         let p = unsafe { PyUnicode_AsUTF8AndSize(self.as_ptr(), &mut size) };
         if p.is_null() {
-            return Err(PyErrMarker());
+            return Err(PyErrMarker);
         };
         Ok(unsafe {
             std::str::from_utf8_unchecked(std::slice::from_raw_parts(p.cast::<u8>(), size as usize))
@@ -91,7 +92,7 @@ impl PyBytes {
         // the C API: PyBytes_AS_STRING, PyBytes_GET_SIZE?
         let p = unsafe { PyBytes_AsString(self.as_ptr()) };
         if p.is_null() {
-            return Err(PyErrMarker());
+            return Err(PyErrMarker);
         };
         Ok(unsafe {
             std::slice::from_raw_parts(p.cast::<u8>(), PyBytes_Size(self.as_ptr()) as usize)
@@ -108,6 +109,12 @@ impl ToPy for String {
 impl ToPy for &str {
     fn to_py(self) -> PyReturn {
         unsafe { PyUnicode_FromStringAndSize(self.as_ptr().cast(), self.len() as _) }.rust_owned()
+    }
+}
+
+impl ToPy for &CStr {
+    fn to_py(self) -> PyReturn {
+        unsafe { PyUnicode_FromString(self.as_ptr()) }.rust_owned()
     }
 }
 
@@ -143,7 +150,7 @@ const ASCII_STR_KIND: c_uint = 1;
 
 impl PyAsciiStrBuilder {
     /// Create a new builder for a string of the given length.
-    fn new(len: usize) -> PyResult<Self> {
+    pub(crate) fn new(len: usize) -> PyResult<Self> {
         let obj = unsafe { PyUnicode_New(len as _, 127) }.rust_owned()?;
         debug_assert!(unsafe { PyUnicode_KIND(obj.as_ptr()) == ASCII_STR_KIND });
         Ok(Self {
@@ -156,7 +163,7 @@ impl PyAsciiStrBuilder {
     }
 
     /// Finalize the builder and return the built `str` object.
-    fn finish(self) -> Owned<PyObj> {
+    pub(crate) fn finish(self) -> Owned<PyObj> {
         #[cfg(debug_assertions)]
         assert_eq!(self.index, self._len); // DEBUG: full length written
         self.obj

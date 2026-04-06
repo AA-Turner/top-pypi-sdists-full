@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="abstract_utilities",
-    version='0.2.2.757',
+    version='0.2.2.758',
     author="putkoff",
     author_email="partners@abstractendeavors.com",
     description="Utility modules for data comparison, JSON handling, string manipulation, math operations, and general automation tasks.",

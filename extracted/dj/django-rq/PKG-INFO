@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-rq
-Version: 4.0.1
+Version: 4.1.0
 Summary: An app that provides django integration for RQ (Redis Queue)
 Project-URL: changelog, https://github.com/rq/django-rq/blob/master/CHANGELOG.md
 Project-URL: homepage, https://python-rq.org/patterns/django/

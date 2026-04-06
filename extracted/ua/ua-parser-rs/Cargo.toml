@@ -1,6 +1,19 @@
-[workspace]
-members = ["regex-filtered", "ua-parser", "ua-parser-py"]
-resolver = "2"
+[package]
+name = "ua-parser-rs"
+version = "0.1.5"
+edition = "2024"
+license = "Apache 2.0"
+description = "A native accelerator for uap-python"
+repository = "https://github.com/ua-parser/uap-rust/"
+homepage = "https://github.com/ua-parser/uap-rust/blob/main/ua-parser/"
+authors = ["masklinn <uap@masklinn.net>"]
+readme = "README.md"
 
-[profile.release]
-debug = true
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "ua_parser_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.27", features = ["extension-module", "abi3", "abi3-py310"] }
+ua-parser = "0.2.2"

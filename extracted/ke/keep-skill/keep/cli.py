@@ -53,6 +53,7 @@ from .types import (
     SimilarRef,
     VersionRef,
     local_date,
+    note_display_name,
     tag_values,
 )
 from .utils import _text_content_id
@@ -152,12 +153,9 @@ def _render_tags_frontmatter(
                 rendered_refs.append(rv)
             if not rendered_refs:
                 continue
-            if len(rendered_refs) == 1:
-                lines.append(f"  {key}: {rendered_refs[0]}")
-            else:
-                lines.append(f"  {key}:")
-                for rv in rendered_refs:
-                    lines.append(f"    - {rv}")
+            lines.append(f"  {key}:")
+            for rv in rendered_refs:
+                lines.append(f"    - {rv}")
             continue
 
         values = tag_values(tags, key)
@@ -301,9 +299,10 @@ def render_flow_response(
     # on the text surface. Prompt expansion still consumes bindings directly;
     # this only affects rendered flow/tool output.
     from .const import FLOW_NOTE_FIRST_RENDER_STATES
-    # Only match direct single-step flows; compound flows that transition
-    # through `get` use the generic renderer to avoid masking intermediate data.
-    state_name = result.history[-1] if len(result.history) == 1 else None
+    state_name = next(
+        (name for name in reversed(result.history) if name in FLOW_NOTE_FIRST_RENDER_STATES),
+        None,
+    )
     if state_name in FLOW_NOTE_FIRST_RENDER_STATES and result.bindings and remaining > 0:
         binding_render = _render_context_from_flow_bindings(result.bindings, kp=keeper)
         if binding_render:
@@ -591,13 +590,11 @@ def _format_summary_line(item: Item, id_width: int = 0, show_tags: bool = False)
     # Get date in local timezone
     date = local_date(item.tags.get("_created") or item.tags.get("_updated", ""))
 
-    # Truncate summary to fit terminal width, collapse newlines
+    # Truncate display name/summary to fit terminal width, collapse newlines
     cols = _output_width()
     prefix_len = len(padded_id) + len(score_str) + 1 + len(date) + 1  # "id (score) date "
     max_summary = max(cols - prefix_len, 20)
-    summary = item.summary.replace("\n", " ")
-    if len(summary) > max_summary:
-        summary = summary[:max_summary - 3].rsplit(" ", 1)[0] + "..."
+    summary = note_display_name(item.tags, item.summary, max_len=max_summary)
 
     line = f"{padded_id}{score_str} {date} {summary}"
 
@@ -1144,10 +1141,23 @@ def expand_prompt(result: "PromptResult", kp=None) -> str:
         n_bindings = sum(1 for b in result.flow_bindings.values() if b)
         per_binding = budget // max(n_bindings, 1)
         for name, binding in result.flow_bindings.items():
-            placeholder = "{" + name + "}"
-            if placeholder in output:
+            # Match {name} or {name|fallback} — fallback text is used when
+            # the binding renders empty (e.g. {edges|(none)}).
+            _pat = re.compile(r'\{' + re.escape(name) + r'(?:\|([^}]*))?\}')
+            for m in _pat.finditer(output):
                 rendered = _render_binding(name, binding, kp=kp, token_budget=per_binding)
-                output = output.replace(placeholder, rendered)
+                if not rendered.strip() and m.group(1) is not None:
+                    rendered = m.group(1)
+                output = output.replace(m.group(0), rendered)
+
+    # Replace remaining binding placeholders whose rules didn't fire
+    # (e.g. {similar} when search ran instead).  Supports {name|fallback}.
+    _known_value_placeholders = {"{text}", "{since}", "{until}"}
+    _unfired_re = re.compile(r'\{([a-z_]+)(?:\|([^}]*))?\}')
+    for m in _unfired_re.finditer(output):
+        if m.group(0) not in _known_value_placeholders:
+            fallback = m.group(2) if m.group(2) is not None else ""
+            output = output.replace(m.group(0), fallback)
 
     # Expand {text}, {since}, {until} with raw filter values
     output = output.replace("{text}", result.text or "")

@@ -1,11 +1,11 @@
 from unittest.mock import Mock
-from pytest import raises, skip
-
-from invoke import Context, Config, task, Task, Call, Collection
-from invoke import FilesystemLoader as Loader
 
 from _util import support
+from pytest import raises, skip
 
+from invoke import Call, Collection, Config, Context, Task, task
+from invoke import FilesystemLoader as Loader
+from invoke.parser.parser import ParseResult
 
 #
 # NOTE: Most Task tests use @task as it's the primary interface and is a very
@@ -192,6 +192,7 @@ class Task_:
         t = Task(_func, name="foo")
         # No name attribute at all
         assert t != object()
+
         # Name attr, but not a Task
         class Named:
             name = "foo"
@@ -517,15 +518,26 @@ class Call_:
             assert str(call) == "<Call 'mytask', args: (), kwargs: {}>"
 
     class make_context:
-        def requires_config_argument(self):
+        def requires_config_and_core_parse_result_arguments(self):
+            # Neither
             with raises(TypeError):
                 Call(_).make_context()
+            # No core_parse_result
+            with raises(TypeError):
+                Call(_).make_context(config=Config())
 
-        def creates_a_new_Context_from_given_config(self):
+        def creates_a_new_Context_from_given_config_and_core_parse_result(
+            self,
+        ):
             conf = Config(defaults={"foo": "bar"})
-            c = Call(_).make_context(conf)
+            parse_result = ParseResult()
+            parse_result.remainder = "stuff!"
+            c = Call(_).make_context(
+                config=conf, core_parse_result=parse_result
+            )
             assert isinstance(c, Context)
             assert c.foo == "bar"
+            assert c.remainder == "stuff!"
 
     class clone:
         def returns_new_but_equivalent_object(self):

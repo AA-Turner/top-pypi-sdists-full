@@ -12,6 +12,8 @@ from typer_injector import InjectingTyper
 
 from pymobiledevice3.bonjour import DEFAULT_BONJOUR_TIMEOUT, browse_remotepairing_manual_pairing
 from pymobiledevice3.cli.cli_common import (
+    USBMUX_ENV_VARS,
+    USBMUX_OPTION_HELP,
     RSDServiceProviderDep,
     async_command,
     print_json,
@@ -95,6 +97,10 @@ def cli_tunneld(
     usb: Annotated[bool, typer.Option(help="Enable USB monitoring")] = True,
     wifi: Annotated[bool, typer.Option(help="Enable WiFi monitoring")] = True,
     usbmux: Annotated[bool, typer.Option(help="Enable usbmux monitoring")] = True,
+    usbmux_address: Annotated[
+        Optional[str],
+        typer.Option("--usbmux-address", envvar=USBMUX_ENV_VARS, help=USBMUX_OPTION_HELP),
+    ] = None,
     mobdev2: Annotated[bool, typer.Option(help="Enable mobdev2 monitoring")] = True,
 ) -> None:
     """Start Tunneld service for remote tunneling"""
@@ -108,6 +114,7 @@ def cli_tunneld(
         usb_monitor=usb,
         wifi_monitor=wifi,
         usbmux_monitor=usbmux,
+        usbmux_address=usbmux_address,
         mobdev2_monitor=mobdev2,
     )
     if daemonize:

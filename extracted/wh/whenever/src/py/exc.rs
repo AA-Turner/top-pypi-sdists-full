@@ -12,24 +12,27 @@ use pyo3_ffi::*;
 // However, this is a price we can pay in exchange for the convenience
 // of the `?` operator.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct PyErrMarker(); // sentinel that the Python error indicator is set
+pub(crate) struct PyErrMarker; // sentinel that the Python error indicator is set
 
 pub(crate) type PyResult<T> = Result<T, PyErrMarker>;
 pub(crate) type PyReturn = PyResult<Owned<PyObj>>;
 
+#[cold]
 pub(crate) fn raise<T, U: ToPy>(exc: *mut PyObject, msg: U) -> PyResult<T> {
     Err(exception(exc, msg))
 }
 
+#[cold]
 pub(crate) fn exception<U: ToPy>(exc: *mut PyObject, msg: U) -> PyErrMarker {
     // If the message conversion fails, an error is set for us.
     // It's mostly likely a MemoryError.
     if let Ok(m) = msg.to_py() {
         unsafe { PyErr_SetObject(exc, m.as_ptr()) }
     };
-    PyErrMarker()
+    PyErrMarker
 }
 
+#[cold]
 pub(crate) fn value_err<U: ToPy>(msg: U) -> PyErrMarker {
     exception(unsafe { PyExc_ValueError }, msg)
 }
@@ -52,6 +55,17 @@ pub(crate) trait OptionExt<T> {
         Self: Sized,
     {
         self.ok_or_raise(unsafe { PyExc_ValueError }, msg)
+    }
+
+    fn ok_or_range_err(self) -> PyResult<T>
+    where
+        Self: Sized,
+    {
+        // FUTURE: can we intern this somehow, since it's static?
+        self.ok_or_raise(
+            unsafe { PyExc_ValueError },
+            "Value or calculation out of range",
+        )
     }
 
     fn ok_or_else_value_err<F, M: ToPy>(self, fmt: F) -> PyResult<T>
@@ -90,18 +104,39 @@ impl<T> OptionExt<T> for Option<T> {
     }
 }
 
+/// Extension trait for converting `Result<T, String>` into `PyResult<T>`,
+/// treating the `String` error as a Python `ValueError` message.
+pub(crate) trait ResultExt<T> {
+    fn into_value_err(self) -> PyResult<T>;
+}
+
+impl<T> ResultExt<T> for Result<T, String> {
+    fn into_value_err(self) -> PyResult<T> {
+        self.map_err(value_err)
+    }
+}
+
+#[cold]
 pub(crate) fn raise_type_err<T, U: ToPy>(msg: U) -> PyResult<T> {
     raise(unsafe { PyExc_TypeError }, msg)
 }
 
+#[cold]
 pub(crate) fn raise_value_err<T, U: ToPy>(msg: U) -> PyResult<T> {
     raise(unsafe { PyExc_ValueError }, msg)
 }
 
-pub(crate) fn deprecation_warn(msg: &CStr) -> PyResult<()> {
-    // SAFETY: calling C API with valid arguments
-    match unsafe { PyErr_WarnEx(PyExc_DeprecationWarning, msg.as_ptr(), 1) } {
+#[cold]
+pub(crate) fn raise_key_err<T>(key: PyObj) -> PyResult<T> {
+    unsafe { PyErr_SetObject(PyExc_KeyError, key.as_ptr()) };
+    Err(PyErrMarker)
+}
+
+/// Emit a warning using a custom warning class (e.g. a heap-type UserWarning subclass).
+/// `stacklevel` controls how many frames to skip (1 = caller).
+pub(crate) fn warn_with_class(warning_cls: PyObj, msg: &CStr, stacklevel: isize) -> PyResult<()> {
+    match unsafe { PyErr_WarnEx(warning_cls.as_ptr(), msg.as_ptr(), stacklevel as _) } {
         0 => Ok(()),
-        _ => Err(PyErrMarker()),
+        _ => Err(PyErrMarker),
     }
 }

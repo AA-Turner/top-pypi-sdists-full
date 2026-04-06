@@ -53,7 +53,7 @@ fn fix_pdf_control_chars(text: &str) -> Cow<'_, str> {
 /// Some PDFs embed raw HTML in their text layer (e.g. from web-to-PDF converters).
 /// This function detects common HTML tags to determine if the text should be
 /// converted from HTML to markdown rather than used as-is.
-fn contains_html_markup(text: &str) -> bool {
+pub(crate) fn contains_html_markup(text: &str) -> bool {
     if !text.contains('<') {
         return false;
     }
@@ -72,7 +72,7 @@ fn contains_html_markup(text: &str) -> bool {
 /// Falls back to the original text if the `html` feature is not enabled
 /// or if conversion fails.
 #[cfg(feature = "html")]
-fn convert_html_page_text(text: &str) -> String {
+pub(crate) fn convert_html_page_text(text: &str) -> String {
     match crate::extraction::html::convert_html_to_markdown(text, None, None) {
         Ok(converted) => converted,
         Err(_) => text.to_owned(),

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fabric2
-Version: 3.2.2
+Version: 3.2.3
 Summary: High level SSH command execution
 Home-page: https://fabfile.org
 Author: Jeff Forcier
@@ -12,7 +12,6 @@ Project-URL: Issues, https://github.com/fabric/fabric/issues
 Project-URL: Changelog, https://www.fabfile.org/changelog.html
 Project-URL: CI, https://app.circleci.com/pipelines/github/fabric/fabric
 Project-URL: Twitter, https://twitter.com/pyfabric
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -38,9 +37,25 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Clustering
 Classifier: Topic :: System :: Software Distribution
 Classifier: Topic :: System :: Systems Administration
+License-File: LICENSE
+Requires-Dist: invoke<3.0,>=2.0
+Requires-Dist: paramiko>=2.4
+Requires-Dist: decorator>=5
+Requires-Dist: deprecated>=1.2
 Provides-Extra: testing
 Provides-Extra: pytest
-License-File: LICENSE
+Requires-Dist: pytest>=7; extra == "pytest"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 |version| |python| |license| |ci| |coverage|
 
@@ -75,5 +90,3 @@ To find out what's new in this version of Fabric, please see `the changelog
 
 The project maintainer keeps a `roadmap
 <https://bitprophet.org/projects#roadmap>`_ on his website.
-
-

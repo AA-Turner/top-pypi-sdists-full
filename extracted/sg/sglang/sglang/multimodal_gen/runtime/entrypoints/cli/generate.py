@@ -106,13 +106,29 @@ def maybe_dump_performance(
     )
 
 
-def generate_cmd(args: argparse.Namespace):
+def generate_cmd(args: argparse.Namespace, unknown_args: list[str] | None = None):
     """The entry point for the generate command."""
     args.request_id = "mocked_fake_id_for_offline_generate"
 
-    server_args = ServerArgs.from_cli_args(args)
+    server_args = ServerArgs.from_cli_args(args, unknown_args)
 
-    sampling_params_kwargs = SamplingParams.get_cli_args(args)
+    sampling_params_kwargs = {}
+    config_file = getattr(args, "config", None)
+    # respect config file by overriding args with args parsed from it
+    if config_file:
+        config_args = ServerArgs.load_config_file(config_file) or {}
+        sampling_param_fields = {
+            field.name for field in dataclasses.fields(SamplingParams)
+        }
+        sampling_params_kwargs.update(
+            {
+                key: value
+                for key, value in config_args.items()
+                if key in sampling_param_fields and value is not None
+            }
+        )
+
+    sampling_params_kwargs.update(SamplingParams.get_cli_args(args))
     sampling_params_kwargs["request_id"] = generate_request_id()
 
     # Handle diffusers-specific kwargs passed via CLI
@@ -158,8 +174,10 @@ class GenerateSubcommand(CLISubcommand):
         """Get names of arguments for generate_video method"""
         return [field.name for field in dataclasses.fields(SamplingParams)]
 
-    def cmd(self, args: argparse.Namespace) -> None:
-        generate_cmd(args)
+    def cmd(
+        self, args: argparse.Namespace, unknown_args: list[str] | None = None
+    ) -> None:
+        generate_cmd(args, unknown_args)
 
     def validate(self, args: argparse.Namespace) -> None:
         """Validate the arguments for this command"""
@@ -175,7 +193,7 @@ class GenerateSubcommand(CLISubcommand):
         generate_parser = subparsers.add_parser(
             "generate",
             help="Run inference on a model",
-            usage="sgl_diffusion generate (--model-path MODEL_PATH_OR_ID --prompt PROMPT) | --config CONFIG_FILE [OPTIONS]",
+            usage="sglang generate (--model-path MODEL_PATH_OR_ID --prompt PROMPT) | --config CONFIG_FILE [OPTIONS]",
         )
 
         generate_parser = add_multimodal_gen_generate_args(generate_parser)

@@ -3,10 +3,19 @@ import os
 import sys
 from io import BytesIO
 from pathlib import Path
+from unittest.mock import ANY, Mock, patch
 
-from invoke.util import Lexicon
-from unittest.mock import patch, Mock, ANY
 import pytest
+from _util import (
+    ROOT,
+    expect,
+    load,
+    run,
+    skip_if_windows,
+    support,
+    support_file,
+    support_path,
+)
 from pytest import skip
 from pytest_relaxed import trap
 
@@ -23,22 +32,10 @@ from invoke import (
     Result,
     Task,
     UnexpectedExit,
+    main,
 )
-from invoke import main
-from invoke.util import cd
 from invoke.config import merge_dicts
-
-from _util import (
-    ROOT,
-    expect,
-    load,
-    run,
-    skip_if_windows,
-    support_file,
-    support_path,
-    support,
-)
-
+from invoke.util import Lexicon, cd
 
 pytestmark = pytest.mark.usefixtures("integration")
 
@@ -314,6 +311,7 @@ class Program_:
             # .value = <default value> actually ends up creating a
             # list-of-lists.
             p = Program()
+
             # Set up core-args parser context with an iterable arg that hasn't
             # seen any value yet
             def filename_args():
@@ -742,14 +740,13 @@ Options:
         "--list"
 
         def _listing(self, lines):
-            return """
+            joined = "\n".join("  " + x for x in lines)
+            return f"""
 Available tasks:
 
-{}
+{joined}
 
-""".format(
-                "\n".join("  " + x for x in lines)
-            ).lstrip()
+""".lstrip()
 
         def _list_eq(self, collection, listing):
             cmd = "-c {} --list".format(collection)
@@ -1088,7 +1085,7 @@ Default task: test
 
 Default task: test
 
-"""
+"""  # noqa
                     stdout, _ = run("-c tree -l -F nested")
                     assert expected == stdout
 
@@ -1110,7 +1107,7 @@ Default task: test
 
 Default 'build' task: .all
 
-"""
+"""  # noqa
                     assert expected == stdout
 
                 def honors_depth_arg(self):
@@ -1134,7 +1131,7 @@ Default 'build' task: .all
 
 Default task: test
 
-"""
+"""  # noqa
                     stdout, _ = run("-c tree -l -F nested --list-depth 2")
                     assert expected == stdout
 
@@ -1165,7 +1162,7 @@ Default task: test
 
 Default task: test
 
-"""
+"""  # noqa
                     stdout, _ = run("-c tree -l -F nested --list-depth 5")
                     assert expected == stdout
 
@@ -1180,7 +1177,7 @@ Default task: test
 
 Default 'build' task: .all
 
-"""
+"""  # noqa
                     stdout, _ = run("-c tree -l build -F nested -D1")
                     assert expected == stdout
 
@@ -1380,6 +1377,7 @@ post2
 
         def env_var_prefix_can_be_overridden(self, monkeypatch):
             monkeypatch.setenv("MYAPP_RUN_HIDE", "both")
+
             # This forces the execution stuff, including Executor, to run
             # NOTE: it's not really possible to rework the impl so this test is
             # cleaner - tasks require per-task/per-collection config, which can

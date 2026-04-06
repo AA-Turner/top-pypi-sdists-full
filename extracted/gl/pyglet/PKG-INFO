@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyglet
-Version: 2.1.13
+Version: 2.1.14
 Summary: pyglet is a cross-platform games and multimedia package.
 Author-email: Alex Holkner & contributors <Alex.Holkner@gmail.com>
 Requires-Python: >=3.8

@@ -67,6 +67,7 @@ DEFAULT_TOOL_TIERS: dict[str, ToolTier] = {
     "mission_complete": ToolTier.WRITE,
     "mission_patch_plan": ToolTier.EXECUTE,
     "bash_background_status": ToolTier.READ,
+    "agent_run_status": ToolTier.READ,
 }
 
 # MCP tools and unknown tools default to this tier

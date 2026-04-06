@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: soco
-Version: 0.30.15
+Version: 0.31.0
 Summary: SoCo (Sonos Controller) is a simple library to control Sonos speakers.
 Author-email: The SoCo-Team <python-soco@googlegroups.com>
 License: MIT License
@@ -13,6 +13,9 @@ Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -63,14 +66,6 @@ Visit the `SoCo documentation`_ for a more detailed overview of the functionailt
 .. image:: https://badges.gitter.im/SoCo/SoCo.svg
    :alt: Join the chat at https://gitter.im/SoCo/SoCo
    :target: https://gitter.im/SoCo/SoCo?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
-
-.. image:: https://travis-ci.com/SoCo/SoCo.svg?branch=master
-   :target: https://travis-ci.com/SoCo/SoCo
-   :alt: Build Status
-
-.. image:: https://img.shields.io/requires/github/SoCo/SoCo/master.svg?style=flat
-   :target: https://requires.io/github/SoCo/SoCo/requirements/?branch=master
-   :alt: Requirements Status
 
 .. image:: https://img.shields.io/pypi/v/soco.svg?style=flat
     :target: https://pypi.python.org/pypi/soco/

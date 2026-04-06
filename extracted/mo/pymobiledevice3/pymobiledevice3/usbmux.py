@@ -325,6 +325,9 @@ class BinaryMuxConnection(MuxConnection):
             self._add_device(MuxDevice(response.data.device_id, response.data.serial_number, "USB"))
         elif response.header.message == usbmuxd_msgtype.REMOVE:
             self._remove_device(response.data.device_id)
+        elif response.header.message == usbmuxd_msgtype.PAIRED:
+            # Pairing state updates don't change the tracked device list.
+            return
         else:
             raise MuxException(f"Invalid packet type received: {response}")
 
@@ -371,6 +374,9 @@ class PlistMuxConnection(BinaryMuxConnection):
             )
         elif response["MessageType"] == "Detached":
             super()._remove_device(response["DeviceID"])
+        elif response["MessageType"] == "Paired":
+            # Pairing notifications can arrive while listening to state updates.
+            return
         else:
             raise MuxException(f"Invalid packet type received: {response}")
 

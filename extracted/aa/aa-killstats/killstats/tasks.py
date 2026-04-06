@@ -129,7 +129,7 @@ def store_killmail(killmail_id: int) -> None:
     try:
         Killmail.objects.create_from_killmail(killmail)
     except IntegrityError:
-        logger.warning(
+        logger.debug(
             "%s: Failed to store killmail, because it already exists", killmail.id
         )
     else:

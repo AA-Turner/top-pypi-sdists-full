@@ -1,20 +1,19 @@
 import os
-from typing import TYPE_CHECKING, Optional
+from pathlib import Path
+from typing import Optional
 
-from invoke import Collection, task, Exit
+from invocations import checks, ci
+from invocations.docs import docs, sites, watch_docs, www
+from invocations.packaging import release, vendorize
+from invocations.pytest import coverage as coverage_
+from invocations.pytest import test as test_
 
-from invocations import ci, checks
-from invocations.docs import docs, www, sites, watch_docs
-from invocations.pytest import coverage as coverage_, test as test_
-from invocations.packaging import vendorize, release
-
-if TYPE_CHECKING:
-    from invoke import Context
+from invoke import Collection, Context, Exit, task
 
 
 @task
 def test(
-    c: "Context",
+    c: Context,
     verbose: bool = False,
     color: bool = True,
     capture: str = "no",
@@ -55,7 +54,7 @@ def test(
 # solved (see other TODOs). For now this is just a copy/paste/modify.
 @task(help=test.help)  # type: ignore
 def integration(
-    c: "Context", opts: Optional[str] = None, pty: bool = True
+    c: Context, opts: Optional[str] = None, pty: bool = True
 ) -> None:
     """
     Run the integration test suite. May be slow!
@@ -74,7 +73,7 @@ def integration(
 
 @task
 def coverage(
-    c: "Context", report: str = "term", opts: str = "", codecov: bool = False
+    c: Context, report: str = "term", opts: str = "", codecov: bool = False
 ) -> None:
     """
     Run pytest in coverage mode. See `invocations.pytest.coverage` for details.
@@ -94,7 +93,7 @@ def coverage(
 
 
 @task
-def regression(c: "Context", jobs: int = 8) -> None:
+def regression(c: Context, jobs: int = 8) -> None:
     """
     Run an expensive, hard-to-test-in-pytest run() regression checker.
 
@@ -105,20 +104,51 @@ def regression(c: "Context", jobs: int = 8) -> None:
     c.run(cmd.format(jobs))
 
 
+# TODO: hoist up into invocations.checks once proven/needed elsewhere
+@task
+def typecheck(c: Context, opts: str = "") -> None:
+    """
+    Run type checking against the project.
+    """
+    # For now it seems easiest to just run a series of checks on the subtrees
+    # instead of forcing mypy to think about all the "duplicate" files across
+    # test vs integration vs main codebase (think _util.py or test fixtures)
+    # See also the exclude= key in pyproject.toml/mypy.ini.
+    root = Path(__file__).parent
+    exclude = ("sites", "docs", "build", "tests")
+    for path in root.iterdir():
+        if path.name in exclude:
+            continue
+        if not path.is_dir() and path.suffix != ".py":
+            continue
+        if path.is_dir():
+            if path.name.startswith("."):
+                continue
+            if not list(path.rglob("**/*.py")):
+                continue
+        c.run(f"mypy {opts} {path}", pty=True, echo=True)
+
+
 ns = Collection(
-    test,
-    coverage,
+    # Local
     integration,
     regression,
-    vendorize,
-    release,
-    www,
-    docs,
-    sites,
-    watch_docs,
-    ci,
-    checks.blacken,
+    test,
+    typecheck,
+    # Imported
     checks,
+    checks.blacken,
+    ci,
+    coverage,
+    docs,
+    integration,
+    regression,
+    release,
+    sites,
+    test,
+    vendorize,
+    watch_docs,
+    www,
 )
 ns.configure(
     {
@@ -126,7 +156,7 @@ ns.configure(
             # Skip vendor, build dirs when blackening.
             # TODO: this is making it seem like I really do want an explicit
             # arg/conf-opt in the blacken task for "excluded paths"...ha
-            "find_opts": "-and -not \( -path './invoke/vendor*' -or -path './build*' \)"  # noqa
+            r"find_opts": "-and -not \\( -path './invoke/vendor*' -or -path './build*' -or -path './.cci_pycache*' \\)"  # noqa
         },
         "packaging": {
             "wheel": True,
