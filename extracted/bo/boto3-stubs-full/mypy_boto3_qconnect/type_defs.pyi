@@ -3210,6 +3210,7 @@ class SpanPaginatorTypeDef(TypedDict):
     requestId: str
     attributes: SpanAttributesPaginatorTypeDef
     parentSpanId: NotRequired[str]
+    originRequestId: NotRequired[str]
 
 class SpanTypeDef(TypedDict):
     spanId: str
@@ -3223,6 +3224,7 @@ class SpanTypeDef(TypedDict):
     requestId: str
     attributes: SpanAttributesTypeDef
     parentSpanId: NotRequired[str]
+    originRequestId: NotRequired[str]
 
 class MessageInputTypeDef(TypedDict):
     value: MessageDataUnionTypeDef
@@ -3376,6 +3378,7 @@ SendMessageRequestTypeDef = TypedDict(
         "clientToken": NotRequired[str],
         "orchestratorUseCase": NotRequired[str],
         "metadata": NotRequired[Mapping[str, str]],
+        "originRequestId": NotRequired[str],
     },
 )
 

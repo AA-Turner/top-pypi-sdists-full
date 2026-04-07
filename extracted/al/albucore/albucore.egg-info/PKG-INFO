@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: albucore
-Version: 0.1.2
+Version: 0.1.5
 Summary: High-performance image processing functions for deep learning and computer vision.
 Author: Vladimir Iglovikov
 Maintainer: Vladimir Iglovikov
@@ -48,7 +48,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.24.4
-Requires-Dist: numkong>=7.0.0
+Requires-Dist: numkong>=7.4.5
 Requires-Dist: stringzilla>=3.10.4
 Provides-Extra: contrib
 Requires-Dist: opencv-contrib-python>=4.13.0.90; extra == "contrib"

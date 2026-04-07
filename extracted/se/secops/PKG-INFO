@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: secops
-Version: 0.39.0
+Version: 0.40.0
 Summary: Python SDK for wrapping the Google SecOps API for common use cases
 Project-URL: Homepage, https://github.com/google/secops-wrapper
 Project-URL: Documentation, https://github.com/google/secops-wrapper#readme
@@ -1932,6 +1932,27 @@ This workflow is useful for:
 - Understanding how logs are transformed to UDM format
 - Re-processing logs with updated parsers
 - Debugging parsing issues
+
+### Parser Validation
+
+Trigger and retrieve analysis reports for parsers associated with GitHub pull requests:
+
+```python
+# Trigger GitHub checks for a parser against a PR
+response = chronicle.trigger_github_checks(
+    associated_pr="owner/repo/pull/123",
+    log_type="WINDOWS_AD"
+)
+print(f"Triggered checks: {response}")
+
+# Retrieve the analysis report
+report = chronicle.get_analysis_report(
+    log_type="WINDOWS_AD",
+    parser_id="pa_1234567890",
+    report_id="report_0987654321"
+)
+print(f"Analysis report: {report}")
+```
 
 ## Parser Extension
 

@@ -30,7 +30,7 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-# Load the private key from an environment variable. This is in the Langchain 1password vault.
+# Not in public docs: LANGGRAPH_CLOUD_LICENSE_PRIVATE_KEY is internal (in 1password vault)
 private_key_str = os.environ.get("LANGGRAPH_CLOUD_LICENSE_PRIVATE_KEY")
 
 if private_key_str is None:

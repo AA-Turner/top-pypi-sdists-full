@@ -52,7 +52,7 @@ export class StreamWrite extends BenchmarkRunner {
     benchmarkGraphOptions: BenchmarkGraphOptions
   ): boolean {
     const expected_steps = benchmarkGraphOptions.context.steps;
-    const expected_events = getExpectedEvents(benchmarkGraphOptions.context);
+    const expected_events = getExpectedEvents(benchmarkGraphOptions);
     const events = result.data?.events ?? [];
     const hasExpectedCounter = events.some((event) => {
       if (!event?.data || typeof event.data !== 'object') return false;

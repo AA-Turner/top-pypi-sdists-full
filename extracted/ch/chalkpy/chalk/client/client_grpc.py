@@ -18,6 +18,8 @@ import requests
 from google.protobuf import empty_pb2, timestamp_pb2
 
 from chalk import DataFrame, EnvironmentId, chalk_logger
+from chalk._gen.chalk.aggregate.v1.service_pb2 import CreateAggregateBackfillJobResponse
+from chalk._gen.chalk.aggregate.v1.service_pb2_grpc import AggregateServiceStub
 from chalk._gen.chalk.auth.v1.agent_pb2 import CustomClaim
 from chalk._gen.chalk.auth.v1.permissions_pb2 import Permission
 from chalk._gen.chalk.common.v1 import offline_query_pb2, online_query_pb2, resources_pb2, upload_features_pb2
@@ -29,6 +31,7 @@ from chalk._gen.chalk.engine.v1.query_server_pb2_grpc import QueryServiceStub
 from chalk._gen.chalk.engine.v2.dataframe_service_pb2_grpc import DataFrameServiceStub
 from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
 from chalk._gen.chalk.graph.v1.graph_pb2 import Graph
+from chalk._gen.chalk.modeldeployment.v1.service_pb2_grpc import ModelDeploymentServiceStub
 from chalk._gen.chalk.models.v1 import model_artifact_pb2 as _model_artifact_pb2
 from chalk._gen.chalk.protosql.v1.sql_service_pb2 import (
     ExecuteSqlQueryRequest,
@@ -40,6 +43,8 @@ from chalk._gen.chalk.protosql.v1.sql_service_pb2 import (
 )
 from chalk._gen.chalk.protosql.v1.sql_service_pb2_grpc import SqlServiceStub
 from chalk._gen.chalk.server.v1.auth_pb2_grpc import AuthServiceStub
+from chalk._gen.chalk.server.v1.builder_pb2 import StartBranchResponse
+from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
 from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import (
     GetJobQueueOperationSummaryRequest,
     GetJobQueueOperationSummaryResponse,
@@ -98,7 +103,7 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
 )
 from chalk._gen.chalk.server.v1.team_pb2_grpc import TeamServiceStub
 from chalk._gen.chalk.streaming.v1.simple_streaming_service_pb2_grpc import SimpleStreamingServiceStub
-from chalk.client import ChalkAuthException, FeatureReference
+from chalk.client import ChalkAuthException, ChalkError, FeatureReference
 from chalk.client.client_headers import (
     CHALK_BRANCH_ID_HEADER,
     CHALK_DEPLOYMENT_TAG_HEADER_LOWERCASE,
@@ -155,12 +160,6 @@ from chalk.utils.tracing import add_trace_headers, safe_trace
 if TYPE_CHECKING:
     from pyarrow import RecordBatch, Table
     from pydantic import BaseModel
-
-    from chalk._gen.chalk.aggregate.v1.service_pb2 import CreateAggregateBackfillJobResponse
-    from chalk._gen.chalk.aggregate.v1.service_pb2_grpc import AggregateServiceStub
-    from chalk._gen.chalk.server.v1.builder_pb2 import StartBranchResponse
-    from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
-    from chalk.client import ChalkError
 
 
 @dataclasses.dataclass
@@ -273,6 +272,11 @@ U = TypeVar("U")
 
 
 class StubProvider:
+    @property
+    def server_channel(self) -> Optional[grpc.Channel]:
+        """Return the server channel."""
+        return self._server_channel
+
     def close(self):
         if self._server_channel is not None:
             self._server_channel.close()
@@ -406,6 +410,12 @@ class StubProvider:
         if self._server_channel is None:
             raise RuntimeError("Unable to connect to API server.")
         return AggregateServiceStub(self._server_channel)
+
+    @cached_property
+    def model_deployment_stub(self) -> "ModelDeploymentServiceStub":
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return ModelDeploymentServiceStub(self._server_channel)
 
     def __init__(
         self,
@@ -624,6 +634,9 @@ class StubRefresher:
     def call_task_stub(self, fn: Callable[[ScriptTaskServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.task_stub)
 
+    def call_model_deployment_stub(self, fn: Callable[["ModelDeploymentServiceStub"], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.model_deployment_stub)
+
     def call_builder_stub(self, fn: Callable[["BuilderServiceStub"], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.builder_stub)
 
@@ -635,6 +648,10 @@ class StubRefresher:
 
     def call_streaming_stub(self, fn: Callable[[SimpleStreamingServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.streaming_stub)
+
+    def get_server_channel(self) -> Optional[grpc.Channel]:
+        """Get the server gRPC channel."""
+        return self._stub.server_channel
 
     def call_integrations_stub(self, fn: Callable[[IntegrationsServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.integrations_stub)
@@ -1894,6 +1911,7 @@ class ChalkGRPCClient:
         output_features: Optional[list[str]] = None,
         source_config: Optional[SourceConfig] = None,
         dependencies: Optional[List[str]] = None,
+        model_image: Optional[str] = None,
     ) -> RegisterModelVersionResponse:
         """Register a model in the Chalk model registry.
 
@@ -1901,6 +1919,9 @@ class ChalkGRPCClient:
         ----------
         name
             Unique name for the model.
+        model_image
+            Docker image for model serving (must have chalk-remote-call-python installed).
+            If provided, the model can be deployed to a scaling group via deploy_scaling_group().
         aliases
             List of version aliases (e.g., `["v1.0", "latest"]`).
         model
@@ -1938,24 +1959,27 @@ class ChalkGRPCClient:
             Config to pass credentials to access files from a remote source.
         dependencies
             List of package dependencies needed to run this model.
-            e.g. `["torch==2.7.1", "numpy==1.26.4"]`.
 
         Returns
         -------
         ModelVersion
-            The registered model version object.
+           The registered model version object
 
         Examples
         --------
-        Register from Python object:
 
+        Register from Python object (for engine deployment):
+
+        >>> from chalk.client import ChalkClient
+        >>> import pyarrow as pa
+        >>> client = ChalkClient()
         >>> client.register_model_version(
         ...     name="RiskModel",
         ...     model=trained_pytorch_model,
         ...     model_type=ModelType.PYTORCH,
         ... )
 
-        Register from local files:
+        Register from local files (for engine deployment):
 
         >>> from chalk.client import ChalkClient
         >>> import pyarrow as pa
@@ -1968,13 +1992,129 @@ class ChalkGRPCClient:
         ...     output_schema={"prob": pa.float64()},
         ... )
 
-        Register from s3 path:
+        Register with a Docker image (for scaling group deployment):
+
+        >>> from chalk.client import ChalkClient
+        >>> import pyarrow as pa
+        >>> client = ChalkClient()
         >>> client.register_model_version(
-        ...     name="RiskModel",
-        ...     model_paths=["s3://my-bucket/path/to/model.pth"],
-        ...     model_type=ModelType.PYTORCH,
+        ...     name="ner-model",
+        ...     input_schema={"text": pa.large_string()},
+        ...     output_schema={"entities": pa.large_string()},
+        ...     model_image="ghcr.io/my-org/ner-model:latest",
         ... )
+
         """
+        if model_image is not None and model is None and model_paths is None:
+            # Image-only registration (for scaling group deployment)
+            return self._register_model_with_image(
+                name=name,
+                model_image=model_image,
+                input_schema=input_schema,
+                output_schema=output_schema,
+                aliases=aliases,
+                metadata=metadata,
+            )
+        else:
+            # Engine deployment path (model serialization)
+            return self._register_model_for_engine(
+                name=name,
+                model_type=model_type,
+                model_class=model_class,
+                model_encoding=model_encoding,
+                model=model,
+                model_paths=model_paths,
+                additional_files=additional_files,
+                input_schema=input_schema,
+                output_schema=output_schema,
+                metadata=metadata,
+                input_features=input_features,
+                output_features=output_features,
+                source_config=source_config,
+                dependencies=dependencies,
+                aliases=aliases,
+                model_image=model_image,
+            )
+
+    def _register_model_with_image(
+        self,
+        name: str,
+        model_image: str,
+        input_schema: Optional[Any],
+        output_schema: Optional[Any],
+        aliases: Optional[List[str]],
+        metadata: Optional[Mapping[str, Any]],
+    ) -> RegisterModelVersionResponse:
+        """Register a model with a Docker image (no model serialization needed)."""
+        if input_schema is None:
+            raise ValueError("input_schema is required when registering with model_image")
+        if output_schema is None:
+            raise ValueError("output_schema is required when registering with model_image")
+
+        from chalk.client.serialization.model_serialization import ModelSerializer
+
+        metadata_converted = None
+        if metadata is not None:
+            metadata_converted = ModelSerializer.convert_metadata_to_protobuf(metadata)
+
+        try:
+            presigned_s3_response: ModelUploadUrlResponse = self._get_model_artifact_presigned(model_paths=[])
+
+            # Convert schemas using static method (no model serializer context needed)
+            input_model_schema = ModelSerializer.convert_schema(input_schema)
+            output_model_schema = ModelSerializer.convert_schema(output_schema)
+
+            resp: CreateModelVersionResponse = self._stub_refresher.call_model_stub(
+                lambda x: x.CreateModelVersion(
+                    CreateModelVersionRequest(
+                        model_name=name,
+                        model_artifact_id=presigned_s3_response.model_artifact_id,
+                        model_artifact=_model_artifact_pb2.ModelArtifactSpec(
+                            model_files=[],
+                            additional_files=[],
+                            model_signature=_model_artifact_pb2.ModelSignature(
+                                inputs=input_model_schema,
+                                outputs=output_model_schema,
+                            ),
+                            model_image=model_image,
+                        ),
+                        aliases=aliases,
+                        metadata=metadata_converted,
+                    )
+                )
+            )
+            return RegisterModelVersionResponse(
+                model_id=resp.model_version.id,
+                model_name=resp.model_version.model_name,
+                model_version=resp.model_version.version,
+                artifact=resp.model_version.model_artifact,
+                aliases=list(resp.model_version.aliases),
+                created_by=resp.model_version.created_by,
+                created_at=resp.model_version.created_at.ToDatetime(),
+            )
+        except grpc.RpcError as e:
+            raise RuntimeError(f"Could not register model version. {e.details()}")
+
+    def _register_model_for_engine(
+        self,
+        name: str,
+        model_type: Optional[ModelType],
+        model_class: Optional[ModelClass],
+        model_encoding: Optional[ModelEncoding],
+        model: Optional[Any],
+        model_paths: Optional[List[str]],
+        additional_files: Optional[List[str]],
+        input_schema: Optional[Any],
+        output_schema: Optional[Any],
+        metadata: Optional[Mapping[str, Any]],
+        input_features: Optional[list[str]],
+        output_features: Optional[list[str]],
+        source_config: Optional[SourceConfig],
+        dependencies: Optional[List[str]],
+        aliases: Optional[List[str]],
+        model_image: Optional[str] = None,
+    ) -> RegisterModelVersionResponse:
+        """Register a model for engine deployment (with model serialization)."""
         with ModelSerializer.from_model(model, model_type) as model_serializer:
             model_file_uploader = ModelFileUploader(source_config)
 
@@ -2061,6 +2201,7 @@ class ChalkGRPCClient:
                     presigned_s3_response.upload_urls,
                     dir_allowlist,
                 )
+
                 try:
                     resp: CreateModelVersionResponse = self._stub_refresher.call_model_stub(
                         lambda x: x.CreateModelVersion(
@@ -2085,6 +2226,7 @@ class ChalkGRPCClient:
                                     input_features=input_features,
                                     output_features=output_features,
                                     python_dependencies=dependencies,
+                                    model_image=model_image,
                                 ),
                                 aliases=aliases,
                                 metadata=metadata_converted,
@@ -2803,3 +2945,70 @@ class ChalkGRPCClient:
             query_tags=query_tags or [],
         )
         return self._stub_refresher.call_aggregate_stub(lambda stub: stub.CreateAggregateBackfillJob(req, timeout=None))
+
+    def deploy_model_version_to_scaling_group(
+        self,
+        name: str,
+        model_name: str,
+        model_version: int,
+        min_replicas: int = 1,
+        max_replicas: int = 1,
+        cpu: Optional[str] = None,
+        memory: Optional[str] = None,
+        gpu: Optional[str] = None,
+        handler: Optional[str] = None,
+        env_vars: Optional[Dict[str, str]] = None,
+        target_cpu_utilization_percentage: Optional[int] = None,
+    ) -> dict[str, Any]:
+        """Deploy a registered model version as a scaling group.
+
+        Uses the authenticated gRPC channel with a raw unary call since
+        Python scaling group proto stubs are not yet generated.
+        """
+        # Build protobuf-compatible JSON request matching CreateModelScalingGroupRequest
+        request_data: Dict[str, Any] = {
+            "name": name,
+            "model_name": model_name,
+            "identifier": {"version": model_version},
+            "scaling_spec": {
+                "min_replicas": min_replicas,
+                "max_replicas": max_replicas,
+            },
+        }
+
+        if target_cpu_utilization_percentage is not None:
+            request_data["scaling_spec"]["target_cpu_utilization_percentage"] = target_cpu_utilization_percentage
+
+        container_spec: Dict[str, Any] = {}
+        if cpu is not None or memory is not None or gpu is not None:
+            resources: Dict[str, str] = {}
+            if cpu is not None:
+                resources["cpu"] = cpu
+            if memory is not None:
+                resources["memory"] = memory
+            if gpu is not None:
+                resources["gpu"] = gpu
+            container_spec["resources"] = resources
+
+        if env_vars:
+            container_spec["env_vars"] = env_vars
+
+        if container_spec:
+            request_data["container_spec"] = container_spec
+
+        if handler is not None:
+            request_data["handler"] = handler
+
+        from google.protobuf import json_format
+
+        request_json = json.dumps(request_data)
+
+        from chalk._gen.chalk.modeldeployment.v1 import service_pb2
+
+        def create_request_and_call(stub: ModelDeploymentServiceStub) -> dict[str, Any]:
+            req = service_pb2.CreateModelScalingGroupRequest()
+            json_format.Parse(request_json, req)
+            resp = stub.CreateModelScalingGroup(req)
+            return json_format.MessageToDict(resp)
+
+        return self._stub_refresher.call_model_deployment_stub(create_request_and_call)

@@ -66,6 +66,14 @@ class Forex(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurre
         ...
 
 
+class ForexCache(QuantConnect.Securities.SecurityCache):
+    """Forex specific caching support"""
+
+    def __init__(self) -> None:
+        """Initialize forex cache"""
+        ...
+
+
 class ForexHolding(QuantConnect.Securities.SecurityHolding):
     """FOREX holdings implementation of the base securities class"""
 
@@ -124,14 +132,6 @@ class ForexDataFilter(QuantConnect.Securities.SecurityDataFilter):
         :param data: Data object we're scanning to filter
         :param vehicle: Security asset
         """
-        ...
-
-
-class ForexCache(QuantConnect.Securities.SecurityCache):
-    """Forex specific caching support"""
-
-    def __init__(self) -> None:
-        """Initialize forex cache"""
         ...
 
 

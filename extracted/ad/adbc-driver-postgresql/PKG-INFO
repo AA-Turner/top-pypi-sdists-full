@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: adbc-driver-postgresql
-Version: 1.10.0
+Version: 1.11.0
 Summary: A libpq-based ADBC driver for working with PostgreSQL.
 Author-email: Apache Arrow Developers <dev@arrow.apache.org>
 License-Expression: Apache-2.0

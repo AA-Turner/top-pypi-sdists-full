@@ -26,6 +26,7 @@ from ws4py.manager import WebSocketManager
 from ws4py.messaging import BinaryMessage
 
 from pylxd import managers
+from pylxd.client import _ws_exclude_origin
 from pylxd.exceptions import LXDAPIException
 from pylxd.models import _model as model
 from pylxd.models.operation import Operation
@@ -277,6 +278,16 @@ class Instance(model.Model):
                     content = json.loads(response.content)
                     if "metadata" in content and content["metadata"]:
                         for file in content["metadata"]:
+                            # Reject entries that are empty, are dot-dirs, are
+                            # absolute paths, or contain path separators. Any
+                            # of these could escape the intended local directory.
+                            if (
+                                not file
+                                or file in (".", "..")
+                                or "/" in file
+                                or "\\" in file
+                            ):
+                                continue
                             self.recursive_get(
                                 os.path.join(remote_path, file),
                                 os.path.join(local_path, file),
@@ -579,12 +590,11 @@ class Instance(model.Model):
 
             manager.start()
 
-            # watch for the end of the command:
-            while True:
-                operation = self.client.operations.get(operation_id)
-                if "return" in operation.metadata:
-                    break
-                time.sleep(0.5)  # pragma: no cover
+            # Block until the exec operation completes by using the
+            # /wait endpoint, which is efficient and race-free.
+            operation = self.client.operations.wait_for_operation(
+                response_json["operation"]
+            )
 
             try:
                 stdin.close()
@@ -815,6 +825,7 @@ class _CommandWebsocketClient(WebSocketBaseClient):  # pragma: no cover
         self.finished = False
         self.last_message_empty = False
         self.buffer = []
+        _ws_exclude_origin(kwargs)
         super().__init__(*args, **kwargs)
 
     def handshake_ok(self):
@@ -882,6 +893,7 @@ class _StdinWebsocket(WebSocketBaseClient):  # pragma: no cover
     def __init__(self, url, payload=None, **kwargs):
         self.encoding = kwargs.pop("encoding", None)
         self.payload = payload
+        _ws_exclude_origin(kwargs)
         super().__init__(url, **kwargs)
 
     def _smart_encode(self, msg):

@@ -436,6 +436,7 @@ js_bg_tasks: set[asyncio.Task] = set()
 
 def _load_graph_config_from_env() -> dict | None:
     """Return graph config from env."""
+    # Not in public docs: LANGGRAPH_CONFIG is internal, set by CLI from langgraph.json
     config_str = os.getenv("LANGGRAPH_CONFIG")
     if not config_str:
         return None
@@ -459,6 +460,7 @@ def _load_graph_config_from_env() -> dict | None:
 async def collect_graphs_from_env(register: bool = False) -> None:
     """Return graphs from env."""
 
+    # Not in public docs: LANGSERVE_GRAPHS is internal, set by CLI from langgraph.json "graphs" field
     paths_str = os.getenv("LANGSERVE_GRAPHS")
     config_per_graph = _load_graph_config_from_env() or {}
 

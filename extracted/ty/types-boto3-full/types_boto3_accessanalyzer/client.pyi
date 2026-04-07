@@ -37,11 +37,13 @@ from .paginator import (
     ListFindingsPaginator,
     ListFindingsV2Paginator,
     ListPolicyGenerationsPaginator,
+    ListPolicyPreviewJobsPaginator,
     ValidatePolicyPaginator,
 )
 from .type_defs import (
     ApplyArchiveRuleRequestTypeDef,
     CancelPolicyGenerationRequestTypeDef,
+    CancelPolicyPreviewJobRequestTypeDef,
     CheckAccessNotGrantedRequestTypeDef,
     CheckAccessNotGrantedResponseTypeDef,
     CheckNoNewAccessRequestTypeDef,
@@ -53,8 +55,11 @@ from .type_defs import (
     CreateAnalyzerRequestTypeDef,
     CreateAnalyzerResponseTypeDef,
     CreateArchiveRuleRequestTypeDef,
+    CreatePolicyPreviewConfigurationRequestTypeDef,
+    CreatePolicyPreviewConfigurationResponseTypeDef,
     DeleteAnalyzerRequestTypeDef,
     DeleteArchiveRuleRequestTypeDef,
+    DeletePolicyPreviewConfigurationRequestTypeDef,
     EmptyResponseMetadataTypeDef,
     GenerateFindingRecommendationRequestTypeDef,
     GetAccessPreviewRequestTypeDef,
@@ -75,6 +80,9 @@ from .type_defs import (
     GetFindingV2ResponseTypeDef,
     GetGeneratedPolicyRequestTypeDef,
     GetGeneratedPolicyResponseTypeDef,
+    GetPolicyPreviewConfigurationResponseTypeDef,
+    GetPolicyPreviewJobRequestTypeDef,
+    GetPolicyPreviewJobResponseTypeDef,
     ListAccessPreviewFindingsRequestTypeDef,
     ListAccessPreviewFindingsResponseTypeDef,
     ListAccessPreviewsRequestTypeDef,
@@ -91,10 +99,14 @@ from .type_defs import (
     ListFindingsV2ResponseTypeDef,
     ListPolicyGenerationsRequestTypeDef,
     ListPolicyGenerationsResponseTypeDef,
+    ListPolicyPreviewJobsRequestTypeDef,
+    ListPolicyPreviewJobsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     StartPolicyGenerationRequestTypeDef,
     StartPolicyGenerationResponseTypeDef,
+    StartPolicyPreviewJobRequestTypeDef,
+    StartPolicyPreviewJobResponseTypeDef,
     StartResourceScanRequestTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
@@ -105,6 +117,7 @@ from .type_defs import (
     ValidatePolicyRequestTypeDef,
     ValidatePolicyResponseTypeDef,
 )
+from .waiter import PolicyPreviewConfigurationActiveWaiter, PolicyPreviewJobCompletedWaiter
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
@@ -181,6 +194,16 @@ class AccessAnalyzerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#cancel_policy_generation)
         """
 
+    def cancel_policy_preview_job(
+        self, **kwargs: Unpack[CancelPolicyPreviewJobRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Cancels an in-progress policy preview job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/cancel_policy_preview_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#cancel_policy_preview_job)
+        """
+
     def check_access_not_granted(
         self, **kwargs: Unpack[CheckAccessNotGrantedRequestTypeDef]
     ) -> CheckAccessNotGrantedResponseTypeDef:
@@ -244,6 +267,16 @@ class AccessAnalyzerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#create_archive_rule)
         """
 
+    def create_policy_preview_configuration(
+        self, **kwargs: Unpack[CreatePolicyPreviewConfigurationRequestTypeDef]
+    ) -> CreatePolicyPreviewConfigurationResponseTypeDef:
+        """
+        Creates a policy preview configuration for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/create_policy_preview_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#create_policy_preview_configuration)
+        """
+
     def delete_analyzer(
         self, **kwargs: Unpack[DeleteAnalyzerRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -262,6 +295,16 @@ class AccessAnalyzerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/delete_archive_rule.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#delete_archive_rule)
+        """
+
+    def delete_policy_preview_configuration(
+        self, **kwargs: Unpack[DeletePolicyPreviewConfigurationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the policy preview configuration for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/delete_policy_preview_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#delete_policy_preview_configuration)
         """
 
     def generate_finding_recommendation(
@@ -364,6 +407,24 @@ class AccessAnalyzerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#get_generated_policy)
         """
 
+    def get_policy_preview_configuration(self) -> GetPolicyPreviewConfigurationResponseTypeDef:
+        """
+        Retrieves the policy preview configuration for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/get_policy_preview_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#get_policy_preview_configuration)
+        """
+
+    def get_policy_preview_job(
+        self, **kwargs: Unpack[GetPolicyPreviewJobRequestTypeDef]
+    ) -> GetPolicyPreviewJobResponseTypeDef:
+        """
+        Retrieves the metadata, parameters, and status for a policy preview job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/get_policy_preview_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#get_policy_preview_job)
+        """
+
     def list_access_preview_findings(
         self, **kwargs: Unpack[ListAccessPreviewFindingsRequestTypeDef]
     ) -> ListAccessPreviewFindingsResponseTypeDef:
@@ -446,6 +507,17 @@ class AccessAnalyzerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#list_policy_generations)
         """
 
+    def list_policy_preview_jobs(
+        self, **kwargs: Unpack[ListPolicyPreviewJobsRequestTypeDef]
+    ) -> ListPolicyPreviewJobsResponseTypeDef:
+        """
+        Lists all policy preview jobs with optional filtering by job status or target
+        ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/list_policy_preview_jobs.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#list_policy_preview_jobs)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -464,6 +536,17 @@ class AccessAnalyzerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/start_policy_generation.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#start_policy_generation)
+        """
+
+    def start_policy_preview_job(
+        self, **kwargs: Unpack[StartPolicyPreviewJobRequestTypeDef]
+    ) -> StartPolicyPreviewJobResponseTypeDef:
+        """
+        Creates a policy preview analysis job to evaluate the impact of Service Control
+        Policies (SCPs) before deployment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/start_policy_preview_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#start_policy_preview_job)
         """
 
     def start_resource_scan(
@@ -644,6 +727,17 @@ class AccessAnalyzerClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policy_preview_jobs"]
+    ) -> ListPolicyPreviewJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["validate_policy"]
     ) -> ValidatePolicyPaginator:
         """
@@ -651,4 +745,26 @@ class AccessAnalyzerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/get_paginator.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["policy_preview_configuration_active"]
+    ) -> PolicyPreviewConfigurationActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["policy_preview_job_completed"]
+    ) -> PolicyPreviewJobCompletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_accessanalyzer/client/#get_waiter)
         """

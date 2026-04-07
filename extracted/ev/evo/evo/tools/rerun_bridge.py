@@ -1,5 +1,5 @@
 """
-Functions for easier logging of evo data into rerun.
+Functions for easier sending of evo data to Rerun.
 """
 
 from dataclasses import dataclass
@@ -13,10 +13,13 @@ import numpy as np
 import matplotlib.cm
 from matplotlib.colors import Normalize, rgb2hex
 
-from evo.core.trajectory import PoseTrajectory3D
+from evo.core.trajectory import PosePath3D, PoseTrajectory3D
+from evo.tools.plot import color_cycle, PlotMode
 from evo.tools.settings import SETTINGS
+from evo.core.units import Unit, METER_SCALE_FACTORS
 
 TIMELINE = "time"
+INDEX_TIMELINE = "index"
 
 
 def _check_rerun_version(min_version: str) -> None:
@@ -29,16 +32,15 @@ def _check_rerun_version(min_version: str) -> None:
         )
 
 
-# Ensure that rerun is at least version 0.28.0,
-# which has TransformAxes3D.
-_check_rerun_version("0.28.0")
+# Minimum required Rerun version:
+_check_rerun_version("0.31.0")
 
 
 @dataclass
 class Color:
     """
     Helper for specifying either a static color, sequential colors, or none.
-    Note that sequential colors must have the same length as other data columns when logged.
+    Note that sequential colors must have the same length as other data columns when sent.
     """
 
     static: Rgba32ArrayLike | None = None
@@ -58,9 +60,19 @@ def _to_time_column(timestamps: np.ndarray) -> rr.TimeColumn:
     return rr.TimeColumn(TIMELINE, timestamp=timestamps)
 
 
+def _to_index_column(num_indices: int) -> rr.TimeColumn:
+    return rr.TimeColumn(INDEX_TIMELINE, sequence=np.arange(num_indices))
+
+
+def _to_timeline_column(traj: PosePath3D) -> rr.TimeColumn:
+    if isinstance(traj, PoseTrajectory3D):
+        return _to_time_column(traj.timestamps)
+    return _to_index_column(traj.num_poses)
+
+
 def ui_points_radii(value: Float32ArrayLike) -> Float32ArrayLike:
     """
-    rerun interprets negative radii as points in screen space.
+    Rerun interprets negative radii as points in screen space.
     """
     return -np.abs(value)  # type: ignore
 
@@ -69,7 +81,7 @@ def mapped_colors(cmap_name: str, values: np.ndarray) -> Sequence[int]:
     """
     Creates a color sequence from scalar values using a matplotlib colormap.
     """
-    # rerun SDK has no colormap implementation? mpl to the rescue...
+    # Rerun SDK has no colormap implementation? mpl to the rescue...
     norm = Normalize(vmin=values.min(), vmax=values.max(), clip=True)
     mapper = matplotlib.cm.ScalarMappable(norm, cmap_name)
     mapper.set_array(values)
@@ -85,16 +97,16 @@ def mapped_colors(cmap_name: str, values: np.ndarray) -> Sequence[int]:
     ]
 
 
-def log_transforms(
-    entity_path: str, traj: PoseTrajectory3D, axis_length: float
+def send_transforms(
+    entity_path: str, traj: PosePath3D, axis_length: float
 ) -> None:
     """
-    Logs the trajectory poses as Transform3D to rerun.
+    Sends the trajectory poses as Transform3D to Rerun.
     """
     quaternions_xyzw = np.roll(traj.orientations_quat_wxyz, -1)
     rr.send_columns(
         entity_path,
-        indexes=[_to_time_column(traj.timestamps)],
+        indexes=[_to_timeline_column(traj)],
         columns=rr.Transform3D.columns(
             translation=traj.positions_xyz, quaternion=quaternions_xyzw
         ),
@@ -106,23 +118,28 @@ def log_transforms(
     )
 
 
-def log_line_strips(
+def send_line_strips(
     entity_path: str,
-    traj: PoseTrajectory3D,
+    traj: PosePath3D,
     radii: Float32ArrayLike,
     color: Color,
 ) -> None:
     """
-    Logs connections between trajectory poses as LineStrips3D to rerun.
+    Sends connections between trajectory poses as LineStrips3D to Rerun.
     """
     strips = [
         [a, b] for a, b in zip(traj.positions_xyz, traj.positions_xyz[1:])
     ]
-    strip_timestamps = traj.timestamps[1:]
+
+    if isinstance(traj, PoseTrajectory3D):
+        strip_timestamps = traj.timestamps[1:]
+        index = _to_time_column(strip_timestamps)
+    else:
+        index = _to_index_column(traj.num_poses - 1)
 
     rr.send_columns(
         entity_path,
-        indexes=[_to_time_column(strip_timestamps)],
+        indexes=[index],
         columns=[
             *rr.LineStrips3D.columns(strips=strips, colors=color.sequential)
         ],
@@ -134,18 +151,18 @@ def log_line_strips(
     )
 
 
-def log_points(
+def send_points(
     entity_path: str,
-    traj: PoseTrajectory3D,
+    traj: PosePath3D,
     radii: Float32ArrayLike,
     color: Color,
 ) -> None:
     """
-    Logs the trajectory positions as Points3D to rerun.
+    Sends the trajectory positions as Points3D to Rerun.
     """
     rr.send_columns(
         entity_path,
-        indexes=[_to_time_column(traj.timestamps)],
+        indexes=[_to_timeline_column(traj)],
         columns=[
             *rr.Points3D.columns(
                 positions=traj.positions_xyz, colors=color.sequential
@@ -159,19 +176,26 @@ def log_points(
     )
 
 
-def log_scalars(
+def send_scalars(
     entity_path: str,
     scalars: Float64ArrayLike,
-    timestamps: np.ndarray,
     color: Color,
+    timestamps: np.ndarray | None = None,
     labelname: str | None = None,
 ) -> None:
     """
-    Logs a batch of scalars with timestamps to rerun, e.g. for plotting.
+    Sends a batch of scalars to Rerun, e.g. for plotting.
+    If timestamps are provided, uses the time timeline;
+    otherwise uses the index timeline.
     """
+    if timestamps is not None:
+        index = _to_time_column(timestamps)
+    else:
+        index = _to_index_column(len(np.asarray(scalars)))
+
     rr.send_columns(
         entity_path,
-        indexes=[_to_time_column(timestamps)],
+        indexes=[index],
         columns=rr.Scalars.columns(scalars=scalars),
     )
     rr.log(
@@ -181,15 +205,15 @@ def log_scalars(
     )
 
 
-def log_correspondence_strips(
+def send_correspondence_strips(
     entity_path: str,
-    traj_1: PoseTrajectory3D,
-    traj_2: PoseTrajectory3D,
+    traj_1: PosePath3D,
+    traj_2: PosePath3D,
     radii: Float32ArrayLike,
     color: Color,
 ):
     """
-    Logs LineStrips3D connecting corresponding poses of two synced trajectories to rerun.
+    Sends LineStrips3D connecting corresponding poses of two synced trajectories to Rerun.
     """
     if not traj_1.num_poses == traj_2.num_poses:
         raise ValueError("trajectories must be synced")
@@ -197,9 +221,15 @@ def log_correspondence_strips(
     correspondences = [
         [p1, p2] for p1, p2 in zip(traj_1.positions_xyz, traj_2.positions_xyz)
     ]
+
+    if isinstance(traj_1, PoseTrajectory3D):
+        index = _to_time_column(traj_1.timestamps)
+    else:
+        index = _to_index_column(traj_1.num_poses)
+
     rr.send_columns(
         entity_path,
-        indexes=[_to_time_column(traj_1.timestamps)],
+        indexes=[index],
         columns=[
             *rr.LineStrips3D.columns(
                 strips=correspondences, colors=color.sequential
@@ -213,27 +243,19 @@ def log_correspondence_strips(
     )
 
 
-def log_trajectory(
-    entity_path: str, traj: PoseTrajectory3D, color: Color
-) -> None:
+def send_trajectory(entity_path: str, traj: PosePath3D, color: Color) -> None:
     """
-    Convenience function to log transforms, points, and lines to rerun.
+    Convenience function to send transforms and lines to Rerun.
     """
-    # Note: in contrast to plot.py, we always log transform axes here.
-    # If the scale is 0., you can still make it visible in the rerun
-    # viewer by changing the length in the entity settings after logging.
-    log_transforms(
+    # Note: in contrast to plot.py, we always send transform axes here.
+    # If the scale is 0., you can still make it visible in the Rerun
+    # viewer by changing the length in the entity settings after sending.
+    send_transforms(
         entity_path=f"{entity_path}/transforms",
         traj=traj,
         axis_length=SETTINGS.plot_axis_marker_scale,
     )
-    log_points(
-        entity_path=f"{entity_path}/points",
-        traj=traj,
-        radii=ui_points_radii(SETTINGS.plot_linewidth * 1.25),
-        color=color,
-    )
-    log_line_strips(
+    send_line_strips(
         entity_path=f"{entity_path}/lines",
         traj=traj,
         radii=ui_points_radii(SETTINGS.plot_linewidth),
@@ -243,3 +265,113 @@ def log_trajectory(
             else color
         ),
     )
+
+
+def send_statistics_bar_chart(
+    entity_path: str,
+    stats: dict,
+) -> None:
+    """
+    Sends a static bar chart of result statistics (mean, std, etc.) to Rerun.
+    Each statistic is sent as a separate single-bar BarChart entity so that
+    the entity path name serves as the label in the BarChartView.
+    Colors follow the evo color cycle (seaborn palette from SETTINGS).
+    Only statistics listed in SETTINGS.plot_statistics are included.
+    """
+    colors = color_cycle()
+    included = [s for s in SETTINGS.plot_statistics if s in stats]
+
+    for i, name in enumerate(included):
+        value = stats[name]
+        color = colors[i % len(colors)]
+        rr.log(
+            f"{entity_path}/{name}",
+            rr.BarChart(
+                values=np.array([value]),
+                abscissa=np.array([i]),
+                color=color,
+            ),
+            static=True,
+        )
+
+
+def send_view_coordinates(plot_mode: PlotMode):
+    """
+    Derive and send view coordinates (scene up) from a PlotMode value,
+    for consistency with matplotlib plots.
+
+    Should be called _after_ sending a blueprint.
+    """
+    if plot_mode.value in ("xy", "xyz"):
+        view_coordinates = rr.ViewCoordinates.RIGHT_HAND_Z_UP
+    elif plot_mode.value == "xz":
+        view_coordinates = rr.ViewCoordinates.RIGHT_HAND_Y_DOWN
+    elif plot_mode.value == "yz":
+        view_coordinates = rr.ViewCoordinates.RIGHT_HAND_X_UP
+    elif plot_mode.value == "yx":
+        view_coordinates = rr.ViewCoordinates.RIGHT_HAND_Z_DOWN
+    elif plot_mode.value == "zx":
+        view_coordinates = rr.ViewCoordinates.RIGHT_HAND_Y_UP
+    elif plot_mode.value == "zy":
+        view_coordinates = rr.ViewCoordinates.RIGHT_HAND_X_DOWN
+    else:
+        raise ValueError(f"unknown plot mode: {plot_mode}")
+
+    rr.log("/", view_coordinates, static=True)
+
+
+def send_xyz_position_scalars(
+    traj: PosePath3D,
+    color: Color,
+    x_entity: str = "x",
+    y_entity: str = "y",
+    z_entity: str = "z",
+) -> None:
+    """
+    Sends x, y, z position as scalar time series to Rerun.
+    """
+    length_unit = Unit(SETTINGS.plot_trajectory_length_unit)
+    scale = METER_SCALE_FACTORS[length_unit]
+    labels = ["x", "y", "z"]
+    entities = [x_entity, y_entity, z_entity]
+    timestamps = (
+        traj.timestamps if isinstance(traj, PoseTrajectory3D) else None
+    )
+
+    for label, entity, col in zip(labels, entities, range(3)):
+        send_scalars(
+            entity_path=entity,
+            scalars=traj.positions_xyz[:, col] * scale,
+            color=color,
+            timestamps=timestamps,
+            labelname=f"{label} ({length_unit.value})",
+        )
+
+
+def send_rpy_scalars(
+    traj: PosePath3D,
+    color: Color,
+    roll_entity: str = "roll",
+    pitch_entity: str = "pitch",
+    yaw_entity: str = "yaw",
+) -> None:
+    """
+    Sends roll, pitch, yaw as scalar time series to Rerun.
+    """
+    import numpy as np
+
+    angles = traj.get_orientations_euler(SETTINGS.euler_angle_sequence)
+    labels = ["roll", "pitch", "yaw"]
+    entities = [roll_entity, pitch_entity, yaw_entity]
+    timestamps = (
+        traj.timestamps if isinstance(traj, PoseTrajectory3D) else None
+    )
+
+    for label, entity, col in zip(labels, entities, range(3)):
+        send_scalars(
+            entity_path=entity,
+            scalars=np.rad2deg(angles[:, col]),
+            color=color,
+            timestamps=timestamps,
+            labelname=f"{label} (deg)",
+        )

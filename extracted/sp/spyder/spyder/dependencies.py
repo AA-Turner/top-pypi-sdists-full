@@ -34,9 +34,8 @@ PLUGIN = 'spyder plugins'
 AIOHTTP_REQVER = '>=3.11.2'
 APPLAUNCHSERVICES_REQVER = '>=0.3.0'
 ASYNCSSH_REQVER = '>=2.14.0,<3.0.0'
-ATOMICWRITES_REQVER = '>=1.2.0'
 BCRYPT_REQVER = ">=4.3.0"
-CHARDET_REQVER = '>=2.0.0'
+CHARDET_REQVER = '>=5.2.0,<8.0.0'
 CLOUDPICKLE_REQVER = '>=0.5.0'
 COOKIECUTTER_REQVER = '>=1.6.0'
 DIFF_MATCH_PATCH_REQVER = '>=20181111'
@@ -70,11 +69,11 @@ PYZMQ_REQVER = '>=24.0.0'
 QDARKSTYLE_REQVER = '>=3.2.0,<3.3.0'
 QSTYLIZER_REQVER = '>=0.2.2'
 QTAWESOME_REQVER = '>=1.4.1,<1.5.0'
-QTCONSOLE_REQVER = '>=5.7.1,<5.8.0'
+QTCONSOLE_REQVER = '>=5.7.2,<5.8.0'
 QTPY_REQVER = '>=2.4.0'
 RTREE_REQVER = '>=0.9.7'
 SPHINX_REQVER = '>=7.2.0'
-SPYDER_KERNELS_REQVER = '>=3.1.3,<3.2.0'
+SPYDER_KERNELS_REQVER = '>=3.1.4,<3.2.0'
 SUPERQT_REQVER = '>=0.6.2,<1.0.0'
 TEXTDISTANCE_REQVER = '>=4.2.0'
 THREE_MERGE_REQVER = '>=0.1.1'
@@ -111,10 +110,6 @@ DESCRIPTIONS = [
      'package_name': 'asyncssh',
      'features': _('Connect to remote kernels through SSH'),
      'required_version': ASYNCSSH_REQVER},
-    {'modname': "atomicwrites",
-     'package_name': "atomicwrites",
-     'features': _("Atomic file writes in the Editor"),
-     'required_version': ATOMICWRITES_REQVER},
     {'modname': "bcrypt",
      'package_name': "bcrypt",
      'features': _("Decrypt passphrase of SSH key files"),

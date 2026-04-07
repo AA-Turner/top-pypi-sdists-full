@@ -133,24 +133,49 @@ class IndexDeploymentRequest(_message.Message):
         "dry_run",
         "shadow_force_venv_rebuild",
         "shadow_skip_handle_conversion_errors",
+        "shadow",
     )
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DRY_RUN_FIELD_NUMBER: _ClassVar[int]
     SHADOW_FORCE_VENV_REBUILD_FIELD_NUMBER: _ClassVar[int]
     SHADOW_SKIP_HANDLE_CONVERSION_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    SHADOW_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     dry_run: bool
     shadow_force_venv_rebuild: bool
     shadow_skip_handle_conversion_errors: bool
+    shadow: bool
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
         dry_run: bool = ...,
         shadow_force_venv_rebuild: bool = ...,
         shadow_skip_handle_conversion_errors: bool = ...,
+        shadow: bool = ...,
     ) -> None: ...
 
 class IndexDeploymentResponse(_message.Message):
+    __slots__ = ("build_id",)
+    BUILD_ID_FIELD_NUMBER: _ClassVar[int]
+    build_id: str
+    def __init__(self, build_id: _Optional[str] = ...) -> None: ...
+
+class StartShadowBuildFromDeploymentRequest(_message.Message):
+    __slots__ = ("existing_deployment_id", "force_venv_rebuild", "skip_handle_conversion_errors")
+    EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    FORCE_VENV_REBUILD_FIELD_NUMBER: _ClassVar[int]
+    SKIP_HANDLE_CONVERSION_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    existing_deployment_id: str
+    force_venv_rebuild: bool
+    skip_handle_conversion_errors: bool
+    def __init__(
+        self,
+        existing_deployment_id: _Optional[str] = ...,
+        force_venv_rebuild: bool = ...,
+        skip_handle_conversion_errors: bool = ...,
+    ) -> None: ...
+
+class StartShadowBuildFromDeploymentResponse(_message.Message):
     __slots__ = ("build_id",)
     BUILD_ID_FIELD_NUMBER: _ClassVar[int]
     build_id: str

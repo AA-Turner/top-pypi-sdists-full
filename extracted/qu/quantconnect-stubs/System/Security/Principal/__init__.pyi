@@ -37,6 +37,16 @@ class IPrincipal(metaclass=abc.ABCMeta):
         ...
 
 
+class PrincipalPolicy(IntEnum):
+    """This class has no documentation."""
+
+    UNAUTHENTICATED_PRINCIPAL = 0
+
+    NO_PRINCIPAL = 1
+
+    WINDOWS_PRINCIPAL = 2
+
+
 class TokenImpersonationLevel(IntEnum):
     """This class has no documentation."""
 
@@ -49,15 +59,5 @@ class TokenImpersonationLevel(IntEnum):
     IMPERSONATION = 3
 
     DELEGATION = 4
-
-
-class PrincipalPolicy(IntEnum):
-    """This class has no documentation."""
-
-    UNAUTHENTICATED_PRINCIPAL = 0
-
-    NO_PRINCIPAL = 1
-
-    WINDOWS_PRINCIPAL = 2
 
 

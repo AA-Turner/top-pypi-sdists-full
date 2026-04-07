@@ -2,50 +2,116 @@
 
 from __future__ import annotations
 
-from typing import Literal, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
-import pydantic.v1 as pd
+from pydantic import Field
 
 from tidy3d.components.base import cached_property
 from tidy3d.components.data.data_array import EMEScalarFieldDataArray, EMESMatrixDataArray
-from tidy3d.components.data.monitor_data import FieldData, ModeData, ModeSolverData
+from tidy3d.components.data.monitor_data import ModeData, ModeSolverData
 from tidy3d.components.data.sim_data import AbstractYeeGridSimulationData
 from tidy3d.components.eme.simulation import EMESimulation
 from tidy3d.components.geometry.base import Box
-from tidy3d.components.types import annotate_type
+from tidy3d.components.types.base import discriminated_union
 from tidy3d.exceptions import SetupError
 from tidy3d.log import log
 
 from .dataset import EMECoefficientDataset, EMESMatrixDataset
-from .monitor_data import EMEFieldData, EMEModeSolverData, EMEMonitorDataType
+from .monitor_data import EMECoefficientData, EMEModeSolverData, EMEMonitorDataType
+
+if TYPE_CHECKING:
+    from typing import Literal
+
+    from tidy3d.components.data.monitor_data import FieldData
+
+    from .monitor_data import EMEFieldData
 
 
 class EMESimulationData(AbstractYeeGridSimulationData):
-    """Data associated with an EME simulation."""
+    """Data associated with an EME simulation.
 
-    simulation: EMESimulation = pd.Field(
-        ..., title="EME simulation", description="EME simulation associated with this data."
+    Notes
+    -----
+        Contains the results of an :class:`.EMESimulation`, including the scattering matrix
+        (``smatrix``), port modes (``port_modes``), mode coefficients (``coeffs``), and any
+        monitor data recorded during the simulation.
+
+        The scattering matrix is expressed in the basis of the port modes. Use
+        :meth:`smatrix_in_basis` to re-express it in a different modal basis, for example
+        to compute transmission into a specific mode of an output waveguide. Similarly,
+        use :meth:`field_in_basis` to re-express the propagated field.
+
+        **Accessing Results**
+
+        Fundamental-mode transmission and reflection:
+
+        .. code-block:: python
+
+            T = sim_data.smatrix.S21.isel(mode_index_in=0, mode_index_out=0).abs ** 2
+            R = sim_data.smatrix.S11.isel(mode_index_in=0, mode_index_out=0).abs ** 2
+
+        Monitor data recorded by an :class:`.EMEFieldMonitor` or :class:`.EMECoefficientMonitor`
+        can be accessed by name:
+
+        .. code-block:: python
+
+            field_data = sim_data["field_monitor_name"]
+
+        To express the scattering matrix in a custom modal basis (e.g., modes of individual
+        output waveguides), add an :class:`.EMEModeSolverMonitor` at the output port and use
+        :meth:`smatrix_in_basis`:
+
+        .. code-block:: python
+
+            smatrix_custom = sim_data.smatrix_in_basis(modes2=sim_data["output_monitor"])
+
+    See Also
+    --------
+        :class:`.EMESimulation` :
+            The simulation object that produces this data.
+        :class:`.EMESMatrixDataset` :
+            The scattering matrix dataset.
+
+    Example
+    -------
+    >>> import tidy3d as td
+    >>> sim = td.EMESimulation(
+    ...     size=(2, 2, 6),
+    ...     freqs=[2e14],
+    ...     axis=2,
+    ...     eme_grid_spec=td.EMEUniformGrid(
+    ...         num_cells=3, mode_spec=td.EMEModeSpec(num_modes=2)
+    ...     ),
+    ...     grid_spec=td.GridSpec.auto(wavelength=1.55),
+    ... )
+    >>> sim_data = EMESimulationData(simulation=sim, data=())
+    """
+
+    simulation: EMESimulation = Field(
+        title="EME simulation",
+        description="EME simulation associated with this data.",
     )
 
-    data: tuple[annotate_type(EMEMonitorDataType), ...] = pd.Field(
-        ...,
+    data: tuple[discriminated_union(EMEMonitorDataType), ...] = Field(
         title="Monitor Data",
         description="List of EME monitor data "
         "associated with the monitors of the original :class:`.EMESimulation`.",
     )
 
-    smatrix: Optional[EMESMatrixDataset] = pd.Field(
-        None, title="S Matrix", description="Scattering matrix of the EME simulation."
+    smatrix: Optional[EMESMatrixDataset] = Field(
+        None,
+        title="S Matrix",
+        description="Scattering matrix of the EME simulation.",
     )
 
-    coeffs: Optional[EMECoefficientDataset] = pd.Field(
+    coeffs: Optional[Union[EMECoefficientData, EMECoefficientDataset]] = Field(
         None,
         title="Coefficients",
         description="Coefficients from the EME simulation. Useful for debugging and optimization.",
     )
 
-    port_modes_raw: Optional[EMEModeSolverData] = pd.Field(
+    port_modes_raw: Optional[EMEModeSolverData] = Field(
         None,
         title="Port Modes",
         description="Modes associated with the two ports of the EME device. "
@@ -54,7 +120,7 @@ class EMESimulationData(AbstractYeeGridSimulationData):
     )
 
     @cached_property
-    def port_modes(self):
+    def port_modes(self) -> Optional[EMEModeSolverData]:
         """Modes associated with the two ports of the EME device.
         The scattering matrix is expressed in this basis.
         Note: these modes are symmetry expanded."""
@@ -128,7 +194,15 @@ class EMESimulationData(AbstractYeeGridSimulationData):
 
     @cached_property
     def port_modes_tuple(self) -> tuple[ModeSolverData, ModeSolverData]:
-        """Port modes as a tuple ``(port_modes_1, port_modes_2)``."""
+        """Port modes as a tuple ``(port_modes_1, port_modes_2)``.
+
+        Returns
+        -------
+        tuple[:class:`.ModeSolverData`, :class:`.ModeSolverData`]
+            A pair of :class:`.ModeSolverData` for port 1 and port 2, respectively.
+            Raises :class:`.SetupError` if ``store_port_modes`` was not enabled,
+            or if port modes vary with sweep index (use :attr:`port_modes_list_sweep` instead).
+        """
         if self.port_modes is None:
             raise SetupError(
                 "The field 'port_modes' is 'None'. Please set 'store_port_modes' "
@@ -151,8 +225,15 @@ class EMESimulationData(AbstractYeeGridSimulationData):
 
     @cached_property
     def port_modes_list_sweep(self) -> list[tuple[ModeSolverData, ModeSolverData]]:
-        """Port modes as a list of tuples ``(port_modes_1, port_modes_2)``.
-        There is one entry for every sweep index if the port modes vary with sweep index."""
+        """Port modes as a list of tuples, one per sweep index.
+
+        Returns
+        -------
+        list[tuple[:class:`.ModeSolverData`, :class:`.ModeSolverData`]]
+            A list with one ``(port_modes_1, port_modes_2)`` tuple per sweep index.
+            If the sweep does not change the modes (e.g. :class:`.EMELengthSweep`),
+            the list contains a single entry.
+        """
         if self.port_modes is None:
             raise SetupError(
                 "The field 'port_modes' is 'None'. Please set 'store_port_modes' "
@@ -189,9 +270,9 @@ class EMESimulationData(AbstractYeeGridSimulationData):
         Parameters
         ----------
         modes1: Union[FieldData, ModeData]
-            New modal basis for port 1. If None, use port_modes.
+            New modal basis for port 1. If ``None``, use ``port_modes``.
         modes2: Union[FieldData, ModeData]
-            New modal basis for port 2. If None, use port_modes.
+            New modal basis for port 2. If ``None``, use ``port_modes``.
 
         Returns
         -------
@@ -199,6 +280,31 @@ class EMESimulationData(AbstractYeeGridSimulationData):
             The scattering matrix of the EME simulation, but expressed in the basis
             of the provided modes, rather than in the basis of ``port_modes`` used
             in computation.
+
+        Notes
+        -----
+        This is useful when the computational port modes do not match the modes of
+        interest.  For example, in a waveguide splitter the output port spans multiple
+        waveguides, so the EME port modes are super-modes of the combined structure.
+        To obtain the scattering matrix in the basis of individual waveguide modes,
+        place an :class:`.EMEModeSolverMonitor` over each output waveguide and pass
+        the resulting data here.
+
+        ``store_port_modes`` must be ``True`` in the :class:`.EMESimulation` for this
+        method to work.
+
+        Typical workflow:
+
+        .. code-block:: python
+
+            # 1. Add a monitor over the output waveguide(s)
+            output_mon = td.EMEModeSolverMonitor(
+                size=output_size, center=output_center, name="output", ...
+            )
+
+            # 2. After running, re-express the S-matrix
+            smatrix_custom = sim_data.smatrix_in_basis(modes2=sim_data["output"])
+            T_custom = smatrix_custom.S21.isel(mode_index_in=0, mode_index_out=0).abs ** 2
         """
 
         if self.port_modes is None:
@@ -421,7 +527,7 @@ class EMESimulationData(AbstractYeeGridSimulationData):
         Returns
         -------
         :class:`.EMEFieldData`
-            The propagated electromagnetic fied expressed in the basis
+            The propagated electromagnetic field expressed in the basis
             of the provided modes, rather than in the basis of ``port_modes`` used
             in computation.
         """
@@ -522,4 +628,4 @@ class EMESimulationData(AbstractYeeGridSimulationData):
             if not sweep_in_field:
                 new_fields[field_key] = new_fields[field_key].drop_vars("sweep_index")
 
-        return field.updated_copy(**new_fields)
+        return field.updated_copy(**new_fields, deep=False)

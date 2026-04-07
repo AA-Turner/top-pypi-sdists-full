@@ -1214,6 +1214,7 @@ class ConnectionModelType(pycarlo.lib.types.Enum):
     * `LOOKER_GIT`None
     * `LOOKER_GIT_CLONE`None
     * `LOOKER_GIT_SSH`None
+    * `MICROSOFT_FABRIC`None
     * `MSK_KAFKA`None
     * `MSK_KAFKA_CONNECT`None
     * `MYSQL`None
@@ -1265,6 +1266,7 @@ class ConnectionModelType(pycarlo.lib.types.Enum):
         "LOOKER_GIT",
         "LOOKER_GIT_CLONE",
         "LOOKER_GIT_SSH",
+        "MICROSOFT_FABRIC",
         "MSK_KAFKA",
         "MSK_KAFKA_CONNECT",
         "MYSQL",
@@ -1299,6 +1301,7 @@ class ConnectionSubtypeEnum(pycarlo.lib.types.Enum):
     * `DB2`None
     * `DREMIO`None
     * `MARIADB`None
+    * `MICROSOFT_FABRIC`None
     * `MOTHERDUCK`None
     * `MYSQL`None
     * `ORACLE`None
@@ -1320,6 +1323,7 @@ class ConnectionSubtypeEnum(pycarlo.lib.types.Enum):
         "DB2",
         "DREMIO",
         "MARIADB",
+        "MICROSOFT_FABRIC",
         "MOTHERDUCK",
         "MYSQL",
         "ORACLE",
@@ -1362,6 +1366,7 @@ class ConnectionTypeEnum(pycarlo.lib.types.Enum):
     * `LOOKER_GIT`None
     * `LOOKER_GIT_CLONE`None
     * `LOOKER_GIT_SSH`None
+    * `MICROSOFT_FABRIC`None
     * `MSK_KAFKA`None
     * `MSK_KAFKA_CONNECT`None
     * `MYSQL`None
@@ -1413,6 +1418,7 @@ class ConnectionTypeEnum(pycarlo.lib.types.Enum):
         "LOOKER_GIT",
         "LOOKER_GIT_CLONE",
         "LOOKER_GIT_SSH",
+        "MICROSOFT_FABRIC",
         "MSK_KAFKA",
         "MSK_KAFKA_CONNECT",
         "MYSQL",
@@ -6634,6 +6640,7 @@ class WarehouseModelConnectionType(pycarlo.lib.types.Enum):
     * `DB2`: Db2
     * `DREMIO`: Dremio
     * `ETL`: etl
+    * `MICROSOFT_FABRIC`: Microsoft Fabric
     * `MYSQL`: MySQL
     * `ORACLE`: Oracle
     * `PINECONE`: Pinecone
@@ -6656,6 +6663,7 @@ class WarehouseModelConnectionType(pycarlo.lib.types.Enum):
         "DB2",
         "DREMIO",
         "ETL",
+        "MICROSOFT_FABRIC",
         "MYSQL",
         "ORACLE",
         "PINECONE",
@@ -11909,7 +11917,14 @@ class ToggleTableInputItem(sgqlc.types.Input):
 
 class TopQueryGroupsRequestType(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("search_criteria", "first", "offset", "sort_field", "metric_field_name")
+    __field_names__ = (
+        "search_criteria",
+        "first",
+        "offset",
+        "sort_field",
+        "metric_field_name",
+        "included_query_types",
+    )
     search_criteria = sgqlc.types.Field(
         sgqlc.types.non_null(SearchCriteriaType), graphql_name="searchCriteria"
     )
@@ -11921,6 +11936,13 @@ class TopQueryGroupsRequestType(sgqlc.types.Input):
     sort_field = sgqlc.types.Field(String, graphql_name="sortField")
 
     metric_field_name = sgqlc.types.Field(String, graphql_name="metricFieldName")
+
+    included_query_types = sgqlc.types.Field(
+        sgqlc.types.list_of(QueryLogType), graphql_name="includedQueryTypes"
+    )
+    """Query log types to include. Options are [READ], [WRITE], or [READ,
+    WRITE]. Defaults to [WRITE].
+    """
 
 
 class TraceFilterDataRequest(sgqlc.types.Input):
@@ -12104,6 +12126,9 @@ class TransactionalDbConnectionDetails(sgqlc.types.Input):
         "connection_settings",
         "domain",
         "dataspaces",
+        "tenant_id",
+        "client_id",
+        "client_secret",
     )
     db_name = sgqlc.types.Field(String, graphql_name="dbName")
     """Name of database to add connection for"""
@@ -12145,6 +12170,15 @@ class TransactionalDbConnectionDetails(sgqlc.types.Input):
     connections.
     """
 
+    tenant_id = sgqlc.types.Field(String, graphql_name="tenantId")
+    """Tenant ID for Azure Service Principal auth"""
+
+    client_id = sgqlc.types.Field(String, graphql_name="clientId")
+    """Client ID for Azure Service Principal auth"""
+
+    client_secret = sgqlc.types.Field(String, graphql_name="clientSecret")
+    """Client Secret for Azure Service Principal auth"""
+
 
 class TransactionalDbConnectionSettings(sgqlc.types.Input):
     __schema__ = schema
@@ -12183,6 +12217,9 @@ class TransactionalDbUpdateConnectionDetails(sgqlc.types.Input):
         "consumer_secret",
         "domain",
         "dataspaces",
+        "tenant_id",
+        "client_id",
+        "client_secret",
         "connection_settings",
         "ssl_options",
     )
@@ -12220,6 +12257,15 @@ class TransactionalDbUpdateConnectionDetails(sgqlc.types.Input):
     """List of data space names to collect for Salesforce Data Cloud
     connections.
     """
+
+    tenant_id = sgqlc.types.Field(String, graphql_name="tenantId")
+    """Tenant ID for Azure Service Principal auth"""
+
+    client_id = sgqlc.types.Field(String, graphql_name="clientId")
+    """Client ID for Azure Service Principal auth"""
+
+    client_secret = sgqlc.types.Field(String, graphql_name="clientSecret")
+    """Client Secret for Azure Service Principal auth"""
 
     connection_settings = sgqlc.types.Field(
         "TransactionalDbUpdateConnectionSettings", graphql_name="connectionSettings"
@@ -18469,6 +18515,15 @@ class CleanupCollectorRecordInAccount(sgqlc.types.Type):
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """If the collector record was deleted"""
+
+
+class ClearBootstrapMemoryData(sgqlc.types.Type):
+    """Clear only bootstrap-sourced memories for the caller's account."""
+
+    __schema__ = schema
+    __field_names__ = ("ok",)
+    ok = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="ok")
+    """True if bootstrap memories were cleared successfully."""
 
 
 class ClearMemoryData(sgqlc.types.Type):
@@ -31739,6 +31794,7 @@ class Mutation(sgqlc.types.Type):
         "extract_memory_data",
         "ingest_memory_data",
         "clear_memory_data",
+        "clear_bootstrap_memory_data",
         "create_datadog_integration",
         "update_datadog_integration",
         "delete_datadog_integration",
@@ -33306,6 +33362,13 @@ class Mutation(sgqlc.types.Type):
     clear_memory_data = sgqlc.types.Field(ClearMemoryData, graphql_name="clearMemoryData")
     """(experimental) Clear all ingested memory data for the caller's
     account
+    """
+
+    clear_bootstrap_memory_data = sgqlc.types.Field(
+        ClearBootstrapMemoryData, graphql_name="clearBootstrapMemoryData"
+    )
+    """(experimental) Clear only bootstrap-sourced memories for the
+    caller's account
     """
 
     create_datadog_integration = sgqlc.types.Field(
@@ -72666,7 +72729,7 @@ class Query(sgqlc.types.Type):
                 ),
                 (
                     "is_service_api_token",
-                    sgqlc.types.Arg(Boolean, graphql_name="isServiceApiToken", default=False),
+                    sgqlc.types.Arg(Boolean, graphql_name="isServiceApiToken", default=None),
                 ),
             )
         ),
@@ -72677,8 +72740,9 @@ class Query(sgqlc.types.Type):
 
     * `index` (`AccessKeyIndexEnum!`): Specifies which metadata index
       to use
-    * `is_service_api_token` (`Boolean`): Filter by token type.
-      (default: `false`)
+    * `is_service_api_token` (`Boolean`): Filter by token type. If not
+      provided, returns all token types the caller is authorized to
+      see.
     """
 
     get_integration_keys = sgqlc.types.Field(
@@ -74968,6 +75032,8 @@ class QueryGroupSummaryType(sgqlc.types.Type):
         "warehouse_uuid",
         "destination",
         "destination_mcon",
+        "sources",
+        "sources_mcons",
         "displayable_field_values",
     )
     query_group_field = sgqlc.types.Field(
@@ -75002,6 +75068,19 @@ class QueryGroupSummaryType(sgqlc.types.Type):
     destination = sgqlc.types.Field(String, graphql_name="destination")
 
     destination_mcon = sgqlc.types.Field(String, graphql_name="destinationMcon")
+
+    sources = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="sources"
+    )
+    """Source tables read by this query group. Only populated for READ
+    queries.
+    """
+
+    sources_mcons = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="sourcesMcons")
+    """MCONs for the source tables, positionally aligned with sources.
+    Null entries indicate unresolved MCONs. Only populated for READ
+    queries.
+    """
 
     displayable_field_values = sgqlc.types.Field(
         sgqlc.types.list_of(DisplayableFieldValueType), graphql_name="displayableFieldValues"

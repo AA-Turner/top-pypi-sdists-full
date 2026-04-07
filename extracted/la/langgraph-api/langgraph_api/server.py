@@ -40,10 +40,12 @@ from langgraph_api.api.openapi import set_custom_spec
 from langgraph_api.errors import (
     http_exception_handler,
     overloaded_error_handler,
+    remote_exception_handler,
     validation_error_handler,
     value_error_handler,
 )
 from langgraph_api.js.base import is_js_path
+from langgraph_api.js.errors import RemoteException
 from langgraph_api.middleware.ensure_store import EnsureStoreAccessible
 from langgraph_api.middleware.http_logger import AccessLoggerMiddleware
 from langgraph_api.middleware.private_network import PrivateNetworkMiddleware
@@ -102,6 +104,7 @@ exception_handlers = {
     InvalidUpdateError: value_error_handler,
     EmptyInputError: value_error_handler,
     jsonschema_rs.ValidationError: validation_error_handler,
+    RemoteException: remote_exception_handler,
 } | {exc: overloaded_error_handler for exc in OVERLOADED_EXCEPTIONS}
 
 

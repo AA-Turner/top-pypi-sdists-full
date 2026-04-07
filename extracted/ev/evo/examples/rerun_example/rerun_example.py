@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Playground for feeding evo data into rerun,
+Playground for feeding evo data into Rerun,
 with sample data from the EuRoC MAV dataset.
 
-While evo is geared towards batch-processing, we can use rerun's column API
+While evo is geared towards batch-processing, we can use Rerun's column API
 to replay and visualize that data over time.
 
 - pip install rerun-sdk
@@ -67,7 +67,13 @@ def configure_blueprint() -> rrb.BlueprintLike:
         rrb.Grid(
             contents=[
                 rrb.Spatial3DView(time_ranges=time_range),
-                rrb.TimeSeriesView(time_ranges=time_range),
+                rrb.Grid(
+                    contents=[
+                        rrb.TimeSeriesView(time_ranges=time_range),
+                        rrb.BarChartView(origin="/error"),
+                    ],
+                    column_shares=[1, 1],
+                ),
             ],
             column_shares=[2, 1],
         ),
@@ -83,40 +89,46 @@ def run_demo() -> None:
     rr.init("evo_rerun_example", spawn=True)
     rr.send_blueprint(configure_blueprint())
 
-    print("Logging scalars for the error plot.")
+    print("Sending scalars for the error plot.")
     ape.change_unit(metrics.Unit.centimeters)
-    revo.log_scalars(
+    revo.send_scalars(
         "/error/scalars",
         ape.error,
-        estimate.timestamps,
+        timestamps=estimate.timestamps,
         color=revo.Color(static=to_rgba("red")),
         labelname=str(ape),
     )
 
-    print("Logging 3D trajectory visualization data.")
-    revo.log_transforms("/groundtruth/transforms", groundtruth, AXIS_LENGTH)
-    revo.log_transforms("/estimate/transforms", estimate, AXIS_LENGTH)
+    print("Sending statistics bar chart.")
+    revo.send_statistics_bar_chart(
+        "/error/statistics",
+        ape.get_all_statistics(),
+    )
 
-    revo.log_points(
+    print("Sending 3D trajectory visualization data.")
+    revo.send_transforms("/groundtruth/transforms", groundtruth, AXIS_LENGTH)
+    revo.send_transforms("/estimate/transforms", estimate, AXIS_LENGTH)
+
+    revo.send_points(
         "/groundtruth/points",
         groundtruth,
         POINT_RADIUS,
         revo.Color(static=to_rgba("grey")),
     )
-    revo.log_points(
+    revo.send_points(
         "/estimate/points",
         estimate,
         POINT_RADIUS,
         revo.Color(static=to_rgba("orange")),
     )
 
-    revo.log_line_strips(
+    revo.send_line_strips(
         "/groundtruth/lines",
         groundtruth,
         LINE_STRIP_RADIUS,
         revo.Color(static=to_rgba("grey")),
     )
-    revo.log_line_strips(
+    revo.send_line_strips(
         "/estimate/lines",
         estimate,
         LINE_STRIP_RADIUS,
@@ -124,9 +136,9 @@ def run_demo() -> None:
     )
 
     print(
-        "Logging pose correspondence lines colormapped by the error magnitude."
+        "Sending pose correspondence lines colormapped by the error magnitude."
     )
-    revo.log_correspondence_strips(
+    revo.send_correspondence_strips(
         "/error/correspondences",
         estimate,
         groundtruth,
@@ -134,7 +146,7 @@ def run_demo() -> None:
         color=revo.Color(sequential=revo.mapped_colors("jet", ape.error)),
     )
 
-    print("Done, use the rerun viewer window to view and replay the data.")
+    print("Done, use the Rerun viewer window to view and replay the data.")
 
 
 if __name__ == "__main__":

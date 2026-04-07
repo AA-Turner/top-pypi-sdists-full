@@ -604,7 +604,11 @@ impl<'a> BindingsBuilder<'a> {
                                 if let Some((arg_name, members)) =
                                     call.arguments.args.split_first_mut()
                                 {
-                                    self.check_functional_definition_name(&name.id, arg_name);
+                                    self.check_functional_definition_name(
+                                        &name.id,
+                                        arg_name,
+                                        ErrorKind::NameMismatch,
+                                    );
                                     let adjacent_defaults =
                                         self.adjacent_namedtuple_defaults.take();
                                     self.synthesize_typing_named_tuple_def(
@@ -622,7 +626,11 @@ impl<'a> BindingsBuilder<'a> {
                                 if let Some((arg_name, members)) =
                                     call.arguments.args.split_first_mut()
                                 {
-                                    self.check_functional_definition_name(&name.id, arg_name);
+                                    self.check_functional_definition_name(
+                                        &name.id,
+                                        arg_name,
+                                        ErrorKind::NameMismatch,
+                                    );
                                     let adjacent_defaults =
                                         self.adjacent_namedtuple_defaults.take();
                                     self.synthesize_collections_named_tuple_def(
@@ -1019,6 +1027,13 @@ impl<'a> BindingsBuilder<'a> {
                     // Only process elif/else tests here, inside the branch.
                     if !is_first_branch {
                         self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing(None));
+                        // Lift walrus-defined names from the elif condition into the
+                        // fork's base flow. The elif condition always executes when
+                        // control reaches past the preceding branch, so any walrus
+                        // bindings must be visible after the if/elif block.
+                        if test.is_some() {
+                            self.scopes.propagate_new_flow_entries_to_fork_base();
+                        }
                     }
                     is_first_branch = false;
                     let new_narrow_ops = if this_branch_chosen == Some(false) {
@@ -1386,9 +1401,10 @@ impl<'a> BindingsBuilder<'a> {
 
     fn bind_module_exports(&mut self, x: StmtImportFrom, m: ModuleName) {
         for x in x.names {
-            if &x.name == "*"
-                && let Some(wildcards) = self.lookup.get_wildcard(m)
-            {
+            if &x.name == "*" {
+                let Some(wildcards) = self.lookup.get_wildcard(m) else {
+                    continue;
+                };
                 for name in wildcards.iter_hashed() {
                     let key = Key::Import(Box::new((name.into_key().clone(), x.range)));
                     let val = if self.lookup.export_exists(m, &name) {
@@ -1450,7 +1466,8 @@ impl<'a> BindingsBuilder<'a> {
                         FindingOrError::Finding(finding) => (true, finding.error),
                         FindingOrError::Error(error) => (false, Some(error)),
                     };
-                    let is_not_found = error.is_some_and(|e| matches!(e, FindError::NotFound(..)));
+                    let is_not_found =
+                        error.is_some_and(|e| matches!(e, FindError::MissingImport(..)));
                     if finding {
                         Binding::Module(Box::new((
                             x_as_module_name,

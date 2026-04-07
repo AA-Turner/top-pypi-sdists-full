@@ -245,13 +245,13 @@ __all__ = [
 """
 
 
-__version__ = "7.10.0"
+__version__ = "7.10.1"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "4f6539db1e49c3da8a7ff1adad4a28db3a605216"
+__git_tag_sha__ = "3d7ce0726cd308c71fbcec4b1876c73eb5918110"
 
 
 def __getattr__(name: str) -> object:

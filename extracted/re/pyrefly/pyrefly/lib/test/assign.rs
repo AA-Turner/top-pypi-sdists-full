@@ -1002,3 +1002,44 @@ x = f()
 assert_type(x, Any)
 "#,
 );
+
+testcase!(
+    test_annotated_var_augassign_any,
+    r#"
+from typing import Any, assert_type
+
+def f() -> Any: ...
+
+x: int = 0
+x += f()
+assert_type(x, int)
+"#,
+);
+
+testcase!(
+    test_annotated_var_context_manager_any,
+    r#"
+from typing import Any, assert_type
+
+class CM:
+    def __enter__(self) -> Any: ...
+    def __exit__(self, *args: Any) -> None: ...
+
+x: int
+with CM() as x:
+    assert_type(x, int)
+"#,
+);
+
+testcase!(
+    test_annotated_var_for_loop_any,
+    r#"
+from typing import Any, assert_type
+
+xs: list[Any] = []
+
+y: int
+for y in xs:
+    assert_type(y, int)
+"#,
+);

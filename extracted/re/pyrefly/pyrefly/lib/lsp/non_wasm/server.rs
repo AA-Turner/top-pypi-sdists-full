@@ -43,6 +43,9 @@ use lsp_types::CodeActionParams;
 use lsp_types::CodeActionProviderCapability;
 use lsp_types::CodeActionResponse;
 use lsp_types::CodeActionTriggerKind;
+use lsp_types::CodeLens;
+use lsp_types::CodeLensOptions;
+use lsp_types::CodeLensParams;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionList;
 use lsp_types::CompletionOptions;
@@ -154,6 +157,7 @@ use lsp_types::request::CallHierarchyIncomingCalls;
 use lsp_types::request::CallHierarchyOutgoingCalls;
 use lsp_types::request::CallHierarchyPrepare;
 use lsp_types::request::CodeActionRequest;
+use lsp_types::request::CodeLensRequest;
 use lsp_types::request::Completion;
 use lsp_types::request::DocumentDiagnosticRequest;
 use lsp_types::request::DocumentHighlightRequest;
@@ -256,6 +260,7 @@ use crate::lsp::non_wasm::call_hierarchy::find_function_at_position_in_ast;
 use crate::lsp::non_wasm::call_hierarchy::prepare_call_hierarchy_item;
 use crate::lsp::non_wasm::call_hierarchy::transform_incoming_calls;
 use crate::lsp::non_wasm::call_hierarchy::transform_outgoing_calls;
+use crate::lsp::non_wasm::code_lens::runnable_lsp_code_lens;
 use crate::lsp::non_wasm::convert_module_package::convert_module_package_code_actions;
 use crate::lsp::non_wasm::external_provider::ExternalProvider;
 use crate::lsp::non_wasm::external_provider::compute_qualified_name;
@@ -282,6 +287,7 @@ use crate::lsp::non_wasm::queue::LspEvent;
 use crate::lsp::non_wasm::queue::LspQueue;
 use crate::lsp::non_wasm::safe_delete_file::safe_delete_file_code_action;
 use crate::lsp::non_wasm::stdlib::is_python_stdlib_file;
+use crate::lsp::non_wasm::stdlib::no_config_severity_override;
 use crate::lsp::non_wasm::stdlib::should_show_error_for_display_mode;
 use crate::lsp::non_wasm::stdlib::should_show_stdlib_error;
 use crate::lsp::non_wasm::transaction_manager::TransactionManager;
@@ -1140,6 +1146,9 @@ pub fn capabilities(
             ]),
             ..Default::default()
         })),
+        code_lens_provider: Some(CodeLensOptions {
+            resolve_provider: Some(false),
+        }),
         completion_provider: Some(CompletionOptions {
             trigger_characters: Some(vec![".".to_owned(), "'".to_owned(), "\"".to_owned()]),
             resolve_provider: Some(true),
@@ -2072,6 +2081,18 @@ impl Server {
                         };
                         self.send_response(new_response(x.id, Ok(response)));
                     }
+                } else if let Some(params) = as_request::<CodeLensRequest>(&x) {
+                    if let Some(params) = self
+                        .extract_request_params_or_send_err_response::<CodeLensRequest>(
+                            params, &x.id,
+                        )
+                    {
+                        self.set_file_stats(params.text_document.uri.clone(), telemetry_event);
+                        self.send_response(new_response(
+                            x.id,
+                            Ok(self.code_lens(&transaction, params).unwrap_or_default()),
+                        ));
+                    }
                 } else if let Some(params) = as_request::<SemanticTokensFullRequest>(&x) {
                     if let Some(params) = self
                         .extract_request_params_or_send_err_response::<SemanticTokensFullRequest>(
@@ -2484,6 +2505,24 @@ impl Server {
         telemetry.set_file_stats(TelemetryFileStats { uri, config_root });
     }
 
+    fn runnable_code_lens_cwd(&self, path: &std::path::Path) -> Option<String> {
+        let config = self.state.config_finder().python_file(
+            ModuleNameWithKind::guaranteed(ModuleName::unknown()),
+            &ModulePath::filesystem(path.to_path_buf()),
+        );
+        let cwd = config
+            .source
+            .root()
+            .map(std::path::Path::to_path_buf)
+            .or_else(|| {
+                self.workspaces
+                    .get_with(path.to_path_buf(), |(workspace_root, _)| {
+                        workspace_root.cloned()
+                    })
+            })?;
+        Some(cwd.to_string_lossy().into_owned())
+    }
+
     fn send_response(&self, x: Response) {
         self.connection.send(Message::Response(x))
     }
@@ -2566,6 +2605,17 @@ impl Server {
                 return None;
             }
 
+            // In NoConfigFile mode, downgrade certain error kinds to Warn severity
+            // so users without a config file see critical issues as warnings.
+            let overridden;
+            let e = match no_config_severity_override(e, type_error_status) {
+                Some(severity) => {
+                    overridden = e.with_severity(severity);
+                    &overridden
+                }
+                None => e,
+            };
+
             if let Some(lsp_file) = open_files.get(&path)
                 && config.project_includes.covers(&path)
                 && !config.project_excludes.covers(&path)
@@ -2635,9 +2685,9 @@ impl Server {
                 // In this case, we have a config file like mypy.ini, or a pyproject.toml
                 // with Python tool sections but no [tool.pyrefly]. We don't parse it for
                 // pyrefly config, so treat it as if we don't have any config.
-                ConfigSource::PythonToolMarker(_) | ConfigSource::Marker(_) => {
-                    TypeErrorDisplayStatus::NoConfigFile
-                }
+                ConfigSource::PythonToolMarker(_)
+                | ConfigSource::Marker(_)
+                | ConfigSource::FailedParse(_) => TypeErrorDisplayStatus::NoConfigFile,
                 // We actually have a pyrefly.toml, so we can decide based on the config.
                 ConfigSource::File(_) => {
                     if config.disable_type_errors_in_ide(path) {
@@ -4785,6 +4835,36 @@ impl Server {
             })
             .collect();
         Ok(Some(res))
+    }
+
+    fn code_lens(
+        &self,
+        transaction: &Transaction<'_>,
+        params: CodeLensParams,
+    ) -> Option<Vec<CodeLens>> {
+        let uri = &params.text_document.uri;
+        let path = self.path_for_uri(uri)?;
+        let runnable_code_lens = self
+            .workspaces
+            .get_with(path.clone(), |(_, workspace)| workspace.runnable_code_lens);
+        let maybe_cell_idx = self.maybe_get_cell_index(uri);
+        let handle = self
+            .make_handle_if_enabled(uri, Some(CodeLensRequest::METHOD))
+            .ok()?;
+        let info = transaction.get_module_info(&handle)?;
+        let entries = transaction.runnable_code_lens_entries(&handle, uri, runnable_code_lens)?;
+        let cwd = self.runnable_code_lens_cwd(&path);
+
+        let mut lenses = Vec::new();
+        for entry in entries {
+            if info.to_cell_for_lsp(entry.range.start()) != maybe_cell_idx {
+                continue;
+            }
+            let range = info.to_lsp_range(entry.range);
+            lenses.push(runnable_lsp_code_lens(uri, range, entry, cwd.as_deref()));
+        }
+
+        Some(lenses)
     }
 
     fn semantic_tokens_full(

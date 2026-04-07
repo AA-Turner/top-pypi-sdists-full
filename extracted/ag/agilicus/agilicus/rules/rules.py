@@ -1016,8 +1016,18 @@ def add_agilicus_default_has_resource_permission(
         [action],
         **kwargs,
     )
+    no_permission_rule_name = "default_no_permissions_deny"
+    add_always_match_condition_rule(
+        ctx, no_permission_rule_name, ["no_permissions"], True, **kwargs
+    )
     add_label(ctx, label=label, **kwargs)
-    add_rule_tree(ctx, name, children=[], rules=[name], **kwargs)
+    add_rule_tree(
+        ctx,
+        name,
+        children=[name, "default_expose_network", no_permission_rule_name],
+        rules=[],
+        **kwargs,
+    )
     add_ruleset(ctx, name, trees=[name], labels=[label], **kwargs)
 
 

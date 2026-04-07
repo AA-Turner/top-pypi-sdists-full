@@ -5,13 +5,17 @@ use chroma_blockstore::provider::BlockfileProvider;
 use chroma_error::ChromaError;
 use chroma_index::sparse::{reader::SparseReaderError, types::encode_u32};
 use chroma_segment::{
-    blockfile_metadata::{MetadataSegmentError, MetadataSegmentReader},
-    blockfile_record::{RecordSegmentReader, RecordSegmentReaderCreationError},
+    blockfile_metadata::{MetadataSegmentError, MetadataSegmentReaderShard},
+    blockfile_record::{
+        RecordSegmentReaderOptions, RecordSegmentReaderShard, RecordSegmentReaderShardCreationError,
+    },
+    bloom_filter::BloomFilterManager,
     types::{materialize_logs, LogMaterializerError},
 };
 use chroma_system::Operator;
 use chroma_types::{
-    MaterializedLogOperation, MetadataValue, Segment, SignedRoaringBitmap, SparseVector,
+    MaterializedLogOperation, MetadataValue, Segment, SegmentShard, SegmentShardError,
+    SignedRoaringBitmap, SparseVector,
 };
 use thiserror::Error;
 
@@ -37,6 +41,7 @@ pub struct IdfInput {
     pub mask: SignedRoaringBitmap,
     pub metadata_segment: Segment,
     pub record_segment: Segment,
+    pub bloom_filter_manager: Option<BloomFilterManager>,
 }
 
 #[derive(Clone, Debug)]
@@ -53,7 +58,9 @@ pub enum IdfError {
     #[error("Error creating metadata segment reader: {0}")]
     MetadataReader(#[from] MetadataSegmentError),
     #[error("Error creating record segment reader: {0}")]
-    RecordReader(#[from] RecordSegmentReaderCreationError),
+    RecordReader(#[from] RecordSegmentReaderShardCreationError),
+    #[error(transparent)]
+    SegmentShard(#[from] SegmentShardError),
     #[error("Error using sparse reader: {0}")]
     SparseReader(#[from] SparseReaderError),
     #[error("Query tokens length ({tokens}) does not match query indices length ({indices})")]
@@ -67,6 +74,7 @@ impl ChromaError for IdfError {
             IdfError::LogMaterializer(err) => err.code(),
             IdfError::MetadataReader(err) => err.code(),
             IdfError::RecordReader(err) => err.code(),
+            IdfError::SegmentShard(e) => e.code(),
             IdfError::SparseReader(err) => err.code(),
             IdfError::TokenLengthMismatch { .. } => chroma_error::ErrorCodes::InvalidArgument,
         }
@@ -83,9 +91,11 @@ impl Operator<IdfInput, IdfOutput> for Idf {
 
         // Create both segment readers in parallel since they are independent
         let record_segment_reader_fut = async {
-            match Box::pin(RecordSegmentReader::from_segment(
-                &input.record_segment,
+            let record_segment_shard = SegmentShard::try_from((&input.record_segment, 0))?;
+            match Box::pin(RecordSegmentReaderShard::from_segment(
+                &record_segment_shard,
                 &input.blockfile_provider,
+                input.bloom_filter_manager.clone(),
             ))
             .await
             {
@@ -93,16 +103,22 @@ impl Operator<IdfInput, IdfOutput> for Idf {
                     let count = reader.count().await?;
                     Ok((Some(reader), count))
                 }
-                Err(e) if matches!(*e, RecordSegmentReaderCreationError::UninitializedSegment) => {
+                Err(e)
+                    if matches!(
+                        *e,
+                        RecordSegmentReaderShardCreationError::UninitializedSegment
+                    ) =>
+                {
                     Ok((None, 0))
                 }
                 Err(e) => Err(IdfError::from(*e)),
             }
         };
 
+        let metadata_segment_shard = SegmentShard::try_from((&input.metadata_segment, 0))?;
         let metadata_segment_reader_fut = async {
-            Box::pin(MetadataSegmentReader::from_segment(
-                &input.metadata_segment,
+            Box::pin(MetadataSegmentReaderShard::from_segment(
+                &metadata_segment_shard,
                 &input.blockfile_provider,
             ))
             .await
@@ -113,7 +129,14 @@ impl Operator<IdfInput, IdfOutput> for Idf {
             tokio::try_join!(record_segment_reader_fut, metadata_segment_reader_fut)?;
         n += count;
 
-        let logs = materialize_logs(&record_segment_reader, input.logs.clone(), None).await?;
+        let plan = RecordSegmentReaderOptions {
+            use_bloom_filter: input
+                .bloom_filter_manager
+                .as_ref()
+                .is_some_and(|mgr| input.logs.len() >= mgr.storage_fetch_threshold()),
+        };
+        let logs =
+            materialize_logs(&record_segment_reader, input.logs.clone(), None, &plan).await?;
 
         if let Some(sparse_index_reader) = metadata_segment_reader.sparse_index_reader.as_ref() {
             let encoded_dimensions = self
@@ -298,6 +321,7 @@ mod tests {
             mask: SignedRoaringBitmap::full(),
             metadata_segment: test_segment.metadata_segment.clone(),
             record_segment: test_segment.record_segment.clone(),
+            bloom_filter_manager: None,
         };
 
         (test_segment, input)

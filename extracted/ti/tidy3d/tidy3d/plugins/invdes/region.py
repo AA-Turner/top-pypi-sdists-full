@@ -2,14 +2,13 @@
 from __future__ import annotations
 
 import abc
-import typing
 import warnings
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 import autograd.numpy as anp
 import numpy as np
-import pydantic.v1 as pd
 from autograd import elementwise_grad, grad
+from pydantic import Field, PositiveFloat, field_validator, model_validator
 
 import tidy3d as td
 from tidy3d.components.types import TYPE_TAG_STR, Coordinate, Size
@@ -20,34 +19,34 @@ from .initialization import InitializationSpecType, UniformInitializationSpec
 from .penalty import PenaltyType
 from .transformation import TransformationType
 
-# TODO: support auto handling of symmetry in parameters
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+    from tidy3d.compat import Self
+    from tidy3d.plugins.autograd.invdes.symmetries import MirrorSymmetry
 
 
 class DesignRegion(InvdesBaseModel, abc.ABC):
     """Base class for design regions in the ``invdes`` plugin."""
 
-    size: Size = pd.Field(
-        ...,
+    size: Size = Field(
         title="Size",
         description="Size in x, y, and z directions.",
-        units=td.constants.MICROMETER,
+        json_schema_extra={"units": td.constants.MICROMETER},
     )
 
-    center: Coordinate = pd.Field(
-        ...,
+    center: Coordinate = Field(
         title="Center",
         description="Center of object in x, y, and z.",
-        units=td.constants.MICROMETER,
+        json_schema_extra={"units": td.constants.MICROMETER},
     )
 
-    eps_bounds: tuple[float, float] = pd.Field(
-        ...,
-        ge=1.0,
+    eps_bounds: tuple[float, float] = Field(
         title="Relative Permittivity Bounds",
         description="Minimum and maximum relative permittivity expressed to the design region.",
     )
 
-    transformations: tuple[TransformationType, ...] = pd.Field(
+    transformations: tuple[TransformationType, ...] = Field(
         (),
         title="Transformations",
         description="Transformations that get applied from first to last on the parameter array."
@@ -57,7 +56,7 @@ class DesignRegion(InvdesBaseModel, abc.ABC):
         "Specific permittivity values given the density array are determined by ``eps_bounds``.",
     )
 
-    penalties: tuple[PenaltyType, ...] = pd.Field(
+    penalties: tuple[PenaltyType, ...] = Field(
         (),
         title="Penalties",
         description="Set of penalties that get evaluated on the material density. Note that the "
@@ -65,57 +64,82 @@ class DesignRegion(InvdesBaseModel, abc.ABC):
         "inside of the penalties directly through the ``.weight`` field.",
     )
 
-    initialization_spec: InitializationSpecType = pd.Field(
-        UniformInitializationSpec(value=0.5),
+    initialization_spec: InitializationSpecType = Field(
+        default_factory=lambda: UniformInitializationSpec(value=0.5),
         title="Initialization Specification",
         description="Specification of how to initialize the parameters in the design region.",
         discriminator=TYPE_TAG_STR,
     )
 
-    def _post_init_validators(self) -> None:
-        """Automatically call any `_validate_XXX` method."""
-        for attr_name in dir(self):
-            if attr_name.startswith("_validate") and callable(getattr(self, attr_name)):
-                getattr(self, attr_name)()
+    @field_validator("eps_bounds")
+    @classmethod
+    def _validate_ge_one(cls, v: tuple[float, float]) -> tuple[float, float]:
+        if any(vi < 1 for vi in v):
+            raise ValueError("Each value in 'eps_bounds' must be '>=1.0'.")
+        return v
 
-    def _validate_eps_bounds(self) -> None:
+    @model_validator(mode="after")
+    def _validate_eps_bounds(self) -> Self:
         if self.eps_bounds[1] < self.eps_bounds[0]:
             raise ValidationError(
                 f"Maximum relative permittivity ({self.eps_bounds[1]}) must be "
                 f"greater than minimum relative permittivity ({self.eps_bounds[0]})."
             )
+        return self
 
     @property
     def geometry(self) -> td.Box:
         """``Box`` corresponding to this design region."""
         return td.Box(center=self.center, size=self.size)
 
-    def material_density(self, params: anp.ndarray) -> anp.ndarray:
-        """Evaluate the transformations on a parameter array to give the material density (0,1)."""
+    def material_density(
+        self, params: anp.ndarray, symmetry: Optional[MirrorSymmetry] = None
+    ) -> anp.ndarray:
+        """Evaluate transformations on parameters to give the material density (0, 1)."""
         for transformation in self.transformations:
-            params = self.evaluate_transformation(transformation=transformation, params=params)
+            params = self.evaluate_transformation(
+                transformation=transformation,
+                params=params,
+                symmetry=symmetry,
+            )
         return params
 
-    def penalty_value(self, data: anp.ndarray) -> anp.ndarray:
+    def penalty_value(
+        self, data: anp.ndarray, symmetry: Optional[MirrorSymmetry] = None
+    ) -> anp.ndarray:
         """Evaluate the transformations on a dataset."""
 
         if not self.penalties:
             return 0.0
 
         # sum the penalty values scaled by their weights (optional)
-        material_density = self.material_density(data)
+        material_density = self.material_density(data, symmetry=symmetry)
         penalty_values = [
-            self.evaluate_penalty(penalty=penalty, material_density=material_density)
+            self.evaluate_penalty(
+                penalty=penalty,
+                material_density=material_density,
+                symmetry=symmetry,
+            )
             for penalty in self.penalties
         ]
         return anp.sum(anp.array(penalty_values))
 
     @abc.abstractmethod
-    def evaluate_transformation(self, transformation: None) -> float:
+    def evaluate_transformation(
+        self,
+        transformation: None,
+        params: anp.ndarray,
+        symmetry: Optional[MirrorSymmetry] = None,
+    ) -> anp.ndarray:
         """How this design region evaluates a transformation given some passed information."""
 
     @abc.abstractmethod
-    def evaluate_penalty(self, penalty: None) -> float:
+    def evaluate_penalty(
+        self,
+        penalty: None,
+        material_density: anp.ndarray,
+        symmetry: Optional[MirrorSymmetry] = None,
+    ) -> float:
         """How this design region evaluates a penalty given some passed information."""
 
     @abc.abstractmethod
@@ -133,8 +157,7 @@ class DesignRegion(InvdesBaseModel, abc.ABC):
 class TopologyDesignRegion(DesignRegion):
     """Design region as a pixellated permittivity grid."""
 
-    pixel_size: pd.PositiveFloat = pd.Field(
-        ...,
+    pixel_size: PositiveFloat = Field(
         title="Pixel Size",
         description="Pixel size of the design region in x, y, z. For now, we only support the same "
         "pixel size in all 3 dimensions. If ``TopologyDesignRegion.override_structure_dl`` is left "
@@ -144,14 +167,14 @@ class TopologyDesignRegion(DesignRegion):
         "a value on the same order as the grid size.",
     )
 
-    uniform: tuple[bool, bool, bool] = pd.Field(
+    uniform: tuple[bool, bool, bool] = Field(
         (False, False, True),
         title="Uniform",
         description="Axes along which the design should be uniform. By default, the structure "
         "is assumed to be uniform, i.e. invariant, in the z direction.",
     )
 
-    transformations: tuple[TransformationType, ...] = pd.Field(
+    transformations: tuple[TransformationType, ...] = Field(
         (),
         title="Transformations",
         description="Transformations that get applied from first to last on the parameter array."
@@ -160,7 +183,7 @@ class TopologyDesignRegion(DesignRegion):
         "permittivity and 1 corresponds to the maximum relative permittivity. "
         "Specific permittivity values given the density array are determined by ``eps_bounds``.",
     )
-    penalties: tuple[PenaltyType, ...] = pd.Field(
+    penalties: tuple[PenaltyType, ...] = Field(
         (),
         title="Penalties",
         description="Set of penalties that get evaluated on the material density. Note that the "
@@ -168,7 +191,7 @@ class TopologyDesignRegion(DesignRegion):
         "inside of the penalties directly through the ``.weight`` field.",
     )
 
-    override_structure_dl: typing.Union[pd.PositiveFloat, typing.Literal[False]] = pd.Field(
+    override_structure_dl: Optional[Union[PositiveFloat, Literal[False]]] = Field(
         None,
         title="Design Region Override Structure",
         description="Defines grid size when adding an ``override_structure`` to the "
@@ -179,7 +202,7 @@ class TopologyDesignRegion(DesignRegion):
         "Supplying ``False`` will completely leave out the override structure.",
     )
 
-    priority: int = pd.Field(
+    priority: Optional[int] = Field(
         None,
         title="Priority",
         description="Priority of the structure applied in structure overlapping region. "
@@ -188,6 +211,14 @@ class TopologyDesignRegion(DesignRegion):
         "the structure added later to the structure list takes precedence. When `priority` is None, "
         "the value is automatically assigned based on `structure_priority_mode` in the `Simulation`.",
     )
+
+    @model_validator(mode="after")
+    def _run_validation_checks(self) -> Self:
+        """Run topology-specific validation checks after model initialization."""
+        self._validate_eps_values()
+        self._validate_penalty_value()
+        self._validate_gradients()
+        return self
 
     def _validate_eps_values(self) -> None:
         """Validate the epsilon values by evaluating the transformations."""
@@ -271,31 +302,31 @@ class TopologyDesignRegion(DesignRegion):
             "'initialization_spec' instead."
         )
 
-    def params_uniform(self, value: float) -> np.ndarray:
+    def params_uniform(self, value: float) -> NDArray[np.floating]:
         """Make an array of parameters with all the same value."""
         self._warn_deprecate_params()
         return value * np.ones(self.params_shape)
 
     @property
-    def params_random(self) -> np.ndarray:
+    def params_random(self) -> NDArray[np.floating]:
         """Convenience for generating random parameters between (0,1) with correct shape."""
         self._warn_deprecate_params()
         return np.random.random(self.params_shape)
 
     @property
-    def params_zeros(self):
+    def params_zeros(self) -> NDArray[np.floating]:
         """Convenience for generating random parameters of all 0 values with correct shape."""
         self._warn_deprecate_params()
         return self.params_uniform(0.0)
 
     @property
-    def params_half(self):
+    def params_half(self) -> NDArray[np.floating]:
         """Convenience for generating random parameters of all 0.5 values with correct shape."""
         self._warn_deprecate_params()
         return self.params_uniform(0.5)
 
     @property
-    def params_ones(self):
+    def params_ones(self) -> NDArray[np.floating]:
         """Convenience for generating random parameters of all 1 values with correct shape."""
         self._warn_deprecate_params()
         return self.params_uniform(1.0)
@@ -321,22 +352,26 @@ class TopologyDesignRegion(DesignRegion):
 
         return coords
 
-    def eps_values(self, params: anp.ndarray) -> anp.ndarray:
+    def eps_values(
+        self, params: anp.ndarray, symmetry: Optional[MirrorSymmetry] = None
+    ) -> anp.ndarray:
         """Values for the custom medium permittivity."""
 
         self._check_params(params)
 
-        material_density = self.material_density(params)
+        material_density = self.material_density(params, symmetry=symmetry)
         eps_min, eps_max = self.eps_bounds
         eps_arr = eps_min + material_density * (eps_max - eps_min)
         return eps_arr.reshape(params.shape)
 
-    def to_structure(self, params: anp.ndarray) -> td.Structure:
+    def to_structure(
+        self, params: anp.ndarray, symmetry: Optional[MirrorSymmetry] = None
+    ) -> td.Structure:
         """Convert this ``DesignRegion`` into a custom ``Structure``."""
         self._check_params(params)
 
         coords = self.coords
-        eps_values = self.eps_values(params)
+        eps_values = self.eps_values(params, symmetry=symmetry)
         eps_data_array = td.SpatialDataArray(eps_values, coords=coords)
         medium = td.CustomMedium(permittivity=eps_data_array)
         return td.Structure(geometry=self.geometry, medium=medium, priority=self.priority)
@@ -366,15 +401,29 @@ class TopologyDesignRegion(DesignRegion):
         )
 
     def evaluate_transformation(
-        self, transformation: TransformationType, params: anp.ndarray
+        self,
+        transformation: TransformationType,
+        params: anp.ndarray,
+        symmetry: Optional[MirrorSymmetry] = None,
     ) -> anp.ndarray:
         """Evaluate a transformation, passing in design_region_dl."""
         self._check_params(params)
-        return transformation.evaluate(spatial_data=params, design_region_dl=self.pixel_size)
+        kwargs = {"spatial_data": params, "design_region_dl": self.pixel_size}
+        if symmetry is not None:
+            kwargs["symmetry"] = symmetry
+        return transformation.evaluate(**kwargs)
 
-    def evaluate_penalty(self, penalty: PenaltyType, material_density: anp.ndarray) -> float:
+    def evaluate_penalty(
+        self,
+        penalty: PenaltyType,
+        material_density: anp.ndarray,
+        symmetry: Optional[MirrorSymmetry] = None,
+    ) -> float:
         """Evaluate an erosion-dilation penalty, passing in pixel_size."""
-        return penalty.evaluate(x=material_density, pixel_size=self.pixel_size)
+        kwargs = {"x": material_density, "pixel_size": self.pixel_size}
+        if symmetry is not None:
+            kwargs["symmetry"] = symmetry
+        return penalty.evaluate(**kwargs)
 
 
-DesignRegionType = typing.Union[TopologyDesignRegion]
+DesignRegionType = Union[TopologyDesignRegion]

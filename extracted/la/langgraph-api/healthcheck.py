@@ -1,29 +1,14 @@
 import json
 import os
 import urllib.request
-from ipaddress import IPv6Address, ip_address
 
 from langgraph_api import config
+from langgraph_api.utils.network import get_healthcheck_url_host
 
 
 def get_healthcheck_host() -> str:
     server_host = os.environ.get("LANGGRAPH_SERVER_HOST", "0.0.0.0")
-    if server_host in (
-        "0.0.0.0",  # IPv4 wildcard
-        "",  # IPv4/IPv6 dual-stack
-    ):
-        return "localhost"
-
-    try:
-        server_host_ip = ip_address(server_host)
-    except ValueError:
-        return server_host
-
-    return (
-        f"[{server_host_ip.compressed}]"
-        if isinstance(server_host_ip, IPv6Address)
-        else server_host_ip.compressed
-    )
+    return get_healthcheck_url_host(server_host)
 
 
 def healthcheck():

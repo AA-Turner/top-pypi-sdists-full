@@ -314,7 +314,11 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
         def move_next(self) -> bool:
             ...
 
-    cache_size: int
+    INFINITE_MATCH_TIMEOUT: datetime.timedelta = ...
+
+    @property
+    def match_timeout(self) -> datetime.timedelta:
+        ...
 
     @property
     def caps(self) -> System.Collections.IDictionary:
@@ -340,11 +344,7 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
     def right_to_left(self) -> bool:
         ...
 
-    INFINITE_MATCH_TIMEOUT: datetime.timedelta = ...
-
-    @property
-    def match_timeout(self) -> datetime.timedelta:
-        ...
+    cache_size: int
 
     @overload
     def __init__(self) -> None:
@@ -719,6 +719,13 @@ class RegexMatchTimeoutException(System.TimeoutException, System.Runtime.Seriali
         ...
 
 
+class RegexRunnerFactory(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
 class RegexRunner(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -828,13 +835,6 @@ class GeneratedRegexAttribute(System.Attribute):
 
     @overload
     def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int, culture_name: str) -> None:
-        ...
-
-
-class RegexRunnerFactory(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
         ...
 
 

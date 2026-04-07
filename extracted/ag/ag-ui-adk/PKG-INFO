@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
-Name: ag-ui-adk
-Version: 0.5.2
+Name: ag_ui_adk
+Version: 0.6.0
 Summary: ADK Middleware for AG-UI Protocol
 Author: Mark Fogle
 Author-email: Mark Fogle <mark@contextable.com>
 License-Expression: MIT
-Requires-Dist: ag-ui-protocol>=0.1.11
+Requires-Dist: ag-ui-protocol>=0.1.15
 Requires-Dist: aiohttp>=3.12.0
 Requires-Dist: asyncio>=3.4.3
 Requires-Dist: fastapi>=0.115.2

@@ -1,17 +1,69 @@
 # pylint: disable=missing-function-docstring
 
 import json
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 from lxml import etree
 
 from contentstack_utils.automate import Automate
+from contentstack_utils.entry_editable import addEditableTags as _addEditableTags
+from contentstack_utils.entry_editable import addTags as _addTags
+from contentstack_utils.entry_editable import getTag as _getTag
 from contentstack_utils.helper.converter import convert_style
 from contentstack_utils.helper.metadata import Metadata
 from contentstack_utils.render.options import Options
 
 
 class Utils(Automate):
+    # JS parity helpers (moved to `contentstack_utils/entry_editable.py`)
+    @staticmethod
+    def addTags(  # pylint: disable=invalid-name
+        entry: dict,
+        contentTypeUid: str,
+        tagsAsObject: Optional[bool] = None,
+        locale: str = "en-us",
+        options: Optional[dict] = None,
+        **kwargs,
+    ) -> None:
+        # Support pythonic kwarg name too (backward compatibility with earlier port).
+        if tagsAsObject is None and "tags_as_object" in kwargs:
+            tagsAsObject = bool(kwargs["tags_as_object"])
+        if tagsAsObject is None:
+            tagsAsObject = False
+        return _addTags(entry, contentTypeUid, tagsAsObject, locale, options)
+
+    @staticmethod
+    def addEditableTags(  # pylint: disable=invalid-name
+        entry: dict,
+        contentTypeUid: str,
+        tagsAsObject: Optional[bool] = None,
+        locale: str = "en-us",
+        options: Optional[dict] = None,
+        **kwargs,
+    ) -> None:
+        if tagsAsObject is None and "tags_as_object" in kwargs:
+            tagsAsObject = bool(kwargs["tags_as_object"])
+        if tagsAsObject is None:
+            tagsAsObject = False
+        return _addEditableTags(entry, contentTypeUid, tagsAsObject, locale, options)
+
+    @staticmethod
+    def getTag(  # pylint: disable=invalid-name
+        content: Any,
+        prefix: str,
+        tagsAsObject: bool,
+        locale: str,
+        appliedVariants: Optional[dict],
+        shouldApplyVariant: bool,
+        metaKey: str = "",
+    ) -> Dict[str, Any]:
+        # Keep JS argument names for parity.
+        return _getTag(content, prefix, tagsAsObject, locale, appliedVariants, shouldApplyVariant, metaKey)
+
+    # Pythonic aliases
+    add_tags = addTags
+    get_tags = getTag
+    get_tag = getTag
 
     @staticmethod
     def _variants_map_from_entry(entry: dict) -> dict:

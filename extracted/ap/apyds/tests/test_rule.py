@@ -32,7 +32,7 @@ def test_create_from_same(r: apyds.Rule) -> None:
     assert str(rule) == "----\n(a b c)\n"
 
     with pytest.raises(ValueError):
-        rule = apyds.Rule(r, 100)
+        apyds.Rule(r, 100)
 
 
 def test_create_from_base(r: apyds.Rule) -> None:
@@ -52,12 +52,12 @@ def test_create_from_bytes(r: apyds.Rule) -> None:
     assert str(rule) == "----\n(a b c)\n"
 
     with pytest.raises(ValueError):
-        rule = apyds.Rule(r.data(), 100)
+        apyds.Rule(r.data(), 100)
 
 
 def test_create_fail() -> None:
     with pytest.raises(TypeError):
-        rule = apyds.Rule(100)
+        apyds.Rule(100)  # type: ignore[arg-type]
 
 
 def test_len() -> None:

@@ -141,7 +141,7 @@ PERMITTIVITY = "None (relative permittivity)"
 Relative permittivity.
 """
 
-PML_SIGMA = "2*EPSILON_0/dt"
+PML_SIGMA = r":math:`2\epsilon_0/\Delta t`"
 """
 2 times vacuum permittivity over time differential step.
 """
@@ -159,6 +159,12 @@ One radian per meter.
 NEPERPERMETER = "Np/m"
 """
 SI unit for attenuation constant.
+"""
+
+# frequency ranges
+MICROWAVE_FREQUENCY_RANGE = (0.3e9, 300e9)
+"""
+Microwave frequency range: 300 MHz to 300 GHz [Hz]
 """
 
 
@@ -311,3 +317,18 @@ UnitScaling = MappingProxyType(
     }
 )
 """Immutable dictionary for converting microns to another spatial unit, eg. nm = um * UnitScaling["nm"]."""
+
+SpiceUnitScaling = MappingProxyType(
+    {
+        "F": 1e-15,
+        "P": 1e-12,
+        "N": 1e-9,
+        "U": 1e-6,
+        "M": 1e-3,
+        "K": 1e3,
+        "MEG": 1e6,
+        "G": 1e9,
+        "T": 1e12,
+    }
+)
+"""SPICE-style scale suffixes for numeric values (e.g. 1K, 10n, 2.5p). Keys are uppercase; M is milli, MEG is mega."""

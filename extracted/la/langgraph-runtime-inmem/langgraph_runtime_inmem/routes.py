@@ -206,7 +206,9 @@ def get_internal_routes():
             "has_api_key": bool(
                 os.environ.get("LANGSMITH_API_KEY")
                 or os.environ.get("LANGCHAIN_API_KEY")
-                or os.environ.get("LANGGRAPH_HOST_API_KEY")
+                or os.environ.get(
+                    "LANGGRAPH_HOST_API_KEY"
+                )  # Not in public docs: internal
             ),
             "has_config": os.path.isfile(os.path.join(cwd, "langgraph.json")),
         }

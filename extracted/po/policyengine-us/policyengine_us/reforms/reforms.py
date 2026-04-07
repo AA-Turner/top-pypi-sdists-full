@@ -184,6 +184,9 @@ from .states.ct.hb5114 import (
 from .congress.watca import (
     create_watca_reform,
 )
+from .congress.mcdonald_rivet import (
+    create_working_parents_tax_relief_act_reform,
+)
 from .states.wa.sb6346.sb6346 import (
     create_wa_sb6346_reform,
 )
@@ -438,6 +441,9 @@ def create_structural_reforms_from_parameters(parameters, period):
     )
     nj_stay_nj = create_nj_stay_nj_reform(parameters, period)
     nj_anchor = create_nj_anchor_reform(parameters, period)
+    working_parents_tax_relief_act = create_working_parents_tax_relief_act_reform(
+        parameters, period
+    )
 
     reforms = [
         afa_reform,
@@ -544,6 +550,7 @@ def create_structural_reforms_from_parameters(parameters, period):
         ut_fully_refundable_eitc,
         nj_stay_nj,
         nj_anchor,
+        working_parents_tax_relief_act,
     ]
     reforms = tuple(filter(lambda x: x is not None, reforms))
 

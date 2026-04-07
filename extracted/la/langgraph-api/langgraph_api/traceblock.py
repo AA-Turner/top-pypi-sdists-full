@@ -8,6 +8,7 @@ _PATH_PREFIX = "/runs"
 
 
 def patch_requests():
+    # Not in public docs: LANGSMITH_DISABLE_SAAS_RUNS is set by SaaS control plane
     if os.getenv("LANGSMITH_DISABLE_SAAS_RUNS") != "true":
         return
     _orig = Session.request

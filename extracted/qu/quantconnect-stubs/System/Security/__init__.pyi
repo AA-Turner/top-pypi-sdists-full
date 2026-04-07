@@ -20,53 +20,132 @@ class PartialTrustVisibilityLevel(IntEnum):
     NOT_VISIBLE_BY_DEFAULT = 1
 
 
-class SecureString(System.Object, System.IDisposable):
+class AllowPartiallyTrustedCallersAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def length(self) -> int:
+    def partial_trust_visibility_level(self) -> System.Security.PartialTrustVisibilityLevel:
         ...
 
-    @overload
-    def __init__(self, value: typing.Any, length: int) -> None:
+    @partial_trust_visibility_level.setter
+    def partial_trust_visibility_level(self, value: System.Security.PartialTrustVisibilityLevel) -> None:
         ...
 
-    @overload
     def __init__(self) -> None:
         ...
 
-    def append_char(self, c: str) -> None:
-        ...
 
-    def clear(self) -> None:
-        ...
-
-    def copy(self) -> System.Security.SecureString:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    def insert_at(self, index: int, c: str) -> None:
-        ...
-
-    def is_read_only(self) -> bool:
-        ...
-
-    def make_read_only(self) -> None:
-        ...
-
-    def remove_at(self, index: int) -> None:
-        ...
-
-    def set_at(self, index: int, c: str) -> None:
-        ...
-
-
-class SuppressUnmanagedCodeSecurityAttribute(System.Attribute):
+class SecurityException(System.SystemException):
     """This class has no documentation."""
 
+    @property
+    def demanded(self) -> System.Object:
+        ...
+
+    @demanded.setter
+    def demanded(self, value: System.Object) -> None:
+        ...
+
+    @property
+    def deny_set_instance(self) -> System.Object:
+        ...
+
+    @deny_set_instance.setter
+    def deny_set_instance(self, value: System.Object) -> None:
+        ...
+
+    @property
+    def failed_assembly_info(self) -> System.Reflection.AssemblyName:
+        ...
+
+    @failed_assembly_info.setter
+    def failed_assembly_info(self, value: System.Reflection.AssemblyName) -> None:
+        ...
+
+    @property
+    def granted_set(self) -> str:
+        ...
+
+    @granted_set.setter
+    def granted_set(self, value: str) -> None:
+        ...
+
+    @property
+    def method(self) -> System.Reflection.MethodInfo:
+        ...
+
+    @method.setter
+    def method(self, value: System.Reflection.MethodInfo) -> None:
+        ...
+
+    @property
+    def permission_state(self) -> str:
+        ...
+
+    @permission_state.setter
+    def permission_state(self, value: str) -> None:
+        ...
+
+    @property
+    def permission_type(self) -> typing.Type:
+        ...
+
+    @permission_type.setter
+    def permission_type(self, value: typing.Type) -> None:
+        ...
+
+    @property
+    def permit_only_set_instance(self) -> System.Object:
+        ...
+
+    @permit_only_set_instance.setter
+    def permit_only_set_instance(self, value: System.Object) -> None:
+        ...
+
+    @property
+    def refused_set(self) -> str:
+        ...
+
+    @refused_set.setter
+    def refused_set(self, value: str) -> None:
+        ...
+
+    @property
+    def url(self) -> str:
+        ...
+
+    @url.setter
+    def url(self, value: str) -> None:
+        ...
+
+    @overload
     def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, type: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, type: typing.Type, state: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def to_string(self) -> str:
         ...
 
 
@@ -191,164 +270,6 @@ class IPermission(System.Security.ISecurityEncodable, metaclass=abc.ABCMeta):
         ...
 
 
-class SecurityException(System.SystemException):
-    """This class has no documentation."""
-
-    @property
-    def demanded(self) -> System.Object:
-        ...
-
-    @demanded.setter
-    def demanded(self, value: System.Object) -> None:
-        ...
-
-    @property
-    def deny_set_instance(self) -> System.Object:
-        ...
-
-    @deny_set_instance.setter
-    def deny_set_instance(self, value: System.Object) -> None:
-        ...
-
-    @property
-    def failed_assembly_info(self) -> System.Reflection.AssemblyName:
-        ...
-
-    @failed_assembly_info.setter
-    def failed_assembly_info(self, value: System.Reflection.AssemblyName) -> None:
-        ...
-
-    @property
-    def granted_set(self) -> str:
-        ...
-
-    @granted_set.setter
-    def granted_set(self, value: str) -> None:
-        ...
-
-    @property
-    def method(self) -> System.Reflection.MethodInfo:
-        ...
-
-    @method.setter
-    def method(self, value: System.Reflection.MethodInfo) -> None:
-        ...
-
-    @property
-    def permission_state(self) -> str:
-        ...
-
-    @permission_state.setter
-    def permission_state(self, value: str) -> None:
-        ...
-
-    @property
-    def permission_type(self) -> typing.Type:
-        ...
-
-    @permission_type.setter
-    def permission_type(self, value: typing.Type) -> None:
-        ...
-
-    @property
-    def permit_only_set_instance(self) -> System.Object:
-        ...
-
-    @permit_only_set_instance.setter
-    def permit_only_set_instance(self, value: System.Object) -> None:
-        ...
-
-    @property
-    def refused_set(self) -> str:
-        ...
-
-    @refused_set.setter
-    def refused_set(self, value: str) -> None:
-        ...
-
-    @property
-    def url(self) -> str:
-        ...
-
-    @url.setter
-    def url(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, type: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, type: typing.Type, state: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def to_string(self) -> str:
-        ...
-
-
-class VerificationException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
-
-class SecurityCriticalScope(IntEnum):
-    """This class has no documentation."""
-
-    EXPLICIT = 0
-
-    EVERYTHING = ...
-
-
-class SecurityCriticalAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def scope(self) -> System.Security.SecurityCriticalScope:
-        warnings.warn("SecurityCriticalScope is only used for .NET 2.0 transparency compatibility.", DeprecationWarning)
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, scope: System.Security.SecurityCriticalScope) -> None:
-        ...
-
-
 class SecurityRuleSet(IntEnum):
     """This class has no documentation."""
 
@@ -357,25 +278,6 @@ class SecurityRuleSet(IntEnum):
     LEVEL_1 = 1
 
     LEVEL_2 = 2
-
-
-class SecurityRulesAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def skip_verification_in_full_trust(self) -> bool:
-        ...
-
-    @skip_verification_in_full_trust.setter
-    def skip_verification_in_full_trust(self, value: bool) -> None:
-        ...
-
-    @property
-    def rule_set(self) -> System.Security.SecurityRuleSet:
-        ...
-
-    def __init__(self, rule_set: System.Security.SecurityRuleSet) -> None:
-        ...
 
 
 class IStackWalk(metaclass=abc.ABCMeta):
@@ -391,21 +293,6 @@ class IStackWalk(metaclass=abc.ABCMeta):
         ...
 
     def permit_only(self) -> None:
-        ...
-
-
-class AllowPartiallyTrustedCallersAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def partial_trust_visibility_level(self) -> System.Security.PartialTrustVisibilityLevel:
-        ...
-
-    @partial_trust_visibility_level.setter
-    def partial_trust_visibility_level(self, value: System.Security.PartialTrustVisibilityLevel) -> None:
-        ...
-
-    def __init__(self) -> None:
         ...
 
 
@@ -526,6 +413,32 @@ class PermissionSet(System.Object, System.Collections.ICollection, System.Runtim
         ...
 
 
+class UnverifiableCodeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class SecurityRulesAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def skip_verification_in_full_trust(self) -> bool:
+        ...
+
+    @skip_verification_in_full_trust.setter
+    def skip_verification_in_full_trust(self, value: bool) -> None:
+        ...
+
+    @property
+    def rule_set(self) -> System.Security.SecurityRuleSet:
+        ...
+
+    def __init__(self, rule_set: System.Security.SecurityRuleSet) -> None:
+        ...
+
+
 class SecuritySafeCriticalAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -540,14 +453,101 @@ class SecurityTreatAsSafeAttribute(System.Attribute):
         ...
 
 
-class SecurityTransparentAttribute(System.Attribute):
+class SuppressUnmanagedCodeSecurityAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
         ...
 
 
-class UnverifiableCodeAttribute(System.Attribute):
+class SecurityCriticalScope(IntEnum):
+    """This class has no documentation."""
+
+    EXPLICIT = 0
+
+    EVERYTHING = ...
+
+
+class SecurityCriticalAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def scope(self) -> System.Security.SecurityCriticalScope:
+        warnings.warn("SecurityCriticalScope is only used for .NET 2.0 transparency compatibility.", DeprecationWarning)
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, scope: System.Security.SecurityCriticalScope) -> None:
+        ...
+
+
+class SecureString(System.Object, System.IDisposable):
+    """This class has no documentation."""
+
+    @property
+    def length(self) -> int:
+        ...
+
+    @overload
+    def __init__(self, value: typing.Any, length: int) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    def append_char(self, c: str) -> None:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def copy(self) -> System.Security.SecureString:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    def insert_at(self, index: int, c: str) -> None:
+        ...
+
+    def is_read_only(self) -> bool:
+        ...
+
+    def make_read_only(self) -> None:
+        ...
+
+    def remove_at(self, index: int) -> None:
+        ...
+
+    def set_at(self, index: int, c: str) -> None:
+        ...
+
+
+class VerificationException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+
+class SecurityTransparentAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:

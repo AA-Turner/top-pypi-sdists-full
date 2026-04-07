@@ -1,9 +1,55 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: flake8-gl-codeclimate
-Version: 0.2.1
-Summary: Gitlab Code Quality artifact Flake8 formatter.
-Home-page: https://github.com/awelzel/flake8-gl-codeclimate
-Author: Arne Welzel
-Author-email: arne.welzel@gmail.com
-License: MIT
+Version: 0.2.2
+Summary: Gitlab Code Quality artifact Flake8 formatter
+Author-email: Arne Welzel <arne.welzel@gmail.com>
+License-Expression: MIT
+Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: flake8>=7.3.0
+Dynamic: license-file
+
+# flake8-gl-codeclimate
+
+[![Build Status](https://travis-ci.org/awelzel/flake8-gl-codeclimate.svg?branch=master)](https://travis-ci.org/awelzel/flake8-gl-codeclimate)
+
+Flake8 formatter producing [Gitlab Code Quality artifacts][1].
+
+## Usage
+
+By default, Flake8 will print to standard output. However, the purpose of this
+formatter is to produce a JSON file that is then stored as Code Quality artifact
+by Gitlab (see below) - the output itself isn't very human-readable:
+```
+$ pip install flake8-gl-codeclimate
+$ flake8 --format gl-codeclimate examples/trailing-whitespace.py
+[
+    {"type": "issue", "check_name": "pycodestyle", "description": "trailing whitespace [W291]", ... }
+]
+```
+
+## Adding it to Gitlab
+
+To enable Code Quality reports based on Flake8 in Gitlab merge requests,
+add a configuration as follows to your projects `gitlab-ci.yml` file.
+
+```
+flake8:
+  script:
+    - pip install flake8-gl-codeclimate
+    - flake8 --exit-zero --format gl-codeclimate --output-file gl-code-quality-report.json my_package/
+  artifacts:
+    reports:
+      codequality: gl-code-quality-report.json
+```
+This will upload the `gl-code-quality-report.json` as Gitlab Code Quality artifact.
+Afterwards, code quality improvements and degradations should show up in
+merge requests on Gitlab.
+
+Gitlab Code Quality artifacts are a subset of the [Code Climate spec][2].
+
+Have fun!
+
+
+[1]: https://docs.gitlab.com/ee/user/project/merge_requests/code_quality.html
+[2]: https://github.com/codeclimate/spec/blob/master/SPEC.md#data-types

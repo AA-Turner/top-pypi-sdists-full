@@ -10,6 +10,7 @@ suppress_noisy_logs()
 
 import importlib
 import importlib.metadata
+import importlib.resources
 import importlib.util
 import logging
 import os
@@ -33,14 +34,11 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 import cogames.policy.starter_agent as starter_agent
-import cogames.policy.trainable_policy_template as trainable_policy_template
 from cogames import diagnose as diagnose_module
 from cogames import evaluate as evaluate_module
 from cogames import pickup as pickup_module
 from cogames import play as play_module
-from cogames import train as train_module
 from cogames import verbose
-from cogames.auth import DEFAULT_COGAMES_SERVER, load_token
 from cogames.cli.assay import assay_app
 from cogames.cli.auth import auth_app
 from cogames.cli.base import console, emit_json
@@ -84,13 +82,12 @@ from cogames.cli.submit import (
 )
 from cogames.device import resolve_training_device
 from cogames.display_detect import has_display
-from cogames.games.cogs_vs_clips.train.curricula import make_rotation
-from cogames.seed import seed_rollout_rng
-from cogames.token_storage import TokenKind
 from mettagrid.mapgen.mapgen import MapGen
 from mettagrid.policy.loader import discover_and_register_policies
 from mettagrid.policy.policy_registry import get_policy_registry
 from mettagrid.simulator import Simulator
+from softmax.auth import DEFAULT_COGAMES_SERVER, load_token
+from softmax.token_storage import TokenKind
 
 # Always add current directory to Python path so optional plugins in the repo are discoverable.
 sys.path.insert(0, ".")
@@ -103,6 +100,22 @@ except ImportError:  # pragma: no cover - plugin optional
 
 logger = logging.getLogger("cogames.main")
 POLICY_NAME_MAX_LENGTH = 64
+_REPO_COGAMES_ROOT = Path(__file__).resolve().parents[2]
+_DOC_DESCRIPTIONS: dict[str, str] = {
+    "readme": "CoGames overview and documentation",
+    "mission": "Mission briefing for CvC Deployment",
+    "technical_manual": "Technical manual for Cogames",
+    "scripted_agent": "Scripted agent policy documentation",
+    "evals": "Evaluation missions documentation",
+    "mapgen": "Cogs vs Clips map generation documentation",
+}
+_DOC_RESOURCE_PATHS: dict[str, tuple[str, ...]] = {
+    "mission": ("docs", "MISSION.md"),
+    "technical_manual": ("docs", "TECHNICAL_MANUAL.md"),
+    "scripted_agent": ("docs", "SCRIPTED_AGENT.md"),
+    "evals": ("games", "cogs_vs_clips", "evals", "README.md"),
+    "mapgen": ("games", "cogs_vs_clips", "docs", "cogs_vs_clips_mapgen.md"),
+}
 
 
 def _resolve_mettascope_script() -> Path:
@@ -123,6 +136,29 @@ def _resolve_mettascope_script() -> Path:
     )
 
 
+def _read_docs_readme() -> str:
+    try:
+        metadata = importlib.metadata.metadata("cogames")
+    except importlib.metadata.PackageNotFoundError:
+        metadata = None
+    if metadata is not None:
+        description = metadata.get("Description")
+        if description:
+            return description
+    return (_REPO_COGAMES_ROOT / "README.md").read_text()
+
+
+def _read_packaged_doc(doc_name: str) -> str:
+    resource_path = _DOC_RESOURCE_PATHS[doc_name]
+    return importlib.resources.files("cogames").joinpath(*resource_path).read_text()
+
+
+def _read_doc_text(doc_name: str) -> str:
+    if doc_name == "readme":
+        return _read_docs_readme()
+    return _read_packaged_doc(doc_name)
+
+
 def _register_policies() -> None:
     discover_and_register_policies()
 
@@ -134,6 +170,13 @@ def _validate_policy_name_or_exit(name: str) -> None:
     if len(name) > POLICY_NAME_MAX_LENGTH:
         console.print(f"[red]Policy name must be at most {POLICY_NAME_MAX_LENGTH} characters[/red]")
         raise typer.Exit(1)
+
+
+def _print_async_submission_follow_up(policy_name: str, season_name: str) -> None:
+    console.print("[dim]Evaluation runs asynchronously. Check status with:[/dim]")
+    console.print(f"[dim]  cogames submissions --season {season_name} --policy {policy_name}[/dim]")
+    console.print(f"[dim]  cogames leaderboard {season_name} --policy {policy_name}[/dim]")
+    console.print(f"[dim]Results:[/dim] {RESULTS_URL}")
 
 
 app = typer.Typer(
@@ -720,6 +763,8 @@ def play_cmd(
         if isinstance(map_builder, MapGen.Config):
             map_builder.seed = map_seed
 
+    from cogames.seed import seed_rollout_rng  # noqa: PLC0415
+
     seed_rollout_rng(seed)
     resolved_device = resolve_training_device(console, device)
     raw_policies = policies if policies else ["class=noop"]
@@ -956,6 +1001,8 @@ def make_policy(
 
     try:
         if trainable:
+            import cogames.policy.trainable_policy_template as trainable_policy_template  # noqa: PLC0415
+
             template_path = Path(trainable_policy_template.__file__)
             policy_class = "MyTrainablePolicy"
             policy_type = "Trainable"
@@ -1175,11 +1222,15 @@ def train_cmd(
         console.print(f"Training on mission: {mission_name}\n")
     elif len(selected_missions) > 1:
         env_cfg = None
+        from cogames.games.cogs_vs_clips.train.curricula import make_rotation  # noqa: PLC0415
+
         supplier = make_rotation(selected_missions)
         console.print("Training on missions:\n" + "\n".join(f"- {m}" for m, _ in selected_missions) + "\n")
     else:
         # Should not get here
         raise ValueError("Please specify at least one mission")
+
+    from cogames import train as train_module  # noqa: PLC0415
 
     policy_spec = get_policy_spec(ctx, policy)
     torch_device = resolve_training_device(console, device)
@@ -1627,7 +1678,7 @@ def policies_cmd() -> None:
 
 @app.command(
     name="login",
-    help="Sign in to cogames interactively.",
+    help="Compatibility alias for softmax login.",
     rich_help_panel="Tournament",
     add_help_option=False,
 )
@@ -2105,11 +2156,12 @@ def upload_cmd(
 
     if result:
         console.print(f"[green]Upload complete: {result.name}:v{result.version}[/green]")
+        if no_submit:
+            console.print(f"\nTo submit to a tournament: cogames submit {result.name}:v{result.version}")
+            return
         if result.pools:
             console.print(f"[dim]Added to pools: {', '.join(result.pools)}[/dim]")
-            console.print(f"[dim]Results:[/dim] {RESULTS_URL}")
-        elif no_submit:
-            console.print(f"\nTo submit to a tournament: cogames submit {result.name}:v{result.version}")
+        _print_async_submission_follow_up(result.name, season_info.name)
 
 
 @app.command(
@@ -2352,7 +2404,7 @@ def ship_cmd(
         console.print(f"[dim]Results:[/dim] {RESULTS_URL}")
         return
 
-    console.print(f"[dim]Results:[/dim] {RESULTS_URL}")
+    _print_async_submission_follow_up(result.name, season_info.name)
 
 
 @app.command(
@@ -2383,26 +2435,6 @@ def docs_cmd(
         callback=_help_callback,
     ),
 ) -> None:
-    # Hardcoded mapping of document names to file paths and descriptions
-    package_root = Path(__file__).parent.parent.parent
-    docs_map: dict[str, tuple[Path, str]] = {
-        "readme": (package_root / "README.md", "CoGames overview and documentation"),
-        "mission": (package_root / "MISSION.md", "Mission briefing for CvC Deployment"),
-        "technical_manual": (package_root / "TECHNICAL_MANUAL.md", "Technical manual for Cogames"),
-        "scripted_agent": (
-            Path(__file__).parent / "docs" / "SCRIPTED_AGENT.md",
-            "Scripted agent policy documentation",
-        ),
-        "evals": (
-            Path(__file__).parent / "cogs_vs_clips" / "evals" / "README.md",
-            "Evaluation missions documentation",
-        ),
-        "mapgen": (
-            Path(__file__).parent / "cogs_vs_clips" / "cogs_vs_clips_mapgen.md",
-            "Cogs vs Clips map generation documentation",
-        ),
-    }
-
     # If no argument provided, show available documents
     if doc_name is None:
         from rich.table import Table  # noqa: PLC0415
@@ -2412,7 +2444,7 @@ def docs_cmd(
         table.add_column("Document", style="blue", no_wrap=True)
         table.add_column("Description", style="white")
 
-        for name, (_, description) in sorted(docs_map.items()):
+        for name, description in sorted(_DOC_DESCRIPTIONS.items()):
             table.add_row(name, description)
 
         console.print(table)
@@ -2420,20 +2452,14 @@ def docs_cmd(
         console.print("Example: [bold]cogames docs mission[/bold]")
         return
 
-    if doc_name not in docs_map:
-        available = ", ".join(sorted(docs_map.keys()))
+    if doc_name not in _DOC_DESCRIPTIONS:
+        available = ", ".join(sorted(_DOC_DESCRIPTIONS.keys()))
         console.print(f"[red]Error: Unknown document '{doc_name}'[/red]")
         console.print(f"\nAvailable documents: {available}")
         raise typer.Exit(1)
 
-    doc_path, _ = docs_map[doc_name]
-
-    if not doc_path.exists():
-        console.print(f"[red]Error: Document file not found: {doc_path}[/red]")
-        raise typer.Exit(1)
-
     try:
-        content = doc_path.read_text()
+        content = _read_doc_text(doc_name)
         console.print(content)
     except Exception as exc:
         console.print(f"[red]Error reading document: {exc}[/red]")

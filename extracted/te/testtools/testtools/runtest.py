@@ -9,10 +9,10 @@ __all__ = [
 
 import sys
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NoReturn
 
+from testtools._types import ExcInfo
 from testtools.testresult import (
-    ExcInfo,
     ExtendedToOriginalDecorator,
     TestResult,
 )
@@ -252,7 +252,7 @@ class RunTest:
         return self.exception_caught
 
 
-def _raise_force_fail_error() -> None:
+def _raise_force_fail_error() -> NoReturn:
     raise AssertionError("Forced Test Failure")
 
 

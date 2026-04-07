@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pydantic.v1 as pd
-from typing_extensions import Self
+from pydantic import Field
 
 from tidy3d.components.geometry.base import Geometry
 from tidy3d.components.microwave.path_integrals.specs.base import (
@@ -18,17 +17,23 @@ from tidy3d.components.microwave.path_integrals.viz import (
     plot_params_voltage_path,
     plot_params_voltage_plus,
 )
-from tidy3d.components.types import Ax
+from tidy3d.components.types import ArrayFloat2D
 from tidy3d.components.types.base import Direction
 from tidy3d.components.viz import add_ax_if_none
-from tidy3d.constants import fp_eps
+from tidy3d.constants import MICROMETER, fp_eps
+
+if TYPE_CHECKING:
+    from typing import Optional
+
+    from typing_extensions import Self
+
+    from tidy3d.components.types import Ax
 
 
 class AxisAlignedVoltageIntegralSpec(AxisAlignedPathIntegralSpec):
     """Class for specifying the voltage calculation between two points defined by an axis-aligned line."""
 
-    sign: Direction = pd.Field(
-        ...,
+    sign: Direction = Field(
         title="Direction of Path Integral",
         description="Positive indicates V=Vb-Va where position b has a larger coordinate along the axis of integration.",
     )
@@ -98,6 +103,7 @@ class AxisAlignedVoltageIntegralSpec(AxisAlignedPathIntegralSpec):
         y: Optional[float] = None,
         z: Optional[float] = None,
         ax: Ax = None,
+        plot_markers: bool = True,
         **path_kwargs: Any,
     ) -> Ax:
         """Plot path integral at single (x,y,z) coordinate.
@@ -112,6 +118,8 @@ class AxisAlignedVoltageIntegralSpec(AxisAlignedPathIntegralSpec):
             Position of plane in z direction, only one of x,y,z can be specified to define plane.
         ax : matplotlib.axes._subplots.Axes = None
             Matplotlib axes to plot on, if not specified, one is created.
+        plot_markers : bool = True
+            Whether to plot endpoint markers (+ and -). Default is ``True``.
         **path_kwargs
             Optional keyword arguments passed to the matplotlib plotting of the line.
             For details on accepted values, refer to
@@ -130,17 +138,22 @@ class AxisAlignedVoltageIntegralSpec(AxisAlignedPathIntegralSpec):
         # Plot the path
         plot_params = plot_params_voltage_path.include_kwargs(**path_kwargs)
         plot_kwargs = plot_params.to_kwargs()
-        ax.plot(xs, ys, markevery=[0, -1], **plot_kwargs)
+        if plot_markers:
+            ax.plot(xs, ys, markevery=[0, -1], **plot_kwargs)
+        else:
+            # Plot without markers
+            ax.plot(xs, ys, **{**plot_kwargs, "marker": ""})
 
         # Plot special end points
-        end_kwargs = plot_params_voltage_plus.include_kwargs(**path_kwargs).to_kwargs()
-        start_kwargs = plot_params_voltage_minus.include_kwargs(**path_kwargs).to_kwargs()
+        if plot_markers:
+            end_kwargs = plot_params_voltage_plus.include_kwargs(**path_kwargs).to_kwargs()
+            start_kwargs = plot_params_voltage_minus.include_kwargs(**path_kwargs).to_kwargs()
 
-        if self.sign == "-":
-            start_kwargs, end_kwargs = end_kwargs, start_kwargs
+            if self.sign == "-":
+                start_kwargs, end_kwargs = end_kwargs, start_kwargs
 
-        ax.plot(xs[0], ys[0], **start_kwargs)
-        ax.plot(xs[1], ys[1], **end_kwargs)
+            ax.plot(xs[0], ys[0], **start_kwargs)
+            ax.plot(xs[1], ys[1], **end_kwargs)
         return ax
 
 
@@ -156,6 +169,16 @@ class Custom2DVoltageIntegralSpec(Custom2DPathIntegralSpec):
 
     .. TODO Improve by including extrapolate_to_endpoints field, non-trivial extension."""
 
+    vertices: ArrayFloat2D = Field(
+        title="Vertices",
+        description="List of (d1, d2) defining the 2 dimensional positions of the path. "
+        "The index of dimension should be in the ascending order, which means "
+        "if the axis corresponds with ``y``, the coordinates of the vertices should be (x, z). "
+        "The path is open: the first vertex defines position a and the last vertex defines "
+        "position b for the voltage computation V = V_b - V_a.",
+        json_schema_extra={"units": MICROMETER},
+    )
+
     @add_ax_if_none
     def plot(
         self,
@@ -163,6 +186,7 @@ class Custom2DVoltageIntegralSpec(Custom2DPathIntegralSpec):
         y: Optional[float] = None,
         z: Optional[float] = None,
         ax: Ax = None,
+        plot_markers: bool = True,
         **path_kwargs: Any,
     ) -> Ax:
         """Plot path integral at single (x,y,z) coordinate.
@@ -177,6 +201,8 @@ class Custom2DVoltageIntegralSpec(Custom2DPathIntegralSpec):
             Position of plane in z direction, only one of x,y,z can be specified to define plane.
         ax : matplotlib.axes._subplots.Axes = None
             Matplotlib axes to plot on, if not specified, one is created.
+        plot_markers : bool = True
+            Whether to plot endpoint markers (+ and -). Default is ``True``.
         **path_kwargs
             Optional keyword arguments passed to the matplotlib plotting of the line.
             For details on accepted values, refer to
@@ -195,12 +221,17 @@ class Custom2DVoltageIntegralSpec(Custom2DPathIntegralSpec):
         plot_kwargs = plot_params.to_kwargs()
         xs = self.vertices[:, 0]
         ys = self.vertices[:, 1]
-        ax.plot(xs, ys, markevery=[0, -1], **plot_kwargs)
+        if plot_markers:
+            ax.plot(xs, ys, markevery=[0, -1], **plot_kwargs)
+        else:
+            # Plot without markers
+            ax.plot(xs, ys, **{**plot_kwargs, "marker": ""})
 
         # Plot special end points
-        end_kwargs = plot_params_voltage_plus.include_kwargs(**path_kwargs).to_kwargs()
-        start_kwargs = plot_params_voltage_minus.include_kwargs(**path_kwargs).to_kwargs()
-        ax.plot(xs[0], ys[0], **start_kwargs)
-        ax.plot(xs[-1], ys[-1], **end_kwargs)
+        if plot_markers:
+            end_kwargs = plot_params_voltage_plus.include_kwargs(**path_kwargs).to_kwargs()
+            start_kwargs = plot_params_voltage_minus.include_kwargs(**path_kwargs).to_kwargs()
+            ax.plot(xs[0], ys[0], **start_kwargs)
+            ax.plot(xs[-1], ys[-1], **end_kwargs)
 
         return ax

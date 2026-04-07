@@ -248,6 +248,19 @@ fn test_fixture_static_call_mixed_args() {
 // Property-based unit tests
 // ---------------------------------------------------------------------------
 
+/// Create a type-checked state with the `__static__` stub and multiple modules.
+fn create_state_multi_module(modules: &[(&str, &str)]) -> crate::state::state::State {
+    let mut test_env = TestEnv::new();
+    test_env.add("__static__", STATIC_MODULE_STUB);
+    for (name, code) in modules {
+        test_env.add(name, code);
+    }
+    let (state, _) = test_env
+        .with_default_require_level(Require::Everything)
+        .to_state();
+    state
+}
+
 /// Create a type-checked state from a single module's Python source.
 fn create_state(module_name: &str, python_code: &str) -> crate::state::state::State {
     let mut test_env = TestEnv::new();
@@ -486,5 +499,49 @@ y: Impl = Impl()
     assert!(
         impl_tags.contains(&"inherits_protocol"),
         "expected 'inherits_protocol' tag on Impl, got: {impl_tags:?}"
+    );
+}
+
+#[test]
+fn test_cross_module_attr_contextual_type() {
+    let state = create_state_multi_module(&[
+        // base_mod defines a class with x: int64 (ClassDefIndex 0 in base_mod)
+        (
+            "base_mod",
+            r#"
+from __static__ import int64
+
+class Base:
+    x: int64
+"#,
+        ),
+        // child_mod defines a local class also at ClassDefIndex 0 with x: double,
+        // then imports Base and assigns to b.x on a Base instance directly
+        // (no inheritance, so x is purely a cross-module attribute).
+        (
+            "child_mod",
+            r#"
+from __static__ import double
+from base_mod import Base
+
+class Local:
+    x: double
+
+def f(b: Base) -> None:
+    b.x = 42
+"#,
+        ),
+    ]);
+    let transaction = state.transaction();
+    let handle = get_handle("child_mod", &transaction);
+    let data = collect_module_types(&transaction, &handle).expect("should collect types");
+    let output = format_module_types(&data.entries, &data.locations);
+
+    // The contextual type for `42` in `b.x = 42` should be int64 (from
+    // Base.x), NOT double (from Local.x which happens to share the same
+    // ClassDefIndex in the local module).
+    assert!(
+        output.contains("contextual: __static__.int64"),
+        "Expected contextual type __static__.int64 from Base.x.\nOutput:\n{output}"
     );
 }

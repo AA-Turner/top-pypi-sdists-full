@@ -1,5 +1,6 @@
 import os
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -30,6 +31,7 @@ import humps
 from .exceptions import *
 from .parsers import default_input_parser, default_output_parser, filter_params, method_input_parser, PydanticHandler
 from .openai_utils import OpenAIUtils
+from .anthropic_utils import AnthropicUtils
 from .ibm_utils import IBMUtils
 from .event_queue import EventQueue
 from .thread import Thread
@@ -256,6 +258,225 @@ def default_stream_handler(fn, run_id, name, type, *args, **kwargs):
     return
 
 
+def _ensure_list_size(items, index):
+    while len(items) <= index:
+        items.append(None)
+
+
+def _anthropic_build_content_block(block):
+    serialized = AnthropicUtils.serialize_value(block)
+
+    if isinstance(serialized, dict):
+        if serialized.get("type") in {"tool_use", "server_tool_use"}:
+            serialized.setdefault("input", {})
+            serialized["_partial_input_json"] = ""
+        return serialized
+
+    return {"type": "text", "text": serialized}
+
+
+def _anthropic_update_content_block(block, delta):
+    serialized_delta = AnthropicUtils.serialize_value(delta)
+    if not isinstance(serialized_delta, dict):
+        return
+
+    delta_type = serialized_delta.get("type")
+
+    if delta_type == "text_delta":
+        block["text"] = (block.get("text") or "") + serialized_delta.get("text", "")
+        return
+
+    if delta_type == "thinking_delta":
+        block["thinking"] = (block.get("thinking") or "") + serialized_delta.get("thinking", "")
+        return
+
+    if delta_type == "signature_delta":
+        block["signature"] = serialized_delta.get("signature")
+        return
+
+    if delta_type == "input_json_delta":
+        partial_json = serialized_delta.get("partial_json", "")
+        input_buffer = (block.get("_partial_input_json") or "") + partial_json
+        block["_partial_input_json"] = input_buffer
+
+        try:
+            block["input"] = json.loads(input_buffer)
+        except Exception:
+            pass
+        return
+
+    for key, value in serialized_delta.items():
+        if key == "type":
+            continue
+        if isinstance(value, str) and isinstance(block.get(key), str):
+            block[key] = block.get(key, "") + value
+        else:
+            block[key] = value
+
+
+def _anthropic_finalize_content_blocks(content_blocks):
+    finalized_blocks = []
+    for block in content_blocks:
+        if not block:
+            continue
+
+        finalized_block = dict(block)
+        finalized_block.pop("_partial_input_json", None)
+        finalized_blocks.append(finalized_block)
+
+    return finalized_blocks
+
+
+def _anthropic_update_usage(token_usage, usage):
+    parsed_usage = AnthropicUtils.parse_usage(usage)
+    if not parsed_usage:
+        return
+
+    token_usage.update(parsed_usage)
+
+
+def _anthropic_build_stream_result(content_blocks, token_usage, state):
+    output = {
+        "role": state.get("role") or "assistant",
+        "content": _anthropic_finalize_content_blocks(content_blocks),
+    }
+
+    if state.get("message_id") is not None:
+        output["id"] = state["message_id"]
+
+    if state.get("model") is not None:
+        output["model"] = state["model"]
+
+    if state.get("stop_reason") is not None:
+        output["stop_reason"] = state["stop_reason"]
+
+    if state.get("stop_sequence") is not None:
+        output["stop_sequence"] = state["stop_sequence"]
+
+    return {
+        "output": output,
+        "tokensUsage": token_usage,
+        "metadata": {
+            key: value
+            for key, value in {
+                "messageId": state.get("message_id"),
+                "stopReason": state.get("stop_reason"),
+                "stopSequence": state.get("stop_sequence"),
+                "serviceTier": state.get("service_tier"),
+                "inferenceGeo": state.get("inference_geo"),
+                "cacheCreationInputTokens": state.get("cache_creation_input_tokens"),
+                "cacheReadInputTokens": state.get("cache_read_input_tokens"),
+            }.items()
+            if value is not None
+        }
+        or None,
+    }
+
+
+def _anthropic_consume_stream_event(event, content_blocks, token_usage, state):
+    event_type = AnthropicUtils.get_property(event, "type")
+
+    if event_type == "message_start":
+        message = AnthropicUtils.get_property(event, "message")
+        state["role"] = AnthropicUtils.get_property(message, "role") or state["role"]
+        state["message_id"] = AnthropicUtils.get_property(message, "id") or state.get("message_id")
+        state["model"] = AnthropicUtils.get_property(message, "model") or state.get("model")
+        _anthropic_update_usage(token_usage, AnthropicUtils.get_property(message, "usage"))
+        usage = AnthropicUtils.get_property(message, "usage")
+        if usage is not None:
+            state["service_tier"] = AnthropicUtils.get_property(usage, "service_tier") or state.get("service_tier")
+            state["inference_geo"] = AnthropicUtils.get_property(usage, "inference_geo") or state.get("inference_geo")
+            state["cache_creation_input_tokens"] = AnthropicUtils.get_property(
+                usage, "cache_creation_input_tokens"
+            )
+            state["cache_read_input_tokens"] = AnthropicUtils.get_property(
+                usage, "cache_read_input_tokens"
+            )
+        return
+
+    if event_type == "content_block_start":
+        index = AnthropicUtils.get_property(event, "index", 0)
+        _ensure_list_size(content_blocks, index)
+        content_blocks[index] = _anthropic_build_content_block(
+            AnthropicUtils.get_property(event, "content_block")
+        )
+        return
+
+    if event_type == "content_block_delta":
+        index = AnthropicUtils.get_property(event, "index", 0)
+        _ensure_list_size(content_blocks, index)
+
+        if content_blocks[index] is None:
+            content_blocks[index] = {"type": "text", "text": ""}
+
+        _anthropic_update_content_block(
+            content_blocks[index],
+            AnthropicUtils.get_property(event, "delta"),
+        )
+        return
+
+    if event_type == "message_delta":
+        delta = AnthropicUtils.get_property(event, "delta")
+        if delta:
+            stop_reason = AnthropicUtils.get_property(delta, "stop_reason")
+            if stop_reason is not None:
+                state["stop_reason"] = stop_reason
+
+            stop_sequence = AnthropicUtils.get_property(delta, "stop_sequence")
+            if stop_sequence is not None:
+                state["stop_sequence"] = stop_sequence
+
+        _anthropic_update_usage(token_usage, AnthropicUtils.get_property(event, "usage"))
+        usage = AnthropicUtils.get_property(event, "usage")
+        if usage is not None:
+            if AnthropicUtils.get_property(usage, "cache_creation_input_tokens") is not None:
+                state["cache_creation_input_tokens"] = AnthropicUtils.get_property(
+                    usage, "cache_creation_input_tokens"
+                )
+            if AnthropicUtils.get_property(usage, "cache_read_input_tokens") is not None:
+                state["cache_read_input_tokens"] = AnthropicUtils.get_property(
+                    usage, "cache_read_input_tokens"
+                )
+        return
+
+
+def anthropic_stream_handler(fn, run_id, name, type, *args, **kwargs):
+    stream = fn(*args, **kwargs)
+    content_blocks = []
+    token_usage = {"prompt": None, "completion": None}
+    state = {
+        "role": "assistant",
+        "message_id": None,
+        "model": None,
+        "stop_reason": None,
+        "stop_sequence": None,
+        "service_tier": None,
+        "inference_geo": None,
+        "cache_creation_input_tokens": None,
+        "cache_read_input_tokens": None,
+    }
+
+    try:
+        for event in stream:
+            _anthropic_consume_stream_event(event, content_blocks, token_usage, state)
+            yield event
+    finally:
+        close = getattr(stream, "close", None)
+        if callable(close):
+            close()
+
+    parsed_output = _anthropic_build_stream_result(content_blocks, token_usage, state)
+    track_event(
+        type,
+        "end",
+        run_id,
+        name=name,
+        output=parsed_output["output"],
+        token_usage=parsed_output["tokensUsage"],
+        metadata=parsed_output["metadata"],
+    )
+
+
 async def async_stream_handler(fn, run_id, name, type, *args, **kwargs):
     stream = await fn(*args, **kwargs)
 
@@ -331,6 +552,45 @@ async def async_stream_handler(fn, run_id, name, type, *args, **kwargs):
     )
     return
 
+
+async def async_anthropic_stream_handler(fn, run_id, name, type, *args, **kwargs):
+    stream = await fn(*args, **kwargs)
+    content_blocks = []
+    token_usage = {"prompt": None, "completion": None}
+    state = {
+        "role": "assistant",
+        "message_id": None,
+        "model": None,
+        "stop_reason": None,
+        "stop_sequence": None,
+        "service_tier": None,
+        "inference_geo": None,
+        "cache_creation_input_tokens": None,
+        "cache_read_input_tokens": None,
+    }
+
+    try:
+        async for event in stream:
+            _anthropic_consume_stream_event(event, content_blocks, token_usage, state)
+            yield event
+    finally:
+        close = getattr(stream, "close", None)
+        if callable(close):
+            result = close()
+            if hasattr(result, "__await__"):
+                await result
+
+    parsed_output = _anthropic_build_stream_result(content_blocks, token_usage, state)
+    track_event(
+        type,
+        "end",
+        run_id,
+        name=name,
+        output=parsed_output["output"],
+        token_usage=parsed_output["tokensUsage"],
+        metadata=parsed_output["metadata"],
+    )
+
 def ibm_stream_handler(fn, run_id, name, type, *args, **kwargs):
     try:
         stream = fn(*args, **kwargs)
@@ -401,11 +661,12 @@ def wrap(
 ):
     def sync_wrapper(*args, **kwargs):
         output = None
-        nonlocal stream
-        stream = stream or kwargs.get("stream", False)
+        should_stream = stream or kwargs.get("stream", False)
+        parsed_input = {"name": name, "input": None}
 
         parent_run_id = kwargs.pop("parent", run_manager.current_run_id) 
         run = run_manager.start_run(run_id, parent_run_id)
+        stream_run_managed = False
 
         try:
             try:
@@ -437,10 +698,29 @@ def wrap(
             except Exception as e:
                 logger.exception(e)
 
-            if stream == True:
-                return stream_handler(
+            if should_stream == True:
+                stream_obj = stream_handler(
                     fn, run.id, name or parsed_input["name"], type, *args, **kwargs
                 )
+                stream_run_managed = True
+
+                def tracked_stream():
+                    try:
+                        for chunk in stream_obj:
+                            yield chunk
+                    except Exception as e:
+                        track_event(
+                            type,
+                            "error",
+                            run.id,
+                            error={"message": str(e), "stack": traceback.format_exc()},
+                            app_id=app_id,
+                        )
+                        raise e
+                    finally:
+                        run_manager.end_run(run.id)
+
+                return tracked_stream()
 
             try:
                 output = fn(*args, **kwargs)
@@ -470,6 +750,7 @@ def wrap(
                     ],  # Need name in case need to compute tokens usage server side
                     output=parsed_output["output"],
                     token_usage=parsed_output["tokensUsage"],
+                    metadata=parsed_output.get("metadata"),
                     app_id=app_id
                 )
                 return output
@@ -478,7 +759,8 @@ def wrap(
             finally:
                 return output
         finally:
-            run_manager.end_run(run.id)
+            if not stream_run_managed:
+                run_manager.end_run(run.id)
 
     return sync_wrapper
 
@@ -494,10 +776,12 @@ def async_wrap(
     output_parser=default_output_parser,
     app_id=None,
     stream: bool = False,
+    stream_handler=async_stream_handler,
 ):
     async def wrapper(*args, **kwargs):
         async def async_wrapper(*args, **kwargs):
             output = None
+            parsed_input = {"name": name, "input": None}
 
             parent_run_id = kwargs.pop("parent", run_manager.current_run_id) 
             run = run_manager.start_run(parent_run_id=parent_run_id)
@@ -561,6 +845,7 @@ def async_wrap(
                         ],  # Need name in case need to compute tokens usage server side
                         output=parsed_output["output"],
                         token_usage=parsed_output["tokensUsage"],
+                        metadata=parsed_output.get("metadata"),
                         app_id=app_id
                     )
                     return output
@@ -574,6 +859,8 @@ def async_wrap(
         def async_stream_wrapper(*args, **kwargs):
             parent_run_id = kwargs.pop("parent", run_manager.current_run_id) 
             run = run_manager.start_run(parent_run_id=parent_run_id)
+            parsed_input = {"name": name, "input": None}
+            stream_run_managed = False
 
             try:
                 try:
@@ -605,15 +892,34 @@ def async_wrap(
                 except Exception as e:
                     logger.exception(e)
 
-                return async_stream_handler(
+                stream_obj = stream_handler(
                     fn, run.id, name or parsed_input["name"], type, *args, **kwargs
                 )
-            finally:
-                run_manager.end_run(run.id)
+                stream_run_managed = True
 
-        nonlocal stream
-        stream = stream or kwargs.get("stream", False)
-        if stream == True:
+                async def tracked_stream():
+                    try:
+                        async for chunk in stream_obj:
+                            yield chunk
+                    except Exception as e:
+                        track_event(
+                            type,
+                            "error",
+                            run.id,
+                            error={"message": str(e), "stack": traceback.format_exc()},
+                            app_id=app_id,
+                        )
+                        raise e
+                    finally:
+                        run_manager.end_run(run.id)
+
+                return tracked_stream()
+            finally:
+                if not stream_run_managed:
+                    run_manager.end_run(run.id)
+
+        should_stream = stream or kwargs.get("stream", False)
+        if should_stream == True:
             return async_stream_wrapper(*args, **kwargs)
         else:
             return await async_wrapper(*args, **kwargs)
@@ -680,8 +986,35 @@ def monitor(object):
                         output_parser=OpenAIUtils.parse_output,
                     )
                 return
+
+        if package_name == "anthropic":
+            client_name = getattr(type(object), "__name__", None)
+            create_fn = getattr(getattr(object, "messages", None), "create", None)
+
+            if not callable(create_fn):
+                return
+
+            if client_name and client_name.startswith("Async"):
+                object.messages.create = async_wrap(
+                    object.messages.create,
+                    "llm",
+                    input_parser=AnthropicUtils.parse_input,
+                    output_parser=AnthropicUtils.parse_output,
+                    stream_handler=async_anthropic_stream_handler,
+                )
+            else:
+                object.messages.create = wrap(
+                    object.messages.create,
+                    "llm",
+                    input_parser=AnthropicUtils.parse_input,
+                    output_parser=AnthropicUtils.parse_output,
+                    stream_handler=anthropic_stream_handler,
+                )
+            return
     except PackageNotFoundError:
-        logger.warning("You need to install either `openai` or `ibm-watsonx-ai` to monitor your LLM calls.")
+        logger.warning(
+            "You need to install a supported client package such as `openai`, `anthropic`, or `ibm-watsonx-ai` to monitor your LLM calls."
+        )
 
 
 def agent(name=None, user_id=None, user_props=None, tags=None, app_id=None):
@@ -893,7 +1226,7 @@ try:
     def _parse_input(raw_input: Any) -> Any:
         serialized = _serialize(raw_input)
         if isinstance(serialized, dict):
-            if serialized.get("input"):
+            if "input" in serialized:
                 return serialized["input"]
 
         return serialized
@@ -901,7 +1234,7 @@ try:
     def _parse_output(raw_output: dict) -> Any:
         serialized = _serialize(raw_output)
         if isinstance(serialized, dict):
-            if serialized.get("output"):
+            if "output" in serialized:
                 return serialized["output"]
 
         return serialized

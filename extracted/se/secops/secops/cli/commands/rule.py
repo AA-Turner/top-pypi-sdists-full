@@ -14,7 +14,6 @@
 #
 """Google SecOps CLI rule commands"""
 
-from ast import arg
 import json
 import sys
 

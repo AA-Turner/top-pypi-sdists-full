@@ -11,7 +11,7 @@ use std::hash::{Hash, Hasher};
 
 use async_trait::async_trait;
 use chroma_error::ChromaError;
-use chroma_segment::blockfile_record::RecordSegmentReader;
+use chroma_segment::blockfile_record::RecordSegmentReaderShard;
 use chroma_segment::types::HydratedMaterializedLogRecord;
 use chroma_types::{
     Chunk, LogRecord, MaterializedLogOperation, MetadataValue, Operation, OperationRecord,
@@ -261,7 +261,7 @@ impl StatisticsFunctionExecutor {
     /// Returns a HashMap with the same structure as the counts HashMap.
     async fn load_existing_statistics(
         &self,
-        output_reader: Option<&RecordSegmentReader<'_>>,
+        output_reader: Option<&RecordSegmentReaderShard<'_>>,
     ) -> Result<
         HashMap<String, HashMap<StatisticsValue, Box<dyn StatisticsFunction>>>,
         Box<dyn ChromaError>,
@@ -352,7 +352,7 @@ impl AttachedFunctionExecutor for StatisticsFunctionExecutor {
     async fn execute(
         &self,
         input_records: Chunk<HydratedMaterializedLogRecord<'_, '_>>,
-        output_reader: Option<&RecordSegmentReader<'_>>,
+        output_reader: Option<&RecordSegmentReaderShard<'_>>,
     ) -> Result<Chunk<LogRecord>, Box<dyn ChromaError>> {
         // Load existing statistics from output_reader if available
         let mut counts = self.load_existing_statistics(output_reader).await?;
@@ -500,13 +500,13 @@ mod tests {
     use std::collections::HashMap;
 
     use chroma_segment::{
-        blockfile_record::RecordSegmentReader,
+        blockfile_record::{RecordSegmentReaderOptions, RecordSegmentReaderShard},
         test::TestDistributedSegment,
         types::{materialize_logs, MaterializeLogsResult},
     };
     use chroma_types::{
-        Chunk, DatabaseName, LogRecord, Operation, OperationRecord, SparseVector, UpdateMetadata,
-        UpdateMetadataValue,
+        Chunk, DatabaseName, LogRecord, Operation, OperationRecord, SegmentShard, SparseVector,
+        UpdateMetadata, UpdateMetadataValue,
     };
 
     use crate::execution::orchestration::compact;
@@ -537,7 +537,7 @@ mod tests {
 
     async fn hydrate_records<'a>(
         materialized: &'a MaterializeLogsResult,
-        record_reader: Option<&'a RecordSegmentReader<'a>>,
+        record_reader: Option<&'a RecordSegmentReaderShard<'a>>,
     ) -> Vec<HydratedMaterializedLogRecord<'a, 'a>> {
         let mut hydrated_records = Vec::new();
         for borrowed_record in materialized.iter() {
@@ -723,9 +723,10 @@ mod tests {
         );
 
         let logs = Chunk::new(vec![record_one, record_two].into());
-        let materialized = materialize_logs(&None, logs, None)
-            .await
-            .expect("materialization should succeed");
+        let materialized =
+            materialize_logs(&None, logs, None, &RecordSegmentReaderOptions::default())
+                .await
+                .expect("materialization should succeed");
         let hydrated = hydrate_records(&materialized, None).await;
         let input = Chunk::new(std::sync::Arc::from(hydrated));
 
@@ -835,9 +836,10 @@ mod tests {
         );
 
         let logs = Chunk::new(vec![record_one, record_two].into());
-        let materialized = materialize_logs(&None, logs, None)
-            .await
-            .expect("materialization should succeed");
+        let materialized =
+            materialize_logs(&None, logs, None, &RecordSegmentReaderOptions::default())
+                .await
+                .expect("materialization should succeed");
         let hydrated = hydrate_records(&materialized, None).await;
         let input = Chunk::new(std::sync::Arc::from(hydrated));
 
@@ -893,9 +895,10 @@ mod tests {
         );
 
         let logs = Chunk::new(vec![upsert_record, delete_record].into());
-        let materialized = materialize_logs(&None, logs, None)
-            .await
-            .expect("materialization should succeed");
+        let materialized =
+            materialize_logs(&None, logs, None, &RecordSegmentReaderOptions::default())
+                .await
+                .expect("materialization should succeed");
         let hydrated = hydrate_records(&materialized, None).await;
         let input = Chunk::new(std::sync::Arc::from(hydrated));
 
@@ -941,9 +944,10 @@ mod tests {
         );
 
         let logs = Chunk::new(vec![record].into());
-        let materialized = materialize_logs(&None, logs, None)
-            .await
-            .expect("materialization should succeed");
+        let materialized =
+            materialize_logs(&None, logs, None, &RecordSegmentReaderOptions::default())
+                .await
+                .expect("materialization should succeed");
         let hydrated = hydrate_records(&materialized, None).await;
         let input = Chunk::new(std::sync::Arc::from(hydrated));
 
@@ -970,9 +974,10 @@ mod tests {
         );
 
         let logs = Chunk::new(vec![record].into());
-        let materialized = materialize_logs(&None, logs, None)
-            .await
-            .expect("materialization should succeed");
+        let materialized =
+            materialize_logs(&None, logs, None, &RecordSegmentReaderOptions::default())
+                .await
+                .expect("materialization should succeed");
         let hydrated = hydrate_records(&materialized, None).await;
         let input = Chunk::new(std::sync::Arc::from(hydrated));
 
@@ -1002,9 +1007,12 @@ mod tests {
         let input_chunk = Chunk::new(vec![input_record_with_obsolete_key].into());
         Box::pin(input_segment.compact_log(input_chunk, 1)).await;
 
-        let input_record_reader = Box::pin(RecordSegmentReader::from_segment(
-            &input_segment.record_segment,
+        let input_record_segment_shard =
+            SegmentShard::try_from((&input_segment.record_segment, 0)).expect("valid shard index");
+        let input_record_reader = Box::pin(RecordSegmentReaderShard::from_segment(
+            &input_record_segment_shard,
             &input_segment.blockfile_provider,
+            None,
         ))
         .await
         .expect("input record segment reader creation succeeds");
@@ -1016,9 +1024,12 @@ mod tests {
         let existing_output_chunk = Chunk::new(vec![stale_record, fresh_record].into());
         Box::pin(output_segment.compact_log(existing_output_chunk, 1)).await;
 
-        let output_record_reader = Box::pin(RecordSegmentReader::from_segment(
-            &output_segment.record_segment,
+        let output_record_segment_shard =
+            SegmentShard::try_from((&output_segment.record_segment, 0)).expect("valid shard index");
+        let output_record_reader = Box::pin(RecordSegmentReaderShard::from_segment(
+            &output_record_segment_shard,
             &output_segment.blockfile_provider,
+            None,
         ))
         .await
         .expect("output record segment reader creation succeeds");
@@ -1034,9 +1045,14 @@ mod tests {
             ]
             .into(),
         );
-        let materialized = materialize_logs(&Some(input_record_reader.clone()), logs, None)
-            .await
-            .expect("materialization should succeed");
+        let materialized = materialize_logs(
+            &Some(input_record_reader.clone()),
+            logs,
+            None,
+            &RecordSegmentReaderOptions::default(),
+        )
+        .await
+        .expect("materialization should succeed");
 
         // Hydrate from INPUT collection to get proper metadata for the delete
         let hydrated = hydrate_records(&materialized, Some(&input_record_reader)).await;
@@ -1079,17 +1095,25 @@ mod tests {
         let existing_chunk = Chunk::new(vec![record].into());
         Box::pin(test_segment.compact_log(existing_chunk, 1)).await;
 
-        let record_reader = Box::pin(RecordSegmentReader::from_segment(
-            &test_segment.record_segment,
+        let record_segment_shard =
+            SegmentShard::try_from((&test_segment.record_segment, 0)).expect("valid shard index");
+        let record_reader = Box::pin(RecordSegmentReaderShard::from_segment(
+            &record_segment_shard,
             &test_segment.blockfile_provider,
+            None,
         ))
         .await
         .expect("record segment reader creation succeeds");
 
         let empty_logs: Chunk<LogRecord> = Chunk::new(Vec::<LogRecord>::new().into());
-        let materialized = materialize_logs(&None, empty_logs, None)
-            .await
-            .expect("materialization should succeed");
+        let materialized = materialize_logs(
+            &None,
+            empty_logs,
+            None,
+            &RecordSegmentReaderOptions::default(),
+        )
+        .await
+        .expect("materialization should succeed");
         let hydrated = hydrate_records(&materialized, Some(&record_reader)).await;
         let empty_input = Chunk::new(std::sync::Arc::from(hydrated));
 
@@ -1126,9 +1150,12 @@ mod tests {
         let input_chunk = Chunk::new(vec![input_record1, input_record2].into());
         Box::pin(input_segment.compact_log(input_chunk, 1)).await;
 
-        let input_record_reader = Box::pin(RecordSegmentReader::from_segment(
-            &input_segment.record_segment,
+        let input_record_segment_shard =
+            SegmentShard::try_from((&input_segment.record_segment, 0)).expect("valid shard index");
+        let input_record_reader = Box::pin(RecordSegmentReaderShard::from_segment(
+            &input_record_segment_shard,
             &input_segment.blockfile_provider,
+            None,
         ))
         .await
         .expect("input record segment reader creation succeeds");
@@ -1139,9 +1166,12 @@ mod tests {
         let existing_chunk = Chunk::new(vec![existing_stat].into());
         Box::pin(output_segment.compact_log(existing_chunk, 1)).await;
 
-        let output_record_reader = Box::pin(RecordSegmentReader::from_segment(
-            &output_segment.record_segment,
+        let output_record_segment_shard =
+            SegmentShard::try_from((&output_segment.record_segment, 0)).expect("valid shard index");
+        let output_record_reader = Box::pin(RecordSegmentReaderShard::from_segment(
+            &output_record_segment_shard,
             &output_segment.blockfile_provider,
+            None,
         ))
         .await
         .expect("output record segment reader creation succeeds");
@@ -1155,9 +1185,14 @@ mod tests {
             )]
             .into(),
         );
-        let materialized = materialize_logs(&Some(input_record_reader.clone()), logs, None)
-            .await
-            .expect("materialization should succeed");
+        let materialized = materialize_logs(
+            &Some(input_record_reader.clone()),
+            logs,
+            None,
+            &RecordSegmentReaderOptions::default(),
+        )
+        .await
+        .expect("materialization should succeed");
 
         // Hydrate from INPUT collection to get proper metadata for the delete
         let hydrated = hydrate_records(&materialized, Some(&input_record_reader)).await;
@@ -1373,6 +1408,7 @@ mod tests {
             false,
             None,
             None,
+            None,
         ))
         .await
         .expect("Compaction should succeed");
@@ -1405,9 +1441,12 @@ mod tests {
             .get_collection_with_segments(None, output_collection_id)
             .await
             .expect("Should get output collection");
-        let reader = Box::pin(RecordSegmentReader::from_segment(
-            &output_info.record_segment,
+        let output_record_segment_shard =
+            SegmentShard::try_from((&output_info.record_segment, 0)).expect("valid shard index");
+        let reader = Box::pin(RecordSegmentReaderShard::from_segment(
+            &output_record_segment_shard,
             &test_segments.blockfile_provider,
+            None,
         ))
         .await
         .expect("Should create reader");

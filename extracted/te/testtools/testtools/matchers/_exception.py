@@ -7,18 +7,14 @@ __all__ = [
 ]
 
 import sys
-import types
 from collections.abc import Callable
-from typing import TypeAlias, TypeVar
+from typing import TypeVar
+
+from testtools._types import ExcInfo
 
 from ._basic import MatchesRegex
 from ._higherorder import AfterPreprocessing
 from ._impl import Matcher, Mismatch
-
-# Type for exc_info tuples
-ExcInfo: TypeAlias = tuple[
-    type[BaseException], BaseException, types.TracebackType | None
-]
 
 T = TypeVar("T", bound=BaseException)
 
@@ -38,10 +34,10 @@ class MatchesException(Matcher[ExcInfo]):
 
     def __init__(
         self,
-        exception: BaseException
-        | type[BaseException]
-        | tuple[type[BaseException], ...],
-        value_re: "str | Matcher[BaseException] | None" = None,
+        exception: (
+            BaseException | type[BaseException] | tuple[type[BaseException], ...]
+        ),
+        value_re: str | Matcher[object] | None = None,
     ) -> None:
         """Create a MatchesException that will match exc_info's for exception.
 
@@ -58,7 +54,7 @@ class MatchesException(Matcher[ExcInfo]):
         """
         Matcher.__init__(self)
         self.expected = exception
-        value_matcher: Matcher[BaseException] | None
+        value_matcher: Matcher[object] | None
         if isinstance(value_re, str):
             value_matcher = AfterPreprocessing(str, MatchesRegex(value_re), False)
         else:
@@ -118,7 +114,7 @@ class Raises(Matcher[Callable[[], object]]):
     Raises.match call unless they are explicitly matched.
     """
 
-    def __init__(self, exception_matcher: "Matcher[ExcInfo] | None" = None) -> None:
+    def __init__(self, exception_matcher: Matcher[ExcInfo] | None = None) -> None:
         """Create a Raises matcher.
 
         :param exception_matcher: Optional validator for the exception raised
@@ -129,12 +125,12 @@ class Raises(Matcher[Callable[[], object]]):
         """
         self.exception_matcher = exception_matcher
 
-    def match(self, matchee: "Callable[[], object]") -> Mismatch | None:
+    def match(self, matchee: Callable[[], object]) -> Mismatch | None:
         try:
             # Handle staticmethod objects by extracting the underlying function
             actual_callable: Callable[[], object]
             if isinstance(matchee, staticmethod):
-                actual_callable = matchee.__func__  # type: ignore[assignment]
+                actual_callable = matchee.__func__
             else:
                 actual_callable = matchee
             result = actual_callable()
@@ -146,7 +142,7 @@ class Raises(Matcher[Callable[[], object]]):
             # Type narrow to actual ExcInfo
             assert exc_info[0] is not None
             assert exc_info[1] is not None
-            typed_exc_info: ExcInfo = (exc_info[0], exc_info[1], exc_info[2])  # type: ignore[assignment]
+            typed_exc_info: ExcInfo = (exc_info[0], exc_info[1], exc_info[2])
 
             if self.exception_matcher:
                 mismatch = self.exception_matcher.match(typed_exc_info)

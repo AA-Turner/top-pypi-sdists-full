@@ -22,7 +22,7 @@ testcase!(
     r#"
 from typing_extensions import TypeForm
 
-x: TypeForm[int, str]  # E: `TypeForm` requires exactly one argument but got 2
+x: TypeForm[int, str]  # E: Expected 1 type argument for `TypeForm`, got 2
     "#,
 );
 
@@ -81,5 +81,51 @@ ok6: TypeForm[str | None] = Any
 ok7: TypeForm[Any] = Any
 
 err1: TypeForm[str | None] = str | int  # E: is not assignable
+    "#,
+);
+
+testcase!(
+    test_typeform_reject_invalid,
+    r#"
+from typing import Optional, TypeVarTuple, Unpack
+from typing_extensions import TypeForm
+
+Ts = TypeVarTuple("Ts")
+
+# Expressions that are not valid type expressions should not evaluate to a TypeForm type.
+bad1: TypeForm = Unpack[Ts]  # E: `type[*TypeVarTuple[Ts]]` is not assignable to `TypeForm[Any]`
+bad2: TypeForm = Optional  # E: `type[Optional]` is not assignable to `TypeForm[Any]`
+    "#,
+);
+
+testcase!(
+    test_typeform_callable,
+    r#"
+from typing import assert_type
+from typing_extensions import TypeForm
+
+x1 = TypeForm(str | None)
+assert_type(x1, TypeForm[str | None])
+
+x2 = TypeForm(int)
+assert_type(x2, TypeForm[int])
+
+x3 = TypeForm("list[int]")
+assert_type(x3, TypeForm[list[int]])
+
+x4 = TypeForm()  # E: `TypeForm` expected 1 positional argument, got 0
+x5 = TypeForm(int, str)  # E: `TypeForm` expected 1 positional argument, got 2
+x6 = TypeForm(type(1))  # E:
+x7 = TypeForm("type(1)")  # E:
+    "#,
+);
+
+testcase!(
+    test_typeform_union_type,
+    r#"
+import types
+
+# At runtime, str | None creates a types.UnionType object.
+v: types.UnionType = str | None
     "#,
 );

@@ -20,7 +20,7 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # and the GNU General Public License along with this program.  If not,
-# see <http://www.gnu.org/licenses/>.
+# see <https://www.gnu.org/licenses/>.
 
 import socket
 import struct
@@ -46,9 +46,26 @@ ipv6_hdr = util.fromhex("600d684a00280640fc000002000000020000000000000001fc00000
 @example(raw=b"`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
 @example(raw=b"E\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
 def test_fuzz(raw):
-    assert repr(p(raw))
-    assert repr(p(ipv4_hdr + raw))
-    assert repr(p(ipv6_hdr + raw))
+    packets = [p(raw), p(ipv4_hdr + raw), p(ipv6_hdr + raw)]
+    for x in packets:
+        assert repr(x)
+        # Accessing properties shouldn't crash regardless of raw data
+        _ = x.src_addr
+        _ = x.dst_addr
+        _ = x.src_port
+        _ = x.dst_port
+        _ = x.payload
+        _ = x.protocol
+        _ = x.ipv4
+        _ = x.ipv6
+        _ = x.tcp
+        _ = x.udp
+        _ = x.icmp
+        try:
+            _ = x.is_checksum_valid
+        except (OSError, FileNotFoundError):
+            # This can fail if the driver is not loaded
+            pass
 
 
 def test_ipv6_tcp():
@@ -338,16 +355,16 @@ def test_meta():
 
 def test_bogus():
     x = p(b"")
-    with pytest.raises(AttributeError):
-        x.src_addr = "127.0.0.1"
-    with pytest.raises(AttributeError):
-        x.dst_addr = "127.0.0.1"
-    with pytest.raises(AttributeError):
-        x.src_port = 80
-    with pytest.raises(AttributeError):
-        x.dst_port = 80
-    with pytest.raises(AttributeError):
-        x.payload = b""
+    x.src_addr = "127.0.0.1"
+    x.dst_addr = "127.0.0.1"
+    x.src_port = 80
+    x.dst_port = 80
+    x.payload = b""
+    assert x.src_addr is None
+    assert x.dst_addr is None
+    assert x.src_port is None
+    assert x.dst_port is None
+    assert x.payload is None
     with pytest.raises(AttributeError):
         x.icmp.code = 42
     with pytest.raises(AttributeError):

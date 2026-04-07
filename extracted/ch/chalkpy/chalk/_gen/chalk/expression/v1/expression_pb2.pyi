@@ -522,10 +522,16 @@ class ExprBlockingCall(_message.Message):
     ) -> None: ...
 
 class BlockingFunction(_message.Message):
-    __slots__ = ("catalog_call",)
+    __slots__ = ("catalog_call", "call_resolver")
     CATALOG_CALL_FIELD_NUMBER: _ClassVar[int]
+    CALL_RESOLVER_FIELD_NUMBER: _ClassVar[int]
     catalog_call: CatalogCall
-    def __init__(self, catalog_call: _Optional[_Union[CatalogCall, _Mapping]] = ...) -> None: ...
+    call_resolver: CallResolver
+    def __init__(
+        self,
+        catalog_call: _Optional[_Union[CatalogCall, _Mapping]] = ...,
+        call_resolver: _Optional[_Union[CallResolver, _Mapping]] = ...,
+    ) -> None: ...
 
 class CatalogCall(_message.Message):
     __slots__ = ("qualified_name", "input_types", "output_type")
@@ -540,6 +546,16 @@ class CatalogCall(_message.Message):
         qualified_name: _Optional[str] = ...,
         input_types: _Optional[_Iterable[_Union[_arrow_pb2.ArrowType, _Mapping]]] = ...,
         output_type: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ...,
+    ) -> None: ...
+
+class CallResolver(_message.Message):
+    __slots__ = ("resolver_fqn", "output_type")
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_TYPE_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    output_type: _arrow_pb2.ArrowType
+    def __init__(
+        self, resolver_fqn: _Optional[str] = ..., output_type: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ...
     ) -> None: ...
 
 class ExprLiteral(_message.Message):

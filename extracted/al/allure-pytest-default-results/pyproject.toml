@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "allure-pytest-default-results"
-version = "0.1.3"  # Overriden by poetry-dynamic-versioning
+version = "0.1.4"  # Overriden by poetry-dynamic-versioning
 description = 'Generate default "unknown" results to show in Allure Report if test case does not run'
 authors = ["Carl Csaposs <carl.csaposs@canonical.com>"]
 readme = "README.md"

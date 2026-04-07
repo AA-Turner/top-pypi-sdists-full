@@ -445,10 +445,12 @@ def flatten_config_keys(
     for key, value in conf.items():
         full_key = f"{_prefix}{sep}{key}" if _prefix else key
         if isinstance(value, dict) and full_key not in opaque_keys:
-            for sub_key, sub_value in flatten_config_keys(
-                value, sep, opaque_keys, full_key
-            ).items():
-                items[sub_key] = sub_value
+            items.update({
+                sub_key: sub_value
+                for sub_key, sub_value in flatten_config_keys(
+                    value, sep, opaque_keys, full_key
+                ).items()
+            })
         else:
             items[full_key] = value
     return items
@@ -503,7 +505,9 @@ def _safe_get_type_hints(cls: type) -> dict[str, Any]:
             module = sys.modules.get(cls.__module__, None)
             globalns = getattr(module, "__dict__", {}) if module else {}
             return get_type_hints(
-                cls, globalns=globalns, localns=localns,
+                cls,
+                globalns=globalns,
+                localns=localns,
             )
         except (NameError, AttributeError, TypeError, RecursionError):
             pass
@@ -616,9 +620,7 @@ def _from_dataclass(
     )
 
     normalized = (
-        normalize_config_keys(remaining, opaque_keys=opaque)
-        if normalize
-        else remaining
+        normalize_config_keys(remaining, opaque_keys=opaque) if normalize else remaining
     )
     flattened = flatten_config_keys(normalized, opaque_keys=opaque)
 
@@ -632,7 +634,7 @@ def _from_dataclass(
             and f.name in flattened
             and isinstance(flattened[f.name], dict)
         ):
-            sub = _make_schema_callable(hint, strict=strict)
+            sub = _make_schema_callable(hint, strict=strict)  # type: ignore[arg-type]
             flattened[f.name] = sub(flattened[f.name]) if sub else flattened[f.name]
 
     # --- Phase 4: merge and validate. ---
@@ -699,7 +701,10 @@ def _make_schema_callable(
         return None
     if is_dataclass(schema):
         return partial(
-            _from_dataclass, schema, strict=strict, normalize=normalize,
+            _from_dataclass,
+            schema,
+            strict=strict,
+            normalize=normalize,
         )
     # Already a callable (Pydantic .model_validate, custom function, etc.).
     return schema
@@ -1714,11 +1719,14 @@ class ConfigOption(ExtraOption, ParamStructure):
         # loaded yet. So we use echo() to print messages to stderr instead.
         info_msg = partial(echo, err=True)
 
+        assert self.name is not None  # Always set for Option subclasses.
+
         if path_pattern is NO_CONFIG:
             logger.debug(f"{NO_CONFIG} received.")
             # TODO: simplify to ``source < ParameterSource.DEFAULT_MAP`` once
             # https://github.com/pallets/click/pull/3248 is merged.
-            explicit = ctx.get_parameter_source(self.name) in (
+            source = ctx.get_parameter_source(self.name)
+            explicit = source is not None and source in (
                 ParameterSource.COMMANDLINE,
                 ParameterSource.ENVIRONMENT,
                 ParameterSource.PROMPT,
@@ -1731,7 +1739,8 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         # TODO: simplify to ``source < ParameterSource.DEFAULT_MAP`` once
         # https://github.com/pallets/click/pull/3248 is merged.
-        explicit_conf = ctx.get_parameter_source(self.name) in (
+        conf_source = ctx.get_parameter_source(self.name)
+        explicit_conf = conf_source is not None and conf_source in (
             ParameterSource.COMMANDLINE,
             ParameterSource.ENVIRONMENT,
             ParameterSource.PROMPT,

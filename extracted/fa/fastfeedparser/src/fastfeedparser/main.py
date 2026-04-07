@@ -635,6 +635,7 @@ def _raise_for_non_feed_root(
 
 
 _RE_META_REFRESH_URL = re.compile(r'url\s*=\s*["\']?\s*([^"\'>\s]+)', re.IGNORECASE)
+_MAX_META_REDIRECTS = 3
 
 
 def _extract_meta_refresh_url(content: str | bytes, base_url: str) -> str | None:
@@ -866,31 +867,32 @@ def parse(
     else:
         content = source
 
-    try:
-        return _parse_content(
-            content,
-            include_content=include_content,
-            include_tags=include_tags,
-            include_media=include_media,
-            include_enclosures=include_enclosures,
-        )
-    except ValueError as e:
-        if not is_url:
-            raise
-        assert isinstance(source, str)
-        err_msg = str(e)
-        if "HTML" not in err_msg and "not a valid RSS/Atom feed" not in err_msg:
-            raise
-        redirect_url = _extract_meta_refresh_url(content, source)
-        if redirect_url is None:
-            raise
-        return parse(
-            redirect_url,
-            include_content=include_content,
-            include_tags=include_tags,
-            include_media=include_media,
-            include_enclosures=include_enclosures,
-        )
+    parse_kwargs = dict(
+        include_content=include_content,
+        include_tags=include_tags,
+        include_media=include_media,
+        include_enclosures=include_enclosures,
+    )
+
+    redirects_left = _MAX_META_REDIRECTS
+    while True:
+        try:
+            return _parse_content(content, **parse_kwargs)
+        except ValueError as e:
+            if not is_url:
+                raise
+            assert isinstance(source, str)
+            err_msg = str(e)
+            if "HTML" not in err_msg and "not a valid RSS/Atom feed" not in err_msg:
+                raise
+            if redirects_left <= 0:
+                raise ValueError("too many meta-refresh redirects") from e
+            redirect_url = _extract_meta_refresh_url(content, source)
+            if redirect_url is None:
+                raise
+            content = _fetch_url_content(redirect_url)
+            source = redirect_url
+            redirects_left -= 1
 
 
 def _parse_feed_info(
@@ -1050,6 +1052,35 @@ def _parse_feed_info(
         managing_editor = element_get("managingEditor")
         if managing_editor:
             feed["author"] = managing_editor
+
+    # Parse feed-level image/icon/logo
+    if feed_type == "atom":
+        icon_el = channel.find(f"{{{atom_ns}}}icon")
+        if icon_el is not None and icon_el.text:
+            feed["icon"] = icon_el.text.strip()
+        logo_el = channel.find(f"{{{atom_ns}}}logo")
+        if logo_el is not None and logo_el.text:
+            feed["logo"] = logo_el.text.strip()
+    elif feed_type == "rss":
+        image_el = channel.find("image")
+        if image_el is not None:
+            image: dict[str, Optional[str]] = {}
+            for sub_tag in ("url", "title", "link"):
+                sub_el = image_el.find(sub_tag)
+                if sub_el is not None and sub_el.text:
+                    image[sub_tag] = sub_el.text.strip()
+            if image.get("url"):
+                feed["image"] = image
+    elif feed_type == "rdf":
+        rdf_image_el = channel.find("{http://purl.org/rss/1.0/}image")
+        if rdf_image_el is not None:
+            image = {}
+            for sub_tag in ("title", "link", "url"):
+                sub_el = rdf_image_el.find(f"{{http://purl.org/rss/1.0/}}{sub_tag}")
+                if sub_el is not None and sub_el.text:
+                    image[sub_tag] = sub_el.text.strip()
+            if image.get("url"):
+                feed["image"] = image
 
     # Parse feed-level tags/categories
     if include_tags:

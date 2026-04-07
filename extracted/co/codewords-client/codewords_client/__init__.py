@@ -472,5 +472,6 @@ __all__ = [
     'logger', 
     'run_service', 
     'RequestIdMiddleware',
-    'redis_client'
+    'redis_client',
+    'SubAgent',
 ]

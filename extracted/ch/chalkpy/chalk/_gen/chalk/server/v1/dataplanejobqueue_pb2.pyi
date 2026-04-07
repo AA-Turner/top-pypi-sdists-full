@@ -231,6 +231,43 @@ class GetJobQueueAuxiliaryResourcesResponse(_message.Message):
         resource_quota: _Optional[_Union[_resourcequota_pb2.KubernetesResourceQuotaData, _Mapping]] = ...,
     ) -> None: ...
 
+class ExplainOperationProgressRequest(_message.Message):
+    __slots__ = ("operation_id",)
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    operation_id: str
+    def __init__(self, operation_id: _Optional[str] = ...) -> None: ...
+
+class ExplainOperationProgressResponse(_message.Message):
+    __slots__ = (
+        "max_num_consumers_in_resource_group",
+        "max_num_consumers_for_operation",
+        "num_running_consumers_for_operation",
+        "num_running_consumers_in_resource_group",
+        "num_pending_consumers_in_resource_group",
+        "operation_depth_in_job_queue",
+    )
+    MAX_NUM_CONSUMERS_IN_RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    MAX_NUM_CONSUMERS_FOR_OPERATION_FIELD_NUMBER: _ClassVar[int]
+    NUM_RUNNING_CONSUMERS_FOR_OPERATION_FIELD_NUMBER: _ClassVar[int]
+    NUM_RUNNING_CONSUMERS_IN_RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    NUM_PENDING_CONSUMERS_IN_RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_DEPTH_IN_JOB_QUEUE_FIELD_NUMBER: _ClassVar[int]
+    max_num_consumers_in_resource_group: int
+    max_num_consumers_for_operation: int
+    num_running_consumers_for_operation: int
+    num_running_consumers_in_resource_group: int
+    num_pending_consumers_in_resource_group: int
+    operation_depth_in_job_queue: int
+    def __init__(
+        self,
+        max_num_consumers_in_resource_group: _Optional[int] = ...,
+        max_num_consumers_for_operation: _Optional[int] = ...,
+        num_running_consumers_for_operation: _Optional[int] = ...,
+        num_running_consumers_in_resource_group: _Optional[int] = ...,
+        num_pending_consumers_in_resource_group: _Optional[int] = ...,
+        operation_depth_in_job_queue: _Optional[int] = ...,
+    ) -> None: ...
+
 class JobQueueRowSummary(_message.Message):
     __slots__ = (
         "id",

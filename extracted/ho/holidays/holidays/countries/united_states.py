@@ -122,6 +122,9 @@ class UnitedStates(
             * [Alaska Statutes, Sec. 44.12.010](https://web.archive.org/web/20251014215648/https://www.akleg.gov/basis/statutes.asp#44.12.010)
             * [Alaska Day](https://web.archive.org/web/20120502232826/http://www.alaskadispatch.com/article/happy-alaska-day-great-land)
             * [Chapter 109, Session Laws of Alaska (1989)](https://web.archive.org/web/20251228151503/https://www.akleg.gov/basis/folioproxy.asp?url=http://wwwjnu03.akleg.org/cgi-bin/folioisa.dll/slpr/query=*/doc/%7B@1158%7D?next)
+        * Massachusetts:
+            * [Massachusetts Legal Holidays Laws](https://web.archive.org/web/20250417214902/https://www.findlaw.com/state/massachusetts-law/massachusetts-legal-holidays-laws.html)
+            * [Patriots'_Day](https://en.wikipedia.org/wiki/Patriots'_Day)
         * American Samoa:
             * <https://web.archive.org/web/20240808163628/https://asbar.org/code-annotated/1-0501-public-holidays/>
         * Puerto Rico:
@@ -140,6 +143,7 @@ class UnitedStates(
             * [Law No. 121 of Dec 24, 1991](https://web.archive.org/web/20251213230111/https://bvirtualogp.pr.gov/ogp/Bvirtual/leyesreferencia/PDF/2/0121-1991.pdf)
             * [Law No. 39 of Jul 11, 1994](https://web.archive.org/web/20221222034721/https://bvirtualogp.pr.gov/ogp/Bvirtual/leyesreferencia/PDF/2/0039-1994.pdf)
             * [Law No. 76 of Jul 6, 1995](https://web.archive.org/web/20250605110906/https://bvirtualogp.pr.gov/ogp/Bvirtual/leyesreferencia/PDF/76-1995.pdf)
+            * [Law No. 53 of Mar 4, 2000](https://web.archive.org/web/20230919015004/https://bvirtualogp.pr.gov/ogp/Bvirtual/leyesreferencia/PDF/53-2000.pdf)
             * [Law No. 305 of Dec 25, 2002](https://web.archive.org/web/20250625061048/https://bvirtualogp.pr.gov/ogp/Bvirtual/leyesreferencia/PDF/305-2002.pdf)
             * [Law No. 182 of Dec 1, 2010](https://web.archive.org/web/20221221221227/https://bvirtualogp.pr.gov/ogp/Bvirtual/leyesreferencia/PDF/2/0182-2010.pdf)
             * [Law No. 111 of Jul 29, 2014](https://web.archive.org/web/20250219021118/https://bvirtualogp.pr.gov/ogp/Bvirtual/leyesreferencia/PDF/2/0111-2014.pdf)
@@ -315,7 +319,9 @@ class UnitedStates(
             Whether to include federal-specific holidays.
         """
         self._observed_rule = (
-            SAT_TO_PREV_FRI + SUN_TO_NEXT_MON if self._year >= 1966 else SUN_TO_NEXT_MON
+            SAT_TO_PREV_FRI + SUN_TO_NEXT_MON
+            if self._year >= 1966 and self.subdiv != "MA"
+            else SUN_TO_NEXT_MON
         )
 
         if self._year >= 1871:
@@ -902,13 +908,6 @@ class UnitedStates(
             self._add_holiday_1_day_past_1st_mon_of_nov(tr("Election Day"))
 
     def _populate_subdiv_ma_public_holidays(self):
-        if self._year >= 1901:
-            self._add_observed(
-                # Evacuation Day.
-                self._add_holiday_mar_17(tr("Evacuation Day")),
-                rule=SAT_SUN_TO_NEXT_MON,
-            )
-
         if self._year >= 1894:
             # Patriots' Day.
             name = tr("Patriots' Day")
@@ -1319,6 +1318,13 @@ class UnitedStates(
                 name = tr("Discovery of Puerto Rico Day")
             self._add_observed(self._add_holiday_nov_19(name), rule=SUN_TO_NEXT_MON)
 
+    def _populate_subdiv_pr_government_holidays(self):
+        # Día de la Ciudadanía Americana.
+        # Established by Law No. 53 of Mar 4, 2000.
+        if self._year >= 2001:
+            # American Citizenship Day.
+            self._add_holiday_mar_2(tr("American Citizenship Day"))
+
     def _populate_subdiv_pr_half_day_holidays(self):
         # Established by Law No. 305 of Dec 25, 2002.
         if self._year >= 2003:
@@ -1561,7 +1567,7 @@ class UnitedStates(
     def _populate_government_holidays(self):
         # Added by 16 Stat. 168, effectdive date June 28th, 1870.
         # New Year's Day check for 1871 is included.
-        if self._year >= 1870:
+        if self._year >= 1870 and self.subdiv != "PR":
             # Federal holidays in the United States.
             self._populate_common(include_federal=True)
 
@@ -1582,6 +1588,15 @@ class UnitedStates(
 
         # Saint Patrick's Day.
         self._add_saint_patricks_day(tr("Saint Patrick's Day"))
+
+        # Easter Holidays.
+        # Observed informally across the US.
+
+        # Good Friday.
+        self._add_good_friday(tr("Good Friday"))
+
+        # Easter Sunday.
+        self._add_easter_sunday(tr("Easter Sunday"))
 
         # Mother's Day.
         # Starts to be observed by most US states by 1911.
@@ -1604,6 +1619,15 @@ class UnitedStates(
 
         # Halloween.
         self._add_holiday_oct_31(tr("Halloween"))
+
+        # While earlier observance existed at local levels, Christmas Day and New Year's Day
+        # were not established as federal holidays until June 28, 1870.
+        if self._year >= 1870:
+            # Christmas Eve.
+            self._add_christmas_eve(tr("Christmas Eve"))
+
+            # New Year's Eve.
+            self._add_new_years_eve(tr("New Year's Eve"))
 
         # Continental US non-Public dates
 

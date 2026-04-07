@@ -97,6 +97,10 @@ class CreateBenchmarkRequest(_message.Message):
         "resource_group",
         "trace_sample_rate",
         "data_sample_rate",
+        "query_host",
+        "insecure",
+        "concurrency",
+        "num_connections",
     )
     WARMUP_QPS_FIELD_NUMBER: _ClassVar[int]
     WARMUP_DURATION_FIELD_NUMBER: _ClassVar[int]
@@ -111,6 +115,10 @@ class CreateBenchmarkRequest(_message.Message):
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     TRACE_SAMPLE_RATE_FIELD_NUMBER: _ClassVar[int]
     DATA_SAMPLE_RATE_FIELD_NUMBER: _ClassVar[int]
+    QUERY_HOST_FIELD_NUMBER: _ClassVar[int]
+    INSECURE_FIELD_NUMBER: _ClassVar[int]
+    CONCURRENCY_FIELD_NUMBER: _ClassVar[int]
+    NUM_CONNECTIONS_FIELD_NUMBER: _ClassVar[int]
     warmup_qps: int
     warmup_duration: _duration_pb2.Duration
     qps: int
@@ -124,6 +132,10 @@ class CreateBenchmarkRequest(_message.Message):
     resource_group: str
     trace_sample_rate: float
     data_sample_rate: float
+    query_host: str
+    insecure: bool
+    concurrency: int
+    num_connections: int
     def __init__(
         self,
         warmup_qps: _Optional[int] = ...,
@@ -139,6 +151,10 @@ class CreateBenchmarkRequest(_message.Message):
         resource_group: _Optional[str] = ...,
         trace_sample_rate: _Optional[float] = ...,
         data_sample_rate: _Optional[float] = ...,
+        query_host: _Optional[str] = ...,
+        insecure: bool = ...,
+        concurrency: _Optional[int] = ...,
+        num_connections: _Optional[int] = ...,
     ) -> None: ...
 
 class CreateBenchmarkResponse(_message.Message):

@@ -17,10 +17,6 @@ class FileSystemEntry:
     """This class has no documentation."""
 
     @property
-    def file_name(self) -> System.ReadOnlySpan[str]:
-        ...
-
-    @property
     def directory(self) -> System.ReadOnlySpan[str]:
         ...
 
@@ -30,6 +26,10 @@ class FileSystemEntry:
 
     @property
     def original_root_directory(self) -> System.ReadOnlySpan[str]:
+        ...
+
+    @property
+    def file_name(self) -> System.ReadOnlySpan[str]:
         ...
 
     @property
@@ -53,11 +53,11 @@ class FileSystemEntry:
         ...
 
     @property
-    def is_hidden(self) -> bool:
+    def is_directory(self) -> bool:
         ...
 
     @property
-    def is_directory(self) -> bool:
+    def is_hidden(self) -> bool:
         ...
 
     def to_file_system_info(self) -> System.IO.FileSystemInfo:

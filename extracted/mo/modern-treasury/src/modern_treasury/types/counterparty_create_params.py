@@ -11,6 +11,7 @@ from .._utils import PropertyInfo
 from .external_account_type import ExternalAccountType
 from .shared_params.address_request import AddressRequest
 from .contact_detail_create_request_param import ContactDetailCreateRequestParam
+from .shared_params.third_party_verification import ThirdPartyVerification
 from .shared_params.identification_create_request import IdentificationCreateRequest
 from .shared_params.ledger_account_create_request import LedgerAccountCreateRequest
 from .shared_params.legal_entity_address_create_request import LegalEntityAddressCreateRequest
@@ -33,7 +34,6 @@ __all__ = [
     "LegalEntityPhoneNumber",
     "LegalEntityRegulators",
     "LegalEntityRegulator",
-    "LegalEntityThirdPartyVerification",
     "LegalEntityWealthAndEmploymentDetails",
 ]
 
@@ -184,6 +184,7 @@ class AccountRoutingDetail(TypedDict, total=False):
         "signet",
         "sknbi",
         "solana",
+        "stablecoin",
         "wire",
         "zengin",
     ]
@@ -356,16 +357,6 @@ LegalEntityRegulators = LegalEntityRegulator
 
 Please use LegalEntityRegulator instead.
 """
-
-
-class LegalEntityThirdPartyVerification(TypedDict, total=False):
-    """Information describing a third-party verification run by an external vendor."""
-
-    vendor: Required[Literal["persona"]]
-    """The vendor that performed the verification, e.g. `persona`."""
-
-    vendor_verification_id: Required[str]
-    """The identification of the third party verification in `vendor`'s system."""
 
 
 class LegalEntityWealthAndEmploymentDetails(TypedDict, total=False):
@@ -653,11 +644,17 @@ class LegalEntity(TypedDict, total=False):
     risk_rating: Optional[Literal["low", "medium", "high"]]
     """The risk rating of the legal entity. One of low, medium, high."""
 
+    service_provider_legal_entity_id: Optional[str]
+    """The UUID of the parent legal entity in the service provider tree."""
+
     suffix: Optional[str]
     """An individual's suffix."""
 
-    third_party_verification: Optional[LegalEntityThirdPartyVerification]
-    """Information describing a third-party verification run by an external vendor."""
+    third_party_verification: Optional[ThirdPartyVerification]
+    """Deprecated. Use `third_party_verifications` instead."""
+
+    third_party_verifications: Iterable[ThirdPartyVerification]
+    """A list of third-party verifications run by external vendors."""
 
     ticker_symbol: Optional[str]
     """Stock ticker symbol for publicly traded companies."""

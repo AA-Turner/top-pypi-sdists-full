@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from .axes_utils import add_ax_if_none, equal_aspect, make_ax, set_default_labels_and_title
+from .axes_utils import (
+    add_ax_if_none,
+    add_plotter_if_none,
+    equal_aspect,
+    make_ax,
+    set_default_labels_and_title,
+)
 from .descartes import Polygon, polygon_patch, polygon_path
 from .flex_style import apply_tidy3d_params, restore_matplotlib_rcparams
 from .plot_params import (
@@ -14,6 +20,7 @@ from .plot_params import (
     plot_params_geometry,
     plot_params_grid,
     plot_params_lumped_element,
+    plot_params_min_grid_size,
     plot_params_monitor,
     plot_params_override_structures,
     plot_params_pec,
@@ -41,7 +48,18 @@ from .styles import (
 )
 from .visualization_spec import MATPLOTLIB_IMPORTED, VisualizationSpec
 
-apply_tidy3d_params()
+# Note: apply_tidy3d_params() is no longer called at import time to reduce import overhead.
+# It will be called automatically when matplotlib is first used for plotting.
+_tidy3d_style_applied = False
+
+
+def _ensure_tidy3d_style() -> None:
+    """Apply tidy3d matplotlib style if not already applied."""
+    global _tidy3d_style_applied
+    if not _tidy3d_style_applied:
+        apply_tidy3d_params()
+        _tidy3d_style_applied = True
+
 
 __all__ = [
     "ARROW_ALPHA",
@@ -63,6 +81,7 @@ __all__ = [
     "Polygon",
     "VisualizationSpec",
     "add_ax_if_none",
+    "add_plotter_if_none",
     "arrow_style",
     "equal_aspect",
     "make_ax",
@@ -73,6 +92,7 @@ __all__ = [
     "plot_params_geometry",
     "plot_params_grid",
     "plot_params_lumped_element",
+    "plot_params_min_grid_size",
     "plot_params_monitor",
     "plot_params_override_structures",
     "plot_params_pec",

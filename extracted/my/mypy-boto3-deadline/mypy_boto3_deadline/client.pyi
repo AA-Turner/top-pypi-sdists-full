@@ -74,6 +74,22 @@ from .type_defs import (
     AssumeQueueRoleForWorkerResponseTypeDef,
     BatchGetJobEntityRequestTypeDef,
     BatchGetJobEntityResponseTypeDef,
+    BatchGetJobRequestTypeDef,
+    BatchGetJobResponseTypeDef,
+    BatchGetSessionActionRequestTypeDef,
+    BatchGetSessionActionResponseTypeDef,
+    BatchGetSessionRequestTypeDef,
+    BatchGetSessionResponseTypeDef,
+    BatchGetStepRequestTypeDef,
+    BatchGetStepResponseTypeDef,
+    BatchGetTaskRequestTypeDef,
+    BatchGetTaskResponseTypeDef,
+    BatchGetWorkerRequestTypeDef,
+    BatchGetWorkerResponseTypeDef,
+    BatchUpdateJobRequestTypeDef,
+    BatchUpdateJobResponseTypeDef,
+    BatchUpdateTaskRequestTypeDef,
+    BatchUpdateTaskResponseTypeDef,
     CopyJobTemplateRequestTypeDef,
     CopyJobTemplateResponseTypeDef,
     CreateBudgetRequestTypeDef,
@@ -400,6 +416,16 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#assume_queue_role_for_worker)
         """
 
+    def batch_get_job(
+        self, **kwargs: Unpack[BatchGetJobRequestTypeDef]
+    ) -> BatchGetJobResponseTypeDef:
+        """
+        Retrieves multiple jobs in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_get_job.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#batch_get_job)
+        """
+
     def batch_get_job_entity(
         self, **kwargs: Unpack[BatchGetJobEntityRequestTypeDef]
     ) -> BatchGetJobEntityResponseTypeDef:
@@ -408,6 +434,76 @@ class DeadlineCloudClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_get_job_entity.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#batch_get_job_entity)
+        """
+
+    def batch_get_session(
+        self, **kwargs: Unpack[BatchGetSessionRequestTypeDef]
+    ) -> BatchGetSessionResponseTypeDef:
+        """
+        Retrieves multiple sessions in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_get_session.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#batch_get_session)
+        """
+
+    def batch_get_session_action(
+        self, **kwargs: Unpack[BatchGetSessionActionRequestTypeDef]
+    ) -> BatchGetSessionActionResponseTypeDef:
+        """
+        Retrieves multiple session actions in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_get_session_action.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#batch_get_session_action)
+        """
+
+    def batch_get_step(
+        self, **kwargs: Unpack[BatchGetStepRequestTypeDef]
+    ) -> BatchGetStepResponseTypeDef:
+        """
+        Retrieves multiple steps in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_get_step.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#batch_get_step)
+        """
+
+    def batch_get_task(
+        self, **kwargs: Unpack[BatchGetTaskRequestTypeDef]
+    ) -> BatchGetTaskResponseTypeDef:
+        """
+        Retrieves multiple tasks in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_get_task.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#batch_get_task)
+        """
+
+    def batch_get_worker(
+        self, **kwargs: Unpack[BatchGetWorkerRequestTypeDef]
+    ) -> BatchGetWorkerResponseTypeDef:
+        """
+        Retrieves multiple workers in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_get_worker.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#batch_get_worker)
+        """
+
+    def batch_update_job(
+        self, **kwargs: Unpack[BatchUpdateJobRequestTypeDef]
+    ) -> BatchUpdateJobResponseTypeDef:
+        """
+        Updates multiple jobs in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_update_job.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#batch_update_job)
+        """
+
+    def batch_update_task(
+        self, **kwargs: Unpack[BatchUpdateTaskRequestTypeDef]
+    ) -> BatchUpdateTaskResponseTypeDef:
+        """
+        Updates multiple tasks in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_update_task.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#batch_update_task)
         """
 
     def copy_job_template(

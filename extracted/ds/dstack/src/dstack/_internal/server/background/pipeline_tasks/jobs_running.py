@@ -34,6 +34,7 @@ from dstack._internal.core.models.runs import (
     RunStatus,
 )
 from dstack._internal.core.models.volumes import InstanceMountPoint, Volume, VolumeMountPoint
+from dstack._internal.server import settings as server_settings
 from dstack._internal.server.background.pipeline_tasks.base import (
     Fetcher,
     Heartbeater,
@@ -78,12 +79,14 @@ from dstack._internal.server.services.jobs import (
     find_job,
     get_job_attached_volumes,
     get_job_runtime_data,
+    get_job_spec,
     is_master_job,
     job_model_to_job_submission,
 )
 from dstack._internal.server.services.locking import get_locker
 from dstack._internal.server.services.logging import fmt
 from dstack._internal.server.services.metrics import get_job_metrics
+from dstack._internal.server.services.pipelines import PipelineHinterProtocol
 from dstack._internal.server.services.repos import (
     get_code_model,
     get_repo_creds,
@@ -102,6 +105,8 @@ from dstack._internal.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+JOB_STATUSES_WITH_MIN_PROCESSING_INTERVAL = [JobStatus.PROVISIONING, JobStatus.PULLING]
+
 JOB_DISCONNECTED_RETRY_TIMEOUT = timedelta(minutes=2)
 """`The minimum time before terminating active job in case of connectivity issues."""
 
@@ -109,6 +114,7 @@ JOB_DISCONNECTED_RETRY_TIMEOUT = timedelta(minutes=2)
 @dataclass
 class JobRunningPipelineItem(PipelineItem):
     status: JobStatus
+    replica_num: int
 
 
 class JobRunningPipeline(Pipeline[JobRunningPipelineItem]):
@@ -117,9 +123,11 @@ class JobRunningPipeline(Pipeline[JobRunningPipelineItem]):
         workers_num: int = 20,
         queue_lower_limit_factor: float = 0.5,
         queue_upper_limit_factor: float = 2.0,
-        min_processing_interval: timedelta = timedelta(seconds=10),
+        min_processing_interval: timedelta = timedelta(seconds=5),
         lock_timeout: timedelta = timedelta(seconds=30),
         heartbeat_trigger: timedelta = timedelta(seconds=15),
+        *,
+        pipeline_hinter: PipelineHinterProtocol,
     ) -> None:
         super().__init__(
             workers_num=workers_num,
@@ -142,7 +150,11 @@ class JobRunningPipeline(Pipeline[JobRunningPipelineItem]):
             heartbeater=self._heartbeater,
         )
         self.__workers = [
-            JobRunningWorker(queue=self._queue, heartbeater=self._heartbeater)
+            JobRunningWorker(
+                queue=self._queue,
+                heartbeater=self._heartbeater,
+                pipeline_hinter=pipeline_hinter,
+            )
             for _ in range(self._workers_num)
         ]
 
@@ -182,7 +194,7 @@ class JobRunningFetcher(Fetcher[JobRunningPipelineItem]):
             queue_check_delay=queue_check_delay,
         )
 
-    @sentry_utils.instrument_named_task("pipeline_tasks.JobRunningFetcher.fetch")
+    @sentry_utils.instrument_pipeline_task("JobRunningFetcher.fetch")
     async def fetch(self, limit: int) -> list[JobRunningPipelineItem]:
         job_lock, _ = get_locker(get_db().dialect_name).get_lockset(JobModel.__tablename__)
         async with job_lock:
@@ -195,14 +207,26 @@ class JobRunningFetcher(Fetcher[JobRunningPipelineItem]):
                         JobModel.status.in_(
                             [JobStatus.PROVISIONING, JobStatus.PULLING, JobStatus.RUNNING]
                         ),
-                        RunModel.status.not_in([RunStatus.TERMINATING]),
-                        JobModel.last_processed_at <= now - self._min_processing_interval,
+                        or_(
+                            # Process provisioning and pulling jobs quicker for low-latency provisioning.
+                            # Active jobs processing can be less frequent to minimize contention with `RunPipeline`.
+                            and_(
+                                JobModel.status.in_(JOB_STATUSES_WITH_MIN_PROCESSING_INTERVAL),
+                                JobModel.last_processed_at <= now - self._min_processing_interval,
+                            ),
+                            and_(
+                                JobModel.status.not_in(JOB_STATUSES_WITH_MIN_PROCESSING_INTERVAL),
+                                JobModel.last_processed_at
+                                <= now - self._min_processing_interval * 2,
+                            ),
+                        ),
                         or_(
                             and_(
-                                # Do not try to lock jobs if the run is waiting for the lock,
+                                # Do not try to lock jobs if the run is waiting for the lock or terminating,
                                 # but allow retrying jobs whose own lock is stale because
                                 # the run pipeline cannot reclaim stale job locks.
                                 RunModel.lock_owner.is_(None),
+                                RunModel.status.not_in([RunStatus.TERMINATING]),
                                 JobModel.lock_expires_at.is_(None),
                             ),
                             JobModel.lock_expires_at < now,
@@ -221,6 +245,7 @@ class JobRunningFetcher(Fetcher[JobRunningPipelineItem]):
                             JobModel.lock_token,
                             JobModel.lock_expires_at,
                             JobModel.status,
+                            JobModel.replica_num,
                         )
                     )
                 )
@@ -241,6 +266,7 @@ class JobRunningFetcher(Fetcher[JobRunningPipelineItem]):
                             lock_token=lock_token,
                             prev_lock_expired=prev_lock_expired,
                             status=job_model.status,
+                            replica_num=job_model.replica_num,
                         )
                     )
                 await session.commit()
@@ -252,13 +278,15 @@ class JobRunningWorker(Worker[JobRunningPipelineItem]):
         self,
         queue: asyncio.Queue[JobRunningPipelineItem],
         heartbeater: Heartbeater[JobRunningPipelineItem],
+        pipeline_hinter: PipelineHinterProtocol,
     ) -> None:
         super().__init__(
             queue=queue,
             heartbeater=heartbeater,
+            pipeline_hinter=pipeline_hinter,
         )
 
-    @sentry_utils.instrument_named_task("pipeline_tasks.JobRunningWorker.process")
+    @sentry_utils.instrument_pipeline_task("JobRunningWorker.process")
     async def process(self, item: JobRunningPipelineItem):
         context = await _load_process_context(item=item)
         if context is None:
@@ -330,15 +358,29 @@ async def _load_process_context(item: JobRunningPipelineItem) -> Optional[_Proce
         job_model = await _refetch_locked_job_model(session=session, item=item)
         if job_model is None:
             return None
-        run_model = await _fetch_run_model(session=session, run_id=job_model.run_id)
-        run = run_model_to_run(run_model, include_sensitive=True)
+        if item.status == JobStatus.RUNNING:
+            # RUNNING jobs don't access run.jobs — skip loading sibling jobs entirely.
+            run_model = await _fetch_run_model(session=session, run_id=job_model.run_id)
+            run = run_model_to_run(run_model, include_sensitive=True, include_jobs=False)
+            job = Job(
+                job_spec=get_job_spec(job_model),
+                job_submissions=[job_model_to_job_submission(job_model)],
+            )
+        else:
+            # PROVISIONING/PULLING jobs need same-replica siblings for cluster coordination.
+            # All sibling access is replica-scoped, so only load jobs for this replica.
+            run_model = await _fetch_run_model(
+                session=session, run_id=job_model.run_id, replica_num=item.replica_num
+            )
+            run = run_model_to_run(run_model, include_sensitive=True)
+            job = find_job(run.jobs, job_model.replica_num, job_model.job_num)
         job_submission = job_model_to_job_submission(job_model)
         server_ssh_private_keys = get_instance_ssh_private_keys(get_or_error(job_model.instance))
         return _ProcessContext(
             job_model=job_model,
             run_model=run_model,
             run=run,
-            job=find_job(run.jobs, job_model.replica_num, job_model.job_num),
+            job=job,
             job_submission=job_submission,
             job_provisioning_data=job_submission.job_provisioning_data,
             server_ssh_private_keys=server_ssh_private_keys,
@@ -467,41 +509,53 @@ async def _refetch_locked_job_model(
     return res.unique().scalar_one_or_none()
 
 
-async def _fetch_run_model(session: AsyncSession, run_id: uuid.UUID) -> RunModel:
-    # FIXME: Selecting all run's jobs on every processing iteration is highly inefficient:
-    # it's quadratic w.r.t. the number jobs within a run.
-    # Avoid selecting other jobs as much as possible.
-    latest_submissions_sq = (
-        select(
-            JobModel.run_id.label("run_id"),
-            JobModel.replica_num.label("replica_num"),
-            JobModel.job_num.label("job_num"),
-            func.max(JobModel.submission_num).label("max_submission_num"),
-        )
-        .where(JobModel.run_id == run_id)
-        .group_by(JobModel.run_id, JobModel.replica_num, JobModel.job_num)
-        .subquery()
-    )
-    job_alias = aliased(JobModel)
-    res = await session.execute(
+async def _fetch_run_model(
+    session: AsyncSession,
+    run_id: uuid.UUID,
+    replica_num: Optional[int] = None,
+) -> RunModel:
+    """Fetch run model with related project, user, repo, and fleet.
+
+    Args:
+        replica_num: If None, skip loading jobs (for RUNNING jobs that don't need siblings).
+            If set, load only latest-submission jobs for that replica (for PROVISIONING/PULLING
+            jobs that need same-replica siblings for cluster coordination).
+    """
+    query = (
         select(RunModel)
         .where(RunModel.id == run_id)
-        .join(job_alias, job_alias.run_id == RunModel.id)
-        .join(
-            latest_submissions_sq,
-            onclause=and_(
-                job_alias.run_id == latest_submissions_sq.c.run_id,
-                job_alias.replica_num == latest_submissions_sq.c.replica_num,
-                job_alias.job_num == latest_submissions_sq.c.job_num,
-                job_alias.submission_num == latest_submissions_sq.c.max_submission_num,
-            ),
-        )
         .options(joinedload(RunModel.project))
         .options(joinedload(RunModel.user))
         .options(joinedload(RunModel.repo))
         .options(joinedload(RunModel.fleet).load_only(FleetModel.id, FleetModel.name))
-        .options(contains_eager(RunModel.jobs, alias=job_alias))
     )
+    if replica_num is not None:
+        latest_submissions_sq = (
+            select(
+                JobModel.run_id.label("run_id"),
+                JobModel.replica_num.label("replica_num"),
+                JobModel.job_num.label("job_num"),
+                func.max(JobModel.submission_num).label("max_submission_num"),
+            )
+            .where(JobModel.run_id == run_id, JobModel.replica_num == replica_num)
+            .group_by(JobModel.run_id, JobModel.replica_num, JobModel.job_num)
+            .subquery()
+        )
+        job_alias = aliased(JobModel)
+        query = (
+            query.join(job_alias, job_alias.run_id == RunModel.id)
+            .join(
+                latest_submissions_sq,
+                onclause=and_(
+                    job_alias.run_id == latest_submissions_sq.c.run_id,
+                    job_alias.replica_num == latest_submissions_sq.c.replica_num,
+                    job_alias.job_num == latest_submissions_sq.c.job_num,
+                    job_alias.submission_num == latest_submissions_sq.c.max_submission_num,
+                ),
+            )
+            .options(contains_eager(RunModel.jobs, alias=job_alias))
+        )
+    res = await session.execute(query)
     return res.unique().scalar_one()
 
 
@@ -525,12 +579,16 @@ async def _process_provisioning_status(
             fmt(context.job_model),
             context.job_submission.age,
         )
-        ssh_user = job_provisioning_data.username
-        assert context.run.run_spec.ssh_key_pub is not None
-        user_ssh_key = context.run.run_spec.ssh_key_pub.strip()
-        public_keys = [context.project.ssh_public_key.strip(), user_ssh_key]
+        public_keys = [context.project.ssh_public_key.strip()]
+        ssh_user: Optional[str] = None
+        user_ssh_key: Optional[str] = None
+        if not server_settings.SSHPROXY_ENFORCED:
+            ssh_user = job_provisioning_data.username
+            assert context.run.run_spec.ssh_key_pub is not None
+            user_ssh_key = context.run.run_spec.ssh_key_pub.strip()
+            public_keys.append(user_ssh_key)
         if job_provisioning_data.backend == BackendType.LOCAL:
-            user_ssh_key = ""
+            user_ssh_key = None
         success = await run_async(
             _process_provisioning_with_shim,
             server_ssh_private_keys,
@@ -1065,8 +1123,8 @@ def _process_provisioning_with_shim(
     volumes: list[Volume],
     registry_auth: Optional[RegistryAuth],
     public_keys: list[str],
-    ssh_user: str,
-    ssh_key: str,
+    ssh_user: Optional[str],
+    ssh_key: Optional[str],
 ) -> bool:
     job_spec = JobSpec.__response__.parse_raw(job_model.job_spec_data)
     shim_client = client.ShimClient(port=ports[DSTACK_SHIM_HTTP_PORT])
@@ -1128,7 +1186,7 @@ def _process_provisioning_with_shim(
             volume_mounts=volume_mounts,
             instance_mounts=instance_mounts,
             gpu_devices=gpu_devices,
-            host_ssh_user=ssh_user,
+            host_ssh_user=ssh_user or "",
             host_ssh_keys=[ssh_key] if ssh_key else [],
             container_ssh_keys=public_keys,
             instance_id=jpd.instance_id,
@@ -1143,8 +1201,8 @@ def _process_provisioning_with_shim(
             container_user=container_user,
             shm_size=job_spec.requirements.resources.shm_size,
             public_keys=public_keys,
-            ssh_user=ssh_user,
-            ssh_key=ssh_key,
+            ssh_user=ssh_user or "",
+            ssh_key=ssh_key or "",
             mounts=volume_mounts,
             volumes=volumes,
             instance_mounts=instance_mounts,

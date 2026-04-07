@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 6.8.4
+Version: 6.8.5
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -45,6 +45,7 @@ Requires-Dist: jsondiff
 Requires-Dist: jsonfield
 Requires-Dist: openedx-atlas
 Requires-Dist: openedx-events
+Requires-Dist: openedx-filters
 Requires-Dist: paramiko
 Requires-Dist: path.py
 Requires-Dist: pillow
@@ -54,6 +55,7 @@ Requires-Dist: requests
 Requires-Dist: rules
 Requires-Dist: slumber
 Requires-Dist: snowflake-connector-python
+Requires-Dist: social-auth-app-django
 Requires-Dist: stevedore
 Requires-Dist: testfixtures
 Requires-Dist: unicodecsv
@@ -162,6 +164,10 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[6.8.5] - 2026-03-31
+---------------------
+* feat: add AccountSettingsEnterpriseReadOnlyFieldsStep pipeline step (ENT-11510)
 
 [6.8.4] - 2026-03-31
 --------------------

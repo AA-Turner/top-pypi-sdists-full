@@ -5,7 +5,7 @@ import shlex
 import subprocess
 import tempfile
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Literal, Optional, Union
+from typing import Dict, Iterable, List, Literal, NoReturn, Optional, Union
 
 from dstack._internal.core.errors import SSHError
 from dstack._internal.core.models.instances import SSHConnectionParams
@@ -70,6 +70,7 @@ class SSHTunnel:
         ssh_config_path: Union[PathLike, Literal["none"]] = "none",
         port: Optional[int] = None,
         ssh_proxies: Iterable[tuple[SSHConnectionParams, Optional[FilePathOrContent]]] = (),
+        batch_mode: bool = False,
     ):
         """
         :param forwarded_sockets: Connections to the specified local sockets will be
@@ -79,6 +80,14 @@ class SSHTunnel:
         :param ssh_proxies: pairs of SSH connections params and optional identities,
             in order from outer to inner. If an identity is `None`, the `identity` param
             is used instead.
+        :param batch_mode: If enabled, "user interaction such as password prompts and host key
+            confirmation requests will be disabled", see `ssh_config(5)`, `BatchMode`.
+            Although this is probably the desired behavior in all use cases, the default value
+            is `False` for gradual adoption.
+            Note, this option is only applied to the `destination` and `ssh_proxies`. If you
+            configured `destination` with `ProxyJump` in the `ssh_config_path` config, the proxy
+            jump connection will ignore this option -- in that case, you should replace `ProxyJump`
+            with explicit `ProxyCommand=ssh [...] -o BatchMode=yes` in your config.
         """
         self.destination = destination
         self.forwarded_sockets = list(forwarded_sockets)
@@ -101,6 +110,7 @@ class SSHTunnel:
                     proxy_identity, f"proxy_identity_{proxy_index}"
                 )
             self.ssh_proxies.append((proxy_params, proxy_identity_path))
+        self.batch_mode = batch_mode
         self.log_path = normalize_path(os.path.join(temp_dir.name, "tunnel.log"))
         self.ssh_client_info = get_ssh_client_info()
         self.ssh_exec_path = str(self.ssh_client_info.path)
@@ -145,6 +155,14 @@ class SSHTunnel:
             command += ["-p", str(self.port)]
         for k, v in self.options.items():
             command += ["-o", f"{k}={v}"]
+        if self.batch_mode:
+            command += ["-o", "BatchMode=yes"]
+            if "serveraliveinterval" not in map(str.lower, self.options):
+                # Revert Debian-specific patch effect:
+                # > The default is 0, indicating that these messages will not be sent
+                # > to the server, or 300 if the BatchMode option is set (Debian-specific).
+                # https://salsa.debian.org/ssh-team/openssh/-/blob/d87b69641b533b892b87e2eea02dbee796682d64/debian/patches/keepalive-extensions.patch#L69-77
+                command += ["-o", "ServerAliveInterval=0"]
         if proxy_command := self._get_proxy_command():
             command += ["-o", proxy_command]
         for socket_pair in self.forwarded_sockets:
@@ -181,9 +199,8 @@ class SSHTunnel:
             raise SSHError(msg) from e
         if r.returncode == 0:
             return
-        stderr = self._read_log_file()
-        logger.debug("SSH tunnel failed: %s", stderr)
-        raise get_ssh_error(stderr)
+        log_output = self._read_log_file()
+        self._raise_ssh_error_from_log_output(log_output)
 
     async def aopen(self) -> None:
         await run_async(self._remove_log_file)
@@ -199,9 +216,8 @@ class SSHTunnel:
             raise SSHError(msg) from e
         if proc.returncode == 0:
             return
-        stderr = await run_async(self._read_log_file)
-        logger.debug("SSH tunnel failed: %s", stderr)
-        raise get_ssh_error(stderr)
+        log_output = await run_async(self._read_log_file)
+        self._raise_ssh_error_from_log_output(log_output)
 
     def close(self) -> None:
         if not os.path.exists(self.control_sock_path):
@@ -290,6 +306,14 @@ class SSHTunnel:
             "-o",
             "UserKnownHostsFile=/dev/null",
         ]
+        if self.batch_mode:
+            # ServerAliveInterval is explained in the open_command() comment
+            command += [
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ServerAliveInterval=0",
+            ]
         if prev_proxy_command is not None:
             command += ["-o", prev_proxy_command.replace("%", "%%")]
         command += [
@@ -299,9 +323,13 @@ class SSHTunnel:
         ]
         return "ProxyCommand=" + shlex.join(command)
 
-    def _read_log_file(self) -> bytes:
-        with open(self.log_path, "rb") as f:
-            return f.read()
+    def _read_log_file(self) -> Optional[bytes]:
+        try:
+            with open(self.log_path, "rb") as f:
+                return f.read()
+        except OSError as e:
+            logger.debug("Failed to read SSH tunnel log file %s: %s", self.log_path, e)
+            return None
 
     def _remove_log_file(self) -> None:
         try:
@@ -310,6 +338,16 @@ class SSHTunnel:
             pass
         except OSError as e:
             logger.debug("Failed to remove SSH tunnel log file %s: %s", self.log_path, e)
+
+    def _raise_ssh_error_from_log_output(self, output: Optional[bytes]) -> NoReturn:
+        if output is None:
+            msg = "(no log file)"
+            ssh_error = SSHError()
+        else:
+            msg = output
+            ssh_error = get_ssh_error(output)
+        logger.debug("SSH tunnel failed: %s", msg)
+        raise ssh_error
 
     def _get_identity_path(self, identity: FilePathOrContent, tmp_filename: str) -> PathLike:
         if isinstance(identity, FilePath):

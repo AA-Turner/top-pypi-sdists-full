@@ -379,6 +379,18 @@ def f(x1: list[str], x2: list[LiteralString]):
 );
 
 testcase!(
+    test_str_join_boolop_narrowing,
+    r#"
+from typing import assert_type
+
+def format_types(types: set[type | None]) -> str:
+    values = sorted((e and e.__name__) or "None" for e in types)
+    assert_type(values, list[str])
+    return ", ".join(values)
+    "#,
+);
+
+testcase!(
     test_giant_literal_string,
     r#"
 from typing import assert_type, LiteralString
@@ -454,5 +466,52 @@ for i in c:
 # enumerate loses Literal types due to TypeVar promotion
 for i, j in enumerate(c):
     test(j) # E: Argument `str` is not assignable to parameter `x` with type `Literal['a', 'b']` in function `test`
+    "#,
+);
+
+testcase!(
+    test_promote_module_level_literal_in_function,
+    r#"
+from typing import Literal, assert_type
+
+timeout = 100
+MY_CONST = 42
+
+def foo():
+    assert_type(timeout, int)
+    assert_type(MY_CONST, Literal[42])
+    "#,
+);
+
+testcase!(
+    test_promote_branchy_literal_in_function,
+    r#"
+from typing import assert_type
+
+def cond() -> bool: ...
+if cond():
+    x = 1
+else:
+    x = 2
+
+def foo():
+    assert_type(x, int)
+    "#,
+);
+
+testcase!(
+    test_promote_module_level_enum_literal_in_function,
+    r#"
+from typing import assert_type
+from enum import Enum
+
+class Color(Enum):
+    RED = 1
+    GREEN = 2
+
+x = Color.RED
+
+def foo():
+    assert_type(x, Color)
     "#,
 );

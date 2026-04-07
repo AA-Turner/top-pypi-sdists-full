@@ -20,7 +20,7 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # and the GNU General Public License along with this program.  If not,
-# see <http://www.gnu.org/licenses/>.
+# see <https://www.gnu.org/licenses/>.
 
 """
 .. include:: ../README.md
@@ -32,7 +32,7 @@ from .packet import Packet
 from .windivert import WinDivert
 
 __author__ = "fabio"
-__version__ = "3.0.0"
+__version__ = "3.1.0"
 
 __all__ = [
     "WinDivert",

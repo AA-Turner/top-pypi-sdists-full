@@ -8,6 +8,9 @@ from slack_bolt.context.assistant.thread_context_store.async_store import AsyncA
 
 from slack_bolt.listener.asyncio_runner import AsyncioListenerRunner
 from slack_bolt.listener_matcher.builtins import build_listener_matcher
+from slack_bolt.middleware.attaching_conversation_kwargs.async_attaching_conversation_kwargs import (
+    AsyncAttachingConversationKwargs,
+)
 from slack_bolt.request.async_request import AsyncBoltRequest
 from slack_bolt.response import BoltResponse
 from slack_bolt.error import BoltError
@@ -63,7 +66,7 @@ class AsyncAssistant(AsyncMiddleware):
                 func=is_assistant_thread_started_event,
                 asyncio=True,
                 base_logger=self.base_logger,
-            ),  # type:ignore[arg-type]
+            ),  # type: ignore[arg-type]
             matchers,
         )
         if is_used_without_argument(args):
@@ -72,7 +75,7 @@ class AsyncAssistant(AsyncMiddleware):
                 self.build_listener(
                     listener_or_functions=func,
                     matchers=all_matchers,
-                    middleware=middleware,  # type:ignore[arg-type]
+                    middleware=middleware,  # type: ignore[arg-type]
                 )
             )
             return func
@@ -109,7 +112,7 @@ class AsyncAssistant(AsyncMiddleware):
                 func=is_user_message_event_in_assistant_thread,
                 asyncio=True,
                 base_logger=self.base_logger,
-            ),  # type:ignore[arg-type]
+            ),  # type: ignore[arg-type]
             matchers,
         )
         if is_used_without_argument(args):
@@ -118,7 +121,7 @@ class AsyncAssistant(AsyncMiddleware):
                 self.build_listener(
                     listener_or_functions=func,
                     matchers=all_matchers,
-                    middleware=middleware,  # type:ignore[arg-type]
+                    middleware=middleware,  # type: ignore[arg-type]
                 )
             )
             return func
@@ -155,7 +158,7 @@ class AsyncAssistant(AsyncMiddleware):
                 func=is_bot_message_event_in_assistant_thread,
                 asyncio=True,
                 base_logger=self.base_logger,
-            ),  # type:ignore[arg-type]
+            ),  # type: ignore[arg-type]
             matchers,
         )
         if is_used_without_argument(args):
@@ -164,7 +167,7 @@ class AsyncAssistant(AsyncMiddleware):
                 self.build_listener(
                     listener_or_functions=func,
                     matchers=all_matchers,
-                    middleware=middleware,  # type:ignore[arg-type]
+                    middleware=middleware,  # type: ignore[arg-type]
                 )
             )
             return func
@@ -201,7 +204,7 @@ class AsyncAssistant(AsyncMiddleware):
                 func=is_assistant_thread_context_changed_event,
                 asyncio=True,
                 base_logger=self.base_logger,
-            ),  # type:ignore[arg-type]
+            ),  # type: ignore[arg-type]
             matchers,
         )
         if is_used_without_argument(args):
@@ -210,7 +213,7 @@ class AsyncAssistant(AsyncMiddleware):
                 self.build_listener(
                     listener_or_functions=func,
                     matchers=all_matchers,
-                    middleware=middleware,  # type:ignore[arg-type]
+                    middleware=middleware,  # type: ignore[arg-type]
                 )
             )
             return func
@@ -238,14 +241,14 @@ class AsyncAssistant(AsyncMiddleware):
         primary_matcher: Union[Callable[..., bool], AsyncListenerMatcher],
         custom_matchers: Optional[Union[Callable[..., bool], AsyncListenerMatcher]],
     ):
-        return [primary_matcher] + (custom_matchers or [])  # type:ignore[operator]
+        return [primary_matcher] + (custom_matchers or [])  # type: ignore[operator]
 
     @staticmethod
     async def default_thread_context_changed(save_thread_context: AsyncSaveThreadContext, payload: dict):
         new_context: dict = payload["assistant_thread"]["context"]
         await save_thread_context(new_context)
 
-    async def async_process(  # type:ignore[return]
+    async def async_process(  # type: ignore[return]
         self,
         *,
         req: AsyncBoltRequest,
@@ -265,6 +268,15 @@ class AsyncAssistant(AsyncMiddleware):
             if listeners is not None:
                 for listener in listeners:
                     if listener is not None and await listener.async_matches(req=req, resp=resp):
+                        middleware_resp, next_was_not_called = await listener.run_async_middleware(req=req, resp=resp)
+                        if next_was_not_called:
+                            if middleware_resp is not None:
+                                return middleware_resp
+                            # The listener middleware didn't call next().
+                            # Skip this listener and try the next one.
+                            continue
+                        if middleware_resp is not None:
+                            resp = middleware_resp
                         return await listener_runner.run(
                             request=req,
                             response=resp,
@@ -284,13 +296,14 @@ class AsyncAssistant(AsyncMiddleware):
         middleware: Optional[List[AsyncMiddleware]] = None,
         base_logger: Optional[Logger] = None,
     ) -> AsyncListener:
-        if isinstance(listener_or_functions, Callable):  # type:ignore[arg-type]
-            listener_or_functions = [listener_or_functions]  # type:ignore[list-item]
+        if isinstance(listener_or_functions, Callable):  # type: ignore[arg-type]
+            listener_or_functions = [listener_or_functions]  # type: ignore[list-item]
 
         if isinstance(listener_or_functions, AsyncListener):
             return listener_or_functions
         elif isinstance(listener_or_functions, list):
             middleware = middleware if middleware else []
+            middleware.insert(0, AsyncAttachingConversationKwargs(self.thread_context_store))
             functions = listener_or_functions
             ack_function = functions.pop(0)
 
@@ -302,7 +315,7 @@ class AsyncAssistant(AsyncMiddleware):
                 else:
                     listener_matchers.append(
                         build_listener_matcher(
-                            func=matcher,  # type:ignore[arg-type]
+                            func=matcher,  # type: ignore[arg-type]
                             asyncio=True,
                             base_logger=base_logger,
                         )

@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -9,11 +10,14 @@ import pytest
 
 from ouroboros.bigbang.interview import InterviewRound, InterviewState, InterviewStatus
 from ouroboros.core.types import Result
+from ouroboros.mcp.job_manager import JobLinks, JobSnapshot, JobStatus
 from ouroboros.mcp.tools.authoring_handlers import _is_interview_completion_signal
 from ouroboros.mcp.tools.definitions import (
     OUROBOROS_TOOLS,
+    ACTreeHUDHandler,
     CancelExecutionHandler,
     CancelJobHandler,
+    ChannelWorkflowHandler,
     EvaluateHandler,
     EvolveRewindHandler,
     EvolveStepHandler,
@@ -765,9 +769,10 @@ class TestOuroborosTools:
 
     def test_ouroboros_tools_contains_all_handlers(self) -> None:
         """OUROBOROS_TOOLS contains all standard handlers."""
-        assert len(OUROBOROS_TOOLS) == 21
+        assert len(OUROBOROS_TOOLS) == 23
 
         handler_types = {type(h) for h in OUROBOROS_TOOLS}
+        assert ACTreeHUDHandler in handler_types
         assert ExecuteSeedHandler in handler_types
         assert StartExecuteSeedHandler in handler_types
         assert SessionStatusHandler in handler_types
@@ -786,6 +791,7 @@ class TestOuroborosTools:
         assert LineageStatusHandler in handler_types
         assert EvolveRewindHandler in handler_types
         assert CancelExecutionHandler in handler_types
+        assert ChannelWorkflowHandler in handler_types
 
     def test_all_tools_have_unique_names(self) -> None:
         """All tools have unique names."""
@@ -801,7 +807,7 @@ class TestOuroborosTools:
     def test_get_ouroboros_tools_can_inject_runtime_backend(self) -> None:
         """Tool factory can build execute_seed with a specific runtime backend."""
         tools = get_ouroboros_tools(runtime_backend="codex")
-        assert len(tools) == 21
+        assert len(tools) == 23
         execute_handler = next(h for h in tools if isinstance(h, ExecuteSeedHandler))
         assert execute_handler.agent_runtime_backend == "codex"
 
@@ -982,6 +988,11 @@ class TestAsyncJobHandlers:
         handler = StartExecuteSeedHandler()
         assert handler.definition.name == "ouroboros_start_execute_seed"
 
+    def test_start_execute_seed_definition_mentions_ac_tree_hud(self) -> None:
+        handler = StartExecuteSeedHandler()
+        assert "ouroboros_ac_tree_hud" in handler.definition.description
+        assert "ouroboros_job_wait" not in handler.definition.description
+
     def test_job_status_definition_name(self) -> None:
         handler = JobStatusHandler()
         assert handler.definition.name == "ouroboros_job_status"
@@ -994,6 +1005,11 @@ class TestAsyncJobHandlers:
     def test_job_result_definition_name(self) -> None:
         handler = JobResultHandler()
         assert handler.definition.name == "ouroboros_job_result"
+
+    def test_ac_tree_hud_definition_has_expected_params(self) -> None:
+        handler = ACTreeHUDHandler()
+        param_names = {p.name for p in handler.definition.parameters}
+        assert param_names == {"session_id", "cursor", "max_nodes"}
 
     def test_cancel_job_definition_name(self) -> None:
         handler = CancelJobHandler()
@@ -1187,6 +1203,24 @@ class TestMeasureDriftHandler:
         )
 
         assert result.is_err
+
+    async def test_handle_none_optional_params(self) -> None:
+        """handle succeeds when optional params are explicitly None (#275)."""
+        handler = MeasureDriftHandler()
+        result = await handler.handle(
+            {
+                "session_id": "test-session",
+                "current_output": "Built a test task with Python 3.14",
+                "seed_content": VALID_SEED_YAML,
+                "constraint_violations": None,
+                "current_concepts": None,
+            }
+        )
+
+        assert result.is_ok
+        meta = result.value.meta
+        assert "combined_drift" in meta
+        assert meta["constraint_drift"] == 0.0
 
 
 class TestEvaluateHandler:
@@ -2191,3 +2225,57 @@ class TestStartExecuteSeedHandlerBackendPropagation:
         inner = handler._execute_handler
         assert inner.agent_runtime_backend is None
         assert inner.llm_backend is None
+
+    @pytest.mark.asyncio
+    async def test_handle_monitoring_message_prefers_ac_tree_hud(self) -> None:
+        mock_execute_handler = MagicMock(spec=ExecuteSeedHandler)
+        mock_execute_handler.agent_runtime_backend = "codex"
+        mock_execute_handler.llm_backend = "codex"
+        mock_execute_handler.handle = AsyncMock()
+
+        mock_event_store = AsyncMock()
+        mock_event_store.initialize = AsyncMock()
+
+        created_at = datetime.now(UTC)
+        snapshot = JobSnapshot(
+            job_id="job_test123",
+            job_type="execute_seed",
+            status=JobStatus.QUEUED,
+            message="Queued seed execution",
+            created_at=created_at,
+            updated_at=created_at,
+            cursor=17,
+            links=JobLinks(
+                session_id="orch_test123",
+                execution_id="exec_test123",
+            ),
+        )
+        mock_job_manager = AsyncMock()
+        mock_job_manager.start_job = AsyncMock(return_value=snapshot)
+
+        handler = StartExecuteSeedHandler(
+            execute_handler=mock_execute_handler,
+            event_store=mock_event_store,
+            job_manager=mock_job_manager,
+        )
+
+        with (
+            patch(
+                "ouroboros.orchestrator.runtime_factory.resolve_agent_runtime_backend",
+                return_value="codex",
+            ),
+            patch(
+                "ouroboros.providers.factory.resolve_llm_backend",
+                return_value="codex",
+            ),
+        ):
+            result = await handler.handle({"seed_content": VALID_SEED_YAML})
+
+        assert result.is_ok
+        text = result.value.text_content
+        assert "ouroboros_ac_tree_hud(session_id, cursor)" in text
+        assert "ouroboros_job_result(job_id)" in text
+        assert "ouroboros_job_wait" not in text
+        start_job_call = mock_job_manager.start_job.await_args
+        runner = start_job_call.kwargs["runner"]
+        runner.close()

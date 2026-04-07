@@ -27,16 +27,16 @@ class PipelineManager:
         self._pipelines: list[Pipeline] = []
         self._hinter = PipelineHinter()
         for builtin_pipeline in [
-            ComputeGroupPipeline(),
-            FleetPipeline(),
-            GatewayPipeline(),
-            JobSubmittedPipeline(),
-            JobRunningPipeline(),
-            JobTerminatingPipeline(),
-            InstancePipeline(),
-            PlacementGroupPipeline(),
-            RunPipeline(),
-            VolumePipeline(),
+            ComputeGroupPipeline(pipeline_hinter=self._hinter),
+            FleetPipeline(pipeline_hinter=self._hinter),
+            GatewayPipeline(pipeline_hinter=self._hinter),
+            JobSubmittedPipeline(pipeline_hinter=self._hinter),
+            JobRunningPipeline(pipeline_hinter=self._hinter),
+            JobTerminatingPipeline(pipeline_hinter=self._hinter),
+            InstancePipeline(pipeline_hinter=self._hinter),
+            PlacementGroupPipeline(pipeline_hinter=self._hinter),
+            RunPipeline(pipeline_hinter=self._hinter),
+            VolumePipeline(pipeline_hinter=self._hinter),
         ]:
             self.register_pipeline(builtin_pipeline)
 
@@ -85,10 +85,13 @@ class PipelineHinter:
             pipeline.hint_fetch()
 
 
-_pipeline_manager = PipelineManager()
+_pipeline_manager = None
 
 
 def get_pipeline_manager() -> PipelineManager:
+    global _pipeline_manager
+    if _pipeline_manager is None:
+        _pipeline_manager = PipelineManager()
     return _pipeline_manager
 
 
@@ -97,5 +100,6 @@ def start_pipeline_tasks() -> PipelineManager:
     Start tasks processed by fetch-workers pipelines based on db + in-memory queues.
     Suitable for tasks that run frequently and need to lock rows for a long time.
     """
-    _pipeline_manager.start()
-    return _pipeline_manager
+    pipeline_manager = get_pipeline_manager()
+    pipeline_manager.start()
+    return pipeline_manager

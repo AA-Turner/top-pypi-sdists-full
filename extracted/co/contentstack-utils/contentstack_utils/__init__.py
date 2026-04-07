@@ -16,6 +16,7 @@ from contentstack_utils.render.options import Options
 from contentstack_utils.utils import Utils
 from contentstack_utils.gql import GQL
 from contentstack_utils.automate import Automate
+from contentstack_utils.entry_editable import addEditableTags, addTags, getTag
 
 __all__ = (
 "Utils",
@@ -25,7 +26,10 @@ __all__ = (
 "Automate",
 "StyleType",
 "ItemType",
-"NodeToHtml"
+"NodeToHtml",
+"addEditableTags",
+"addTags",
+"getTag",
 )
 
 __title__ = 'contentstack_utils'

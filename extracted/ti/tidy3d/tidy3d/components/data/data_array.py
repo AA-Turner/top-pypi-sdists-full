@@ -4,26 +4,23 @@ from __future__ import annotations
 
 import pathlib
 from abc import ABC
-from collections.abc import Mapping
-from os import PathLike
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import autograd.numpy as anp
 import h5py
 import numpy as np
 import xarray as xr
 from autograd.tracer import isbox
+from pydantic_core import core_schema
 from xarray.core import missing
 from xarray.core.indexes import PandasIndex
 from xarray.core.indexing import _outer_to_numpy_indexer
-from xarray.core.types import InterpOptions, Self
 from xarray.core.utils import OrderedSet, either_dict_or_kwargs
 from xarray.core.variable import as_variable
 
 from tidy3d.compat import alignment
 from tidy3d.components.autograd import TidyArrayBox, get_static, interpn, is_tidy_box
 from tidy3d.components.geometry.bound_ops import bounds_contains
-from tidy3d.components.types import Axis, Bound
 from tidy3d.constants import (
     AMP,
     HERTZ,
@@ -35,7 +32,22 @@ from tidy3d.constants import (
     VOLT,
     WATT,
 )
-from tidy3d.exceptions import DataError, FileError
+from tidy3d.exceptions import DataError, FileError, format_chained_exception_message
+
+if TYPE_CHECKING:
+    from collections.abc import Hashable, Mapping
+    from os import PathLike
+    from typing import Optional
+
+    from numpy.typing import NDArray
+    from pydantic.annotated_handlers import GetCoreSchemaHandler
+    from pydantic.json_schema import GetJsonSchemaHandler, JsonSchemaValue
+    from xarray.core.types import InterpOptions, Self
+
+    from tidy3d.components.autograd import InterpolationType
+    from tidy3d.components.grid.grid import Coords
+    from tidy3d.components.types import Axis, Bound
+    from tidy3d.components.types.base import Coordinate
 
 # maps the dimension names to their attributes
 DIM_ATTRS = {
@@ -46,6 +58,9 @@ DIM_ATTRS = {
     "t": {"units": SECOND, "long_name": "time"},
     "direction": {"long_name": "propagation direction"},
     "mode_index": {"long_name": "mode index"},
+    "terminal_label": {"long_name": "terminal label"},
+    "terminal_label_out": {"long_name": "output terminal label"},
+    "terminal_label_in": {"long_name": "input terminal label"},
     "eme_port_index": {"long_name": "EME port index"},
     "eme_cell_index": {"long_name": "EME cell index"},
     "mode_index_in": {"long_name": "mode index in"},
@@ -77,7 +92,7 @@ class DataArray(xr.DataArray):
     # stores a dictionary of attributes corresponding to the data values
     _data_attrs: dict[str, str] = {}
 
-    def __init__(self, data, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, data: Any, *args: Any, **kwargs: Any) -> None:
         # if data is a vanilla autograd box, convert to our box
         if isbox(data) and not is_tidy_box(data):
             data = TidyArrayBox.from_arraybox(data)
@@ -88,37 +103,108 @@ class DataArray(xr.DataArray):
         super().__init__(data, *args, **kwargs)
 
     @classmethod
-    def __get_validators__(cls):
-        """Validators that get run when :class:`.DataArray` objects are added to pydantic models."""
-        yield cls.check_unloaded_data
-        yield cls.validate_dims
-        yield cls.assign_data_attrs
-        yield cls.assign_coord_attrs
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ) -> core_schema.CoreSchema:
+        """Core schema definition for validation & serialization."""
+
+        def _initial_parser(value: Any) -> Self:
+            if isinstance(value, cls):
+                return value
+
+            if isinstance(value, str) and value == cls.__name__:
+                raise DataError(
+                    f"Trying to load '{cls.__name__}' from string placeholder '{value}' "
+                    "but the actual data is missing. DataArrays are not typically stored "
+                    "in JSON. Load from HDF5 or ensure the DataArray object is provided."
+                )
+
+            try:
+                instance = cls(value)
+                if not isinstance(instance, cls):
+                    raise TypeError(
+                        f"Constructor for {cls.__name__} returned unexpected type {type(instance)}"
+                    )
+                return instance
+            except Exception as e:
+                raise ValueError(
+                    f"Could not construct '{cls.__name__}' from input of type '{type(value)}'. "
+                    f"Ensure input is compatible with xarray.DataArray constructor. Original error: {e}"
+                ) from e
+
+        validation_schema = core_schema.no_info_plain_validator_function(_initial_parser)
+        validation_schema = core_schema.no_info_after_validator_function(
+            cls._validate_dims, validation_schema
+        )
+        validation_schema = core_schema.no_info_after_validator_function(
+            cls._assign_data_attrs, validation_schema
+        )
+        validation_schema = core_schema.no_info_after_validator_function(
+            cls._assign_coord_attrs, validation_schema
+        )
+
+        def _serialize_to_name(instance: Self) -> str:
+            return type(instance).__name__
+
+        # serialization behavior:
+        # - for JSON ('json' mode), use the _serialize_to_name function.
+        # - for Python ('python' mode), use Pydantic's default for the object type
+        serialization_schema = core_schema.plain_serializer_function_ser_schema(
+            _serialize_to_name,
+            return_schema=core_schema.str_schema(),
+            when_used="json",
+        )
+
+        return core_schema.json_or_python_schema(
+            python_schema=validation_schema,
+            json_schema=validation_schema,  # Use same validation rules for JSON input
+            serialization=serialization_schema,
+        )
 
     @classmethod
-    def check_unloaded_data(cls, val):
-        """If the data comes in as the raw data array string, raise a custom warning."""
-        if isinstance(val, str) and val in DATA_ARRAY_MAP:
-            raise DataError(
-                f"Trying to load {cls.__name__} but the data is not present. "
-                "Note that data will not be saved to .json file. "
-                "use .hdf5 format instead if data present."
-            )
-        return cls(val)
+    def __get_pydantic_json_schema__(
+        cls, core_schema_obj: core_schema.CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        """JSON schema definition (defines how it LOOKS in a schema, not the data)."""
+        return {
+            "type": "string",
+            "title": cls.__name__,
+            "description": (
+                f"Placeholder for a '{cls.__name__}' object. Actual data is typically "
+                "serialized separately (e.g., via HDF5) and not embedded in JSON."
+            ),
+        }
 
     @classmethod
-    def validate_dims(cls, val):
-        """Make sure the dims are the same as _dims, then put them in the correct order."""
+    def _validate_dims(cls, val: Self) -> Self:
+        """Make sure the dims are the same as ``_dims``, then put them in the correct order."""
         if set(val.dims) != set(cls._dims):
-            raise ValueError(f"wrong dims, expected '{cls._dims}', got '{val.dims}'")
-        return val.transpose(*cls._dims)
+            raise ValueError(
+                f"Wrong dims for {cls.__name__}, expected '{cls._dims}', got '{val.dims}'"
+            )
+        if val.dims != cls._dims:
+            val = val.transpose(*cls._dims)
+        return val
 
     @classmethod
-    def assign_data_attrs(cls, val):
+    def _assign_data_attrs(cls, val: Self) -> Self:
         """Assign the correct data attributes to the :class:`.DataArray`."""
+        for attr_name, attr_val in cls._data_attrs.items():
+            val.attrs[attr_name] = attr_val
+        return val
 
-        for attr_name, attr in cls._data_attrs.items():
-            val.attrs[attr_name] = attr
+    @classmethod
+    def _assign_coord_attrs(cls, val: Self) -> Self:
+        """Assign the correct coordinate attributes to the :class:`.DataArray`."""
+        target_dims = set(val.dims) & set(cls._dims) & set(val.coords)
+        for dim in target_dims:
+            template = DIM_ATTRS.get(dim)
+            if not template:
+                continue
+
+            coord_attrs = val.coords[dim].attrs
+            missing = {k: v for k, v in template.items() if coord_attrs.get(k) != v}
+            coord_attrs.update(missing)
         return val
 
     def _interp_validator(self, field_name: Optional[str] = None) -> None:
@@ -130,7 +216,7 @@ class DataArray(xr.DataArray):
         called from a validator, as is the case with 'CustomMedium' and 'CustomFieldSource'.
         """
         if field_name is None:
-            field_name = "DataArray"
+            field_name = self.__class__.__name__
 
         for dim, coord in self.coords.items():
             if coord.to_index().duplicated().any():
@@ -140,40 +226,7 @@ class DataArray(xr.DataArray):
                     f"'{field_name}={field_name}.drop_duplicates(dim=\"{dim}\")'."
                 )
 
-    @classmethod
-    def assign_coord_attrs(cls, val):
-        """Assign the correct coordinate attributes to the :class:`.DataArray`."""
-
-        for dim in cls._dims:
-            dim_attrs = DIM_ATTRS.get(dim)
-            if dim_attrs is not None:
-                for attr_name, attr in dim_attrs.items():
-                    val.coords[dim].attrs[attr_name] = attr
-        return val
-
-    @classmethod
-    def __modify_schema__(cls, field_schema) -> None:
-        """Sets the schema of DataArray object."""
-
-        schema = {
-            "title": "DataArray",
-            "type": "xr.DataArray",
-            "properties": {
-                "_dims": {
-                    "title": "_dims",
-                    "type": "Tuple[str, ...]",
-                },
-            },
-            "required": ["_dims"],
-        }
-        field_schema.update(schema)
-
-    @classmethod
-    def _json_encoder(cls, val):
-        """What function to call when writing a DataArray to json."""
-        return type(val).__name__
-
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: Any) -> bool:
         """Whether two data array objects are equal."""
 
         if not isinstance(other, xr.DataArray):
@@ -187,7 +240,7 @@ class DataArray(xr.DataArray):
         return True
 
     @property
-    def values(self):
+    def values(self) -> NDArray:
         """
         The array's data converted to a numpy.ndarray.
 
@@ -198,72 +251,76 @@ class DataArray(xr.DataArray):
         """
         return self.data if isbox(self.data) else super().values
 
-    def to_numpy(self) -> np.ndarray:
-        """Return `.data` when traced to avoid `dtype=object` NumPy conversion."""
-        return self.data if isbox(self.data) else super().to_numpy()
-
     @values.setter
     def values(self, value: Any) -> None:
         self.variable.values = value
 
+    def to_numpy(self) -> np.ndarray:
+        """Return `.data` when traced to avoid `dtype=object` NumPy conversion."""
+        return self.data if isbox(self.data) else super().to_numpy()
+
     @property
-    def abs(self):
+    def abs(self) -> Self:
         """Absolute value of data array."""
         return abs(self)
 
     @property
-    def angle(self):
+    def angle(self) -> Self:
         """Angle or phase value of data array."""
         values = np.angle(self.values)
         return type(self)(values, coords=self.coords)
 
     @property
-    def is_uniform(self):
+    def is_uniform(self) -> bool:
         """Whether each element is of equal value in the data array"""
         raw_data = self.data.ravel()
         return np.allclose(raw_data, raw_data[0])
 
     def to_hdf5(self, fname: Union[PathLike, h5py.File], group_path: str) -> None:
-        """Save an xr.DataArray to the hdf5 file or file handle with a given path to the group."""
-
-        # file name passed
+        """Save an ``xr.DataArray`` to the hdf5 file or file handle with a given path to the group."""
         if isinstance(fname, (str, pathlib.Path)):
             path = pathlib.Path(fname)
             path.parent.mkdir(parents=True, exist_ok=True)
             with h5py.File(path, "w") as f_handle:
                 self.to_hdf5_handle(f_handle=f_handle, group_path=group_path)
-
-        # file handle passed
         else:
             self.to_hdf5_handle(f_handle=fname, group_path=group_path)
 
     def to_hdf5_handle(self, f_handle: h5py.File, group_path: str) -> None:
-        """Save an xr.DataArray to the hdf5 file handle with a given path to the group."""
-
+        """Save an ``xr.DataArray`` to the hdf5 file handle with a given path to the group."""
         sub_group = f_handle.create_group(group_path)
         sub_group[DATA_ARRAY_VALUE_NAME] = get_static(self.data)
         for key, val in self.coords.items():
-            if val.dtype == "<U1":
+            if val.dtype.kind == "U":
+                # Convert Unicode strings to list for HDF5 storage
                 sub_group[key] = val.values.tolist()
             else:
                 sub_group[key] = val
 
     @classmethod
-    def from_hdf5(cls, fname: PathLike, group_path: str) -> Self:
-        """Load an DataArray from an hdf5 file with a given path to the group."""
+    def _from_hdf5_handle(cls, f_handle: h5py.File, group_path: str) -> Self:
+        """Load a DataArray from an open hdf5 file handle with a given group path."""
+        sub_group = f_handle[group_path]
+        values = np.array(sub_group[DATA_ARRAY_VALUE_NAME])
+        coords = {dim: np.array(sub_group[dim]) for dim in cls._dims if dim in sub_group}
+        for key, val in coords.items():
+            if val.dtype == "O":
+                coords[key] = [byte_string.decode() for byte_string in val.tolist()]
+        return cls(values, coords=coords, dims=cls._dims)
+
+    @classmethod
+    def from_hdf5(cls, fname: Union[PathLike, h5py.File], group_path: str) -> Self:
+        """Load a DataArray from an hdf5 file or open file handle with a given group path."""
+        if isinstance(fname, h5py.File):
+            return cls._from_hdf5_handle(f_handle=fname, group_path=group_path)
+
         path = pathlib.Path(fname)
-        with h5py.File(path, "r") as f:
-            sub_group = f[group_path]
-            values = np.array(sub_group[DATA_ARRAY_VALUE_NAME])
-            coords = {dim: np.array(sub_group[dim]) for dim in cls._dims if dim in sub_group}
-            for key, val in coords.items():
-                if val.dtype == "O":
-                    coords[key] = [byte_string.decode() for byte_string in val.tolist()]
-            return cls(values, coords=coords, dims=cls._dims)
+        with h5py.File(path, "r") as f_handle:
+            return cls._from_hdf5_handle(f_handle=f_handle, group_path=group_path)
 
     @classmethod
     def from_file(cls, fname: PathLike, group_path: str) -> Self:
-        """Load an DataArray from an hdf5 file with a given path to the group."""
+        """Load a DataArray from an hdf5 file with a given path to the group."""
         path = pathlib.Path(fname)
         if not any(suffix.lower() == ".hdf5" for suffix in path.suffixes):
             raise FileError(
@@ -436,7 +493,12 @@ class DataArray(xr.DataArray):
         return self._from_temp_dataset(ds)
 
     @staticmethod
-    def _ag_interp_func(var, indexes_coords, method, **kwargs: Any):
+    def _ag_interp_func(
+        var: xr.Variable,
+        indexes_coords: dict[str, tuple[xr.Variable, xr.Variable]],
+        method: InterpolationType,
+        **kwargs: Any,
+    ) -> xr.Variable:
         """
         Interpolate the variable `var` along the coordinates specified in `indexes_coords` using the given `method`.
 
@@ -451,7 +513,7 @@ class DataArray(xr.DataArray):
             The variable to be interpolated.
         indexes_coords : dict
             A dictionary mapping dimension names to coordinate values for interpolation.
-        method : str
+        method : Literal["nearest", "linear"]
             The interpolation method to use.
         **kwargs : dict
             Additional keyword arguments to pass to the interpolation function.
@@ -522,9 +584,13 @@ class DataArray(xr.DataArray):
             new_data = data.reshape(new_shape)
         except ValueError as e:
             raise ValueError(
-                "Couldn't reshape the supplied 'data' to update 'DataArray'. The provided data was "
-                f"of shape {data.shape} and tried to reshape to {new_shape}. If you encounter this "
-                "error please raise an issue on the tidy3d github repository with the context."
+                format_chained_exception_message(
+                    "Couldn't reshape the supplied 'data' to update 'DataArray'. The provided "
+                    f"data was of shape {data.shape} and tried to reshape to {new_shape}. If "
+                    "you encounter this error please raise an issue on the tidy3d github "
+                    "repository with this context.",
+                    e,
+                )
             ) from e
 
         # broadcast data to repeat data along the selected dimensions to match mask
@@ -566,6 +632,32 @@ class FreqVoltageDataArray(DataArray):
     )
 
 
+class ModeDataArray(DataArray):
+    """Mode index data array.
+    Example
+    -------
+    >>> mode_index = np.arange(4)
+    >>> coords = dict(mode_index=mode_index)
+    >>> data = ModeDataArray((1+1j) * np.random.random(4), coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = ("mode_index",)
+
+
+class TerminalDataArray(DataArray):
+    """Terminal index data array.
+    Example
+    -------
+    >>> terminal_label = ["t0", "t1", "t2", "t3", "t4"]
+    >>> coords = dict(terminal_label=terminal_label)
+    >>> data = TerminalDataArray((1+1j) * np.random.random(5), coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = ("terminal_label",)
+
+
 class FreqModeDataArray(DataArray):
     """Array over frequency and mode index.
 
@@ -581,6 +673,84 @@ class FreqModeDataArray(DataArray):
     _dims = ("f", "mode_index")
 
 
+class FreqTerminalDataArray(DataArray):
+    """Array over frequency and terminal index.
+
+    Example
+    -------
+    >>> f = [2e14, 3e14]
+    >>> terminal_label = ["t0", "t1", "t2", "t3", "t4"]
+    >>> coords = dict(f=f, terminal_label=terminal_label)
+    >>> fd = FreqTerminalDataArray((1+1j) * np.random.random((2, 5)), coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = ("f", "terminal_label")
+
+
+class FreqModeModeDataArray(DataArray):
+    """Array over frequency, mode index, and mode index.
+    Example
+    -------
+    >>> f = [2e14, 3e14]
+    >>> mode_index_out = np.arange(5)
+    >>> mode_index_in = np.arange(5)
+    >>> coords = dict(f=f, mode_index_out=mode_index_out, mode_index_in=mode_index_in)
+    >>> fd = FreqModeModeDataArray((1+1j) * np.random.random((2, 5, 5)), coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = ("f", "mode_index_out", "mode_index_in")
+
+
+class FreqTerminalModeDataArray(DataArray):
+    """Array over frequency, terminal index, and mode index.
+
+    Example
+    -------
+    >>> f = [2e14, 3e14]
+    >>> mode_index = np.arange(5)
+    >>> terminal_label = ["t0", "t1"]
+    >>> coords = dict(f=f, terminal_label=terminal_label, mode_index=mode_index)
+    >>> fd = FreqTerminalModeDataArray((1+1j) * np.random.random((2, 2, 5)), coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = ("f", "terminal_label", "mode_index")
+
+
+class FreqModeTerminalDataArray(DataArray):
+    """Array over frequency, mode index, and terminal index.
+
+    Example
+    -------
+    >>> f = [2e14, 3e14]
+    >>> mode_index = np.arange(5)
+    >>> terminal_label = ["t0", "t1"]
+    >>> coords = dict(f=f, mode_index=mode_index, terminal_label=terminal_label)
+    >>> fd = FreqModeTerminalDataArray((1+1j) * np.random.random((2, 5, 2)), coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = ("f", "mode_index", "terminal_label")
+
+
+class FreqTerminalTerminalDataArray(DataArray):
+    """Array over frequency, terminal index, and terminal index.
+
+    Example
+    -------
+    >>> f = [2e14, 3e14]
+    >>> terminal_label_out = ["t0", "t1"]
+    >>> terminal_label_in = ["t0", "t1"]
+    >>> coords = dict(f=f, terminal_label_out=terminal_label_out, terminal_label_in=terminal_label_in)
+    >>> fd = FreqTerminalTerminalDataArray((1+1j) * np.random.random((2, 2, 2)), coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = ("f", "terminal_label_out", "terminal_label_in")
+
+
 class TimeDataArray(DataArray):
     """Time-domain array.
 
@@ -591,7 +761,7 @@ class TimeDataArray(DataArray):
     """
 
     __slots__ = ()
-    _dims = "t"
+    _dims = ("t",)
 
 
 class MixedModeDataArray(DataArray):
@@ -617,13 +787,38 @@ class AbstractSpatialDataArray(DataArray, ABC):
     _dims = ("x", "y", "z")
     _data_attrs = {"long_name": "field value"}
 
+    def plot(self, *args: Any, field: bool = True, grid: bool = False, **kwargs: Any) -> Any:
+        """Plot the spatial data.
+
+        Accepts the same arguments as xarray's ``DataArray.plot()``.  The extra
+        ``grid`` and ``field`` keyword arguments are accepted for API
+        compatibility with :meth:`TriangularGridDataset.plot` but grid overlay
+        is not supported on structured data.
+
+        Parameters
+        ----------
+        field : bool = True
+            Whether to plot the data field.  Must be ``True`` for structured
+            data.
+        grid : bool = False
+            Not supported for structured data.  Raises ``DataError`` if
+            ``True``.
+        """
+        if grid:
+            raise DataError("The 'grid' argument is only supported for unstructured data.")
+        if not field:
+            raise DataError("The 'field' argument is only supported for unstructured data.")
+
+        PlotAccessor = xr.DataArray.plot
+        return PlotAccessor(self)(*args, **kwargs)
+
     @property
-    def _spatially_sorted(self) -> SpatialDataArray:
+    def _spatially_sorted(self) -> Self:
         """Check whether sorted and sort if not."""
         needs_sorting = []
         for axis in "xyz":
-            axis_coords = self.coords[axis].values
-            if len(axis_coords) > 1 and np.any(axis_coords[1:] < axis_coords[:-1]):
+            axis_coords = np.atleast_1d(self.coords[axis].values)
+            if axis_coords.size > 1 and np.any(axis_coords[1:] < axis_coords[:-1]):
                 needs_sorting.append(axis)
 
         if len(needs_sorting) > 0:
@@ -631,7 +826,33 @@ class AbstractSpatialDataArray(DataArray, ABC):
 
         return self
 
-    def sel_inside(self, bounds: Bound) -> SpatialDataArray:
+    def shifted_spatial_coords(self, center: Coordinate) -> Self:
+        """Return a copy with spatial coordinates shifted by ``center``."""
+        shifted = self
+        for axis, dim in enumerate("xyz"):
+            if dim in shifted.coords:
+                coord_vals = np.asarray(shifted.coords[dim].data)
+                shifted = shifted.assign_coords({dim: coord_vals + center[axis]})
+        return shifted
+
+    def interpolate_to_grid(
+        self,
+        grid: Coords,
+        *,
+        offset: Optional[Coordinate] = None,
+        method: InterpOptions = "linear",
+        target_dims: Optional[tuple[str, ...]] = None,
+    ) -> Self:
+        """Interpolate onto a target grid, with optional spatial offset and output ordering."""
+        if offset is None:
+            interpolated = grid.spatial_interp(self, method)
+        else:
+            interpolated = grid.spatial_interp(self.shifted_spatial_coords(offset), method)
+        if target_dims is not None and tuple(interpolated.dims) != tuple(target_dims):
+            interpolated = interpolated.transpose(*target_dims)
+        return interpolated
+
+    def sel_inside(self, bounds: Bound, *, include_interp_padding: bool = True) -> Self:
         """Return a new SpatialDataArray that contains the minimal amount data necessary to cover
         a spatial region defined by ``bounds``. Note that the returned data is sorted with respect
         to spatial coordinates.
@@ -646,6 +867,9 @@ class AbstractSpatialDataArray(DataArray, ABC):
         -------
         SpatialDataArray
             Extracted spatial data array.
+        include_interp_padding : bool = True
+            If ``True`` (default), include neighbor points around bounds to support interpolation.
+            If ``False``, keep only points whose coordinates are inside bounds.
         """
         if any(bmin > bmax for bmin, bmax in zip(*bounds)):
             raise DataError(
@@ -654,6 +878,20 @@ class AbstractSpatialDataArray(DataArray, ABC):
 
         # make sure data is sorted with respect to coordinates
         sorted_self = self._spatially_sorted
+
+        if not include_interp_padding:
+            selected = sorted_self
+            for coord, smin, smax, dim in zip(
+                (sorted_self.x, sorted_self.y, sorted_self.z),
+                bounds[0],
+                bounds[1],
+                "xyz",
+            ):
+                coord_vals = np.atleast_1d(coord.values)
+                if coord_vals.size <= 1:
+                    continue
+                selected = selected.sel({dim: slice(smin, smax)})
+            return selected
 
         inds_list = []
 
@@ -679,12 +917,12 @@ class AbstractSpatialDataArray(DataArray, ABC):
                     if smin < coord[0]:
                         ind_min = 0
                     else:
-                        ind_min = max(0, (coord >= smin).argmax().data - 1)
+                        ind_min = max(0, (coord >= smin).data.argmax() - 1)
 
                     if smax > coord[-1]:
                         ind_max = length - 1
                     else:
-                        ind_max = (coord >= smax).argmax().data
+                        ind_max = (coord >= smax).data.argmax()
 
                     comp_inds = np.arange(ind_min, ind_max + 1)
 
@@ -745,7 +983,9 @@ class SpatialDataArray(AbstractSpatialDataArray):
 
     __slots__ = ()
 
-    def reflect(self, axis: Axis, center: float, reflection_only: bool = False) -> SpatialDataArray:
+    def reflect(
+        self, axis: Axis, center: float, reflection_only: bool = False, symmetry: float = 1
+    ) -> Self:
         """Reflect data across the plane define by parameters ``axis`` and ``center`` from right to
         left. Note that the returned data is sorted with respect to spatial coordinates.
 
@@ -757,6 +997,8 @@ class SpatialDataArray(AbstractSpatialDataArray):
             Location of the reflection plane along its normal direction.
         reflection_only : bool = False
             Return only reflected data.
+        symmetry : float = 1
+            Symmetry factor of the reflection.
 
         Returns
         -------
@@ -782,7 +1024,7 @@ class SpatialDataArray(AbstractSpatialDataArray):
             coords[axis] = 2 * center - coords[axis]
             coords_dict = dict(zip("xyz", coords))
 
-            tmp_arr = SpatialDataArray(sorted_self.data, coords=coords_dict)
+            tmp_arr = SpatialDataArray(sorted_self.data * symmetry, coords=coords_dict)
 
             return tmp_arr.sortby("xyz"[axis])
 
@@ -798,7 +1040,7 @@ class SpatialDataArray(AbstractSpatialDataArray):
 
         new_data = np.zeros(shape)
 
-        new_data[ind_left[0], ind_left[1], ind_left[2]] = data
+        new_data[ind_left[0], ind_left[1], ind_left[2]] = data * symmetry
         new_data[ind_right[0], ind_right[1], ind_right[2]] = data
 
         new_coords = np.zeros(shape[axis])
@@ -879,6 +1121,24 @@ class ScalarModeFieldCylindricalDataArray(AbstractSpatialDataArray):
 
     __slots__ = ()
     _dims = ("rho", "theta", "axial", "f", "mode_index")
+
+
+class ScalarTerminalFieldDataArray(AbstractSpatialDataArray):
+    """Spatial distribution of a terminal field in frequency-domain as a function of terminal index.
+
+    Example
+    -------
+    >>> x = [1,2]
+    >>> y = [2,3,4]
+    >>> z = [3,4,5,6]
+    >>> f = [2e14, 3e14]
+    >>> terminal_label = ["t0", "t1", "t2"]
+    >>> coords = dict(x=x, y=y, z=z, f=f, terminal_label=terminal_label)
+    >>> fd = ScalarTerminalFieldDataArray((1+1j) * np.random.random((2,3,4,2,3)), coords=coords)
+    """
+
+    __slots__ = ()
+    _dims = ("x", "y", "z", "f", "terminal_label")
 
 
 class FluxDataArray(DataArray):
@@ -1073,7 +1333,7 @@ class HeatDataArray(DataArray):
     """
 
     __slots__ = ()
-    _dims = "T"
+    _dims = ("T",)
 
 
 class EMEScalarModeFieldDataArray(AbstractSpatialDataArray):
@@ -1480,6 +1740,56 @@ class VoltageFreqModeDataArray(VoltageArray, FreqModeDataArray):
     __slots__ = ()
 
 
+class VoltageFreqTerminalDataArray(VoltageArray, FreqTerminalDataArray):
+    """Voltage data array in frequency-terminal domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> f = [2e9, 3e9]
+    >>> terminal_label = ["t0", "t1"]
+    >>> coords = dict(f=f, terminal_label=terminal_label)
+    >>> data = np.random.random((2, 2)) + 1j * np.random.random((2, 2))
+    >>> vftd = VoltageFreqTerminalDataArray(data, coords=coords)
+    """
+
+    __slots__ = ()
+
+
+class VoltageFreqTerminalModeDataArray(VoltageArray, FreqTerminalModeDataArray):
+    """Voltage transformation matrix data array from modes to terminals in frequency domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> f = [2e9, 3e9]
+    >>> terminal_label = ["t0", "t1"]
+    >>> mode_index = [0, 1]
+    >>> coords = dict(f=f, terminal_label=terminal_label, mode_index=mode_index)
+    >>> data = np.random.random((2, 2, 2)) + 1j * np.random.random((2, 2, 2))
+    >>> vtransform = VoltageFreqTerminalModeDataArray(data, coords=coords)
+    """
+
+    __slots__ = ()
+
+
+class VoltageFreqModeTerminalDataArray(VoltageArray, FreqModeTerminalDataArray):
+    """Inverse voltage transformation matrix data array from terminals to modes in frequency domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> f = [2e9, 3e9]
+    >>> mode_index = [0, 1]
+    >>> terminal_label = ["t0", "t1"]
+    >>> coords = dict(f=f, mode_index=mode_index, terminal_label=terminal_label)
+    >>> data = np.random.random((2, 2, 2)) + 1j * np.random.random((2, 2, 2))
+    >>> vtransform_inv = VoltageFreqModeTerminalDataArray(data, coords=coords)
+    """
+
+    __slots__ = ()
+
+
 # Current arrays
 class CurrentFreqDataArray(CurrentArray, FreqDataArray):
     """Current data array in frequency domain.
@@ -1527,7 +1837,63 @@ class CurrentFreqModeDataArray(CurrentArray, FreqModeDataArray):
     __slots__ = ()
 
 
+class CurrentFreqTerminalDataArray(CurrentArray, FreqTerminalDataArray):
+    """Current data array in frequency-terminal domain.
+    Example
+    -------
+    >>> import numpy as np
+    >>> f = [2e9, 3e9]
+    >>> terminal_label = ["t0", "t1", "t2", "t3", "t4"]
+    >>> coords = dict(f=f, terminal_label=terminal_label)
+    >>> data = np.random.random((2, 5)) + 1j * np.random.random((2, 5))
+    >>> cftd = CurrentFreqTerminalDataArray(data, coords=coords)
+    """
+
+    __slots__ = ()
+
+
+class CurrentFreqTerminalModeDataArray(CurrentArray, FreqTerminalModeDataArray):
+    """Current transformation matrix data array from modes to terminals in frequency domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> f = [2e9, 3e9]
+    >>> mode_index = [0, 1]
+    >>> terminal_label = ["t0", "t1"]
+    >>> coords = dict(f=f, terminal_label=terminal_label, mode_index=mode_index)
+    >>> data = np.random.random((2, 2, 2)) + 1j * np.random.random((2, 2, 2))
+    >>> itransform = CurrentFreqTerminalModeDataArray(data, coords=coords)
+    """
+
+    __slots__ = ()
+
+
 # Impedance arrays
+class ImpedanceModeDataArray(ImpedanceArray, ModeDataArray):
+    """Impedance data array in mode index domain.
+    Example
+    -------
+    >>> mode_index = np.arange(4)
+    >>> coords = dict(mode_index=mode_index)
+    >>> data = ImpedanceModeDataArray((1+1j) * np.random.random(4), coords=coords)
+    """
+
+    __slots__ = ()
+
+
+class ImpedanceTerminalDataArray(ImpedanceArray, TerminalDataArray):
+    """Impedance data array in terminal index domain.
+    Example
+    -------
+    >>> terminal_label = ["t0", "t1", "t2", "t3", "t4"]
+    >>> coords = dict(terminal_label=terminal_label)
+    >>> data = ImpedanceTerminalDataArray((1+1j) * np.random.random(5), coords=coords)
+    """
+
+    __slots__ = ()
+
+
 class ImpedanceFreqDataArray(ImpedanceArray, FreqDataArray):
     """Impedance data array in frequency domain.
 
@@ -1574,6 +1940,145 @@ class ImpedanceFreqModeDataArray(ImpedanceArray, FreqModeDataArray):
     __slots__ = ()
 
 
+class ImpedanceFreqModeModeDataArray(ImpedanceArray, FreqModeModeDataArray):
+    """Impedance matrix data array between modes in frequency domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> f = [2e9, 3e9]
+    >>> mode_index_out = np.arange(2)
+    >>> mode_index_in = np.arange(2)
+    >>> coords = dict(f=f, mode_index_out=mode_index_out, mode_index_in=mode_index_in)
+    >>> data = ImpedanceFreqModeModeDataArray(50.0 + 10.0 * np.random.random((2, 2, 2)), coords=coords)
+    >>> zfmmd = data
+    """
+
+    __slots__ = ()
+
+
+class ImpedanceFreqTerminalTerminalDataArray(ImpedanceArray, FreqTerminalTerminalDataArray):
+    """Impedance matrix data array between terminals in frequency domain.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> f = [2e9, 3e9]
+    >>> terminal_label_out = ["t0", "t1"]
+    >>> terminal_label_in = ["t0", "t1"]
+    >>> coords = dict(f=f, terminal_label_out=terminal_label_out, terminal_label_in=terminal_label_in)
+    >>> data = ImpedanceFreqTerminalTerminalDataArray(50.0 + 10.0 * np.random.random((2, 2, 2)), coords=coords)
+    >>> zfttd = data
+    """
+
+    __slots__ = ()
+
+
+class IndexedSurfaceFreqDataArray(DataArray):
+    """Stores indexed values of scalar fields on the sides of a surface. It is typically used
+    in conjuction with a ``PointDataArray`` to store point-associated scalar data.
+
+    Example
+    -------
+    >>> surface_side_array = IndexedSurfaceFreqDataArray(
+    ...     (1+1j) * np.random.random((4,2,1)), coords=dict(index=np.arange(4), side=["outside", "inside"], f=[1e9])
+    ... )
+    """
+
+    __slots__ = ()
+    _dims = ("index", "side", "f")
+
+
+class IndexedSurfaceTimeDataArray(DataArray):
+    """Stores indexed values of scalar fields on the sides of a surface. It is typically used
+    in conjuction with a ``PointDataArray`` to store point-associated scalar data.
+
+    Example
+    -------
+    >>> surface_side_array = IndexedSurfaceTimeDataArray(
+    ...     (1+1j) * np.random.random((4,2,1)), coords=dict(index=np.arange(4), side=["outside", "inside"], t=[1e9])
+    ... )
+    """
+
+    __slots__ = ()
+    _dims = ("index", "side", "t")
+
+
+class IndexedSurfaceFieldDataArray(DataArray):
+    """Stores indexed values of vector fields on the sides of a surface in frequency domain.
+    It is typically used in conjuction with a ``PointDataArray`` to store point-associated vector data.
+
+    Example
+    -------
+    >>> indexed_array = IndexedSurfaceFieldDataArray(
+    ...     (1+1j) * np.random.random((4,2,3,1)), coords=dict(index=np.arange(4), side=["outside", "inside"], axis=np.arange(3), f=[1e9])
+    ... )
+    """
+
+    __slots__ = ()
+    _dims = ("index", "side", "axis", "f")
+
+
+class IndexedSurfaceFieldTimeDataArray(DataArray):
+    """Stores indexed values of vector fields on the sides of a surface in time domain.
+    It is typically used in conjuction with a ``PointDataArray`` to store point-associated vector data.
+
+    Example
+    -------
+    >>> indexed_array = IndexedSurfaceFieldTimeDataArray(
+    ...     (1+1j) * np.random.random((4,2,3,1)), coords=dict(index=np.arange(4), side=["outside", "inside"], axis=np.arange(3), t=[0])
+    ... )
+    """
+
+    __slots__ = ()
+    _dims = ("index", "side", "axis", "t")
+
+
+class IndexedFieldDataArray(DataArray):
+    """Stores indexed values of vector fields in frequency domain. It is typically used
+    in conjuction with a ``PointDataArray`` to store point-associated vector data.
+
+    Example
+    -------
+    >>> indexed_array = IndexedFieldDataArray(
+    ...     (1+1j) * np.random.random((4,3,1)), coords=dict(index=np.arange(4), axis=np.arange(3), f=[1e9])
+    ... )
+    """
+
+    __slots__ = ()
+    _dims = ("index", "axis", "f")
+
+
+class IndexedFieldTimeDataArray(DataArray):
+    """Stores indexed values of vector fields in time domain. It is typically used
+    in conjuction with a ``PointDataArray`` to store point-associated vector data.
+
+    Example
+    -------
+    >>> indexed_array = IndexedFieldTimeDataArray(
+    ...     (1+1j) * np.random.random((4,3,1)), coords=dict(index=np.arange(4), axis=np.arange(3), t=[0])
+    ... )
+    """
+
+    __slots__ = ()
+    _dims = ("index", "axis", "t")
+
+
+class IndexedFreqDataArray(DataArray):
+    """Stores indexed values of scalar fields in frequency domain. It is typically used
+    in conjuction with a ``PointDataArray`` to store point-associated vector data.
+
+    Example
+    -------
+    >>> indexed_array = IndexedFreqDataArray(
+    ...     (1+1j) * np.random.random((4,1)), coords=dict(index=np.arange(4), f=[1e9])
+    ... )
+    """
+
+    __slots__ = ()
+    _dims = ("index", "f")
+
+
 def _make_base_result_data_array(result: DataArray) -> IntegralResultType:
     """Helper for creating the proper base result type."""
     cls = FreqDataArray
@@ -1581,7 +2086,15 @@ def _make_base_result_data_array(result: DataArray) -> IntegralResultType:
         cls = TimeDataArray
     if "f" in result.coords and "mode_index" in result.coords:
         cls = FreqModeDataArray
-    return cls.assign_data_attrs(cls(data=result.data, coords=result.coords))
+    if (
+        "f" in result.coords
+        and "terminal_label" in result.coords
+        and "mode_index" not in result.coords
+    ):
+        cls = FreqTerminalDataArray
+    if "f" in result.coords and "terminal_label" in result.coords and "mode_index" in result.coords:
+        cls = FreqTerminalModeDataArray
+    return cls._assign_data_attrs(cls(data=result.data, coords=result.coords))
 
 
 def _make_voltage_data_array(result: DataArray) -> VoltageIntegralResultType:
@@ -1591,7 +2104,15 @@ def _make_voltage_data_array(result: DataArray) -> VoltageIntegralResultType:
         cls = VoltageTimeDataArray
     if "f" in result.coords and "mode_index" in result.coords:
         cls = VoltageFreqModeDataArray
-    return cls.assign_data_attrs(cls(data=result.data, coords=result.coords))
+    if (
+        "f" in result.coords
+        and "terminal_label" in result.coords
+        and "mode_index" not in result.coords
+    ):
+        cls = VoltageFreqTerminalDataArray
+    if "f" in result.coords and "terminal_label" in result.coords and "mode_index" in result.coords:
+        cls = VoltageFreqTerminalModeDataArray
+    return cls._assign_data_attrs(cls(data=result.data, coords=result.coords))
 
 
 def _make_current_data_array(result: DataArray) -> CurrentIntegralResultType:
@@ -1601,7 +2122,15 @@ def _make_current_data_array(result: DataArray) -> CurrentIntegralResultType:
         cls = CurrentTimeDataArray
     if "f" in result.coords and "mode_index" in result.coords:
         cls = CurrentFreqModeDataArray
-    return cls.assign_data_attrs(cls(data=result.data, coords=result.coords))
+    if (
+        "f" in result.coords
+        and "terminal_label" in result.coords
+        and "mode_index" not in result.coords
+    ):
+        cls = CurrentFreqTerminalDataArray
+    if "f" in result.coords and "terminal_label" in result.coords and "mode_index" in result.coords:
+        cls = CurrentFreqTerminalModeDataArray
+    return cls._assign_data_attrs(cls(data=result.data, coords=result.coords))
 
 
 def _make_impedance_data_array(result: DataArray) -> ImpedanceResultType:
@@ -1611,7 +2140,13 @@ def _make_impedance_data_array(result: DataArray) -> ImpedanceResultType:
         cls = ImpedanceTimeDataArray
     if "f" in result.coords and "mode_index" in result.coords:
         cls = ImpedanceFreqModeDataArray
-    return cls.assign_data_attrs(cls(data=result.data, coords=result.coords))
+    if (
+        "f" in result.coords
+        and "terminal_label_out" in result.coords
+        and "terminal_label_in" in result.coords
+    ):
+        cls = ImpedanceFreqTerminalTerminalDataArray
+    return cls._assign_data_attrs(cls(data=result.data, coords=result.coords))
 
 
 DATA_ARRAY_TYPES = [
@@ -1619,6 +2154,7 @@ DATA_ARRAY_TYPES = [
     ScalarFieldDataArray,
     ScalarFieldTimeDataArray,
     ScalarModeFieldDataArray,
+    ScalarTerminalFieldDataArray,
     FluxDataArray,
     FluxTimeDataArray,
     ModeAmpsDataArray,
@@ -1629,11 +2165,16 @@ DATA_ARRAY_TYPES = [
     FieldProjectionCartesianDataArray,
     FieldProjectionKSpaceDataArray,
     DiffractionDataArray,
+    ModeDataArray,
+    TerminalDataArray,
     FreqModeDataArray,
     FreqDataArray,
     TimeDataArray,
-    FreqModeDataArray,
     FreqVoltageDataArray,
+    FreqTerminalDataArray,
+    FreqTerminalModeDataArray,
+    FreqModeTerminalDataArray,
+    FreqTerminalTerminalDataArray,
     TriangleMeshDataArray,
     HeatDataArray,
     EMEScalarFieldDataArray,
@@ -1657,30 +2198,93 @@ DATA_ARRAY_TYPES = [
     VoltageFreqDataArray,
     VoltageTimeDataArray,
     VoltageFreqModeDataArray,
+    VoltageFreqTerminalDataArray,
+    VoltageFreqTerminalModeDataArray,
+    VoltageFreqModeTerminalDataArray,
     CurrentFreqDataArray,
     CurrentTimeDataArray,
     CurrentFreqModeDataArray,
+    CurrentFreqTerminalDataArray,
+    CurrentFreqTerminalModeDataArray,
+    ImpedanceModeDataArray,
+    ImpedanceTerminalDataArray,
     ImpedanceFreqDataArray,
     ImpedanceTimeDataArray,
     ImpedanceFreqModeDataArray,
+    FreqModeModeDataArray,
+    ImpedanceFreqModeModeDataArray,
+    ImpedanceFreqTerminalTerminalDataArray,
+    IndexedSurfaceFieldDataArray,
+    IndexedSurfaceFieldTimeDataArray,
+    IndexedFieldDataArray,
+    IndexedFieldTimeDataArray,
+    IndexedFreqDataArray,
+    IndexedSurfaceFreqDataArray,
+    IndexedSurfaceTimeDataArray,
 ]
+
 DATA_ARRAY_MAP = {data_array.__name__: data_array for data_array in DATA_ARRAY_TYPES}
 
 IndexedDataArrayTypes = Union[
     IndexedDataArray,
     IndexedVoltageDataArray,
+    IndexedSurfaceFieldDataArray,
+    IndexedSurfaceFieldTimeDataArray,
+    IndexedFieldDataArray,
+    IndexedFieldTimeDataArray,
+    IndexedFreqDataArray,
     IndexedTimeDataArray,
     IndexedFieldVoltageDataArray,
+    IndexedSurfaceFreqDataArray,
+    IndexedSurfaceTimeDataArray,
     PointDataArray,
 ]
 
-IntegralResultType = Union[FreqDataArray, FreqModeDataArray, TimeDataArray]
+IntegralResultType = Union[
+    FreqDataArray,
+    FreqModeDataArray,
+    FreqTerminalDataArray,
+    FreqTerminalModeDataArray,
+    TimeDataArray,
+]
 VoltageIntegralResultType = Union[
-    VoltageFreqDataArray, VoltageFreqModeDataArray, VoltageTimeDataArray
+    VoltageFreqDataArray,
+    VoltageFreqModeDataArray,
+    VoltageFreqTerminalDataArray,
+    VoltageTimeDataArray,
+    VoltageFreqTerminalModeDataArray,
 ]
 CurrentIntegralResultType = Union[
-    CurrentFreqDataArray, CurrentFreqModeDataArray, CurrentTimeDataArray
+    CurrentFreqDataArray,
+    CurrentFreqModeDataArray,
+    CurrentFreqTerminalDataArray,
+    CurrentTimeDataArray,
+    CurrentFreqTerminalModeDataArray,
 ]
 ImpedanceResultType = Union[
-    ImpedanceFreqDataArray, ImpedanceFreqModeDataArray, ImpedanceTimeDataArray
+    ImpedanceFreqDataArray,
+    ImpedanceFreqModeDataArray,
+    ImpedanceTimeDataArray,
+    ImpedanceFreqTerminalTerminalDataArray,
 ]
+
+
+class _TracedDataset(xr.Dataset):
+    """Dataset subclass that preserves traced tidy3d DataArrays when accessed.
+
+    When xr.Dataset constructor is called with tidy3d DataArray objects,
+    xarray extracts the data and stores it as Variables internally. When
+    items are accessed via __getitem__, xarray wraps these Variables in
+    vanilla xr.DataArray, losing the custom .values property that's needed
+    for autograd compatibility.
+
+    This subclass overrides _construct_dataarray to return tidy3d DataArray
+    objects, preserving the custom .values behavior that returns .data
+    directly when tracing (avoiding np.asarray which breaks autodiff).
+    """
+
+    __slots__ = ()
+
+    def _construct_dataarray(self, name: Hashable) -> DataArray:
+        """Construct a tidy3d DataArray by indexing this dataset."""
+        return DataArray(super()._construct_dataarray(name))

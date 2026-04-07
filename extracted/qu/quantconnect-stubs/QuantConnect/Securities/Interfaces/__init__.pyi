@@ -12,19 +12,6 @@ import System
 import System.Collections.Generic
 
 
-class ISecurityDataFilter(metaclass=abc.ABCMeta):
-    """Security data filter interface. Defines pattern for the user defined data filter techniques."""
-
-    def filter(self, vehicle: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> bool:
-        """
-        Filter out a tick from this security, with this new data:
-        
-        :param data: New data packet we're checking
-        :param vehicle: Security of this filter.
-        """
-        ...
-
-
 class AdjustmentType(IntEnum):
     """Enum defines types of possible price adjustments in continuous contract modeling."""
 
@@ -90,6 +77,19 @@ class IContinuousContractModel(metaclass=abc.ABCMeta):
         Returns the list of roll dates for the contract.
         
         :returns: The list of roll dates.
+        """
+        ...
+
+
+class ISecurityDataFilter(metaclass=abc.ABCMeta):
+    """Security data filter interface. Defines pattern for the user defined data filter techniques."""
+
+    def filter(self, vehicle: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> bool:
+        """
+        Filter out a tick from this security, with this new data:
+        
+        :param data: New data packet we're checking
+        :param vehicle: Security of this filter.
         """
         ...
 

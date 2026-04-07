@@ -91,6 +91,7 @@ from dstack._internal.core.models.volumes import (
 )
 from dstack._internal.server.models import (
     BackendModel,
+    CodeModel,
     ComputeGroupModel,
     DecryptedString,
     EventModel,
@@ -114,6 +115,7 @@ from dstack._internal.server.models import (
     RunModel,
     SecretModel,
     UserModel,
+    UserPublicKeyModel,
     VolumeAttachmentModel,
     VolumeModel,
 )
@@ -161,6 +163,28 @@ async def create_user(
     session.add(user)
     await session.commit()
     return user
+
+
+async def create_user_public_key(
+    session: AsyncSession,
+    user: UserModel,
+    name: str = "test-key",
+    type: str = "ssh-ed25519",
+    fingerprint: str = "SHA256:testfingerprint",
+    key: str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5",
+    created_at: datetime = datetime(2023, 1, 2, 3, 4, tzinfo=timezone.utc),
+) -> UserPublicKeyModel:
+    user_public_key = UserPublicKeyModel(
+        user=user,
+        name=name,
+        type=type,
+        fingerprint=fingerprint,
+        key=key,
+        created_at=created_at,
+    )
+    session.add(user_public_key)
+    await session.commit()
+    return user_public_key
 
 
 async def create_project(
@@ -244,6 +268,22 @@ async def create_repo(
     return repo
 
 
+async def create_code(
+    session: AsyncSession,
+    repo: RepoModel,
+    blob_hash: str = "blob_hash",
+    blob: Optional[bytes] = b"blob_content",
+) -> CodeModel:
+    code = CodeModel(
+        repo_id=repo.id,
+        blob_hash=blob_hash,
+        blob=blob,
+    )
+    session.add(code)
+    await session.commit()
+    return code
+
+
 async def create_repo_creds(
     session: AsyncSession,
     repo_id: UUID,
@@ -270,7 +310,7 @@ async def create_file_archive(
     session: AsyncSession,
     user_id: UUID,
     blob_hash: str = "blob_hash",
-    blob: bytes = b"blob_content",
+    blob: Optional[bytes] = b"blob_content",
 ) -> FileArchiveModel:
     archive = FileArchiveModel(
         user_id=user_id,

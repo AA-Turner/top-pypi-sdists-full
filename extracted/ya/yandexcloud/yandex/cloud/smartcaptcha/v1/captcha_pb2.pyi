@@ -166,7 +166,9 @@ class Captcha(google.protobuf.message.Message):
     deletion_protection: builtins.bool
     """Determines whether captcha is protected from being deleted."""
     disallow_data_processing: builtins.bool
+    """Disables the use of HTTP request data for training and improving the service's ML models."""
     description: builtins.str
+    """Optional description of the captcha."""
     @property
     def created_at(self) -> google.protobuf.timestamp_pb2.Timestamp:
         """Creation timestamp in [RFC3339](https://www.ietf.org/rfc/rfc3339.txt) text format."""
@@ -184,7 +186,9 @@ class Captcha(google.protobuf.message.Message):
         """List of variants to use in security_rules"""
 
     @property
-    def labels(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]: ...
+    def labels(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
+        """Labels as `` key:value `` pairs. Maximum of 64 per resource."""
+
     def __init__(
         self,
         *,
@@ -305,11 +309,17 @@ class Condition(google.protobuf.message.Message):
         PIRE_REGEX_MATCH_FIELD_NUMBER: builtins.int
         PIRE_REGEX_NOT_MATCH_FIELD_NUMBER: builtins.int
         exact_match: builtins.str
+        """Exact match condition."""
         exact_not_match: builtins.str
+        """Exact not match condition."""
         prefix_match: builtins.str
+        """Prefix match condition."""
         prefix_not_match: builtins.str
+        """Prefix not match condition."""
         pire_regex_match: builtins.str
+        """PIRE regex match condition."""
         pire_regex_not_match: builtins.str
+        """PIRE regex not match condition."""
         def __init__(
             self,
             *,
@@ -331,16 +341,23 @@ class Condition(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
         HOSTS_FIELD_NUMBER: builtins.int
+        HOST_MATCHER_FIELD_NUMBER: builtins.int
         @property
         def hosts(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Condition.StringMatcher]:
             """List of hosts. OR semantics implied."""
+
+        @property
+        def host_matcher(self) -> global___Condition.StringMatcher:
+            """Host matcher."""
 
         def __init__(
             self,
             *,
             hosts: collections.abc.Iterable[global___Condition.StringMatcher] | None = ...,
+            host_matcher: global___Condition.StringMatcher | None = ...,
         ) -> None: ...
-        def ClearField(self, field_name: typing.Literal["hosts", b"hosts"]) -> None: ...
+        def HasField(self, field_name: typing.Literal["host_matcher", b"host_matcher"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["host_matcher", b"host_matcher", "hosts", b"hosts"]) -> None: ...
 
     @typing.final
     class UriMatcher(google.protobuf.message.Message):
@@ -425,14 +442,20 @@ class Condition(google.protobuf.message.Message):
         GEO_IP_NOT_MATCH_FIELD_NUMBER: builtins.int
         @property
         def ip_ranges_match(self) -> global___Condition.IpRangesMatcher:
-            """*AND* semantics implied."""
+            """IP ranges to match with."""
 
         @property
-        def ip_ranges_not_match(self) -> global___Condition.IpRangesMatcher: ...
+        def ip_ranges_not_match(self) -> global___Condition.IpRangesMatcher:
+            """IP ranges to not match with."""
+
         @property
-        def geo_ip_match(self) -> global___Condition.GeoIpMatcher: ...
+        def geo_ip_match(self) -> global___Condition.GeoIpMatcher:
+            """Geo locations to match with."""
+
         @property
-        def geo_ip_not_match(self) -> global___Condition.GeoIpMatcher: ...
+        def geo_ip_not_match(self) -> global___Condition.GeoIpMatcher:
+            """Geo locations to not match with."""
+
         def __init__(
             self,
             *,

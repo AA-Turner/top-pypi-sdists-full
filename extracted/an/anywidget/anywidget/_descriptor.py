@@ -26,9 +26,6 @@ from dataclasses import asdict, is_dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Iterable,
-    Sequence,
     cast,
     overload,
 )
@@ -47,12 +44,15 @@ from ._util import (
 from ._version import _ANYWIDGET_SEMVER_VERSION
 
 if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Callable, Iterable, Sequence
+    from typing import TypeAlias, TypeGuard
+
     import comm
     import msgspec
     import psygnal
     import pydantic
     import traitlets
-    from typing_extensions import Protocol, TypeAlias, TypeGuard
+    from typing_extensions import Protocol
 
     from ._protocols import CommMessage
 
@@ -73,7 +73,7 @@ def open_comm(
     initial_state: dict,
     version: str = _PROTOCOL_VERSION,
 ) -> comm.base_comm.BaseComm:
-    import comm
+    import comm  # noqa: PLC0415
 
     state, buffer_paths, buffers = remove_buffers(initial_state)
 
@@ -380,7 +380,10 @@ class ReprMimeBundle:
         state, buffer_paths, buffers = remove_buffers(state)
         if getattr(self._comm, "kernel", None):
             msg = {"method": "update", "state": state, "buffer_paths": buffer_paths}
-            self._comm.send(data=msg, buffers=buffers)  # type: ignore[arg-type]
+            self._comm.send(
+                data=msg,
+                buffers=buffers,  # ty:ignore[invalid-argument-type]
+            )
 
     def _handle_msg(self, msg: CommMessage) -> None:
         """Called when a msg is received from the front-end.
@@ -454,7 +457,7 @@ class ReprMimeBundle:
         """
         if js_to_py:
             # connect changes in the view to the instance
-            self._comm.on_msg(self._handle_msg)  # type: ignore[arg-type]
+            self._comm.on_msg(self._handle_msg)  # ty:ignore[invalid-argument-type]
             self.send_state()
 
         if py_to_js and self._autodetect_observer:
@@ -587,7 +590,7 @@ def determine_state_setter(obj: object) -> Callable[[object, dict], None]:
 def _get_psygnal_signal_group(obj: object) -> psygnal.SignalGroup | None:
     """Look for a psygnal.SignalGroup on the obj."""
     if TYPE_CHECKING:
-        import psygnal
+        import psygnal  # noqa: PLC0415
     else:
         psygnal = sys.modules.get("psygnal")
     if psygnal is None:
@@ -727,7 +730,7 @@ def _get_pydantic_state_v1(
     state : dict
         A dictionary copy of state from the pydantic BaseModel
     """
-    return json.loads(obj.json(include=include))
+    return json.loads(obj.json(include=include))  # ty:ignore[deprecated]
 
 
 def _get_pydantic_state_v2(
@@ -749,8 +752,8 @@ def _is_msgspec_struct(obj: object) -> TypeGuard[msgspec.Struct]:
 
 def _get_msgspec_state(obj: msgspec.Struct, include: set[str] | None) -> Serializable:  # noqa: ARG001
     """Get the state of a msgspec.Struct instance."""
-    import msgspec
+    import msgspec  # noqa: PLC0415
 
     # TODO(manzt): comm expects a dict. ideally we could serialize with msgspec
     # https://github.com/manzt/anywidget/pull/64#discussion_r1128986939
-    return cast(dict, msgspec.to_builtins(obj))
+    return cast("dict", msgspec.to_builtins(obj))

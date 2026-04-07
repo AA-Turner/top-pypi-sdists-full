@@ -3,7 +3,7 @@ Type annotations for accessanalyzer service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_accessanalyzer/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -36,12 +36,15 @@ from .literals import (
     FindingStatusType,
     FindingStatusUpdateType,
     FindingTypeType,
+    ImpactAnalysisJobStatusType,
     InternalAccessTypeType,
     JobErrorCodeType,
     JobStatusType,
     KmsGrantOperationType,
     LocaleType,
     OrderByType,
+    PolicyPreviewJobFilterNameType,
+    PolicyPreviewStatusType,
     PolicyTypeType,
     PrincipalTypeType,
     ReasonCodeType,
@@ -81,6 +84,7 @@ __all__ = (
     "ApplyArchiveRuleRequestTypeDef",
     "ArchiveRuleSummaryTypeDef",
     "CancelPolicyGenerationRequestTypeDef",
+    "CancelPolicyPreviewJobRequestTypeDef",
     "CheckAccessNotGrantedRequestTypeDef",
     "CheckAccessNotGrantedResponseTypeDef",
     "CheckNoNewAccessRequestTypeDef",
@@ -97,11 +101,14 @@ __all__ = (
     "CreateAnalyzerRequestTypeDef",
     "CreateAnalyzerResponseTypeDef",
     "CreateArchiveRuleRequestTypeDef",
+    "CreatePolicyPreviewConfigurationRequestTypeDef",
+    "CreatePolicyPreviewConfigurationResponseTypeDef",
     "CriterionOutputTypeDef",
     "CriterionTypeDef",
     "CriterionUnionTypeDef",
     "DeleteAnalyzerRequestTypeDef",
     "DeleteArchiveRuleRequestTypeDef",
+    "DeletePolicyPreviewConfigurationRequestTypeDef",
     "DynamodbStreamConfigurationTypeDef",
     "DynamodbTableConfigurationTypeDef",
     "EbsSnapshotConfigurationOutputTypeDef",
@@ -144,6 +151,11 @@ __all__ = (
     "GetFindingsStatisticsResponseTypeDef",
     "GetGeneratedPolicyRequestTypeDef",
     "GetGeneratedPolicyResponseTypeDef",
+    "GetPolicyPreviewConfigurationRequestTypeDef",
+    "GetPolicyPreviewConfigurationResponseTypeDef",
+    "GetPolicyPreviewJobRequestTypeDef",
+    "GetPolicyPreviewJobRequestWaitTypeDef",
+    "GetPolicyPreviewJobResponseTypeDef",
     "IamRoleConfigurationTypeDef",
     "InlineArchiveRuleTypeDef",
     "InternalAccessAnalysisRuleCriteriaOutputTypeDef",
@@ -190,6 +202,9 @@ __all__ = (
     "ListPolicyGenerationsRequestPaginateTypeDef",
     "ListPolicyGenerationsRequestTypeDef",
     "ListPolicyGenerationsResponseTypeDef",
+    "ListPolicyPreviewJobsRequestPaginateTypeDef",
+    "ListPolicyPreviewJobsRequestTypeDef",
+    "ListPolicyPreviewJobsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "LocationTypeDef",
@@ -198,8 +213,15 @@ __all__ = (
     "NetworkOriginConfigurationUnionTypeDef",
     "PaginatorConfigTypeDef",
     "PathElementTypeDef",
+    "PolicyConfigurationOutputTypeDef",
+    "PolicyConfigurationTypeDef",
+    "PolicyConfigurationUnionTypeDef",
     "PolicyGenerationDetailsTypeDef",
     "PolicyGenerationTypeDef",
+    "PolicyPreviewAnalysisReportTypeDef",
+    "PolicyPreviewConfigurationTypeDef",
+    "PolicyPreviewJobDetailsTypeDef",
+    "PolicyPreviewJobParametersTypeDef",
     "PositionTypeDef",
     "RdsDbClusterSnapshotAttributeValueOutputTypeDef",
     "RdsDbClusterSnapshotAttributeValueTypeDef",
@@ -239,6 +261,8 @@ __all__ = (
     "SqsQueueConfigurationTypeDef",
     "StartPolicyGenerationRequestTypeDef",
     "StartPolicyGenerationResponseTypeDef",
+    "StartPolicyPreviewJobRequestTypeDef",
+    "StartPolicyPreviewJobResponseTypeDef",
     "StartResourceScanRequestTypeDef",
     "StatusReasonTypeDef",
     "SubstringTypeDef",
@@ -266,6 +290,7 @@ __all__ = (
     "ValidatePolicyRequestTypeDef",
     "ValidatePolicyResponseTypeDef",
     "VpcConfigurationTypeDef",
+    "WaiterConfigTypeDef",
 )
 
 
@@ -335,6 +360,10 @@ class CriterionOutputTypeDef(TypedDict):
 
 
 class CancelPolicyGenerationRequestTypeDef(TypedDict):
+    jobId: str
+
+
+class CancelPolicyPreviewJobRequestTypeDef(TypedDict):
     jobId: str
 
 
@@ -417,6 +446,11 @@ class SqsQueueConfigurationTypeDef(TypedDict):
     queuePolicy: NotRequired[str]
 
 
+class CreatePolicyPreviewConfigurationRequestTypeDef(TypedDict):
+    clientToken: NotRequired[str]
+    scope: NotRequired[Literal["GLOBAL"]]
+
+
 class CriterionTypeDef(TypedDict):
     eq: NotRequired[Sequence[str]]
     neq: NotRequired[Sequence[str]]
@@ -432,6 +466,10 @@ class DeleteAnalyzerRequestTypeDef(TypedDict):
 class DeleteArchiveRuleRequestTypeDef(TypedDict):
     analyzerName: str
     ruleName: str
+    clientToken: NotRequired[str]
+
+
+class DeletePolicyPreviewConfigurationRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
@@ -568,6 +606,22 @@ class GetGeneratedPolicyRequestTypeDef(TypedDict):
     includeServiceLevelTemplate: NotRequired[bool]
 
 
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
+
+
+class PolicyPreviewConfigurationTypeDef(TypedDict):
+    scope: Literal["GLOBAL"]
+    status: PolicyPreviewStatusType
+    createdAt: datetime
+    updatedAt: NotRequired[datetime]
+
+
+class GetPolicyPreviewJobRequestTypeDef(TypedDict):
+    jobId: str
+
+
 class InternalAccessAnalysisRuleCriteriaOutputTypeDef(TypedDict):
     accountIds: NotRequired[list[str]]
     resourceTypes: NotRequired[list[ResourceTypeType]]
@@ -649,6 +703,21 @@ class PolicyGenerationTypeDef(TypedDict):
     completedOn: NotRequired[datetime]
 
 
+class ListPolicyPreviewJobsRequestTypeDef(TypedDict):
+    filters: NotRequired[Mapping[PolicyPreviewJobFilterNameType, str]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class PolicyPreviewAnalysisReportTypeDef(TypedDict):
+    jobId: str
+    status: ImpactAnalysisJobStatusType
+    submittedAt: datetime
+    outputS3Uri: str
+    startedAt: NotRequired[datetime]
+    completedAt: NotRequired[datetime]
+
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
@@ -660,6 +729,18 @@ class VpcConfigurationTypeDef(TypedDict):
 class SubstringTypeDef(TypedDict):
     start: int
     length: int
+
+
+class PolicyConfigurationOutputTypeDef(TypedDict):
+    jobType: Literal["SCP"]
+    targetId: str
+    policyDocumentsList: list[str]
+
+
+class PolicyConfigurationTypeDef(TypedDict):
+    jobType: Literal["SCP"]
+    targetId: str
+    policyDocumentsList: Sequence[str]
 
 
 class PolicyGenerationDetailsTypeDef(TypedDict):
@@ -820,6 +901,11 @@ class CreateAnalyzerResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreatePolicyPreviewConfigurationResponseTypeDef(TypedDict):
+    status: PolicyPreviewStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -841,6 +927,11 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 
 
 class StartPolicyGenerationResponseTypeDef(TypedDict):
+    jobId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartPolicyPreviewJobResponseTypeDef(TypedDict):
     jobId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -934,12 +1025,31 @@ class ListPolicyGenerationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListPolicyPreviewJobsRequestPaginateTypeDef(TypedDict):
+    filters: NotRequired[Mapping[PolicyPreviewJobFilterNameType, str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ValidatePolicyRequestPaginateTypeDef(TypedDict):
     policyDocument: str
     policyType: PolicyTypeType
     locale: NotRequired[LocaleType]
     validatePolicyResourceType: NotRequired[ValidatePolicyResourceTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class GetPolicyPreviewConfigurationRequestTypeDef(TypedDict):
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class GetPolicyPreviewJobRequestWaitTypeDef(TypedDict):
+    jobId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class GetPolicyPreviewConfigurationResponseTypeDef(TypedDict):
+    policyPreviewConfigurations: list[PolicyPreviewConfigurationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class InternalAccessAnalysisRuleOutputTypeDef(TypedDict):
@@ -967,6 +1077,14 @@ class JobDetailsTypeDef(TypedDict):
     jobError: NotRequired[JobErrorTypeDef]
 
 
+class PolicyPreviewJobDetailsTypeDef(TypedDict):
+    jobStatus: ImpactAnalysisJobStatusType
+    submittedAt: datetime
+    startedAt: NotRequired[datetime]
+    completedAt: NotRequired[datetime]
+    jobError: NotRequired[JobErrorTypeDef]
+
+
 class KmsGrantConfigurationOutputTypeDef(TypedDict):
     operations: list[KmsGrantOperationType]
     granteePrincipal: str
@@ -986,6 +1104,12 @@ class ListPolicyGenerationsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListPolicyPreviewJobsResponseTypeDef(TypedDict):
+    analysisReports: list[PolicyPreviewAnalysisReportTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class NetworkOriginConfigurationOutputTypeDef(TypedDict):
     vpcConfiguration: NotRequired[VpcConfigurationTypeDef]
     internetConfiguration: NotRequired[dict[str, Any]]
@@ -1001,6 +1125,17 @@ class PathElementTypeDef(TypedDict):
     key: NotRequired[str]
     substring: NotRequired[SubstringTypeDef]
     value: NotRequired[str]
+
+
+class PolicyPreviewJobParametersTypeDef(TypedDict):
+    startTime: datetime
+    endTime: datetime
+    policyConfigurations: list[PolicyConfigurationOutputTypeDef]
+
+
+PolicyConfigurationUnionTypeDef = Union[
+    PolicyConfigurationTypeDef, PolicyConfigurationOutputTypeDef
+]
 
 
 class SpanTypeDef(TypedDict):
@@ -1288,6 +1423,22 @@ class S3ExpressDirectoryAccessPointConfigurationOutputTypeDef(TypedDict):
 NetworkOriginConfigurationUnionTypeDef = Union[
     NetworkOriginConfigurationTypeDef, NetworkOriginConfigurationOutputTypeDef
 ]
+
+
+class GetPolicyPreviewJobResponseTypeDef(TypedDict):
+    jobId: str
+    jobParameters: PolicyPreviewJobParametersTypeDef
+    jobDetails: PolicyPreviewJobDetailsTypeDef
+    outputS3Uri: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartPolicyPreviewJobRequestTypeDef(TypedDict):
+    policyConfigurations: Sequence[PolicyConfigurationUnionTypeDef]
+    startTime: TimestampTypeDef
+    outputS3Uri: str
+    endTime: NotRequired[TimestampTypeDef]
+    clientToken: NotRequired[str]
 
 
 class LocationTypeDef(TypedDict):

@@ -11,11 +11,11 @@ import typer
 from rich import box
 from rich.table import Table
 
-from cogames.auth import DEFAULT_COGAMES_SERVER
 from cogames.cli.base import cli_http_errors, console, emit_json
 from cogames.cli.client import TournamentServerClient
 from cogames.cli.generated_models import AssayRunResponse, AssayStatus, MissionSpec
 from cogames.cli.submit import DEFAULT_SUBMIT_SERVER
+from softmax.auth import DEFAULT_COGAMES_SERVER
 
 assay_app = typer.Typer(
     help="Assay run commands.",
@@ -201,7 +201,13 @@ def assay_results(
             if not runs:
                 console.print(f"[yellow]No assay runs found for policy {policy_or_run_id!r}.[/yellow]")
                 return
-            run_id = runs[0].id
+            scorable = [r for r in runs if r.status != AssayStatus.pending]
+            if not scorable:
+                console.print(
+                    f"[yellow]Latest run is still pending ({runs[0].id}). No completed runs available.[/yellow]"
+                )
+                return
+            run_id = scorable[0].id
 
         results = client.get_assay_results(run_id)
 

@@ -74,7 +74,7 @@ logger = logging.getLogger(__name__)
 
 # List of possible refusal flags in finish_reason
 REFUSAL_REASON = (
-    "refusal",  # Anthropic safety filter
+    "content_filter",  # litellm normalizes provider safety signals (including Anthropic "refusal") to this
 )
 
 
@@ -512,9 +512,22 @@ class LLMModel(ABC, BaseModel):
             n=1,
             **kwargs,
         )
-        if len(results) != 1:
+        if not results:
+            raise ValueError(
+                f"Got 0 results from model {kwargs.get('model') or self.name!r},"
+                f" given {len(messages)} message(s),"
+                f" {len(tools) if tools is not None else None} tools,"
+                f" and {tool_choice!r} tool choice."
+            )
+        if len(results) > 1:
             # Can be caused by issues like https://github.com/BerriAI/litellm/issues/12298
-            raise ValueError(f"Got {len(results)} results when expecting just one.")
+            logger.warning(
+                "Got %d results when expecting just one from model %r"
+                " (n=1). Using first result. All results:\n%s",
+                len(results),
+                kwargs.get("model") or self.name,
+                "\n---\n".join(str(r) for r in results),
+            )
         return results[0]
 
 

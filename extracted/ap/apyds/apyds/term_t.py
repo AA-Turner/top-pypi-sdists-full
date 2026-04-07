@@ -43,8 +43,9 @@ class Term(Common[ds.Term]):
                 return Item(self.value.item())
             case ds.Term.Type.List:
                 return List(self.value.list())
-            case _:
-                raise TypeError("Unexpected term type.")
+
+        # If the term type is not recognized, raise an error
+        raise TypeError("Unexpected term type.")
 
     def __floordiv__(self, other: Term) -> Term | None:
         return self.ground(other)

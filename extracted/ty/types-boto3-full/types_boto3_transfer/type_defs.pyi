@@ -30,6 +30,7 @@ from .literals import (
     CertificateUsageTypeType,
     CompressionEnumType,
     ConnectorEgressTypeType,
+    ConnectorsIpAddressTypeType,
     ConnectorStatusType,
     CustomStepStatusType,
     DirectoryListingOptimizationType,
@@ -1373,6 +1374,7 @@ class DescribedConnectorTypeDef(TypedDict):
     SecurityPolicyName: NotRequired[str]
     EgressConfig: NotRequired[DescribedConnectorEgressConfigTypeDef]
     ErrorMessage: NotRequired[str]
+    IpAddressType: NotRequired[ConnectorsIpAddressTypeType]
 
 class DescribeUserResponseTypeDef(TypedDict):
     ServerId: str
@@ -1513,6 +1515,7 @@ class CreateConnectorRequestTypeDef(TypedDict):
     SftpConfig: NotRequired[SftpConnectorConfigUnionTypeDef]
     SecurityPolicyName: NotRequired[str]
     EgressConfig: NotRequired[ConnectorEgressConfigTypeDef]
+    IpAddressType: NotRequired[ConnectorsIpAddressTypeType]
 
 class UpdateConnectorRequestTypeDef(TypedDict):
     ConnectorId: str
@@ -1523,6 +1526,7 @@ class UpdateConnectorRequestTypeDef(TypedDict):
     SftpConfig: NotRequired[SftpConnectorConfigUnionTypeDef]
     SecurityPolicyName: NotRequired[str]
     EgressConfig: NotRequired[UpdateConnectorEgressConfigTypeDef]
+    IpAddressType: NotRequired[ConnectorsIpAddressTypeType]
 
 class DescribeConnectorResponseTypeDef(TypedDict):
     Connector: DescribedConnectorTypeDef

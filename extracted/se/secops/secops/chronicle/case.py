@@ -173,7 +173,7 @@ def execute_bulk_assign(
     Raises:
         APIError: If the API request fails
     """
-    body = {"casesIds": case_ids, "username": username}
+    body = {"casesIds": case_ids, "userName": username}
 
     return chronicle_request(
         client,

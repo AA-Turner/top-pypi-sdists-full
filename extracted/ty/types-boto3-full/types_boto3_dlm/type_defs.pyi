@@ -160,16 +160,18 @@ class TagTypeDef(TypedDict):
     Value: str
 
 class FastRestoreRuleOutputTypeDef(TypedDict):
-    AvailabilityZones: list[str]
     Count: NotRequired[int]
     Interval: NotRequired[int]
     IntervalUnit: NotRequired[RetentionIntervalUnitValuesType]
+    AvailabilityZones: NotRequired[list[str]]
+    AvailabilityZoneIds: NotRequired[list[str]]
 
 class FastRestoreRuleTypeDef(TypedDict):
-    AvailabilityZones: Sequence[str]
     Count: NotRequired[int]
     Interval: NotRequired[int]
     IntervalUnit: NotRequired[RetentionIntervalUnitValuesType]
+    AvailabilityZones: NotRequired[Sequence[str]]
+    AvailabilityZoneIds: NotRequired[Sequence[str]]
 
 class GetLifecyclePoliciesRequestTypeDef(TypedDict):
     PolicyIds: NotRequired[Sequence[str]]

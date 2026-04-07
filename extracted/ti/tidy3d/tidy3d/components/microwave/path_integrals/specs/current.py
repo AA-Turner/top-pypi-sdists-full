@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Union
 
 import numpy as np
-import pydantic.v1 as pd
+from pydantic import Field, field_validator
 
 from tidy3d.components.base import cached_property
 from tidy3d.components.geometry.base import Box, Geometry
@@ -17,12 +17,19 @@ from tidy3d.components.microwave.path_integrals.specs.base import (
     Custom2DPathIntegralSpec,
 )
 from tidy3d.components.microwave.path_integrals.viz import ARROW_CURRENT, plot_params_current_path
-from tidy3d.components.types import Ax, Bound
-from tidy3d.components.types.base import Axis, Direction
+from tidy3d.components.types import ArrayFloat2D
+from tidy3d.components.types.base import Direction
 from tidy3d.components.validators import assert_plane
 from tidy3d.components.viz import add_ax_if_none
-from tidy3d.constants import fp_eps
+from tidy3d.constants import MICROMETER, fp_eps
 from tidy3d.exceptions import SetupError
+
+if TYPE_CHECKING:
+    from typing import Optional
+
+    from tidy3d.components.data.data_array import DataArray
+    from tidy3d.components.types import Ax, Bound
+    from tidy3d.components.types.base import Axis
 
 
 class AxisAlignedCurrentIntegralSpec(AbstractAxesRH, Box):
@@ -40,19 +47,18 @@ class AxisAlignedCurrentIntegralSpec(AbstractAxesRH, Box):
 
     _plane_validator = assert_plane()
 
-    sign: Direction = pd.Field(
-        ...,
+    sign: Direction = Field(
         title="Direction of Contour Integral",
         description="Positive indicates current flowing in the positive normal axis direction.",
     )
 
-    extrapolate_to_endpoints: bool = pd.Field(
+    extrapolate_to_endpoints: bool = Field(
         False,
         title="Extrapolate to Endpoints",
         description="This parameter is passed to :class:`AxisAlignedPathIntegral` objects when computing the contour integral.",
     )
 
-    snap_contour_to_grid: bool = pd.Field(
+    snap_contour_to_grid: bool = Field(
         False,
         title="Snap Contour to Grid",
         description="This parameter is passed to :class:`AxisAlignedPathIntegral` objects when computing the contour integral.",
@@ -64,9 +70,12 @@ class AxisAlignedCurrentIntegralSpec(AbstractAxesRH, Box):
         for index, value in enumerate(self.size):
             if value == 0:
                 return index
+        raise SetupError("AxisAlignedCurrentIntegralSpec requires a zero-sized dimension.")
 
     def _to_path_integral_specs(
-        self, h_horizontal=None, h_vertical=None
+        self,
+        h_horizontal: Optional[DataArray] = None,
+        h_vertical: Optional[DataArray] = None,
     ) -> tuple[AxisAlignedPathIntegralSpec, ...]:
         """Returns four ``AxisAlignedPathIntegralSpec`` instances, which represent a contour
         integral around the surface defined by ``self.size``."""
@@ -152,6 +161,7 @@ class AxisAlignedCurrentIntegralSpec(AbstractAxesRH, Box):
         y: Optional[float] = None,
         z: Optional[float] = None,
         ax: Ax = None,
+        plot_arrow: bool = True,
         **path_kwargs: Any,
     ) -> Ax:
         """Plot path integral at single (x,y,z) coordinate.
@@ -166,6 +176,8 @@ class AxisAlignedCurrentIntegralSpec(AbstractAxesRH, Box):
             Position of plane in z direction, only one of x,y,z can be specified to define plane.
         ax : matplotlib.axes._subplots.Axes = None
             Matplotlib axes to plot on, if not specified, one is created.
+        plot_arrow : bool = True
+            Whether to plot the arrow indicating current direction. Default is ``True``.
         **path_kwargs
             Optional keyword arguments passed to the matplotlib plotting of the line.
             For details on accepted values, refer to
@@ -188,39 +200,40 @@ class AxisAlignedCurrentIntegralSpec(AbstractAxesRH, Box):
             (xs, ys) = path._vertices_2D(axis)
             ax.plot(xs, ys, **plot_kwargs)
 
-        (ax1, ax2) = self.remaining_axes
-
         # Add arrow to bottom path, unless right path is longer
-        arrow_path = path_integrals[0]
-        if self.size[ax2] > self.size[ax1]:
-            arrow_path = path_integrals[1]
+        if plot_arrow:
+            (ax1, ax2) = self.remaining_axes
 
-        (xs, ys) = arrow_path._vertices_2D(axis)
-        X = (xs[0] + xs[1]) / 2
-        Y = (ys[0] + ys[1]) / 2
-        center = np.array([X, Y])
-        dx = xs[1] - xs[0]
-        dy = ys[1] - ys[0]
-        direction = np.array([dx, dy])
-        segment_length = np.linalg.norm(direction)
-        unit_dir = direction / segment_length
+            arrow_path = path_integrals[0]
+            if self.size[ax2] > self.size[ax1]:
+                arrow_path = path_integrals[1]
 
-        # Change direction of arrow depending on sign of current definition
-        if self.sign == "-":
-            unit_dir *= -1.0
-        # Change direction of arrow when the "y" axis is dropped,
-        # since the plotted coordinate system will be left-handed (x, z)
-        if self.main_axis == 1:
-            unit_dir *= -1.0
+            (xs, ys) = arrow_path._vertices_2D(axis)
+            X = (xs[0] + xs[1]) / 2
+            Y = (ys[0] + ys[1]) / 2
+            center = np.array([X, Y])
+            dx = xs[1] - xs[0]
+            dy = ys[1] - ys[0]
+            direction = np.array([dx, dy])
+            segment_length = np.linalg.norm(direction)
+            unit_dir = direction / segment_length
 
-        start = center - unit_dir * segment_length
-        end = center
-        ax.annotate(
-            "",
-            xytext=(start[0], start[1]),
-            xy=(end[0], end[1]),
-            arrowprops=ARROW_CURRENT,
-        )
+            # Change direction of arrow depending on sign of current definition
+            if self.sign == "-":
+                unit_dir *= -1.0
+            # Change direction of arrow when the "y" axis is dropped,
+            # since the plotted coordinate system will be left-handed (x, z)
+            if self.main_axis == 1:
+                unit_dir *= -1.0
+
+            start = center - unit_dir * segment_length
+            end = center
+            ax.annotate(
+                "",
+                xytext=(start[0], start[1]),
+                xy=(end[0], end[1]),
+                arrowprops=ARROW_CURRENT,
+            )
         return ax
 
 
@@ -240,6 +253,15 @@ class Custom2DCurrentIntegralSpec(Custom2DPathIntegralSpec):
     ... )
     """
 
+    vertices: ArrayFloat2D = Field(
+        title="Vertices",
+        description="List of (d1, d2) defining the 2 dimensional positions of the path. "
+        "The index of dimension should be in the ascending order, which means "
+        "if the axis corresponds with ``y``, the coordinates of the vertices should be (x, z). "
+        "The path must form a closed contour, i.e., ``vertices[-1] == vertices[0]``.",
+        json_schema_extra={"units": MICROMETER},
+    )
+
     @add_ax_if_none
     def plot(
         self,
@@ -247,6 +269,7 @@ class Custom2DCurrentIntegralSpec(Custom2DPathIntegralSpec):
         y: Optional[float] = None,
         z: Optional[float] = None,
         ax: Ax = None,
+        plot_arrow: bool = True,
         **path_kwargs: Any,
     ) -> Ax:
         """Plot path integral at single (x,y,z) coordinate.
@@ -261,6 +284,8 @@ class Custom2DCurrentIntegralSpec(Custom2DPathIntegralSpec):
             Position of plane in z direction, only one of x,y,z can be specified to define plane.
         ax : matplotlib.axes._subplots.Axes = None
             Matplotlib axes to plot on, if not specified, one is created.
+        plot_arrow : bool = True
+            Whether to plot the arrow indicating current direction. Default is ``True``.
         **path_kwargs
             Optional keyword arguments passed to the matplotlib plotting of the line.
             For details on accepted values, refer to
@@ -282,12 +307,13 @@ class Custom2DCurrentIntegralSpec(Custom2DPathIntegralSpec):
         ax.plot(xs, ys, **plot_kwargs)
 
         # Add arrow at start of contour
-        ax.annotate(
-            "",
-            xytext=(xs[0], ys[0]),
-            xy=(xs[1], ys[1]),
-            arrowprops=ARROW_CURRENT,
-        )
+        if plot_arrow:
+            ax.annotate(
+                "",
+                xytext=(xs[0], ys[0]),
+                xy=(xs[1], ys[1]),
+                arrowprops=ARROW_CURRENT,
+            )
         return ax
 
 
@@ -314,15 +340,13 @@ class CompositeCurrentIntegralSpec(MicrowaveBaseModel):
     """
 
     path_specs: tuple[Union[AxisAlignedCurrentIntegralSpec, Custom2DCurrentIntegralSpec], ...] = (
-        pd.Field(
-            ...,
+        Field(
             title="Path Specifications",
             description="Definition of the disjoint path specifications for each isolated contour integral.",
         )
     )
 
-    sum_spec: Literal["sum", "split"] = pd.Field(
-        ...,
+    sum_spec: Literal["sum", "split"] = Field(
         title="Sum Specification",
         description="Determines the method used to combine the currents calculated by the different "
         "current integrals defined by ``path_specs``. ``sum`` simply adds all currents, while ``split`` "
@@ -338,6 +362,7 @@ class CompositeCurrentIntegralSpec(MicrowaveBaseModel):
         y: Optional[float] = None,
         z: Optional[float] = None,
         ax: Ax = None,
+        plot_arrow: bool = True,
         **path_kwargs: Any,
     ) -> Ax:
         """Plot path integral at single (x,y,z) coordinate.
@@ -352,6 +377,8 @@ class CompositeCurrentIntegralSpec(MicrowaveBaseModel):
             Position of plane in z direction, only one of x,y,z can be specified to define plane.
         ax : matplotlib.axes._subplots.Axes = None
             Matplotlib axes to plot on, if not specified, one is created.
+        plot_arrow : bool = True
+            Whether to plot the arrow indicating current direction. Default is ``True``.
         **path_kwargs
             Optional keyword arguments passed to the matplotlib plotting of the line.
             For details on accepted values, refer to
@@ -363,11 +390,14 @@ class CompositeCurrentIntegralSpec(MicrowaveBaseModel):
             The supplied or created matplotlib axes.
         """
         for path_spec in self.path_specs:
-            ax = path_spec.plot(x=x, y=y, z=z, ax=ax, **path_kwargs)
+            ax = path_spec.plot(x=x, y=y, z=z, ax=ax, plot_arrow=plot_arrow, **path_kwargs)
         return ax
 
-    @pd.validator("path_specs", always=True)
-    def _path_specs_not_empty(cls, val):
+    @field_validator("path_specs")
+    @classmethod
+    def _path_specs_not_empty(
+        cls, val: tuple[Union[AxisAlignedCurrentIntegralSpec, Custom2DCurrentIntegralSpec], ...]
+    ) -> tuple[Union[AxisAlignedCurrentIntegralSpec, Custom2DCurrentIntegralSpec], ...]:
         """Makes sure at least one path spec has been supplied"""
         # overall shape of vertices
         if len(val) < 1:

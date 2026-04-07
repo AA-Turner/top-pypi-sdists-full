@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pydantic.v1 as pd
-
-try:
-    from matplotlib import pyplot as plt
-    from matplotlib.tri import Triangulation
-except ImportError:
-    pass
-
+from pydantic import Field
 from xarray import DataArray as XrDataArray
+
+if TYPE_CHECKING:
+    from matplotlib.tri import Triangulation
 
 from tidy3d.components.base import cached_property
 from tidy3d.components.data.data_array import (
@@ -22,7 +18,7 @@ from tidy3d.components.data.data_array import (
     PointDataArray,
     SpatialDataArray,
 )
-from tidy3d.components.types import ArrayLike, Ax, Axis, Bound
+from tidy3d.components.types import Axis
 from tidy3d.components.viz import add_ax_if_none, equal_aspect, plot_params_grid
 from tidy3d.constants import inf
 from tidy3d.exceptions import DataError
@@ -35,6 +31,16 @@ from .base import (
     DEFAULT_TOLERANCE_CELL_FINDING,
     UnstructuredGridDataset,
 )
+
+if TYPE_CHECKING:
+    from typing import Literal, Optional, Union
+
+    from pydantic import PositiveInt
+    from vtkmodules.vtkCommonDataModel import vtkPointSet
+    from xarray import DataArray
+
+    from tidy3d.compat import Self
+    from tidy3d.components.types import ArrayLike, Ax, Bound
 
 
 class TriangularGridDataset(UnstructuredGridDataset):
@@ -72,14 +78,12 @@ class TriangularGridDataset(UnstructuredGridDataset):
     ... )
     """
 
-    normal_axis: Axis = pd.Field(
-        ...,
+    normal_axis: Axis = Field(
         title="Grid Axis",
         description="Orientation of the grid.",
     )
 
-    normal_pos: float = pd.Field(
-        ...,
+    normal_pos: float = Field(
         title="Position",
         description="Coordinate of the grid along the normal direction.",
     )
@@ -87,12 +91,12 @@ class TriangularGridDataset(UnstructuredGridDataset):
     """ Fundamental parameters to set up based on grid dimensionality """
 
     @classmethod
-    def _point_dims(cls) -> pd.PositiveInt:
+    def _point_dims(cls) -> PositiveInt:
         """Dimensionality of stored grid point coordinates."""
         return 2
 
     @classmethod
-    def _cell_num_vertices(cls) -> pd.PositiveInt:
+    def _cell_num_vertices(cls) -> PositiveInt:
         """Number of vertices in a cell."""
         return 3
 
@@ -118,7 +122,7 @@ class TriangularGridDataset(UnstructuredGridDataset):
 
     @classmethod
     @requires_vtk
-    def _vtk_cell_type(cls):
+    def _vtk_cell_type(cls) -> int:
         """VTK cell type to use in the VTK representation."""
         return vtk["mod"].VTK_TRIANGLE
 
@@ -126,14 +130,14 @@ class TriangularGridDataset(UnstructuredGridDataset):
     @requires_vtk
     def _from_vtk_obj(
         cls,
-        vtk_obj,
-        field=None,
+        vtk_obj: vtkPointSet,
+        field: Optional[str] = None,
         remove_degenerate_cells: bool = False,
         remove_unused_points: bool = False,
-        values_type=IndexedDataArray,
-        expect_complex=None,
+        values_type: type = IndexedDataArray,
+        expect_complex: Optional[bool] = None,
         ignore_invalid_cells: bool = False,
-    ):
+    ) -> Self:
         """Initialize from a vtkUnstructuredGrid instance."""
 
         # get points cells data from vtk object
@@ -142,10 +146,13 @@ class TriangularGridDataset(UnstructuredGridDataset):
         elif isinstance(vtk_obj, vtk["mod"].vtkUnstructuredGrid):
             cells_vtk = vtk_obj.GetCells()
 
-        cells_numpy = vtk["vtk_to_numpy"](cells_vtk.GetConnectivityArray())
+        cells_numpy = np.array(
+            vtk["vtk_to_numpy"](cells_vtk.GetConnectivityArray()),
+            copy=True,
+        )
 
         # verify cell_types
-        cell_offsets = vtk["vtk_to_numpy"](cells_vtk.GetOffsetsArray())
+        cell_offsets = np.array(vtk["vtk_to_numpy"](cells_vtk.GetOffsetsArray()), copy=True)
         invalid_cells = np.diff(cell_offsets) != cls._cell_num_vertices()
         if np.any(invalid_cells):
             if ignore_invalid_cells:
@@ -159,7 +166,7 @@ class TriangularGridDataset(UnstructuredGridDataset):
                     "'TriangularGridDataset'."
                 )
 
-        points_numpy = vtk["vtk_to_numpy"](vtk_obj.GetPoints().GetData())
+        points_numpy = np.array(vtk["vtk_to_numpy"](vtk_obj.GetPoints().GetData()), copy=True)
 
         # data values are read directly into Tidy3D array
         values = cls._get_values_from_vtk(
@@ -168,14 +175,19 @@ class TriangularGridDataset(UnstructuredGridDataset):
 
         # detect zero size dimension
         bounds = np.max(points_numpy, axis=0) - np.min(points_numpy, axis=0)
-        zero_dims = np.where(np.isclose(bounds, 0, atol=1e-6))[0]
+        # VTU slices can accumulate small floating-point jitter in the nominally
+        # zero-thickness direction. Scale tolerance with geometry extent (rather than
+        # absolute coordinate value) to avoid origin-dependent behavior.
+        size_scale = float(np.max(bounds)) if bounds.size > 0 else 0.0
+        zero_dim_tol = max(1e-6, 2e-8 * size_scale)
+        zero_dims = np.where(np.isclose(bounds, 0, atol=zero_dim_tol))[0]
 
         if len(zero_dims) != 1:
             raise DataError(
                 f"Provided vtk grid does not represent a two dimensional grid. Found zero size dimensions are {zero_dims}."
             )
 
-        normal_axis = zero_dims[0]
+        normal_axis = int(zero_dims[0])
         normal_pos = points_numpy[0][normal_axis]
         tan_dims = [0, 1, 2]
         tan_dims.remove(normal_axis)
@@ -243,11 +255,11 @@ class TriangularGridDataset(UnstructuredGridDataset):
 
         # perform slicing in vtk and get unprocessed points and values
         slice_vtk = self._plane_slice_raw(axis=axis, pos=pos)
-        points_numpy = vtk["vtk_to_numpy"](slice_vtk.GetPoints().GetData())
+        points_numpy = np.array(vtk["vtk_to_numpy"](slice_vtk.GetPoints().GetData()), copy=True)
         values = self._get_values_from_vtk(
             slice_vtk,
             len(points_numpy),
-            field=self._values_coords_dict,
+            field=self._non_spatial_coords_dict,
             values_type=self._values_type,
             expect_complex=self.is_complex,
         )
@@ -261,7 +273,7 @@ class TriangularGridDataset(UnstructuredGridDataset):
         coords[self.normal_axis] = [self.normal_pos]
         coords[slice_axis] = points_numpy[:, slice_axis]
         coords_dict = dict(zip("xyz", coords))
-        coords_dict.update(self._values_coords_dict)
+        coords_dict.update(self._non_spatial_coords_dict)
 
         # reshape values from a 1d array into a 3d array
         new_shape = [1, 1, 1]
@@ -275,11 +287,11 @@ class TriangularGridDataset(UnstructuredGridDataset):
 
     @requires_vtk
     def reflect(
-        self, axis: Axis, center: float, reflection_only: bool = False
+        self, axis: Axis, center: float, reflection_only: bool = False, symmetry: float = 1.0
     ) -> UnstructuredGridDataset:
         """Reflect unstructured data across the plane define by parameters ``axis`` and ``center``.
         By default the original data is preserved, setting ``reflection_only`` to ``True`` will
-        produce only deflected data.
+        produce only reflected data.
 
         Parameters
         ----------
@@ -289,6 +301,8 @@ class TriangularGridDataset(UnstructuredGridDataset):
             Location of the reflection plane along its normal direction.
         reflection_only : bool = False
             Return only reflected data.
+        symmetry : float = 1.0
+            Symmetry factor to apply to the data.
 
         Returns
         -------
@@ -299,13 +313,23 @@ class TriangularGridDataset(UnstructuredGridDataset):
         # disallow reflecting along normal direction
         if axis == self.normal_axis:
             if reflection_only:
-                return self.updated_copy(normal_pos=2 * center - self.normal_pos)
+                return self.updated_copy(
+                    values=self.values * symmetry,
+                    normal_pos=2 * center - self.normal_pos,
+                    deep=False,
+                )
             else:
                 raise DataError(
                     "Reflection in the normal direction to the grid is prohibited unless 'reflection_only=True'."
                 )
 
-        return super().reflect(axis=axis, center=center, reflection_only=reflection_only)
+        tan_dims = [0, 1, 2]
+        tan_dims.remove(self.normal_axis)
+        tan_axis = tan_dims.index(axis)
+
+        return super().reflect(
+            axis=tan_axis, center=center, reflection_only=reflection_only, symmetry=symmetry
+        )
 
     """ Interpolation """
 
@@ -383,13 +407,14 @@ class TriangularGridDataset(UnstructuredGridDataset):
             max_cells_per_step=max_cells_per_step,
         )
         interp_broadcasted = np.broadcast_to(
-            interp_inplane, [len(np.atleast_1d(comp)) for comp in [x, y, z]] + self._fields_shape
+            interp_inplane,
+            [len(np.atleast_1d(comp)) for comp in [x, y, z]] + self._non_spatial_shape,
         )
 
         coords_dict = {"x": x, "y": y, "z": z}
-        coords_dict.update(self._values_coords_dict)
+        coords_dict.update(self._non_spatial_coords_dict)
 
-        if len(self._values_coords_dict) == 0:
+        if len(self._non_spatial_coords_dict) == 0:
             return SpatialDataArray(interp_broadcasted, coords=coords_dict, name=self.values.name)
         else:
             return XrDataArray(interp_broadcasted, coords=coords_dict, name=self.values.name)
@@ -484,6 +509,9 @@ class TriangularGridDataset(UnstructuredGridDataset):
         axes = [ind for ind, comp in enumerate(xyz) if comp is not None]
         num_provided = len(axes)
 
+        if num_provided == 0 and len(sel_kwargs) == 0:
+            raise DataError("At least one dimension for selection must be provided.")
+
         if self.normal_axis in axes:
             if xyz[self.normal_axis] != self.normal_pos:
                 raise DataError(
@@ -494,9 +522,6 @@ class TriangularGridDataset(UnstructuredGridDataset):
             if num_provided < 3:
                 num_provided -= 1
                 axes.remove(self.normal_axis)
-
-        if num_provided == 0 and len(sel_kwargs) == 0:
-            raise DataError("At least one dimension for selection must be provided.")
 
         self_after_non_spatial_sel = self._non_spatial_sel(method=method, **sel_kwargs)
 
@@ -573,7 +598,77 @@ class TriangularGridDataset(UnstructuredGridDataset):
     @property
     def _triangulation_obj(self) -> Triangulation:
         """Matplotlib triangular representation of the grid to use in plotting."""
+        from matplotlib.tri import Triangulation
+
         return Triangulation(self.points[:, 0], self.points[:, 1], self.cells)
+
+    @requires_vtk
+    def _decimate(
+        self, target_num_cells: int, geometry_only: bool = False
+    ) -> TriangularGridDataset:
+        """Return a decimated copy suitable for visualization.
+
+        Uses VTK's ``vtkDecimatePro`` to reduce the number of triangles
+        while preserving the overall shape and vertex data.
+
+        Parameters
+        ----------
+        target_num_cells : int
+            Desired (approximate) number of cells in the output mesh.
+        geometry_only : bool = False
+            When ``True`` skip marshaling point data into VTK, which avoids
+            copying the full value tensor for grid-only plots.
+
+        Returns
+        -------
+        TriangularGridDataset
+            Decimated dataset.
+        """
+        num_cells = len(self.cells)
+        if num_cells <= target_num_cells:
+            return self
+
+        target_reduction = 1.0 - target_num_cells / num_cells
+
+        poly = vtk["mod"].vtkPolyData()
+        poly.SetPoints(self._vtk_points)
+        poly.SetPolys(self._vtk_cells)
+
+        if not geometry_only:
+            data_values = self.values.values
+            if self.is_complex:
+                data_values = data_values.view("(2,)float")
+            if len(self._non_spatial_shape) > 0:
+                data_values = data_values.reshape(
+                    (len(self.points.values), (1 + self.is_complex) * self._num_fields)
+                )
+            point_data_vtk = vtk["numpy_to_vtk"](np.array(data_values, copy=True))
+            point_data_vtk.SetName(self.name)
+            poly.GetPointData().SetScalars(point_data_vtk)
+
+        decimate = vtk["mod"].vtkDecimatePro()
+        decimate.SetInputData(poly)
+        decimate.SetTargetReduction(target_reduction)
+        decimate.PreserveTopologyOn()
+        decimate.Update()
+
+        decimated = decimate.GetOutput()
+        if decimated.GetNumberOfCells() == 0:
+            return self
+
+        if geometry_only:
+            dummy = vtk["numpy_to_vtk"](np.zeros(decimated.GetNumberOfPoints()))
+            decimated.GetPointData().SetScalars(dummy)
+
+        return type(self)._from_vtk_obj(
+            decimated,
+            field=None if geometry_only else self._non_spatial_coords_dict,
+            remove_degenerate_cells=True,
+            remove_unused_points=True,
+            values_type=IndexedDataArray if geometry_only else self._values_type,
+            expect_complex=False if geometry_only else self.is_complex,
+            ignore_invalid_cells=True,
+        )
 
     @equal_aspect
     @add_ax_if_none
@@ -589,6 +684,7 @@ class TriangularGridDataset(UnstructuredGridDataset):
         shading: Literal["gourand", "flat"] = "gouraud",
         cbar_kwargs: Optional[dict] = None,
         pcolor_kwargs: Optional[dict] = None,
+        max_cells: Optional[int] = None,
     ) -> Ax:
         """Plot the data field and/or the unstructured grid.
 
@@ -616,6 +712,11 @@ class TriangularGridDataset(UnstructuredGridDataset):
             Additional parameters passed to colorbar object.
         pcolor_kwargs: Dict = {}
             Additional parameters passed to ax.tripcolor()
+        max_cells : int = None
+            When set to a positive integer, the mesh is decimated to approximately
+            this many cells before plotting. This reduces memory usage and speeds up
+            rendering for large meshes that would otherwise cause out-of-memory
+            errors. Requires ``vtk``.
 
         Returns
         -------
@@ -629,18 +730,36 @@ class TriangularGridDataset(UnstructuredGridDataset):
             pcolor_kwargs = {}
         if not (field or grid):
             raise DataError("Nothing to plot ('field == False', 'grid == False').")
+        if max_cells is not None and max_cells <= 0:
+            raise DataError("'max_cells' must be a positive integer.")
+
+        if field and self._num_fields != 1:
+            raise DataError(
+                "Unstructured dataset contains more than 1 field. "
+                "Use '.sel()' to select a single field from available dimensions "
+                f"{self._non_spatial_coords_dict} before plotting."
+            )
+
+        plot_data = self
+        if max_cells is not None and len(self.cells) > max_cells:
+            try:
+                plot_data = self._decimate(max_cells, geometry_only=not field)
+                log.info(
+                    f"Decimated mesh from {len(self.cells)} to {len(plot_data.cells)} "
+                    "cells for plotting."
+                )
+            except Exception:
+                log.warning(
+                    "Mesh decimation failed (vtk may not be installed). Plotting full mesh."
+                )
+
+        triangulation = plot_data._triangulation_obj
 
         # plot data field if requested
         if field:
-            if self._num_fields != 1:
-                raise DataError(
-                    "Unstructured dataset contains more than 1 field. "
-                    "Use '.sel()' to select a single field from available dimensions "
-                    f"{self._values_coords_dict} before plotting."
-                )
             plot_obj = ax.tripcolor(
-                self._triangulation_obj,
-                self.values.data.ravel(),
+                triangulation,
+                plot_data.values.data.ravel(),
                 shading=shading,
                 cmap=cmap,
                 vmin=vmin,
@@ -649,6 +768,8 @@ class TriangularGridDataset(UnstructuredGridDataset):
             )
 
             if cbar:
+                from matplotlib import pyplot as plt
+
                 label_kwargs = {}
                 if "label" not in cbar_kwargs:
                     label_kwargs["label"] = self.values.name
@@ -657,7 +778,7 @@ class TriangularGridDataset(UnstructuredGridDataset):
         # plot grid if requested
         if grid:
             ax.triplot(
-                self._triangulation_obj,
+                triangulation,
                 color=plot_params_grid.edgecolor,
                 linewidth=plot_params_grid.linewidth,
             )
@@ -670,7 +791,7 @@ class TriangularGridDataset(UnstructuredGridDataset):
         ax.set_title(f"{normal_axis_name} = {self.normal_pos}")
         return ax
 
-    def get_cell_volumes(self):
+    def get_cell_volumes(self) -> DataArray:
         """Get areas associated to each cell of the grid."""
         v0 = self.points[self.cells.sel(vertex_index=0)]
         e01 = self.points[self.cells.sel(vertex_index=1)] - v0

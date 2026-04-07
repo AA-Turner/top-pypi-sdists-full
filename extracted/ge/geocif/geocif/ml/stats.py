@@ -332,6 +332,31 @@ def add_statistics(
             area_value = df_fewsnet.loc[mask_combined, "area"]
             prod_value = df_fewsnet.loc[mask_combined, "production"]
 
+            # Fallback to "Annual" for Malawi Maize when primary season has no data
+            if yield_value.empty and country == "Malawi" and crop == "Maize" and "Annual" in available_seasons and "Annual" not in season_filter:
+                mask_yield_annual = (
+                    df_fewsnet["crop_production_system"].isin(
+                        [
+                            "none",
+                            "Small-scale (PS)",
+                            "Commercial (PS)",
+                            "All (PS)",
+                            "irrigated",
+                            "rainfed",
+                            "Rainfed (PS)",
+                            "agro_pastoral",
+                            "riverine"
+                        ]
+                    )
+                    & (df_fewsnet["harvest_year"] == harvest_year)
+                    & (df_fewsnet["product"] == crop)
+                    & (df_fewsnet["season_name"] == "Annual")
+                )
+                mask_combined = mask_yield_annual & mask_region
+                yield_value = df_fewsnet.loc[mask_combined, "yield"]
+                area_value = df_fewsnet.loc[mask_combined, "area"]
+                prod_value = df_fewsnet.loc[mask_combined, "production"]
+
             # Replace any inf or 0 values by NaN
             yield_value = yield_value.replace([0, np.inf, -np.inf], np.nan)
             area_value = area_value.replace([0, np.inf, -np.inf], np.nan)

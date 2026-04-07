@@ -133,12 +133,25 @@ class Geoanalysis:
         """
         import scipy.stats
         from sklearn.metrics import mean_squared_error, mean_absolute_error
+        from geocif.ml.embedding import _ccc_series
+
+        # Always return a Series with the SAME named index, so groupby.apply
+        # consistently produces a wide DataFrame (one column per metric).
+        # Mixing empty and named-index Series here causes pandas to fall back
+        # to long format with auto-generated 'level_N'/'0' columns, which
+        # breaks downstream `_plot_metrics`.
+        metric_keys = [
+            "Root Mean Square Error",
+            "Nash-Sutcliff Efficiency",
+            "$r^2$",
+            "CCC",
+            "Mean Absolute Error",
+            "Mean Absolute\nPercentage Error",
+            "Percentage Bias",
+        ]
 
         if len(df) < 3:
-            return pd.Series()
-
-        # Compute metrics
-        from geocif.ml.embedding import _ccc_series
+            return pd.Series({k: np.nan for k in metric_keys})
 
         rmse = np.sqrt(mean_squared_error(df[self.observed], df[self.predicted]))
         nse = utils.nse(df[self.observed], df[self.predicted])
@@ -148,8 +161,7 @@ class Geoanalysis:
         mape = utils.mape(df[self.observed], df[self.predicted])
         pbias = utils.pbias(df[self.observed], df[self.predicted])
 
-        # Return as a dictionary
-        dict_results = {
+        return pd.Series({
             "Root Mean Square Error": rmse,
             "Nash-Sutcliff Efficiency": nse,
             "$r^2$": r2,
@@ -157,9 +169,7 @@ class Geoanalysis:
             "Mean Absolute Error": mae,
             "Mean Absolute\nPercentage Error": mape,
             "Percentage Bias": pbias,
-        }
-
-        return pd.Series(dict_results)
+        })
 
     def regional_metrics(self, df):
         # Compute MAPE for each region, compute within this function
@@ -382,10 +392,24 @@ class Geoanalysis:
 
         df_tmp = df_region.copy()
 
-        # Fill
+        # Fill missing area with the country median first.
         df_tmp[area_ha] = df_tmp.groupby("Country")[area_ha].transform(
             lambda x: x.fillna(x.median())
         )
+
+        # If a country has NO area data at all (median is NaN), fall back to
+        # equal weighting per region — equivalent to an unweighted mean of
+        # regional yields. Any non-zero constant gives the same result; 1.0
+        # is the simplest choice.
+        if df_tmp[area_ha].isna().any():
+            missing_countries = (
+                df_tmp.loc[df_tmp[area_ha].isna(), "Country"].unique().tolist()
+            )
+            self.logger.info(
+                f"No area information for {missing_countries}; using equal-area "
+                f"weighting (constant 1.0) for national yield aggregation"
+            )
+            df_tmp[area_ha] = df_tmp[area_ha].fillna(1.0)
 
         # Log that we are filling missing values with the median
         self.logger.info(

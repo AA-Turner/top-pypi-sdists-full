@@ -64,7 +64,7 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     # Diffs & Embeddings
     "get_symbol_diff", "embed_repo",
     # Utilities
-    "get_session_stats", "get_session_context", "plan_turn", "register_edit", "invalidate_cache", "test_summarizer",
+    "get_session_stats", "get_session_context", "get_session_snapshot", "plan_turn", "register_edit", "invalidate_cache", "test_summarizer",
     "audit_agent_config",
 )
 
@@ -74,6 +74,7 @@ _EXCLUDED_FROM_STRICT = frozenset({
     "resolve_repo",
     "get_session_stats",
     "get_session_context",
+    "get_session_snapshot",
     "test_summarizer",
     "index_repo",
     "index_folder",
@@ -888,6 +889,35 @@ def _build_tools_list() -> list[Tool]:
                     },
                 },
             }
+        ),
+        Tool(
+            name="get_session_snapshot",
+            description="Get a compact session snapshot for context continuity. Returns a ~200 token markdown summary of files explored, edits made, searches performed, and dead ends. Designed for injection after context compaction to restore session orientation.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "max_files": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum focus files to include.",
+                    },
+                    "max_searches": {
+                        "type": "integer",
+                        "default": 5,
+                        "description": "Maximum key searches to include.",
+                    },
+                    "max_edits": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum edited files to include.",
+                    },
+                    "include_negative_evidence": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "Include dead-end searches (negative evidence) in snapshot.",
+                    },
+                },
+            },
         ),
         Tool(
             name="plan_turn",
@@ -2053,6 +2083,18 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     storage_path=storage_path,
                 )
             )
+        elif name == "get_session_snapshot":
+            from .tools.get_session_snapshot import get_session_snapshot
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_session_snapshot,
+                    max_files=arguments.get("max_files", 10),
+                    max_searches=arguments.get("max_searches", 5),
+                    max_edits=arguments.get("max_edits", 10),
+                    include_negative_evidence=arguments.get("include_negative_evidence", True),
+                    storage_path=storage_path,
+                )
+            )
         elif name == "plan_turn":
             from .tools.plan_turn import plan_turn
             result = await asyncio.to_thread(
@@ -2859,7 +2901,7 @@ def _generate_claude_md_snippet(missing_only: bool = False) -> str:
                                 "get_repo_health", "get_symbol_importance",
                                 "find_dead_code", "get_dead_code_v2"]),
         ("Diffs & Embeddings", ["get_symbol_diff", "embed_repo"]),
-        ("Session-Aware Routing", ["plan_turn", "get_session_context", "register_edit"]),
+        ("Session-Aware Routing", ["plan_turn", "get_session_context", "get_session_snapshot", "register_edit"]),
         ("Utilities", ["get_session_stats", "invalidate_cache", "test_summarizer",
                         "audit_agent_config"]),
     ]
@@ -3253,38 +3295,53 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
             print(f"  {yellow(WARN)} CLAUDE.md not found: {claude_md_path}")
             print(f"  {dim('  Run: jcodemunch-mcp claude-md --generate > /path/to/CLAUDE.md')}")
 
-        # ── Hook-script drift check ───────────────────────────────────────────
-        section("Hook scripts check")
-        hooks_dir = Path.home() / ".claude" / "hooks"
-        if hooks_dir.exists():
-            read_guards = (
-                list(hooks_dir.glob("jcodemunch_read_guard.sh"))
-                + list(hooks_dir.glob("jcodemunch_read_guard.ps1"))
-            )
-            if read_guards:
-                for _script in sorted(read_guards):
-                    try:
-                        _sc = _script.read_text(encoding="utf-8", errors="replace")
-                        _missing_h = [t for t in canonical_tools if t not in _sc]
-                        if _missing_h:
-                            _wrapped_h = _wrap_names(_missing_h)
-                            print(f"  {yellow(WARN)} {_script.name}: {len(_missing_h)} tool(s) absent from feedback message:")
-                            for _line in _wrapped_h:
-                                print(f"       {dim(_line)}")
-                        else:
-                            print(f"  {green(CHECK)} {_script.name} is current")
-                    except Exception as _e:
-                        print(f"  {yellow(WARN)} {_script.name}: could not read ({_e})")
-            else:
-                print(f"  {dim('(no jcodemunch_read_guard.* hook scripts found)')}")
-            other_hooks = (
-                list(hooks_dir.glob("jcodemunch_edit_guard.*"))
-                + list(hooks_dir.glob("jcodemunch_index_hook.*"))
-            )
-            for _script in sorted(other_hooks):
-                print(f"  {green(CHECK)} {_script.name} present")
+        # ── Hook check ─────────────────────────────────────────────────────────
+        section("Hooks check")
+        _settings_path = Path.home() / ".claude" / "settings.json"
+        _expected_hooks = {
+            "hook-pretooluse": ("PreToolUse", "Read"),
+            "hook-posttooluse": ("PostToolUse", "Edit|Write"),
+            "hook-precompact": ("PreCompact", ""),
+        }
+        if _settings_path.exists():
+            try:
+                _settings = json.loads(_settings_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                _settings = {}
+            _installed_hooks = _settings.get("hooks", {})
+            _found_any = False
+            for _hook_cmd, (_event, _matcher) in _expected_hooks.items():
+                _marker = f"jcodemunch-mcp {_hook_cmd}"
+                _present = False
+                for _rule in _installed_hooks.get(_event, []):
+                    for _h in _rule.get("hooks", []):
+                        if _marker in _h.get("command", ""):
+                            _present = True
+                            break
+                if _present:
+                    _label = f"{_event}({_matcher})" if _matcher else _event
+                    print(f"  {green(CHECK)} {_hook_cmd} installed [{_label}]")
+                    _found_any = True
+                else:
+                    print(f"  {dim(f'  {_hook_cmd} not installed')}")
+            if not _found_any:
+                print(f"  {dim('  Run: jcodemunch-mcp init --hooks')}")
+            # Warn about legacy shell scripts
+            _hooks_dir = Path.home() / ".claude" / "hooks"
+            if _hooks_dir.exists():
+                _legacy = (
+                    list(_hooks_dir.glob("jcodemunch_read_guard.*"))
+                    + list(_hooks_dir.glob("jcodemunch_edit_guard.*"))
+                    + list(_hooks_dir.glob("jcodemunch_index_hook.*"))
+                )
+                if _legacy:
+                    print(f"  {yellow(WARN)} Legacy shell scripts detected (replaced by Python hooks):")
+                    for _script in sorted(_legacy):
+                        print(f"       {dim(_script.name)}")
+                    print(f"       {dim('These can be removed. Run: jcodemunch-mcp init --hooks')}")
         else:
-            print(f"  {dim('(~/.claude/hooks/ not found — hooks not installed)')}")
+            print(f"  {dim('(~/.claude/settings.json not found — hooks not installed)')}")
+            print(f"  {dim('  Run: jcodemunch-mcp init --hooks')}")
 
         print()
         if issues:
@@ -3598,6 +3655,12 @@ def main(argv: Optional[list[str]] = None):
         help="PostToolUse hook: auto-reindex files after Edit/Write (reads stdin)",
     )
 
+    # --- hook-precompact ---
+    subparsers.add_parser(
+        "hook-precompact",
+        help="PreCompact hook: generate session snapshot before context compaction (reads stdin)",
+    )
+
     # --- watch-claude ---
     wc_parser = subparsers.add_parser(
         "watch-claude",
@@ -3647,7 +3710,7 @@ def main(argv: Optional[list[str]] = None):
     if any(arg in top_level_flags for arg in raw_argv):
         args = parser.parse_args(raw_argv)
     else:
-        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "watch-claude", "config", "index-file", "claude-md", "init"}
+        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "hook-precompact", "watch-claude", "config", "index-file", "claude-md", "init"}
         has_subcommand = any(arg in known_commands for arg in raw_argv if not arg.startswith("-"))
         if not has_subcommand:
             raw_argv = ["serve"] + list(raw_argv)
@@ -3689,6 +3752,10 @@ def main(argv: Optional[list[str]] = None):
     if args.command == "hook-posttooluse":
         from .cli.hooks import run_posttooluse
         sys.exit(run_posttooluse())
+
+    if args.command == "hook-precompact":
+        from .cli.hooks import run_precompact
+        sys.exit(run_precompact())
 
     # Apply config defaults for watcher keys: CLI args > config > env vars.
     # config.load_config() is called inside each subcommand handler, but we need

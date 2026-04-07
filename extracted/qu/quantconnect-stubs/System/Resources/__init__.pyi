@@ -12,37 +12,6 @@ import System.Resources
 import System.Runtime.Serialization
 
 
-class IResourceReader(System.Collections.IEnumerable, System.IDisposable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def close(self) -> None:
-        ...
-
-
-class ResourceReader(System.Object, System.Resources.IResourceReader):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self, file_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, stream: System.IO.Stream) -> None:
-        ...
-
-    def close(self) -> None:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
-        ...
-
-    def get_resource_data(self, resource_name: str, resource_type: typing.Optional[str], resource_data: typing.Optional[typing.List[int]]) -> typing.Tuple[None, str, typing.List[int]]:
-        ...
-
-
 class MissingSatelliteAssemblyException(System.SystemException):
     """This class has no documentation."""
 
@@ -79,23 +48,10 @@ class UltimateResourceFallbackLocation(IntEnum):
     SATELLITE = 1
 
 
-class NeutralResourcesLanguageAttribute(System.Attribute):
+class IResourceReader(System.Collections.IEnumerable, System.IDisposable, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @property
-    def culture_name(self) -> str:
-        ...
-
-    @property
-    def location(self) -> System.Resources.UltimateResourceFallbackLocation:
-        ...
-
-    @overload
-    def __init__(self, culture_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, culture_name: str, location: System.Resources.UltimateResourceFallbackLocation) -> None:
+    def close(self) -> None:
         ...
 
 
@@ -278,14 +234,47 @@ class ResourceManager(System.Object):
         ...
 
 
-class SatelliteContractVersionAttribute(System.Attribute):
+class NeutralResourcesLanguageAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def version(self) -> str:
+    def culture_name(self) -> str:
         ...
 
-    def __init__(self, version: str) -> None:
+    @property
+    def location(self) -> System.Resources.UltimateResourceFallbackLocation:
+        ...
+
+    @overload
+    def __init__(self, culture_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, culture_name: str, location: System.Resources.UltimateResourceFallbackLocation) -> None:
+        ...
+
+
+class ResourceReader(System.Object, System.Resources.IResourceReader):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self, file_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, stream: System.IO.Stream) -> None:
+        ...
+
+    def close(self) -> None:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
+        ...
+
+    def get_resource_data(self, resource_name: str, resource_type: typing.Optional[str], resource_data: typing.Optional[typing.List[int]]) -> typing.Tuple[None, str, typing.List[int]]:
         ...
 
 
@@ -306,6 +295,17 @@ class MissingManifestResourceException(System.SystemException):
 
     @overload
     def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+
+class SatelliteContractVersionAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def version(self) -> str:
+        ...
+
+    def __init__(self, version: str) -> None:
         ...
 
 

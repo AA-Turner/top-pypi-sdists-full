@@ -117,6 +117,7 @@ class AccessLoggerMiddleware:
                 route=str(route),
                 path_params=scope.get("path_params"),
                 query_string=qs.decode() if qs else "",
+                error_detail=scope.get("error_detail"),
                 proto=scope.get("http_version"),
                 req_header=_headers_to_dict(scope.get("headers")),
                 res_header=_headers_to_dict(info["response"].get("headers")),

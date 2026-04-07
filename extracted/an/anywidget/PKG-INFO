@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: anywidget
-Version: 0.9.21
+Version: 0.10.0
 Summary: custom jupyter widgets made easy
 Project-URL: homepage, https://github.com/manzt/anywidget
 Author-email: Trevor Manz <trevor.j.manz@gmail.com>
-License: MIT
+License-Expression: MIT
 License-File: LICENSE
 Classifier: Framework :: Jupyter
 Classifier: Framework :: Jupyter :: JupyterLab
@@ -14,12 +14,12 @@ Classifier: Framework :: Jupyter :: JupyterLab :: Extensions :: Prebuilt
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: ipywidgets>=7.6.0
 Requires-Dist: psygnal>=0.8.1
 Requires-Dist: typing-extensions>=4.2.0
 Provides-Extra: dev
-Requires-Dist: watchfiles>=0.18.0; extra == 'dev'
+Requires-Dist: watchfiles>=1.1.0; extra == 'dev'
 Description-Content-Type: text/markdown
 
 <h1>

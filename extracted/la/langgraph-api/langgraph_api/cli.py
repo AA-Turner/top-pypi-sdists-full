@@ -210,7 +210,14 @@ def run_server(
             logger.info("Debugger attached. Starting server...")
 
     # Determine local or tunneled URL
-    upstream_url = f"http://{host}:{port}"
+    with patch_environment(
+        MIGRATIONS_PATH=__migrations_path__,
+        DATABASE_URI=__database_uri__,
+        REDIS_URI=__redis_uri__,
+    ):
+        from langgraph_api.utils.network import format_hostport  # noqa: PLC0415
+
+        upstream_url = f"http://{format_hostport(host, port)}"
     if mount_prefix:
         upstream_url += mount_prefix
     if tunnel:
@@ -330,6 +337,7 @@ For production use, please use LangSmith Deployment.
         logger.info(welcome)
         if open_browser:
             threading.Thread(target=_open_browser, daemon=True).start()
+        # Not in public docs: LANGGRAPH_NO_VERSION_CHECK is dev-only
         nvc = os.getenv("LANGGRAPH_NO_VERSION_CHECK")
         if nvc is None or nvc.lower() not in ("true", "1"):
             from langgraph_api import __version__  # noqa: PLC0415

@@ -675,6 +675,14 @@ class Search:
         """
         ...
 
+    def iter(self) -> Iterator:
+        """Return an iterator over the search results.
+
+        Returns:
+            An Iterator object that can be used to iterate over rules.
+        """
+        ...
+
 class Chain:
     """C++ binding for ds::chain_t."""
 
@@ -728,3 +736,23 @@ class Chain:
         Returns:
             The number of rules processed.
         """
+        ...
+
+    def iter(self) -> Iterator:
+        """Return an iterator over the chain results.
+
+        Returns:
+            An Iterator object that can be used to iterate over rules.
+        """
+        ...
+
+class Iterator:
+    """Iterator for Search and Chain results."""
+
+    def next(self) -> Optional[Rule]:
+        """Get the next rule in the iteration.
+
+        Returns:
+            The next Rule object, or None if iteration is complete.
+        """
+        ...

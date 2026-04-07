@@ -2,56 +2,56 @@
 
 from __future__ import annotations
 
-import copy
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
-import numpy as np
-import pydantic.v1 as pd
+from pydantic import Field, model_validator
 
-from tidy3d.components.base_sim.data.monitor_data import AbstractMonitorData
-from tidy3d.components.data.data_array import (
-    SpatialDataArray,
-)
+from tidy3d.components.base_sim.data.monitor_data import AbstractUnstructuredMonitorData
+from tidy3d.components.data.data_array import SpatialDataArray
 from tidy3d.components.data.utils import TetrahedralGridDataset, TriangularGridDataset
-from tidy3d.components.tcad.types import (
-    HeatChargeMonitorType,
-)
-from tidy3d.components.types import Coordinate, ScalarSymmetry, annotate_type
-from tidy3d.constants import MICROMETER
+from tidy3d.components.tcad.types import HeatChargeMonitorType
+from tidy3d.components.types import ScalarSymmetry
+from tidy3d.components.types.base import discriminated_union
 from tidy3d.log import log
 
+if TYPE_CHECKING:
+    from tidy3d.compat import Self
+
 FieldDataset = Union[
-    SpatialDataArray, annotate_type(Union[TriangularGridDataset, TetrahedralGridDataset])
+    SpatialDataArray, discriminated_union(Union[TriangularGridDataset, TetrahedralGridDataset])
 ]
 UnstructuredFieldType = Union[TriangularGridDataset, TetrahedralGridDataset]
 
 
-class HeatChargeMonitorData(AbstractMonitorData, ABC):
+class HeatChargeMonitorData(AbstractUnstructuredMonitorData, ABC):
     """Abstract base class of objects that store data pertaining to a single :class:`HeatChargeMonitor`."""
 
-    monitor: HeatChargeMonitorType = pd.Field(
-        ...,
+    monitor: HeatChargeMonitorType = Field(
         title="Monitor",
         description="Monitor associated with the data.",
     )
 
-    symmetry: tuple[ScalarSymmetry, ScalarSymmetry, ScalarSymmetry] = pd.Field(
+    symmetry: tuple[ScalarSymmetry, ScalarSymmetry, ScalarSymmetry] = Field(
         (0, 0, 0),
         title="Symmetry",
         description="Symmetry of the original simulation in x, y, and z.",
     )
 
-    symmetry_center: Coordinate = pd.Field(
-        (0, 0, 0),
-        title="Symmetry Center",
-        description="Symmetry center of the original simulation in x, y, and z.",
-        units=MICROMETER,
-    )
-
     @abstractmethod
     def field_components(self) -> dict:
         """Maps the field components to their associated data."""
+
+    @model_validator(mode="after")
+    def _warn_missing_fields(self) -> Self:
+        """Warn when a monitor field has no data available."""
+        for field_name, field_data in self.field_components.items():
+            if field_data is None:
+                log.warning(
+                    f"No data is available for monitor '{self.monitor.name}' field '{field_name}'. "
+                    "This is typically caused by monitor not intersecting any solid medium."
+                )
+        return self
 
     def field_name(self, val: str = "") -> str:
         """Gets the name of the fields to be plot."""
@@ -70,80 +70,8 @@ class HeatChargeMonitorData(AbstractMonitorData, ABC):
 
         new_field_components = {}
         for field, val in self.field_components.items():
-            new_field_components[field] = self._symmetry_expanded_copy_base(property=val)
+            new_field_components[field] = self._symmetry_expanded_copy_base(data=val)
 
-        return self.updated_copy(symmetry=(0, 0, 0), **new_field_components)
-
-    def _symmetry_expanded_copy_base(self, property: FieldDataset) -> FieldDataset:
-        """Return the property with symmetry applied."""
-
-        # no symmetry
-        if all(sym == 0 for sym in self.symmetry):
-            return property
-
-        new_property = copy.copy(property)
-
-        mnt_bounds = np.array(self.monitor.bounds)
-
-        if isinstance(new_property, SpatialDataArray):
-            data_bounds = [
-                [np.min(new_property.x), np.min(new_property.y), np.min(new_property.z)],
-                [np.max(new_property.x), np.max(new_property.y), np.max(new_property.z)],
-            ]
-        else:
-            data_bounds = new_property.bounds
-
-        dims_need_clipping_left = []
-        dims_need_clipping_right = []
-        for dim in range(3):
-            # do not expand monitor with zero size along symmetry direction
-            # this is done because 2d unstructured data does not support this
-            if self.symmetry[dim] == 1:
-                center = self.symmetry_center[dim]
-
-                if mnt_bounds[1][dim] < data_bounds[0][dim]:
-                    # (note that mnt_bounds[0][dim] < 2 * center - data_bounds[0][dim] will be satisfied based on backend behavior)
-                    # simple reflection
-                    new_property = new_property.reflect(
-                        axis=dim, center=center, reflection_only=True
-                    )
-                elif mnt_bounds[0][dim] < 2 * center - data_bounds[0][dim]:
-                    # expand only if monitor bounds missing data
-                    # if we do expand, simply reflect symmetrically the whole data
-                    new_property = new_property.reflect(axis=dim, center=center)
-
-                    # if it turns out that we expanded too much, we will trim unnecessary data later
-                    if mnt_bounds[0][dim] > 2 * center - data_bounds[1][dim]:
-                        dims_need_clipping_left.append(dim)
-
-                    # likewise, if some of original data was only for symmetry expansion, thim excess on the right
-                    if mnt_bounds[1][dim] < data_bounds[1][dim]:
-                        dims_need_clipping_right.append(dim)
-
-        # trim over-expanded data
-        if len(dims_need_clipping_left) > 0 or len(dims_need_clipping_right) > 0:
-            # enlarge clipping domain on positive side arbitrary by 1
-            # should not matter by how much
-            clip_bounds = [mnt_bounds[0] - 1, mnt_bounds[1] + 1]
-            for dim in dims_need_clipping_left:
-                clip_bounds[0][dim] = mnt_bounds[0][dim]
-
-            for dim in dims_need_clipping_right:
-                clip_bounds[1][dim] = mnt_bounds[1][dim]
-
-            if isinstance(new_property, SpatialDataArray):
-                new_property = new_property.sel_inside(clip_bounds)
-            else:
-                new_property = new_property.box_clip(bounds=clip_bounds)
-
-        return new_property
-
-    def _post_init_validators(self) -> None:
-        """Call validators taking ``self`` that get run after init."""
-        # validate that data exists for all fields
-        for field_name, field in self.field_components.items():
-            if field is None:
-                log.warning(
-                    f"No data is available for monitor '{self.monitor.name}' field '{field_name}'. "
-                    "This is typically caused by monitor not intersecting any solid medium."
-                )
+        return self.updated_copy(
+            symmetry=(0, 0, 0), **new_field_components, deep=False, validate=False
+        )

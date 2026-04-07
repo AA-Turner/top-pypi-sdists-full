@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylxd
-Version: 2.4.0
+Version: 2.4.1
 Summary: Python library for interacting with the LXD REST API
 Author-email: "Paul Hummer and others (see CONTRIBUTORS.rst)" <lxd@lists.canonical.com>
 License-Expression: Apache-2.0

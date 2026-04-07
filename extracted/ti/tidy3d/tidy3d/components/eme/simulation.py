@@ -2,37 +2,42 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
-try:
-    import matplotlib as mpl
-except ImportError:
-    pass
 import numpy as np
-import pydantic.v1 as pd
+from pydantic import Field, NonNegativeFloat, field_validator, model_validator
 
 from tidy3d.components.base import cached_property
 from tidy3d.components.boundary import BoundarySpec, PECBoundary
 from tidy3d.components.geometry.base import Box
-from tidy3d.components.grid.grid import Grid
 from tidy3d.components.grid.grid_spec import GridSpec
-from tidy3d.components.medium import FullyAnisotropicMedium
-from tidy3d.components.monitor import AbstractModeMonitor, ModeSolverMonitor, Monitor
+from tidy3d.components.material.tensor_rotation import (
+    cell_center_rotations_from_lengths,
+    medium_rotated_tensors,
+    rotated_tensors_equal,
+)
+from tidy3d.components.medium import AbstractCustomMedium, AnisotropicMedium, FullyAnisotropicMedium
+from tidy3d.components.monitor import AbstractModeMonitor, ModeSolverMonitor
 from tidy3d.components.scene import Scene
 from tidy3d.components.simulation import (
     AbstractYeeGridSimulation,
     Simulation,
     validate_boundaries_for_zero_dims,
 )
-from tidy3d.components.types import Ax, Axis, FreqArray, Symmetry, annotate_type
-from tidy3d.components.types.monitor import MonitorType
-from tidy3d.components.validators import MIN_FREQUENCY, validate_freqs_min, validate_freqs_not_empty
+from tidy3d.components.types import Axis, FreqArray
+from tidy3d.components.types.base import discriminated_union
+from tidy3d.components.validators import (
+    MIN_FREQUENCY,
+    call_wrapped_validator,
+    validate_freqs_min,
+    validate_freqs_not_empty,
+)
 from tidy3d.components.viz import add_ax_if_none, equal_aspect
-from tidy3d.constants import C_0, inf
+from tidy3d.constants import C_0, fp_eps, inf
 from tidy3d.exceptions import SetupError, ValidationError
 from tidy3d.log import log
 
-from .grid import EMECompositeGrid, EMEExplicitGrid, EMEGrid, EMEGridSpec, EMEGridSpecType
+from .grid import EMECompositeGrid, EMEExplicitGrid, EMEGridSpecType
 from .monitor import (
     EMECoefficientMonitor,
     EMEFieldMonitor,
@@ -42,6 +47,23 @@ from .monitor import (
 )
 from .sweep import EMEFreqSweep, EMELengthSweep, EMEModeSweep, EMEPeriodicitySweep, EMESweepSpecType
 
+if TYPE_CHECKING:
+    from typing import Union
+
+    from pydantic import NonNegativeInt, PositiveInt
+
+    from tidy3d.compat import Self
+    from tidy3d.components.grid.grid import Grid
+    from tidy3d.components.material.tensor_rotation import EMEAnisotropicMedium
+    from tidy3d.components.material.types import StructureMediumType
+    from tidy3d.components.medium import MediumType3D
+    from tidy3d.components.monitor import Monitor
+    from tidy3d.components.structure import Structure
+    from tidy3d.components.types import ArrayFloat1D, Ax, Coordinate, Size, Symmetry, TensorReal
+    from tidy3d.components.types.monitor import MonitorType
+
+    from .grid import EMEGrid, EMEGridSpec
+
 # maximum numbers of simulation parameters
 WARN_MONITOR_DATA_SIZE_GB = 10
 MAX_MONITOR_INTERNAL_DATA_SIZE_GB = 50
@@ -49,6 +71,7 @@ MAX_SIMULATION_DATA_SIZE_GB = 50
 WARN_MODE_NUM_CELLS = 1e5
 MAX_MODE_NUM_CELLS = 5e6
 WARN_COEFF_DATA_SIZE_GB = 0.5
+WARN_PORT_MODES_DATA_SIZE_GB = 0.5
 
 
 # eme specific simulation parameters
@@ -92,6 +115,26 @@ class EMESimulation(AbstractYeeGridSimulation):
         The electromagnetic fields are expanded locally in the basis of eigenmodes of the
         waveguide; they are then propagated by imposing continuity conditions in this basis.
 
+        The solver computes the full **bidirectional scattering matrix**, accounting for
+        reflections and mode coupling at every cell interface, with optional passivity or
+        unitarity constraints. Supported features include bent waveguides (via ``bend_radius`` in
+        :class:`.EMEModeSpec`), diagonal anisotropy (:class:`.AnisotropicMedium`), reciprocal
+        full anisotropy (:class:`.FullyAnisotropicMedium` with symmetric permittivity and
+        conductivity tensors), broadband frequency interpolation, and efficient parameter sweeps
+        over cell lengths, number of modes, and periodic repetitions.
+
+        Bent-cell material interpretation is controlled by ``EMEModeSpec.bend_medium_frame``.
+        With ``"global"``, material tensors remain fixed in physical space; with
+        ``"co_rotating"``, the material profile bends with the local waveguide frame.
+        Bent custom media, including :class:`.CustomAnisotropicMedium`, are only supported with
+        ``bend_medium_frame="co_rotating"``. For bent anisotropic media in the global-frame
+        interpretation, reusing a single cell through ``num_reps`` or
+        :class:`.EMEPeriodicitySweep` is only valid when the reused mode sees the same local
+        tensor orientation; similarly, :class:`.EMELengthSweep` is rejected when changing bent
+        cell lengths would require anisotropic modes to be recomputed at new absolute bend
+        angles. When such bends are instead resolved with multiple cells, check convergence
+        with respect to the number of EME cells.
+
         The EME simulation is performed along the propagation axis ``axis`` at frequencies ``freqs``.
         The simulation is divided into cells along the propagation axis, as defined by
         ``eme_grid_spec``. Mode solving is performed at cell centers, and boundary conditions are
@@ -100,6 +143,20 @@ class EMESimulation(AbstractYeeGridSimulation):
 
         An EME simulation always computes the full scattering matrix of the structure.
         Additional data can be recorded by adding 'monitors' to the simulation.
+
+        **Monitors**
+
+        The following monitor types are supported:
+
+        - :class:`.EMEModeSolverMonitor` — record the eigenmodes at each EME cell.
+        - :class:`.EMEFieldMonitor` — record the propagated E and H fields.
+        - :class:`.EMECoefficientMonitor` — record forward/backward mode coefficients and
+          related diagnostic quantities.
+        - :class:`.ModeSolverMonitor` — solve modes at a cross-section (e.g. for use with
+          :meth:`.EMESimulationData.smatrix_in_basis`).
+        - :class:`.PermittivityMonitor` — record the complex relative permittivity tensor.
+        - :class:`.MediumMonitor` — record the complex relative permittivity and permeability
+          tensors.
 
         **Other Bases**
 
@@ -157,8 +214,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         * `EME Solver Demonstration <../../notebooks/docs/features/eme.rst>`_
     """
 
-    freqs: FreqArray = pd.Field(
-        ...,
+    freqs: FreqArray = Field(
         title="Frequencies",
         description="Frequencies for the EME simulation. "
         "The field is propagated independently at each provided frequency, "
@@ -166,14 +222,12 @@ class EMESimulation(AbstractYeeGridSimulation):
         "To change this behavior, you can use 'EMEModeSpec.interp_spec'.",
     )
 
-    axis: Axis = pd.Field(
-        ...,
+    axis: Axis = Field(
         title="Propagation Axis",
         description="Propagation axis (0, 1, or 2) for the EME simulation.",
     )
 
-    eme_grid_spec: EMEGridSpecType = pd.Field(
-        ...,
+    eme_grid_spec: EMEGridSpecType = Field(
         title="EME Grid Specification",
         description="Specification for the EME propagation grid. "
         "The simulation is divided into cells in the propagation direction; "
@@ -184,15 +238,18 @@ class EMESimulation(AbstractYeeGridSimulation):
         "tangential directions, as well as the grid used for field monitors.",
     )
 
-    monitors: tuple[annotate_type(EMEMonitorType), ...] = pd.Field(
+    monitors: tuple[discriminated_union(EMEMonitorType), ...] = Field(
         (),
         title="Monitors",
         description="Tuple of monitors in the simulation. "
+        "Supported types: 'EMEModeSolverMonitor', 'EMEFieldMonitor', "
+        "'EMECoefficientMonitor', 'ModeSolverMonitor', 'PermittivityMonitor', "
+        "and 'MediumMonitor'. "
         "Note: monitor names are used to access data after simulation is run.",
     )
 
-    boundary_spec: BoundarySpec = pd.Field(
-        BoundarySpec.all_sides(PECBoundary()),
+    boundary_spec: BoundarySpec = Field(
+        default_factory=lambda: BoundarySpec.all_sides(PECBoundary()),
         title="Boundaries",
         description="Specification of boundary conditions along each dimension. "
         "By default, PEC boundary conditions are applied on all sides. "
@@ -202,7 +259,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         "apply PML layers in the mode solver.",
     )
 
-    sources: tuple[None, ...] = pd.Field(
+    sources: tuple[None, ...] = Field(
         (),
         title="Sources",
         description="Sources in the simulation. NOTE: sources are not currently supported "
@@ -211,15 +268,15 @@ class EMESimulation(AbstractYeeGridSimulation):
         "use 'smatrix_in_basis' to use another set of modes or input field.",
     )
 
-    internal_absorbers: tuple[()] = pd.Field(
+    internal_absorbers: tuple[()] = Field(
         (),
         title="Internal Absorbers",
         description="Planes with the first order absorbing boundary conditions placed inside the computational domain. "
         "Note: absorbers are not supported in EME simulations.",
     )
 
-    grid_spec: GridSpec = pd.Field(
-        GridSpec(),
+    grid_spec: GridSpec = Field(
+        default_factory=GridSpec,
         title="Grid Specification",
         description="Specifications for the simulation grid along each of the three directions. "
         "This is distinct from 'eme_grid_spec', which defines the 1D EME grid in the "
@@ -227,35 +284,35 @@ class EMESimulation(AbstractYeeGridSimulation):
         validate_default=True,
     )
 
-    store_port_modes: bool = pd.Field(
+    store_port_modes: bool = Field(
         True,
         title="Store Port Modes",
         description="Whether to store the modes associated with the two ports. "
         "Required to find scattering matrix in basis besides the computational basis.",
     )
 
-    store_coeffs: bool = pd.Field(
+    store_coeffs: bool = Field(
         False,
         title="Store Coefficients",
         description="Whether to store the internal coefficients from the EME simulation. "
         "The results are stored in 'EMESimulationData.coeffs'.",
     )
 
-    normalize: bool = pd.Field(
+    normalize: bool = Field(
         True,
         title="Normalize Scattering Matrix",
         description="Whether to normalize the port modes to unity flux, "
         "thereby normalizing the scattering matrix and expansion coefficients.",
     )
 
-    port_offsets: tuple[pd.NonNegativeFloat, pd.NonNegativeFloat] = pd.Field(
+    port_offsets: tuple[NonNegativeFloat, NonNegativeFloat] = Field(
         (0, 0),
         title="Port Offsets",
         description="Offsets for the two ports, relative to the simulation bounds "
         "along the propagation axis.",
     )
 
-    sweep_spec: Optional[EMESweepSpecType] = pd.Field(
+    sweep_spec: Optional[EMESweepSpecType] = Field(
         None,
         title="EME Sweep Specification",
         description="Specification for a parameter sweep to be performed during the EME "
@@ -263,7 +320,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         "in 'sim_data.smatrix'. Other simulation monitor data is not included in the sweep.",
     )
 
-    constraint: Optional[Literal["passive", "unitary"]] = pd.Field(
+    constraint: Optional[Literal["passive", "unitary"]] = Field(
         "passive",
         title="EME Constraint",
         description="Constraint for EME propagation, imposed at cell interfaces. "
@@ -277,29 +334,65 @@ class EMESimulation(AbstractYeeGridSimulation):
     _freqs_not_empty = validate_freqs_not_empty()
     _freqs_lower_bound = validate_freqs_min()
 
-    @pd.validator("grid_spec", always=True)
-    def _validate_auto_grid_wavelength(cls, val, values):
+    @field_validator("grid_spec")
+    @classmethod
+    def _validate_auto_grid_wavelength(cls, val: GridSpec) -> GridSpec:
         """Handle the case where grid_spec is auto and wavelength is not provided."""
         # this is handled instead post-init to ensure freqs is defined
         return val
 
-    @pd.validator("freqs", always=True)
-    def _validate_freqs(cls, val):
+    @field_validator("freqs")
+    @classmethod
+    def _validate_freqs(cls, val: FreqArray) -> FreqArray:
         """Freqs cannot contain duplicates."""
         if len(set(val)) != len(val):
             raise SetupError(f"'EMESimulation' 'freqs={val}' cannot contain duplicate frequencies.")
         return val
 
-    @pd.validator("structures", always=True)
-    def _validate_structures(cls, val):
+    @staticmethod
+    def _validate_fully_anisotropic_medium_reciprocity(
+        medium: StructureMediumType, field_path: str
+    ) -> None:
+        """Reject non-reciprocal fully anisotropic media in EME."""
+        if not isinstance(medium, FullyAnisotropicMedium):
+            return
+
+        permittivity = np.asarray(medium.permittivity)
+        if not np.allclose(permittivity, permittivity.T, atol=fp_eps, rtol=0):
+            raise SetupError(
+                f"{field_path} has a non-reciprocal 'FullyAnisotropicMedium'. "
+                "EME currently supports only reciprocal fully anisotropic media "
+                "(symmetric permittivity and conductivity tensors)."
+            )
+
+        conductivity = np.asarray(medium.conductivity)
+        if not np.allclose(conductivity, conductivity.T, atol=fp_eps, rtol=0):
+            raise SetupError(
+                f"{field_path} has a non-reciprocal 'FullyAnisotropicMedium'. "
+                "EME currently supports only reciprocal fully anisotropic media "
+                "(symmetric permittivity and conductivity tensors)."
+            )
+
+    @field_validator("medium")
+    @classmethod
+    def _validate_medium(cls, val: MediumType3D) -> MediumType3D:
+        """Validate background medium compatibility."""
+        cls._validate_fully_anisotropic_medium_reciprocity(
+            medium=val,
+            field_path="The simulation background medium",
+        )
+        return val
+
+    @field_validator("structures")
+    @classmethod
+    def _validate_structures(cls, val: tuple[Structure, ...]) -> tuple[Structure, ...]:
         """Validate and warn for certain medium types."""
         for ind, structure in enumerate(val):
             medium = structure.medium
-            if isinstance(medium, FullyAnisotropicMedium):
-                raise SetupError(
-                    f"Structure at 'structures[{ind}]' has a medium which is a "
-                    "'FullyAnisotropicMedium'. This medium class is not yet supported in EME."
-                )
+            cls._validate_fully_anisotropic_medium_reciprocity(
+                medium=medium,
+                field_path=f"Structure at 'structures[{ind}]'",
+            )
             if medium.is_time_modulated:
                 log.warning(
                     f"Structure at 'structures[{ind}]' is time-modulated. The "
@@ -324,7 +417,30 @@ class EMESimulation(AbstractYeeGridSimulation):
         vlim: Optional[tuple[float, float]] = None,
         **kwargs: Any,
     ) -> Ax:
-        """Plot the EME ports."""
+        """Plot the EME port locations on a cross-sectional plane.
+
+        Parameters
+        ----------
+        x : float = None
+            Position of plane in x direction, only one of x, y, z must be specified to define plane.
+        y : float = None
+            Position of plane in y direction, only one of x, y, z must be specified to define plane.
+        z : float = None
+            Position of plane in z direction, only one of x, y, z must be specified to define plane.
+        ax : matplotlib.axes._subplots.Axes = None
+            Matplotlib axes to plot on, if not specified, one is created.
+        hlim : tuple[float, float] = None
+            The x range if plotting on xy or xz planes, y range if plotting on yz plane.
+        vlim : tuple[float, float] = None
+            The z range if plotting on xz or yz planes, y range if plotting on xy plane.
+
+        Returns
+        -------
+        matplotlib.axes._subplots.Axes
+            The supplied or created matplotlib axes.
+        """
+        import matplotlib as mpl
+
         kwargs.setdefault("linewidth", 0.4)
         kwargs.setdefault("colors", "black")
         rmin = self.geometry.bounds[0][self.axis]
@@ -368,10 +484,35 @@ class EMESimulation(AbstractYeeGridSimulation):
         vlim: Optional[tuple[float, float]] = None,
         **kwargs: Any,
     ) -> Ax:
-        """Plot the EME subgrid boundaries.
+        """Plot the EME subgrid boundaries on a cross-sectional plane.
+
         Does nothing if ``eme_grid_spec`` is not :class:`.EMECompositeGrid`.
-        Operates recursively on subgrids.
+        Operates recursively on nested subgrids.
+
+        Parameters
+        ----------
+        eme_grid_spec : :class:`.EMEGridSpec`
+            The EME grid spec whose subgrid boundaries to plot.
+        x : float = None
+            Position of plane in x direction, only one of x, y, z must be specified to define plane.
+        y : float = None
+            Position of plane in y direction, only one of x, y, z must be specified to define plane.
+        z : float = None
+            Position of plane in z direction, only one of x, y, z must be specified to define plane.
+        ax : matplotlib.axes._subplots.Axes = None
+            Matplotlib axes to plot on, if not specified, one is created.
+        hlim : tuple[float, float] = None
+            The x range if plotting on xy or xz planes, y range if plotting on yz plane.
+        vlim : tuple[float, float] = None
+            The z range if plotting on xz or yz planes, y range if plotting on xy plane.
+
+        Returns
+        -------
+        matplotlib.axes._subplots.Axes
+            The supplied or created matplotlib axes.
         """
+        import matplotlib as mpl
+
         if not isinstance(eme_grid_spec, EMECompositeGrid):
             return ax
         kwargs.setdefault("linewidth", 0.4)
@@ -420,7 +561,30 @@ class EMESimulation(AbstractYeeGridSimulation):
         vlim: Optional[tuple[float, float]] = None,
         **kwargs: Any,
     ) -> Ax:
-        """Plot the EME grid."""
+        """Plot the EME cell boundaries on a cross-sectional plane.
+
+        Parameters
+        ----------
+        x : float = None
+            Position of plane in x direction, only one of x, y, z must be specified to define plane.
+        y : float = None
+            Position of plane in y direction, only one of x, y, z must be specified to define plane.
+        z : float = None
+            Position of plane in z direction, only one of x, y, z must be specified to define plane.
+        ax : matplotlib.axes._subplots.Axes = None
+            Matplotlib axes to plot on, if not specified, one is created.
+        hlim : tuple[float, float] = None
+            The x range if plotting on xy or xz planes, y range if plotting on yz plane.
+        vlim : tuple[float, float] = None
+            The z range if plotting on xz or yz planes, y range if plotting on xy plane.
+
+        Returns
+        -------
+        matplotlib.axes._subplots.Axes
+            The supplied or created matplotlib axes.
+        """
+        import matplotlib as mpl
+
         kwargs.setdefault("linewidth", 0.2)
         kwargs.setdefault("colors", "black")
         cell_boundaries = self.eme_grid.boundaries
@@ -479,9 +643,9 @@ class EMESimulation(AbstractYeeGridSimulation):
             Opacity of the monitors. If ``None``, uses Tidy3d default.
         ax : matplotlib.axes._subplots.Axes = None
             Matplotlib axes to plot on, if not specified, one is created.
-        hlim : Tuple[float, float] = None
+        hlim : tuple[float, float] = None
             The x range if plotting on xy or xz planes, y range if plotting on yz plane.
-        vlim : Tuple[float, float] = None
+        vlim : tuple[float, float] = None
             The z range if plotting on xz or yz planes, y plane if plotting on xy plane.
 
         Returns
@@ -543,8 +707,12 @@ class EMESimulation(AbstractYeeGridSimulation):
         scene : :class:`.Scene`
             Scene containing structures information.
         **kwargs
-            Other arguments
+            Other arguments passed to the :class:`.EMESimulation` constructor.
 
+        Returns
+        -------
+        :class:`.EMESimulation`
+            An EME simulation with structures and medium from the provided scene.
         """
         return cls(
             structures=scene.structures,
@@ -589,18 +757,54 @@ class EMESimulation(AbstractYeeGridSimulation):
             normalize=self.normalize,
         )
 
-    def _post_init_validators(self) -> None:
-        """Call validators taking `self` that get run after init."""
-        self._validate_port_offsets()
-        _ = self.grid
-        _ = self.eme_grid
-        _ = self.mode_solver_monitors
-        _ = self._cell_index_pairs
+    @property
+    def coeffs_full_monitor(self) -> EMECoefficientMonitor:
+        """EME coefficient monitor for storing all coefficients without downsampling."""
+        size = [inf, inf, inf]
+        return EMECoefficientMonitor(
+            center=self.center,
+            size=size,
+            name="_eme_coeffs_full_monitor",
+            num_sweep=None,
+            fields=("A", "B", "n_complex", "flux", "interface_smatrices", "overlaps"),
+        )
+
+    @model_validator(mode="after")
+    def _run_after_validators(self) -> Self:
+        """Run post-init validations in an explicit, dependency-aware order."""
+        self._structures_not_at_edges()
+        self._validate_scene()
+        call_wrapped_validator(validate_boundaries_for_zero_dims, self, warn_on_change=False)
+        super()._run_after_validators()
+        self._validate_grid()
+        self._validate_eme_grid()
+        self._validate_mode_solver_monitors()
+        self._validate_cell_index_pairs()
         self._validate_too_close_to_edges()
-        self._validate_sweep_spec()
+        self._validate_port_offsets()
         self._validate_symmetry()
+        self._validate_sweep_spec()
+        self._validate_bent_custom_media_frames()
+        self._validate_anisotropic_bend_repetitions()
         self._validate_monitor_setup()
         self._validate_interp_specs()
+        return self
+
+    def _validate_grid(self) -> Self:
+        _ = self.grid
+        return self
+
+    def _validate_eme_grid(self) -> Self:
+        _ = self.eme_grid
+        return self
+
+    def _validate_mode_solver_monitors(self) -> Self:
+        _ = self.mode_solver_monitors
+        return self
+
+    def _validate_cell_index_pairs(self) -> Self:
+        _ = self.mode_solver_monitors
+        return self
 
     def validate_pre_upload(self) -> None:
         """Validate the fully initialized EME simulation is ok for upload to our servers."""
@@ -614,7 +818,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         # self._warn_monitor_interval()
         log.end_capture(self)
 
-    def _validate_too_close_to_edges(self) -> None:
+    def _validate_too_close_to_edges(self) -> Self:
         """Can't have mode planes closer to boundary than extreme Yee grid center."""
         cell_centers = self.eme_grid.centers
         yee_centers = list(self.grid.centers.to_dict.values())[self.axis]
@@ -640,6 +844,7 @@ class EMESimulation(AbstractYeeGridSimulation):
                         "of the simulation boundary along the propagation axis. "
                         "Please move the monitor further from the boundary."
                     )
+        return self
 
     def _validate_constraint(self) -> None:
         """Constraint can be slow with too many modes. Warn in this case."""
@@ -654,7 +859,7 @@ class EMESimulation(AbstractYeeGridSimulation):
                 "reducing the number of modes or setting 'constraint=None'."
             )
 
-    def _validate_port_offsets(self) -> None:
+    def _validate_port_offsets(self) -> Self:
         """Port offsets cannot jointly exceed simulation length."""
         total_offset = self.port_offsets[0] + self.port_offsets[1]
         size = self.size
@@ -664,11 +869,13 @@ class EMESimulation(AbstractYeeGridSimulation):
                 "The sum of the two 'port_offset' fields "
                 "cannot exceed the simulation 'size' in the 'axis' direction."
             )
+        return self
 
-    def _validate_symmetry(self) -> None:
+    def _validate_symmetry(self) -> Self:
         """Symmetry in propagation direction is not supported."""
         if self.symmetry[self.axis] != 0:
             raise SetupError("Symmetry in the propagation diretion is not currently supported.")
+        return self
 
     # uncomment once interval_space != 1 is supported in any monitors
     # def _warn_monitor_interval(self):
@@ -693,10 +900,10 @@ class EMESimulation(AbstractYeeGridSimulation):
                 f"which exceeds the maximum allowed '{MAX_NUM_SWEEP}'."
             )
 
-    def _validate_sweep_spec(self) -> None:
+    def _validate_sweep_spec(self) -> Self:
         """Validate sweep spec."""
         if self.sweep_spec is None:
-            return
+            return self
         num_sweep = self.sweep_spec.num_sweep
         if num_sweep == 0:
             raise SetupError("Simulation 'sweep_spec' has 'num_sweep=0'.")
@@ -761,8 +968,330 @@ class EMESimulation(AbstractYeeGridSimulation):
                 raise SetupError(
                     "'EMESimulation.store_coeffs' is not compatible with 'EMEPeriodicitySweep'."
                 )
+        return self
 
-    def _validate_monitor_setup(self) -> None:
+    @cached_property
+    def _anisotropic_validation_freqs_by_cell(self) -> tuple[FreqArray, ...]:
+        """Per-cell frequencies at which anisotropic mode tensors may be evaluated."""
+        base_freqs = np.asarray(self.freqs, dtype=float)
+        solve_freq_sets = [base_freqs]
+        if isinstance(self.sweep_spec, EMEFreqSweep):
+            # Frequency sweeps perturbatively re-solve modes at scaled simulation frequencies.
+            solve_freq_sets.extend(
+                base_freqs * float(scale_factor)
+                for scale_factor in np.asarray(self.sweep_spec.freq_scale_factors, dtype=float)
+            )
+        freqs_by_cell = []
+        for mode_spec in self.eme_grid.mode_specs:
+            freqs = set()
+            for solve_freqs in solve_freq_sets:
+                freqs |= {
+                    float(freq)
+                    for freq in mode_spec._sampling_freqs_mode_solver(
+                        freqs=np.asarray(solve_freqs, dtype=float).tolist()
+                    )
+                }
+            freqs_by_cell.append(np.asarray(sorted(freqs), dtype=float))
+        return tuple(freqs_by_cell)
+
+    def _plane_anisotropic_media(self, plane: Box) -> tuple[EMEAnisotropicMedium, ...]:
+        """Anisotropic media intersecting ``plane``."""
+        total_structures = [self.scene.background_structure, *list(self.volumetric_structures)]
+        mediums = self.scene.intersecting_media(plane, total_structures)
+        return tuple(
+            sorted(
+                (
+                    medium
+                    for medium in mediums
+                    if isinstance(medium, (AnisotropicMedium, FullyAnisotropicMedium))
+                ),
+                key=hash,
+            )
+        )
+
+    def _plane_custom_media(self, plane: Box) -> tuple[AbstractCustomMedium, ...]:
+        """Custom media intersecting ``plane``."""
+        total_structures = [self.scene.background_structure, *list(self.volumetric_structures)]
+        mediums = self.scene.intersecting_media(plane, total_structures)
+        return tuple(
+            sorted(
+                (medium for medium in mediums if isinstance(medium, AbstractCustomMedium)), key=hash
+            )
+        )
+
+    def _grid_rotation_validation_data(
+        self,
+        eme_grid_spec: EMEGridSpecType,
+        center: Coordinate,
+        size: Size,
+        lengths: Optional[ArrayFloat1D] = None,
+    ) -> tuple[
+        EMEGrid, ArrayFloat1D, tuple[TensorReal, ...], tuple[int, ...], tuple[TensorReal, ...]
+    ]:
+        """Grid rotations for real and virtual EME cells."""
+        eme_grid = eme_grid_spec.make_grid(center=center, size=size, axis=self.axis)
+        real_lengths = np.asarray(eme_grid.lengths, dtype=float)
+        if lengths is not None:
+            real_lengths = np.asarray(lengths, dtype=float)
+        real_rotations = cell_center_rotations_from_lengths(
+            real_lengths, eme_grid.mode_specs, normal_axis=self.axis
+        )
+        virtual_cell_indices = tuple(int(ind) for ind in eme_grid_spec.virtual_cell_indices)
+        virtual_lengths = np.asarray(
+            [real_lengths[ind] for ind in virtual_cell_indices], dtype=float
+        )
+        virtual_mode_specs = tuple(eme_grid.mode_specs[ind] for ind in virtual_cell_indices)
+        virtual_rotations = cell_center_rotations_from_lengths(
+            virtual_lengths, virtual_mode_specs, normal_axis=self.axis
+        )
+        return eme_grid, real_lengths, real_rotations, virtual_cell_indices, virtual_rotations
+
+    @staticmethod
+    def _rotation_is_identity(rotation: TensorReal) -> bool:
+        """Whether ``rotation`` is effectively the identity."""
+        return np.allclose(rotation, np.eye(3), atol=fp_eps, rtol=0)
+
+    def _has_unsupported_global_frame_custom_media(
+        self,
+        eme_grid_spec: EMEGridSpecType,
+        center: Coordinate,
+        size: Size,
+        lengths: Optional[ArrayFloat1D] = None,
+    ) -> bool:
+        """Whether bent cells would require unsupported global-frame custom-medium remapping."""
+        eme_grid, _, real_rotations, virtual_cell_indices, virtual_rotations = (
+            self._grid_rotation_validation_data(
+                eme_grid_spec=eme_grid_spec,
+                center=center,
+                size=size,
+                lengths=lengths,
+            )
+        )
+        for plane, rotation in zip(eme_grid.mode_planes, real_rotations):
+            # ``cell_center_rotations_from_lengths()`` returns identity for co-rotating cells,
+            # so any nontrivial rotation here means global-frame custom-medium remapping.
+            if not self._rotation_is_identity(rotation) and self._plane_custom_media(plane):
+                return True
+        for real_cell_index, rotation in zip(virtual_cell_indices, virtual_rotations):
+            if not self._rotation_is_identity(rotation) and self._plane_custom_media(
+                eme_grid.mode_planes[real_cell_index]
+            ):
+                return True
+        return False
+
+    def _validate_bent_custom_media_frames(self) -> Self:
+        """Reject global-frame bent EME cells intersecting custom media."""
+        if not any(isinstance(medium, AbstractCustomMedium) for medium in self.scene.mediums):
+            return self
+
+        error_msg = (
+            "Custom media are not currently supported in EME cells that use "
+            "'bend_medium_frame=\"global\"' and see a nontrivial bend rotation. "
+            "Global-frame remapping of custom-medium data into bent physical space is "
+            "not implemented. Use 'bend_medium_frame=\"co_rotating\"' or avoid bends."
+        )
+
+        center = tuple(self.eme_grid.center)
+        size = tuple(self.eme_grid.size)
+        if self._has_unsupported_global_frame_custom_media(
+            eme_grid_spec=self.eme_grid_spec,
+            center=center,
+            size=size,
+        ):
+            raise SetupError(error_msg)
+
+        if isinstance(self.sweep_spec, EMEPeriodicitySweep):
+            for num_reps in self.sweep_spec.num_reps:
+                eme_grid_spec = self.eme_grid_spec._updated_copy_num_reps(num_reps=num_reps)
+                if self._has_unsupported_global_frame_custom_media(
+                    eme_grid_spec=eme_grid_spec,
+                    center=center,
+                    size=size,
+                ):
+                    raise SetupError(error_msg)
+
+        if isinstance(self.sweep_spec, EMELengthSweep):
+            base_lengths = np.asarray(self.eme_grid.lengths, dtype=float)
+            for lengths in self._length_sweep_scaled_lengths(base_lengths=base_lengths):
+                if self._has_unsupported_global_frame_custom_media(
+                    eme_grid_spec=self.eme_grid_spec,
+                    center=center,
+                    size=size,
+                    lengths=lengths,
+                ):
+                    raise SetupError(error_msg)
+
+        return self
+
+    def _plane_rotated_tensors_match(
+        self,
+        plane: Box,
+        freqs: FreqArray,
+        reference_rotation: TensorReal,
+        comparison_rotation: TensorReal,
+    ) -> bool:
+        """Whether anisotropic tensors on ``plane`` match under two orientations."""
+        for medium in self._plane_anisotropic_media(plane):
+            reference_tensors = medium_rotated_tensors(
+                medium=medium,
+                freqs=freqs,
+                rotation_matrix=reference_rotation,
+            )
+            comparison_tensors = medium_rotated_tensors(
+                medium=medium,
+                freqs=freqs,
+                rotation_matrix=comparison_rotation,
+            )
+            if not rotated_tensors_equal(reference_tensors, comparison_tensors):
+                return False
+        return True
+
+    def _has_incompatible_anisotropic_rotations_from_data(
+        self,
+        eme_grid: EMEGrid,
+        virtual_cell_indices: tuple[int, ...],
+        virtual_rotations: tuple[TensorReal, ...],
+        reference_rotations: tuple[TensorReal, ...],
+    ) -> bool:
+        """Whether reused modes would require different anisotropic tensors."""
+        for real_cell_index, virtual_rotation in zip(virtual_cell_indices, virtual_rotations):
+            if not self._plane_rotated_tensors_match(
+                plane=eme_grid.mode_planes[real_cell_index],
+                freqs=self._anisotropic_validation_freqs_by_cell[real_cell_index],
+                reference_rotation=reference_rotations[real_cell_index],
+                comparison_rotation=virtual_rotation,
+            ):
+                return True
+        return False
+
+    def _has_incompatible_anisotropic_rotations(
+        self,
+        eme_grid_spec: EMEGridSpecType,
+        center: Coordinate,
+        size: Size,
+        reference_rotations: tuple[TensorReal, ...],
+        lengths: Optional[ArrayFloat1D] = None,
+    ) -> bool:
+        """Whether reused modes would require different anisotropic tensors."""
+        eme_grid, _, _, virtual_cell_indices, virtual_rotations = (
+            self._grid_rotation_validation_data(
+                eme_grid_spec=eme_grid_spec,
+                center=center,
+                size=size,
+                lengths=lengths,
+            )
+        )
+        return self._has_incompatible_anisotropic_rotations_from_data(
+            eme_grid=eme_grid,
+            virtual_cell_indices=virtual_cell_indices,
+            virtual_rotations=virtual_rotations,
+            reference_rotations=reference_rotations,
+        )
+
+    def _length_sweep_scaled_lengths(self, base_lengths: ArrayFloat1D) -> tuple[ArrayFloat1D, ...]:
+        """Cell lengths for each length-sweep index after normalizing scale-factor shape."""
+        if not isinstance(self.sweep_spec, EMELengthSweep):
+            return ()
+
+        base_lengths = np.asarray(base_lengths, dtype=float)
+        scale_factors = np.asarray(self.sweep_spec.scale_factors, dtype=float)
+        if scale_factors.ndim == 1:
+            scale_factors = np.repeat(scale_factors[:, None], len(base_lengths), axis=1)
+        return tuple(
+            base_lengths * np.asarray(scale_row, dtype=float) for scale_row in scale_factors
+        )
+
+    def _validate_anisotropic_bend_repetitions(self) -> Self:
+        """Reject repeated bent units when each repetition would need a distinct anisotropy frame."""
+        if not any(
+            isinstance(medium, (AnisotropicMedium, FullyAnisotropicMedium))
+            for medium in self.scene.mediums
+        ):
+            return self
+
+        error_msg = (
+            "Bent anisotropic media with 'bend_medium_frame=\"global\"' are not compatible "
+            "with periodic repetition of EME subgrids when a reused mode would see a "
+            "nontrivial relative bend rotation. If the material profile should follow the "
+            "bend, set 'bend_medium_frame=\"co_rotating\"'. Otherwise split the bent "
+            "section into multiple cells, solve each orientation explicitly, and check "
+            "convergence with respect to the number of EME cells."
+        )
+
+        center = tuple(self.eme_grid.center)
+        size = tuple(self.eme_grid.size)
+        (
+            base_grid,
+            base_lengths,
+            base_rotations,
+            base_virtual_cell_indices,
+            base_virtual_rotations,
+        ) = self._grid_rotation_validation_data(
+            eme_grid_spec=self.eme_grid_spec,
+            center=center,
+            size=size,
+        )
+
+        if self._has_incompatible_anisotropic_rotations_from_data(
+            eme_grid=base_grid,
+            virtual_cell_indices=base_virtual_cell_indices,
+            virtual_rotations=base_virtual_rotations,
+            reference_rotations=base_rotations,
+        ):
+            raise SetupError(error_msg)
+
+        if isinstance(self.sweep_spec, EMEPeriodicitySweep):
+            for num_reps in self.sweep_spec.num_reps:
+                eme_grid_spec = self.eme_grid_spec._updated_copy_num_reps(num_reps=num_reps)
+                (
+                    sweep_grid,
+                    _,
+                    sweep_rotations,
+                    sweep_virtual_cell_indices,
+                    sweep_virtual_rotations,
+                ) = self._grid_rotation_validation_data(
+                    eme_grid_spec=eme_grid_spec,
+                    center=center,
+                    size=size,
+                )
+                if self._has_incompatible_anisotropic_rotations_from_data(
+                    eme_grid=sweep_grid,
+                    virtual_cell_indices=sweep_virtual_cell_indices,
+                    virtual_rotations=sweep_virtual_rotations,
+                    reference_rotations=sweep_rotations,
+                ):
+                    raise SetupError(error_msg)
+
+        if isinstance(self.sweep_spec, EMELengthSweep):
+            invalid_length_sweep = False
+            for lengths in self._length_sweep_scaled_lengths(base_lengths=base_lengths):
+                if np.allclose(lengths, base_lengths, atol=fp_eps, rtol=0):
+                    continue
+
+                if self._has_incompatible_anisotropic_rotations(
+                    eme_grid_spec=self.eme_grid_spec,
+                    center=center,
+                    size=size,
+                    reference_rotations=base_rotations,
+                    lengths=lengths,
+                ):
+                    invalid_length_sweep = True
+                    break
+
+            if invalid_length_sweep:
+                raise SetupError(
+                    "Bent anisotropic media with 'bend_medium_frame=\"global\"' are not "
+                    "compatible with 'EMELengthSweep' when changing bent cell lengths changes "
+                    "the absolute orientation at one or more EME cell centers. Those local "
+                    "modes would need to be recomputed. If the material profile should follow "
+                    "the bend, set 'bend_medium_frame=\"co_rotating\"'; otherwise use "
+                    "separate simulations or explicitly resolved cells for each length, "
+                    "and check convergence with respect to the number of EME cells."
+                )
+
+        return self
+
+    def _validate_monitor_setup(self) -> Self:
         """Check monitor setup."""
         for i, monitor in enumerate(self.monitors):
             if isinstance(monitor, EMEMonitor):
@@ -823,8 +1352,9 @@ class EMESimulation(AbstractYeeGridSimulation):
                         "which is not compatible with periodic repetition "
                         "('num_reps != 1' in any 'EMEGridSpec'.)"
                     )
+        return self
 
-    def _validate_interp_specs(self) -> None:
+    def _validate_interp_specs(self) -> Self:
         """Require that the interp_specs are identical."""
         interp_specs = []
         for mode_spec in self.eme_grid.mode_specs:
@@ -834,6 +1364,7 @@ class EMESimulation(AbstractYeeGridSimulation):
                 "All of the 'mode_spec.interp_spec' in the EME grid must be identical. "
                 f"Currently, they are {set(interp_specs)}."
             )
+        return self
 
     def _validate_size(self) -> None:
         """Ensures the simulation is within size limits before simulation is uploaded."""
@@ -868,6 +1399,33 @@ class EMESimulation(AbstractYeeGridSimulation):
             datas = self.monitors_data_size
             for monitor_ind, (monitor_name, monitor_size) in enumerate(datas.items()):
                 monitor_size_gb = monitor_size / 1e9
+
+                # specific warning for store_coeffs
+                if monitor_name == self.coeffs_full_monitor.name:
+                    if monitor_size_gb > WARN_COEFF_DATA_SIZE_GB:
+                        consolidated_logger.warning(
+                            f"Simulation 'coeffs' have estimated storage size "
+                            f"{monitor_size_gb:1.2f}GB. "
+                            "Consider setting 'store_coeffs=False' "
+                            "or reducing the number of frequencies, modes, "
+                            "EME cells, or sweep indices.",
+                        )
+                    total_size_gb += monitor_size_gb
+                    continue
+
+                # specific warning for store_port_modes
+                if monitor_name == self.port_modes_monitor.name:
+                    if monitor_size_gb > WARN_PORT_MODES_DATA_SIZE_GB:
+                        consolidated_logger.warning(
+                            f"Simulation 'port_modes' have estimated storage size "
+                            f"{monitor_size_gb:1.2f}GB. "
+                            "Consider setting 'store_port_modes=False' "
+                            "or reducing the number of frequencies, modes, or sweep indices.",
+                        )
+                    total_size_gb += monitor_size_gb
+                    continue
+
+                # general warning for user monitors
                 if monitor_size_gb > WARN_MONITOR_DATA_SIZE_GB:
                     consolidated_logger.warning(
                         f"Monitor '{monitor_name}' estimated storage is {monitor_size_gb:1.2f}GB. "
@@ -877,64 +1435,6 @@ class EMESimulation(AbstractYeeGridSimulation):
                     )
 
                 total_size_gb += monitor_size_gb
-
-        # coefficients
-        if self.store_coeffs:
-            coeffs_size_b = 0
-            bytes_complex = 8
-            num_freqs = len(self.freqs)
-            num_modes = self.max_num_modes
-            num_eme_cells = self.eme_grid.num_cells
-            num_sweep = self._num_sweep
-            # A and B coefficients
-            coeffs_size_b += (
-                4 * bytes_complex * num_freqs * num_modes * num_modes * num_eme_cells * num_sweep
-            )
-            # interface smatrices
-            coeffs_size_b += (
-                4
-                * bytes_complex
-                * num_freqs
-                * num_modes
-                * num_modes
-                * (num_eme_cells - 1)
-                * self._num_sweep_interfaces
-            )
-            # n_complex and flux
-            coeffs_size_b += (
-                2 * bytes_complex * num_freqs * num_modes * num_eme_cells * self._num_sweep_modes
-            )
-            # overlaps
-            coeffs_size_b += (
-                2
-                * bytes_complex
-                * num_freqs
-                * num_modes
-                * num_modes
-                * (num_eme_cells - 1)
-                * self._num_sweep_modes
-            )
-            # self-overlaps
-            coeffs_size_b += (
-                bytes_complex
-                * num_freqs
-                * num_modes
-                * num_modes
-                * num_eme_cells
-                * self._num_sweep_modes
-            )
-
-            coeffs_size_gb = coeffs_size_b / 1e9
-            if coeffs_size_gb > WARN_COEFF_DATA_SIZE_GB:
-                log.warning(
-                    "Simulation 'coeffs' have estimated storage size "
-                    f"{coeffs_size_gb:1.2f}GB. "
-                    "Consider setting 'store_coeffs=False' "
-                    "or reducing the number of frequencies, modes, "
-                    "EME cells, or sweep indices."
-                )
-
-            total_size_gb += coeffs_size_gb
 
         if total_size_gb > MAX_SIMULATION_DATA_SIZE_GB:
             raise SetupError(
@@ -992,9 +1492,12 @@ class EMESimulation(AbstractYeeGridSimulation):
     @property
     def _monitors_full(self) -> tuple[EMEMonitorType, ...]:
         """All monitors, including port modes monitor."""
+        monitors = list(self.monitors)
+        if self.store_coeffs:
+            monitors.append(self.coeffs_full_monitor)
         if self.store_port_modes:
-            return [*list(self.monitors), self.port_modes_monitor]
-        return list(self.monitors)
+            monitors.append(self.port_modes_monitor)
+        return monitors
 
     @cached_property
     def monitors_data_size(self) -> dict[str, float]:
@@ -1005,17 +1508,18 @@ class EMESimulation(AbstractYeeGridSimulation):
             if isinstance(monitor, EMEMonitor):
                 num_transverse_cells = self._monitor_num_transverse_cells(monitor)
                 num_eme_cells = self._monitor_num_eme_cells(monitor)
+                num_virtual_eme_cells = self._monitor_num_virtual_eme_cells(monitor)
                 num_freqs = self._monitor_num_freqs(monitor)
                 num_modes = self._monitor_num_modes(monitor)
-                num_sweep = self._monitor_num_sweep(monitor)
                 storage_size = float(
                     monitor.storage_size(
                         num_cells=num_cells,
                         num_transverse_cells=num_transverse_cells,
                         num_eme_cells=num_eme_cells,
+                        num_virtual_eme_cells=num_virtual_eme_cells,
                         num_freqs=num_freqs,
                         num_modes=num_modes,
-                        num_sweep=num_sweep,
+                        sweep_spec=self.sweep_spec,
                     )
                 )
             else:
@@ -1036,7 +1540,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         return len(freqs)
 
     @property
-    def _num_sweep(self) -> pd.PositiveInt:
+    def _num_sweep(self) -> PositiveInt:
         """Number of sweep indices."""
         if self.sweep_spec is None:
             return 1
@@ -1045,10 +1549,10 @@ class EMESimulation(AbstractYeeGridSimulation):
     @property
     def _sweep_modes(self) -> bool:
         """Whether the sweep changes the modes."""
-        return self.sweep_spec is not None and isinstance(self.sweep_spec, EMEFreqSweep)
+        return self.sweep_spec is not None and self.sweep_spec.sweep_modes
 
     @property
-    def _num_sweep_modes(self) -> pd.PositiveInt:
+    def _num_sweep_modes(self) -> PositiveInt:
         """Number of sweep indices for modes."""
         if self._sweep_modes:
             return self._num_sweep
@@ -1057,12 +1561,10 @@ class EMESimulation(AbstractYeeGridSimulation):
     @property
     def _sweep_interfaces(self) -> bool:
         """Whether the sweep changes the cell interface scattering matrices."""
-        return self.sweep_spec is not None and isinstance(
-            self.sweep_spec, (EMEFreqSweep, EMEModeSweep)
-        )
+        return self.sweep_spec is not None and self.sweep_spec.sweep_interfaces
 
     @property
-    def _num_sweep_interfaces(self) -> pd.PositiveInt:
+    def _num_sweep_interfaces(self) -> PositiveInt:
         """Number of sweep indices for interfaces."""
         if self._sweep_interfaces:
             return self._num_sweep
@@ -1071,18 +1573,16 @@ class EMESimulation(AbstractYeeGridSimulation):
     @property
     def _sweep_cells(self) -> bool:
         """Whether the sweep changes the propagation within a cell."""
-        return self.sweep_spec is not None and isinstance(
-            self.sweep_spec, (EMELengthSweep, EMEFreqSweep, EMEModeSweep)
-        )
+        return self.sweep_spec is not None and self.sweep_spec.sweep_cells
 
     @property
-    def _num_sweep_cells(self) -> pd.PositiveInt:
+    def _num_sweep_cells(self) -> PositiveInt:
         """Number of sweep indices for cells."""
         if self._sweep_cells:
             return self._num_sweep
         return 1
 
-    def _monitor_num_sweep(self, monitor: EMEMonitor) -> pd.PositiveInt:
+    def _monitor_num_sweep(self, monitor: EMEMonitor) -> PositiveInt:
         """Number of sweep indices for a certain monitor."""
         if self.sweep_spec is None:
             return 1
@@ -1093,7 +1593,7 @@ class EMESimulation(AbstractYeeGridSimulation):
             return self.sweep_spec.num_sweep
         return min(self.sweep_spec.num_sweep, monitor.num_sweep)
 
-    def _monitor_eme_cell_indices(self, monitor: EMEMonitor) -> list[pd.NonNegativeInt]:
+    def _monitor_eme_cell_indices(self, monitor: EMEMonitor) -> list[NonNegativeInt]:
         """EME cell indices inside monitor. Takes into account 'eme_cell_interval_space'."""
         cell_indices_full = self.eme_grid.cell_indices_in_box(box=monitor.geometry)
         if len(cell_indices_full) == 0:
@@ -1108,13 +1608,28 @@ class EMESimulation(AbstractYeeGridSimulation):
         """Total number of EME cells included in monitor based on simulation grid."""
         return len(self._monitor_eme_cell_indices(monitor=monitor))
 
-    def _monitor_freqs(self, monitor: Monitor) -> list[pd.NonNegativeFloat]:
+    def _monitor_virtual_cell_indices(self, monitor: EMEMonitor) -> list[NonNegativeInt]:
+        """Virtual EME cell indices inside monitor.
+        Returns the indices into the virtual_cell_indices list where the
+        physical cell index is in the monitor's eme_cell_indices.
+        """
+        physical_cell_indices = set(self._monitor_eme_cell_indices(monitor=monitor))
+        all_virtual_indices = self.eme_grid_spec.virtual_cell_indices
+        return [
+            i for i, phys_idx in enumerate(all_virtual_indices) if phys_idx in physical_cell_indices
+        ]
+
+    def _monitor_num_virtual_eme_cells(self, monitor: EMEMonitor) -> int:
+        """Number of virtual EME cells inside monitor."""
+        return len(self._monitor_virtual_cell_indices(monitor=monitor))
+
+    def _monitor_freqs(self, monitor: Monitor) -> list[NonNegativeFloat]:
         """Monitor frequencies."""
         if monitor.freqs is None:
             return list(self.freqs)
         return list(monitor.freqs)
 
-    def _monitor_mode_freqs(self, monitor: EMEModeSolverMonitor) -> list[pd.NonNegativeFloat]:
+    def _monitor_mode_freqs(self, monitor: EMEModeSolverMonitor) -> list[NonNegativeFloat]:
         """Monitor frequencies."""
         freqs = set()
         cell_inds = self._monitor_eme_cell_indices(monitor=monitor)
@@ -1213,7 +1728,9 @@ class EMESimulation(AbstractYeeGridSimulation):
             grid_spec = grid_spec.updated_copy(wavelength=min_wvl)
 
         # copy over all FDTD monitors too
-        monitors = [monitor for monitor in self.monitors if not isinstance(monitor, EMEMonitor)]
+        monitors = tuple(
+            monitor for monitor in self.monitors if not isinstance(monitor, EMEMonitor)
+        )
 
         kwargs = {key: getattr(self, key) for key in EME_SIM_YEE_SIM_SHARED_ATTRS}
         return Simulation(
@@ -1252,13 +1769,13 @@ class EMESimulation(AbstractYeeGridSimulation):
             simulation. If ``identical``, then the original grid is transferred directly as a
             :class:`.EMEExplicitGrid`. Noe that in the latter case the region of the new simulation
             is expanded to contain full EME cells.
-        symmetry : Tuple[Literal[0, -1, 1], Literal[0, -1, 1], Literal[0, -1, 1]] = None
+        symmetry : tuple[Literal[0, -1, 1], Literal[0, -1, 1], Literal[0, -1, 1]] = None
             New simulation symmetry. If ``None``, then it is inherited from the original
             simulation. Note that in this case the size and placement of new simulation domain
             must be commensurate with the original symmetry.
         warn_symmetry_expansion : bool = True
             Whether to warn when the subsection is expanded to preserve symmetry.
-        monitors : Tuple[MonitorType, ...] = None
+        monitors : tuple[MonitorType, ...] = None
             New list of monitors. If ``None``, then the monitors intersecting the new simulation
             domain are inherited from the original simulation.
         remove_outside_structures : bool = True
@@ -1307,7 +1824,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         return new_sim
 
     @property
-    def _cell_index_pairs(self) -> list[pd.NonNegativeInt]:
+    def _cell_index_pairs(self) -> list[NonNegativeInt]:
         """All the pairs of adjacent EME cells needed, taken over all sweep indices."""
         pairs = set()
         if isinstance(self.sweep_spec, EMEPeriodicitySweep):
@@ -1317,5 +1834,3 @@ class EMESimulation(AbstractYeeGridSimulation):
         else:
             pairs = set(self.eme_grid_spec._cell_index_pairs)
         return list(pairs)
-
-    _boundaries_for_zero_dims = validate_boundaries_for_zero_dims(warn_on_change=False)

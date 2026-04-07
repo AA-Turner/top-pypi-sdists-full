@@ -128,6 +128,19 @@ class ImmediateExecutionModel(QuantConnect.Algorithm.Framework.Execution.Executi
         ...
 
 
+class NullExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
+    """Provides an implementation of IExecutionModel that does nothing"""
+
+    def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
+        """
+        Execute the ExecutionModel
+        
+        :param algorithm: The Algorithm to execute this model on
+        :param targets: The portfolio targets
+        """
+        ...
+
+
 class ExecutionModelPythonWrapper(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
     """Provides an implementation of IExecutionModel that wraps a PyObject object"""
 
@@ -164,19 +177,6 @@ class ExecutionModelPythonWrapper(QuantConnect.Algorithm.Framework.Execution.Exe
         
         :param algorithm: The algorithm instance that experienced the change in securities
         :param changes: The security additions and removals from the algorithm
-        """
-        ...
-
-
-class NullExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
-    """Provides an implementation of IExecutionModel that does nothing"""
-
-    def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
-        """
-        Execute the ExecutionModel
-        
-        :param algorithm: The Algorithm to execute this model on
-        :param targets: The portfolio targets
         """
         ...
 
@@ -263,37 +263,6 @@ class VolumeWeightedAveragePriceExecutionModel(QuantConnect.Algorithm.Framework.
     def price_is_favorable(self, data: QuantConnect.Algorithm.Framework.Execution.VolumeWeightedAveragePriceExecutionModel.SymbolData, unordered_quantity: float) -> bool:
         """
         Determines if the current price is better than VWAP
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-
-class SpreadExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
-    """Execution model that submits orders while the current spread is in desirably tight extent."""
-
-    def __init__(self, accepting_spread_percent: float = 0.005, asynchronous: bool = True) -> None:
-        """
-        Initializes a new instance of the SpreadExecutionModel class
-        
-        :param accepting_spread_percent: Maximum spread accepted comparing to current price in percentage.
-        :param asynchronous: If true, orders will be submitted asynchronously
-        """
-        ...
-
-    def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
-        """
-        Submit orders for the specified portfolio targets if the spread is tighter/equal to preset level
-        
-        :param algorithm: The algorithm instance
-        :param targets: The portfolio targets to be ordered
-        """
-        ...
-
-    def price_is_favorable(self, security: QuantConnect.Securities.Security) -> bool:
-        """
-        Determines if the current spread is equal or tighter than preset level
         
         
         This codeEntityType is protected.
@@ -402,6 +371,37 @@ class StandardDeviationExecutionModel(QuantConnect.Algorithm.Framework.Execution
         """
         Determines if the current price is more than the configured number of standard deviations
         away from the mean in the favorable direction.
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+
+class SpreadExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
+    """Execution model that submits orders while the current spread is in desirably tight extent."""
+
+    def __init__(self, accepting_spread_percent: float = 0.005, asynchronous: bool = True) -> None:
+        """
+        Initializes a new instance of the SpreadExecutionModel class
+        
+        :param accepting_spread_percent: Maximum spread accepted comparing to current price in percentage.
+        :param asynchronous: If true, orders will be submitted asynchronously
+        """
+        ...
+
+    def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
+        """
+        Submit orders for the specified portfolio targets if the spread is tighter/equal to preset level
+        
+        :param algorithm: The algorithm instance
+        :param targets: The portfolio targets to be ordered
+        """
+        ...
+
+    def price_is_favorable(self, security: QuantConnect.Securities.Security) -> bool:
+        """
+        Determines if the current spread is equal or tighter than preset level
         
         
         This codeEntityType is protected.

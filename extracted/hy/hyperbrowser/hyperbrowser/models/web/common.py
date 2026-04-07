@@ -71,7 +71,7 @@ class PageData(BaseModel):
     url: str
     status: PageStatus
     error: Optional[str] = None
-    metadata: Optional[dict[str, Union[str, list[str]]]] = None
+    metadata: Optional[dict[str, Any]] = None
     markdown: Optional[str] = None
     html: Optional[str] = None
     links: Optional[list[str]] = None
@@ -147,7 +147,7 @@ class FetchBrowserOptions(BaseModel):
 
     screen: Optional[ScreenConfig] = Field(default=None, serialization_alias="screen")
     profile_id: Optional[str] = Field(default=None, serialization_alias="profileId")
-    solve_captchas: Optional[str] = Field(
+    solve_captchas: Optional[bool] = Field(
         default=None, serialization_alias="solveCaptchas"
     )
     location: Optional[FetchBrowserLocationOptions] = Field(

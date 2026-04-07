@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmcache
-Version: 0.4.2
+Version: 0.4.3
 Summary: A LLM serving engine extension to reduce TTFT and increase throughput, especially under long-context scenarios.
 Author-email: LMCache Team <lmcacheteam@gmail.com>
 License-Expression: Apache-2.0
@@ -36,6 +36,10 @@ Requires-Dist: nixl; python_version < "3.13"
 Requires-Dist: numpy<=2.2.6
 Requires-Dist: numba
 Requires-Dist: nvtx
+Requires-Dist: opentelemetry-api>=1.20.0
+Requires-Dist: opentelemetry-sdk>=1.20.0
+Requires-Dist: opentelemetry-exporter-otlp>=1.20.0
+Requires-Dist: opentelemetry-exporter-prometheus>=0.50b0
 Requires-Dist: prometheus_client>=0.18.0
 Requires-Dist: psutil
 Requires-Dist: py-cpuinfo

@@ -6,7 +6,9 @@ def run(root: Path, options: dict):
     bases = info.get_bases(root, ns)
     components = info.get_components(root, ns)
     projects_data = info.get_bricks_in_projects(root, components, bases, ns)
+    groups = options.get('groups')
+    filtered = [p for p in projects_data if p['groups'].intersection(groups)] if groups else projects_data
     info.print_workspace_summary(projects_data, bases, components, options)
     if not components and (not bases):
         return
-    info.print_bricks_in_projects(projects_data, bases, components, options)
+    info.print_bricks_in_projects(filtered or projects_data, bases, components, options)

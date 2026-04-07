@@ -204,33 +204,6 @@ class OptimizationStepParameterEnumerator(QuantConnect.Optimizer.Parameters.Opti
         ...
 
 
-class ParameterSet(System.Object):
-    """Represents a single combination of optimization parameters"""
-
-    @property
-    def id(self) -> int:
-        """The unique identifier within scope (current optimization job)"""
-        ...
-
-    @property
-    def value(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
-        """Represent a combination as key value of parameters, i.e. order doesn't matter"""
-        ...
-
-    def __init__(self, id: int, value: System.Collections.Generic.IReadOnlyDictionary[str, str]) -> None:
-        """
-        Creates an instance of ParameterSet based on new combination of optimization parameters
-        
-        :param id: Unique identifier
-        :param value: Combination of optimization parameters
-        """
-        ...
-
-    def to_string(self) -> str:
-        """String representation of this parameter set"""
-        ...
-
-
 class OptimizationParameterJsonConverter:
     """
     Override OptimizationParameter deserialization method.
@@ -265,6 +238,33 @@ class StaticOptimizationParameter(QuantConnect.Optimizer.Parameters.Optimization
         :param name: The name of the parameter
         :param value: The fixed value of this parameter
         """
+        ...
+
+
+class ParameterSet(System.Object):
+    """Represents a single combination of optimization parameters"""
+
+    @property
+    def id(self) -> int:
+        """The unique identifier within scope (current optimization job)"""
+        ...
+
+    @property
+    def value(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+        """Represent a combination as key value of parameters, i.e. order doesn't matter"""
+        ...
+
+    def __init__(self, id: int, value: System.Collections.Generic.IReadOnlyDictionary[str, str]) -> None:
+        """
+        Creates an instance of ParameterSet based on new combination of optimization parameters
+        
+        :param id: Unique identifier
+        :param value: Combination of optimization parameters
+        """
+        ...
+
+    def to_string(self) -> str:
+        """String representation of this parameter set"""
         ...
 
 

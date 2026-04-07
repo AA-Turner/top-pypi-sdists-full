@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Sequence, TypedDict
 
 import httpx
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, load_only
 
@@ -60,9 +60,11 @@ from dstack._internal.server.services.jobs import (
     get_job_provisioning_data,
     get_job_runtime_data,
     get_job_spec,
+    stop_runner,
 )
 from dstack._internal.server.services.locking import get_locker
 from dstack._internal.server.services.logging import fmt
+from dstack._internal.server.services.pipelines import PipelineHinterProtocol
 from dstack._internal.server.services.runner import client
 from dstack._internal.server.services.runner.ssh import runner_ssh_tunnel
 from dstack._internal.server.services.volumes import (
@@ -87,9 +89,11 @@ class JobTerminatingPipeline(Pipeline[JobTerminatingPipelineItem]):
         workers_num: int = 20,
         queue_lower_limit_factor: float = 0.5,
         queue_upper_limit_factor: float = 2.0,
-        min_processing_interval: timedelta = timedelta(seconds=5),
+        min_processing_interval: timedelta = timedelta(seconds=2),
         lock_timeout: timedelta = timedelta(seconds=30),
         heartbeat_trigger: timedelta = timedelta(seconds=15),
+        *,
+        pipeline_hinter: PipelineHinterProtocol,
     ) -> None:
         super().__init__(
             workers_num=workers_num,
@@ -112,7 +116,11 @@ class JobTerminatingPipeline(Pipeline[JobTerminatingPipelineItem]):
             heartbeater=self._heartbeater,
         )
         self.__workers = [
-            JobTerminatingWorker(queue=self._queue, heartbeater=self._heartbeater)
+            JobTerminatingWorker(
+                queue=self._queue,
+                heartbeater=self._heartbeater,
+                pipeline_hinter=pipeline_hinter,
+            )
             for _ in range(self._workers_num)
         ]
 
@@ -152,7 +160,7 @@ class JobTerminatingFetcher(Fetcher[JobTerminatingPipelineItem]):
             queue_check_delay=queue_check_delay,
         )
 
-    @sentry_utils.instrument_named_task("pipeline_tasks.JobTerminatingFetcher.fetch")
+    @sentry_utils.instrument_pipeline_task("JobTerminatingFetcher.fetch")
     async def fetch(self, limit: int) -> list[JobTerminatingPipelineItem]:
         job_lock, _ = get_locker(get_db().dialect_name).get_lockset(JobModel.__tablename__)
         async with job_lock:
@@ -166,7 +174,18 @@ class JobTerminatingFetcher(Fetcher[JobTerminatingPipelineItem]):
                             JobModel.remove_at.is_(None),
                             JobModel.remove_at < now,
                         ),
-                        JobModel.last_processed_at <= now - self._min_processing_interval,
+                        or_(
+                            # Processing volumes detach can be less frequent since it may take time.
+                            and_(
+                                JobModel.last_processed_at <= now - self._min_processing_interval,
+                                JobModel.volumes_detached_at.is_(None),
+                            ),
+                            and_(
+                                JobModel.last_processed_at
+                                <= now - self._min_processing_interval * 2,
+                                JobModel.volumes_detached_at.is_not(None),
+                            ),
+                        ),
                         or_(
                             JobModel.lock_expires_at.is_(None),
                             JobModel.lock_expires_at < now,
@@ -216,13 +235,15 @@ class JobTerminatingWorker(Worker[JobTerminatingPipelineItem]):
         self,
         queue: asyncio.Queue[JobTerminatingPipelineItem],
         heartbeater: Heartbeater[JobTerminatingPipelineItem],
+        pipeline_hinter: PipelineHinterProtocol,
     ) -> None:
         super().__init__(
             queue=queue,
             heartbeater=heartbeater,
+            pipeline_hinter=pipeline_hinter,
         )
 
-    @sentry_utils.instrument_named_task("pipeline_tasks.JobTerminatingWorker.process")
+    @sentry_utils.instrument_pipeline_task("JobTerminatingWorker.process")
     async def process(self, item: JobTerminatingPipelineItem):
         async with get_session_ctx() as session:
             job_model = await _refetch_locked_job(session=session, item=item)
@@ -265,8 +286,10 @@ class _JobUpdateMap(ItemUpdateMap, total=False):
     termination_reason: Optional[JobTerminationReason]
     termination_reason_message: Optional[str]
     instance_id: Optional[uuid.UUID]
+    graceful_termination_attempts: int
     volumes_detached_at: UpdateMapDateTime
     registered: bool
+    remove_at: UpdateMapDateTime
 
 
 class _InstanceUpdateMap(ItemUpdateMap, total=False):
@@ -580,9 +603,11 @@ async def _process_terminating_job(
     instance_model: Optional[InstanceModel],
 ) -> _ProcessResult:
     """
-    Stops the job: tells shim to stop the container, detaches the job from the instance,
-    and detaches volumes from the instance.
-    Graceful stop should already be done by the run terminating path.
+    Terminates the job:
+        1. tells the runner to stop the job's command
+        2. tells the shim to stop the container
+        3. detaches the job from the instance
+        4. and detaches volumes from the instance.
     """
     instance_update_map = None if instance_model is None else _InstanceUpdateMap()
     result = _ProcessResult(instance_update_map=instance_update_map)
@@ -590,6 +615,10 @@ async def _process_terminating_job(
     if instance_model is None:
         await _unregister_replica_and_update_result(result=result, job_model=job_model)
         result.job_update_map["status"] = _get_job_termination_status(job_model)
+        return result
+
+    if job_model.graceful_termination_attempts == 0 and job_model.remove_at is None:
+        result.job_update_map = await _stop_job_gracefully(job_model, instance_model)
         return result
 
     jrd = get_job_runtime_data(job_model)
@@ -640,6 +669,20 @@ async def _process_terminating_job(
     if detach_result.all_detached:
         result.job_update_map["status"] = _get_job_termination_status(job_model)
     return result
+
+
+async def _stop_job_gracefully(
+    job_model: JobModel, instance_model: InstanceModel
+) -> _JobUpdateMap:
+    """
+    Tells the runner to stop the job's command. Records the first graceful-stop attempt and
+    sets `remove_at` so `_process_terminating_job()` stops the container on a later iteration.
+    """
+    job_update_map = _JobUpdateMap()
+    await stop_runner(job_model=job_model, instance_model=instance_model)
+    job_update_map["graceful_termination_attempts"] = 1
+    job_update_map["remove_at"] = get_current_datetime() + timedelta(seconds=10)
+    return job_update_map
 
 
 async def _process_job_volumes_detaching(

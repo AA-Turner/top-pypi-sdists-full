@@ -24,9 +24,14 @@ use chroma_types::{
     UpdateMetadata, UpsertCollectionRecordsRequest, UpsertCollectionRecordsResponse, Where,
 };
 use reqwest::Method;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{client::ChromaHttpClientError, ChromaHttpClient};
+
+#[derive(Deserialize)]
+struct ForkCountResponse {
+    count: usize,
+}
 
 /// A handle to a specific collection within a Chroma database.
 ///
@@ -177,7 +182,7 @@ impl ChromaCollection {
     /// # Example
     ///
     /// ```
-    /// use chroma_types::plan::ReadLevel;
+    /// use chroma::types::ReadLevel;
     ///
     /// # async fn example(collection: &chroma::ChromaCollection) -> Result<(), Box<dyn std::error::Error>> {
     /// // Skip WAL for faster count (may miss recent writes)
@@ -571,7 +576,7 @@ impl ChromaCollection {
     /// # Example
     ///
     /// ```
-    /// use chroma_types::plan::{SearchPayload, ReadLevel};
+    /// use chroma::types::{SearchPayload, ReadLevel};
     ///
     /// # async fn example(collection: &chroma::ChromaCollection) -> Result<(), Box<dyn std::error::Error>> {
     /// let search = SearchPayload::default().limit(Some(10), 0);
@@ -834,6 +839,32 @@ impl ChromaCollection {
             client: self.client.clone(),
             collection: Arc::new(collection),
         })
+    }
+
+    /// Returns the number of forks that exist for this collection.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The collection no longer exists on the server
+    /// - Network communication fails
+    /// - The authenticated user lacks sufficient permissions
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use chroma::ChromaCollection;
+    /// # async fn example(collection: ChromaCollection) -> Result<(), Box<dyn std::error::Error>> {
+    /// let count = collection.fork_count().await?;
+    /// println!("Collection has {} forks", count);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn fork_count(&self) -> Result<usize, ChromaHttpClientError> {
+        let response: ForkCountResponse = self
+            .send::<(), _>("fork_count", "fork_count", Method::GET, None)
+            .await?;
+        Ok(response.count)
     }
 
     /// Internal transport method that constructs collection-specific API paths and delegates to the client.

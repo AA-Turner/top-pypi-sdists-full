@@ -8,8 +8,10 @@ handling, and server lifecycle.
 import asyncio
 from collections.abc import Sequence
 import inspect
+import keyword
 import os
 from pathlib import Path
+import re
 from typing import Any
 
 import structlog
@@ -51,6 +53,39 @@ def validate_transport(transport: str) -> str:
     return transport
 
 
+def _extract_feedback_metadata_from_artifact(artifact: str) -> tuple[Any, ...]:
+    """Extract structured feedback metadata emitted inside execution artifacts."""
+    import json
+    import re
+
+    from ouroboros.core.lineage import FeedbackMetadata
+
+    matches = re.findall(r"^Feedback Metadata JSON:\s*(\{.+\})$", artifact, flags=re.MULTILINE)
+    if not matches:
+        return ()
+
+    feedback_items: list[FeedbackMetadata] = []
+    for payload in matches:
+        try:
+            parsed = json.loads(payload)
+        except json.JSONDecodeError:
+            continue
+
+        raw_feedback = parsed.get("feedback_metadata")
+        if not isinstance(raw_feedback, list):
+            continue
+
+        for item in raw_feedback:
+            if not isinstance(item, dict):
+                continue
+            try:
+                feedback_items.append(FeedbackMetadata.model_validate(item))
+            except Exception:
+                continue
+
+    return tuple(feedback_items)
+
+
 # Map MCPToolParameter types to Python annotations for FastMCP schema inference.
 _TOOL_TYPE_MAP: dict[ToolInputType, type] = {
     ToolInputType.STRING: str,
@@ -72,13 +107,50 @@ def _build_tool_signature(parameters: tuple[MCPToolParameter, ...]) -> inspect.S
     By setting __signature__ with explicit parameters, FastMCP generates the
     correct schema and clients can send flat argument dicts.
     """
+    signature, _ = _build_tool_signature_with_aliases(parameters)
+    return signature
+
+
+def _to_safe_signature_name(name: str) -> str:
+    """Return a valid Python identifier for a tool parameter name."""
+    if name.isidentifier() and not keyword.iskeyword(name):
+        return name
+
+    # Replace invalid characters with underscore and avoid starting with a digit.
+    sanitized = re.sub(r"[^0-9a-zA-Z_]", "_", name)
+    sanitized = re.sub(r"_+", "_", sanitized).strip("_")
+    if not sanitized or sanitized[0].isdigit():
+        sanitized = f"_{sanitized or 'param'}"
+
+    if keyword.iskeyword(sanitized):
+        sanitized = f"_{sanitized}"
+
+    return sanitized
+
+
+def _build_tool_signature_with_aliases(
+    parameters: tuple[MCPToolParameter, ...],
+) -> tuple[inspect.Signature, dict[str, str]]:
+    """Build signature plus map from schema args to original MCP parameter names."""
+
     sig_params = []
+    alias_counts: dict[str, int] = {}
+    alias_to_original: dict[str, str] = {}
+
     for p in parameters:
+        parameter_name = _to_safe_signature_name(p.name)
+        alias_count = alias_counts.get(parameter_name, 0) + 1
+        alias_counts[parameter_name] = alias_count
+        if alias_count > 1:
+            parameter_name = f"{parameter_name}_{alias_count}"
+
+        alias_to_original[parameter_name] = p.name
+
         python_type = _TOOL_TYPE_MAP.get(p.type, Any)
         if p.required:
             sig_params.append(
                 inspect.Parameter(
-                    name=p.name,
+                    name=parameter_name,
                     kind=inspect.Parameter.KEYWORD_ONLY,
                     annotation=python_type,
                 )
@@ -87,13 +159,14 @@ def _build_tool_signature(parameters: tuple[MCPToolParameter, ...]) -> inspect.S
             default = p.default if p.default is not None else None
             sig_params.append(
                 inspect.Parameter(
-                    name=p.name,
+                    name=parameter_name,
                     kind=inspect.Parameter.KEYWORD_ONLY,
                     default=default,
                     annotation=python_type | None,
                 )
             )
-    return inspect.Signature(parameters=sig_params)
+
+    return inspect.Signature(parameters=sig_params), alias_to_original
 
 
 _PROJECT_ROOT_MARKERS = (
@@ -167,11 +240,13 @@ def _project_dir_from_artifact(artifact: str) -> str | None:
     from pathlib import Path
     import re
 
-    # Match quoted paths (spaces allowed) or unquoted paths (no spaces).
+    # Match quoted paths (spaces allowed) and unquoted paths.
     # Examples:  Write: /foo/bar.py  |  File: "/path with spaces/bar.py"
     write_matches: list[str] = []
-    for m in re.finditer(r'(?:Write|Edit|File): (?:"([^"]+)"|(/[^\s]+))', artifact):
-        write_matches.append(m.group(1) or m.group(2))
+    for m in re.finditer(r'(?:Write|Edit|File): (?:"([^"]+)"|(.+))', artifact):
+        path_candidate = m.group(1) or m.group(2)
+        if path_candidate:
+            write_matches.append(path_candidate.strip())
     for path_str in write_matches:
         candidate = Path(path_str).parent
         for _ in range(10):
@@ -468,7 +543,7 @@ class MCPServerAdapter:
         try:
             from mcp.server.fastmcp import FastMCP
         except ImportError as e:
-            msg = "mcp package not installed. Install with: pip install mcp"
+            msg = "mcp package not installed. Install with: pip install 'ouroboros-ai[mcp]'"
             raise ImportError(msg) from e
 
         # Pass host/port at construction time — FastMCP reads these from
@@ -496,7 +571,18 @@ class MCPServerAdapter:
                         and isinstance(kwargs["kwargs"], dict)
                     ):
                         kwargs = kwargs["kwargs"]
-                    result = await h.handle(kwargs)
+
+                    _, alias_to_original = _build_tool_signature_with_aliases(
+                        h.definition.parameters,
+                    )
+                    normalized_kwargs: dict[str, Any] = {}
+                    for alias_key, original_key in alias_to_original.items():
+                        if alias_key in kwargs:
+                            normalized_kwargs[original_key] = kwargs[alias_key]
+                    for key, value in kwargs.items():
+                        normalized_kwargs.setdefault(key, value)
+
+                    result = await h.handle(normalized_kwargs)
                     if result.is_ok:
                         # Convert MCPToolResult to FastMCP format
                         tool_result = result.value
@@ -649,6 +735,7 @@ def create_ouroboros_server(
         ACDashboardHandler,
         CancelExecutionHandler,
         CancelJobHandler,
+        ChannelWorkflowHandler,
         EvaluateHandler,
         EvolveRewindHandler,
         EvolveStepHandler,
@@ -669,6 +756,7 @@ def create_ouroboros_server(
     from ouroboros.mcp.tools.pm_handler import PMInterviewHandler
     from ouroboros.mcp.tools.qa import QAHandler
     from ouroboros.mcp.tools.registry import ToolRegistry
+    from ouroboros.openclaw.workflow import ChannelRepoRegistry, ChannelWorkflowManager
     from ouroboros.orchestrator import create_agent_runtime, resolve_agent_runtime_backend
     from ouroboros.orchestrator.runner import (
         OrchestratorRunner,
@@ -702,8 +790,8 @@ def create_ouroboros_server(
 
     # Create state directory for interviews
     if state_dir is None:
-        state_dir = Path.home() / ".ouroboros" / "data"
-        state_dir.mkdir(parents=True, exist_ok=True)
+        state_dir = Path.cwd() / ".ouroboros" / "data"
+    state_dir.mkdir(parents=True, exist_ok=True)
 
     # Create core service instances
     interview_engine = InterviewEngine(
@@ -816,6 +904,7 @@ def create_ouroboros_server(
             return None
 
         seed_acs = getattr(seed, "acceptance_criteria", None) or ()
+        feedback_metadata = _extract_feedback_metadata_from_artifact(artifact)
 
         ac_results: list[ACResult] = []
         for ac_num_str, status, description in ac_line_matches:
@@ -851,6 +940,7 @@ def create_ouroboros_server(
             drift_score=1.0 - score,
             failure_reason=failure_reason,
             ac_results=tuple(ac_results),
+            feedback_metadata=feedback_metadata,
         )
 
     spec_extractor = AssertionExtractor(
@@ -1167,6 +1257,9 @@ def create_ouroboros_server(
         validator=_evolution_validator,
     )
     job_manager = JobManager(event_store)
+    openclaw_db_path = state_dir / "openclaw.db"
+    workflow_manager = ChannelWorkflowManager(openclaw_db_path)
+    repo_registry = ChannelRepoRegistry(openclaw_db_path)
 
     # Create tool registry for dependency injection
     registry = ToolRegistry()
@@ -1231,6 +1324,39 @@ def create_ouroboros_server(
             llm_backend=llm_backend,
         ),
         BrownfieldHandler(),
+        ChannelWorkflowHandler(
+            workflow_manager=workflow_manager,
+            repo_registry=repo_registry,
+            interview_handler=InterviewHandler(
+                interview_engine=interview_engine,
+                event_store=event_store,
+                llm_adapter=llm_adapter,
+                llm_backend=llm_backend,
+            ),
+            generate_seed_handler=GenerateSeedHandler(
+                interview_engine=interview_engine,
+                seed_generator=seed_generator,
+                llm_adapter=llm_adapter,
+                llm_backend=llm_backend,
+            ),
+            start_execute_seed_handler=StartExecuteSeedHandler(
+                execute_handler=execute_seed,
+                event_store=event_store,
+                job_manager=job_manager,
+            ),
+            job_status_handler=JobStatusHandler(
+                event_store=event_store,
+                job_manager=job_manager,
+            ),
+            job_wait_handler=JobWaitHandler(
+                event_store=event_store,
+                job_manager=job_manager,
+            ),
+            job_result_handler=JobResultHandler(
+                event_store=event_store,
+                job_manager=job_manager,
+            ),
+        ),
         EvaluateHandler(
             event_store=event_store,
             llm_adapter=llm_adapter,

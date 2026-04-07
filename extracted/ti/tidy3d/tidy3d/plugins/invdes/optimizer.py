@@ -2,52 +2,53 @@
 from __future__ import annotations
 
 import abc
-import typing
 from copy import deepcopy
+from typing import TYPE_CHECKING, Optional
 
 import autograd as ag
 import autograd.numpy as anp
 import numpy as np
-import pydantic.v1 as pd
+from pydantic import Field, PositiveFloat, PositiveInt
 
 import tidy3d as td
 from tidy3d.components.types import TYPE_TAG_STR
 from tidy3d.exceptions import SetupError
+from tidy3d.plugins.autograd.optimizers import Adam, apply_updates
 
 from .base import InvdesBaseModel
 from .design import InverseDesignType
 from .result import InverseDesignResult
 
+if TYPE_CHECKING:
+    from typing import Callable
+
 
 class AbstractOptimizer(InvdesBaseModel, abc.ABC):
     """Specification for an optimization."""
 
-    design: InverseDesignType = pd.Field(
-        ...,
+    design: InverseDesignType = Field(
         title="Inverse Design Specification",
         description="Specification describing the inverse design problem we wish to optimize.",
         discriminator=TYPE_TAG_STR,
     )
 
-    learning_rate: pd.PositiveFloat = pd.Field(
-        ...,
+    learning_rate: PositiveFloat = Field(
         title="Learning Rate",
         description="Step size for the gradient descent optimizer.",
     )
 
-    maximize: bool = pd.Field(
+    maximize: bool = Field(
         True,
         title="Direction of Optimization",
         description="If ``True``, the optimizer will maximize the objective function. If ``False``, the optimizer will minimize the objective function.",
     )
 
-    num_steps: pd.PositiveInt = pd.Field(
-        ...,
+    num_steps: PositiveInt = Field(
         title="Number of Steps",
         description="Number of steps in the gradient descent optimizer.",
     )
 
-    results_cache_fname: str = pd.Field(
+    results_cache_fname: Optional[str] = Field(
         None,
         title="History Storage File",
         description="If specified, will save the optimization state to a local ``.pkl`` file "
@@ -59,7 +60,7 @@ class AbstractOptimizer(InvdesBaseModel, abc.ABC):
         "``optimizer.continue_run(result)``. ",
     )
 
-    store_full_results: bool = pd.Field(
+    store_full_results: bool = Field(
         True,
         title="Store Full Results",
         description="If ``True``, stores the full history for the vector fields, specifically "
@@ -85,9 +86,7 @@ class AbstractOptimizer(InvdesBaseModel, abc.ABC):
         print(f"\tpost_process_val = {result.post_process_val[-1]:.3e}")
         print(f"\tpenalty = {result.penalty[-1]:.3e}")
 
-    def initialize_result(
-        self, params0: typing.Optional[anp.ndarray] = None
-    ) -> InverseDesignResult:
+    def initialize_result(self, params0: Optional[anp.ndarray] = None) -> InverseDesignResult:
         """
         Create an initially empty `InverseDesignResult` from the starting parameters.
 
@@ -112,8 +111,8 @@ class AbstractOptimizer(InvdesBaseModel, abc.ABC):
 
     def run(
         self,
-        post_process_fn: typing.Optional[typing.Callable] = None,
-        callback: typing.Optional[typing.Callable] = None,
+        post_process_fn: Optional[Callable] = None,
+        callback: Optional[Callable] = None,
         params0: anp.ndarray = None,
     ) -> InverseDesignResult:
         """Run this inverse design problem from an optional initial set of parameters.
@@ -141,9 +140,9 @@ class AbstractOptimizer(InvdesBaseModel, abc.ABC):
     def continue_run(
         self,
         result: InverseDesignResult,
-        num_steps: typing.Optional[int] = None,
-        post_process_fn: typing.Optional[typing.Callable] = None,
-        callback: typing.Optional[typing.Callable] = None,
+        num_steps: Optional[int] = None,
+        post_process_fn: Optional[Callable] = None,
+        callback: Optional[Callable] = None,
     ) -> InverseDesignResult:
         """Run optimizer for a series of steps with an initialized state.
 
@@ -231,9 +230,9 @@ class AbstractOptimizer(InvdesBaseModel, abc.ABC):
     def continue_run_from_file(
         self,
         fname: str,
-        num_steps: typing.Optional[int] = None,
-        post_process_fn: typing.Optional[typing.Callable] = None,
-        callback: typing.Optional[typing.Callable] = None,
+        num_steps: Optional[int] = None,
+        post_process_fn: Optional[Callable] = None,
+        callback: Optional[Callable] = None,
     ) -> InverseDesignResult:
         """Continue the optimization run from a ``.pkl`` file with an ``InverseDesignResult``."""
         result = InverseDesignResult.from_file(fname)
@@ -246,9 +245,9 @@ class AbstractOptimizer(InvdesBaseModel, abc.ABC):
 
     def continue_run_from_history(
         self,
-        num_steps: typing.Optional[int] = None,
-        post_process_fn: typing.Optional[typing.Callable] = None,
-        callback: typing.Optional[typing.Callable] = None,
+        num_steps: Optional[int] = None,
+        post_process_fn: Optional[Callable] = None,
+        callback: Optional[Callable] = None,
     ) -> InverseDesignResult:
         """Continue the optimization run from a ``.pkl`` file with an ``InverseDesignResult``."""
         return self.continue_run_from_file(
@@ -262,7 +261,7 @@ class AbstractOptimizer(InvdesBaseModel, abc.ABC):
 class AdamOptimizer(AbstractOptimizer):
     """Specification for an optimization."""
 
-    beta1: float = pd.Field(
+    beta1: float = Field(
         0.9,
         ge=0.0,
         le=1.0,
@@ -270,7 +269,7 @@ class AdamOptimizer(AbstractOptimizer):
         description="Beta 1 parameter in the Adam optimization method.",
     )
 
-    beta2: float = pd.Field(
+    beta2: float = Field(
         0.999,
         ge=0.0,
         le=1.0,
@@ -278,40 +277,30 @@ class AdamOptimizer(AbstractOptimizer):
         description="Beta 2 parameter in the Adam optimization method.",
     )
 
-    eps: pd.PositiveFloat = pd.Field(
+    eps: PositiveFloat = Field(
         1e-8,
         title="Epsilon",
         description="Epsilon parameter in the Adam optimization method.",
     )
 
+    def _make_adam(self) -> Adam:
+        """Create a standalone ``Adam`` instance with matching hyperparameters."""
+        return Adam(
+            learning_rate=self.learning_rate,
+            beta1=self.beta1,
+            beta2=self.beta2,
+            eps=self.eps,
+        )
+
     def initial_state(self, parameters: np.ndarray) -> dict:
         """initial state of the optimizer"""
-        zeros = np.zeros_like(parameters)
-        return {"m": zeros, "v": zeros, "t": 0}
+        return self._make_adam().init(parameters)
 
     def update(
-        self, parameters: np.ndarray, gradient: np.ndarray, state: typing.Optional[dict] = None
+        self, parameters: np.ndarray, gradient: np.ndarray, state: Optional[dict] = None
     ) -> tuple[np.ndarray, dict]:
         if state is None:
             state = self.initial_state(parameters)
-
-        # get state
-        m = np.array(state["m"])
-        v = np.array(state["v"])
-        t = int(state["t"])
-
-        # update time step
-        t = t + 1
-
-        # update moment variables
-        m = self.beta1 * m + (1 - self.beta1) * gradient
-        v = self.beta2 * v + (1 - self.beta2) * (gradient**2)
-
-        # compute bias-corrected moment variables
-        m_ = m / (1 - self.beta1**t)
-        v_ = v / (1 - self.beta2**t)
-
-        # update parameters and state
-        parameters -= self.learning_rate * m_ / (np.sqrt(v_) + self.eps)
-        state = {"m": m, "v": v, "t": t}
-        return parameters, state
+        adam = self._make_adam()
+        updates, new_state = adam.update(gradient, state, parameters)
+        return apply_updates(parameters, updates), new_state

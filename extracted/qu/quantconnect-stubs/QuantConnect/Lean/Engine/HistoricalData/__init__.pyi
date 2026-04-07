@@ -75,11 +75,16 @@ class SynchronizingHistoryProvider(QuantConnect.Data.HistoryProviderBase, metacl
         ...
 
 
-class BrokerageHistoryProvider(QuantConnect.Lean.Engine.HistoricalData.SynchronizingHistoryProvider):
+class HistoryProviderManager(QuantConnect.Data.HistoryProviderBase):
     """
-    Provides an implementation of IHistoryProvider that relies on
-    a brokerage connection to retrieve historical data
+    Provides an implementation of IHistoryProvider which
+    acts as a wrapper to use multiple history providers together
     """
+
+    @property
+    def data_point_count(self) -> int:
+        """Gets the total number of data points emitted by this history provider"""
+        ...
 
     def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
         """
@@ -104,33 +109,6 @@ class BrokerageHistoryProvider(QuantConnect.Lean.Engine.HistoricalData.Synchroni
         Sets the brokerage to be used for historical requests
         
         :param brokerage: The brokerage instance
-        """
-        ...
-
-
-class FakeHistoryProvider(QuantConnect.Data.HistoryProviderBase):
-    """Provides FAKE implementation of IHistoryProvider used for testing. FakeDataQueue"""
-
-    @property
-    def data_point_count(self) -> int:
-        """Gets the total number of data points emitted by this history provider"""
-        ...
-
-    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
-        """
-        Gets the history for the requested securities
-        
-        :param requests: The historical data requests
-        :param slice_time_zone: The time zone used when time stamping the slice instances
-        :returns: An enumerable of the slices of data covering the span specified in each request.
-        """
-        ...
-
-    def initialize(self, parameters: QuantConnect.Data.HistoryProviderInitializeParameters) -> None:
-        """
-        Initializes this history provider to work for the specified job
-        
-        :param parameters: The initialization parameters
         """
         ...
 
@@ -247,16 +225,38 @@ class MappedSynchronizingHistoryProvider(QuantConnect.Lean.Engine.HistoricalData
         ...
 
 
-class HistoryProviderManager(QuantConnect.Data.HistoryProviderBase):
-    """
-    Provides an implementation of IHistoryProvider which
-    acts as a wrapper to use multiple history providers together
-    """
+class FakeHistoryProvider(QuantConnect.Data.HistoryProviderBase):
+    """Provides FAKE implementation of IHistoryProvider used for testing. FakeDataQueue"""
 
     @property
     def data_point_count(self) -> int:
         """Gets the total number of data points emitted by this history provider"""
         ...
+
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+        """
+        Gets the history for the requested securities
+        
+        :param requests: The historical data requests
+        :param slice_time_zone: The time zone used when time stamping the slice instances
+        :returns: An enumerable of the slices of data covering the span specified in each request.
+        """
+        ...
+
+    def initialize(self, parameters: QuantConnect.Data.HistoryProviderInitializeParameters) -> None:
+        """
+        Initializes this history provider to work for the specified job
+        
+        :param parameters: The initialization parameters
+        """
+        ...
+
+
+class BrokerageHistoryProvider(QuantConnect.Lean.Engine.HistoricalData.SynchronizingHistoryProvider):
+    """
+    Provides an implementation of IHistoryProvider that relies on
+    a brokerage connection to retrieve historical data
+    """
 
     def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
         """

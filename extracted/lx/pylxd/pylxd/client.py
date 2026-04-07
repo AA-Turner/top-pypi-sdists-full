@@ -331,6 +331,29 @@ class _APINode:
         return response
 
 
+def _ws_exclude_origin(kwargs):
+    """Ensure the WebSocket handshake never sends an Origin header.
+
+    PyLXD is a non-browser client.  ws4py always generates an Origin header
+    from the connection URL.  For Unix-socket connections the URL scheme is
+    ``ws+unix://``, which produces ``Origin: ws+unix://localhost`` while the
+    Host header becomes ``localhost:None`` (ws4py renders the Python ``None``
+    port literally).  gorilla/websocket's default CheckOrigin compares the
+    Origin host against the full Host header value and rejects the mismatch
+    with HTTP 403, so LXD times out waiting for the WebSocket to connect.
+
+    The function mutates *kwargs* in place so callers can pass it straight to
+    the ws4py ``WebSocketBaseClient.__init__``.  Existing excluded headers
+    supplied by the caller are preserved; the comparison is case-insensitive
+    because ws4py itself lowercases all entries before using them.
+    """
+    existing = kwargs.get("exclude_headers")
+    if existing is None:
+        kwargs["exclude_headers"] = ["origin"]
+    elif not any(h.lower() == "origin" for h in existing):
+        kwargs["exclude_headers"] = list(existing) + ["origin"]
+
+
 class _WebsocketClient(WebSocketBaseClient):
     """A basic websocket client for the LXD API.
 
@@ -339,6 +362,10 @@ class _WebsocketClient(WebSocketBaseClient):
     all json messages to a messages attribute, which can
     then be read are parsed.
     """
+
+    def __init__(self, *args, **kwargs):
+        _ws_exclude_origin(kwargs)
+        super().__init__(*args, **kwargs)
 
     def handshake_ok(self):
         self.messages = []
@@ -353,9 +380,11 @@ def _is_a_token(secret):
     """Inspect the provided secret to determine if it is a trust token.
 
     Try to base64 decode and parse the JSON to see if it contains a "secret" key.
+    Leading/trailing whitespace (newlines, spaces) are stripped before decoding,
+    since tokens are often copy-pasted with surrounding whitespace.
 
     :param secret: The secret to inspect
-    :type secret: str
+    :type secret: str or bytes
     :returns: True if the secret is a trust token
 
     >>> _is_a_token("password")
@@ -367,7 +396,11 @@ def _is_a_token(secret):
     True
     """
     try:
-        b64 = base64.b64decode(secret)
+        # Strip surrounding whitespace (newlines, spaces) that are common when
+        # tokens are copy-pasted, before strict decoding.
+        if isinstance(secret, (str, bytes)):
+            secret = secret.strip()
+        b64 = base64.b64decode(secret, validate=True)
         token = json.loads(b64.decode("utf-8"))
         return "secret" in token
     except (TypeError, ValueError, json.JSONDecodeError, base64.binascii.Error):

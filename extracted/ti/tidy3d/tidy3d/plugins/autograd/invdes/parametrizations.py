@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import Any, Callable, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import autograd.numpy as np
-import pydantic.v1 as pd
 from autograd import value_and_grad
-from numpy.typing import NDArray
+from pydantic import Field, NonNegativeFloat
 from scipy.optimize import minimize
 
-import tidy3d as td
+from tidy3d import log
 from tidy3d.components.autograd.functions import _straight_through_clip
 from tidy3d.components.base import Tidy3dBaseModel
 from tidy3d.components.grid.grid import Coords
@@ -18,31 +17,57 @@ from tidy3d.plugins.autograd.types import KernelType, PaddingType
 
 from .filters import make_filter
 from .projections import tanh_projection
+from .symmetries import MirrorSymmetry, expand_mirror_symmetry
+
+if TYPE_CHECKING:
+    from typing import Callable, Literal
+
+    from numpy.typing import NDArray
+
+    import tidy3d as td
 
 
 class FilterAndProject(Tidy3dBaseModel):
     """A class that combines filtering and projection operations."""
 
-    radius: Union[float, tuple[float, ...]] = pd.Field(
-        ..., title="Radius", description="The radius of the kernel."
+    radius: Union[float, tuple[float, ...]] = Field(
+        title="Radius",
+        description="The radius of the kernel.",
     )
-    dl: Union[float, tuple[float, ...]] = pd.Field(
-        ..., title="Grid Spacing", description="The grid spacing."
+    dl: Union[float, tuple[float, ...]] = Field(
+        title="Grid Spacing",
+        description="The grid spacing.",
     )
-    size_px: Union[int, tuple[int, ...]] = pd.Field(
-        None, title="Size in Pixels", description="The size of the kernel in pixels."
+    size_px: Optional[Union[int, tuple[int, ...]]] = Field(
+        None,
+        title="Size in Pixels",
+        description="The size of the kernel in pixels.",
     )
-    beta: pd.NonNegativeFloat = pd.Field(
-        BETA_DEFAULT, title="Beta", description="The beta parameter for the tanh projection."
+    beta: NonNegativeFloat = Field(
+        BETA_DEFAULT,
+        title="Beta",
+        description="The beta parameter for the tanh projection.",
     )
-    eta: pd.NonNegativeFloat = pd.Field(
-        ETA_DEFAULT, title="Eta", description="The eta parameter for the tanh projection."
+    eta: NonNegativeFloat = Field(
+        ETA_DEFAULT,
+        title="Eta",
+        description="The eta parameter for the tanh projection.",
     )
-    filter_type: KernelType = pd.Field(
-        "conic", title="Filter Type", description="The type of filter to create."
+    filter_type: KernelType = Field(
+        "conic",
+        title="Filter Type",
+        description="The type of filter to create.",
     )
-    padding: PaddingType = pd.Field(
-        "reflect", title="Padding", description="The padding mode to use."
+    padding: PaddingType = Field(
+        "reflect",
+        title="Padding",
+        description="The padding mode to use.",
+    )
+    symmetry: Optional[MirrorSymmetry] = Field(
+        None,
+        title="Mirror Symmetry",
+        description="Optional per-axis mirror symmetry applied by expanding the array across "
+        "selected low or high boundaries before filtering and projection.",
     )
 
     def __call__(
@@ -64,6 +89,11 @@ class FilterAndProject(Tidy3dBaseModel):
         np.ndarray
             The filtered and projected array.
         """
+        crop_slices = tuple(slice(None) for _ in range(array.ndim))
+        working_array = array
+        if self.symmetry is not None:
+            working_array, crop_slices = expand_mirror_symmetry(array, symmetry=self.symmetry)
+
         filter_instance = make_filter(
             radius=self.radius,
             dl=self.dl,
@@ -71,13 +101,13 @@ class FilterAndProject(Tidy3dBaseModel):
             filter_type=self.filter_type,
             padding=self.padding,
         )
-        filtered = filter_instance(array)
+        filtered = filter_instance(working_array)
         beta = beta if beta is not None else self.beta
         eta = eta if eta is not None else self.eta
         projected = tanh_projection(filtered, beta, eta)
         clip_projected = _straight_through_clip(projected, a_min=0.0, a_max=1.0)
 
-        return clip_projected
+        return clip_projected[crop_slices]
 
 
 def make_filter_and_project(
@@ -89,6 +119,7 @@ def make_filter_and_project(
     eta: float = ETA_DEFAULT,
     filter_type: KernelType = "conic",
     padding: PaddingType = "reflect",
+    symmetry: Optional[MirrorSymmetry] = None,
 ) -> Callable:
     """Create a function that filters and projects an array.
 
@@ -104,6 +135,7 @@ def make_filter_and_project(
         eta=eta,
         filter_type=filter_type,
         padding=padding,
+        symmetry=symmetry,
     )
 
 
@@ -138,6 +170,9 @@ def initialize_params_from_simulation(
       using coordinate-aware interpolation (no per-iteration interpolation).
     - Early stopping uses a single knob ``rel_improve_tol``; optimization stops once the
       relative improvement over a small fixed window falls below this value.
+    - If the design coordinates do not include the design geometry center, centered
+      symmetric features can look half-cell shifted or kinked after initialization.
+      This commonly happens with an even number of pixels across a centered design region.
     - Points outside the base‑epsilon coverage can be handled via ``outside_handling``:
       ``'extrapolate'`` (use nearest extrapolation, default in earlier versions),
       ``'mask'`` (ignore outside points using a coverage mask; default), or
@@ -224,6 +259,10 @@ def initialize_params_from_simulation(
         y=np.array(design_eps_da.coords["y"]),
         z=np.array(design_eps_da.coords["z"]),
     )
+    _warn_if_geometry_center_misses_design_coords(
+        coords=design_coords,
+        bounds=structure_init.geometry.bounds,
+    )
 
     if outside_handling == "nan":
         eps_base_interp = design_coords.spatial_interp(
@@ -250,7 +289,7 @@ def initialize_params_from_simulation(
         total = int(np.prod(mask.shape))
         frac = covered / max(total, 1)
         if frac < 0.9:
-            td.log.warning(
+            log.warning(
                 f"Only {frac:.1%} of design points are covered by base epsilon sampling. "
                 "Consider adding a 'MeshOverrideStructure' or adjusting design coordinates."
             )
@@ -297,6 +336,8 @@ def initialize_params_from_simulation(
 
     bounds_list = [bounds] * params0.size
     try:
+        if verbose:
+            log.warning("SciPy's L-BFGS-B optimizer no longer supports verbose output. ")
         res = minimize(
             fun=val_and_grad,
             x0=params0.ravel(),
@@ -304,9 +345,40 @@ def initialize_params_from_simulation(
             jac=True,
             bounds=bounds_list,
             callback=callback,
-            options={"maxiter": maxiter, "disp": verbose},
+            options={"maxiter": maxiter},
         )
         x_final = res.x
     except StopIteration:
         x_final = state["best_x"]
     return x_final.reshape(params0.shape)
+
+
+def _warn_if_geometry_center_misses_design_coords(
+    coords: Coords,
+    bounds: tuple[tuple[float, float, float], tuple[float, float, float]],
+    *,
+    rtol: float = 1e-9,
+    atol: float = 1e-12,
+) -> None:
+    """Warn when resolved design coordinates skip a finite geometry center."""
+
+    lower, upper = bounds
+    missed_axes = []
+    for axis, axis_coords, lo, hi in zip("xyz", coords.to_list, lower, upper):
+        if not np.isfinite(lo) or not np.isfinite(hi) or len(axis_coords) <= 1:
+            continue
+
+        center = 0.5 * (lo + hi)
+        if np.any(np.isclose(axis_coords, center, rtol=rtol, atol=atol)):
+            continue
+
+        missed_axes.append(f"{axis}={center:.6g}")
+
+    if missed_axes:
+        log.warning(
+            "Design coordinates do not include the geometry center "
+            f"({', '.join(missed_axes)}). Centered features may appear half-cell shifted "
+            "or kinked when combined with symmetry or projection constraints. "
+            "If you need a design pixel centered on the geometry center, use an odd number "
+            "of pixels along those axes."
+        )

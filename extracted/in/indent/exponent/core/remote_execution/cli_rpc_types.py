@@ -66,7 +66,7 @@ class ToolResult(msgspec.Struct, tag_field="tool_name", omit_defaults=True):
         This provides a default textual representation of the tool result. Override it as needed for your tool."""
         d = msgspec.to_builtins(self)
         del d["tool_name"]
-        return format_as_xml(d, include_root_tag=False, item_tag="item")
+        return format_as_xml(d, item_tag="item")
 
 
 class ErrorToolResult(ToolResult, tag="error"):
@@ -309,7 +309,7 @@ class BashToolResult(ToolResult, tag=BASH_TOOL_NAME, rename={"output": "shell_ou
         del d["tool_name"]
         if "shell_output" in d:
             d["bash_result"] = d.pop("shell_output")
-        return format_as_xml(d, include_root_tag=False, item_tag="item")
+        return format_as_xml(d, item_tag="item")
 
 
 DOWNLOAD_ARTIFACT_TOOL_NAME = "download_artifact"

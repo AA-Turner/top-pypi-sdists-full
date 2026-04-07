@@ -1,16 +1,23 @@
 from __future__ import annotations
 
 import typing
-from os import PathLike
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from tidy3d.components.types.workflow import WorkflowDataType, WorkflowType
 from tidy3d.config import config
 from tidy3d.log import get_logging_console
 from tidy3d.web.api.autograd.autograd import run as run_autograd
 from tidy3d.web.api.autograd.autograd import run_async
-from tidy3d.web.api.container import DEFAULT_DATA_DIR, DEFAULT_DATA_PATH
-from tidy3d.web.core.types import PayType
+from tidy3d.web.api.container import DEFAULT_DATA_DIR
+from tidy3d.web.api.run_options import log_deprecated_run_args
+from tidy3d.web.api.tidy3d_stub import task_type_name_of
+from tidy3d.web.api.webapi import default_data_filename
+
+if TYPE_CHECKING:
+    from os import PathLike
+
+    from tidy3d.web.core.types import PayType
 
 RunInput: typing.TypeAlias = typing.Union[
     WorkflowType,
@@ -91,28 +98,31 @@ def run(
     progress_callback_download: typing.Optional[typing.Callable[[float], None]] = None,
     solver_version: typing.Optional[str] = None,
     worker_group: typing.Optional[str] = None,
-    simulation_type: str = "tidy3d",
+    simulation_type: typing.Optional[str] = None,
     parent_tasks: typing.Optional[list[str]] = None,
     local_gradient: typing.Optional[bool] = None,
     max_num_adjoint_per_fwd: typing.Optional[int] = None,
     reduce_simulation: typing.Literal["auto", True, False] = "auto",
-    pay_type: typing.Union[PayType, str] = PayType.AUTO,
+    pay_type: typing.Optional[typing.Union[PayType, str]] = None,
     priority: typing.Optional[int] = None,
     max_workers: typing.Optional[int] = None,
     lazy: typing.Optional[bool] = None,
+    vgpu_allocation: typing.Optional[int] = None,
+    ignore_memory_limit: typing.Optional[bool] = None,
 ) -> RunOutput:
     """
     Submit one or many simulations and return results in the same container shape.
 
     This is a convenience wrapper around the autograd runners that accepts a single
-    :class:`WorkflowType` **or** an arbitrarily nested container of simulations
+    simulation **or** an arbitrarily nested container of simulations
     (`list`, `tuple`, or `dict` values). Internally, all simulations are collected,
     deduplicated by object hash, executed either synchronously (single) or
     asynchronously (batch), and the returned data objects are reassembled to mirror
     the input structure.
 
     **Path behavior**
-      - **Single simulation:** results are downloaded to ``f"{path}.hdf5"``.
+      - **Single simulation:** results are downloaded to ``f"{path}.hdf5"`` when ``path`` is
+        provided without a suffix.
       - **Multiple simulations:** ``path`` is treated as a **directory**, and each
         task will write its own results file inside that directory.
 
@@ -126,13 +136,14 @@ def run(
         A simulation or a container whose leaves are simulations.
         Supported containers are ``list``, ``tuple``, and ``dict`` (values only).
         Dict **keys must not** be simulations.
-    task_name : Optional[str], default None
+    task_name : Optional[str] = None
         Optional name for a single run. Prefixed for multiple runs.
     folder_name : str = "default"
         Folder shown on the web UI.
     path : Optional[PathLike] = None
         Output path. Interpreted as a file path for single simulations and a directory for multiple simulations.
-        Defaults are "simulation.hdf5" (single simulation) and the current directory (multiple simulations).
+        Defaults are task-type-specific filenames for single simulations and the current
+        directory for multiple simulations.
     callback_url : Optional[str] = None
         Optional HTTP PUT endpoint to receive completion events.
     verbose : bool = True
@@ -142,11 +153,12 @@ def run(
     progress_callback_download : Optional[Callable[[float], None]] = None
         Callback invoked with byte counts during download (single-run path only).
     solver_version : Optional[str] = None
-        Target solver version.
+        Target solver version. If ``None``, uses ``td.config.run.solver_version``.
     worker_group : Optional[str] = None
-        Worker group to target.
-    simulation_type : str = "tidy3d"
-        Simulation type label passed through to the runners.
+        Worker group to target. If ``None``, uses ``td.config.run.worker_group``.
+    simulation_type : Optional[str] = None
+        Simulation type label passed through to the runners. If ``None``, uses
+        ``td.config.run.simulation_type``.
     parent_tasks : Optional[List[str]] = None
         Parent task IDs, if any.
     local_gradient : Optional[bool] = None
@@ -158,8 +170,8 @@ def run(
         ``config.adjoint.max_adjoint_per_fwd`` when not provided.
     reduce_simulation : {"auto", True, False} = "auto"
         Whether to reduce structures to the simulation domain (mode solver only).
-    pay_type : Union[PayType, str] = PayType.AUTO
-        Payment method selection.
+    pay_type : Optional[Union[PayType, str]] = None
+        Payment method selection. If ``None``, uses ``td.config.run.pay_type``.
     priority : Optional[int] = None
         Queue priority for vGPU (1 = lowest, 10 = highest).
     max_workers : Optional[int] = None
@@ -167,6 +179,16 @@ def run(
     lazy : Optional[bool] = None
         Whether to load the actual data (``lazy=False``) or return a proxy that loads
         the data when accessed (``lazy=True``).
+    vgpu_allocation : Optional[int] = None
+        Number of virtual GPUs to allocate for the simulation (1, 2, 4, or 8).
+        Only applies to vGPU license users. If not specified, uses
+        ``td.config.vgpu.vgpu_allocation``.
+        If that is also unset, the system
+        automatically determines the optimal GPU count.
+    ignore_memory_limit : Optional[bool] = None
+        If ``True``, allows the simulation to run even when estimated vGPU memory
+        exceeds the allocation limit (up to 2x the limit). Only applies to
+        vGPU license users. If ``None``, uses ``td.config.vgpu.ignore_memory_limit``.
 
     Returns
     -------
@@ -183,6 +205,9 @@ def run(
     - For each simulation, a mode-solver compatibility patch is applied so that
       the returned data exposes expected convenience attributes.
     - ``progress_callback_*`` are only used in the single-run code path.
+    - Passing run options directly is deprecated. Set defaults via
+      ``td.config.run`` and ``td.config.vgpu`` instead. Non-``None`` values
+      passed here override the config for this call.
 
     Raises
     ------
@@ -194,25 +219,25 @@ def run(
 
     Examples
     --------
-        Single run (eager by default)::
+    Single run (eager by default)
 
-        .. code-block:: python
+    .. code-block:: python
 
-            sim_data = run(sim, task_name="wg_bend", path="out/bend")
-            # writes: "out/bend.hdf5"
+        sim_data = run(sim, task_name="wg_bend", path="out/bend")
+        # writes: "out/bend.hdf5"
 
-        Batch run with nested structure (lazy by default)::
+    Batch run with nested structure (lazy by default)
 
-        .. code-block:: python
+    .. code-block:: python
 
-            sims = {
-                "coarse": [sim_a, sim_b],
-                "fine": sim_c,
-            }
-            data = run(sims, path="out/batch_dir", max_workers=4)
+        sims = {
+            "coarse": [sim_a, sim_b],
+            "fine": sim_c,
+        }
+        data = run(sims, path="out/batch_dir", max_workers=4)
 
-            # 'data' mirrors 'sims' structure:
-            # data["coarse"][0] -> data for sim_a, etc.
+        # 'data' mirrors 'sims' structure:
+        # data["coarse"][0] -> data for sim_a, etc.
 
     See Also
     --------
@@ -239,9 +264,10 @@ def run(
                 path = f"{path}.hdf5"
                 console = get_logging_console()
                 console.log(f"Changed output path to {path}")
-        else:
-            path = DEFAULT_DATA_PATH
         h, sim = next(iter(h2sim.items()))
+        if path is None:
+            path = default_data_filename(task_type_name_of(sim))
+        log_deprecated_run_args(simulation_type=simulation_type)
         data = {
             h: run_autograd(
                 simulation=sim,
@@ -261,6 +287,8 @@ def run(
                 reduce_simulation=reduce_simulation,
                 pay_type=pay_type,
                 priority=priority,
+                vgpu_allocation=vgpu_allocation,
+                ignore_memory_limit=ignore_memory_limit,
                 lazy=lazy if lazy is not None else False,
             )
         }
@@ -283,6 +311,8 @@ def run(
             reduce_simulation=reduce_simulation,
             pay_type=pay_type,
             priority=priority,
+            vgpu_allocation=vgpu_allocation,
+            ignore_memory_limit=ignore_memory_limit,
             lazy=lazy if lazy is not None else True,
         )
 

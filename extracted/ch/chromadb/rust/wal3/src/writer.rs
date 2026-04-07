@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
 use arrow::array::{ArrayRef, BinaryArray, RecordBatch, UInt64Array};
-use chroma_storage::StorageError;
+use chroma_storage::{GetOptions, StorageError};
 use chroma_types::Cmek;
 use opentelemetry::trace::TraceContextExt;
 use parquet::arrow::ArrowWriter;
@@ -21,9 +21,10 @@ use crate::interfaces::{
     ManifestPublisher,
 };
 use crate::{
-    BatchManager, CursorStore, CursorStoreOptions, Error, ExponentialBackoff, Fragment,
-    FragmentSeqNo, Garbage, GarbageCollectionOptions, LogPosition, LogReader, LogReaderOptions,
-    LogWriterOptions, Manifest, ManifestAndWitness, ManifestManager,
+    parse_fragment_path, BatchManager, CursorStore, CursorStoreOptions, Error, ExponentialBackoff,
+    Fragment, FragmentSeqNo, FragmentUuid, Garbage, GarbageCollectionOptions,
+    GarbageCollectionState, LogPosition, LogReader, LogReaderOptions, LogWriterOptions, Manifest,
+    ManifestAndWitness, ManifestManager,
 };
 
 /// The epoch writer is a counting writer.  Every epoch exists.  An epoch goes
@@ -142,17 +143,26 @@ impl<
             reopen_protection,
             cmek,
         };
-        match this.ensure_open().await {
-            Ok(_) => {}
-            Err(Error::UninitializedLog) => {
-                Self::initialize(&this.new_manifest_publisher, &this.writer).await?;
-                this.ensure_open().await?;
-            }
-            Err(err) => {
-                return Err(err);
+        let mut last_err = None;
+        for _ in 0..3 {
+            match this.ensure_open().await {
+                Ok(_) => return Ok(this),
+                Err(Error::UninitializedLog) => {
+                    last_err = Some(Error::UninitializedLog);
+                    match Self::initialize(&this.new_manifest_publisher, &this.writer).await {
+                        Ok(_) | Err(Error::AlreadyInitialized) => {}
+                        Err(err) => return Err(err),
+                    };
+                }
+                Err(Error::LogContentionRetry) => {
+                    last_err = Some(Error::LogContentionRetry);
+                }
+                Err(err) => {
+                    return Err(err);
+                }
             }
         }
-        Ok(this)
+        Err(last_err.unwrap_or(Error::LogContentionRetry))
     }
 
     /// Given a contiguous subset of data from some other location (preferably another log),
@@ -286,7 +296,7 @@ impl<
         &self,
         options: &GarbageCollectionOptions,
         keep_at_least: Option<LogPosition>,
-    ) -> Result<bool, Error> {
+    ) -> Result<Option<GarbageCollectionState>, Error> {
         let once_log_garbage_collect =
             move |log: &Arc<OnceLogWriter<P, FP::Publisher, MP::Publisher>>| {
                 let options = options.clone();
@@ -317,12 +327,18 @@ impl<
     pub async fn garbage_collect_phase3_delete_garbage(
         &self,
         options: &GarbageCollectionOptions,
+        gc_state: &GarbageCollectionState,
     ) -> Result<(), Error> {
+        let gc_state = gc_state.clone();
         let once_log_garbage_collect =
             move |log: &Arc<OnceLogWriter<P, FP::Publisher, MP::Publisher>>| {
                 let options = options.clone();
+                let gc_state = gc_state.clone();
                 let log = Arc::clone(log);
-                async move { log.garbage_collect_phase3_delete_garbage(&options).await }
+                async move {
+                    log.garbage_collect_phase3_delete_garbage(&options, &gc_state)
+                        .await
+                }
             };
         self.handle_errors_and_contention(once_log_garbage_collect)
             .await
@@ -724,14 +740,18 @@ impl<P: FragmentPointer, FP: FragmentPublisher<FragmentPointer = P>, MP: Manifes
     /// - gc/GARBAGE exists as a non-empty file.
     /// - snapshots created by gc/GARBAGE get created.
     ///
-    /// Returns Ok(false) if there is no garbage to act upon (e.g., it's already been collected).
-    /// Returns Ok(true) if there is garbage to act upon.
+    /// Returns the GarbageCollectionState token that must be passed to phase 3.
+    /// The state carries the set of affirmatively collected UUID fragments so that phase 3 can
+    /// delete them unconditionally, while applying a grace period to unlisted orphans.
+    ///
+    /// Returns Ok(None) if there is no garbage to act upon.
+    /// Returns Ok(Some(state)) if there is garbage to act upon.
     #[tracing::instrument(skip(self, options))]
     pub(crate) async fn garbage_collect_phase1_compute_garbage(
         &self,
         options: &GarbageCollectionOptions,
         keep_at_least: Option<LogPosition>,
-    ) -> Result<bool, Error> {
+    ) -> Result<Option<GarbageCollectionState>, Error> {
         let cutoff = self.garbage_collection_cutoff().await?;
         let cutoff = if let Some(keep_at_least) = keep_at_least {
             keep_at_least.min(cutoff)
@@ -777,7 +797,10 @@ impl<P: FragmentPointer, FP: FragmentPublisher<FragmentPointer = P>, MP: Manifes
             };
             let e_tag = if let Some((garbage, e_tag)) = garbage_and_e_tag {
                 if !garbage.is_empty() {
-                    return Ok(true);
+                    let maw = self.manifest_manager.manifest_and_witness().await?;
+                    let state =
+                        GarbageCollectionState::from_manifest_and_garbage(&maw.manifest, &garbage);
+                    return Ok(Some(state));
                 }
                 e_tag
             } else {
@@ -788,8 +811,10 @@ impl<P: FragmentPointer, FP: FragmentPublisher<FragmentPointer = P>, MP: Manifes
                 .compute_garbage(options, cutoff)
                 .await?;
             let Some(garbage) = garbage else {
-                return Ok(false);
+                return Ok(None);
             };
+            let maw = self.manifest_manager.manifest_and_witness().await?;
+            let state = GarbageCollectionState::from_manifest_and_garbage(&maw.manifest, &garbage);
             match garbage
                 .install(
                     &self.manifest_manager,
@@ -799,7 +824,7 @@ impl<P: FragmentPointer, FP: FragmentPublisher<FragmentPointer = P>, MP: Manifes
                 )
                 .await
             {
-                Ok(_) => return Ok(true),
+                Ok(_) => return Ok(Some(state)),
                 Err(Error::LogContentionFailure)
                 | Err(Error::LogContentionRetry)
                 | Err(Error::LogContentionDurable) => {}
@@ -850,11 +875,37 @@ impl<P: FragmentPointer, FP: FragmentPublisher<FragmentPointer = P>, MP: Manifes
     ///
     /// Post-condition:
     /// - gc/GARBAGE and the files it references get deleted.
-    #[tracing::instrument(skip(self, options))]
+    #[tracing::instrument(skip(self, options, gc_state))]
     pub(crate) async fn garbage_collect_phase3_delete_garbage(
         &self,
         options: &GarbageCollectionOptions,
+        gc_state: &GarbageCollectionState,
     ) -> Result<(), Error> {
+        async fn delete_paths_in_batches<I, F, Fut>(
+            paths: I,
+            batch_size: usize,
+            exp_backoff: ExponentialBackoff,
+            delete_batch: F,
+        ) -> Result<(), Error>
+        where
+            I: IntoIterator<Item = String>,
+            F: Fn(Vec<String>, ExponentialBackoff) -> Fut,
+            Fut: Future<Output = Result<(), Error>>,
+        {
+            let mut batch = vec![];
+            for path in paths {
+                batch.push(path);
+                if batch.len() >= batch_size {
+                    let batch = std::mem::take(&mut batch);
+                    delete_batch(batch, exp_backoff.clone()).await?;
+                }
+            }
+            if !batch.is_empty() {
+                delete_batch(batch, exp_backoff).await?;
+            }
+            Ok(())
+        }
+
         let exp_backoff: ExponentialBackoff = options.throttle.into();
         let start = Instant::now();
         let (garbage, e_tag) =
@@ -870,7 +921,6 @@ impl<P: FragmentPointer, FP: FragmentPublisher<FragmentPointer = P>, MP: Manifes
                 "loaded garbage without e_tag".to_string(),
             ));
         };
-        let mut batch = vec![];
         let storage = self.batch_manager.preferred_storage().await;
         let delete_batch = |batch: Vec<String>, exp_backoff: ExponentialBackoff| {
             let storage = storage.clone();
@@ -909,15 +959,63 @@ impl<P: FragmentPointer, FP: FragmentPublisher<FragmentPointer = P>, MP: Manifes
             }
         };
         let prefix = self.batch_manager.preferred_prefix().await;
-        for path in garbage.prefixed_paths_to_delete(&prefix) {
-            batch.push(path);
-            if batch.len() >= 100 {
-                let batch = std::mem::take(&mut batch);
-                delete_batch(batch, exp_backoff.clone()).await?;
+        delete_paths_in_batches(
+            garbage.prefixed_paths_to_delete(&prefix),
+            100,
+            exp_backoff.clone(),
+            &delete_batch,
+        )
+        .await?;
+        if garbage.fragments_are_uuids {
+            if let Some(limit_uuid) = garbage.fragments_to_drop_uuid_limit {
+                let collected_uuids = gc_state.collected_uuids();
+                // The grace period protects fragments uploaded to storage but not yet linked
+                // into the manifest.  Fragments affirmatively collected in phase 1 (present
+                // in collected_uuids) are deleted unconditionally.  All other unlisted
+                // fragments older than the grace period are treated as orphans and deleted.
+                let grace_period = Duration::from_secs(options.uuid_grace_period_secs);
+                let grace_cutoff = FragmentUuid::cutoff_for_grace_period(grace_period);
+                let fragment_root = format!("{}/log/", prefix);
+                let possible_fragments = storage
+                    .list_prefix(&fragment_root, GetOptions::default())
+                    .await
+                    .map_err(Arc::new)?;
+                tracing::info!(num_fragments = %possible_fragments.len(), "deleting possible paths");
+                let candidate_paths = possible_fragments.into_iter().filter_map(|full_path| {
+                    let unprefixed_path = match full_path.strip_prefix(&prefix) {
+                        Some(unprefixed_path) => unprefixed_path,
+                        None => {
+                            return Some(Err(Error::GarbageCollection(format!(
+                                "got a fragment I don't trust: {full_path}"
+                            ))));
+                        }
+                    };
+                    let candidate = unprefixed_path.trim_start_matches('/');
+                    let fragment_id = match parse_fragment_path(candidate) {
+                        Some(fragment_id) => fragment_id,
+                        None => return None,
+                    };
+                    let uuid = match fragment_id.as_uuid() {
+                        Some(uuid) => uuid,
+                        None => return None,
+                    };
+                    let dominated_by_limit = uuid < limit_uuid;
+                    let affirmatively_collected = collected_uuids.contains(&uuid);
+                    let old_orphan = !affirmatively_collected && uuid < grace_cutoff;
+                    if dominated_by_limit && (affirmatively_collected || old_orphan) {
+                        Some(Ok(full_path))
+                    } else {
+                        None
+                    }
+                });
+                delete_paths_in_batches(
+                    candidate_paths.collect::<Result<Vec<_>, _>>()?,
+                    100,
+                    exp_backoff.clone(),
+                    &delete_batch,
+                )
+                .await?;
             }
-        }
-        if !batch.is_empty() {
-            delete_batch(batch, exp_backoff.clone()).await?;
         }
         self.batch_manager
             .reset_garbage(&self.options.throttle_manifest, e_tag)
@@ -931,10 +1029,13 @@ impl<P: FragmentPointer, FP: FragmentPublisher<FragmentPointer = P>, MP: Manifes
         options: &GarbageCollectionOptions,
         keep_at_least: Option<LogPosition>,
     ) -> Result<(), Error> {
-        self.garbage_collect_phase1_compute_garbage(options, keep_at_least)
-            .await?;
+        let gc_state = self
+            .garbage_collect_phase1_compute_garbage(options, keep_at_least)
+            .await?
+            .unwrap_or_default();
         self.garbage_collect_phase2_update_manifest(options).await?;
-        self.garbage_collect_phase3_delete_garbage(options).await?;
+        self.garbage_collect_phase3_delete_garbage(options, &gc_state)
+            .await?;
         Ok(())
     }
 
@@ -1050,11 +1151,14 @@ pub fn construct_parquet(
 mod tests {
     use super::*;
 
+    use std::collections::VecDeque;
+
     use arrow::array::Array;
     use bytes::Bytes;
     use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 
     use crate::interfaces::checksum_parquet;
+    use crate::{Snapshot, SnapshotPointer};
 
     const TEST_EPOCH_MICROS: u64 = 1234567890123456;
 
@@ -1443,6 +1547,329 @@ mod tests {
         assert_eq!(
             setsum_from_writer, setsum_from_reader,
             "writer and reader setsums should match for absolute-offset files"
+        );
+    }
+
+    struct TestFragmentFactory;
+
+    struct TestFragmentPublisher;
+
+    struct TestFragmentConsumer;
+
+    #[async_trait::async_trait]
+    impl crate::FragmentManagerFactory for TestFragmentFactory {
+        type FragmentPointer = (FragmentSeqNo, LogPosition);
+        type Publisher = TestFragmentPublisher;
+        type Consumer = TestFragmentConsumer;
+
+        async fn make_publisher(&self) -> Result<Self::Publisher, Error> {
+            Ok(TestFragmentPublisher)
+        }
+
+        async fn make_consumer(&self) -> Result<Self::Consumer, Error> {
+            Ok(TestFragmentConsumer)
+        }
+
+        async fn preferred_storage(&self) -> chroma_storage::Storage {
+            unreachable!("preferred_storage is not used in this test")
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl crate::FragmentPublisher for TestFragmentPublisher {
+        type FragmentPointer = (FragmentSeqNo, LogPosition);
+
+        async fn push_work(
+            &self,
+            _messages: Vec<Vec<u8>>,
+            _tx: tokio::sync::oneshot::Sender<Result<LogPosition, Error>>,
+            _span: Span,
+        ) {
+            unreachable!("push_work is not used in this test")
+        }
+
+        async fn take_work(
+            &self,
+            _manifest_manager: &(dyn crate::ManifestPublisher<Self::FragmentPointer> + Sync),
+        ) -> Result<
+            Option<(
+                Self::FragmentPointer,
+                Vec<(
+                    Vec<Vec<u8>>,
+                    tokio::sync::oneshot::Sender<Result<LogPosition, Error>>,
+                    Span,
+                )>,
+            )>,
+            Error,
+        > {
+            unreachable!("take_work is not used in this test")
+        }
+
+        async fn finish_write(&self) {
+            unreachable!("finish_write is not used in this test")
+        }
+
+        async fn wait_for_writable(&self) {
+            unreachable!("wait_for_writable is not used in this test")
+        }
+
+        fn until_next_time(&self) -> Duration {
+            unreachable!("until_next_time is not used in this test")
+        }
+
+        async fn upload_parquet(
+            &self,
+            _pointer: &Self::FragmentPointer,
+            _messages: Vec<Vec<u8>>,
+            _cmek: Option<Cmek>,
+            _epoch_micros: u64,
+        ) -> Result<crate::interfaces::UploadResult, Error> {
+            unreachable!("upload_parquet is not used in this test")
+        }
+
+        async fn read_json_file(
+            &self,
+            _path: &str,
+        ) -> Result<(Arc<Vec<u8>>, Option<chroma_storage::ETag>), Error> {
+            unreachable!("read_json_file is not used in this test")
+        }
+
+        async fn preferred_storage(&self) -> chroma_storage::Storage {
+            unreachable!("preferred_storage is not used in this test")
+        }
+
+        async fn preferred_prefix(&self) -> String {
+            unreachable!("preferred_prefix is not used in this test")
+        }
+
+        async fn storages(&self) -> Vec<crate::StorageWrapper> {
+            unreachable!("storages is not used in this test")
+        }
+
+        fn shutdown_prepare(&self) {}
+
+        fn shutdown_finish(&self) {}
+
+        async fn write_garbage(
+            &self,
+            _options: &crate::ThrottleOptions,
+            _existing: Option<&chroma_storage::ETag>,
+            _garbage: &Garbage,
+        ) -> Result<Option<chroma_storage::ETag>, Error> {
+            unreachable!("write_garbage is not used in this test")
+        }
+
+        async fn reset_garbage(
+            &self,
+            _options: &crate::ThrottleOptions,
+            _e_tag: &chroma_storage::ETag,
+        ) -> Result<(), Error> {
+            unreachable!("reset_garbage is not used in this test")
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl crate::FragmentConsumer for TestFragmentConsumer {
+        async fn read_bytes(&self, _path: &str) -> Result<Arc<Vec<u8>>, Error> {
+            unreachable!("read_bytes is not used in this test")
+        }
+
+        async fn parse_parquet(
+            &self,
+            _parquet: &[u8],
+            _starting_log_position: LogPosition,
+        ) -> Result<(Setsum, Vec<(LogPosition, Vec<u8>)>, u64, u64), Error> {
+            unreachable!("parse_parquet is not used in this test")
+        }
+
+        async fn parse_parquet_fast(
+            &self,
+            _parquet: &[u8],
+            _starting_log_position: LogPosition,
+        ) -> Result<(Vec<(LogPosition, Vec<u8>)>, u64, u64), Error> {
+            unreachable!("parse_parquet_fast is not used in this test")
+        }
+
+        async fn read_fragment(
+            &self,
+            _path: &str,
+            _fragment_first_log_position: LogPosition,
+        ) -> Result<Option<Fragment>, Error> {
+            unreachable!("read_fragment is not used in this test")
+        }
+    }
+
+    struct TestManifestFactory {
+        recover_results: Arc<Mutex<VecDeque<Result<(), Error>>>>,
+        init_calls: Arc<Mutex<usize>>,
+    }
+
+    impl TestManifestFactory {
+        fn new(recover_results: Vec<Result<(), Error>>) -> Self {
+            Self {
+                recover_results: Arc::new(Mutex::new(recover_results.into())),
+                init_calls: Arc::new(Mutex::new(0)),
+            }
+        }
+    }
+
+    struct TestManifestPublisher {
+        recover_results: Arc<Mutex<VecDeque<Result<(), Error>>>>,
+    }
+
+    struct TestManifestConsumer;
+
+    #[async_trait::async_trait]
+    impl crate::ManifestManagerFactory for TestManifestFactory {
+        type FragmentPointer = (FragmentSeqNo, LogPosition);
+        type Publisher = TestManifestPublisher;
+        type Consumer = TestManifestConsumer;
+
+        async fn init_manifest(&self, _manifest: &Manifest) -> Result<(), Error> {
+            *self.init_calls.lock().unwrap() += 1;
+            Ok(())
+        }
+
+        async fn open_publisher(&self) -> Result<Self::Publisher, Error> {
+            Ok(TestManifestPublisher {
+                recover_results: Arc::clone(&self.recover_results),
+            })
+        }
+
+        async fn make_consumer(&self) -> Result<Self::Consumer, Error> {
+            Ok(TestManifestConsumer)
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl crate::ManifestPublisher<(FragmentSeqNo, LogPosition)> for TestManifestPublisher {
+        async fn recover(&mut self) -> Result<(), Error> {
+            self.recover_results
+                .lock()
+                .unwrap()
+                .pop_front()
+                .unwrap_or(Ok(()))
+        }
+
+        async fn manifest_and_witness(&self) -> Result<ManifestAndWitness, Error> {
+            unreachable!("manifest_and_witness is not used in this test")
+        }
+
+        fn assign_timestamp(&self, _record_count: usize) -> Option<(FragmentSeqNo, LogPosition)> {
+            unreachable!("assign_timestamp is not used in this test")
+        }
+
+        async fn publish_fragment(
+            &self,
+            _pointer: &(FragmentSeqNo, LogPosition),
+            _path: &str,
+            _messages_len: u64,
+            _num_bytes: u64,
+            _setsum: Setsum,
+            _successful_regions: &[String],
+        ) -> Result<LogPosition, Error> {
+            unreachable!("publish_fragment is not used in this test")
+        }
+
+        async fn garbage_applies_cleanly(&self, _garbage: &Garbage) -> Result<bool, Error> {
+            unreachable!("garbage_applies_cleanly is not used in this test")
+        }
+
+        async fn apply_garbage(&self, _garbage: Garbage) -> Result<(), Error> {
+            unreachable!("apply_garbage is not used in this test")
+        }
+
+        async fn compute_garbage(
+            &self,
+            _options: &GarbageCollectionOptions,
+            _first_to_keep: LogPosition,
+        ) -> Result<Option<Garbage>, Error> {
+            unreachable!("compute_garbage is not used in this test")
+        }
+
+        async fn snapshot_load(
+            &self,
+            _pointer: &SnapshotPointer,
+        ) -> Result<Option<Snapshot>, Error> {
+            unreachable!("snapshot_load is not used in this test")
+        }
+
+        async fn snapshot_install(&self, _snapshot: &Snapshot) -> Result<SnapshotPointer, Error> {
+            unreachable!("snapshot_install is not used in this test")
+        }
+
+        async fn manifest_head(&self, _witness: &crate::ManifestWitness) -> Result<bool, Error> {
+            unreachable!("manifest_head is not used in this test")
+        }
+
+        async fn manifest_load(&self) -> Result<Option<(Manifest, crate::ManifestWitness)>, Error> {
+            unreachable!("manifest_load is not used in this test")
+        }
+
+        fn shutdown(&self) {}
+
+        async fn destroy(&self) -> Result<(), Error> {
+            unreachable!("destroy is not used in this test")
+        }
+
+        async fn load_intrinsic_cursor(&self) -> Result<Option<LogPosition>, Error> {
+            unreachable!("load_intrinsic_cursor is not used in this test")
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl crate::ManifestConsumer<(FragmentSeqNo, LogPosition)> for TestManifestConsumer {
+        async fn snapshot_load(
+            &self,
+            _pointer: &SnapshotPointer,
+        ) -> Result<Option<Snapshot>, Error> {
+            unreachable!("snapshot_load is not used in this test")
+        }
+
+        async fn manifest_head(&self, _witness: &crate::ManifestWitness) -> Result<bool, Error> {
+            unreachable!("manifest_head is not used in this test")
+        }
+
+        async fn manifest_load(&self) -> Result<Option<(Manifest, crate::ManifestWitness)>, Error> {
+            unreachable!("manifest_load is not used in this test")
+        }
+
+        async fn update_intrinsic_cursor(
+            &self,
+            _position: LogPosition,
+            _epoch_us: u64,
+            _writer: &str,
+            _allow_rollback: bool,
+        ) -> Result<Option<crate::CursorWitness>, Error> {
+            unreachable!("update_intrinsic_cursor is not used in this test")
+        }
+
+        async fn load_intrinsic_cursor(&self) -> Result<Option<LogPosition>, Error> {
+            unreachable!("load_intrinsic_cursor is not used in this test")
+        }
+    }
+
+    #[tokio::test]
+    async fn open_or_initialize_returns_last_retryable_error() {
+        let manifest_factory = TestManifestFactory::new(vec![
+            Err(Error::UninitializedLog),
+            Err(Error::UninitializedLog),
+            Err(Error::UninitializedLog),
+        ]);
+
+        let err = LogWriter::open_or_initialize(
+            LogWriterOptions::default(),
+            "test-writer",
+            TestFragmentFactory,
+            manifest_factory,
+            None,
+        )
+        .await
+        .expect_err("open_or_initialize should return the last retryable error");
+
+        assert!(
+            matches!(err, Error::UninitializedLog),
+            "expected UninitializedLog, got {err:?}"
         );
     }
 }

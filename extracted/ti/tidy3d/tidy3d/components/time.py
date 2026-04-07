@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 import numpy as np
-import pydantic.v1 as pydantic
+from pydantic import Field, NonNegativeFloat
 
 from tidy3d.constants import RADIAN
 from tidy3d.exceptions import SetupError
 
 from .base import Tidy3dBaseModel
-from .types import ArrayFloat1D, Ax, PlotVal
 from .viz import add_ax_if_none
+
+if TYPE_CHECKING:
+    from typing import Union
+
+    from .types import ArrayComplex1D, ArrayFloat1D, Ax, PlotVal
 
 # in spectrum computation, discard amplitudes with relative magnitude smaller than cutoff
 DFT_CUTOFF = 1e-8
@@ -21,27 +26,30 @@ DFT_CUTOFF = 1e-8
 class AbstractTimeDependence(ABC, Tidy3dBaseModel):
     """Base class describing time dependence."""
 
-    amplitude: pydantic.NonNegativeFloat = pydantic.Field(
+    amplitude: NonNegativeFloat = Field(
         1.0, title="Amplitude", description="Real-valued maximum amplitude of the time dependence."
     )
 
-    phase: float = pydantic.Field(
-        0.0, title="Phase", description="Phase shift of the time dependence.", units=RADIAN
+    phase: float = Field(
+        0.0,
+        title="Phase",
+        description="Phase shift of the time dependence.",
+        json_schema_extra={"units": RADIAN},
     )
 
     @abstractmethod
-    def amp_time(self, time: float) -> complex:
+    def amp_time(self, time: Union[float, ArrayFloat1D]) -> ArrayComplex1D:
         """Complex-valued amplitude as a function of time.
 
         Parameters
         ----------
-        time : float
-            Time in seconds.
+        time : Union[float, ArrayFloat1D]
+            Time in seconds, either a single value or an array.
 
         Returns
         -------
-        complex
-            Complex-valued amplitude at that time.
+        ArrayComplex1D
+            Complex-valued amplitude at the given time(s).
         """
 
     def spectrum(

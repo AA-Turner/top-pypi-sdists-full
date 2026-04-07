@@ -7,10 +7,10 @@ import pytest
 from jsonschema import ValidationError, validate
 
 from PyPDFForm import Annotations, BlankPage, Fields, PdfArray, PdfWrapper
-from PyPDFForm.constants import DA, UNIQUE_SUFFIX_LENGTH, T, V
-from PyPDFForm.deprecation import deprecation_notice
-from PyPDFForm.middleware.base import Widget
-from PyPDFForm.template import get_widgets_by_page
+from PyPDFForm.lib.constants import DA, UNIQUE_SUFFIX_LENGTH, T, V
+from PyPDFForm.lib.deprecation import deprecation_notice
+from PyPDFForm.lib.middleware.base import Widget
+from PyPDFForm.lib.template import get_widgets_by_page
 
 
 def test_deprecation_warning():
@@ -25,6 +25,70 @@ def test_deprecation_warning():
         match="MockClass.old_method will be deprecated soon. Use MockClass.new_method instead.",
     ):
         assert obj.old_method() == "result"
+
+
+def test_deprecation_warning_with_param():
+    class MockClass:
+        @deprecation_notice(to_replace="old_method.new_param", param="old_param")
+        def old_method(self):
+            return "result"
+
+    obj = MockClass()
+    with pytest.warns(
+        DeprecationWarning,
+        match="MockClass.old_method.old_param will be deprecated soon. Use MockClass.old_method.new_param instead.",
+    ):
+        assert obj.old_method() == "result"
+
+
+def test_deprecation_warning_empty_replace():
+    class MockClass:
+        @deprecation_notice(to_replace="")
+        def old_method(self):
+            return "result"
+
+    obj = MockClass()
+    with pytest.warns(
+        DeprecationWarning,
+        match="MockClass.old_method will be deprecated soon.",
+    ) as record:
+        assert obj.old_method() == "result"
+    assert "Use" not in str(record[0].message)
+
+
+def test_deprecation_warning_direct_call():
+    class MockClass:
+        def my_method(self, use_legacy=False):
+            if use_legacy:
+                deprecation_notice(to_replace="", param="use_legacy").emit_notice(
+                    self, "my_method"
+                )
+            return "result"
+
+    obj = MockClass()
+    assert obj.my_method(use_legacy=False) == "result"
+    with pytest.warns(
+        DeprecationWarning,
+        match="MockClass.my_method.use_legacy will be deprecated soon.",
+    ):
+        assert obj.my_method(use_legacy=True) == "result"
+
+
+def test_deprecation_warning_direct_call_with_replace():
+    class MockClass:
+        def my_method(self, use_legacy=False):
+            if use_legacy:
+                deprecation_notice(
+                    to_replace="my_method.new_param", param="use_legacy"
+                ).emit_notice(self, "my_method")
+            return "result"
+
+    obj = MockClass()
+    with pytest.warns(
+        DeprecationWarning,
+        match="MockClass.my_method.use_legacy will be deprecated soon. Use MockClass.my_method.new_param instead.",
+    ):
+        assert obj.my_method(use_legacy=True) == "result"
 
 
 def test_base_schema_definition():

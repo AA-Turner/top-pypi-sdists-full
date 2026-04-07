@@ -228,6 +228,7 @@ class DatadogMetricsReporter:
                     {
                         "service.name": SERVICE_NAME,
                         "host.id": os.getenv("HOSTNAME", ""),
+                        # Not in public docs: these LANGSMITH_* vars are set by SaaS control plane
                         "api_version": os.getenv("LANGSMITH_LANGGRAPH_API_VERSION")
                         or __version__,
                         "project_id": os.getenv("LANGSMITH_HOST_PROJECT_ID", ""),

@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import tempfile
 from datetime import datetime
-from os import PathLike
-from typing import Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
-import requests
 from botocore.exceptions import ClientError
-from pydantic.v1 import Extra, Field, parse_obj_as
+from pydantic import Field, TypeAdapter
 
 import tidy3d as td
 from tidy3d.config import config
-from tidy3d.exceptions import ValidationError
+from tidy3d.exceptions import ValidationError, format_chained_exception_message
 
 from . import http_util
 from .cache import FOLDER_CACHE
@@ -32,17 +31,40 @@ from .file_util import read_simulation_from_hdf5
 from .http_util import get_version as _get_protocol_version
 from .http_util import http
 from .s3utils import download_file, download_gz_file, upload_file
-from .stub import TaskStub
 from .task_info import BatchDetail, TaskInfo
 from .types import PayType, Queryable, ResourceLifecycle, Submittable, Tidy3DResource
 
+if TYPE_CHECKING:
+    from os import PathLike
+    from typing import Callable, Union
 
-class Folder(Tidy3DResource, Queryable, extra=Extra.allow):
+    import requests
+
+    from .stub import TaskStub
+
+
+def _serialize_additional_payload(
+    additional_payload: Optional[Union[dict[str, Any], str]],
+) -> Optional[str]:
+    """Serialize additional submit payloads to JSON strings."""
+
+    if additional_payload is None or isinstance(additional_payload, str):
+        return additional_payload
+    return json.dumps(additional_payload)
+
+
+class Folder(Tidy3DResource, Queryable, extra="allow"):
     """Tidy3D Folder."""
 
-    folder_id: str = Field(..., title="Folder id", description="folder id", alias="projectId")
+    folder_id: str = Field(
+        title="Folder id",
+        description="folder id",
+        alias="projectId",
+    )
     folder_name: str = Field(
-        ..., title="Folder name", description="folder name", alias="projectName"
+        title="Folder name",
+        description="folder name",
+        alias="projectName",
     )
 
     @classmethod
@@ -55,14 +77,7 @@ class Folder(Tidy3DResource, Queryable, extra=Extra.allow):
             List of folders
         """
         resp = http.get(projects_endpoint)
-        return (
-            parse_obj_as(
-                list[Folder],
-                resp,
-            )
-            if resp
-            else None
-        )
+        return TypeAdapter(list[Folder]).validate_python(resp) if resp else None
 
     @classmethod
     def get(
@@ -130,25 +145,18 @@ class Folder(Tidy3DResource, Queryable, extra=Extra.allow):
 
         Returns
         -------
-        tasks : List[:class:`.SimulationTask`]
+        tasks : list[:class:`.SimulationTask`]
             List of tasks in this folder
         """
         resp = http.get(f"{projects_endpoint}/{self.folder_id}/tasks")
-        return (
-            parse_obj_as(
-                list[SimulationTask],
-                resp,
-            )
-            if resp
-            else None
-        )
+        return TypeAdapter(list[SimulationTask]).validate_python(resp) if resp else None
 
 
-class WebTask(ResourceLifecycle, Submittable, extra=Extra.allow):
+class WebTask(ResourceLifecycle, Submittable, extra="allow"):
     """Interface for managing the running a task on the server."""
 
     task_id: Optional[str] = Field(
-        ...,
+        None,
         title="task_id",
         description="Task ID number, set when the task is uploaded, leave as None.",
         alias="taskId",
@@ -181,7 +189,7 @@ class WebTask(ResourceLifecycle, Submittable, extra=Extra.allow):
             fields ``{'id', 'status', 'name', 'workUnit', 'solverVersion'}``.
         simulation_type : str
             Type of simulation being uploaded.
-        parent_tasks : List[str]
+        parent_tasks : list[str]
             List of related task ids.
         file_type: str
             the simulation file type Json, Hdf5, Gz
@@ -198,7 +206,6 @@ class WebTask(ResourceLifecycle, Submittable, extra=Extra.allow):
             simulation_type = "tidy3d"
 
         folder = Folder.get(folder_name, create=True)
-
         if task_type in ["RF", "TERMINAL_CM", "MODAL_CM"]:
             payload = {
                 "groupName": task_name,
@@ -211,13 +218,12 @@ class WebTask(ResourceLifecycle, Submittable, extra=Extra.allow):
             payload = {
                 "taskName": task_name,
                 "taskType": task_type,
-                "callbackUrl": callback_url,
+                "callbackUrl": callback_url,  # type: ignore[dict-item]
                 "simulationType": simulation_type,
-                "parentTasks": parent_tasks,
+                "parentTasks": parent_tasks,  # type: ignore[dict-item]
                 "fileType": file_type,
             }
             resp = http.post(f"{projects_endpoint}/{folder.folder_id}/tasks", payload)
-
         return SimulationTask(**resp, taskType=task_type, folder_name=folder_name)
 
     def get_url(self) -> str:
@@ -321,8 +327,11 @@ class WebTask(ResourceLifecycle, Submittable, extra=Extra.allow):
                 )
             except Exception as e:
                 raise WebError(
-                    "Failed to download the data file from the server. "
-                    "Please confirm that the task completed successfully."
+                    format_chained_exception_message(
+                        "Failed to download the data file from the server. Please confirm "
+                        "that the task completed successfully.",
+                        e,
+                    )
                 ) from e
         return file
 
@@ -367,7 +376,7 @@ class WebTask(ResourceLifecycle, Submittable, extra=Extra.allow):
         if not self.task_id:
             raise ValueError("Task id not found.")
 
-        task_details = self.detail().dict()
+        task_details = self.detail().model_dump()
 
         if task_details and "groupId" in task_details:
             group_id = task_details["groupId"]
@@ -392,18 +401,21 @@ class SimulationTask(WebTask):
         description="Folder ID number, set when the task is uploaded, leave as None.",
         alias="folderId",
     )
-    status: Optional[str] = Field(title="status", description="Simulation task status.")
+    status: Optional[str] = Field(None, title="status", description="Simulation task status.")
 
-    real_flex_unit: float = Field(
+    real_flex_unit: Optional[float] = Field(
         None, title="real FlexCredits", description="Billed FlexCredits.", alias="realCost"
     )
 
     created_at: Optional[datetime] = Field(
-        title="created_at", description="Time at which this task was created.", alias="createdAt"
+        None,
+        title="created_at",
+        description="Time at which this task was created.",
+        alias="createdAt",
     )
 
     task_type: Optional[str] = Field(
-        title="task_type", description="The type of task.", alias="taskType"
+        None, title="task_type", description="The type of task.", alias="taskType"
     )
 
     folder_name: Optional[str] = Field(
@@ -413,7 +425,7 @@ class SimulationTask(WebTask):
         alias="folderName",
     )
 
-    callback_url: str = Field(
+    callback_url: Optional[str] = Field(
         None,
         title="Callback URL",
         description="Http PUT url to receive simulation finish event. "
@@ -421,13 +433,13 @@ class SimulationTask(WebTask):
         "``{'id', 'status', 'name', 'workUnit', 'solverVersion'}``.",
     )
 
-    # simulation_type: str = pd.Field(
+    # simulation_type: str = Field(
     #     None,
     #     title="Simulation Type",
     #     description="Type of simulation, used internally only.",
     # )
 
-    # parent_tasks: Tuple[TaskId, ...] = pd.Field(
+    # parent_tasks: Tuple[TaskId, ...] = Field(
     #     None,
     #     title="Parent Tasks",
     #     description="List of parent task ids for the simulation, used internally only."
@@ -472,7 +484,7 @@ class SimulationTask(WebTask):
         resp = http.get("tidy3d/py/tasks")
         if not resp:
             return []
-        return parse_obj_as(list[SimulationTask], resp)
+        return TypeAdapter(list[SimulationTask]).validate_python(resp)
 
     def detail(self) -> TaskInfo:
         """Fetches the detailed information and status of the task.
@@ -483,7 +495,7 @@ class SimulationTask(WebTask):
             An object containing the task's latest data.
         """
         resp = http.get(f"tidy3d/tasks/{self.task_id}/detail")
-        return TaskInfo(**{"taskId": self.task_id, "taskType": self.task_type, **resp})
+        return TaskInfo(**{"taskId": self.task_id, "taskType": self.task_type, **resp})  # type: ignore[dict-item]
 
     def get_simulation_json(self, to_file: PathLike, verbose: bool = True) -> None:
         """Get json file for a :class:`.Simulation` from server.
@@ -595,6 +607,9 @@ class SimulationTask(WebTask):
         worker_group: Optional[str] = None,
         pay_type: Union[PayType, str] = PayType.AUTO,
         priority: Optional[int] = None,
+        vgpu_allocation: Optional[int] = None,
+        ignore_memory_limit: Optional[bool] = None,
+        additional_payload: Optional[Union[dict[str, Any], str]] = None,
     ) -> None:
         """Kick off this task.
 
@@ -613,6 +628,17 @@ class SimulationTask(WebTask):
         priority: int = None
             Priority of the simulation in the Virtual GPU (vGPU) queue (1 = lowest, 10 = highest).
             It affects only simulations from vGPU licenses and does not impact simulations using FlexCredits.
+        vgpu_allocation : int = None
+            Number of virtual GPUs to allocate for the simulation (1, 2, 4, or 8).
+            Only applies to vGPU license users. If not specified, the system
+            automatically determines the optimal GPU count.
+        ignore_memory_limit : Optional[bool] = None
+            If ``True``, allows the simulation to run even when estimated vGPU memory
+            exceeds the allocation limit (up to 2x the limit). Only applies to
+            vGPU license users. Default ``None`` leaves the server behaviour unchanged.
+        additional_payload : Optional[Union[dict[str, Any], str]] = None
+            Additional submit payload. Dict values are JSON-serialized and sent
+            under ``additionalPayload``.
         """
         pay_type = PayType(pay_type) if not isinstance(pay_type, PayType) else pay_type
 
@@ -621,16 +647,23 @@ class SimulationTask(WebTask):
         else:
             protocol_version = http_util.get_version()
 
+        payload = {
+            "solverVersion": solver_version,
+            "workerGroup": worker_group,
+            "protocolVersion": protocol_version,
+            "enableCaching": config.web.enable_caching,
+            "payType": pay_type.value,
+            "priority": priority,
+            "vgpuAllocation": vgpu_allocation,
+            "ignoreMemoryLimit": ignore_memory_limit,
+        }
+        serialized_additional_payload = _serialize_additional_payload(additional_payload)
+        if serialized_additional_payload is not None:
+            payload["additionalPayload"] = serialized_additional_payload
+
         http.post(
             f"tidy3d/tasks/{self.task_id}/submit",
-            {
-                "solverVersion": solver_version,
-                "workerGroup": worker_group,
-                "protocolVersion": protocol_version,
-                "enableCaching": config.web.enable_caching,
-                "payType": pay_type.value,
-                "priority": priority,
-            },
+            payload,
         )
 
     def estimate_cost(self, solver_version: Optional[str] = None) -> float:
@@ -819,12 +852,18 @@ class SimulationTask(WebTask):
                         )
                 except Exception as e:
                     raise ValidationError(
-                        "The parent task must be a 'VolumeMesher' task which has been successfully "
-                        "run and is associated to the same 'HeatChargeSimulation' as provided here."
+                        format_chained_exception_message(
+                            "The parent task must be a 'VolumeMesher' task which has been "
+                            "successfully run and is associated to the same "
+                            "'HeatChargeSimulation' as provided here.",
+                            e,
+                        )
                     ) from e
 
             except Exception as e:
-                raise WebError(f"Provided 'parent_tasks' failed validation: {e!s}") from e
+                raise WebError(
+                    format_chained_exception_message("Provided 'parent_tasks' failed validation", e)
+                ) from e
 
 
 class BatchTask(WebTask):
@@ -916,6 +955,9 @@ class BatchTask(WebTask):
         worker_group: Optional[str] = None,
         pay_type: Union[PayType, str] = PayType.AUTO,
         priority: Optional[int] = None,
+        vgpu_allocation: Optional[int] = None,
+        ignore_memory_limit: Optional[bool] = None,
+        additional_payload: Optional[Union[dict[str, Any], str]] = None,
     ) -> requests.Response:
         """Submits the batch for execution on the server.
 
@@ -927,6 +969,14 @@ class BatchTask(WebTask):
             The data protocol version. Defaults to the current version.
         worker_group : Optional[str], default=None
             Optional identifier for a specific worker group to run on.
+        vgpu_allocation : Optional[int], default=None
+            Number of virtual GPUs to allocate for the simulation (1, 2, 4, or 8).
+        ignore_memory_limit : Optional[bool], default=None
+            If ``True``, allows the simulation to run even when estimated vGPU memory
+            exceeds the allocation limit (up to 2x the limit).
+        additional_payload : Optional[Union[dict[str, Any], str]], default=None
+            Additional submit payload. Dict values are JSON-serialized and sent
+            under ``additionalPayload``.
 
         Returns
         -------
@@ -934,7 +984,7 @@ class BatchTask(WebTask):
             The server's response to the submit request.
         """
 
-        # TODO: add support for pay_type and priority arguments
+        # TODO: add support for pay_type, priority, vgpu_allocation, and ignore_memory_limit arguments
         if pay_type != PayType.AUTO:
             raise NotImplementedError(
                 "The 'pay_type' argument is not yet supported and will be ignored."
@@ -943,16 +993,29 @@ class BatchTask(WebTask):
             raise NotImplementedError(
                 "The 'priority' argument is not yet supported and will be ignored."
             )
+        if vgpu_allocation is not None:
+            raise NotImplementedError(
+                "The 'vgpu_allocation' argument is not yet supported and will be ignored."
+            )
+        if ignore_memory_limit is not None:
+            raise NotImplementedError(
+                "The 'ignore_memory_limit' argument is not yet supported and will be ignored."
+            )
 
         if protocol_version is None:
             protocol_version = _get_protocol_version()
+        payload = {
+            "solverVersion": solver_version,
+            "protocolVersion": protocol_version,
+            "workerGroup": worker_group,
+        }
+        serialized_additional_payload = _serialize_additional_payload(additional_payload)
+        if serialized_additional_payload is not None:
+            payload["additionalPayload"] = serialized_additional_payload
+
         return http.post(
             f"rf/task/{self.task_id}/submit",
-            {
-                "solverVersion": solver_version,
-                "protocolVersion": protocol_version,
-                "workerGroup": worker_group,
-            },
+            payload,
         )
 
     def abort(self) -> requests.Response:
@@ -965,7 +1028,7 @@ class BatchTask(WebTask):
 class TaskFactory:
     """Factory for obtaining the correct task subclass."""
 
-    _REGISTRY: dict[str, str] = {}
+    _REGISTRY: dict[str, type[WebTask]] = {}
 
     @classmethod
     def reset(cls) -> None:
@@ -973,21 +1036,35 @@ class TaskFactory:
         cls._REGISTRY.clear()
 
     @classmethod
-    def register(cls, task_id: str, kind: str) -> None:
+    def register(cls, task_id: str, kind: type[WebTask]) -> None:
         cls._REGISTRY[task_id] = kind
+
+    @classmethod
+    def get_kind(cls, task_id: str, verbose: bool = True) -> type[WebTask]:
+        """Return cached task class, fetching and caching if needed."""
+        kind = cls._REGISTRY.get(task_id)
+        if kind:
+            return kind
+        if WebTask.is_batch(task_id):
+            cls.register(task_id, BatchTask)
+            return BatchTask
+        task = SimulationTask.get(task_id, verbose=verbose)
+        if task:
+            cls.register(task_id, SimulationTask)
+        return SimulationTask
 
     @classmethod
     def get(cls, task_id: str, verbose: bool = True) -> WebTask:
         kind = cls._REGISTRY.get(task_id)
-        if kind == "batch":
+        if kind is BatchTask:
             return BatchTask.get(task_id, verbose=verbose)
-        if kind == "simulation":
+        if kind is SimulationTask:
             task = SimulationTask.get(task_id, verbose=verbose)
             return task
         if WebTask.is_batch(task_id):
-            cls.register(task_id, "batch")
+            cls.register(task_id, BatchTask)
             return BatchTask.get(task_id, verbose=verbose)
         task = SimulationTask.get(task_id, verbose=verbose)
         if task:
-            cls.register(task_id, "simulation")
+            cls.register(task_id, SimulationTask)
         return task

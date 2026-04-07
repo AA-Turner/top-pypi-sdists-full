@@ -4,33 +4,47 @@ reflection efficiency, gain, and realized gain.
 
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
-import pydantic.v1 as pd
 import xarray as xr
-from typing_extensions import Self
+from pydantic import Field
 
+from tidy3d.components.base import cached_property
 from tidy3d.components.data.data_array import (
-    FieldProjectionAngleDataArray,
     FreqDataArray,
     FreqModeDataArray,
     ImpedanceFreqModeDataArray,
+    ScalarTerminalFieldDataArray,
 )
 from tidy3d.components.data.monitor_data import DirectivityData, ModeData, ModeSolverData
 from tidy3d.components.microwave.base import MicrowaveBaseModel
 from tidy3d.components.microwave.data.data_array import (
-    AttenuationConstantArray,
     GroupVelocityArray,
-    PhaseConstantArray,
     PhaseVelocityArray,
     PropagationConstantArray,
 )
-from tidy3d.components.microwave.data.dataset import TransmissionLineDataset
+from tidy3d.components.microwave.data.dataset import (
+    TerminalFieldDataset,
+    TransmissionLineDataset,
+    TransmissionLineTerminalDataset,
+)
 from tidy3d.components.microwave.monitor import MicrowaveModeMonitor, MicrowaveModeSolverMonitor
-from tidy3d.components.types import FreqArray, ModeClassification, PolarizationBasis
 from tidy3d.constants import C_0
 from tidy3d.log import log
+
+if TYPE_CHECKING:
+    from typing import Literal
+
+    from numpy.typing import NDArray
+    from typing_extensions import Self
+
+    from tidy3d.components.data.data_array import FieldProjectionAngleDataArray
+    from tidy3d.components.microwave.data.data_array import (
+        AttenuationConstantArray,
+        PhaseConstantArray,
+    )
+    from tidy3d.components.types import FreqArray, ModeClassification, PolarizationBasis
 
 
 class AntennaMetricsData(DirectivityData, MicrowaveBaseModel):
@@ -82,14 +96,12 @@ class AntennaMetricsData(DirectivityData, MicrowaveBaseModel):
     John Wiley & Sons, Chapter 2.9 (2016).
     """
 
-    power_incident: FreqDataArray = pd.Field(
-        ...,
+    power_incident: FreqDataArray = Field(
         title="Power incident",
         description="Array of values representing the incident power to an antenna.",
     )
 
-    power_reflected: FreqDataArray = pd.Field(
-        ...,
+    power_reflected: FreqDataArray = Field(
         title="Power reflected",
         description="Array of values representing power reflected due to an impedance mismatch with the antenna.",
     )
@@ -115,7 +127,7 @@ class AntennaMetricsData(DirectivityData, MicrowaveBaseModel):
             New instance combining directivity data with incident and reflected power measurements.
         """
         antenna_params_dict = {
-            **dir_data.dict(),
+            **dir_data.model_dump(),
             "power_incident": power_inc,
             "power_reflected": power_refl,
         }
@@ -231,20 +243,55 @@ class MicrowaveModeDataBase(MicrowaveBaseModel):
     Notes
     -----
     This is a mixin class that must be combined with mode data classes (:class:`.ModeData` or
-    :class:`.ModeSolverData`). It uses ``super()`` to call methods on the mixed-in class, extending
+    :class:`~tidy3d.ModeSolverData`). It uses ``super()`` to call
+    methods on the mixed-in class, extending
     their functionality rather than replacing it.
 
     The mixin should be placed first in the inheritance list to ensure its method overrides
     are used.
     """
 
-    transmission_line_data: Optional[TransmissionLineDataset] = pd.Field(
+    transmission_line_data: Optional[TransmissionLineDataset] = Field(
         None,
         title="Transmission Line Data",
         description="Additional data relevant to transmission lines in RF and microwave applications, "
-        "like characteristic impedance. This field is populated when a :class:`MicrowaveModeSpec` has "
+        "like characteristic impedance. This field is populated when a :class:`~tidy3d.rf.MicrowaveModeSpec` has "
         "been used to set up the monitor or mode solver.",
     )
+
+    transmission_line_terminal_data: Optional[TransmissionLineTerminalDataset] = Field(
+        None,
+        title="Transmission Line Terminal Data",
+        description="Additional data relevant to transmission line terminals in RF and microwave applications, "
+        "like characteristic impedance, voltage transformation matrix, and current transformation matrix. "
+        "This field is populated when a :class:`MicrowaveTerminalModeSpec` has "
+        "been used to set up the monitor or mode solver.",
+    )
+
+    @cached_property
+    def terminal_fields(self) -> Optional[TerminalFieldDataset]:
+        """Field data for each terminal.
+
+        Returns
+        -------
+        Optional[TerminalFieldDataset]
+            Dataset containing Ex, Ey, Ez, Hx, Hy, Hz field components indexed by terminal_label,
+            or None if transmission_line_terminal_data is not set.
+        """
+        if self.transmission_line_terminal_data is None:
+            return None
+
+        # Transform each field component: field_terminal = voltage_transform^-1 @ field_mode
+        # Use the cached inverse of the voltage transform matrix
+        voltage_transform_inv = self.transmission_line_terminal_data.voltage_transform_inv
+        field_dict = {}
+        for field_name, mode_field in self.field_components.items():
+            if mode_field is not None:
+                # Use xarray.dot for the matrix multiplication over mode_index
+                terminal_field = xr.dot(voltage_transform_inv, mode_field, dim="mode_index")
+                field_dict[field_name] = ScalarTerminalFieldDataArray(terminal_field)
+
+        return TerminalFieldDataset(**field_dict)
 
     @property
     def modes_info(self) -> xr.Dataset:
@@ -374,15 +421,27 @@ class MicrowaveModeDataBase(MicrowaveBaseModel):
         """
         self._check_fields_stored(["Ex", "Ey", "Ez", "Hx", "Hy", "Hz"])
 
-        tan_fields = self._colocated_tangential_fields
         dim1, dim2 = self._tangential_dims
-        e1 = tan_fields["E" + dim1]
-        e2 = tan_fields["E" + dim2]
-        diff_area = self._diff_area
-        field_int = [np.abs(e_field) ** 2 for e_field in [e1, e2]]
-        tangential_intensity = (diff_area * (field_int[0] + field_int[1])).sum(
-            dim=self._tangential_dims
-        )
+
+        if self.monitor.colocate:
+            fields = self._colocated_tangential_fields
+            diff_area = self._diff_area
+            e1 = fields["E" + dim1]
+            e2 = fields["E" + dim2]
+            tangential_intensity = (diff_area * (np.abs(e1) ** 2 + np.abs(e2) ** 2)).sum(
+                dim=self._tangential_dims
+            )
+        else:
+            fields = self._tangential_fields
+            dS_E1H2, dS_E2H1, _, _ = self._diff_area_at_yee_positions(
+                truncate_to_monitor_bounds=True
+            )
+            e1 = fields["E" + dim1]
+            e2 = fields["E" + dim2]
+            intensity_E1 = (np.abs(e1) ** 2 * dS_E1H2).sum(dim=self._tangential_dims)
+            intensity_E2 = (np.abs(e2) ** 2 * dS_E2H1).sum(dim=self._tangential_dims)
+            tangential_intensity = intensity_E1 + intensity_E2
+
         direction = self.monitor.store_fields_direction
         P = self.complex_flux if direction == "+" else -self.complex_flux
         Z_wave = tangential_intensity / P / 2
@@ -391,7 +450,7 @@ class MicrowaveModeDataBase(MicrowaveBaseModel):
     def _classify_mode(self, mode_index: int) -> ModeClassification:
         """Classify mode as TEM, quasi-TEM, TE, TM, or Hybrid based on TE/TM fractions."""
         # Make quasi-TEM classification choice based on lowest frequency available
-        min_f_idx = self.wg_TE_fraction.f.argmin()
+        min_f_idx = self.wg_TE_fraction.f.data.argmin()
         low_f_TE_frac = self.wg_TE_fraction.sel(mode_index=mode_index).isel(f=min_f_idx).values
         low_f_TM_frac = self.wg_TM_fraction.sel(mode_index=mode_index).isel(f=min_f_idx).values
         # Otherwise we use the average value of the fraction across frequencies
@@ -439,9 +498,25 @@ class MicrowaveModeDataBase(MicrowaveBaseModel):
                 "current_coeffs": self.transmission_line_data.current_coeffs.isel(f=center_inds),
             }
             super_data = super_data.updated_copy(**update_dict, path="transmission_line_data")
+
+        # Add transmission line terminal data handling if present
+        if self.transmission_line_terminal_data is not None:
+            _, center_inds, _ = self._group_index_freq_slices()
+            update_dict = {
+                "Z0": self.transmission_line_terminal_data.Z0.isel(f=center_inds),
+                "voltage_transform": self.transmission_line_terminal_data.voltage_transform.isel(
+                    f=center_inds
+                ),
+                "current_transform": self.transmission_line_terminal_data.current_transform.isel(
+                    f=center_inds
+                ),
+            }
+            super_data = super_data.updated_copy(
+                **update_dict, path="transmission_line_terminal_data"
+            )
         return super_data
 
-    def _apply_mode_reorder(self, sort_inds_2d):
+    def _apply_mode_reorder(self, sort_inds_2d: NDArray) -> Self:
         """Apply a mode reordering along mode_index for all frequency indices.
 
         Parameters
@@ -459,6 +534,15 @@ class MicrowaveModeDataBase(MicrowaveBaseModel):
             )
             main_data_reordered = main_data_reordered.updated_copy(
                 transmission_line_data=transmission_line_data_reordered
+            )
+
+        # Add transmission line terminal data handling if present
+        if self.transmission_line_terminal_data is not None:
+            transmission_line_terminal_data_reordered = (
+                self.transmission_line_terminal_data._apply_mode_reorder(sort_inds_2d)
+            )
+            main_data_reordered = main_data_reordered.updated_copy(
+                transmission_line_terminal_data=transmission_line_terminal_data_reordered
             )
         return main_data_reordered
 
@@ -478,7 +562,7 @@ class MicrowaveModeData(MicrowaveModeDataBase, ModeData):
 
         The microwave mode data contains all the information from :class:`.ModeData` plus additional
         microwave dataset with impedance calculations performed using voltage and current line integrals
-        as specified in the :class:`.MicrowaveModeSpec`.
+        as specified in the :class:`~tidy3d.rf.MicrowaveModeSpec`.
 
     Example
     -------
@@ -522,8 +606,8 @@ class MicrowaveModeData(MicrowaveModeDataBase, ModeData):
     ... )
     """
 
-    monitor: MicrowaveModeMonitor = pd.Field(
-        ..., title="Monitor", description="Mode monitor associated with the data."
+    monitor: MicrowaveModeMonitor = Field(
+        title="Monitor", description="Mode monitor associated with the data."
     )
 
 
@@ -535,14 +619,16 @@ class MicrowaveModeSolverData(MicrowaveModeDataBase, ModeSolverData):
     Notes
     -----
 
-        This class extends :class:`.ModeSolverData` with additional microwave-specific data including
+        This class extends :class:`~tidy3d.ModeSolverData` with
+        additional microwave-specific data including
         characteristic impedance, voltage coefficients, and current coefficients. The data is
         stored as `DataArray <https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html>`_
         objects using the `xarray <https://docs.xarray.dev/en/stable/index.html>`_ package.
 
         The microwave mode solver data contains all field components (Ex, Ey, Ez, Hx, Hy, Hz) and
-        effective indices from :class:`.ModeSolverData`, plus impedance calculations performed using
-        voltage and current line integrals as specified in the :class:`.MicrowaveModeSpec`.
+        effective indices from :class:`~tidy3d.ModeSolverData`, plus
+        impedance calculations performed using
+        voltage and current line integrals as specified in the :class:`~tidy3d.rf.MicrowaveModeSpec`.
 
     Example
     -------
@@ -596,8 +682,8 @@ class MicrowaveModeSolverData(MicrowaveModeDataBase, ModeSolverData):
     ... )
     """
 
-    monitor: MicrowaveModeSolverMonitor = pd.Field(
-        ..., title="Monitor", description="Mode monitor associated with the data."
+    monitor: MicrowaveModeSolverMonitor = Field(
+        title="Monitor", description="Mode monitor associated with the data."
     )
 
     def interp_in_freq(
@@ -636,8 +722,9 @@ class MicrowaveModeSolverData(MicrowaveModeDataBase, ModeSolverData):
 
         Returns
         -------
-        ModeSolverData
-            New :class:`ModeSolverData` object with data interpolated to the requested frequencies.
+        :class:`~tidy3d.ModeSolverData`
+            New :class:`~tidy3d.ModeSolverData` object with data
+            interpolated to the requested frequencies.
 
         Raises
         ------
@@ -675,5 +762,13 @@ class MicrowaveModeSolverData(MicrowaveModeDataBase, ModeSolverData):
             transmission_line_data_interp = self.transmission_line_data.updated_copy(**update_dict)
             main_data_interp = main_data_interp.updated_copy(
                 transmission_line_data=transmission_line_data_interp
+            )
+        if self.transmission_line_terminal_data is not None:
+            update_dict = self.transmission_line_terminal_data._interp_in_freq_update_dict(
+                freqs, method, assume_sorted
+            )
+            terminal_data_interp = self.transmission_line_terminal_data.updated_copy(**update_dict)
+            main_data_interp = main_data_interp.updated_copy(
+                transmission_line_terminal_data=terminal_data_interp
             )
         return main_data_interp

@@ -5,15 +5,12 @@ from __future__ import annotations
 import os
 import tempfile
 import urllib
-from collections.abc import Mapping
 from datetime import datetime
 from enum import Enum
-from os import PathLike
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any
 
 import boto3
-import rich
 from boto3.s3.transfer import TransferConfig
 from pydantic import BaseModel, Field
 from rich.progress import (
@@ -26,11 +23,19 @@ from rich.progress import (
 )
 
 from tidy3d.config import config
+from tidy3d.exceptions import format_chained_exception_message
 
 from .core_config import get_logger_console
 from .exceptions import WebError
 from .file_util import extract_gzip_file
 from .http_util import http
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from os import PathLike
+    from typing import Callable, Optional
+
+    import rich
 
 IN_TRANSIT_SUFFIX = ".tmp"
 
@@ -461,7 +466,11 @@ def download_gz_file(
         except Exception as e:
             tmp_out_path.unlink(missing_ok=True)
             raise WebError(
-                f"Failed to extract '{remote_filename}' from '{tmp_file_path_str}' to '{to_path}'."
+                format_chained_exception_message(
+                    f"Failed to extract '{remote_filename}' from '{tmp_file_path_str}' to "
+                    f"'{to_path}'",
+                    e,
+                )
             ) from e
     finally:
         Path(tmp_file_path_str).unlink(missing_ok=True)

@@ -3,19 +3,25 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 import numpy as np
-import pydantic.v1 as pd
+from pydantic import Field, PositiveInt, field_validator, model_validator
 
-from tidy3d.components.base import Tidy3dBaseModel, skip_if_fields_missing
+from tidy3d.components.base import Tidy3dBaseModel
 from tidy3d.components.geometry.base import Box
 from tidy3d.components.grid.grid import Coords1D
 from tidy3d.components.mode_spec import ModeInterpSpec, ModeSpec
-from tidy3d.components.structure import Structure
-from tidy3d.components.types import ArrayFloat1D, Axis, Coordinate, Size
+from tidy3d.components.types import ArrayFloat1D, Axis
 from tidy3d.constants import RADIAN, fp_eps, inf
 from tidy3d.exceptions import SetupError, ValidationError
+
+if TYPE_CHECKING:
+    from pydantic import NonNegativeFloat, NonNegativeInt
+
+    from tidy3d.compat import Self
+    from tidy3d.components.structure import Structure
+    from tidy3d.components.types import Coordinate, Size
 
 # grid limits
 MAX_NUM_MODES = 100
@@ -24,10 +30,37 @@ MAX_NUM_REPS = 100000
 
 
 class EMEModeSpec(ModeSpec):
-    """Mode spec for EME cells. Overrides some of the defaults and allowed values."""
+    """Mode specification for EME cells.
 
-    interp_spec: Optional[ModeInterpSpec] = pd.Field(
-        ModeInterpSpec.cheb(num_points=3, reduce_data=True),
+    Notes
+    -----
+        Inherits from :class:`.ModeSpec` but overrides several defaults and constraints
+        for use in EME simulations:
+
+        - Propagation angles (``angle_theta``, ``angle_phi``) are locked to ``0``.
+          For off-normal injection, use a :class:`.ModeSolverMonitor` together with
+          :meth:`.EMESimulationData.smatrix_in_basis`.
+        - Default precision is ``'auto'`` (double precision for structures with good
+          conductors, single precision otherwise).
+        - Includes a ``bend_medium_frame`` field to control whether media in bent
+          EME cells are interpreted in the global frame or as co-rotating with the
+          local waveguide frame.
+        - Bent sections containing orientation-sensitive anisotropic media may require
+          multiple EME cells when ``bend_medium_frame='global'``, because the local
+          mode problem can change with absolute bend angle. This applies to both
+          :class:`.AnisotropicMedium` and reciprocal :class:`.FullyAnisotropicMedium`;
+          check convergence with respect to the number of EME cells when refining
+          such bends.
+        - Includes an ``interp_spec`` field for frequency interpolation of modes,
+          which can significantly reduce cost for broadband simulations.
+        - Includes an ``increasing_mode_tolerance`` field for EME-only filtering of
+          weakly increasing modes. The default ``0.0`` preserves the previous behavior,
+          while positive values treat small negative imaginary effective indices as
+          numerical noise.
+    """
+
+    interp_spec: Optional[ModeInterpSpec] = Field(
+        ModeInterpSpec.cheb(num_points=5, reduce_data=True),
         title="Mode frequency interpolation specification",
         description="Specification for computing modes at a reduced set of frequencies and "
         "interpolating to obtain results at all requested frequencies. This can significantly "
@@ -36,32 +69,57 @@ class EMEModeSpec(ModeSpec):
         "not be ``None``) to ensure consistent mode ordering across frequencies.",
     )
 
-    angle_theta: Literal[0.0] = pd.Field(
+    angle_theta: Literal[0.0] = Field(
         0.0,
         title="Polar Angle",
         description="Polar angle of the propagation axis from the injection axis. Not currently "
         "supported in EME cells. Use an additional 'ModeSolverMonitor' and "
         "'sim_data.smatrix_in_basis' to achieve off-normal injection in EME.",
-        units=RADIAN,
+        json_schema_extra={"units": RADIAN},
     )
 
-    angle_phi: Literal[0.0] = pd.Field(
+    angle_phi: Literal[0.0] = Field(
         0.0,
         title="Azimuth Angle",
         description="Azimuth angle of the propagation axis in the plane orthogonal to the "
         "injection axis. Not currently supported in EME cells. Use an additional "
         "'ModeSolverMonitor' and 'sim_data.smatrix_in_basis' to achieve off-normal "
         "injection in EME.",
-        units=RADIAN,
+        json_schema_extra={"units": RADIAN},
     )
 
-    precision: Literal["auto", "single", "double"] = pd.Field(
+    precision: Literal["auto", "single", "double"] = Field(
         "auto",
         title="single, double, or automatic precision in mode solver",
         description="The solver will be faster and using less memory under "
         "single precision, but more accurate under double precision. "
         "Choose ``'auto'`` to apply double precision if the simulation contains a good "
         "conductor, single precision otherwise.",
+    )
+
+    bend_medium_frame: Literal["global", "co_rotating"] = Field(
+        "global",
+        title="Bent medium frame",
+        description="Interpretation of media in bent EME cells. Choose ``'global'`` when the "
+        "material axes are fixed in physical space, matching the global-frame convention used "
+        "in FDTD. Choose ``'co_rotating'`` when the material profile should bend with the local "
+        "waveguide cross-section, as in a bent fiber or a custom profile defined on straight "
+        "EME coordinates. The default is ``'global'``. Custom media in bent EME cells, including "
+        "``CustomAnisotropicMedium``, are "
+        "currently supported only for ``'co_rotating'``. With ``'global'``, orientation-sensitive "
+        "anisotropic bends may need multiple cells instead of ``num_reps`` or "
+        "``EMELengthSweep``; check convergence with respect to the number of EME cells.",
+    )
+
+    increasing_mode_tolerance: float = Field(
+        0.0,
+        title="Increasing-mode filter tolerance",
+        description="Unitless tolerance on ``-Im(n_eff)`` when filtering increasing modes "
+        "from the EME propagation basis. A mode is dropped only if "
+        "``Im(n_eff) < -increasing_mode_tolerance``. Set a small positive value such as "
+        "``1e-6`` to keep weakly increasing modes caused by numerical noise; leave it at "
+        "``0.0`` to preserve historical behavior.",
+        ge=0.0,
     )
 
     # this method is not supported because not all ModeSpec features are supported
@@ -84,9 +142,11 @@ class EMEModeSpec(ModeSpec):
 
     def _to_mode_spec(self) -> ModeSpec:
         """Convert to ordinary :class:`.ModeSpec`."""
-        ms_dict = self.dict()
+        ms_dict = self.model_dump()
         ms_dict.pop("type")
-        return ModeSpec.parse_obj(ms_dict)
+        ms_dict.pop("bend_medium_frame")
+        ms_dict.pop("increasing_mode_tolerance")
+        return ModeSpec.model_validate(ms_dict)
 
 
 class EMEGridSpec(Tidy3dBaseModel, ABC):
@@ -98,21 +158,32 @@ class EMEGridSpec(Tidy3dBaseModel, ABC):
     in the simulation.
     """
 
-    num_reps: pd.PositiveInt = pd.Field(
+    num_reps: PositiveInt = Field(
         1,
         title="Number of Repetitions",
         description="Number of periodic repetitions of this EME grid. Useful for "
         "efficiently simulating long periodic structures like Bragg gratings. "
         "Instead of explicitly repeating the cells, setting 'num_reps' allows "
-        "the EME solver to reuse the modes and cell interface scattering matrices.",
+        "the EME solver to reuse the modes and cell interface scattering matrices. "
+        "However, for bent sections with orientation-sensitive anisotropic media and "
+        "``bend_medium_frame='global'``, reusing a single bent cell is "
+        "generally not exact because the local mode problem changes with absolute "
+        "bend angle. It is recommended to split such bends into multiple cells and check convergence "
+        "with respect to the number of EME cells before relying on 'num_reps'. "
+        "Bent custom media in the global-frame "
+        "interpretation are not supported when reuse would require remapping "
+        "custom-medium data into bent physical space.",
     )
 
-    name: Optional[str] = pd.Field(
-        None, title="Name", description="Name of this 'EMEGridSpec'. Used in 'EMEPeriodicitySweep'."
+    name: Optional[str] = Field(
+        None,
+        title="Name",
+        description="Name of this 'EMEGridSpec'. Used in 'EMEPeriodicitySweep'.",
     )
 
-    @pd.validator("num_reps", always=True)
-    def _validate_num_reps(cls, val):
+    @field_validator("num_reps")
+    @classmethod
+    def _validate_num_reps(cls, val: int) -> int:
         """Check num_reps is not too large."""
         if val > MAX_NUM_REPS:
             raise SetupError(
@@ -163,7 +234,7 @@ class EMEGridSpec(Tidy3dBaseModel, ABC):
         """Number of virtual cells in this EME grid spec."""
         return len(self.virtual_cell_indices)
 
-    def _updated_copy_num_reps(self, num_reps: dict[str, pd.PositiveInt]) -> EMEGridSpec:
+    def _updated_copy_num_reps(self, num_reps: dict[str, PositiveInt]) -> Self:
         """Update ``num_reps`` of named subgrids."""
         if self.name is not None:
             new_num_reps = num_reps.get(self.name)
@@ -172,7 +243,7 @@ class EMEGridSpec(Tidy3dBaseModel, ABC):
         return self
 
     @property
-    def _cell_index_pairs(self) -> list[pd.NonNegativeInt]:
+    def _cell_index_pairs(self) -> list[NonNegativeInt]:
         """Pairs of adjacent cell indices."""
         cell_indices = self.virtual_cell_indices
         pairs = []
@@ -192,12 +263,14 @@ class EMEUniformGrid(EMEGridSpec):
     >>> eme_grid = EMEUniformGrid(num_cells=10, mode_spec=mode_spec)
     """
 
-    num_cells: pd.PositiveInt = pd.Field(
-        ..., title="Number of cells", description="Number of cells in the uniform EME grid."
+    num_cells: PositiveInt = Field(
+        title="Number of cells",
+        description="Number of cells in the uniform EME grid.",
     )
 
-    mode_spec: EMEModeSpec = pd.Field(
-        ..., title="Mode Specification", description="Mode specification for the uniform EME grid."
+    mode_spec: EMEModeSpec = Field(
+        title="Mode Specification",
+        description="Mode specification for the uniform EME grid.",
     )
 
     def make_grid(self, center: Coordinate, size: Size, axis: Axis) -> EMEGrid:
@@ -246,14 +319,12 @@ class EMEExplicitGrid(EMEGridSpec):
     ... )
     """
 
-    mode_specs: list[EMEModeSpec] = pd.Field(
-        ...,
+    mode_specs: list[EMEModeSpec] = Field(
         title="Mode Specifications",
         description="Mode specifications for each cell in the explicit EME grid.",
     )
 
-    boundaries: ArrayFloat1D = pd.Field(
-        ...,
+    boundaries: ArrayFloat1D = Field(
         title="Boundaries",
         description="List of coordinates of internal cell boundaries along the propagation axis. "
         "Must contain one fewer item than 'mode_specs', and must be strictly increasing. "
@@ -262,11 +333,11 @@ class EMEExplicitGrid(EMEGridSpec):
         "and the simulation boundary.",
     )
 
-    @pd.validator("boundaries", always=True)
-    @skip_if_fields_missing(["mode_specs"])
-    def _validate_boundaries(cls, val, values):
+    @model_validator(mode="after")
+    def _validate_boundaries(self) -> Self:
         """Check that boundaries is increasing and contains one fewer element than mode_specs."""
-        mode_specs = values["mode_specs"]
+        val = self.boundaries
+        mode_specs = self.mode_specs
         boundaries = val
         if len(mode_specs) - 1 != len(boundaries):
             raise ValidationError(
@@ -278,7 +349,7 @@ class EMEExplicitGrid(EMEGridSpec):
                 if rmax < rmin:
                     raise ValidationError("The 'boundaries' must be increasing.")
                 rmin = rmax
-        return val
+        return self
 
     def make_grid(self, center: Coordinate, size: Size, axis: Axis) -> EMEGrid:
         """Generate EME grid from the EME grid spec.
@@ -322,14 +393,14 @@ class EMEExplicitGrid(EMEGridSpec):
     @classmethod
     def from_structures(
         cls, structures: list[Structure], axis: Axis, mode_spec: EMEModeSpec, **kwargs: Any
-    ) -> EMEExplicitGrid:
+    ) -> Self:
         """Create an explicit EME grid with boundaries aligned with
         structure bounding boxes. Every cell in the resulting grid
         has the same mode specification.
 
         Parameters
         ----------
-        structures : List[:class:`.Structure`]
+        structures : list[:class:`.Structure`]
             A list of structures to define the :class:`.EMEExplicitGrid`.
             The EME grid boundaries will be placed at the lower and upper bounds
             of the bounding boxes of all the structures in the list.
@@ -398,12 +469,12 @@ class EMECompositeGrid(EMEGridSpec):
     ... )
     """
 
-    subgrids: list[EMESubgridType] = pd.Field(
-        ..., title="Subgrids", description="Subgrids in the composite grid."
+    subgrids: list[EMESubgridType] = Field(
+        title="Subgrids",
+        description="Subgrids in the composite grid.",
     )
 
-    subgrid_boundaries: ArrayFloat1D = pd.Field(
-        ...,
+    subgrid_boundaries: ArrayFloat1D = Field(
         title="Subgrid Boundaries",
         description="List of coordinates of internal subgrid boundaries along the propagation axis. "
         "Must contain one fewer item than 'subgrids', and must be strictly increasing. "
@@ -412,10 +483,11 @@ class EMECompositeGrid(EMEGridSpec):
         "and the simulation boundary.",
     )
 
-    @pd.validator("subgrid_boundaries", always=True)
-    def _validate_subgrid_boundaries(cls, val, values):
+    @model_validator(mode="after")
+    def _validate_subgrid_boundaries(self) -> Self:
         """Check that subgrid boundaries is increasing and contains one fewer element than subgrids."""
-        subgrids = values["subgrids"]
+        val = self.subgrid_boundaries
+        subgrids = self.subgrids
         subgrid_boundaries = val
         if len(subgrids) - 1 != len(subgrid_boundaries):
             raise ValidationError(
@@ -426,7 +498,7 @@ class EMECompositeGrid(EMEGridSpec):
             if rmax < rmin:
                 raise ValidationError("The 'subgrid_boundaries' must be increasing.")
             rmin = rmax
-        return val
+        return self
 
     def subgrid_bounds(
         self, center: Coordinate, size: Size, axis: Axis
@@ -445,7 +517,7 @@ class EMECompositeGrid(EMEGridSpec):
 
         Returns
         -------
-        List[Tuple[float, float]]
+        list[tuple[float, float]]
             A list of pairs (rmin, rmax) of the bounds of the subgrids
             along the propagation axis.
         """
@@ -523,7 +595,7 @@ class EMECompositeGrid(EMEGridSpec):
             inds += [ind + start_ind for ind in subgrid.virtual_cell_indices]
         return list(inds) * self.num_reps
 
-    def _updated_copy_num_reps(self, num_reps: dict[str, pd.PositiveInt]) -> EMEGridSpec:
+    def _updated_copy_num_reps(self, num_reps: dict[str, PositiveInt]) -> Self:
         """Update ``num_reps`` of named subgrids."""
         new_self = super()._updated_copy_num_reps(num_reps=num_reps)
         new_subgrids = [
@@ -538,14 +610,14 @@ class EMECompositeGrid(EMEGridSpec):
         axis: Axis,
         mode_specs: list[EMEModeSpec],
         names: Optional[list[str]] = None,
-        num_reps: Optional[list[pd.PositiveInt]] = None,
+        num_reps: Optional[list[PositiveInt]] = None,
     ) -> EMECompositeGrid:
         """Create a composite EME grid with boundaries aligned with
         structure bounding boxes.
 
         Parameters
         ----------
-        structure_groups : List[List[:class:`.Structure`]]
+        structure_groups : list[list[:class:`.Structure`]]
             A list of structure groups to define the :class:`.EMECompositeGrid`.
             Each structure group will be used to generate an :class:`.EMEExplicitGrid`
             with boundaries aligned with the bounding boxes of the structures
@@ -558,13 +630,13 @@ class EMECompositeGrid(EMEGridSpec):
             Two adjacent structure groups cannot be empty.
         axis : :class:`.Axis`
             Propagation axis for the EME simulation.
-        mode_specs : List[:class:`.EMEModeSpec`]
+        mode_specs : list[:class:`.EMEModeSpec`]
             Mode specifications for each subgrid. Must be the same length as
             ``structure_groups``.
-        names : List[str] = None
+        names : list[str] = None
             Names for each subgrid. Must be the same length as ``structure_groups``.
             If ``None``, the subgrids do not recieve names.
-        num_reps : List[pd.PositiveInt] = None
+        num_reps : list[PositiveInt] = None
             Number of repetitions for each subgrid. Must be the same length as
             ``structure_groups``. If ``None``, the subgrids are not repeated.
 
@@ -671,20 +743,24 @@ class EMEGrid(Box):
     in the simulation.
     """
 
-    axis: Axis = pd.Field(
-        ..., title="Propagation axis", description="Propagation axis for the EME simulation."
+    axis: Axis = Field(
+        title="Propagation axis",
+        description="Propagation axis for the EME simulation.",
     )
 
-    mode_specs: list[EMEModeSpec] = pd.Field(
-        ..., title="Mode Specifications", description="Mode specifications for the EME cells."
+    mode_specs: list[EMEModeSpec] = Field(
+        title="Mode Specifications",
+        description="Mode specifications for the EME cells.",
     )
 
-    boundaries: Coords1D = pd.Field(
-        ..., title="Cell boundaries", description="Boundary coordinates of the EME cells."
+    boundaries: Coords1D = Field(
+        title="Cell boundaries",
+        description="Boundary coordinates of the EME cells.",
     )
 
-    @pd.validator("mode_specs", always=True)
-    def _validate_size(cls, val):
+    @field_validator("mode_specs")
+    @classmethod
+    def _validate_size(cls, val: list[EMEModeSpec]) -> list[EMEModeSpec]:
         """Check grid size and num modes."""
         num_eme_cells = len(val)
         if num_eme_cells > MAX_NUM_EME_CELLS:
@@ -701,16 +777,15 @@ class EMEGrid(Box):
             )
         return val
 
-    @pd.validator("boundaries", always=True, pre=False)
-    @skip_if_fields_missing(["mode_specs", "axis", "center", "size"])
-    def _validate_boundaries(cls, val, values):
+    @model_validator(mode="after")
+    def _validate_boundaries(self) -> Self:
         """Check that boundaries is increasing, in simulation domain, and contains
         one more element than 'mode_specs'."""
-        mode_specs = values["mode_specs"]
-        boundaries = val
-        axis = values["axis"]
-        center = values["center"][axis]
-        size = values["size"][axis]
+        boundaries = self.boundaries
+        mode_specs = self.mode_specs
+        axis = self.axis
+        center = self.center[axis]
+        size = self.size[axis]
         sim_rmin = center - size / 2
         sim_rmax = center + size / 2
         if len(mode_specs) + 1 != len(boundaries):
@@ -729,7 +804,7 @@ class EMEGrid(Box):
             rmin = rmax
         if rmax - sim_rmax > fp_eps:
             raise ValidationError("The last item in 'boundaries' is outside the simulation domain.")
-        return val
+        return self
 
     @property
     def centers(self) -> Coords1D:
@@ -743,7 +818,7 @@ class EMEGrid(Box):
         return centers
 
     @property
-    def lengths(self) -> list[pd.NonNegativeFloat]:
+    def lengths(self) -> list[NonNegativeFloat]:
         """Lengths of the EME cells along the propagation axis."""
         rmin = self.boundaries[0]
         lengths = []
@@ -754,7 +829,7 @@ class EMEGrid(Box):
         return lengths
 
     @property
-    def num_cells(self) -> pd.NonNegativeInteger:
+    def num_cells(self) -> NonNegativeInt:
         """The number of cells in the EME grid."""
         return len(self.centers)
 
@@ -797,7 +872,7 @@ class EMEGrid(Box):
             cells.append(Box(center=center, size=size))
         return cells
 
-    def cell_indices_in_box(self, box: Box) -> list[pd.NonNegativeInteger]:
+    def cell_indices_in_box(self, box: Box) -> list[NonNegativeInt]:
         """Indices of cells that overlap with 'box'. Used to determine
         which data is recorded by a monitor.
 
@@ -808,7 +883,7 @@ class EMEGrid(Box):
 
         Returns
         -------
-        List[pd.NonNegativeInteger]
+        list[NonNegativeInteger]
             The indices of the cells that intersect the provided box.
         """
         indices = []

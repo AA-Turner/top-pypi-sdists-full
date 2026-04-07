@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use chroma_error::ChromaError;
-use chroma_segment::blockfile_record::{RecordSegmentReader, RecordSegmentReaderCreationError};
+use chroma_segment::blockfile_record::{
+    RecordSegmentReaderOptions, RecordSegmentReaderShard, RecordSegmentReaderShardCreationError,
+};
 use chroma_segment::types::{materialize_logs, LogMaterializerError, MaterializeLogsResult};
 use chroma_system::Operator;
 use chroma_types::{Chunk, LogRecord};
@@ -12,7 +14,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum MaterializeLogOperatorError {
     #[error("Could not create record segment reader: {0}")]
-    RecordSegmentReaderCreationFailed(#[from] RecordSegmentReaderCreationError),
+    RecordSegmentReaderShardCreationFailed(#[from] RecordSegmentReaderShardCreationError),
     #[error("Log materialization failed: {0}")]
     LogMaterializationFailed(#[from] LogMaterializerError),
 }
@@ -20,7 +22,7 @@ pub enum MaterializeLogOperatorError {
 impl ChromaError for MaterializeLogOperatorError {
     fn code(&self) -> chroma_error::ErrorCodes {
         match self {
-            MaterializeLogOperatorError::RecordSegmentReaderCreationFailed(e) => e.code(),
+            MaterializeLogOperatorError::RecordSegmentReaderShardCreationFailed(e) => e.code(),
             MaterializeLogOperatorError::LogMaterializationFailed(e) => e.code(),
         }
     }
@@ -38,20 +40,23 @@ impl MaterializeLogOperator {
 #[derive(Debug)]
 pub struct MaterializeLogInput {
     logs: Chunk<LogRecord>,
-    record_reader: Option<RecordSegmentReader<'static>>,
+    record_reader: Option<RecordSegmentReaderShard<'static>>,
     offset_id: Arc<AtomicU32>,
+    plan: RecordSegmentReaderOptions,
 }
 
 impl MaterializeLogInput {
     pub fn new(
         logs: Chunk<LogRecord>,
-        record_reader: Option<RecordSegmentReader<'static>>,
+        record_reader: Option<RecordSegmentReaderShard<'static>>,
         offset_id: Arc<AtomicU32>,
+        plan: RecordSegmentReaderOptions,
     ) -> Self {
         MaterializeLogInput {
             logs,
             record_reader,
             offset_id,
+            plan,
         }
     }
 }
@@ -73,6 +78,7 @@ impl Operator<MaterializeLogInput, MaterializeLogOutput> for MaterializeLogOpera
             &input.record_reader.as_ref().cloned(),
             input.logs.clone(),
             Some(input.offset_id.clone()),
+            &input.plan,
         )
         .map_err(MaterializeLogOperatorError::LogMaterializationFailed)
         .await?;

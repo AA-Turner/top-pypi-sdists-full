@@ -3,45 +3,52 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable
 from enum import Enum
 from math import isclose
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
-import pydantic.v1 as pydantic
 import shapely
+from pydantic import Field, NonNegativeInt
 from shapely.geometry import (
     Polygon,
 )
 from shapely.geometry.base import (
     BaseMultipartGeometry,
 )
+from shapely.ops import linemerge
 
 from tidy3d.components.autograd.utils import get_static
 from tidy3d.components.base import Tidy3dBaseModel
 from tidy3d.components.geometry.base import Box
-from tidy3d.components.grid.grid import Grid
-from tidy3d.components.types import (
-    ArrayFloat2D,
-    Axis,
-    Bound,
-    Coordinate,
-    Direction,
-    MatrixReal4x4,
-    PlanePosition,
-    Shapely,
-)
+from tidy3d.components.types import Shapely
 from tidy3d.constants import fp_eps
 from tidy3d.exceptions import SetupError, Tidy3dError
 
 from . import base, mesh, polyslab, primitives
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from numpy.typing import ArrayLike
+
+    from tidy3d.components.grid.grid import Grid
+    from tidy3d.components.types import (
+        ArrayFloat2D,
+        Axis,
+        Bound,
+        Coordinate,
+        Direction,
+        MatrixReal4x4,
+        PlanePosition,
+    )
 
 GeometryType = Union[
     base.Box,
     base.Transformed,
     base.ClipOperation,
     base.GeometryGroup,
+    base.GeometryArray,
     primitives.Sphere,
     primitives.Cylinder,
     polyslab.PolySlab,
@@ -101,7 +108,7 @@ def merging_geometries_on_plane(
 
     Parameters
     ----------
-    geometries : List[GeometryType]
+    geometries : list[GeometryType]
         List of structures to filter on the plane.
     plane : Box
         Plane specification.
@@ -117,7 +124,7 @@ def merging_geometries_on_plane(
 
     Returns
     -------
-    List[Tuple[Any, Shapely]]
+    list[tuple[Any, Shapely]]
         List of shapes and their property value on the plane after merging.
     """
 
@@ -141,12 +148,32 @@ def merging_geometries_on_plane(
         shapes_by_prop = defaultdict(list)
         for prop, shape, _ in shapes:
             shapes_by_prop[prop].append(shape)
-        # union shapes of same property
+        # union shapes of same property, handling zero-area geometries (LineStrings, Points)
+        # separately since .buffer(0) collapses them to empty
+        _zero_area_types = ("LineString", "MultiLineString", "Point", "MultiPoint")
         results = []
-        for prop, shapes in shapes_by_prop.items():
-            unionized = shapely.union_all(shapes).buffer(0).normalize()
-            if not unionized.is_empty:
-                results.append((prop, unionized))
+        for prop, prop_shapes in shapes_by_prop.items():
+            polys = [s for s in prop_shapes if s.geom_type not in _zero_area_types]
+            zero_area = [s for s in prop_shapes if s.geom_type in _zero_area_types]
+            merged_parts = []
+            if polys:
+                unionized = shapely.union_all(polys).buffer(0).normalize()
+                if not unionized.is_empty:
+                    merged_parts.append(unionized)
+            if zero_area:
+                merged = shapely.union_all(zero_area)
+                unionized = (
+                    linemerge(merged).normalize()
+                    if merged.geom_type == "MultiLineString"
+                    else merged.normalize()
+                )
+                if not unionized.is_empty:
+                    merged_parts.append(unionized)
+            if len(merged_parts) == 1:
+                results.append((prop, merged_parts[0]))
+            elif len(merged_parts) > 1:
+                combined = shapely.GeometryCollection(merged_parts).normalize()
+                results.append((prop, combined))
         return results
 
     background_shapes = []
@@ -171,7 +198,8 @@ def merging_geometries_on_plane(
                 # mark background shape for removal if nothing left
                 if diff_shape.is_empty or len(diff_shape.bounds) == 0:
                     background_shapes[index] = None
-                background_shapes[index] = (_prop, diff_shape, diff_shape.bounds)
+                else:
+                    background_shapes[index] = (_prop, diff_shape, diff_shape.bounds)
             # same prop, unionize shapes and mark background shape for removal
             else:
                 shape = (shape | _shape).buffer(0).normalize()
@@ -191,6 +219,7 @@ def flatten_groups(
     *geometries: GeometryType,
     flatten_nonunion_type: bool = False,
     flatten_transformed: bool = False,
+    flatten_array: bool = False,
     transform: Optional[MatrixReal4x4] = None,
 ) -> GeometryType:
     """Iterates over all geometries, flattening groups and unions.
@@ -204,6 +233,8 @@ def flatten_groups(
         all clip operations.
     flatten_transformed : bool = False
         If ``True``, ``Transformed`` groups are flattened into individual transformed geometries.
+    flatten_array : bool = False
+        If ``True``, ``GeometryArray`` is flattened into its individual transformed geometries.
     transform : Optional[MatrixReal4x4]
         Accumulated transform from parents. Only used when ``flatten_transformed`` is ``True``.
 
@@ -218,6 +249,7 @@ def flatten_groups(
                 *geometry.geometries,
                 flatten_nonunion_type=flatten_nonunion_type,
                 flatten_transformed=flatten_transformed,
+                flatten_array=flatten_array,
                 transform=transform,
             )
         elif isinstance(geometry, base.ClipOperation) and (
@@ -228,6 +260,7 @@ def flatten_groups(
                 geometry.geometry_b,
                 flatten_nonunion_type=flatten_nonunion_type,
                 flatten_transformed=flatten_transformed,
+                flatten_array=flatten_array,
                 transform=transform,
             )
         elif flatten_transformed and isinstance(geometry, base.Transformed):
@@ -238,7 +271,16 @@ def flatten_groups(
                 geometry.geometry,
                 flatten_nonunion_type=flatten_nonunion_type,
                 flatten_transformed=flatten_transformed,
+                flatten_array=flatten_array,
                 transform=new_transform,
+            )
+        elif flatten_array and isinstance(geometry, base.GeometryArray):
+            yield from flatten_groups(
+                *geometry._transformed_geometries,
+                flatten_nonunion_type=flatten_nonunion_type,
+                flatten_transformed=flatten_transformed,
+                flatten_array=flatten_array,
+                transform=transform,
             )
         elif flatten_transformed and transform is not None:
             yield base.Transformed(geometry=geometry, transform=transform)
@@ -258,7 +300,7 @@ def traverse_geometries(geometry: GeometryType) -> GeometryType:
 
     Returns
     -------
-    :class:`Geometry`
+    :class:`~tidy3d.Geometry`
         Geometries within the base geometry.
     """
     if isinstance(geometry, base.GeometryGroup):
@@ -267,7 +309,205 @@ def traverse_geometries(geometry: GeometryType) -> GeometryType:
     elif isinstance(geometry, base.ClipOperation):
         yield from traverse_geometries(geometry.geometry_a)
         yield from traverse_geometries(geometry.geometry_b)
+    elif isinstance(geometry, base.GeometryArray):
+        yield from traverse_geometries(geometry.geometry)
     yield geometry
+
+
+# ---------------------------------------------------------------------------
+# Geometry filtering helpers (for more accurate subsection)
+#
+# These functions prune geometry trees so that only the parts intersecting a
+# given bounding box survive.  Tidy3D geometries form a tree: a Structure's
+# geometry may be a leaf primitive (Box, Sphere, PolySlab, ...) or a
+# container (GeometryGroup, GeometryArray, Transformed, union ClipOperation)
+# whose children are themselves geometries.
+#
+# `_filter_intersecting_geometry` walks this tree recursively:
+#   - Leaf primitives are kept or discarded based on a bounding-box check.
+#   - Containers recurse into their children, then rebuild with only the
+#     surviving children.  Single-child containers are collapsed for
+#     simplicity.
+#   - GeometryArray (instanced geometry) groups surviving instances by their
+#     filtered base geometry so the compact array representation is preserved.
+# ---------------------------------------------------------------------------
+
+
+def filter_intersecting_geometries(
+    geometries: list[GeometryType],
+    bounds: Box,
+) -> list[Optional[GeometryType]]:
+    """Filter a list of geometries using recursive bounds checks.
+
+    Returns a list of the same length as *geometries*, with ``None`` for
+    geometries that do not intersect *bounds*. Container types
+    (``GeometryGroup``, ``GeometryArray``, union ``ClipOperation``) are
+    recursively pruned.
+    """
+    return [_filter_intersecting_geometry(geometry, bounds) for geometry in geometries]
+
+
+def _compose_transforms(
+    parent_transform: Optional[MatrixReal4x4], child_transform: MatrixReal4x4
+) -> MatrixReal4x4:
+    """Compose a child transform with its parent transform."""
+
+    if parent_transform is None:
+        return np.array(child_transform, copy=True)
+    return np.matmul(parent_transform, child_transform)
+
+
+def _geometry_with_transform(
+    geometry: GeometryType, transform: Optional[MatrixReal4x4]
+) -> GeometryType:
+    """Return ``geometry`` with ``transform`` applied when it is not trivial."""
+
+    if transform is None or np.allclose(transform, base.Transformed.identity()):
+        return geometry
+    return base.Transformed(geometry=geometry, transform=transform)
+
+
+def _split_full_transform(
+    transform: MatrixReal4x4,
+) -> tuple[tuple[float, float, float], MatrixReal4x4]:
+    """Split a full affine transform into GeometryArray offsets and linear transforms."""
+
+    transform_array = np.array(transform, copy=True)
+    offset = tuple(float(val) for val in transform_array[:3, 3])
+    linear_transform = transform_array.copy()
+    linear_transform[:3, 3] = 0.0
+    linear_transform[3, :] = (0.0, 0.0, 0.0, 1.0)
+    return offset, linear_transform
+
+
+def _rebuild_filtered_geometry_array(
+    geometry: base.GeometryArray,
+    filtered_groups: dict[GeometryType, list[MatrixReal4x4]],
+) -> Optional[GeometryType]:
+    """Rebuild a filtered ``GeometryArray`` or grouped geometries from surviving instances."""
+
+    survivors = []
+    identity = base.Transformed.identity()
+
+    for filtered_geometry, instance_transforms in filtered_groups.items():
+        if len(instance_transforms) == 1:
+            survivors.append(_geometry_with_transform(filtered_geometry, instance_transforms[0]))
+            continue
+
+        offsets = []
+        transforms = []
+        for instance_transform in instance_transforms:
+            offset, linear_transform = _split_full_transform(instance_transform)
+            offsets.append(offset)
+            transforms.append(linear_transform)
+
+        offsets_tuple = tuple(offsets)
+        transforms_tuple = tuple(transforms)
+
+        offsets_are_zero = all(np.allclose(offset, 0.0) for offset in offsets_tuple)
+        transforms_are_identity = all(
+            np.allclose(transform, identity) for transform in transforms_tuple
+        )
+
+        array_offsets = None if offsets_are_zero and not transforms_are_identity else offsets_tuple
+        array_transforms = None if transforms_are_identity else transforms_tuple
+
+        if array_offsets is None and array_transforms is None:
+            array_offsets = offsets_tuple
+
+        survivors.append(
+            geometry.updated_copy(
+                geometry=filtered_geometry,
+                offsets=array_offsets,
+                transforms=array_transforms,
+            )
+        )
+
+    if not survivors:
+        return None
+    if len(survivors) == 1:
+        return survivors[0]
+    return base.GeometryGroup(geometries=tuple(survivors))
+
+
+def _filter_intersecting_geometry(
+    geometry: GeometryType,
+    bounds: Box,
+    transform: Optional[MatrixReal4x4] = None,
+) -> Optional[GeometryType]:
+    """Recursively prune non-intersecting geometry children while preserving type.
+
+    ``transform`` accumulates parent transforms as we descend into
+    ``Transformed`` and ``GeometryArray`` nodes so that the bounding-box
+    intersection test is performed in world coordinates even though the
+    child geometry is stored in local coordinates.
+    """
+
+    if not _geometry_with_transform(geometry, transform).intersects(bounds):
+        return None
+
+    if isinstance(geometry, base.GeometryGroup):
+        # Recurse into each child independently; drop non-intersecting ones.
+        survivors = tuple(
+            child
+            for child in (
+                _filter_intersecting_geometry(g, bounds, transform=transform)
+                for g in geometry.geometries
+            )
+            if child is not None
+        )
+        if not survivors:
+            return None
+        if len(survivors) == 1:
+            return survivors[0]
+        return geometry.updated_copy(geometries=survivors)
+
+    if isinstance(geometry, base.Transformed):
+        # Compose the parent transform with this node's transform before
+        # recursing into the inner geometry.
+        filtered_geometry = _filter_intersecting_geometry(
+            geometry.geometry,
+            bounds,
+            transform=_compose_transforms(transform, geometry.transform),
+        )
+        if filtered_geometry is None:
+            return None
+        return geometry.updated_copy(geometry=filtered_geometry)
+
+    if isinstance(geometry, base.GeometryArray):
+        # Each instance shares the same base geometry but has its own
+        # transform (offset + rotation).  We test each instance separately,
+        # then group survivors by their filtered base geometry so the
+        # compact array representation is preserved where possible.
+        filtered_groups: dict[GeometryType, list[MatrixReal4x4]] = defaultdict(list)
+        for index in range(geometry.num_geometries):
+            instance_transform = geometry._get_full_transform(index)
+            filtered_geometry = _filter_intersecting_geometry(
+                geometry.geometry,
+                bounds,
+                transform=_compose_transforms(transform, instance_transform),
+            )
+            if filtered_geometry is None:
+                continue
+            filtered_groups[filtered_geometry].append(np.array(instance_transform, copy=True))
+
+        return _rebuild_filtered_geometry_array(geometry, filtered_groups)
+
+    if isinstance(geometry, base.ClipOperation) and geometry.operation == "union":
+        # Only unions can be decomposed: filtering each operand independently
+        # preserves union semantics.  For intersection/difference the operands
+        # are interdependent, so we fall through and return unchanged.
+        geometry_a = _filter_intersecting_geometry(geometry.geometry_a, bounds, transform=transform)
+        geometry_b = _filter_intersecting_geometry(geometry.geometry_b, bounds, transform=transform)
+        if geometry_a is None and geometry_b is None:
+            return None
+        if geometry_a is None:
+            return geometry_b
+        if geometry_b is None:
+            return geometry_a
+        return geometry.updated_copy(geometry_a=geometry_a, geometry_b=geometry_b)
+
+    return geometry
 
 
 def from_shapely(
@@ -287,7 +527,7 @@ def from_shapely(
         of any of those.
     axis : int
         Integer index defining the extrusion axis: 0 (x), 1 (y), or 2 (z).
-    slab_bounds: Tuple[float, float]
+    slab_bounds: tuple[float, float]
         Minimal and maximal positions of the extruded slab along ``axis``.
     dilation : float
         Dilation of the polygon in the base by shifting each edge along its normal outwards
@@ -303,7 +543,7 @@ def from_shapely(
 
     Returns
     -------
-    :class:`Geometry`
+    :class:`~tidy3d.Geometry`
         Geometry extruded from the 2D data.
     """
     if shape.geom_type == "LinearRing":
@@ -360,7 +600,7 @@ def vertices_from_shapely(shape: Shapely) -> ArrayFloat2D:
 
     Returns
     -------
-    List[Tuple[ArrayFloat2D]]
+    list[tuple[ArrayFloat2D]]
         List of tuples ``(exterior, *interiors)``.
     """
     if shape.geom_type == "LinearRing":
@@ -397,6 +637,11 @@ def validate_no_transformed_polyslabs(
     elif isinstance(geometry, base.ClipOperation):
         validate_no_transformed_polyslabs(geometry.geometry_a, transform)
         validate_no_transformed_polyslabs(geometry.geometry_b, transform)
+    elif isinstance(geometry, base.GeometryArray):
+        # For GeometryArray, check each instance's transform combined with the base geometry
+        for i in range(geometry.num_geometries):
+            instance_transform = np.dot(transform, geometry._get_full_transform(i))
+            validate_no_transformed_polyslabs(geometry.geometry, instance_transform)
 
 
 class SnapLocation(Enum):
@@ -446,21 +691,17 @@ class SnapBehavior(Enum):
 class SnappingSpec(Tidy3dBaseModel):
     """Specifies how to apply grid snapping along each dimension."""
 
-    location: tuple[SnapLocation, SnapLocation, SnapLocation] = pydantic.Field(
-        ...,
+    location: tuple[SnapLocation, SnapLocation, SnapLocation] = Field(
         title="Location",
         description="Describes which positions in the grid will be considered for snapping.",
     )
 
-    behavior: tuple[SnapBehavior, SnapBehavior, SnapBehavior] = pydantic.Field(
-        ...,
+    behavior: tuple[SnapBehavior, SnapBehavior, SnapBehavior] = Field(
         title="Behavior",
         description="Describes how snapping positions will be chosen.",
     )
 
-    margin: Optional[
-        tuple[pydantic.NonNegativeInt, pydantic.NonNegativeInt, pydantic.NonNegativeInt]
-    ] = pydantic.Field(
+    margin: Optional[tuple[NonNegativeInt, NonNegativeInt, NonNegativeInt]] = Field(
         (0, 0, 0),
         title="Margin",
         description="Number of additional grid points to consider when expanding or contracting "
@@ -468,7 +709,7 @@ class SnappingSpec(Tidy3dBaseModel):
     )
 
 
-def get_closest_value(test: float, coords: np.ArrayLike, upper_bound_idx: int) -> float:
+def get_closest_value(test: float, coords: ArrayLike, upper_bound_idx: int) -> float:
     """Helper to choose the closest value in an array to a given test value,
     using the index of the upper bound. The ``upper_bound_idx`` corresponds to the first value in
     the ``coords`` array which is greater than or equal to the test value.
@@ -496,7 +737,7 @@ def snap_box_to_grid(grid: Grid, box: Box, snap_spec: SnappingSpec, rtol: float 
 
     def get_lower_bound(
         test: float,
-        coords: np.ArrayLike,
+        coords: ArrayLike,
         upper_bound_idx: int,
         rel_tol: float,
         strict_bounds: bool,
@@ -513,7 +754,7 @@ def snap_box_to_grid(grid: Grid, box: Box, snap_spec: SnappingSpec, rtol: float 
         ----------
         test : float
             The value to snap.
-        coords : np.ArrayLike
+        coords : ArrayLike
             Sorted array of coordinate values to snap to.
         upper_bound_idx : int
             Index from ``np.searchsorted(coords, test, side="left")`` - the first index where
@@ -553,7 +794,7 @@ def snap_box_to_grid(grid: Grid, box: Box, snap_spec: SnappingSpec, rtol: float 
 
     def get_upper_bound(
         test: float,
-        coords: np.ArrayLike,
+        coords: ArrayLike,
         upper_bound_idx: int,
         rel_tol: float,
         strict_bounds: bool,
@@ -570,7 +811,7 @@ def snap_box_to_grid(grid: Grid, box: Box, snap_spec: SnappingSpec, rtol: float 
         ----------
         test : float
             The value to snap.
-        coords : np.ArrayLike
+        coords : ArrayLike
             Sorted array of coordinate values to snap to.
         upper_bound_idx : int
             Index from ``np.searchsorted(coords, test, side="left")`` - the first index where
@@ -614,7 +855,7 @@ def snap_box_to_grid(grid: Grid, box: Box, snap_spec: SnappingSpec, rtol: float 
         interval_max: float,
         coords: np.ndarray,
         snap_type: SnapBehavior,
-        snap_margin: pydantic.NonNegativeInt,
+        snap_margin: NonNegativeInt,
     ) -> tuple[float, float]:
         """Helper that snaps a supplied interval [interval_min, interval_max] to a
         sorted array representing coordinate values.
@@ -645,6 +886,22 @@ def snap_box_to_grid(grid: Grid, box: Box, snap_spec: SnappingSpec, rtol: float 
                 strict_bounds=strict_bounds,
                 margin=+snap_margin,
             )
+            # Ensure non-zero size after expansion - if both bounds snapped to the
+            # same point (can happen when interval is very small and centered on a
+            # grid point), expand to span at least one grid cell.
+            if min_snap == max_snap:
+                snap_idx = np.searchsorted(coords, min_snap, side="left")
+                # Clamp to valid range and get adjacent grid points
+                lower_idx = max(0, snap_idx - 1)
+                upper_idx = min(len(coords) - 1, snap_idx)
+                if lower_idx == upper_idx:
+                    # At edge of grid - expand in the only available direction
+                    if upper_idx < len(coords) - 1:
+                        upper_idx += 1
+                    elif lower_idx > 0:
+                        lower_idx -= 1
+                min_snap = coords[lower_idx]
+                max_snap = coords[upper_idx]
         else:  # SnapType.Contract
             min_snap = get_upper_bound(
                 interval_min,

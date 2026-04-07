@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lunary
-Version: 1.4.38
+Version: 1.4.39
 Summary: Python SDK for Lunary, the open-source platform where GenAI teams manage and improve LLM chatbots.
 Keywords: Lunary,lunary.ai,Langchain,AI,Analytics,Monitoring,LLM,GenAI,SDK
 Author: lunary
@@ -53,18 +53,4 @@ pip install lunary
 ## 📖 Documentation
 
 Full docs are available [here](https://lunary.ai/docs/py).
-
-## Examples
-
-Run the LangChain runnable sequence examples with:
-
-```bash
-poetry run python examples/langchain/runnable-sequence-astream-events-v2.py
-poetry run python examples/langchain/runnable-sequence-invoke.py
-```
-
-They show the same `RunnableSequence` with `LunaryCallbackHandler`, once
-through `astream_events(version="v2")` and once through `invoke()`.
-Set `LUNARY_PUBLIC_KEY` first, and `LUNARY_API_URL` too if you are not sending
-events to the default Lunary backend.
 

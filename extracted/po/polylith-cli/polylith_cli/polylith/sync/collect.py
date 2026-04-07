@@ -29,7 +29,7 @@ def _calculate(root: Path, namespace: str, project_data: dict, bases: Set[str]) 
     bases_diff = {b for b in brick_diff if b in all_bases}
     comp_diff = {b for b in brick_diff if b in all_components}
     fn = partial(_without_empty, root, namespace)
-    return {'name': project_data['name'], 'path': project_data['path'], 'is_project': is_project, 'bases': bases_diff if is_project else fn(bases_diff, 'bases'), 'components': comp_diff if is_project else fn(comp_diff, 'components'), 'brick_imports': brick_imports}
+    return {'name': project_data['name'], 'alias': project_data['alias'], 'path': project_data['path'], 'is_project': is_project, 'bases': bases_diff if is_project else fn(bases_diff, 'bases'), 'components': comp_diff if is_project else fn(comp_diff, 'components'), 'brick_imports': brick_imports}
 
 def calculate_diff(root: Path, namespace: str, project_data: dict) -> dict:
     bases = set(project_data['bases'])

@@ -10,8 +10,9 @@ from typing import (
     Literal,
 )
 
+import msgspec
 from anyio import Path as AsyncPath
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 type FilePath = str | PathLike[str]
 
@@ -54,12 +55,41 @@ class SlackWorkflowInput(BaseModel):
     message_text: str | None = None
 
 
-WorkflowInput = PrReviewWorkflowInput | SlackWorkflowInput
+class ChatLearningSource(msgspec.Struct, tag="chat"):
+    chat_uuid: str
+
+
+class PRLearningSource(msgspec.Struct, tag="pr"):
+    url: str
+
+
+class SlackLearningSource(msgspec.Struct, tag="slack"):
+    slack_channel_id: str
+    slack_thread_ts: str
+
+
+class NotionLearningSource(msgspec.Struct, tag="notion"):
+    notion_page_id: str
+
+
+DreamingLearningSource = ChatLearningSource | PRLearningSource | SlackLearningSource | NotionLearningSource
+
+
+class DreamingWorkflowInput(msgspec.Struct):
+    repo_owner: str
+    repo_name: str
+    learning_sources: list[DreamingLearningSource] = []
+
+
+WorkflowInput = PrReviewWorkflowInput | SlackWorkflowInput | DreamingWorkflowInput
+PydanticWorkflowInput = PrReviewWorkflowInput | SlackWorkflowInput
 
 
 class WorkflowTriggerRequest(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     workflow_name: str
-    workflow_input: WorkflowInput
+    workflow_input: PydanticWorkflowInput
 
 
 class WorkflowTriggerResponse(BaseModel):

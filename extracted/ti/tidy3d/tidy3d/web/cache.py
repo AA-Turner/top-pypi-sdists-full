@@ -8,24 +8,28 @@ import os
 import shutil
 import tempfile
 import threading
-from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
+from filelock import FileLock
 from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt
 
 from tidy3d import config
-from tidy3d.components.mode.mode_solver import ModeSolver
-from tidy3d.components.types.workflow import WorkflowDataType, WorkflowType
 from tidy3d.log import log
 from tidy3d.web.api.tidy3d_stub import Tidy3dStub
-from tidy3d.web.core.constants import TaskId
 from tidy3d.web.core.http_util import get_version as _get_protocol_version
 from tidy3d.web.core.types import TaskType
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from tidy3d.components.mode.mode_solver import ModeSolver
+    from tidy3d.components.types.workflow import WorkflowDataType, WorkflowType
+    from tidy3d.web.core.constants import TaskId
 
 CACHE_ARTIFACT_NAME = "simulation_data.hdf5"
 CACHE_METADATA_NAME = "metadata.json"
@@ -35,6 +39,18 @@ TMP_PREFIX = "tidy3d-cache-"
 TMP_BATCH_PREFIX = "tmp_batch"
 
 _CACHE: Optional[LocalCache] = None
+
+
+def _remove_cache_dir(path: os.PathLike, *, recreate: bool) -> None:
+    """Remove a cache directory and optionally recreate it."""
+    cache_path = Path(path)
+    if cache_path.exists():
+        try:
+            shutil.rmtree(cache_path)
+        except (FileNotFoundError, OSError):
+            return
+    if recreate:
+        cache_path.mkdir(parents=True, exist_ok=True)
 
 
 def get_cache_entry_dir(root: os.PathLike, key: str) -> Path:
@@ -161,6 +177,10 @@ class LocalCache:
         self._lock = threading.RLock()
         self._syncing_stats = False
         self._sync_pending = False
+        lock_name = f".{self._root.name}.lock" if self._root.name else ".cache.lock"
+        self._lock_path = self._root.parent / lock_name
+        self._file_lock = FileLock(self._lock_path)
+        self._file_lock_state = threading.local()
 
     @property
     def _stats_path(self) -> Path:
@@ -175,10 +195,32 @@ class LocalCache:
             self.sync_stats()
 
     @contextmanager
-    def _with_lock(self) -> Iterator[None]:
+    def _with_interprocess_lock(self) -> Iterator[None]:
+        depth = getattr(self._file_lock_state, "depth", 0)
+        if depth > 0:
+            self._file_lock_state.depth = depth + 1
+            try:
+                yield
+            finally:
+                self._file_lock_state.depth -= 1
+            return
+
+        self._lock_path.parent.mkdir(parents=True, exist_ok=True)
+        self._root.mkdir(parents=True, exist_ok=True)
+        with self._file_lock:
+            self._file_lock_state.depth = 1
+            try:
+                yield
+            finally:
+                self._file_lock_state.depth = 0
+
+    @contextmanager
+    def _with_cache_state_lock(self) -> Iterator[None]:
+        """Lock boundary for entry-point operations; helpers assume this is held."""
         self._run_pending_sync()
         with self._lock:
-            yield
+            with self._with_interprocess_lock():
+                yield
         self._run_pending_sync()
 
     def _write_stats(self, stats: CacheStats) -> CacheStats:
@@ -273,7 +315,7 @@ class LocalCache:
                 self._evict_by_size(entries_map, bytes_to_free, exclude_keys=set())
 
     def sync_stats(self) -> CacheStats:
-        with self._lock:
+        with self._with_cache_state_lock():
             self._syncing_stats = True
             log.debug("Syncing stats.json of local cache")
             try:
@@ -297,26 +339,20 @@ class LocalCache:
 
     def list(self) -> list[dict[str, Any]]:
         """Return metadata for all cache entries."""
-        with self._with_lock():
+        with self._with_cache_state_lock():
             entries = [entry.metadata.model_dump(mode="json") for entry in self._iter_entries()]
         return entries
 
     def clear(self, hard: bool = False) -> None:
         """Remove all cache contents. If set to hard, root directory is removed."""
-        with self._with_lock():
-            if self._root.exists():
-                try:
-                    shutil.rmtree(self._root)
-                    if not hard:
-                        self._root.mkdir(parents=True, exist_ok=True)
-                except (FileNotFoundError, OSError):
-                    pass
+        with self._with_cache_state_lock():
+            _remove_cache_dir(self._root, recreate=not hard)
             if not hard:
                 self._write_stats(CacheStats())
 
     def _fetch(self, key: str) -> Optional[CacheEntry]:
         """Retrieve an entry by key, verifying checksum."""
-        with self._with_lock():
+        with self._with_cache_state_lock():
             entry = self._load_entry(key)
             if not entry or not entry.exists():
                 return None
@@ -328,8 +364,13 @@ class LocalCache:
 
     def __len__(self) -> int:
         """Return number of valid cache entries."""
-        with self._with_lock():
-            count = self._load_stats().total_entries
+        with self._with_cache_state_lock():
+            stats = self._load_stats()
+            count = stats.total_entries
+            actual = sum(1 for _ in self._iter_entries())
+            if actual != count:
+                self._schedule_sync()
+                count = actual
         return count
 
     def _store(
@@ -370,7 +411,7 @@ class LocalCache:
         _write_metadata(tmp_meta, metadata)
         entry: Optional[CacheEntry] = None
         try:
-            with self._with_lock():
+            with self._with_cache_state_lock():
                 self._root.mkdir(parents=True, exist_ok=True)
                 existing_entry = self._load_entry(key)
                 previous_size = (
@@ -404,7 +445,7 @@ class LocalCache:
         return entry
 
     def invalidate(self, key: str) -> None:
-        with self._with_lock():
+        with self._with_cache_state_lock():
             entry = self._load_entry(key)
             if entry:
                 self._remove_entry(entry)
@@ -584,6 +625,7 @@ class LocalCache:
             cache_key = build_cache_key(
                 simulation_hash=simulation_hash,
                 version=versions,
+                workflow_type=workflow_type,
             )
 
             entry = self._fetch(cache_key)
@@ -598,6 +640,7 @@ class LocalCache:
             return entry
         except Exception as e:
             log.error("Failed to fetch cache results: " + str(e))
+        return None
 
     def store_result(
         self,
@@ -636,10 +679,21 @@ class LocalCache:
         Legacy task ID mappings are recorded to support backward lookup compatibility.
         """
         try:
+            workflow_name = (
+                workflow_type.value if isinstance(workflow_type, TaskType) else workflow_type
+            )
+
+            if not workflow_name:
+                log.debug("Failed storing local cache entry: workflow_type is not set.")
+                return False
+
             if simulation is not None:
                 simulation_obj = simulation
             else:
-                simulation_obj = getattr(stub_data, "simulation", None)
+                if workflow_name in {TaskType.MODAL_CM.value, TaskType.TERMINAL_CM.value}:
+                    simulation_obj = getattr(stub_data, "modeler", None)
+                else:
+                    simulation_obj = getattr(stub_data, "simulation", None)
                 if simulation_obj is None:
                     log.debug(
                         "Failed storing local cache entry: Could not find simulation data in stub_data."
@@ -655,6 +709,7 @@ class LocalCache:
             cache_key = build_cache_key(
                 simulation_hash=simulation_hash,
                 version=version,
+                workflow_type=workflow_name,
             )
 
             metadata = build_entry_metadata(
@@ -677,9 +732,7 @@ class LocalCache:
         return True
 
 
-def _copy_and_hash(
-    source: Path, dest: Optional[Path], existing_hash: Optional[str] = None
-) -> tuple[str, int]:
+def _copy_and_hash(source: Path, dest: Optional[Path]) -> tuple[str, int]:
     """Copy ``source`` to ``dest`` while computing SHA256 checksum.
 
     Parameters
@@ -688,9 +741,6 @@ def _copy_and_hash(
         Source file path.
     dest : Path or None
         Destination file path. If ``None``, no copy is performed.
-    existing_hash : str, optional
-        If provided alongside ``dest`` and ``dest`` already exists, skip copying when hashes match.
-
     Returns
     -------
     tuple[str, int]
@@ -717,7 +767,7 @@ def _copy_and_hash(
 
 
 def _write_metadata(path: Path, metadata: CacheEntryMetadata | dict[str, Any]) -> None:
-    tmp_path = path.with_suffix(".tmp")
+    tmp_path = path.with_suffix(f".{os.getpid()}.{_timestamp_suffix()}.tmp")
     payload: dict[str, Any]
     if isinstance(metadata, CacheEntryMetadata):
         payload = metadata.model_dump(mode="json")
@@ -794,12 +844,19 @@ def build_cache_key(
     *,
     simulation_hash: str,
     version: str,
+    workflow_type: str,
 ) -> str:
-    """Construct a deterministic cache key."""
+    """Construct a deterministic cache key.
+
+    ``workflow_type`` is included so that different task types sharing the same
+    underlying simulation (e.g. ``VolumeMesher`` vs ``HeatChargeSimulation``)
+    never collide.
+    """
 
     payload = {
         "simulation_hash": simulation_hash,
         "versions": _canonicalize(version),
+        "workflow_type": workflow_type,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
@@ -851,7 +908,7 @@ def resolve_local_cache(use_cache: Optional[bool] = None) -> Optional[LocalCache
                 shutil.move(old_root, new_root)
         except Exception as e:
             log.warning(f"Failed to move cache directory: {e}. Delete old cache.")
-            shutil.rmtree(old_root)
+            _remove_cache_dir(old_root, recreate=False)
 
     _CACHE = LocalCache(
         directory=config.local_cache.directory,

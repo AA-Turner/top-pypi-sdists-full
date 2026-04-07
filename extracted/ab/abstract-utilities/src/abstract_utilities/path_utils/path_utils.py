@@ -286,3 +286,42 @@ def get_expanded_path(path):
     expanded_user = os.path.expanduser(conda_exe)
     abspath =os.path.abspath(expanded_user)
     return abspath
+def get_home_dir(path=None):
+    is_pathlib=True
+    if isinstance(path,str):
+        is_pathlib=False
+    path = path or os.getcwd()
+    path = get_pathlib_path(path)
+    if not is_pathlib:
+        path = str(path.home())
+    return path
+def get_spec_dir(name,directory):
+    
+    if name and directory:
+        dirlist = os.listdir(directory)
+        for item in dirlist:
+            if item == name:
+                dir_path = os.path.join(directory,item)
+                if os.path.isdir(dir_path):
+                    return dir_path
+        dir_path = os.path.join(directory,name)
+        os.makedirs(dir_path,exist_ok=True)
+        return dir_path
+def get_default_videos_dir(path=None):
+    home_dir = get_home_dir(path)
+    return get_spec_dir('Videos',home_dir)
+def get_default_documents_dir(path=None):
+    home_dir = get_home_dir(path)
+    return get_spec_dir('Documents',home_dir)
+def get_default_pictures_dir(path=None):
+    home_dir = get_home_dir(path)
+    return get_spec_dir('Pictures',home_dir)
+def get_default_downloads_dir(path=None):
+    home_dir = get_home_dir(path)
+    return get_spec_dir('Downloads',home_dir)
+def get_default_music_dir(path=None):
+    home_dir = get_home_dir(path)
+    return get_spec_dir('Music',home_dir)
+def get_default_desktop_dir(path=None):
+    home_dir = get_home_dir(path)
+    return get_spec_dir('Desktop',home_dir)

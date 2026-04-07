@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Callable, Literal, SupportsInt, Union
+from typing import TYPE_CHECKING
 
 import autograd.numpy as np
 import numpy as onp
@@ -12,12 +11,21 @@ from autograd.scipy.special import logsumexp
 from autograd.tracer import getval
 from numpy.fft import irfftn, rfftn
 from numpy.lib.stride_tricks import sliding_window_view
-from numpy.typing import NDArray
 from scipy.fft import next_fast_len
 
 from tidy3d.components.autograd.functions import add_at, interpn, trapz
+from tidy3d.exceptions import format_chained_exception_message
 
-from .types import PaddingType
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from types import ModuleType
+    from typing import Callable, Literal, Optional, SupportsInt, Union
+
+    from numpy.typing import NDArray
+
+    from tidy3d.components.autograd import TracedArrayLike
+
+    from .types import PaddingType
 
 __all__ = [
     "add_at",
@@ -51,7 +59,11 @@ def _normalize_axes(
             try:
                 ax = int(ax)
             except Exception as e:
-                raise TypeError(f"Axis {ax!r} could not be converted to an integer.") from e
+                raise TypeError(
+                    format_chained_exception_message(
+                        f"Axis {ax!r} could not be converted to an integer", e
+                    )
+                ) from e
 
         if not -ndim <= ax < ndim:
             raise ValueError(f"Invalid axis {ax} for {kind} with ndim {ndim}.")
@@ -178,7 +190,7 @@ def _get_pad_indices(
     pad_width: tuple[int, int],
     *,
     mode: PaddingType,
-    numpy_module,
+    numpy_module: ModuleType,
 ) -> NDArray:
     """Compute the indices to pad an array along a single axis based on the padding mode.
 
@@ -209,7 +221,9 @@ def _get_pad_indices(
     try:
         indices = onp.pad(onp.arange(n), (pad_left, pad_right), mode=mode)
     except ValueError as error:
-        raise ValueError(f"Unsupported padding mode: {mode}") from error
+        raise ValueError(
+            format_chained_exception_message(f"Unsupported padding mode: {mode}", error)
+        ) from error
     return numpy_module.asarray(indices, dtype=int)
 
 
@@ -335,7 +349,11 @@ def convolve(
     return _fft_convolve_general(working_array, kernel, axes_array, axes_kernel, effective_mode)
 
 
-def _get_footprint(size, structure, maxval):
+def _get_footprint(
+    size: Union[int, tuple[int, int], None],
+    structure: Optional[NDArray],
+    maxval: float,
+) -> NDArray:
     """Helper to generate the morphological footprint from size or structure."""
     if size is None and structure is None:
         raise ValueError("Either size or structure must be provided.")
@@ -404,7 +422,15 @@ def grey_dilation(
     return onp.max(dilated_windows, axis=(-2, -1))
 
 
-def _vjp_maker_dilation(ans, array, size=None, structure=None, *, mode="reflect", maxval=1e4):
+def _vjp_maker_dilation(
+    ans: NDArray,
+    array: NDArray,
+    size: Union[int, tuple[int, int], None] = None,
+    structure: Optional[NDArray] = None,
+    *,
+    mode: PaddingType = "reflect",
+    maxval: float = 1e4,
+) -> Callable[[TracedArrayLike], TracedArrayLike]:
     """VJP for the custom grey_dilation primitive."""
     nb = _get_footprint(size, structure, maxval)
     h, w = nb.shape
@@ -429,7 +455,7 @@ def _vjp_maker_dilation(ans, array, size=None, structure=None, *, mode="reflect"
     multiplicity = onp.sum(is_max_mask, axis=(-2, -1), keepdims=True)
     is_max_mask /= onp.maximum(multiplicity, 1)
 
-    def vjp(g):
+    def vjp(g: TracedArrayLike) -> TracedArrayLike:
         g_reshaped = g[..., None, None]
         grad_windows = g_reshaped * is_max_mask
 

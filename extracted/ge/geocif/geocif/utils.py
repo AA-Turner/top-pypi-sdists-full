@@ -327,27 +327,26 @@ def categorize_column(
 
 def get_crop_season(filename):
     """
-    Get crop name and season from filename
+    Get crop name and season from filename.
+
+    Recognized crops are matched in priority order (longest/most-specific first
+    to avoid substring collisions, e.g. "winter_wheat" before "wheat").
     """
-    if "winter_wheat" in filename:
-        crop = "winter_wheat"
-        season_index = 1
-    elif "spring_wheat" in filename:
-        crop = "spring_wheat"
-        season_index = 1
-    elif "maize" in filename:
-        crop = "maize"
-    elif "rice" in filename:
-        crop = "rice"
-    elif "soybean" in filename:
-        crop = "soybean"
-    elif "sorghum" in filename:
-        crop = "sorghum"
-    elif "millet" in filename:
-        crop = "sorghum"
-    elif "teff" in filename:
-        crop = "teff"
-    else:
+    # Multi-word crops must come before their constituent words
+    KNOWN_CROPS = [
+        "winter_wheat", "spring_wheat",
+        "maize", "rice", "soybean", "sorghum", "millet", "teff",
+        "wheat", "barley", "cassava", "groundnut", "sesame", "cotton",
+        "sugarcane", "potato", "beans", "cowpea", "sunflower", "poppy",
+    ]
+
+    crop = None
+    for c in KNOWN_CROPS:
+        if c in filename:
+            crop = c
+            break
+
+    if crop is None:
         raise ValueError(f"Crop not found in {filename}")
 
     if "s1" in filename:

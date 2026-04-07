@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any, get_args, get_origin
+from typing import TYPE_CHECKING, Any, get_args, get_origin
 
 import tomlkit
 from pydantic import BaseModel
-from pydantic.fields import FieldInfo
 from tomlkit.items import Item, Table
 
 from .registry import get_sections
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from pydantic.fields import FieldInfo
 
 Path = tuple[str, ...]
 
@@ -86,7 +89,6 @@ def build_document(
             value=value,
             path=(key,),
             descriptions=descriptions,
-            is_new=key not in document,
         )
     return document
 
@@ -104,7 +106,6 @@ def _apply_value(
     value: Any,
     path: Path,
     descriptions: dict[Path, str],
-    is_new: bool,
 ) -> None:
     description = descriptions.get(path)
     if isinstance(value, dict):
@@ -118,7 +119,6 @@ def _apply_value(
                 value=sub_value,
                 path=(*path, sub_key),
                 descriptions=descriptions,
-                is_new=not isinstance(existing, Table) or sub_key not in table,
             )
         if key in container:
             container[key] = table

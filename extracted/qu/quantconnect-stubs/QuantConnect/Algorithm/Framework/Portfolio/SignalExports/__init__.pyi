@@ -83,6 +83,67 @@ class BaseSignalExport(System.Object, QuantConnect.Interfaces.ISignalExportTarge
         ...
 
 
+class NumeraiSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
+    """
+    Exports signals of the desired positions to Numerai API.
+    Accepts signals in percentage i.e numerai_ticker:"IBM US", signal:0.234
+    """
+
+    @property
+    def name(self) -> str:
+        """
+        The name of this signal export
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    @property
+    def allowed_security_types(self) -> System.Collections.Generic.HashSet[QuantConnect.SecurityType]:
+        """
+        Hashset property of Numerai allowed SecurityTypes
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    def __init__(self, public_id: str, secret_id: str, model_id: str, file_name: str = "predictions.csv") -> None:
+        """
+        NumeraiSignalExport Constructor. It obtains the required information for Numerai API requests
+        
+        :param public_id: PUBLIC_ID provided by Numerai
+        :param secret_id: SECRET_ID provided by Numerai
+        :param model_id: ID of the Numerai Model being used
+        :param file_name: Signal file's name
+        """
+        ...
+
+    def convert_targets_to_numerai(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters, positions: typing.Optional[str]) -> typing.Tuple[bool, str]:
+        """
+        Verifies each holding's signal is between 0 and 1 (exclusive)
+        
+        
+        This codeEntityType is protected.
+        
+        :param parameters: A list of portfolio holdings expected to be sent to Numerai API
+        :param positions: A message with the desired positions in the expected Numerai API format
+        :returns: True if a string message with the positions could be obtained, false otherwise.
+        """
+        ...
+
+    def send(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> bool:
+        """
+        Verifies all the given holdings are accepted by Numerai, creates a message with those holdings in the expected
+        Numerai API format and sends them to Numerai API
+        
+        :param parameters: A list of portfolio holdings expected to be sent to Numerai API and the algorithm being ran
+        :returns: True if the positions were sent to Numerai API correctly and no errors were returned, false otherwise.
+        """
+        ...
+
+
 class VBaseSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
     """
     Exports signals of desired positions to vBase stamping API using JSON and HTTPS.
@@ -196,67 +257,6 @@ class CrunchDAOSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExp
         :param parameters: A list of holdings from the portfolio,
         expected to be sent to CrunchDAO API and the algorithm being ran
         :returns: True if the positions were sent to CrunchDAO succesfully and errors were returned, false otherwise.
-        """
-        ...
-
-
-class NumeraiSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
-    """
-    Exports signals of the desired positions to Numerai API.
-    Accepts signals in percentage i.e numerai_ticker:"IBM US", signal:0.234
-    """
-
-    @property
-    def name(self) -> str:
-        """
-        The name of this signal export
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    @property
-    def allowed_security_types(self) -> System.Collections.Generic.HashSet[QuantConnect.SecurityType]:
-        """
-        Hashset property of Numerai allowed SecurityTypes
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    def __init__(self, public_id: str, secret_id: str, model_id: str, file_name: str = "predictions.csv") -> None:
-        """
-        NumeraiSignalExport Constructor. It obtains the required information for Numerai API requests
-        
-        :param public_id: PUBLIC_ID provided by Numerai
-        :param secret_id: SECRET_ID provided by Numerai
-        :param model_id: ID of the Numerai Model being used
-        :param file_name: Signal file's name
-        """
-        ...
-
-    def convert_targets_to_numerai(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters, positions: typing.Optional[str]) -> typing.Tuple[bool, str]:
-        """
-        Verifies each holding's signal is between 0 and 1 (exclusive)
-        
-        
-        This codeEntityType is protected.
-        
-        :param parameters: A list of portfolio holdings expected to be sent to Numerai API
-        :param positions: A message with the desired positions in the expected Numerai API format
-        :returns: True if a string message with the positions could be obtained, false otherwise.
-        """
-        ...
-
-    def send(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> bool:
-        """
-        Verifies all the given holdings are accepted by Numerai, creates a message with those holdings in the expected
-        Numerai API format and sends them to Numerai API
-        
-        :param parameters: A list of portfolio holdings expected to be sent to Numerai API and the algorithm being ran
-        :returns: True if the positions were sent to Numerai API correctly and no errors were returned, false otherwise.
         """
         ...
 

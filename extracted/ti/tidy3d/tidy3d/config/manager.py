@@ -5,12 +5,11 @@ from __future__ import annotations
 import os
 import shutil
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from enum import Enum
 from io import StringIO
 from pathlib import Path
-from typing import Any, Optional, get_args, get_origin
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 from rich.console import Console
@@ -21,9 +20,20 @@ from rich.tree import Tree
 
 from tidy3d.log import log
 
-from .loader import ConfigLoader, deep_diff, deep_merge, load_environment_overrides
+from .loader import (
+    ConfigLoader,
+    build_validated_models,
+    deep_diff,
+    deep_merge,
+    load_environment_overrides,
+)
 from .profiles import BUILTIN_PROFILES
 from .registry import attach_manager, get_handlers, get_sections
+from .schema_utils import _resolve_model_type
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
+    from typing import Optional
 
 
 def normalize_profile_name(name: str) -> str:
@@ -125,9 +135,10 @@ class ConfigManager:
         self._effective_tree: dict[str, Any] = {}
         self._env_overrides: dict[str, Any] = load_environment_overrides()
         self._web_env_previous: dict[str, Optional[str]] = {}
+        self._context_stack: list[tuple[str, dict[str, Any]]] = []
 
-        attach_manager(self)
         self._reload()
+        attach_manager(self)
 
         # Notify users when using a non-default profile
         if self._profile != "default":
@@ -237,7 +248,7 @@ class ConfigManager:
             diff = deep_diff(baseline, base_without_env)
             self._loader.save_profile(self._profile, diff)
         # refresh cached base/profile data after saving
-        self._base_data = self._loader.load_base()
+        self._base_data = self._loader.load_base(validation_profile=self._profile)
         self._profile_data = self._loader.load_user_profile(self._profile)
         self._reload()
 
@@ -293,7 +304,7 @@ class ConfigManager:
 
     def preview_profile(self, profile: str) -> dict[str, Any]:
         builtin = self._loader.get_builtin_profile(profile)
-        base = self._loader.load_base()
+        base = self._loader.load_base(validation_profile=profile)
         overrides = self._loader.load_user_profile(profile)
         view = deep_merge(builtin, base, overrides)
         return deepcopy(view)
@@ -370,46 +381,30 @@ class ConfigManager:
     def _reload(self) -> None:
         self._env_overrides = load_environment_overrides()
         self._builtin_data = deepcopy(self._loader.get_builtin_profile(self._profile))
-        self._base_data = deepcopy(self._loader.load_base())
-        self._profile_data = deepcopy(self._loader.load_user_profile(self._profile))
+        self._base_data = deepcopy(
+            self._loader.load_base(
+                commit_writes=False,
+                queue_migration_write=True,
+                validation_profile=self._profile,
+            )
+        )
+        self._profile_data = deepcopy(
+            self._loader.load_user_profile(
+                self._profile, commit_writes=False, queue_migration_write=True
+            )
+        )
         self._raw_tree = deep_merge(self._builtin_data, self._base_data, self._profile_data)
 
         runtime = deepcopy(self._runtime_overrides.get(self._profile, {}))
         effective = deep_merge(self._raw_tree, self._env_overrides, runtime)
         self._effective_tree = effective
         self._build_models()
+        self._loader.commit_pending_writes()
 
     def _build_models(self) -> None:
-        sections = get_sections()
-        new_sections: dict[str, BaseModel] = {}
-        new_plugins: dict[str, BaseModel] = {}
-
-        errors: list[tuple[str, Exception]] = []
-        for name, schema in sections.items():
-            if name.startswith("plugins."):
-                plugin_name = name.split(".", 1)[1]
-                plugin_data = _deep_get(self._effective_tree, ("plugins", plugin_name)) or {}
-                try:
-                    new_plugins[plugin_name] = schema(**plugin_data)
-                except Exception as exc:
-                    log.error(f"Failed to load configuration for plugin '{plugin_name}': {exc}")
-                    errors.append((name, exc))
-                continue
-            if name == "plugins":
-                continue
-            section_data = self._effective_tree.get(name, {})
-            try:
-                new_sections[name] = schema(**section_data)
-            except Exception as exc:
-                log.error(f"Failed to load configuration for section '{name}': {exc}")
-                errors.append((name, exc))
-
-        if errors:
-            # propagate the first error; others already logged
-            raise errors[0][1]
-
-        self._section_models = new_sections
-        self._plugin_models = new_plugins
+        models = build_validated_models(self._effective_tree, error_context="load")
+        self._section_models = models.sections
+        self._plugin_models = models.plugins
 
     def _get_model(self, name: str) -> Optional[BaseModel]:
         if name.startswith("plugins."):
@@ -501,33 +496,25 @@ class ConfigManager:
     def __str__(self) -> str:
         return self.format()
 
+    def __enter__(self) -> ConfigManager:
+        """Temporarily scope runtime config overrides to a context block."""
 
-def _deep_get(tree: dict[str, Any], path: Iterable[str]) -> Optional[dict[str, Any]]:
-    node: Any = tree
-    for segment in path:
-        if not isinstance(node, dict):
-            return None
-        node = node.get(segment)
-        if node is None:
-            return None
-    return node if isinstance(node, dict) else None
+        snapshot = (self._profile, deepcopy(self._runtime_overrides))
+        self._context_stack.append(snapshot)
+        return self
 
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        """Restore the pre-context runtime config state."""
 
-def _resolve_model_type(annotation: Any) -> Optional[type[BaseModel]]:
-    """Return the first BaseModel subclass found in an annotation (if any)."""
+        if not self._context_stack:
+            return
 
-    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
-        return annotation
-
-    origin = get_origin(annotation)
-    if origin is None:
-        return None
-
-    for arg in get_args(annotation):
-        nested = _resolve_model_type(arg)
-        if nested is not None:
-            return nested
-    return None
+        profile, runtime_overrides = self._context_stack.pop()
+        self._restore_web_env()
+        self._profile = profile
+        self._runtime_overrides = deepcopy(runtime_overrides)
+        self._reload()
+        self._apply_handlers()
 
 
 def _serialize_value(value: Any) -> Any:

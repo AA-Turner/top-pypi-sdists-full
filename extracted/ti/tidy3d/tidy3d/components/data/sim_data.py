@@ -7,39 +7,58 @@ import pathlib
 import re
 from abc import ABC
 from collections import defaultdict
-from os import PathLike
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Optional, Union, get_args
 
 import h5py
 import numpy as np
-import pydantic.v1 as pd
 import xarray as xr
+from pydantic import Field
 
 from tidy3d.components.autograd.utils import split_list
-from tidy3d.components.base import JSON_TAG, Tidy3dBaseModel, cached_property
+from tidy3d.components.base import (
+    _LAZY_PROXY_UNHANDLED,
+    Tidy3dBaseModel,
+    _make_lazy_proxy,
+    cached_property,
+)
 from tidy3d.components.base_sim.data.sim_data import AbstractSimulationData
-from tidy3d.components.monitor import Monitor
+from tidy3d.components.grid.grid_spec import GridSpec
 from tidy3d.components.simulation import Simulation
 from tidy3d.components.source.current import CustomCurrentSource
 from tidy3d.components.source.time import GaussianPulse
-from tidy3d.components.source.utils import SourceType
+from tidy3d.components.source.utils import GaussianBeamType, SourceType
 from tidy3d.components.structure import Structure
-from tidy3d.components.types import Ax, Axis, ColormapType, FieldVal, PlotScale, annotate_type
+from tidy3d.components.types.base import discriminated_union
 from tidy3d.components.types.monitor_data import MonitorDataType, MonitorDataTypes
 from tidy3d.components.viz import add_ax_if_none, equal_aspect
-from tidy3d.exceptions import DataError, SetupError, Tidy3dKeyError
+from tidy3d.exceptions import AdjointError, DataError, SetupError, Tidy3dKeyError
 from tidy3d.log import log
 
-from .data_array import FreqDataArray, TimeDataArray
+from .data_array import FreqDataArray, TimeDataArray, _TracedDataset
 from .monitor_data import AbstractFieldData, FieldTimeData
 
 if TYPE_CHECKING:
-    from matplotlib.colors import Colormap
+    from collections.abc import Iterator
+    from os import PathLike
+    from typing import Callable, Optional
 
-DATA_TYPE_MAP = {data.__fields__["monitor"].type_: data for data in MonitorDataTypes}
+    from matplotlib.colors import Colormap
+    from numpy.typing import NDArray
+
+    from tidy3d.compat import Self
+    from tidy3d.components.monitor import Monitor
+    from tidy3d.components.types import Ax, Axis, ColormapType, FieldVal, PlotScale
+
+    from .data_array import DataArray
+
+DATA_TYPE_MAP = {data.model_fields["monitor"].annotation: data for data in MonitorDataTypes}
 
 # maps monitor type (string) to the class of the corresponding data
-DATA_TYPE_NAME_MAP = {val.__fields__["monitor"].type_.__name__: val for val in MonitorDataTypes}
+DATA_TYPE_NAME_MAP = {
+    val.model_fields["monitor"].annotation.__name__: val for val in MonitorDataTypes
+}
 
 # residuals below this are considered good fits for broadband adjoint source creation
 RESIDUAL_CUTOFF_ADJOINT = 1e-6
@@ -49,30 +68,62 @@ NUM_ADJOINT_FWIDTH_TO_ZERO = 3
 # for broadband adjoint source, the minimum number of FWIDTH to reach the lowest frequency
 # that is covered by the broadband pulse
 NUM_ADJOINT_FWIDTH_TO_FMIN = 0.5
+# If grouped Gaussian-like source center frequencies span more than this fraction of the
+# grouped center frequency, use a small multi-frequency source approximation.
+GAUSSIAN_WIDE_BANDWIDTH_THRESHOLD = 0.2
+
+
+class _LazyMonitorDataMap(Mapping[str, MonitorDataType]):
+    """Mapping that loads monitor data lazily by name."""
+
+    def __init__(
+        self, monitor_names: tuple[str, ...], loader: Callable[[str], MonitorDataType]
+    ) -> None:
+        self._monitor_names = monitor_names
+        self._loader = loader
+
+    def __getitem__(self, monitor_name: str) -> MonitorDataType:
+        if monitor_name not in self._monitor_names:
+            raise KeyError(monitor_name)
+        return self._loader(monitor_name)
+
+    def __contains__(self, monitor_name: object) -> bool:
+        return monitor_name in self._monitor_names
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._monitor_names)
+
+    def __len__(self) -> int:
+        return len(self._monitor_names)
 
 
 class AdjointSourceInfo(Tidy3dBaseModel):
     """Stores information about the adjoint sources to pass to autograd pipeline."""
 
-    sources: tuple[annotate_type(SourceType), ...] = pd.Field(
-        ...,
+    sources: tuple[discriminated_union(SourceType), ...] = Field(
         title="Adjoint Sources",
         description="Set of processed sources to include in the adjoint simulation.",
     )
 
-    post_norm: Union[float, FreqDataArray] = pd.Field(
-        ...,
+    post_norm: Union[float, FreqDataArray] = Field(
         title="Post Normalization Values",
         description="Factor to multiply the adjoint fields by after running "
         "given the adjoint source pipeline used.",
     )
 
-    normalize_sim: bool = pd.Field(
-        ...,
+    normalize_sim: bool = Field(
         title="Normalize Adjoint Simulation",
         description="Whether the adjoint simulation needs to be normalized "
         "given the adjoint source pipeline used.",
     )
+
+
+@dataclass(frozen=True)
+class AdjointSourceGroup:
+    """Grouped adjoint sources that share a spatial port, with optional metadata."""
+
+    sources: tuple[SourceType, ...]
+    metadata: Optional[tuple[Any, ...]] = None
 
 
 class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
@@ -214,7 +265,7 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
             )
             poynting_components["S" + dim] *= grid_correction
 
-        return xr.Dataset(poynting_components)
+        return _TracedDataset(poynting_components)
 
     def get_poynting_vector(self, field_monitor_name: str) -> xr.Dataset:
         """return ``xarray.Dataset`` of the Poynting vector at Yee cell centers.
@@ -245,7 +296,7 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         field_name: str,
         val: FieldVal,
         phase: float = 0.0,
-    ):
+    ) -> xr.DataArray:
         """return ``xarray.DataArray`` of the scalar field of a given monitor at Yee cell centers.
 
         Parameters
@@ -276,7 +327,7 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         field_name: str,
         val: FieldVal,
         phase: float = 0.0,
-    ):
+    ) -> xr.DataArray:
         """return ``xarray.DataArray`` of the scalar field of a given monitor at Yee cell centers.
 
         Parameters
@@ -347,7 +398,6 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
                     f"'val' of {val} not supported. "
                     "Must be one of 'real', 'imag', 'abs', 'abs^2', or 'phase'."
                 )
-
             return derived_data
 
         raise Tidy3dKeyError(
@@ -374,8 +424,132 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         )
 
     @classmethod
+    def _lazy_proxy_copy_state_keys(cls) -> tuple[str, ...]:
+        """Preserve selected monitor names when copying a lazy proxy."""
+
+        return ("monitor_names",)
+
+    @classmethod
+    def _lazy_proxy_supports_selective_loading(cls, lazy_state: dict[str, Any]) -> bool:
+        """Whether the lazy proxy can resolve metadata and monitor data selectively."""
+
+        suffix = pathlib.Path(lazy_state["_lazy_fname"]).suffix
+        group_path = cls._construct_group_path(lazy_state["_lazy_group_path"])
+        return suffix in {".hdf5", ".h5"} and group_path == "/"
+
+    @classmethod
+    def _lazy_proxy_ensure_metadata(cls, lazy_state: dict[str, Any]) -> None:
+        """Load simulation metadata needed for selective monitor access."""
+
+        if (
+            lazy_state.get("_lazy_simulation") is not None
+            and lazy_state.get("_lazy_monitor_data_map") is not None
+        ):
+            return
+
+        model_dict = cls.dict_from_file(
+            fname=lazy_state["_lazy_fname"],
+            group_path=cls._construct_group_path(lazy_state["_lazy_group_path"]),
+            load_data_arrays=False,
+        )
+        monitor_dicts = model_dict["simulation"]["monitors"]
+        requested_monitor_names = lazy_state.get("_lazy_monitor_names")
+        if requested_monitor_names is None:
+            selected_indices = tuple(range(len(monitor_dicts)))
+        else:
+            selected_indices = cls._selected_monitor_indices(monitor_dicts, requested_monitor_names)
+            model_dict["simulation"]["monitors"] = [
+                monitor_dicts[index] for index in selected_indices
+            ]
+
+        simulation_type = cls.model_fields["simulation"].annotation
+        lazy_state["_lazy_simulation"] = simulation_type.model_validate(model_dict["simulation"])
+        lazy_state["_lazy_selected_monitor_names"] = tuple(
+            monitor_dicts[index]["name"] for index in selected_indices
+        )
+        lazy_state["_lazy_monitor_data"] = {}
+        lazy_state["_lazy_monitor_data_map"] = _LazyMonitorDataMap(
+            lazy_state["_lazy_selected_monitor_names"],
+            lambda monitor_name: cls._lazy_proxy_load_monitor_data(lazy_state, monitor_name),
+        )
+
+    @classmethod
+    def _lazy_proxy_load_monitor_data(
+        cls, lazy_state: dict[str, Any], monitor_name: str
+    ) -> MonitorDataType:
+        """Load and cache one monitor's data without materializing the full model."""
+
+        cls._lazy_proxy_ensure_metadata(lazy_state)
+        selected_monitor_names = lazy_state["_lazy_selected_monitor_names"]
+        if monitor_name not in selected_monitor_names:
+            raise KeyError(monitor_name)
+
+        loaded_monitor_data = lazy_state["_lazy_monitor_data"]
+        if monitor_name not in loaded_monitor_data:
+            loaded_monitor_data[monitor_name] = cls.mnt_data_from_file(
+                lazy_state["_lazy_fname"],
+                mnt_name=monitor_name,
+                **lazy_state["_lazy_parse_obj_kwargs"],
+            )
+        return loaded_monitor_data[monitor_name]
+
+    @classmethod
+    def _lazy_proxy_resolve_attr(cls, proxy: Any, name: str, lazy_state: dict[str, Any]) -> Any:
+        """Resolve SimulationData metadata attributes lazily without full materialization."""
+
+        if not cls._lazy_proxy_supports_selective_loading(lazy_state):
+            return _LAZY_PROXY_UNHANDLED
+        if name == "simulation":
+            cls._lazy_proxy_ensure_metadata(lazy_state)
+            return lazy_state["_lazy_simulation"]
+        if name == "monitor_data":
+            cls._lazy_proxy_ensure_metadata(lazy_state)
+            return lazy_state["_lazy_monitor_data_map"]
+        if name == "get_monitor_by_name":
+            cls._lazy_proxy_ensure_metadata(lazy_state)
+            return lazy_state["_lazy_simulation"].get_monitor_by_name
+        return _LAZY_PROXY_UNHANDLED
+
+    @classmethod
+    def _lazy_proxy_materialize(cls, lazy_state: dict[str, Any]) -> Self:
+        """Materialize the full selected SimulationData instance for a lazy proxy."""
+
+        return cls.from_file(
+            fname=lazy_state["_lazy_fname"],
+            group_path=lazy_state["_lazy_group_path"],
+            lazy=False,
+            monitor_names=lazy_state.get("_lazy_monitor_names"),
+            **lazy_state["_lazy_parse_obj_kwargs"],
+        )
+
+    @staticmethod
+    def _selected_monitor_indices(
+        monitor_dicts: list[dict[str, Any]], monitor_names: str | list[str] | tuple[str, ...]
+    ) -> tuple[int, ...]:
+        """Return monitor indices selected by name, preserving file order."""
+
+        if isinstance(monitor_names, str):
+            requested_names = (monitor_names,)
+        else:
+            requested_names = tuple(dict.fromkeys(monitor_names))
+
+        requested_name_set = set(requested_names)
+        selected_indices = tuple(
+            index
+            for index, monitor_dict in enumerate(monitor_dicts)
+            if monitor_dict["name"] in requested_name_set
+        )
+        found_names = {monitor_dicts[index]["name"] for index in selected_indices}
+        missing_names = [name for name in requested_names if name not in found_names]
+        if missing_names:
+            missing = ", ".join(repr(name) for name in missing_names)
+            raise ValueError(f"Monitor name(s) not found in data file: {missing}.")
+
+        return selected_indices
+
+    @classmethod
     def mnt_data_from_file(
-        cls, fname: PathLike, mnt_name: str, **parse_obj_kwargs: Any
+        cls, fname: PathLike, mnt_name: str, **model_validate_kwargs: Any
     ) -> MonitorDataType:
         """Loads data for a specific monitor from a .hdf5 file with data for a ``SimulationData``.
 
@@ -385,8 +559,8 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
             Full path to an hdf5 file containing :class:`.SimulationData` data.
         mnt_name : str, optional
             ``.name`` of the monitor to load the data from.
-        **parse_obj_kwargs
-            Keyword arguments passed to either pydantic's ``parse_obj`` function when loading model.
+        **model_validate_kwargs
+            Keyword arguments passed to pydantic's ``model_validate`` method when loading model.
 
         Returns
         -------
@@ -398,8 +572,8 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         >>> field_data = your_simulation_data.from_file(fname='folder/data.hdf5', mnt_name="field") # doctest: +SKIP
         """
 
-        if pathlib.Path(fname).suffix != ".hdf5":
-            raise ValueError("'mnt_data_from_file' only works with '.hdf5' files.")
+        if pathlib.Path(fname).suffix not in {".hdf5", ".h5"}:
+            raise ValueError("'mnt_data_from_file' only works with '.hdf5' or '.h5' files.")
 
         # open file and ensure it has data
         with h5py.File(fname) as f_handle:
@@ -407,30 +581,89 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
                 raise ValueError(f"could not find data in the supplied file {fname}")
 
             # get the monitor list from the json string
-            json_string = f_handle[JSON_TAG][()]
+            json_string = cls._json_string_from_hdf5(f_handle)
             json_dict = json.loads(json_string)
             monitor_list = json_dict["simulation"]["monitors"]
 
-            # loop through data
-            for monitor_index_str, _mnt_data in f_handle["data"].items():
-                # grab the monitor data for this data element
-                monitor_dict = monitor_list[int(monitor_index_str)]
+            monitor_index = cls._selected_monitor_indices(monitor_list, mnt_name)[0]
+            monitor_index_str = str(monitor_index)
+            if monitor_index_str not in f_handle["data"]:
+                raise ValueError(f"No monitor with name '{mnt_name}' found in data file.")
 
-                # if a match on the monitor name
-                if monitor_dict["name"] == mnt_name:
-                    # try to grab the monitor data type
-                    monitor_type_str = monitor_dict["type"]
-                    if monitor_type_str not in DATA_TYPE_NAME_MAP:
-                        raise ValueError(f"Could not find data type '{monitor_type_str}'.")
-                    monitor_data_type = DATA_TYPE_NAME_MAP[monitor_type_str]
+            monitor_type_str = monitor_list[monitor_index]["type"]
+            if monitor_type_str not in DATA_TYPE_NAME_MAP:
+                raise ValueError(f"Could not find data type '{monitor_type_str}'.")
+            monitor_data_type = DATA_TYPE_NAME_MAP[monitor_type_str]
 
-                    # load the monitor data from the file using the group_path
-                    group_path = f"data/{monitor_index_str}"
-                    return monitor_data_type.from_file(
-                        fname, group_path=group_path, **parse_obj_kwargs
-                    )
+            # load the monitor data from the file using the group_path
+            group_path = f"data/{monitor_index_str}"
+            return monitor_data_type.from_hdf5(
+                f_handle, group_path=group_path, **model_validate_kwargs
+            )
 
-        raise ValueError(f"No monitor with name '{mnt_name}' found in data file.")
+    @classmethod
+    def from_file(
+        cls,
+        fname: PathLike,
+        group_path: str | None = None,
+        lazy: bool = False,
+        on_load: Callable[[Any], None] | None = None,
+        *,
+        monitor_names: str | list[str] | tuple[str, ...] | None = None,
+        **parse_obj_kwargs: Any,
+    ) -> Self:
+        """Load a SimulationData file, optionally materializing only selected monitors."""
+
+        if monitor_names is None:
+            return super().from_file(
+                fname=fname,
+                group_path=group_path,
+                lazy=lazy,
+                on_load=on_load,
+                **parse_obj_kwargs,
+            )
+
+        if pathlib.Path(fname).suffix not in {".hdf5", ".h5"}:
+            raise ValueError("'monitor_names' only works with '.hdf5' or '.h5' files.")
+
+        group_path = cls._construct_group_path(group_path)
+        if group_path != "/":
+            raise ValueError("'monitor_names' can only be used when loading the full file.")
+
+        if lazy:
+            Proxy = _make_lazy_proxy(cls, on_load=on_load)
+            return Proxy(fname, group_path, parse_obj_kwargs, monitor_names=monitor_names)
+
+        model_dict = cls.dict_from_file(fname=fname, group_path=group_path, load_data_arrays=False)
+        monitor_dicts = model_dict["simulation"]["monitors"]
+        selected_indices = cls._selected_monitor_indices(monitor_dicts, monitor_names)
+
+        selected_roots = {f"data/{index}" for index in selected_indices}
+
+        def should_load_path(subpath: str) -> bool:
+            normalized_subpath = subpath.strip("/")
+            if not normalized_subpath.startswith("data/"):
+                return True
+            return any(
+                normalized_subpath == selected_root
+                or normalized_subpath.startswith(f"{selected_root}/")
+                for selected_root in selected_roots
+            )
+
+        cls._load_data_from_file(
+            fname=fname,
+            model_dict=model_dict,
+            group_path=group_path,
+            should_load_path=should_load_path,
+        )
+
+        model_dict["simulation"]["monitors"] = [monitor_dicts[index] for index in selected_indices]
+        model_dict["data"] = [model_dict["data"][index] for index in selected_indices]
+
+        obj = cls._validate_model_dict(model_dict, **parse_obj_kwargs)
+        if on_load is not None:
+            on_load(obj)
+        return obj
 
     @staticmethod
     def apply_phase(data: Union[xr.DataArray, xr.Dataset], phase: float = 0.0) -> xr.DataArray:
@@ -686,7 +919,8 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         Parameters
         ----------
         field_monitor_name : str
-            Name of :class:`.FieldMonitor`, :class:`.FieldTimeData`, or :class:`.ModeSolverData`
+            Name of :class:`.FieldMonitor`, :class:`.FieldTimeData`, or
+            :class:`~tidy3d.ModeSolverData`
             to plot.
         field_name : str
             Name of ``field`` component to plot (eg. `'Ex'`).
@@ -912,6 +1146,7 @@ class SimulationData(AbstractYeeGridSimulationData):
     ...                 freq0=2e14,
     ...                 fwidth=4e13,
     ...             ),
+    ...             current_amplitude_definition="total",
     ...         )
     ...     ],
     ... )
@@ -942,20 +1177,18 @@ class SimulationData(AbstractYeeGridSimulationData):
 
     """
 
-    simulation: Simulation = pd.Field(
-        ...,
+    simulation: Simulation = Field(
         title="Simulation",
         description="Original :class:`.Simulation` associated with the data.",
     )
 
-    data: tuple[annotate_type(MonitorDataType), ...] = pd.Field(
-        ...,
+    data: tuple[discriminated_union(MonitorDataType), ...] = Field(
         title="Monitor Data",
         description="List of :class:`.MonitorData` instances "
         "associated with the monitors of the original :class:`.Simulation`.",
     )
 
-    diverged: bool = pd.Field(
+    diverged: bool = Field(
         False,
         title="Diverged",
         description="A boolean flag denoting whether the simulation run diverged.",
@@ -997,7 +1230,7 @@ class SimulationData(AbstractYeeGridSimulationData):
         dt = self.simulation.dt
 
         # plug in mornitor_data frequency domain information
-        def source_spectrum_fn(freqs):
+        def source_spectrum_fn(freqs: DataArray) -> NDArray:
             """Source amplitude as function of frequency."""
             spectrum = source_time.spectrum(times, freqs, dt)
 
@@ -1025,30 +1258,81 @@ class SimulationData(AbstractYeeGridSimulationData):
                 f"of length {num_sources}"
             )
 
-        def source_spectrum_fn(freqs):
+        def source_spectrum_fn(freqs: DataArray) -> NDArray:
             """Normalization function that also removes previous normalization if needed."""
             new_spectrum_fn = self.source_spectrum(normalize_index)
             old_spectrum_fn = self.source_spectrum(self.simulation.normalize_index)
             return new_spectrum_fn(freqs) / old_spectrum_fn(freqs)
 
         # Make a new monitor_data dictionary with renormalized data
-        data_normalized = [mnt_data.normalize(source_spectrum_fn) for mnt_data in self.data]
+        data_normalized = tuple(mnt_data.normalize(source_spectrum_fn) for mnt_data in self.data)
 
-        simulation = self.simulation.copy(update={"normalize_index": normalize_index})
+        simulation = self.simulation.copy(deep=False, update={"normalize_index": normalize_index})
 
-        return self.copy(update={"simulation": simulation, "data": data_normalized})
+        return self.copy(deep=False, update={"simulation": simulation, "data": data_normalized})
 
     def _split_adjoint_data(self: SimulationData, num_mnts_original: int) -> tuple[list, list]:
-        """Split data list into original, adjoint field, and adjoint permittivity."""
+        """Split data into original and adjoint sections by monitor names."""
 
-        data_all = list(self.data)
-        num_mnts_adjoint = (len(data_all) - num_mnts_original) // 2
+        monitors_all = list(self.simulation.monitors)
+        monitors_orig, monitors_adjoint = split_list(monitors_all, index=num_mnts_original)
 
-        log.info(
-            f" -> {num_mnts_original} monitors, {num_mnts_adjoint} adjoint field monitors, {num_mnts_adjoint} adjoint eps monitors."
+        expected_original_names = [monitor.name for monitor in monitors_orig]
+        expected_adjoint_names = [monitor.name for monitor in monitors_adjoint]
+        expected_all_names = expected_original_names + expected_adjoint_names
+        num_mnts_fld = sum(name.startswith("adjoint_fld_") for name in expected_adjoint_names)
+        num_mnts_eps = sum(name.startswith("adjoint_eps_") for name in expected_adjoint_names)
+        num_mnts_source_adj = sum(
+            name.startswith("source_adjoint_") for name in expected_adjoint_names
         )
 
-        data_original, data_adjoint = split_list(data_all, index=num_mnts_original)
+        monitor_data_names = [mnt_data.monitor.name for mnt_data in self.data]
+
+        # Use raw monitor_data lookup (not __getitem__) to avoid implicit symmetry expansion.
+        monitor_data = self.monitor_data
+        data_original = [
+            monitor_data[name] for name in expected_original_names if name in monitor_data_names
+        ]
+        data_adjoint = [
+            monitor_data[name] for name in expected_adjoint_names if name in monitor_data_names
+        ]
+
+        missing_original = [
+            name for name in expected_original_names if name not in monitor_data_names
+        ]
+        missing_adjoint = [
+            name for name in expected_adjoint_names if name not in monitor_data_names
+        ]
+        monitor_data_known_order = [
+            name for name in monitor_data_names if name in expected_all_names
+        ]
+        expected_known_order = [name for name in expected_all_names if name in monitor_data_names]
+
+        log.info(
+            f" -> {num_mnts_original} monitors, {num_mnts_fld} adjoint field monitors, "
+            f"{num_mnts_source_adj} source adjoint monitors, {num_mnts_eps} adjoint eps monitors."
+        )
+
+        if missing_original or len(data_original) < len(expected_original_names):
+            log.warning(
+                "Combined SimulationData is missing expected original monitor data. "
+                f"Expected {len(expected_original_names)} entries, got {len(data_original)}. "
+                f"Missing names: {missing_original}."
+            )
+
+        if missing_adjoint or len(data_adjoint) < len(expected_adjoint_names):
+            log.warning(
+                "Combined SimulationData is missing expected adjoint monitor data. "
+                f"Expected {len(expected_adjoint_names)} entries, got {len(data_adjoint)}. "
+                f"Missing names: {missing_adjoint}."
+            )
+
+        if monitor_data_known_order != expected_known_order:
+            log.warning(
+                "Combined SimulationData monitor data order does not match combined simulation "
+                f"monitor order. Expected order: {expected_known_order}, "
+                f"got: {monitor_data_known_order}."
+            )
 
         return data_original, data_adjoint
 
@@ -1087,8 +1371,6 @@ class SimulationData(AbstractYeeGridSimulationData):
         if not data_vjp_paths:
             return []
 
-        sim_original = self.simulation
-
         # generate the adjoint sources {mnt_name : list[Source]}
         sources_adj_dict = self._make_adjoint_sources(data_vjp_paths=data_vjp_paths)
         if not sources_adj_dict:
@@ -1106,41 +1388,15 @@ class SimulationData(AbstractYeeGridSimulationData):
         if not adjoint_source_infos:
             return []
 
-        # grab boundary conditions with flipped Bloch vectors (for adjoint)
-        bc_adj = sim_original.boundary_spec.flipped_bloch_vecs
-
-        # set the ADJ grid spec wavelength to the original wavelength (for same meshing)
-        grid_spec_original = sim_original.grid_spec
-        if sim_original.sources and grid_spec_original.wavelength is None:
-            wavelength_original = grid_spec_original.wavelength_from_sources(sim_original.sources)
-            grid_spec_adj = grid_spec_original.updated_copy(wavelength=wavelength_original)
-
         adj_sims = []
         for adjoint_source_info in adjoint_source_infos:
-            # only include monitors with the same freqs as the adjoint sources
-            monitors = [
-                m.updated_copy(freqs=adjoint_source_info.post_norm.f) for m in adjoint_monitors
-            ]
-
-            # fields to update the 'fwd' simulation with to make it 'adj'
-            sim_adj_update_dict = {
-                "sources": adjoint_source_info.sources,
-                "boundary_spec": bc_adj,
-                "monitors": monitors,
-                "post_norm": adjoint_source_info.post_norm,
-            }
-
-            if adjoint_source_info.normalize_sim:
-                normalize_index_adj = 0
-            else:
-                normalize_index_adj = None
-
-            sim_adj_update_dict["normalize_index"] = normalize_index_adj
-
-            if sim_original.sources and grid_spec_original.wavelength is None:
-                sim_adj_update_dict["grid_spec"] = grid_spec_adj
-
-            adj_sims.append(sim_original.updated_copy(**sim_adj_update_dict))
+            adj_sims.append(
+                make_adjoint_simulation(
+                    simulation=self.simulation,
+                    adjoint_source_info=adjoint_source_info,
+                    adjoint_monitors=adjoint_monitors,
+                )
+            )
 
         log.info(f"Created {len(adj_sims)} adjoint simulations.")
 
@@ -1191,32 +1447,72 @@ class SimulationData(AbstractYeeGridSimulationData):
 
         return adj_srcs_process_fwidth
 
-    def _process_adjoint_sources(self, adj_srcs: list[SourceType]) -> list[AdjointSourceInfo]:
-        """Compute list of final sources along with a post run normalization for adj fields."""
-        # dictionary mapping hash of sources with same freq dependence to list of time-dependencies
-        hashes_to_sources = defaultdict(None)
-        hashes_to_src_times = defaultdict(list)
+    @staticmethod
+    def _adjoint_port_group_hashes(
+        adj_srcs: list[SourceType], *, adjust_fwidth: bool = True
+    ) -> tuple[list[SourceType], list[str]]:
+        """Return processed adjoint sources and their spatial-port grouping hashes."""
 
-        adj_srcs_process_fwidth = self._adjoint_src_width_single(adj_srcs)
-
+        processed_sources = (
+            SimulationData._adjoint_src_width_single(adj_srcs) if adjust_fwidth else list(adj_srcs)
+        )
         min_freq_tmp_src = np.maximum(
-            0, np.min([src.source_time.freq0 - src.source_time.fwidth for src in adj_srcs])
+            0,
+            np.min([src.source_time._freq0 - src.source_time.fwidth for src in processed_sources]),
         )
         max_freq_tmp_src = np.max(
-            [src.source_time.freq0 + src.source_time.fwidth for src in adj_srcs]
+            [src.source_time._freq0 + src.source_time.fwidth for src in processed_sources]
         )
         tmp_src_f0 = 0.5 * (min_freq_tmp_src + max_freq_tmp_src)
         tmp_src_fwidth = max_freq_tmp_src - min_freq_tmp_src
-
         tmp_src_time = GaussianPulse(freq0=tmp_src_f0, fwidth=tmp_src_fwidth)
-        for src in adj_srcs_process_fwidth:
-            tmp_src = src.updated_copy(source_time=tmp_src_time)
-            tmp_src_hash = tmp_src._hash_self()
-            hashes_to_sources[tmp_src_hash] = src
-            hashes_to_src_times[tmp_src_hash].append(src.source_time)
+        port_hashes = [
+            src.updated_copy(source_time=tmp_src_time)._hash_self() for src in processed_sources
+        ]
+        return processed_sources, port_hashes
+
+    @staticmethod
+    def _group_adjoint_sources_by_port(
+        adj_srcs: list[SourceType],
+        metadata: Optional[list[Any]] = None,
+        *,
+        adjust_fwidth: bool = True,
+    ) -> list[AdjointSourceGroup]:
+        """Group adjoint sources by spatial port while preserving optional per-source metadata."""
+
+        if not adj_srcs:
+            return []
+        if metadata is not None and len(metadata) != len(adj_srcs):
+            raise ValueError("'metadata' must have the same length as 'adj_srcs'.")
+
+        processed_sources, port_hashes = SimulationData._adjoint_port_group_hashes(
+            adj_srcs, adjust_fwidth=adjust_fwidth
+        )
+        grouped: dict[str, dict[str, Any]] = {}
+        for index, (src, port_hash) in enumerate(zip(processed_sources, port_hashes)):
+            group = grouped.setdefault(
+                port_hash,
+                {"sources": [], "metadata": [] if metadata is not None else None},
+            )
+            group["sources"].append(src)
+            if metadata is not None:
+                group["metadata"].append(metadata[index])
+
+        return [
+            AdjointSourceGroup(
+                sources=tuple(group["sources"]),
+                metadata=None if group["metadata"] is None else tuple(group["metadata"]),
+            )
+            for group in grouped.values()
+        ]
+
+    def _process_adjoint_sources(self, adj_srcs: list[SourceType]) -> list[AdjointSourceInfo]:
+        """Compute list of final sources along with a post run normalization for adj fields."""
+        port_groups = self._group_adjoint_sources_by_port(adj_srcs)
+        adj_srcs_process_fwidth = [src for group in port_groups for src in group.sources]
 
         # Group sources by frequency or port, whichever gives fewer groups
-        num_ports = len(hashes_to_src_times)
+        num_ports = len(port_groups)
         num_unique_freqs = len({src.source_time._freq0 for src in adj_srcs_process_fwidth})
 
         log.info(f"Found {num_ports} spatial ports and {num_unique_freqs} unique frequencies.")
@@ -1246,10 +1542,10 @@ class SimulationData(AbstractYeeGridSimulationData):
                     "optimize this problem without utilizing symmetry."
                 )
 
-            for src_hash, src_times in hashes_to_src_times.items():
-                base_src = hashes_to_sources[src_hash]
-                group = [base_src.updated_copy(source_time=src_time) for src_time in src_times]
-                processed_srcs, post_norm = self._process_adjoint_sources_broadband(group)
+            for port_group in port_groups:
+                processed_srcs, post_norm = self._process_adjoint_sources_broadband(
+                    list(port_group.sources)
+                )
                 adjoint_infos.append(
                     AdjointSourceInfo(
                         sources=processed_srcs, post_norm=post_norm, normalize_sim=True
@@ -1277,7 +1573,7 @@ class SimulationData(AbstractYeeGridSimulationData):
         return [src_broadband], post_norm_amps
 
     @staticmethod
-    def _adjoint_src_width_broadband(adj_srcs: list[SourceType]) -> float:
+    def _adjoint_src_width_broadband(adj_srcs: list[SourceType]) -> tuple[float, float]:
         """Find the adjoint source fwidth that sufficiently covers all adjoint frequencies."""
 
         adj_srcs_f0 = [adj_src.source_time._freq0 for adj_src in adj_srcs]
@@ -1317,26 +1613,87 @@ class SimulationData(AbstractYeeGridSimulationData):
             source_time=src_time_base.updated_copy(freq0=adj_src_f0, fwidth=adj_src_fwidth)
         )
 
+        # For grouped Gaussian-like sources, use a small multi-frequency approximation only
+        # when the grouped source centers span more than the configured fractional threshold
+        # of the broadband center frequency.
+        if isinstance(src_broadband, get_args(GaussianBeamType)):
+            num_freqs = 1
+            if len(adj_srcs) > 1:
+                src_freqs = np.array([src.source_time._freq0 for src in adj_srcs], dtype=float)
+                freq_span = float(np.max(src_freqs) - np.min(src_freqs))
+                if freq_span > GAUSSIAN_WIDE_BANDWIDTH_THRESHOLD * float(adj_src_f0):
+                    num_freqs = 3
+            src_broadband = src_broadband.updated_copy(num_freqs=num_freqs)
+
         return src_broadband
 
     @staticmethod
     def _make_post_norm_amps(adj_srcs: list[SourceType]) -> xr.DataArray:
         """Make a ``DataArray`` containing the complex amplitudes to multiply with adjoint field."""
 
-        freqs = []
-        amps_complex = []
+        entries = []
         for src in adj_srcs:
             src_time = src.source_time
-            freqs.append(src_time._freq0)
             amp_complex = src_time.amplitude * np.exp(1j * src_time.phase)
+            entries.append((src_time._freq0, amp_complex))
+
+        entries.sort(key=lambda entry: entry[0])
+
+        freqs = []
+        amps_complex = []
+        for freq, amp_complex in entries:
+            if freq in freqs:
+                if not np.allclose(amp_complex, amps_complex[-1], rtol=1e-12, atol=0.0):
+                    raise AdjointError(
+                        "Adjoint source grouping produced conflicting post-normalization values "
+                        f"for frequency {freq}. Each adjoint simulation must have a unique "
+                        "post-normalization value per frequency."
+                    )
+                continue
+            freqs.append(freq)
             amps_complex.append(amp_complex)
 
-        coords = {"f": freqs}
-        amps_complex = np.array(amps_complex)
-        return xr.DataArray(amps_complex, coords=coords)
+        return xr.DataArray(np.array(amps_complex), coords={"f": freqs})
 
     def _get_adjoint_data(self, structure_index: int, data_type: str) -> MonitorDataType:
         """Grab the field or permittivity data for a given structure index."""
 
         monitor_name = Structure._get_monitor_name(index=structure_index, data_type=data_type)
         return self[monitor_name]
+
+
+def make_adjoint_simulation(
+    simulation: Simulation,
+    adjoint_source_info: AdjointSourceInfo,
+    adjoint_monitors: list[Monitor],
+) -> Simulation:
+    """Construct a single adjoint simulation from processed adjoint source info."""
+
+    sim_original = simulation
+
+    # grab boundary conditions with flipped Bloch vectors (for adjoint)
+    bc_adj = sim_original.boundary_spec.flipped_bloch_vecs
+
+    # set the ADJ grid spec to use the same grid as sim_original for consistent meshing
+    grid_spec_adj = GridSpec.from_grid(sim_original.grid)
+
+    # only include monitors with the same freqs as the adjoint sources
+    monitors = [m.updated_copy(freqs=adjoint_source_info.post_norm.f) for m in adjoint_monitors]
+
+    # fields to update the 'fwd' simulation with to make it 'adj'
+    sim_adj_update_dict = {
+        "sources": adjoint_source_info.sources,
+        "boundary_spec": bc_adj,
+        "monitors": monitors,
+        "post_norm": adjoint_source_info.post_norm,
+        "grid_spec": grid_spec_adj,
+    }
+
+    if adjoint_source_info.normalize_sim:
+        normalize_index_adj = 0
+    else:
+        normalize_index_adj = None
+
+    sim_adj_update_dict["normalize_index"] = normalize_index_adj
+
+    return sim_original.updated_copy(**sim_adj_update_dict)

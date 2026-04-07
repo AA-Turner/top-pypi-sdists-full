@@ -407,7 +407,7 @@ def test_joined():
 
 
 def test_path_resolution(temp_folder):
-    assert runez.resolved_path(None) is None
+    assert runez.resolved_path("") == ""
     assert runez.resolved_path("some-file") == os.path.join(temp_folder, "some-file")
     assert runez.resolved_path("some-file", base="bar") == os.path.join(temp_folder, "bar", "some-file")
 
@@ -592,7 +592,8 @@ def test_temp_folder():
     with runez.CaptureOutput(anchors=[os.path.join("/tmp"), os.path.join("/etc")]) as logged:
         with runez.TempFolder() as tmp:
             assert os.path.isdir(tmp)
-            assert tmp != runez.system.SYMBOLIC_TMP
+            assert runez.short("/etc/foo") == "foo"
+
         assert not os.path.isdir(tmp)
         assert os.getcwd() == cwd
 
@@ -601,17 +602,20 @@ def test_temp_folder():
 
         assert not logged
 
-    symbolic = os.path.join(runez.system.SYMBOLIC_TMP, "some-file")
     with runez.CaptureOutput(dryrun=True) as logged:
         assert os.getcwd() == cwd
         with runez.TempFolder() as tmp:
-            assert tmp == runez.system.SYMBOLIC_TMP
-            assert runez.short(symbolic) == "some-file"
+            assert cwd != tmp
+            assert os.path.isdir(tmp)
+            some_file = runez.to_path(tmp) / "some-file"
+            assert runez.short(some_file) == "some-file"
 
         assert os.getcwd() == cwd
         with runez.TempFolder(anchor=False) as tmp:
-            assert tmp == runez.system.SYMBOLIC_TMP
-            assert runez.short(symbolic) == symbolic
+            assert cwd != tmp
+            assert os.path.isdir(tmp)
+            some_file = runez.to_path(tmp) / "some-file"
+            assert runez.short(some_file) == str(some_file)
 
         assert not logged
 

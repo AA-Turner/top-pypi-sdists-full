@@ -6,14 +6,15 @@ use std::{
 use async_trait::async_trait;
 use chroma_error::{ChromaError, ErrorCodes};
 use chroma_segment::{
-    blockfile_metadata::{MetadataSegmentError, MetadataSegmentWriter},
+    blockfile_metadata::{MetadataSegmentError, MetadataSegmentWriterShard},
     blockfile_record::{
-        RecordSegmentReader, RecordSegmentReaderCreationError, RecordSegmentWriter,
-        RecordSegmentWriterCreationError,
+        RecordSegmentReaderOptions, RecordSegmentReaderShard,
+        RecordSegmentReaderShardCreationError, RecordSegmentWriterShard,
+        RecordSegmentWriterShardCreationError,
     },
     distributed_hnsw::{DistributedHNSWSegmentFromSegmentError, DistributedHNSWSegmentWriter},
-    distributed_spann::SpannSegmentWriterError,
-    types::VectorSegmentWriter,
+    distributed_spann::SpannSegmentWriterShardError,
+    types::VectorSegmentWriterShard,
 };
 use chroma_system::{
     wrap, ChannelError, ComponentContext, ComponentHandle, Dispatcher, Handler, Orchestrator,
@@ -21,7 +22,7 @@ use chroma_system::{
 };
 use chroma_types::{
     AttachedFunctionUuid, Chunk, CollectionAndSegments, CollectionUuid, JobId, LogRecord,
-    SegmentType,
+    SegmentShard, SegmentShardError, SegmentType,
 };
 use thiserror::Error;
 use tokio::sync::oneshot::{error::RecvError, Sender};
@@ -118,15 +119,17 @@ pub enum AttachedFunctionOrchestratorError {
     #[error("Error creating metadata writer: {0}")]
     MetadataSegment(#[from] MetadataSegmentError),
     #[error("Error creating record segment writer: {0}")]
-    RecordSegmentWriter(#[from] RecordSegmentWriterCreationError),
+    RecordSegmentWriterShard(#[from] RecordSegmentWriterShardCreationError),
     #[error("Error creating record segment reader: {0}")]
-    RecordSegmentReader(#[from] RecordSegmentReaderCreationError),
+    RecordSegmentReaderShard(#[from] RecordSegmentReaderShardCreationError),
     #[error("Error creating hnsw writer: {0}")]
     HnswSegment(#[from] DistributedHNSWSegmentFromSegmentError),
     #[error("Error creating quantized spann writer: {0}")]
     QuantizedSpannSegment(#[from] chroma_segment::quantized_spann::QuantizedSpannSegmentError),
     #[error("Error creating spann writer: {0}")]
-    SpannSegment(#[from] SpannSegmentWriterError),
+    SpannSegment(#[from] SpannSegmentWriterShardError),
+    #[error(transparent)]
+    SegmentShard(#[from] SegmentShardError),
 }
 
 impl ChromaError for AttachedFunctionOrchestratorError {
@@ -148,11 +151,12 @@ impl ChromaError for AttachedFunctionOrchestratorError {
             AttachedFunctionOrchestratorError::CountError(e) => e.code(),
             AttachedFunctionOrchestratorError::PanicError(e) => e.code(),
             AttachedFunctionOrchestratorError::MetadataSegment(e) => e.code(),
-            AttachedFunctionOrchestratorError::RecordSegmentWriter(e) => e.code(),
-            AttachedFunctionOrchestratorError::RecordSegmentReader(e) => e.code(),
+            AttachedFunctionOrchestratorError::RecordSegmentWriterShard(e) => e.code(),
+            AttachedFunctionOrchestratorError::RecordSegmentReaderShard(e) => e.code(),
             AttachedFunctionOrchestratorError::HnswSegment(e) => e.code(),
             AttachedFunctionOrchestratorError::QuantizedSpannSegment(e) => e.code(),
             AttachedFunctionOrchestratorError::SpannSegment(e) => e.code(),
+            AttachedFunctionOrchestratorError::SegmentShard(e) => e.code(),
         }
     }
 
@@ -176,11 +180,16 @@ impl ChromaError for AttachedFunctionOrchestratorError {
             AttachedFunctionOrchestratorError::CountError(e) => e.should_trace_error(),
             AttachedFunctionOrchestratorError::PanicError(e) => e.should_trace_error(),
             AttachedFunctionOrchestratorError::MetadataSegment(e) => e.should_trace_error(),
-            AttachedFunctionOrchestratorError::RecordSegmentWriter(e) => e.should_trace_error(),
-            AttachedFunctionOrchestratorError::RecordSegmentReader(e) => e.should_trace_error(),
+            AttachedFunctionOrchestratorError::RecordSegmentWriterShard(e) => {
+                e.should_trace_error()
+            }
+            AttachedFunctionOrchestratorError::RecordSegmentReaderShard(e) => {
+                e.should_trace_error()
+            }
             AttachedFunctionOrchestratorError::HnswSegment(e) => e.should_trace_error(),
             AttachedFunctionOrchestratorError::QuantizedSpannSegment(e) => e.should_trace_error(),
             AttachedFunctionOrchestratorError::SpannSegment(e) => e.should_trace_error(),
+            AttachedFunctionOrchestratorError::SegmentShard(e) => e.should_trace_error(),
         }
     }
 }
@@ -398,12 +407,21 @@ impl AttachedFunctionOrchestrator {
             collection_info.collection.total_records_post_compaction = count;
         }
 
+        let total_log_count: usize = partitions.iter().map(|p| p.len()).sum();
+        let plan = RecordSegmentReaderOptions {
+            use_bloom_filter: self
+                .output_context
+                .bloom_filter_manager
+                .as_ref()
+                .is_some_and(|mgr| total_log_count >= mgr.storage_fetch_threshold()),
+        };
         for partition in partitions.iter() {
             let operator = MaterializeLogOperator::new();
             let input = MaterializeLogInput::new(
                 partition.clone(),
                 record_reader.clone(),
                 next_max_offset_id.clone(),
+                plan,
             );
             let task = wrap(
                 operator,
@@ -643,14 +661,22 @@ impl Handler<TaskResult<CollectionAndSegments, GetCollectionAndSegmentsError>>
             .as_ref()
             .and_then(|s| s.cmek.clone());
 
+        let record_segment_shard = match self
+            .ok_or_terminate(SegmentShard::try_from((&message.record_segment, 0)), ctx)
+            .await
+        {
+            Some(shard) => shard,
+            None => return,
+        };
         let record_writer = match self
             .ok_or_terminate(
-                RecordSegmentWriter::from_segment(
+                RecordSegmentWriterShard::from_segment(
                     &collection.tenant,
                     &collection.database_id,
-                    &message.record_segment,
+                    &record_segment_shard,
                     &self.output_context.blockfile_provider,
                     cmek.clone(),
+                    self.output_context.bloom_filter_manager.clone(),
                 )
                 .await,
                 ctx,
@@ -661,12 +687,19 @@ impl Handler<TaskResult<CollectionAndSegments, GetCollectionAndSegmentsError>>
             None => return,
         };
 
+        let metadata_segment_shard = match self
+            .ok_or_terminate(SegmentShard::try_from((&message.metadata_segment, 0)), ctx)
+            .await
+        {
+            Some(shard) => shard,
+            None => return,
+        };
         let metadata_writer = match self
             .ok_or_terminate(
-                MetadataSegmentWriter::from_segment(
+                MetadataSegmentWriterShard::from_segment(
                     &collection.tenant,
                     &collection.database_id,
-                    &message.metadata_segment,
+                    &metadata_segment_shard,
                     &self.output_context.blockfile_provider,
                     cmek.clone(),
                 )
@@ -680,39 +713,64 @@ impl Handler<TaskResult<CollectionAndSegments, GetCollectionAndSegmentsError>>
         };
 
         let (hnsw_index_uuid, vector_writer) = match message.vector_segment.r#type {
-            SegmentType::QuantizedSpann => match self
-                .ok_or_terminate(
-                    self.output_context
-                        .spann_provider
-                        .write_quantized_usearch(
-                            collection,
-                            &message.vector_segment,
-                            &message.record_segment,
-                        )
-                        .await,
-                    ctx,
-                )
-                .await
-            {
-                Some(writer) => (None, VectorSegmentWriter::QuantizedSpann(writer)),
-                None => return,
-            },
-            SegmentType::Spann => match self
-                .ok_or_terminate(
-                    self.output_context
-                        .spann_provider
-                        .write(collection, &message.vector_segment, dimension, cmek)
-                        .await,
-                    ctx,
-                )
-                .await
-            {
-                Some(writer) => (
-                    Some(writer.hnsw_index_uuid()),
-                    VectorSegmentWriter::Spann(writer),
-                ),
-                None => return,
-            },
+            SegmentType::QuantizedSpann => {
+                let vector_segment_shard = match self
+                    .ok_or_terminate(SegmentShard::try_from((&message.vector_segment, 0)), ctx)
+                    .await
+                {
+                    Some(shard) => shard,
+                    None => return,
+                };
+                let record_segment_shard_for_qspann = match self
+                    .ok_or_terminate(SegmentShard::try_from((&message.record_segment, 0)), ctx)
+                    .await
+                {
+                    Some(shard) => shard,
+                    None => return,
+                };
+                match self
+                    .ok_or_terminate(
+                        self.output_context
+                            .spann_provider
+                            .write_quantized_usearch(
+                                collection,
+                                &vector_segment_shard,
+                                &record_segment_shard_for_qspann,
+                            )
+                            .await,
+                        ctx,
+                    )
+                    .await
+                {
+                    Some(writer) => (None, VectorSegmentWriterShard::QuantizedSpann(writer)),
+                    None => return,
+                }
+            }
+            SegmentType::Spann => {
+                let vector_segment_shard = match self
+                    .ok_or_terminate(SegmentShard::try_from((&message.vector_segment, 0)), ctx)
+                    .await
+                {
+                    Some(shard) => shard,
+                    None => return,
+                };
+                match self
+                    .ok_or_terminate(
+                        self.output_context
+                            .spann_provider
+                            .write(collection, &vector_segment_shard, dimension, cmek)
+                            .await,
+                        ctx,
+                    )
+                    .await
+                {
+                    Some(writer) => (
+                        Some(writer.hnsw_index_uuid()),
+                        VectorSegmentWriterShard::Spann(writer),
+                    ),
+                    None => return,
+                }
+            }
             _ => match self
                 .ok_or_terminate(
                     DistributedHNSWSegmentWriter::from_segment(
@@ -728,23 +786,34 @@ impl Handler<TaskResult<CollectionAndSegments, GetCollectionAndSegmentsError>>
                 )
                 .await
             {
-                Some(writer) => (Some(writer.index_uuid()), VectorSegmentWriter::Hnsw(writer)),
+                Some(writer) => (
+                    Some(writer.index_uuid()),
+                    VectorSegmentWriterShard::Hnsw(writer),
+                ),
                 None => return,
             },
         };
 
         // Create record reader for the output collection to load existing statistics
+        let record_segment_shard = match self
+            .ok_or_terminate(SegmentShard::try_from((&message.record_segment, 0)), ctx)
+            .await
+        {
+            Some(shard) => shard,
+            None => return,
+        };
         let record_reader = match self
             .ok_or_terminate(
-                match Box::pin(RecordSegmentReader::from_segment(
-                    &message.record_segment,
+                match Box::pin(RecordSegmentReaderShard::from_segment(
+                    &record_segment_shard,
                     &self.output_context.blockfile_provider,
+                    self.output_context.bloom_filter_manager.clone(),
                 ))
                 .await
                 {
                     Ok(reader) => Ok(Some(reader)),
                     Err(err) => match *err {
-                        RecordSegmentReaderCreationError::UninitializedSegment => Ok(None),
+                        RecordSegmentReaderShardCreationError::UninitializedSegment => Ok(None),
                         _ => Err(*err),
                     },
                 },
@@ -841,6 +910,7 @@ impl Handler<TaskResult<CollectionAndSegments, GetCollectionAndSegmentsError>>
             blockfile_provider: self.output_context.blockfile_provider.clone(),
             is_rebuild: self.output_context.is_rebuild,
             is_for_backfill: self.is_for_backfill,
+            bloom_filter_manager: self.output_context.bloom_filter_manager.clone(),
         };
 
         let task = wrap(

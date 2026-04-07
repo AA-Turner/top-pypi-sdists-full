@@ -13,12 +13,13 @@
 # limitations under the License.
 """Profiling Utilities."""
 
+import asyncio
+from collections.abc import Mapping
 import dataclasses
 import json
 import logging
 import os
 import threading
-import time
 from typing import Any
 import urllib.parse
 
@@ -35,14 +36,17 @@ _logger = logging.getLogger(__name__)
 
 class _ProfileState:
   executable: plugin_executable.PluginExecutable | None = None
+  profile_request: Mapping[str, Any] | None = None
   lock: threading.Lock
 
-  def __init__(self):
+  def __init__(self) -> None:
     self.executable = None
+    self.profile_request = None
     self.lock = threading.Lock()
 
-  def reset(self):
+  def reset(self) -> None:
     self.executable = None
+    self.profile_request = None
 
 
 _first_profile_start = True
@@ -51,31 +55,94 @@ _original_start_trace = jax.profiler.start_trace
 _original_stop_trace = jax.profiler.stop_trace
 
 
-def toy_computation():
+def toy_computation() -> None:
   """A toy computation to run before the first profile."""
   x = jax.jit(lambda x: x + 1)(jnp.array(1))
   x.block_until_ready()
 
 
+def _is_default_profile_options(
+    profiler_options: jax.profiler.ProfileOptions,
+) -> bool:
+  if jax.version.__version_info__ < (0, 9, 2):
+    return True
+
+  default_options = jax.profiler.ProfileOptions()
+  return (
+      profiler_options.host_tracer_level == default_options.host_tracer_level
+      and profiler_options.python_tracer_level
+      == default_options.python_tracer_level
+      and profiler_options.duration_ms == default_options.duration_ms
+      and not getattr(profiler_options, "advanced_configuration", None)
+  )
+
+
 def _create_profile_request(
     log_dir: os.PathLike[str] | str,
-) -> dict[str, Any]:
-  """Creates a profile request dictionary from the given options."""
-  profile_request = {}
-  profile_request["traceLocation"] = str(log_dir)
+    profiler_options: jax.profiler.ProfileOptions | None = None,
+) -> Mapping[str, Any]:
+  """Creates a profile request mapping from the given options."""
+  profile_request: dict[str, Any] = {
+      "traceLocation": str(log_dir),
+  }
+
+  if profiler_options is None or _is_default_profile_options(profiler_options):
+    return profile_request
+
+  advanced_config = None
+  if getattr(profiler_options, "advanced_configuration", None):
+    advanced_config = {}
+    for k, v in getattr(profiler_options, "advanced_configuration").items():
+      # Convert python dict to tensorflow.ProfileOptions.AdvancedConfigValue
+      # json-compatible dict
+      if isinstance(v, bool):
+        advanced_config[k] = {"boolValue": v}
+      elif isinstance(v, int):
+        advanced_config[k] = {"intValue": v}
+      elif isinstance(v, str):
+        advanced_config[k] = {"stringValue": v}
+      else:
+        raise ValueError(
+            f"Unsupported advanced configuration value type: {type(v)}. "
+            "Supported types are bool, int, and str."
+        )
+
+  xprof_options: dict[str, Any] = {
+      "traceDirectory": str(log_dir),
+  }
+
+  if profiler_options.host_tracer_level != 2:
+    xprof_options["hostTraceLevel"] = profiler_options.host_tracer_level
+
+  pw_trace_opts: dict[str, Any] = {}
+  if profiler_options.python_tracer_level:
+    pw_trace_opts["enablePythonTracer"] = bool(
+        profiler_options.python_tracer_level
+    )
+
+  if advanced_config:
+    pw_trace_opts["advancedConfiguration"] = advanced_config
+
+  if pw_trace_opts:
+    xprof_options["pwTraceOptions"] = pw_trace_opts
+
+  profile_request["xprofTraceOptions"] = xprof_options
+
+  if profiler_options.duration_ms > 0:
+    profile_request["maxDurationSecs"] = profiler_options.duration_ms / 1000.0
 
   return profile_request
 
 
 def _start_pathways_trace_from_profile_request(
-    profile_request: dict[str, Any],
+    profile_request: Mapping[str, Any],
 ) -> None:
   """Starts a profiler trace on Pathways components from a profile request.
 
   This will only profile the Pathways components and not the JAX client code.
 
   Args:
-    profile_request: A dictionary containing the profile request options.
+    profile_request: A mapping containing the profile request options.
   """
   with _profile_state.lock:
     global _first_profile_start
@@ -90,10 +157,11 @@ def _start_pathways_trace_from_profile_request(
     _profile_state.executable = plugin_executable.PluginExecutable(
         json.dumps({"profileRequest": profile_request})
     )
+    _profile_state.profile_request = profile_request
     try:
       _, result_future = _profile_state.executable.call()
       result_future.result()
-    except Exception as e:  # pylint: disable=broad-except
+    except Exception:
       _logger.exception("Failed to start trace")
       _profile_state.reset()
       raise
@@ -104,7 +172,7 @@ def start_trace(
     *,
     create_perfetto_link: bool = False,
     create_perfetto_trace: bool = False,
-    profiler_options: jax.profiler.ProfileOptions | None = None,  # pylint: disable=unused-argument
+    profiler_options: jax.profiler.ProfileOptions | None = None,
 ) -> None:
   """Starts a profiler trace.
 
@@ -133,7 +201,6 @@ def start_trace(
       This feature is experimental for Pathways on Cloud and may not be fully
       supported.
     profiler_options: Profiler options to configure the profiler for collection.
-      Options are not currently supported and ignored.
   """
   if not str(log_dir).startswith("gs://"):
     raise ValueError(f"log_dir must be a GCS bucket path, got {log_dir}")
@@ -144,7 +211,18 @@ def start_trace(
         "features for Pathways on Cloud and may not be fully supported."
     )
 
-  _start_pathways_trace_from_profile_request(_create_profile_request(log_dir))
+  if jax.version.__version_info__ < (0, 9, 2) and profiler_options is not None:
+    _logger.warning(
+        "ProfileOptions are not supported until JAX 0.9.2 and will be omitted. "
+        "Some options can be specified via command line flags."
+    )
+    profiler_options = None
+
+  profile_request = _create_profile_request(log_dir, profiler_options)
+
+  _logger.debug("Profile request: %s", profile_request)
+
+  _start_pathways_trace_from_profile_request(profile_request)
 
   _original_start_trace(
       log_dir=log_dir,
@@ -153,14 +231,26 @@ def start_trace(
   )
 
 
-def stop_trace():
+def stop_trace() -> None:
   """Stops the currently-running profiler trace."""
   try:
     with _profile_state.lock:
       if _profile_state.executable is None:
         raise ValueError("stop_trace called before a trace is being taken!")
       try:
-        _, result_future = _profile_state.executable.call()
+        if (
+            _profile_state.profile_request is not None
+            and "xprofTraceOptions" in _profile_state.profile_request
+        ):
+          out_avals = [jax.core.ShapedArray((1,), jnp.object_)]
+          out_shardings = [jax.sharding.SingleDeviceSharding(jax.devices()[0])]
+        else:
+          out_avals = ()
+          out_shardings = ()
+
+        _, result_future = _profile_state.executable.call(
+            out_avals=out_avals, out_shardings=out_shardings
+        )
         result_future.result()
       finally:
         _profile_state.reset()
@@ -171,7 +261,7 @@ def stop_trace():
 _profiler_thread: threading.Thread | None = None
 
 
-def start_server(port: int):
+def start_server(port: int) -> None:
   """Starts the profiling server on port `port`.
 
   The signature is slightly different from `jax.profiler.start_server`
@@ -191,12 +281,12 @@ def start_server(port: int):
       repository_path: str
 
     @app.post("/profiling")
-    async def profiling(pc: ProfilingConfig):  # pylint: disable=unused-variable
+    async def profiling(pc: ProfilingConfig) -> Mapping[str, str]:
       _logger.debug("Capturing profiling data for %s ms", pc.duration_ms)
       _logger.debug("Writing profiling data to %s", pc.repository_path)
-      jax.profiler.start_trace(pc.repository_path)
-      time.sleep(pc.duration_ms / 1e3)
-      jax.profiler.stop_trace()
+      await asyncio.to_thread(jax.profiler.start_trace, pc.repository_path)
+      await asyncio.sleep(pc.duration_ms / 1e3)
+      await asyncio.to_thread(jax.profiler.stop_trace)
       return {"response": "profiling completed"}
 
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="debug")
@@ -209,8 +299,8 @@ def start_server(port: int):
   _profiler_thread.start()
 
 
-def stop_server():
-  """Raises an error if there is not an active profiler server but otherwise does nothing.
+def stop_server() -> None:
+  """Raises an error if there is no active profiler server.
 
   Pathways profiling servers are not stoppable at this time.
   """
@@ -256,7 +346,7 @@ def collect_profile(
   return True
 
 
-def monkey_patch_jax():
+def monkey_patch_jax() -> None:
   """Monkey patches JAX with Pathways versions of functions.
 
   The signatures in patched functions should match the original.
@@ -275,10 +365,10 @@ def monkey_patch_jax():
       log_dir,
       create_perfetto_link: bool = False,
       create_perfetto_trace: bool = False,
-      profiler_options: jax.profiler.ProfileOptions | None = None,  # pylint: disable=unused-argument
+      profiler_options: jax.profiler.ProfileOptions | None = None,
   ) -> None:
     _logger.debug("jax.profile.start_trace patched with pathways' start_trace")
-    return start_trace(
+    start_trace(
         log_dir,
         create_perfetto_link=create_perfetto_link,
         create_perfetto_trace=create_perfetto_trace,
@@ -290,21 +380,21 @@ def monkey_patch_jax():
 
   def stop_trace_patch() -> None:
     _logger.debug("jax.profile.stop_trace patched with pathways' stop_trace")
-    return stop_trace()
+    stop_trace()
 
   jax.profiler.stop_trace = stop_trace_patch
   jax._src.profiler.stop_trace = stop_trace_patch  # pylint: disable=protected-access
 
-  def start_server_patch(port: int):
+  def start_server_patch(port: int) -> None:
     _logger.debug(
         "jax.profile.start_server patched with pathways' start_server"
     )
-    return start_server(port)
+    start_server(port)
 
   jax.profiler.start_server = start_server_patch
 
-  def stop_server_patch():
+  def stop_server_patch() -> None:
     _logger.debug("jax.profile.stop_server patched with pathways' stop_server")
-    return stop_server()
+    stop_server()
 
   jax.profiler.stop_server = stop_server_patch

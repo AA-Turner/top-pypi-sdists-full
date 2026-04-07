@@ -1,23 +1,17 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pagefind
-Version: 1.4.0
+Version: 1.5.0
 Summary: Python API for Pagefind
-License: MIT
 Author: Pagefind
-Requires-Python: >=3.9
+License-Expression: MIT
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Text Processing :: Indexing
 Classifier: Topic :: Text Processing :: Markup :: HTML
+Requires-Python: >=3.9
 Provides-Extra: bin
+Requires-Dist: pagefind-bin<2,>=1; extra == 'bin'
 Provides-Extra: extended
-Requires-Dist: pagefind_bin (>=1.4.0,<1.5.0) ; extra == "bin"
-Requires-Dist: pagefind_bin_extended (>=1.4.0,<1.5.0) ; extra == "extended"
+Requires-Dist: pagefind-bin-extended<2,>=1; extra == 'extended'
 Description-Content-Type: text/markdown
 
 # `pagefind`
@@ -95,4 +89,3 @@ if __name__ == "__main__":
 
 ```
 <!-- [[[end]]] -->
-

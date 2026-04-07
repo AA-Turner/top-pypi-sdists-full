@@ -48,22 +48,29 @@ class PydanticHandler(jsonpickle.handlers.BaseHandler):
         return jsonpickle.loads(obj.model_dump_json(), safe=True)
 
 PARAMS_TO_CAPTURE = [
+  "cache_control",
+  "container",
   "frequency_penalty",
   "function_call", 
   "functions",
+  "inference_geo",
   "logit_bias",
   "logprobs",
   "max_tokens",
   "max_completion_tokens",
   "n",
+  "output_config",
   "presence_penalty", 
   "response_format",
   "seed",
+  "service_tier",
   "stop",
+  "stop_sequences",
   "stream",
   "audio",
   "modalities",
   "temperature",
+  "thinking",
   "tool_choice",
   "tools",
   "tool_calls",
@@ -83,4 +90,3 @@ PARAMS_TO_CAPTURE = [
 def filter_params(params: Dict[str, Any]) -> Dict[str, Any]:
     filtered_params = {key: value for key, value in params.items() if key in PARAMS_TO_CAPTURE}
     return filtered_params
-

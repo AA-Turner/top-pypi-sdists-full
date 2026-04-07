@@ -118,8 +118,7 @@ def render_matrix(ctx: click.Context, matrix: str) -> None:
         headers = ["Foreground \u21b4 \\ Background \u2192"] + _ALL_COLORS
         for fg in _ALL_COLORS:
             row = [style(fg, fg=fg)]
-            for bg in _ALL_COLORS:
-                row.append(style(fg, fg=fg, bg=bg))
+            row.extend(style(fg, fg=fg, bg=bg) for bg in _ALL_COLORS)
             table.append(row)
 
     elif matrix == "styles":
@@ -134,10 +133,10 @@ def render_matrix(ctx: click.Context, matrix: str) -> None:
     # --table-format on the parent group). Fall back to the bare
     # print_table for standalone invocation (e.g. in docs).
     print_func = print_table
-    ancestor = ctx
+    ancestor: click.Context | None = ctx
     while ancestor:
         if hasattr(ancestor, "print_table"):
-            print_func = ancestor.print_table  # type: ignore[assignment]
+            print_func = ancestor.print_table
             break
         ancestor = ancestor.parent
     print_func(table, headers=headers)

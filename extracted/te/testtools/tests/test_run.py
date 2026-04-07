@@ -25,7 +25,7 @@ except ImportError:
 try:
     import testresources
 except ImportError:
-    testresources = None  # type: ignore
+    testresources = None
 
 
 if fixtures:
@@ -431,7 +431,7 @@ OK
             ),
         )
 
-    @skipUnless(fixtures, "fixtures not present")
+    @skipUnless(fixtures is not None, "fixtures not present")
     def test_issue_16662(self):
         # unittest's discover implementation didn't handle load_tests on
         # packages. That is fixed pending commit, but we want to offer it
@@ -442,7 +442,9 @@ OK
         # XXX: http://bugs.python.org/issue22811
         unittest.defaultTestLoader._top_level_dir = None  # type: ignore[attr-defined]
         self.assertEqual(
-            None, run.main(["prog", "discover", "-l", pkg.package.base], out)
+            None,
+            # we are intentionally testing that the call returns nothing
+            run.main(["prog", "discover", "-l", pkg.package.base], out),  # type: ignore[func-returns-value]
         )
         self.assertEqual(
             dedent(

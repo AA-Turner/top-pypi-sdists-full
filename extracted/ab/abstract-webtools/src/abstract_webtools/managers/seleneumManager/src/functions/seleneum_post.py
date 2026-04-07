@@ -12,11 +12,6 @@ def _auto_age_gate(driver):
         return False
 
 
-# --- NEW: auto-click age-verification if present ---
-try:
-    _auto_age_gate(driver)
-except Exception:
-    pass
 # ---- Hardened page-source retrieval with fallback ----
 def get_selenium_source(url, max_retries: int = 2, request_fallback: bool = True, timeout: float = 12.0):
     url_mgr = urlManager(url)
@@ -70,11 +65,12 @@ def get_selenium_source(url, max_retries: int = 2, request_fallback: bool = True
     return None
 
 def get_driver(self, url):
-    # always new
-    bin_path = get_env_value('CHROME_BINARY')
+    from ..imports.constants import _resolve_chrome_binary
+    from selenium.webdriver.chrome.service import Service
+    bin_path = _resolve_chrome_binary()
     opts, prof = _make_chrome_options(binary_path=bin_path, user_data_dir=None)
-    driver = webdriver.Chrome(options=opts)
-    # store so close_all() can clean up
+    service = Service('/usr/local/bin/chromedriver')
+    driver = webdriver.Chrome(service=service, options=opts)
     key = f"{url}#{time.time()}"
-    self._sessions[key] = {"driver": driver, "profile": prof}
-    return driver
+    seleneumManager()._sessions[key] = {"driver": driver, "profile": prof}
+    return key, driver

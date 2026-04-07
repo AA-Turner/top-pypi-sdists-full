@@ -30,6 +30,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.IndexDeploymentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.IndexDeploymentResponse.FromString,
         )
+        self.StartShadowBuildFromDeployment = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/StartShadowBuildFromDeployment",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.StartShadowBuildFromDeploymentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.StartShadowBuildFromDeploymentResponse.FromString,
+        )
         self.DeployKubeComponents = channel.unary_unary(
             "/chalk.server.v1.BuilderService/DeployKubeComponents",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeployKubeComponentsRequest.SerializeToString,
@@ -305,6 +310,12 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def IndexDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def StartShadowBuildFromDeployment(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -641,6 +652,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.IndexDeployment,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.IndexDeploymentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.IndexDeploymentResponse.SerializeToString,
+        ),
+        "StartShadowBuildFromDeployment": grpc.unary_unary_rpc_method_handler(
+            servicer.StartShadowBuildFromDeployment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.StartShadowBuildFromDeploymentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.StartShadowBuildFromDeploymentResponse.SerializeToString,
         ),
         "DeployKubeComponents": grpc.unary_unary_rpc_method_handler(
             servicer.DeployKubeComponents,
@@ -983,6 +999,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/IndexDeployment",
             chalk_dot_server_dot_v1_dot_builder__pb2.IndexDeploymentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.IndexDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def StartShadowBuildFromDeployment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/StartShadowBuildFromDeployment",
+            chalk_dot_server_dot_v1_dot_builder__pb2.StartShadowBuildFromDeploymentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.StartShadowBuildFromDeploymentResponse.FromString,
             options,
             channel_credentials,
             insecure,

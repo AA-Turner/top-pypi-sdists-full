@@ -139,7 +139,6 @@ from tidy3d.components.tcad.types import (
 from .components.apodization import ApodizationSpec
 
 # boundary placement for other solvers
-# boundary placement for other solvers
 from .components.bc_placement import (
     MediumMediumInterface,
     SimulationBoundary,
@@ -196,10 +195,19 @@ from .components.data.data_array import (
     FieldProjectionKSpaceDataArray,
     FluxDataArray,
     FluxTimeDataArray,
+    FreqDataArray,
+    FreqModeDataArray,
     GroupIndexDataArray,
     HeatDataArray,
     IndexedDataArray,
+    IndexedFieldDataArray,
+    IndexedFieldTimeDataArray,
     IndexedFieldVoltageDataArray,
+    IndexedFreqDataArray,
+    IndexedSurfaceFieldDataArray,
+    IndexedSurfaceFieldTimeDataArray,
+    IndexedSurfaceFreqDataArray,
+    IndexedSurfaceTimeDataArray,
     IndexedTimeDataArray,
     IndexedVoltageDataArray,
     ModeAmpsDataArray,
@@ -226,6 +234,7 @@ from .components.data.monitor_data import (
     DiffractionData,
     DirectivityData,
     FieldData,
+    FieldOverlapData,
     FieldProjectionAngleData,
     FieldProjectionCartesianData,
     FieldProjectionKSpaceData,
@@ -236,8 +245,11 @@ from .components.data.monitor_data import (
     ModeData,
     ModeSolverData,
     PermittivityData,
+    SurfaceFieldData,
+    SurfaceFieldTimeData,
 )
 from .components.data.sim_data import DATA_TYPE_MAP, SimulationData
+from .components.data.unstructured.surface import TriangularSurfaceDataset
 from .components.data.utils import (
     TetrahedralGridDataset,
     TriangularGridDataset,
@@ -277,7 +289,14 @@ from .components.field_projection import FieldProjector
 from .components.frequencies import FreqRange, FrequencyUtils, frequencies, wavelengths
 
 # geometry
-from .components.geometry.base import Box, ClipOperation, Geometry, GeometryGroup, Transformed
+from .components.geometry.base import (
+    Box,
+    ClipOperation,
+    Geometry,
+    GeometryArray,
+    GeometryGroup,
+    Transformed,
+)
 from .components.geometry.mesh import TriangleMesh
 from .components.geometry.polyslab import PolySlab
 from .components.geometry.primitives import Cylinder, Sphere
@@ -297,8 +316,10 @@ from .components.grid.grid_spec import (
 # lumped elements
 from .components.lumped_element import (
     AdmittanceNetwork,
+    CircuitImpedanceModel,
     CoaxialLumpedResistor,
     LinearLumpedElement,
+    LumpedCircuitComponent,
     LumpedElement,
     LumpedResistor,
     RectangularLumpedElement,
@@ -338,6 +359,14 @@ from .components.medium import (
     SurfaceImpedanceFitterParam,
     medium_from_nk,
 )
+
+# sources
+from .components.microwave.time import (
+    BasebandCustomSourceTime,
+    BasebandGaussianPulse,
+    BasebandRectangularPulse,
+    BasebandStep,
+)
 from .components.mode.data.sim_data import ModeSimulationData
 
 # Mode
@@ -355,6 +384,7 @@ from .components.mode_spec import (
 
 # monitors
 from .components.monitor import (
+    AstigmaticGaussianOverlapMonitor,
     AuxFieldTimeMonitor,
     DiffractionMonitor,
     DirectivityMonitor,
@@ -366,11 +396,14 @@ from .components.monitor import (
     FieldTimeMonitor,
     FluxMonitor,
     FluxTimeMonitor,
+    GaussianOverlapMonitor,
     MediumMonitor,
     ModeMonitor,
     ModeSolverMonitor,
     Monitor,
     PermittivityMonitor,
+    SurfaceFieldMonitor,
+    SurfaceFieldTimeMonitor,
 )
 
 # nonlinear
@@ -396,7 +429,6 @@ from .components.parameter_perturbation import (
 from .components.run_time_spec import RunTimeSpec
 
 # scene
-# scene
 from .components.scene import Scene
 
 # simulation
@@ -420,8 +452,6 @@ from .components.source.field import (
 from .components.source.frame import (
     PECFrame,
 )
-
-# sources
 from .components.source.time import (
     BroadbandPulse,
     ContinuousWave,
@@ -484,9 +514,10 @@ def set_logging_level(level: str) -> None:
 
 log.info(f"Using client version: {__version__}")
 
-Transformed.update_forward_refs()
-ClipOperation.update_forward_refs()
-GeometryGroup.update_forward_refs()
+Transformed.model_rebuild()
+ClipOperation.model_rebuild()
+GeometryGroup.model_rebuild()
+GeometryArray.model_rebuild()
 
 # Backwards compatibility: Remove 2.11 renamed integral classes
 VoltageIntegralAxisAligned = AxisAlignedVoltageIntegral
@@ -518,6 +549,7 @@ __all__ = [
     "ApodizationSpec",
     "AstigmaticGaussianBeam",
     "AstigmaticGaussianBeamProfile",
+    "AstigmaticGaussianOverlapMonitor",
     "AugerRecombination",
     "AutoGrid",
     "AutoImpedanceSpec",
@@ -527,6 +559,10 @@ __all__ = [
     "AxisAlignedCurrentIntegralSpec",
     "AxisAlignedVoltageIntegral",
     "AxisAlignedVoltageIntegralSpec",
+    "BasebandCustomSourceTime",
+    "BasebandGaussianPulse",
+    "BasebandRectangularPulse",
+    "BasebandStep",
     "BlochBoundary",
     "Boundary",
     "BoundaryEdge",
@@ -543,6 +579,7 @@ __all__ = [
     "ChargeInsulatorMedium",
     "ChargeToleranceSpec",
     "ChebSampling",
+    "CircuitImpedanceModel",
     "ClipOperation",
     "CoaxialLumpedResistor",
     "CompositeCurrentIntegral",
@@ -630,12 +667,12 @@ __all__ = [
     "EMEScalarModeFieldDataArray",
     "EMESimulation",
     "EMESimulationData",
-    "EMESweepSpec",
     "EMEUniformGrid",
     "FieldData",
     "FieldDataset",
     "FieldGrid",
     "FieldMonitor",
+    "FieldOverlapData",
     "FieldProjectionAngleData",
     "FieldProjectionAngleDataArray",
     "FieldProjectionAngleMonitor",
@@ -661,14 +698,18 @@ __all__ = [
     "FluxTimeDataArray",
     "FluxTimeMonitor",
     "FossumCarrierLifetime",
+    "FreqDataArray",
+    "FreqModeDataArray",
     "FreqRange",
     "FrequencyUtils",
     "FullyAnisotropicMedium",
     "GaussianBeam",
     "GaussianBeamProfile",
     "GaussianDoping",
+    "GaussianOverlapMonitor",
     "GaussianPulse",
     "Geometry",
+    "GeometryArray",
     "GeometryGroup",
     "Graphene",
     "Grid",
@@ -695,7 +736,14 @@ __all__ = [
     "ImpedanceCalculator",
     "IndexPerturbation",
     "IndexedDataArray",
+    "IndexedFieldDataArray",
+    "IndexedFieldTimeDataArray",
     "IndexedFieldVoltageDataArray",
+    "IndexedFreqDataArray",
+    "IndexedSurfaceFieldDataArray",
+    "IndexedSurfaceFieldTimeDataArray",
+    "IndexedSurfaceFreqDataArray",
+    "IndexedSurfaceTimeDataArray",
     "IndexedTimeDataArray",
     "IndexedVoltageDataArray",
     "InsulatingBC",
@@ -711,6 +759,7 @@ __all__ = [
     "Lorentz",
     "LossyMetalMedium",
     "LowFrequencySmoothingSpec",
+    "LumpedCircuitComponent",
     "LumpedElement",
     "LumpedResistor",
     "Medium",
@@ -824,6 +873,10 @@ __all__ = [
     "StructureSimulationBoundary",
     "StructureStructureInterface",
     "SubpixelSpec",
+    "SurfaceFieldData",
+    "SurfaceFieldMonitor",
+    "SurfaceFieldTimeData",
+    "SurfaceFieldTimeMonitor",
     "SurfaceImpedance",
     "SurfaceImpedanceFitterParam",
     "TemperatureBC",
@@ -834,6 +887,7 @@ __all__ = [
     "Transformed",
     "TriangleMesh",
     "TriangularGridDataset",
+    "TriangularSurfaceDataset",
     "TwoPhotonAbsorption",
     "UniformCurrentSource",
     "UniformGrid",

@@ -11,6 +11,8 @@ from ouroboros.mcp.errors import MCPResourceNotFoundError, MCPServerError
 from ouroboros.mcp.server.adapter import (
     VALID_TRANSPORTS,
     MCPServerAdapter,
+    _build_tool_signature_with_aliases,
+    _extract_feedback_metadata_from_artifact,
     _project_dir_from_artifact,
     _project_dir_from_seed,
     validate_transport,
@@ -117,6 +119,56 @@ class TestMCPServerAdapter:
         artifact = f"Write: {nested_dir / 'app.tsx'}"
 
         assert _project_dir_from_artifact(artifact) == str(project_dir)
+
+    def test_project_dir_from_artifact_handles_spaces_in_paths(self, tmp_path) -> None:
+        """Artifact extraction should detect spaced file paths."""
+        project_dir = tmp_path / "my project"
+        nested_dir = project_dir / "src" / "components"
+        nested_dir.mkdir(parents=True)
+        (project_dir / "pyproject.toml").write_text("[build-system]")
+
+        artifact = f"Edit: {nested_dir / 'app.tsx'}"
+
+        assert _project_dir_from_artifact(artifact) == str(project_dir)
+
+    def test_build_tool_signature_sanitizes_non_identifier_parameter_names(self) -> None:
+        """Invalid MCP parameter names are sanitized to valid Python signatures."""
+        parameters = (
+            MCPToolParameter(name="file-path", type=ToolInputType.STRING),
+            MCPToolParameter(name="max.tokens", type=ToolInputType.INTEGER),
+            MCPToolParameter(name="class", type=ToolInputType.BOOLEAN),
+        )
+
+        signature, aliases = _build_tool_signature_with_aliases(parameters)
+        names = tuple(param.name for param in signature.parameters.values())
+        assert names == ("file_path", "max_tokens", "_class")
+        assert aliases == {
+            "file_path": "file-path",
+            "max_tokens": "max.tokens",
+            "_class": "class",
+        }
+
+    def test_extract_feedback_metadata_from_artifact_parses_structured_warning(self) -> None:
+        """Execution artifacts should expose structured evaluation feedback metadata."""
+        artifact = """
+Parallel Execution Verification Report
+Success: 1/1
+
+## Feedback Metadata
+Feedback Metadata JSON: {"feedback_metadata": [{"code": "decomposition_depth_warning", "details": {"affected_ac_paths": ["1.1.1"], "affected_count": 1, "max_depth": 3}, "message": "Recursive decomposition reached the soft depth safety net; affected leaves were forced to atomic execution.", "severity": "warning", "source": "parallel_executor"}]}
+
+## AC Results
+### AC 1: [PASS] Ship feature
+""".strip()
+
+        feedback = _extract_feedback_metadata_from_artifact(artifact)
+
+        assert len(feedback) == 1
+        assert feedback[0].code == "decomposition_depth_warning"
+        assert feedback[0].severity == "warning"
+        assert feedback[0].source == "parallel_executor"
+        assert feedback[0].details["max_depth"] == 3
+        assert feedback[0].details["affected_ac_paths"] == ["1.1.1"]
 
 
 class TestMCPServerAdapterTools:

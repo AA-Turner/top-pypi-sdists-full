@@ -4,7 +4,7 @@ import json
 import pathlib
 import sys
 import time
-from typing import Generator, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 from unittest.mock import MagicMock, patch
 
 import anywidget
@@ -16,6 +16,9 @@ from anywidget._util import _DEFAULT_ESM, _WIDGET_MIME_TYPE
 from anywidget.experimental import command
 from traitlets import traitlets
 from watchfiles import Change
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 SELF_DIR = pathlib.Path(__file__).parent
 
@@ -346,6 +349,7 @@ def test_supresses_error_in_constructor() -> None:
 
 def test_repr_uses_object_repr_by_default() -> None:
     """Test that __repr__ uses object.__repr__ to avoid expensive ipywidgets repr."""
+
     class Widget(anywidget.AnyWidget):
         # Create a large data trait that would be expensive to repr
         data = t.List([1, 2, 3, 4, 5] * 1000).tag(sync=True)
@@ -365,6 +369,7 @@ def test_repr_uses_object_repr_by_default() -> None:
 
 def test_repr_respects_custom_repr() -> None:
     """Test that custom __repr__ methods are respected."""
+
     class Widget(anywidget.AnyWidget):
         value = t.Int(42).tag(sync=True)
 
@@ -377,6 +382,7 @@ def test_repr_respects_custom_repr() -> None:
 
 def test_repr_mimebundle_uses_repr() -> None:
     """Test that _repr_mimebundle_ uses __repr__ for text/plain."""
+
     class Widget(anywidget.AnyWidget):
         def __repr__(self) -> str:
             return "MyCustomRepr"

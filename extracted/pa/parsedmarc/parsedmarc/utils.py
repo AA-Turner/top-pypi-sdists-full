@@ -271,6 +271,75 @@ def human_timestamp_to_unix_timestamp(human_timestamp: str) -> int:
     return int(human_timestamp_to_datetime(human_timestamp).timestamp())
 
 
+_IP_DB_PATH: Optional[str] = None
+
+
+def load_ip_db(
+    *,
+    always_use_local_file: bool = False,
+    local_file_path: Optional[str] = None,
+    url: Optional[str] = None,
+    offline: bool = False,
+) -> None:
+    """
+    Downloads the IP-to-country MMDB database from a URL and caches it
+    locally. Falls back to the bundled copy on failure or when offline.
+
+    Args:
+        always_use_local_file: Always use a local/bundled database file
+        local_file_path: Path to a local MMDB file
+        url: URL to the MMDB database file
+        offline: Do not make online requests
+    """
+    global _IP_DB_PATH
+
+    if url is None:
+        url = (
+            "https://github.com/domainaware/parsedmarc/raw/"
+            "refs/heads/master/parsedmarc/resources/dbip/"
+            "dbip-country-lite.mmdb"
+        )
+
+    if local_file_path is not None and os.path.isfile(local_file_path):
+        _IP_DB_PATH = local_file_path
+        logger.info(f"Using local IP database at {local_file_path}")
+        return
+
+    cache_dir = os.path.join(tempfile.gettempdir(), "parsedmarc")
+    cached_path = os.path.join(cache_dir, "dbip-country-lite.mmdb")
+
+    if not (offline or always_use_local_file):
+        try:
+            logger.debug(f"Trying to fetch IP database from {url}...")
+            headers = {"User-Agent": USER_AGENT}
+            response = requests.get(url, headers=headers, timeout=60)
+            response.raise_for_status()
+            os.makedirs(cache_dir, exist_ok=True)
+            tmp_path = cached_path + ".tmp"
+            with open(tmp_path, "wb") as f:
+                f.write(response.content)
+            shutil.move(tmp_path, cached_path)
+            _IP_DB_PATH = cached_path
+            logger.info("IP database updated successfully")
+            return
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"Failed to fetch IP database: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to save IP database: {e}")
+
+    # Fall back to a previously cached copy if available
+    if os.path.isfile(cached_path):
+        _IP_DB_PATH = cached_path
+        logger.info("Using cached IP database")
+        return
+
+    # Final fallback: bundled copy
+    _IP_DB_PATH = str(
+        files(parsedmarc.resources.dbip).joinpath("dbip-country-lite.mmdb")
+    )
+    logger.info("Using bundled IP database")
+
+
 def get_ip_address_country(
     ip_address: str, *, db_path: Optional[str] = None
 ) -> Optional[str]:
@@ -315,9 +384,12 @@ def get_ip_address_country(
                 break
 
     if db_path is None:
-        db_path = str(
-            files(parsedmarc.resources.dbip).joinpath("dbip-country-lite.mmdb")
-        )
+        if _IP_DB_PATH is not None:
+            db_path = _IP_DB_PATH
+        else:
+            db_path = str(
+                files(parsedmarc.resources.dbip).joinpath("dbip-country-lite.mmdb")
+            )
 
     db_age = datetime.now() - datetime.fromtimestamp(os.stat(db_path).st_mtime)
     if db_age > timedelta(days=30):

@@ -987,6 +987,97 @@ class StatisticsBuilder(System.Object):
         ...
 
 
+class FillGroupingMethod(IntEnum):
+    """The method used to group order fills into trades"""
+
+    FILL_TO_FILL = 0
+    """A Trade is defined by a fill that establishes or increases a position and an offsetting fill that reduces the position size (0)"""
+
+    FLAT_TO_FLAT = 1
+    """A Trade is defined by a sequence of fills, from a flat position to a non-zero position which may increase or decrease in quantity, and back to a flat position (1)"""
+
+    FLAT_TO_REDUCED = 2
+    """A Trade is defined by a sequence of fills, from a flat position to a non-zero position and an offsetting fill that reduces the position size (2)"""
+
+
+class FillMatchingMethod(IntEnum):
+    """The method used to match offsetting order fills"""
+
+    FIFO = 0
+    """First In First Out fill matching method (0)"""
+
+    LIFO = 1
+    """Last In Last Out fill matching method (1)"""
+
+
+class TradeBuilder(System.Object, QuantConnect.Interfaces.ITradeBuilder):
+    """The TradeBuilder class generates trades from executions and market price updates"""
+
+    @property
+    def closed_trades(self) -> typing.List[QuantConnect.Statistics.Trade]:
+        """The list of closed trades"""
+        ...
+
+    def __init__(self, grouping_method: QuantConnect.Statistics.FillGroupingMethod, matching_method: QuantConnect.Statistics.FillMatchingMethod) -> None:
+        """Initializes a new instance of the TradeBuilder class"""
+        ...
+
+    def apply_split(self, split: QuantConnect.Data.Market.Split, live_mode: bool, data_normalization_mode: QuantConnect.DataNormalizationMode) -> None:
+        """
+        Applies a split to the trade builder
+        
+        :param split: The split to be applied
+        :param live_mode: True if live mode, false for backtest
+        :param data_normalization_mode: The DataNormalizationMode for this security
+        """
+        ...
+
+    def has_open_position(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Returns true if there is an open position for the symbol
+        
+        :param symbol: The symbol
+        :returns: true if there is an open position for the symbol.
+        """
+        ...
+
+    def process_fill(self, fill: QuantConnect.Orders.OrderEvent, security_conversion_rate: float, fee_in_account_currency: float, multiplier: float = 1.0) -> None:
+        """
+        Processes a new fill, eventually creating new trades
+        
+        :param fill: The new fill order event
+        :param security_conversion_rate: The current security market conversion rate into the account currency
+        :param fee_in_account_currency: The current order fee in the account currency
+        :param multiplier: The contract multiplier
+        """
+        ...
+
+    def set_live_mode(self, live: bool) -> None:
+        """
+        Sets the live mode flag
+        
+        :param live: The live mode flag
+        """
+        ...
+
+    def set_market_price(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], price: float) -> None:
+        """
+        Sets the current market price for the symbol
+        
+        :param symbol: 
+        :param price: 
+        """
+        ...
+
+    def set_security_manager(self, securities: QuantConnect.Securities.SecurityManager) -> None:
+        """
+        Sets the security manager instance
+        
+        :param securities: The security manager
+        """
+        ...
+
+
 class PerformanceMetrics(System.Object):
     """PerformanceMetrics contains the names of the various performance metrics used for evaluation purposes."""
 
@@ -1092,97 +1183,6 @@ class IStatisticsService(metaclass=abc.ABCMeta):
         Calculates and gets the current statistics for the algorithm
         
         :returns: The current statistics.
-        """
-        ...
-
-
-class FillGroupingMethod(IntEnum):
-    """The method used to group order fills into trades"""
-
-    FILL_TO_FILL = 0
-    """A Trade is defined by a fill that establishes or increases a position and an offsetting fill that reduces the position size (0)"""
-
-    FLAT_TO_FLAT = 1
-    """A Trade is defined by a sequence of fills, from a flat position to a non-zero position which may increase or decrease in quantity, and back to a flat position (1)"""
-
-    FLAT_TO_REDUCED = 2
-    """A Trade is defined by a sequence of fills, from a flat position to a non-zero position and an offsetting fill that reduces the position size (2)"""
-
-
-class FillMatchingMethod(IntEnum):
-    """The method used to match offsetting order fills"""
-
-    FIFO = 0
-    """First In First Out fill matching method (0)"""
-
-    LIFO = 1
-    """Last In Last Out fill matching method (1)"""
-
-
-class TradeBuilder(System.Object, QuantConnect.Interfaces.ITradeBuilder):
-    """The TradeBuilder class generates trades from executions and market price updates"""
-
-    @property
-    def closed_trades(self) -> typing.List[QuantConnect.Statistics.Trade]:
-        """The list of closed trades"""
-        ...
-
-    def __init__(self, grouping_method: QuantConnect.Statistics.FillGroupingMethod, matching_method: QuantConnect.Statistics.FillMatchingMethod) -> None:
-        """Initializes a new instance of the TradeBuilder class"""
-        ...
-
-    def apply_split(self, split: QuantConnect.Data.Market.Split, live_mode: bool, data_normalization_mode: QuantConnect.DataNormalizationMode) -> None:
-        """
-        Applies a split to the trade builder
-        
-        :param split: The split to be applied
-        :param live_mode: True if live mode, false for backtest
-        :param data_normalization_mode: The DataNormalizationMode for this security
-        """
-        ...
-
-    def has_open_position(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
-        """
-        Returns true if there is an open position for the symbol
-        
-        :param symbol: The symbol
-        :returns: true if there is an open position for the symbol.
-        """
-        ...
-
-    def process_fill(self, fill: QuantConnect.Orders.OrderEvent, security_conversion_rate: float, fee_in_account_currency: float, multiplier: float = 1.0) -> None:
-        """
-        Processes a new fill, eventually creating new trades
-        
-        :param fill: The new fill order event
-        :param security_conversion_rate: The current security market conversion rate into the account currency
-        :param fee_in_account_currency: The current order fee in the account currency
-        :param multiplier: The contract multiplier
-        """
-        ...
-
-    def set_live_mode(self, live: bool) -> None:
-        """
-        Sets the live mode flag
-        
-        :param live: The live mode flag
-        """
-        ...
-
-    def set_market_price(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], price: float) -> None:
-        """
-        Sets the current market price for the symbol
-        
-        :param symbol: 
-        :param price: 
-        """
-        ...
-
-    def set_security_manager(self, securities: QuantConnect.Securities.SecurityManager) -> None:
-        """
-        Sets the security manager instance
-        
-        :param securities: The security manager
         """
         ...
 

@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import (
     CancelWorkflowExecutionRequest,
     CancelWorkflowExecutionResponse,
+    ExplainOperationProgressRequest,
+    ExplainOperationProgressResponse,
     ForceCancelJobQueueJobRequest,
     ForceCancelJobQueueJobResponse,
     GetDataPlaneJobQueueRequest,
@@ -60,6 +62,10 @@ class DataPlaneJobQueueServiceStub:
         CancelWorkflowExecutionRequest,
         CancelWorkflowExecutionResponse,
     ]
+    ExplainOperationProgress: UnaryUnaryMultiCallable[
+        ExplainOperationProgressRequest,
+        ExplainOperationProgressResponse,
+    ]
 
 class DataPlaneJobQueueServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -104,6 +110,12 @@ class DataPlaneJobQueueServiceServicer(metaclass=ABCMeta):
         request: CancelWorkflowExecutionRequest,
         context: ServicerContext,
     ) -> CancelWorkflowExecutionResponse: ...
+    @abstractmethod
+    def ExplainOperationProgress(
+        self,
+        request: ExplainOperationProgressRequest,
+        context: ServicerContext,
+    ) -> ExplainOperationProgressResponse: ...
 
 def add_DataPlaneJobQueueServiceServicer_to_server(
     servicer: DataPlaneJobQueueServiceServicer, server: Server

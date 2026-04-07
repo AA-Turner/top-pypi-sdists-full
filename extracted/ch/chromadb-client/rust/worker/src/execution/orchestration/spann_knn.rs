@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use chroma_blockstore::provider::BlockfileProvider;
 use chroma_distance::{normalize, DistanceFunction};
 use chroma_segment::{
-    distributed_spann::{SpannSegmentReader, SpannSegmentReaderError},
+    bloom_filter::BloomFilterManager,
+    distributed_spann::{SpannSegmentReaderShard, SpannSegmentReaderShardError},
     spann_provider::SpannProvider,
 };
 use chroma_system::{
@@ -11,7 +12,7 @@ use chroma_system::{
 };
 use chroma_types::{
     operator::{Knn, KnnOutput, Merge, RecordMeasure},
-    CollectionAndSegments,
+    CollectionAndSegments, SegmentShard,
 };
 use tokio::sync::oneshot::Sender;
 use tracing::Span;
@@ -65,12 +66,16 @@ pub struct SpannKnnOrchestrator {
     // Merge
     merge: Merge,
 
+    // Bloom filter manager
+    bloom_filter_manager: Option<BloomFilterManager>,
+
     // Result channel
     result_channel: Option<Sender<Result<Vec<RecordMeasure>, KnnError>>>,
-    spann_reader: Option<SpannSegmentReader<'static>>,
+    spann_reader: Option<SpannSegmentReaderShard<'static>>,
 }
 
 impl SpannKnnOrchestrator {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         spann_provider: SpannProvider,
         dispatcher: ComponentHandle<Dispatcher>,
@@ -79,6 +84,7 @@ impl SpannKnnOrchestrator {
         knn_filter_output: KnnFilterOutput,
         k: usize,
         query: Vec<f32>,
+        bloom_filter_manager: Option<BloomFilterManager>,
     ) -> Self {
         let normalized_query_emb =
             if knn_filter_output.distance_function == DistanceFunction::Cosine {
@@ -109,6 +115,7 @@ impl SpannKnnOrchestrator {
             bruteforce_log_done: false,
             records: Vec::new(),
             merge: Merge { k: k as u32 },
+            bloom_filter_manager,
             result_channel: None,
             spann_reader: None,
         }
@@ -159,14 +166,25 @@ impl Orchestrator for SpannKnnOrchestrator {
                 record_segment: self.collection_and_segments.record_segment.clone(),
                 log_offset_ids: self.knn_filter_output.filter_output.log_offset_ids.clone(),
                 distance_function: self.knn_filter_output.distance_function.clone(),
+                bloom_filter_manager: self.bloom_filter_manager.clone(),
             },
             ctx.receiver(),
             self.context.task_cancellation_token.clone(),
         );
         tasks.push((knn_log_task, Some(Span::current())));
-        let reader_res = Box::pin(SpannSegmentReader::from_segment(
+        let vector_segment_shard = match self
+            .ok_or_terminate(
+                SegmentShard::try_from((&self.collection_and_segments.vector_segment, 0)),
+                ctx,
+            )
+            .await
+        {
+            Some(shard) => shard,
+            None => return tasks,
+        };
+        let reader_res = Box::pin(SpannSegmentReaderShard::from_segment(
             &self.collection_and_segments.collection,
-            &self.collection_and_segments.vector_segment,
+            &vector_segment_shard,
             &self.blockfile_provider,
             &self.spann_provider.hnsw_provider,
             self.knn_filter_output.dimension,
@@ -196,14 +214,17 @@ impl Orchestrator for SpannKnnOrchestrator {
             }
             Err(e) => match e {
                 // Segment uninited means no compaction yet.
-                SpannSegmentReaderError::UninitializedSegment => {
+                SpannSegmentReaderShardError::UninitializedSegment => {
                     // If the segment is uninitialized, we can skip the head search.
                     self.spann_reader = None;
                     self.heads_searched = true;
                 }
                 _ => {
                     let _: Option<()> = self
-                        .ok_or_terminate(Err(KnnError::SpannSegmentReaderCreationError(e)), ctx)
+                        .ok_or_terminate(
+                            Err(KnnError::SpannSegmentReaderShardCreationError(e)),
+                            ctx,
+                        )
                         .await;
                 }
             },

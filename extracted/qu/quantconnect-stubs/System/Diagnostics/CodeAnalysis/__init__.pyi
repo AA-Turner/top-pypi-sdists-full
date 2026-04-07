@@ -4,6 +4,13 @@ import System
 import System.Diagnostics.CodeAnalysis
 
 
+class UnscopedRefAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
 class ConstantExpectedAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -68,13 +75,6 @@ class SuppressMessageAttribute(System.Attribute):
         ...
 
     def __init__(self, category: str, check_id: str) -> None:
-        ...
-
-
-class UnscopedRefAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
         ...
 
 

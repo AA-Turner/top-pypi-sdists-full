@@ -52,14 +52,14 @@ impl PythonBindingsConfig {
 #[pyfunction]
 #[pyo3(signature = (py_args=None))]
 #[allow(dead_code)]
-pub fn cli(py_args: Option<Vec<String>>) -> ChromaPyResult<()> {
+pub fn cli(py: Python<'_>, py_args: Option<Vec<String>>) -> ChromaPyResult<()> {
     let args = py_args.unwrap_or_else(|| std::env::args().collect());
     let args = if args.is_empty() {
         vec!["chroma".to_string()]
     } else {
         args
     };
-    chroma_cli(args);
+    py.allow_threads(|| chroma_cli(args));
     Ok(())
 }
 
@@ -581,7 +581,7 @@ impl Bindings {
         let mut frontend_clone = self.frontend.clone();
         let response = self
             .runtime
-            .block_on(async { Box::pin(frontend_clone.delete(request)).await })?;
+            .block_on(async { Box::pin(frontend_clone.delete(request, String::new())).await })?;
         Ok(response.deleted)
     }
 

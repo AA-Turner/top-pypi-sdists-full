@@ -117,7 +117,29 @@ async def _client_invoke(method: str, data: dict[str, Any]):
         headers={"Content-Type": "application/json"},
         data=orjson.dumps(data, default=default_command),
     )
-    return res.json()
+    try:
+        result = res.json()
+    except json.JSONDecodeError as e:
+        # Get the raw response for debugging
+        raw = res.text.strip()
+        if not raw:
+            raise RemoteException(
+                "EmptyResponse",
+                "Graph returned empty response",
+            ) from e
+        logger.exception(
+            "JS graph returned invalid JSON for method call %s: %s... (truncated)",
+            method,
+            raw[:50],
+        )
+        raise RemoteException(
+            "InvalidJSON",
+            "Graph returned invalid JSON",
+        ) from e
+    # Check if the JS side returned an error
+    if isinstance(result, dict) and result.get("__error__"):
+        raise RemoteException(result.get("error", "Unknown"), result.get("message", ""))
+    return result
 
 
 class RemotePregel(BaseRemotePregel):

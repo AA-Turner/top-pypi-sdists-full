@@ -36,6 +36,14 @@ class Extremum(System.Object):
         ...
 
 
+class Maximization(QuantConnect.Optimizer.Objectives.Extremum):
+    """Defines standard maximization strategy, i.e. right operand is greater than left"""
+
+    def __init__(self) -> None:
+        """Creates an instance of Maximization"""
+        ...
+
+
 class Objective(System.Object, metaclass=abc.ABCMeta):
     """Base class for optimization Objectives.Target and Constraint"""
 
@@ -120,42 +128,6 @@ class Constraint(QuantConnect.Optimizer.Objectives.Objective):
         ...
 
 
-class ExtremumJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.Optimizer.Objectives.Extremum, str]):
-    """Class for converting string values to Maximization or Minimization strategy objects"""
-
-    @property
-    def populate_properties(self) -> bool:
-        """
-        Don't populate any property
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    @overload
-    def convert(self, value: QuantConnect.Optimizer.Objectives.Extremum) -> str:
-        """
-        Converts a Extremum object into a string
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    @overload
-    def convert(self, value: str) -> QuantConnect.Optimizer.Objectives.Extremum:
-        """
-        Converts a string into its corresponding Extremum object
-        
-        
-        This codeEntityType is protected.
-        
-        :param value: 
-        """
-        ...
-
-
 class Target(QuantConnect.Optimizer.Objectives.Objective):
     """The optimization statistical target"""
 
@@ -222,11 +194,39 @@ class Minimization(QuantConnect.Optimizer.Objectives.Extremum):
         ...
 
 
-class Maximization(QuantConnect.Optimizer.Objectives.Extremum):
-    """Defines standard maximization strategy, i.e. right operand is greater than left"""
+class ExtremumJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.Optimizer.Objectives.Extremum, str]):
+    """Class for converting string values to Maximization or Minimization strategy objects"""
 
-    def __init__(self) -> None:
-        """Creates an instance of Maximization"""
+    @property
+    def populate_properties(self) -> bool:
+        """
+        Don't populate any property
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    @overload
+    def convert(self, value: QuantConnect.Optimizer.Objectives.Extremum) -> str:
+        """
+        Converts a Extremum object into a string
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    @overload
+    def convert(self, value: str) -> QuantConnect.Optimizer.Objectives.Extremum:
+        """
+        Converts a string into its corresponding Extremum object
+        
+        
+        This codeEntityType is protected.
+        
+        :param value: 
+        """
         ...
 
 

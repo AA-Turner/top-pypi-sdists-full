@@ -1,5 +1,6 @@
 # abstract_youtube/extract.py
 from .imports import *
+from .seleneum_utils import *
 def extract_googlevideo_urls_from_html(html: str) -> list[str]:
     """
     DEBUG / INSPECTION ONLY.
@@ -15,9 +16,7 @@ def extract_googlevideo_urls_from_html(html: str) -> list[str]:
 
 
 def extract_player_response(url: str) -> dict:
-    req = requestManager(url)
-    html = req.source_code
-
+    html = get_url_source(url)
     m = re.search(
         r"ytInitialPlayerResponse\s*=\s*(\{.+?\});",
         html,

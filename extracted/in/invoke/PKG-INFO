@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: invoke
-Version: 3.0.0
+Version: 3.0.2
 Summary: Pythonic task execution
 Author-email: Jeff Forcier <jeff@bitprophet.org>
 License-Expression: BSD-2-Clause

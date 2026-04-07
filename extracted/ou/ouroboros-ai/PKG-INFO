@@ -1,41 +1,40 @@
 Metadata-Version: 2.4
 Name: ouroboros-ai
-Version: 0.27.1
+Version: 0.28.0
 Summary: Specification-first workflow engine for AI coding agents. Works with Claude Code and Codex CLI.
 Author-email: Q00 <jqyu.lee@gmail.com>
 License-File: LICENSE
 Requires-Python: >=3.12
-Requires-Dist: aiosqlite>=0.20.0
-Requires-Dist: cachetools>=5.0.0
-Requires-Dist: filelock>=3.13.0
-Requires-Dist: httpx>=0.27.0
-Requires-Dist: mcp>=1.26.0
-Requires-Dist: prompt-toolkit>=3.0.0
-Requires-Dist: pydantic>=2.0.0
-Requires-Dist: python-dotenv>=1.2.1
-Requires-Dist: pyyaml>=6.0.0
-Requires-Dist: rich>=13.0.0
-Requires-Dist: sqlalchemy[asyncio]>=2.0.0
-Requires-Dist: stamina>=25.1.0
-Requires-Dist: structlog>=24.0.0
-Requires-Dist: textual>=1.0.0
-Requires-Dist: typer>=0.12.0
+Requires-Dist: aiosqlite<1.0.0,>=0.20.0
+Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0
+Requires-Dist: pydantic<3.0.0,>=2.0.0
+Requires-Dist: pyyaml<7.0.0,>=6.0.0
+Requires-Dist: rich<15.0.0,>=13.0.0
+Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0
+Requires-Dist: structlog<26.0.0,>=24.0.0
+Requires-Dist: typer<1.0.0,>=0.12.0
 Provides-Extra: all
-Requires-Dist: anthropic>=0.52.0; extra == 'all'
-Requires-Dist: claude-agent-sdk>=0.1.0; extra == 'all'
+Requires-Dist: anthropic<1.0.0,>=0.52.0; extra == 'all'
+Requires-Dist: claude-agent-sdk<1.0.0,>=0.1.0; extra == 'all'
 Requires-Dist: litellm<=1.82.6,>=1.80.0; extra == 'all'
-Requires-Dist: pandas>=2.2.0; extra == 'all'
-Requires-Dist: plotly>=5.24.0; extra == 'all'
-Requires-Dist: streamlit>=1.40.0; extra == 'all'
+Requires-Dist: mcp<2.0.0,>=1.26.0; extra == 'all'
+Requires-Dist: pandas<3.0.0,>=2.2.0; extra == 'all'
+Requires-Dist: plotly<7.0.0,>=5.24.0; extra == 'all'
+Requires-Dist: streamlit<2.0.0,>=1.40.0; extra == 'all'
+Requires-Dist: textual<9.0.0,>=1.0.0; extra == 'all'
 Provides-Extra: claude
-Requires-Dist: anthropic>=0.52.0; extra == 'claude'
-Requires-Dist: claude-agent-sdk>=0.1.0; extra == 'claude'
+Requires-Dist: anthropic<1.0.0,>=0.52.0; extra == 'claude'
+Requires-Dist: claude-agent-sdk<1.0.0,>=0.1.0; extra == 'claude'
 Provides-Extra: dashboard
-Requires-Dist: pandas>=2.2.0; extra == 'dashboard'
-Requires-Dist: plotly>=5.24.0; extra == 'dashboard'
-Requires-Dist: streamlit>=1.40.0; extra == 'dashboard'
+Requires-Dist: pandas<3.0.0,>=2.2.0; extra == 'dashboard'
+Requires-Dist: plotly<7.0.0,>=5.24.0; extra == 'dashboard'
+Requires-Dist: streamlit<2.0.0,>=1.40.0; extra == 'dashboard'
 Provides-Extra: litellm
 Requires-Dist: litellm<=1.82.6,>=1.80.0; extra == 'litellm'
+Provides-Extra: mcp
+Requires-Dist: mcp<2.0.0,>=1.26.0; extra == 'mcp'
+Provides-Extra: tui
+Requires-Dist: textual<9.0.0,>=1.0.0; extra == 'tui'
 Description-Content-Type: text/markdown
 
 <p align="right">
@@ -135,11 +134,22 @@ Then run `ooo setup` inside a Claude Code session.
 pip install ouroboros-ai                # base
 pip install ouroboros-ai[claude]        # + Claude Code deps
 pip install ouroboros-ai[litellm]       # + LiteLLM multi-provider
-pip install ouroboros-ai[all]           # everything
+pip install ouroboros-ai[mcp]           # + MCP server/client support
+pip install ouroboros-ai[tui]           # + Textual terminal UI
+pip install ouroboros-ai[all]           # everything (claude + litellm + mcp + tui + dashboard)
 ouroboros setup                         # configure runtime
 ```
 
+Legacy compatibility: `ouroboros-ai[dashboard]` is still accepted as a compatibility alias while extras migrate.
+
 See runtime guides: [Claude Code](./docs/runtime-guides/claude-code.md) · [Codex CLI](./docs/runtime-guides/codex.md)
+
+Chat platform integration (OpenClaw / Slack / Discord):
+```bash
+clawhub install ouroboros                    # install OpenClaw skill
+openclaw mcp set ouroboros '{"command":"uvx","args":["--from","ouroboros-ai","ouroboros","mcp","serve"]}'
+```
+Guide: [Channel workflow integration](./docs/guides/openclaw-channel-workflow.md)
 
 </details>
 
@@ -261,8 +271,9 @@ Inside AI coding agent sessions, use `ooo <cmd>` skills. From the terminal, use 
 | `ooo qa` | *(via skill)* | General-purpose QA verdict for any artifact |
 | `ooo update` | `ouroboros update` | Check for updates + upgrade to latest |
 | `ooo brownfield` | *(via skill)* | Scan and manage brownfield repo defaults |
+| `ooo publish` | *(skill/runtime surface; uses `gh` CLI)* | Publish a Seed as GitHub Epic/Task issues for team workflows |
 
-> Not all skills have direct CLI equivalents. Some (`evaluate`, `evolve`, `unstuck`, `ralph`) are available through agent skills or MCP tools only.
+> Not all skills have direct CLI equivalents. Some (`evaluate`, `evolve`, `unstuck`, `ralph`, `publish`) are available through agent skills, runtime rules, or MCP tools rather than a direct `ouroboros <subcommand>` shell command.
 
 See the [CLI reference](./docs/cli-reference.md) for full details.
 

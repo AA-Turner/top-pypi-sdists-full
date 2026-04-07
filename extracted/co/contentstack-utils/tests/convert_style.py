@@ -10,7 +10,7 @@ class TestConvertStyle(unittest.TestCase):
 
     def test_converter_style_block(self):
         _returns = converter.convert_style('block')
-        self.assertEquals(StyleType.BLOCK, _returns)
+        self.assertEqual(StyleType.BLOCK, _returns)
 
     def test_converter_style_inline(self):
         _returns = converter.convert_style('inline')

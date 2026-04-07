@@ -2,13 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from tidy3d.components.microwave.impedance_calculator import (
-    CurrentIntegralType,
-    VoltageIntegralType,
-)
-from tidy3d.components.microwave.mode_spec import MicrowaveModeSpec
 from tidy3d.components.microwave.path_integrals.integrals.current import (
     AxisAlignedCurrentIntegral,
     CompositeCurrentIntegral,
@@ -23,19 +18,26 @@ from tidy3d.components.microwave.path_integrals.specs.current import (
     CompositeCurrentIntegralSpec,
     Custom2DCurrentIntegralSpec,
 )
-from tidy3d.components.microwave.path_integrals.specs.impedance import (
-    AutoImpedanceSpec,
-    CustomImpedanceSpec,
-)
+from tidy3d.components.microwave.path_integrals.specs.impedance import AutoImpedanceSpec
 from tidy3d.components.microwave.path_integrals.specs.voltage import (
     AxisAlignedVoltageIntegralSpec,
     Custom2DVoltageIntegralSpec,
 )
-from tidy3d.components.microwave.path_integrals.types import (
-    CurrentPathSpecType,
-    VoltagePathSpecType,
-)
-from tidy3d.exceptions import SetupError, ValidationError
+from tidy3d.exceptions import SetupError, ValidationError, format_chained_exception_message
+
+if TYPE_CHECKING:
+    from typing import Optional
+
+    from tidy3d.components.microwave.impedance_calculator import (
+        CurrentIntegralType,
+        VoltageIntegralType,
+    )
+    from tidy3d.components.microwave.mode_spec import MicrowaveModeSpec, MicrowaveTerminalModeSpec
+    from tidy3d.components.microwave.path_integrals.specs.impedance import CustomImpedanceSpec
+    from tidy3d.components.microwave.path_integrals.types import (
+        CurrentPathSpecType,
+        VoltagePathSpecType,
+    )
 
 
 def make_voltage_integral(path_spec: VoltagePathSpecType) -> VoltageIntegralType:
@@ -54,9 +56,9 @@ def make_voltage_integral(path_spec: VoltagePathSpecType) -> VoltageIntegralType
     """
     v_integral = None
     if isinstance(path_spec, AxisAlignedVoltageIntegralSpec):
-        v_integral = AxisAlignedVoltageIntegral(**path_spec.dict(exclude={"type"}))
+        v_integral = AxisAlignedVoltageIntegral(**path_spec.model_dump(exclude={"type"}))
     elif isinstance(path_spec, Custom2DVoltageIntegralSpec):
-        v_integral = Custom2DVoltageIntegral(**path_spec.dict(exclude={"type"}))
+        v_integral = Custom2DVoltageIntegral(**path_spec.model_dump(exclude={"type"}))
     else:
         raise ValidationError(f"Unsupported voltage path specification type: {type(path_spec)}")
     return v_integral
@@ -78,11 +80,11 @@ def make_current_integral(path_spec: CurrentPathSpecType) -> CurrentIntegralType
     """
     i_integral = None
     if isinstance(path_spec, AxisAlignedCurrentIntegralSpec):
-        i_integral = AxisAlignedCurrentIntegral(**path_spec.dict(exclude={"type"}))
+        i_integral = AxisAlignedCurrentIntegral(**path_spec.model_dump(exclude={"type"}))
     elif isinstance(path_spec, Custom2DCurrentIntegralSpec):
-        i_integral = Custom2DCurrentIntegral(**path_spec.dict(exclude={"type"}))
+        i_integral = Custom2DCurrentIntegral(**path_spec.model_dump(exclude={"type"}))
     elif isinstance(path_spec, CompositeCurrentIntegralSpec):
-        i_integral = CompositeCurrentIntegral(**path_spec.dict(exclude={"type"}))
+        i_integral = CompositeCurrentIntegral(**path_spec.model_dump(exclude={"type"}))
     else:
         raise ValidationError(f"Unsupported current path specification type: {type(path_spec)}")
     return i_integral
@@ -146,8 +148,66 @@ def make_path_integrals(
             i_integrals.append(i_integral)
         except Exception as e:
             raise SetupError(
-                f"Failed to construct path integrals for the mode with index {idx} "
-                "from the impedance specification. "
-                "Please create a github issue so that the problem can be investigated."
+                format_chained_exception_message(
+                    f"Failed to construct path integrals for the mode with index {idx} "
+                    "from the impedance specification. Please create a github issue so that "
+                    "the problem can be investigated.",
+                    e,
+                )
             ) from e
     return (tuple(v_integrals), tuple(i_integrals))
+
+
+def make_path_integrals_for_terminal(
+    microwave_terminal_mode_spec: MicrowaveTerminalModeSpec,
+) -> dict[str, tuple[Optional[VoltageIntegralType], Optional[CurrentIntegralType]]]:
+    """
+    Given a microwave terminal mode specification, create the voltage and
+    current path integrals for each terminal.
+
+    Parameters
+    ----------
+    microwave_terminal_mode_spec : MicrowaveTerminalModeSpec
+        Microwave terminal mode specification containing impedance specs as a dict
+        mapping terminal labels to CustomImpedanceSpec instances.
+
+    Returns
+    -------
+    dict[str, tuple[Optional[VoltageIntegralType], Optional[CurrentIntegralType]]]
+        Dictionary mapping terminal labels to tuples of (voltage_integral, current_integral).
+
+    Raises
+    ------
+    SetupError
+        If path integrals cannot be constructed from the impedance specifications.
+    """
+
+    integrals_dict = {}
+
+    # impedance_specs is a dict mapping terminal labels to CustomImpedanceSpec
+    impedance_specs = microwave_terminal_mode_spec.impedance_specs
+
+    for terminal_label, impedance_spec in impedance_specs.items():
+        # Get voltage and current specs from CustomImpedanceSpec
+        v_spec = impedance_spec.voltage_spec
+        i_spec = impedance_spec.current_spec
+
+        try:
+            v_integral = None
+            i_integral = None
+            if v_spec is not None:
+                v_integral = make_voltage_integral(v_spec)
+            if i_spec is not None:
+                i_integral = make_current_integral(i_spec)
+            integrals_dict[terminal_label] = (v_integral, i_integral)
+        except Exception as e:
+            raise SetupError(
+                format_chained_exception_message(
+                    f"Failed to construct path integrals for terminal '{terminal_label}' "
+                    "from the impedance specification. Please create a github issue so that "
+                    "the problem can be investigated.",
+                    e,
+                )
+            ) from e
+
+    return integrals_dict

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-accessanalyzer
-Version: 1.42.3
-Summary: Type annotations for boto3 AccessAnalyzer 1.42.3 service generated with mypy-boto3-builder 8.12.0
+Version: 1.42.84
+Summary: Type annotations for boto3 AccessAnalyzer 1.42.84 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 AccessAnalyzer 1.42.3](https://pypi.org/project/boto3/) compatible with
+[boto3 AccessAnalyzer 1.42.84](https://pypi.org/project/boto3/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -80,6 +80,7 @@ See how it helps you find and fix potential bugs:
   - [Explicit type annotations](#explicit-type-annotations)
     - [Client annotations](#client-annotations)
     - [Paginators annotations](#paginators-annotations)
+    - [Waiters annotations](#waiters-annotations)
     - [Literals](#literals)
     - [Type definitions](#type-definitions)
   - [How it works](#how-it-works)
@@ -105,7 +106,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.3' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.84' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `AccessAnalyzer` service.
 4. Use provided commands to install generated packages.
@@ -351,6 +352,7 @@ from mypy_boto3_accessanalyzer.paginator import (
     ListFindingsPaginator,
     ListFindingsV2Paginator,
     ListPolicyGenerationsPaginator,
+    ListPolicyPreviewJobsPaginator,
     ValidatePolicyPaginator,
 )
 
@@ -378,7 +380,38 @@ list_findings_v2_paginator: ListFindingsV2Paginator = client.get_paginator("list
 list_policy_generations_paginator: ListPolicyGenerationsPaginator = client.get_paginator(
     "list_policy_generations"
 )
+list_policy_preview_jobs_paginator: ListPolicyPreviewJobsPaginator = client.get_paginator(
+    "list_policy_preview_jobs"
+)
 validate_policy_paginator: ValidatePolicyPaginator = client.get_paginator("validate_policy")
+```
+
+<a id="waiters-annotations"></a>
+
+### Waiters annotations
+
+`mypy_boto3_accessanalyzer.waiter` module contains type annotations for all
+waiters.
+
+```python
+from boto3.session import Session
+
+from mypy_boto3_accessanalyzer import AccessAnalyzerClient
+from mypy_boto3_accessanalyzer.waiter import (
+    PolicyPreviewConfigurationActiveWaiter,
+    PolicyPreviewJobCompletedWaiter,
+)
+
+client: AccessAnalyzerClient = Session().client("accessanalyzer")
+
+# Explicit type annotations are optional here
+# Types should be correctly discovered by mypy and IDEs
+policy_preview_configuration_active_waiter: PolicyPreviewConfigurationActiveWaiter = (
+    client.get_waiter("policy_preview_configuration_active")
+)
+policy_preview_job_completed_waiter: PolicyPreviewJobCompletedWaiter = client.get_waiter(
+    "policy_preview_job_completed"
+)
 ```
 
 <a id="literals"></a>

@@ -2,17 +2,10 @@ from src import (
     AbstractYouTubeDownloader,
     extract_player_response,
 )
-# abstract_youtube/resolve.py
 from abstract_utilities import *
-import json
-import subprocess
-import json
-import subprocess
-
-import json
-import subprocess
-import shutil
-
+import shutil,json,subprocess,requests
+from pathlib import Path
+from urllib.parse import urlparse
 
 class YouTubeResolveError(Exception):
     pass
@@ -29,19 +22,6 @@ def _run(cmd: list[str]) -> str:
         raise YouTubeResolveError(proc.stderr.strip())
 
     return proc.stdout.strip()
-
-
-#!/usr/bin/env python3
-
-import json
-import subprocess
-import requests
-from pathlib import Path
-from urllib.parse import urlparse
-
-
-class YouTubeResolveError(Exception):
-    pass
 
 
 class AbstractYouTubeDownloader:
@@ -143,39 +123,37 @@ class AbstractYouTubeDownloader:
 # ---------------------------------------------------------
 # MAIN
 # ---------------------------------------------------------
-if __name__ == "__main__":
-    VIDEO_URL = "https://www.youtube.com/shorts/6vP02wYh4Ds"
-    player = extract_player_response(VIDEO_URL)
-    for itag in get_any_value(player,'itag'):
-    
-        downloader = AbstractYouTubeDownloader()
-
-        print("[*] Resolving direct URL...")
-        result = downloader.resolve_direct_url(VIDEO_URL, itag=itag)
-
-        direct_url = result["direct_url"]
-        metadata = result["metadata"]
-        input(direct_url)
-        title = metadata.get("title", "video").replace("/", "_")
-        filename = f"{title}.mp4"
-
-        print("[*] Direct URL resolved:")
-        print(direct_url)
-
-        print("[*] Downloading...")
-        out = downloader.download(
-            url=direct_url,
-            filename=filename,
-        )
-
-        print(f"[✓] Download complete → {out}")
-
-##url = "https://www.youtube.com/shorts/6vP02wYh4Ds"
+##if __name__ == "__main__":
+##    VIDEO_URL = "https://www.youtube.com/watch?v=SYM-RJwSGQ8"
+##    player = extract_player_response(VIDEO_URL)
+##    for itag in get_any_value(player,'itag'):
+##        downloader = AbstractYouTubeDownloader()
+##        print("[*] Resolving direct URL...")
+##        result = downloader.resolve_direct_url(VIDEO_URL, itag=itag)
 ##
-##direct_url = resolve_direct_url(url)
+##        direct_url = result["direct_url"]
+##        metadata = result["metadata"]
+##        input(direct_url)
+##        title = metadata.get("title", "video").replace("/", "_")
+##        filename = f"{title}.mp4"
 ##
-##downloader = AbstractYouTubeDownloader()
-##downloader.download(
-##    url=direct_url,
-##    output_path="video.mp4"
-##)
+##        print("[*] Direct URL resolved:")
+##        print(direct_url)
+##
+##        print("[*] Downloading...")
+##        out = downloader.download(
+##            url=direct_url,
+##            filename=filename,
+##        )
+##
+##        print(f"[✓] Download complete → {out}")
+
+url ="https://www.youtube.com/watch?v=SYM-RJwSGQ8"
+downloader = AbstractYouTubeDownloader()
+direct_url = downloader.resolve_direct_url(url)
+
+
+downloader.download(
+    url=direct_url,
+    filename="video.mp4"
+)

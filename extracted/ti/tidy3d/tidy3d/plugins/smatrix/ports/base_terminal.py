@@ -3,19 +3,23 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Any
 
 from tidy3d.components.base import cached_property
-from tidy3d.components.data.data_array import FreqDataArray
-from tidy3d.components.data.sim_data import SimulationData
-from tidy3d.components.grid.grid import Grid
 from tidy3d.components.microwave.base import MicrowaveBaseModel
-from tidy3d.components.monitor import FieldMonitor, ModeMonitor
-from tidy3d.components.source.base import Source
-from tidy3d.components.source.time import GaussianPulse
-from tidy3d.components.types import FreqArray
 from tidy3d.log import log
 from tidy3d.plugins.smatrix.ports.base import AbstractBasePort
+
+if TYPE_CHECKING:
+    from typing import Optional, Union
+
+    from tidy3d.components.data.data_array import FreqDataArray
+    from tidy3d.components.data.sim_data import SimulationData
+    from tidy3d.components.grid.grid import Grid
+    from tidy3d.components.monitor import FieldMonitor, ModeMonitor
+    from tidy3d.components.source.base import Source
+    from tidy3d.components.source.time import SourceTimeType
+    from tidy3d.components.types import FreqArray
 
 
 class AbstractTerminalPort(AbstractBasePort, MicrowaveBaseModel):
@@ -31,12 +35,16 @@ class AbstractTerminalPort(AbstractBasePort, MicrowaveBaseModel):
 
     @abstractmethod
     def to_source(
-        self, source_time: GaussianPulse, snap_center: Optional[float] = None, grid: Grid = None
+        self,
+        source_time: SourceTimeType,
+        snap_center: Optional[float] = None,
+        grid: Optional[Grid] = None,
+        **kwargs: Any,
     ) -> Source:
         """Create a current source from a terminal-based port."""
 
     def to_field_monitors(
-        self, freqs: FreqArray, snap_center: Optional[float] = None, grid: Grid = None
+        self, freqs: FreqArray, snap_center: Optional[float] = None, grid: Optional[Grid] = None
     ) -> Union[list[FieldMonitor], list[ModeMonitor]]:
         """DEPRECATED: Monitors used to compute the port voltage and current."""
         log.warning(
@@ -47,7 +55,11 @@ class AbstractTerminalPort(AbstractBasePort, MicrowaveBaseModel):
 
     @abstractmethod
     def to_monitors(
-        self, freqs: FreqArray, snap_center: Optional[float] = None, grid: Grid = None
+        self,
+        freqs: FreqArray,
+        snap_center: Optional[float] = None,
+        grid: Optional[Grid] = None,
+        **kwargs: Any,
     ) -> Union[list[FieldMonitor], list[ModeMonitor]]:
         """Monitors used to compute the port voltage and current."""
 

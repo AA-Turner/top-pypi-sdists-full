@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-tables2
-Version: 2.8.0
+Version: 2.9.0
 Summary: Table/data-grid framework for Django
 Project-URL: Changelog, https://github.com/jieter/django-tables2/blob/master/CHANGELOG.md
 Project-URL: Documentation, https://django-tables2.readthedocs.io/en/latest/
@@ -50,13 +50,13 @@ Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -64,7 +64,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: django>=4.2
 Provides-Extra: tablib
 Requires-Dist: tablib; extra == 'tablib'

@@ -43,6 +43,7 @@ _TRANSIENT_CONFIGURABLE_KEYS = frozenset(
     }
 )
 
+# Not in public docs: internal, disables pickle file persistence for inmem runtime
 DISABLE_FILE_PERSISTENCE = (
     os.getenv("LANGGRAPH_DISABLE_FILE_PERSISTENCE", "false").lower() == "true"
 )

@@ -32,7 +32,7 @@ def test_create_from_same(l: apyds.List) -> None:
     assert str(list) == "(a b c)"
 
     with pytest.raises(ValueError):
-        list = apyds.List(l, 100)
+        apyds.List(l, 100)
 
 
 def test_create_from_base(l: apyds.List) -> None:
@@ -52,12 +52,12 @@ def test_create_from_bytes(l: apyds.List) -> None:
     assert str(list) == "(a b c)"
 
     with pytest.raises(ValueError):
-        list = apyds.List(l.data(), 100)
+        apyds.List(l.data(), 100)
 
 
 def test_create_fail() -> None:
     with pytest.raises(TypeError):
-        list = apyds.List(100)
+        apyds.List(100)  # type: ignore[arg-type]
 
 
 def test_len(l) -> None:

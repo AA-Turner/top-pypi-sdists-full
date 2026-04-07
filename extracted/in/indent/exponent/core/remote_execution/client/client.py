@@ -98,8 +98,8 @@ from exponent.core.remote_execution.types import (
     CLIConnectedState,
     CreateChatResponse,
     HeartbeatInfo,
+    PydanticWorkflowInput,
     RunWorkflowRequest,
-    WorkflowInput,
     WorkflowTriggerRequest,
     WorkflowTriggerResponse,
 )
@@ -868,7 +868,9 @@ class RemoteExecutionClient:
             )
         return cast(dict[str, Any], response.json())
 
-    async def trigger_workflow(self, workflow_name: str, workflow_input: WorkflowInput) -> WorkflowTriggerResponse:
+    async def trigger_workflow(
+        self, workflow_name: str, workflow_input: PydanticWorkflowInput
+    ) -> WorkflowTriggerResponse:
         response = await self.api_client.post(
             "/api/remote_execution/trigger_workflow",
             json=WorkflowTriggerRequest(

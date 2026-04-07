@@ -94,6 +94,21 @@ def test_missions_help_command():
     assert "tutorial" in output
 
 
+def test_docs_mission_command() -> None:
+    """Test that `cogames docs mission` prints the packaged mission briefing."""
+    package_root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        ["cogames", "docs", "mission"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, f"Command failed with stderr: {result.stderr}"
+    mission_title = next(line for line in (package_root / "MISSION.md").read_text().splitlines() if line.strip())
+    assert mission_title in result.stdout
+
+
 def test_make_mission_command():
     """Test that 'cogames make-mission' creates a new mission configuration."""
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:

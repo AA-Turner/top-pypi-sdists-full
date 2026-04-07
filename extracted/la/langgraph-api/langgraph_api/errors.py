@@ -4,6 +4,8 @@ from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from langgraph_api.js.errors import RemoteException
+
 logger = structlog.stdlib.get_logger(__name__)
 
 
@@ -34,6 +36,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> Respon
 
 
 async def validation_error_handler(request, exc: jsonschema_rs.ValidationError):
+    request.scope["error_detail"] = str(exc)
     return await http_exception_handler(
         request, HTTPException(status_code=422, detail=str(exc))
     )
@@ -43,6 +46,13 @@ async def value_error_handler(request, exc: ValueError):
     logger.exception("Bad Request Error", exc_info=exc)
     return await http_exception_handler(
         request, HTTPException(status_code=400, detail=str(exc))
+    )
+
+
+async def remote_exception_handler(request, exc: RemoteException):
+    logger.exception("Remote Exception", exc_info=exc)
+    return await http_exception_handler(
+        request, HTTPException(status_code=500, detail=str(exc))
     )
 
 

@@ -32,7 +32,7 @@ def test_create_from_same(t: apyds.Term) -> None:
     assert str(term) == "(a b c)"
 
     with pytest.raises(ValueError):
-        term = apyds.Term(t, 100)
+        apyds.Term(t, 100)
 
 
 def test_create_from_base(t: apyds.Term) -> None:
@@ -52,12 +52,12 @@ def test_create_from_bytes(t: apyds.Term) -> None:
     assert str(term) == "(a b c)"
 
     with pytest.raises(ValueError):
-        term = apyds.Term(t.data(), 100)
+        apyds.Term(t.data(), 100)
 
 
 def test_create_fail() -> None:
     with pytest.raises(TypeError):
-        term = apyds.Term(100)
+        apyds.Term(100)  # type: ignore[arg-type]
 
 
 def test_term() -> None:

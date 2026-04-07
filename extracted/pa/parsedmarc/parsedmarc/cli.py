@@ -54,6 +54,7 @@ from parsedmarc.utils import (
     get_base_domain,
     get_reverse_dns,
     is_mbox,
+    load_ip_db,
     load_reverse_dns_map,
 )
 
@@ -388,6 +389,8 @@ def _parse_config(config: ConfigParser, opts):
             opts.ip_db_path = _expand_path(general_config["ip_db_path"])
         else:
             opts.ip_db_path = None
+        if "ip_db_url" in general_config:
+            opts.ip_db_url = general_config["ip_db_url"]
         if "always_use_local_files" in general_config:
             opts.always_use_local_files = bool(
                 general_config.getboolean("always_use_local_files")
@@ -1806,6 +1809,7 @@ def _main():
         log_file=args.log_file,
         n_procs=1,
         ip_db_path=None,
+        ip_db_url=None,
         always_use_local_files=False,
         reverse_dns_map_path=None,
         reverse_dns_map_url=None,
@@ -1881,6 +1885,13 @@ def _main():
         exit(1)
 
     logger.info("Starting parsedmarc")
+
+    load_ip_db(
+        always_use_local_file=opts.always_use_local_files,
+        local_file_path=opts.ip_db_path,
+        url=opts.ip_db_url,
+        offline=opts.offline,
+    )
 
     # Initialize output clients (with retry for transient connection errors)
     clients = {}
@@ -2293,6 +2304,15 @@ def _main():
                     always_use_local_file=new_opts.always_use_local_files,
                     local_file_path=new_opts.reverse_dns_map_path,
                     url=new_opts.reverse_dns_map_url,
+                    offline=new_opts.offline,
+                )
+
+                # Reload the IP database so changes to the
+                # db path/URL in the config take effect.
+                load_ip_db(
+                    always_use_local_file=new_opts.always_use_local_files,
+                    local_file_path=new_opts.ip_db_path,
+                    url=new_opts.ip_db_url,
                     offline=new_opts.offline,
                 )
 

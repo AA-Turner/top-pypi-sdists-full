@@ -2,22 +2,27 @@
 from __future__ import annotations
 
 import abc
-import typing
-from typing import Any
+from typing import TYPE_CHECKING, Any, Union
 
-import autograd.numpy as anp
-import pydantic.v1 as pd
+from pydantic import Field, NonNegativeFloat, PositiveFloat
 
 from tidy3d.constants import MICROMETER
 from tidy3d.plugins.autograd.invdes import make_erosion_dilation_penalty
 
 from .base import InvdesBaseModel
 
+if TYPE_CHECKING:
+    from typing import Optional
+
+    import autograd.numpy as anp
+
+    from tidy3d.plugins.autograd.invdes.symmetries import MirrorSymmetry
+
 
 class AbstractPenalty(InvdesBaseModel, abc.ABC):
     """Base class for penalties added to ``invdes.DesignRegion`` objects."""
 
-    weight: pd.NonNegativeFloat = pd.Field(
+    weight: NonNegativeFloat = Field(
         1.0,
         title="Weight",
         description="When this penalty is evaluated, it will be weighted by this "
@@ -50,17 +55,16 @@ class ErosionDilationPenalty(AbstractPenalty):
 
     """
 
-    length_scale: pd.PositiveFloat = pd.Field(
-        ...,
+    length_scale: PositiveFloat = Field(
         title="Length Scale",
         description="Length scale of erosion and dilation. "
         "Corresponds to ``radius`` in the :class:`ConicFilter` used for filtering. "
         "The parameter array is dilated and eroded by half of this value with each operation. "
         "Roughly corresponds to the desired minimum feature size and radius of curvature.",
-        units=MICROMETER,
+        json_schema_extra={"units": MICROMETER},
     )
 
-    beta: float = pd.Field(
+    beta: float = Field(
         100.0,
         ge=1.0,
         title="Projection Beta",
@@ -69,7 +73,7 @@ class ErosionDilationPenalty(AbstractPenalty):
         "Higher values correspond to stronger discretization.",
     )
 
-    eta0: float = pd.Field(
+    eta0: float = Field(
         0.5,
         ge=0.0,
         le=1.0,
@@ -79,7 +83,7 @@ class ErosionDilationPenalty(AbstractPenalty):
         "Corresponds to ``eta`` in the :class:`BinaryProjector`.",
     )
 
-    delta_eta: float = pd.Field(
+    delta_eta: float = Field(
         0.01,
         ge=0.0,
         le=1.0,
@@ -90,13 +94,20 @@ class ErosionDilationPenalty(AbstractPenalty):
         "using it unless there is a good reason to set it differently.",
     )
 
-    def evaluate(self, x: anp.ndarray, pixel_size: float) -> float:
+    def evaluate(
+        self, x: anp.ndarray, pixel_size: float, symmetry: Optional[MirrorSymmetry] = None
+    ) -> float:
         """Evaluate this penalty."""
         penalty_fn = make_erosion_dilation_penalty(
-            self.length_scale, pixel_size, beta=self.beta, eta=self.eta0, delta_eta=self.delta_eta
+            self.length_scale,
+            pixel_size,
+            beta=self.beta,
+            eta=self.eta0,
+            delta_eta=self.delta_eta,
+            symmetry=symmetry,
         )
         penalty_unweighted = penalty_fn(x)
         return self.weight * penalty_unweighted
 
 
-PenaltyType = typing.Union[ErosionDilationPenalty]
+PenaltyType = Union[ErosionDilationPenalty]

@@ -659,7 +659,7 @@ class FileSource:
                             break
 
         # custom overrides for decription, etc
-        for pluginMethod in self.pluginClassMethods("FileSource.File"):
+        for pluginMethod in self.hooks("FileSource.File"):
             fileResult = pluginMethod(self.cntlr, filepath, binary, stripDeclaration)
             if fileResult is not None:
                 return fileResult # type: ignore[no-any-return]
@@ -712,7 +712,7 @@ class FileSource:
                 return archiveFileName.replace("\\","/") in archiveFileSource.dir
 
         # custom overrides for decription, etc
-        for pluginMethod in self.pluginClassMethods("FileSource.Exists"):
+        for pluginMethod in self.hooks("FileSource.Exists"):
             existsResult = pluginMethod(self.cntlr, filepath)
             if existsResult is not None:
                 return cast(bool, existsResult)
@@ -846,9 +846,9 @@ class FileSource:
             return [os.path.basename(url) for url in self.url]
         return None
 
-    def pluginClassMethods(self, className: str) -> Iterator[Callable[..., Any]]:
-        if self.cntlr and hasattr(self.cntlr, 'pluginManager'):
-            yield from self.cntlr.pluginManager.pluginClassMethods(className)
+    def hooks(self, className: str) -> Iterator[Callable[..., Any]]:
+        if self.cntlr and self.cntlr.plugins:
+            yield from self.cntlr.plugins.hooks(className)
             return
         yield from iter(())
 
@@ -857,8 +857,8 @@ def openFileStream(
     cntlr: Cntlr | None, filepath: str, mode: str = "r", encoding: str | None = None
 ) -> io.BytesIO | IO[Any]:
     filestream: io.IOBase | FileNamedStringIO | None
-    if PackageManager.isMappedUrl(filepath):  # type: ignore[no-untyped-call]
-        filepath = PackageManager.mappedUrl(filepath)  # type: ignore[no-untyped-call]
+    if PackageManager.isMappedUrl(filepath):
+        filepath = PackageManager.mappedUrl(filepath) or filepath
     elif (
             cntlr
             and hasattr(cntlr, "modelManager")

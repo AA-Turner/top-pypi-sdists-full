@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhlmi
-Version: 0.45.1
+Version: 0.45.2
 Summary: A client to provide LLM responses for FutureHouse applications.
 Author-email: FutureHouse technical staff <hello@futurehouse.org>
 License:                                  Apache License
@@ -214,6 +214,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.11
@@ -222,7 +223,7 @@ License-File: LICENSE
 Requires-Dist: coredis>=3.0.1
 Requires-Dist: fhaviary>=0.14.0
 Requires-Dist: limits[async-redis]>=4.8
-Requires-Dist: litellm>=1.81.10
+Requires-Dist: litellm<=1.83.0,>=1.83.0
 Requires-Dist: pydantic>=2.10.1,~=2.0
 Requires-Dist: tiktoken>=0.4.0
 Requires-Dist: typing-extensions; python_version <= "3.11"
@@ -233,7 +234,7 @@ Requires-Dist: google-auth>=2; extra == "dev"
 Requires-Dist: google-cloud-storage>=3; extra == "dev"
 Requires-Dist: httpx-aiohttp; extra == "dev"
 Requires-Dist: ipython>=8; extra == "dev"
-Requires-Dist: litellm>=1.81.3; extra == "dev"
+Requires-Dist: litellm<=1.83.0,>=1.83.0; extra == "dev"
 Requires-Dist: mypy>=1.8; extra == "dev"
 Requires-Dist: pre-commit>=3.4; extra == "dev"
 Requires-Dist: pylint-pydantic; extra == "dev"

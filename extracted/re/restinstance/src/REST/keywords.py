@@ -4,6 +4,8 @@
 # Copyright(C) 2018- Anssi Syrjäsalo (http://a.syrjasalo.com)
 # Licensed under GNU Lesser General Public License v3 (LGPL-3.0).
 
+from __future__ import annotations
+
 import warnings
 from collections import OrderedDict
 from copy import deepcopy
@@ -11,6 +13,7 @@ from datetime import datetime
 from io import open
 from json import dumps
 from pathlib import Path
+from typing import Any, Literal, Union, cast
 from urllib.parse import parse_qsl, urljoin, urlparse
 
 with warnings.catch_warnings():
@@ -19,7 +22,8 @@ with warnings.catch_warnings():
 
 from genson import SchemaBuilder
 from jsonpath_ng.ext import parse as parse_jsonpath
-from jsonschema import FormatChecker, validate
+from jsonschema import FormatChecker
+from jsonschema import validators as jv_validators
 from jsonschema.exceptions import SchemaError, ValidationError
 from openapi_core import OpenAPI
 from openapi_core.contrib.requests import (
@@ -40,6 +44,64 @@ from .schema_keywords import SCHEMA_KEYWORDS
 
 
 class Keywords:
+    # Instance attributes defined in REST.__init__ — declared here for type checking
+    request: dict[str, Any]
+    schema: dict[str, Any]
+    spec: dict[str, Any]
+    instances: list[Any]
+    log_level: str
+
+    # Static methods defined in REST — declared here for type checking
+    @staticmethod
+    def log_json(
+        json: Any,
+        header: str = "",
+        also_console: bool = True,
+        sort_keys: bool = False,
+    ) -> str: ...
+
+    @staticmethod
+    def _input_boolean(value: Any) -> bool: ...
+
+    @staticmethod
+    def _input_integer(value: Any) -> int: ...
+
+    @staticmethod
+    def _input_number(value: Any) -> Union[int, float]: ...
+
+    @staticmethod
+    def _input_string(value: Any) -> str: ...
+
+    @staticmethod
+    def _input_object(value: Any) -> dict[str, Any]: ...
+
+    @staticmethod
+    def _input_array(value: Any) -> list[Any]: ...
+
+    @staticmethod
+    def _input_json_from_file(path: Any) -> Any: ...
+
+    @staticmethod
+    def _input_json_as_string(string: Any) -> Any: ...
+
+    @staticmethod
+    def _input_json_from_non_string(value: Any) -> Any: ...
+
+    @staticmethod
+    def _input_client_cert(value: Any) -> Any: ...
+
+    @staticmethod
+    def _input_ssl_verify(value: Any) -> Any: ...
+
+    @staticmethod
+    def _input_timeout(value: Any) -> list[Any]: ...
+
+    @staticmethod
+    def _input_data(value: Any) -> Any: ...
+
+    @staticmethod
+    def _input_log_level(loglevel: str) -> str: ...
+
     def get_keyword_names(self):
         return [
             name
@@ -134,7 +196,7 @@ class Keywords:
         HTTP method, and on the test case level (test setup) to merge in
         the HTTP method specific properties.
 
-        `Expect Request` is intented to be used with tests that have some of the
+        `Expect Request` is intended to be used with tests that have some of the
         request properties, e.g. body or query parameters, randomized ("fuzzing")
         for validating that the sent values are within the expected scope.
 
@@ -157,7 +219,7 @@ class Keywords:
         if "properties" not in schema:
             schema = {"properties": schema}
         if self._input_boolean(merge):
-            new_schema = SchemaBuilder(schema_uri=False)
+            new_schema = SchemaBuilder(schema_uri=False)  # type: ignore[arg-type]
             new_schema.add_schema(self.schema["properties"]["request"])
             new_schema.add_schema(schema)
             self.schema["properties"]["request"] = new_schema.to_schema()
@@ -176,7 +238,7 @@ class Keywords:
         HTTP method, and on the test case level (test setup) to merge in
         the HTTP method specific properties.
 
-        `Expect Response` is intented to be used on the suite level to validate
+        `Expect Response` is intended to be used on the suite level to validate
         the endpoint properties that hold regardless of the HTTP method,
         such as body property types, responded headers, authentication, etc.
 
@@ -201,7 +263,7 @@ class Keywords:
         if "properties" not in schema:
             schema = {"properties": schema}
         if self._input_boolean(merge):
-            new_schema = SchemaBuilder(schema_uri=False)
+            new_schema = SchemaBuilder(schema_uri=False)  # type: ignore[arg-type]
             new_schema.add_schema(self.schema["properties"]["response"])
             new_schema.add_schema(schema)
             self.schema["properties"]["response"] = new_schema.to_schema()
@@ -220,7 +282,7 @@ class Keywords:
         HTTP method, and on the test case level (test setup) to merge in
         the HTTP method specific properties.
 
-        `Expect Response Body` is intented to be used on the test case level,
+        `Expect Response Body` is intended to be used on the test case level,
         to validate that the response body has the expected properties for
         the particular HTTP method. Note that if something about response body
         has been already expected with `Expected Response`, using this keyword
@@ -727,7 +789,7 @@ class Keywords:
         The keyword will fail if any of the given validations fail.
         Given validations can be skipped altogether by adding ``skip=true``.
         When skipped, the schema is updated but the validations are not ran.
-        Skip is intented mainly for debugging the updated schema before aborting.
+        Skip is intended mainly for debugging the updated schema before aborting.
 
         *Examples*
 
@@ -772,7 +834,7 @@ class Keywords:
         The keyword will fail if any of the given validations fail.
         Given validations can be skipped altogether by adding ``skip=true``.
         When skipped, the schema is updated but the validations are not ran.
-        Skip is intented mainly for debugging the updated schema before aborting.
+        Skip is intended mainly for debugging the updated schema before aborting.
 
         *Examples*
 
@@ -786,7 +848,7 @@ class Keywords:
         values = []
         for found in self._find_by_field(field):
             reality = found["reality"]
-            schema = {"type": "boolean"}
+            schema: dict[str, Any] = {"type": "boolean"}
             if value is not None:
                 schema["enum"] = [self._input_boolean(value)]
             elif self._should_add_examples():
@@ -826,7 +888,7 @@ class Keywords:
         The keyword will fail if any of the given validations fail.
         Given validations can be skipped altogether by adding ``skip=true``.
         When skipped, the schema is updated but the validations are not ran.
-        Skip is intented mainly for debugging the updated schema before aborting.
+        Skip is intended mainly for debugging the updated schema before aborting.
 
         *Examples*
 
@@ -872,7 +934,7 @@ class Keywords:
         The keyword will fail if any of the given validations fail.
         Given validations can be skipped altogether by adding ``skip=true``.
         When skipped, the schema is updated but the validations are not ran.
-        Skip is intented mainly for debugging the updated schema before aborting.
+        Skip is intended mainly for debugging the updated schema before aborting.
 
         *Examples*
 
@@ -917,7 +979,7 @@ class Keywords:
         The keyword will fail if any of the given validations fail.
         Given validations can be skipped altogether by adding ``skip=true``.
         When skipped, the schema is updated but the validations are not ran.
-        Skip is intented mainly for debugging the updated schema before aborting.
+        Skip is intended mainly for debugging the updated schema before aborting.
 
         *Examples*
 
@@ -963,7 +1025,7 @@ class Keywords:
         The keyword will fail if any of the given validations fail.
         Given validations can be skipped altogether by adding ``skip=true``.
         When skipped, the schema is updated but the validations are not ran.
-        Skip is intented mainly for debugging the updated schema before aborting.
+        Skip is intended mainly for debugging the updated schema before aborting.
 
         *Examples*
 
@@ -1007,7 +1069,7 @@ class Keywords:
         The keyword will fail if any of the given validations fail.
         Given validations can be skipped altogether by adding ``skip=true``.
         When skipped, the schema is updated but the validations are not ran.
-        Skip is intented mainly for debugging the updated schema before aborting.
+        Skip is intended mainly for debugging the updated schema before aborting.
 
         *Examples*
         | `GET`  | /users?_limit=10 | | | | # https://jsonplaceholder.typicode.com/users |
@@ -1275,7 +1337,7 @@ class Keywords:
         | `Rest Instances` | ${CURDIR}/log.json |
         """
         if not file_path:
-            outputdir_path = BuiltIn().get_variable_value("${OUTPUTDIR}")
+            outputdir_path = str(BuiltIn().get_variable_value("${OUTPUTDIR}"))
             if self.request["netloc"]:
                 file_path = (
                     Path(outputdir_path) / self.request["netloc"]
@@ -1410,7 +1472,12 @@ class Keywords:
                 logger.write(
                     "Response body content is not JSON. "
                     + "Content-Type is: %s" % headers,
-                    log_level,
+                    cast(
+                        Literal[
+                            "TRACE", "DEBUG", "INFO", "HTML", "WARN", "ERROR"
+                        ],
+                        log_level,
+                    ),
                 )
         response = {
             "seconds": response.elapsed.microseconds / 1000 / 1000,
@@ -1478,14 +1545,24 @@ class Keywords:
 
     def _assert_schema(self, schema, reality):
         try:
-            validate(reality, schema, format_checker=FormatChecker())
+            top_schema = getattr(self, "schema", None)
+            if (
+                top_schema
+                and isinstance(top_schema, dict)
+                and "$schema" in top_schema
+            ):
+                validator_cls = jv_validators.validator_for(top_schema)
+            else:
+                validator_cls = jv_validators.validator_for(schema)
+            validator = validator_cls(schema, format_checker=FormatChecker())
+            validator.validate(reality)
         except SchemaError as e:
             raise RuntimeError(e)
         except ValidationError as e:
             raise AssertionError(e)
 
     def _new_schema(self, value):
-        builder = SchemaBuilder(schema_uri=False)
+        builder = SchemaBuilder(schema_uri=False)  # type: ignore[arg-type]
         builder.add_object(value)
         return builder.to_schema()
 
@@ -1614,10 +1691,15 @@ class Keywords:
                 allowNull = validations["nullable"]
                 del validations["nullable"]
 
-            if "draft-04" in self.schema["$schema"]:
+            meta = self.schema.get("$schema", "")
+            if "draft-04" in meta:
                 schema_version = "draft-04"
-            elif "draft-06" in self.schema["$schema"]:
+            elif "draft-06" in meta:
                 schema_version = "draft-06"
+            elif "draft/2020-12" in meta or "draft-2020-12" in meta:
+                schema_version = "draft-2020-12"
+            elif "draft/2019-09" in meta or "draft-2019-09" in meta:
+                schema_version = "draft-2019-09"
             else:
                 schema_version = "draft-07"
             kws = list(SCHEMA_KEYWORDS["common"][schema_version])

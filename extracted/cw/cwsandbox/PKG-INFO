@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cwsandbox
-Version: 0.14.0
+Version: 0.15.0
 Summary: A Python client library for CoreWeave Sandbox
 Author: CoreWeave, Inc.
 License-Expression: Apache-2.0

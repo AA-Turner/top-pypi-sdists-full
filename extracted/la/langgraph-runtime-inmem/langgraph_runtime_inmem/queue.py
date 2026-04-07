@@ -94,6 +94,7 @@ async def queue():
     last_sweep_secs: int | None = None
     runners = AsyncQueue[BgLoopRunner](concurrency)
     WEBHOOKS: set[asyncio.Task] = set()
+    # Not in public docs: dev-only, set by CLI --allow-blocking flag
     enable_blocking = os.getenv("LANGGRAPH_ALLOW_BLOCKING", "false").lower() == "true"
     # raise exceptions when a blocking call is detected inside an async function
     if enable_blocking:

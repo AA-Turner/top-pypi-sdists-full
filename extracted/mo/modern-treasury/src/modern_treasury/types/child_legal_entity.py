@@ -8,6 +8,7 @@ from typing_extensions import Literal
 
 from .._models import BaseModel
 from .document import Document
+from .shared.third_party_verification import ThirdPartyVerification
 from .shared.legal_entity_industry_classification import LegalEntityIndustryClassification
 
 __all__ = [
@@ -21,7 +22,6 @@ __all__ = [
     "PhoneNumber",
     "Regulators",
     "Regulator",
-    "ThirdPartyVerification",
     "WealthAndEmploymentDetails",
 ]
 
@@ -29,7 +29,7 @@ __all__ = [
 class Address(BaseModel):
     id: str
 
-    address_types: List[Literal["business", "mailing", "other", "po_box", "residential"]]
+    address_types: List[Literal["business", "business_registered", "mailing", "other", "po_box", "residential"]]
     """The types of this address."""
 
     country: Optional[str] = None
@@ -137,6 +137,7 @@ class Identification(BaseModel):
         "drivers_license",
         "hn_id",
         "hn_rtn",
+        "ie_pps",
         "in_lei",
         "kr_brn",
         "kr_crn",
@@ -210,16 +211,6 @@ Regulators = Regulator
 
 Please use Regulator instead.
 """
-
-
-class ThirdPartyVerification(BaseModel):
-    """Information describing a third-party verification run by an external vendor."""
-
-    vendor: Literal["persona"]
-    """The vendor that performed the verification, e.g. `persona`."""
-
-    vendor_verification_id: str
-    """The identification of the third party verification in `vendor`'s system."""
 
 
 class WealthAndEmploymentDetails(BaseModel):
@@ -498,6 +489,9 @@ class ChildLegalEntity(BaseModel):
     risk_rating: Optional[Literal["low", "medium", "high"]] = None
     """The risk rating of the legal entity. One of low, medium, high."""
 
+    service_provider_legal_entity_id: Optional[str] = None
+    """The UUID of the parent legal entity in the service provider tree."""
+
     status: Optional[Literal["active", "denied", "pending", "suspended"]] = None
     """The activation status of the legal entity.
 
@@ -508,7 +502,10 @@ class ChildLegalEntity(BaseModel):
     """An individual's suffix."""
 
     third_party_verification: Optional[ThirdPartyVerification] = None
-    """Information describing a third-party verification run by an external vendor."""
+    """Deprecated. Use `third_party_verifications` instead."""
+
+    third_party_verifications: List[ThirdPartyVerification]
+    """A list of third-party verifications run by external vendors."""
 
     ticker_symbol: Optional[str] = None
     """Stock ticker symbol for publicly traded companies."""

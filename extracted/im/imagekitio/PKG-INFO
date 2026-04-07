@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: imagekitio
-Version: 5.2.0
+Version: 5.3.0
 Summary: The official Python library for the ImageKit API
 Project-URL: Homepage, https://github.com/imagekit-developer/imagekit-python
 Project-URL: Repository, https://github.com/imagekit-developer/imagekit-python
@@ -27,12 +27,12 @@ Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
 Requires-Dist: pydantic<3,>=1.9.0
 Requires-Dist: sniffio
-Requires-Dist: typing-extensions<5,>=4.10
+Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
 Provides-Extra: webhooks
-Requires-Dist: standardwebhooks; extra == 'webhooks'
+Requires-Dist: standardwebhooks<2,>=1.0.1; extra == 'webhooks'
 Description-Content-Type: text/markdown
 
 # ImageKit.io Python SDK

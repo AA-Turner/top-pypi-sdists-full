@@ -17,8 +17,10 @@ from tidy3d.components.grid.grid_spec import CornerFinderSpec, LayerRefinementSp
 # Lumped elements
 from tidy3d.components.lumped_element import (
     AdmittanceNetwork,
+    CircuitImpedanceModel,
     CoaxialLumpedResistor,
     LinearLumpedElement,
+    LumpedCircuitComponent,
     LumpedResistor,
     RectangularLumpedElement,
     RLCNetwork,
@@ -84,6 +86,17 @@ from tidy3d.components.microwave.path_integrals.specs.voltage import (
     AxisAlignedVoltageIntegralSpec,
     Custom2DVoltageIntegralSpec,
 )
+
+# Microwave sources
+from tidy3d.components.microwave.source import MicrowaveTerminalSource
+
+# Baseband source times
+from tidy3d.components.microwave.time import (
+    BasebandCustomSourceTime,
+    BasebandGaussianPulse,
+    BasebandRectangularPulse,
+    BasebandStep,
+)
 from tidy3d.components.monitor import DirectivityMonitor
 
 # Source frame
@@ -126,7 +139,7 @@ from tidy3d.plugins.smatrix.data.terminal import (
 from tidy3d.plugins.smatrix.data.types import ComponentModelerDataType
 from tidy3d.plugins.smatrix.ports.coaxial_lumped import CoaxialLumpedPort
 from tidy3d.plugins.smatrix.ports.rectangular_lumped import LumpedPort
-from tidy3d.plugins.smatrix.ports.wave import WavePort
+from tidy3d.plugins.smatrix.ports.wave import TerminalWavePort, WavePort
 
 # Backwards compatibility
 CurrentIntegralTypes = CurrentIntegralType
@@ -149,9 +162,14 @@ __all__ = [
     "AxisAlignedPathIntegral",
     "AxisAlignedVoltageIntegral",
     "AxisAlignedVoltageIntegralSpec",
+    "BasebandCustomSourceTime",
+    "BasebandGaussianPulse",
+    "BasebandRectangularPulse",
+    "BasebandStep",
     "BlackmanHarrisWindow",
     "BlackmanWindow",
     "ChebWindow",
+    "CircuitImpedanceModel",
     "CoaxialLumpedPort",
     "CoaxialLumpedResistor",
     "ComponentModelerDataType",
@@ -181,6 +199,7 @@ __all__ = [
     "LobeMeasurer",
     "LossyMetalMedium",
     "LowFrequencySmoothingSpec",
+    "LumpedCircuitComponent",
     "LumpedPort",
     "LumpedResistor",
     "MicrowaveModeData",
@@ -189,6 +208,7 @@ __all__ = [
     "MicrowaveModeSolverMonitor",
     "MicrowaveModeSpec",
     "MicrowaveSMatrixData",
+    "MicrowaveTerminalSource",
     "ModelerLowFrequencySmoothingSpec",
     "PECFrame",
     "PortDataArray",
@@ -203,6 +223,7 @@ __all__ = [
     "TerminalComponentModeler",
     "TerminalComponentModelerData",
     "TerminalPortDataArray",
+    "TerminalWavePort",
     "VoltageIntegralTypes",
     "WavePort",
     "models",

@@ -30,6 +30,7 @@ __all__ = (
     "CompressionEnumType",
     "ConnectorEgressTypeType",
     "ConnectorStatusType",
+    "ConnectorsIpAddressTypeType",
     "CustomStepStatusType",
     "DirectoryListingOptimizationType",
     "DomainType",
@@ -92,6 +93,7 @@ CertificateUsageTypeType = Literal["ENCRYPTION", "SIGNING", "TLS"]
 CompressionEnumType = Literal["DISABLED", "ZLIB"]
 ConnectorEgressTypeType = Literal["SERVICE_MANAGED", "VPC_LATTICE"]
 ConnectorStatusType = Literal["ACTIVE", "ERRORED", "PENDING"]
+ConnectorsIpAddressTypeType = Literal["DUALSTACK", "IPV4"]
 CustomStepStatusType = Literal["FAILURE", "SUCCESS"]
 DirectoryListingOptimizationType = Literal["DISABLED", "ENABLED"]
 DomainType = Literal["EFS", "S3"]
@@ -254,6 +256,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -269,6 +272,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -295,13 +299,13 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -341,7 +345,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -505,6 +508,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -516,7 +520,9 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -538,6 +544,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -550,6 +557,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

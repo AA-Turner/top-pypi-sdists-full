@@ -101,10 +101,13 @@ def networks_POST(_, context):
 
 
 def networks_DELETE(_, context):
-    context.status_code = 202
-    return json.dumps(
-        {"type": "sync", "operation": "/1.0/operations/operation-abc?project=default"}
-    )
+    # This mock returns the synchronous (200) response used as the
+    # backward-compatible fallback path. Newer LXD servers may return
+    # async operations for network deletes; tests that exercise the
+    # legacy/fallback behaviour should see a sync response here so the
+    # client-side backward-compatibility code paths are exercised.
+    context.status_code = 200
+    return json.dumps({"type": "sync", "metadata": {}})
 
 
 def profile_GET(request, context):
@@ -842,6 +845,11 @@ RULES = [
         "method": "DELETE",
         "url": r"^http://pylxd.test/1.0/networks/eth0$",
     },
+    {
+        "text": json.dumps({"type": "sync", "metadata": {}}),
+        "method": "POST",
+        "url": r"^http://pylxd.test/1.0/networks/eth0$",
+    },
     # Network forwards
     {
         "json": {
@@ -1170,6 +1178,12 @@ RULES = [
         "text": json.dumps(
             {
                 "type": "sync",
+                "metadata": {
+                    "id": "operation-abc",
+                    "status": "Success",
+                    "status_code": 200,
+                    "metadata": {"return": 0},
+                },
             }
         ),
         "method": "GET",

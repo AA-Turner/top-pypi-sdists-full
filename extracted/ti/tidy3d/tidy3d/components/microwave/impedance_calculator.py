@@ -2,25 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
-import pydantic.v1 as pd
+from pydantic import Field, model_validator
 
 from tidy3d.components.data.data_array import (
-    CurrentIntegralResultType,
-    ImpedanceResultType,
-    VoltageIntegralResultType,
     _make_current_data_array,
     _make_impedance_data_array,
     _make_voltage_data_array,
 )
 from tidy3d.components.data.monitor_data import FieldTimeData
 from tidy3d.components.microwave.base import MicrowaveBaseModel
-from tidy3d.components.microwave.path_integrals.integrals.base import (
-    AxisAlignedPathIntegral,
-    IntegrableMonitorDataType,
-)
+from tidy3d.components.microwave.path_integrals.integrals.base import AxisAlignedPathIntegral
 from tidy3d.components.microwave.path_integrals.integrals.current import (
     AxisAlignedCurrentIntegral,
     CompositeCurrentIntegral,
@@ -32,6 +26,15 @@ from tidy3d.components.microwave.path_integrals.integrals.voltage import (
 )
 from tidy3d.components.monitor import ModeMonitor, ModeSolverMonitor
 from tidy3d.exceptions import ValidationError
+
+if TYPE_CHECKING:
+    from tidy3d.compat import Self
+    from tidy3d.components.data.data_array import (
+        CurrentIntegralResultType,
+        ImpedanceResultType,
+        VoltageIntegralResultType,
+    )
+    from tidy3d.components.microwave.path_integrals.integrals.base import IntegrableMonitorDataType
 
 VoltageIntegralType = Union[AxisAlignedVoltageIntegral, Custom2DVoltageIntegral]
 CurrentIntegralType = Union[
@@ -67,20 +70,47 @@ class ImpedanceCalculator(MicrowaveBaseModel):
     >>> _ = ImpedanceCalculator(voltage_integral=v_int)
     """
 
-    voltage_integral: Optional[VoltageIntegralType] = pd.Field(
+    voltage_integral: Optional[VoltageIntegralType] = Field(
         None,
         title="Voltage Integral",
         description="Definition of path integral for computing voltage.",
     )
 
-    current_integral: Optional[CurrentIntegralType] = pd.Field(
+    current_integral: Optional[CurrentIntegralType] = Field(
         None,
         title="Current Integral",
         description="Definition of contour integral for computing current.",
     )
 
+    def compute_voltage_current(
+        self, em_field: IntegrableMonitorDataType
+    ) -> tuple[VoltageIntegralResultType, CurrentIntegralResultType]:
+        """Compute voltage and current for the supplied ``em_field`` using ``voltage_integral`` and
+        ``current_integral``. None is returned for the integral that is not defined.
+
+        Parameters
+        ----------
+        em_field : :class:`.IntegrableMonitorDataType`
+            The electromagnetic field data that will be used for computing the voltage and current.
+
+        Returns
+        -------
+        tuple[VoltageIntegralResultType, CurrentIntegralResultType]
+            Tuple of (voltage, current). None is returned for the integral that is not defined.
+        """
+        AxisAlignedPathIntegral._check_monitor_data_supported(em_field=em_field)
+        voltage = None
+        current = None
+        if self.voltage_integral is not None:
+            voltage = self.voltage_integral.compute_voltage(em_field)
+        if self.current_integral is not None:
+            current = self.current_integral.compute_current(em_field)
+        return (voltage, current)
+
     def compute_impedance(
-        self, em_field: IntegrableMonitorDataType, return_voltage_and_current=False
+        self,
+        em_field: IntegrableMonitorDataType,
+        return_voltage_and_current: bool = False,
     ) -> Union[
         ImpedanceResultType,
         tuple[ImpedanceResultType, VoltageIntegralResultType, CurrentIntegralResultType],
@@ -91,30 +121,22 @@ class ImpedanceCalculator(MicrowaveBaseModel):
 
         Parameters
         ----------
-        em_field : :class:`.IntegrableMonitorDataType`
+        em_field : ``IntegrableMonitorDataType``
             The electromagnetic field data that will be used for computing the characteristic
             impedance.
-        return_voltage_and_current: bool
-            When ``True``, returns additional :class:`.IntegralResultType` that represent the voltage
+        return_voltage_and_current: bool = False
+            When ``True``, returns additional ``IntegralResultType`` that represent the voltage
             and current associated with the supplied fields.
 
         Returns
         -------
-        :class:`.IntegralResultType` or tuple[VoltageIntegralResultType, CurrentIntegralResultType, ImpedanceResultType]
+        ``IntegralResultType`` or tuple[VoltageIntegralResultType, CurrentIntegralResultType, ImpedanceResultType]
             If ``return_voltage_and_current=False``, single result of impedance computation
             over remaining dimensions (frequency, time, mode indices). If ``return_voltage_and_current=True``,
             tuple of (impedance, voltage, current).
         """
 
-        AxisAlignedPathIntegral._check_monitor_data_supported(em_field=em_field)
-
-        voltage = None
-        current = None
-        # If both voltage and current integrals have been defined then impedance is computed directly
-        if self.voltage_integral is not None:
-            voltage = self.voltage_integral.compute_voltage(em_field)
-        if self.current_integral is not None:
-            current = self.current_integral.compute_current(em_field)
+        voltage, current = self.compute_voltage_current(em_field)
 
         # If only one of the integrals has been provided, then the computation falls back to using
         # total power (flux) with Ohm's law to compute the missing quantity. The input field should
@@ -123,6 +145,7 @@ class ImpedanceCalculator(MicrowaveBaseModel):
         # the input field is in frequency domain, where flux indicates the time-averaged power
         # 0.5*Re(V*conj(I)).
         # We explicitly take the real part, in case Bloch BCs were used in the simulation.
+
         flux_sign = 1.0
         # Determine flux sign
         if isinstance(em_field.monitor, ModeSolverMonitor):
@@ -131,16 +154,18 @@ class ImpedanceCalculator(MicrowaveBaseModel):
             flux_sign = 1 if em_field.monitor.store_fields_direction == "+" else -1
 
         if self.voltage_integral is None:
-            flux = flux_sign * em_field.complex_flux
             if isinstance(em_field, FieldTimeData):
+                flux = flux_sign * em_field.flux
                 impedance = flux / np.real(current) ** 2
             else:
+                flux = flux_sign * em_field.complex_flux
                 impedance = 2 * flux / (current * np.conj(current))
         elif self.current_integral is None:
-            flux = flux_sign * em_field.complex_flux
             if isinstance(em_field, FieldTimeData):
+                flux = flux_sign * em_field.flux
                 impedance = np.real(voltage) ** 2 / flux
             else:
+                flux = flux_sign * em_field.complex_flux
                 impedance = (voltage * np.conj(voltage)) / (2 * np.conj(flux))
         else:
             if isinstance(em_field, FieldTimeData):
@@ -156,12 +181,13 @@ class ImpedanceCalculator(MicrowaveBaseModel):
             return (impedance, voltage, current)
         return impedance
 
-    @pd.validator("current_integral", always=True)
-    def check_voltage_or_current(cls, val, values):
+    @model_validator(mode="after")
+    def check_voltage_or_current(self) -> Self:
         """Raise validation error if both ``voltage_integral`` and ``current_integral``
         are not provided."""
-        if not values.get("voltage_integral") and not val:
+        val = self.current_integral
+        if not self.voltage_integral and not val:
             raise ValidationError(
                 "At least one of 'voltage_integral' or 'current_integral' must be provided."
             )
-        return val
+        return self

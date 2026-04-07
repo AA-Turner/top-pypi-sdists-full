@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fastfeedparser
-Version: 0.5.9
+Version: 0.6.0
 Summary: High performance RSS, Atom, JSON and RDF feed parser in Python
 Home-page: https://github.com/kagisearch/fastfeedparser
 Author: Vladimir Prelovac

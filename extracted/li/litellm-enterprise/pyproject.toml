@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "litellm-enterprise"
-version = "0.1.36"
+version = "0.1.37"
 description = "Package for LiteLLM Enterprise features"
 authors = ["BerriAI"]
 readme = "README.md"

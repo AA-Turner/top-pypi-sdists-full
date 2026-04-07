@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from slack_sdk.web.async_client import AsyncWebClient
 
@@ -10,10 +10,14 @@ from slack_bolt.context.respond.async_respond import AsyncRespond
 from slack_bolt.context.get_thread_context.async_get_thread_context import AsyncGetThreadContext
 from slack_bolt.context.save_thread_context.async_save_thread_context import AsyncSaveThreadContext
 from slack_bolt.context.say.async_say import AsyncSay
+from slack_bolt.context.say_stream.async_say_stream import AsyncSayStream
 from slack_bolt.context.set_status.async_set_status import AsyncSetStatus
 from slack_bolt.context.set_suggested_prompts.async_set_suggested_prompts import AsyncSetSuggestedPrompts
 from slack_bolt.context.set_title.async_set_title import AsyncSetTitle
 from slack_bolt.util.utils import create_copy
+
+if TYPE_CHECKING:
+    from slack_bolt.listener.asyncio_runner import AsyncioListenerRunner
 
 
 class AsyncBoltContext(BaseContext):
@@ -41,7 +45,7 @@ class AsyncBoltContext(BaseContext):
 
     # The return type is intentionally string to avoid circular imports
     @property
-    def listener_runner(self) -> "AsyncioListenerRunner":  # type: ignore[name-defined]
+    def listener_runner(self) -> "AsyncioListenerRunner":
         """The properly configured listener_runner that is available for middleware/listeners."""
         return self["listener_runner"]
 
@@ -110,7 +114,7 @@ class AsyncBoltContext(BaseContext):
             Callable `say()` function
         """
         if "say" not in self:
-            self["say"] = AsyncSay(client=self.client, channel=self.channel_id, thread_ts=self.thread_ts)
+            self["say"] = AsyncSay(client=self.client, channel=self.channel_id)
         return self["say"]
 
     @property
@@ -202,6 +206,10 @@ class AsyncBoltContext(BaseContext):
     @property
     def get_thread_context(self) -> Optional[AsyncGetThreadContext]:
         return self.get("get_thread_context")
+
+    @property
+    def say_stream(self) -> Optional[AsyncSayStream]:
+        return self.get("say_stream")
 
     @property
     def save_thread_context(self) -> Optional[AsyncSaveThreadContext]:

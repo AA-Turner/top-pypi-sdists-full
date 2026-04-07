@@ -31,6 +31,7 @@ __all__ = (
     "CompressionEnumType",
     "ConnectorEgressTypeType",
     "ConnectorStatusType",
+    "ConnectorsIpAddressTypeType",
     "CustomStepStatusType",
     "DirectoryListingOptimizationType",
     "DomainType",
@@ -94,6 +95,7 @@ CertificateUsageTypeType = Literal["ENCRYPTION", "SIGNING", "TLS"]
 CompressionEnumType = Literal["DISABLED", "ZLIB"]
 ConnectorEgressTypeType = Literal["SERVICE_MANAGED", "VPC_LATTICE"]
 ConnectorStatusType = Literal["ACTIVE", "ERRORED", "PENDING"]
+ConnectorsIpAddressTypeType = Literal["DUALSTACK", "IPV4"]
 CustomStepStatusType = Literal["FAILURE", "SUCCESS"]
 DirectoryListingOptimizationType = Literal["DISABLED", "ENABLED"]
 DomainType = Literal["EFS", "S3"]

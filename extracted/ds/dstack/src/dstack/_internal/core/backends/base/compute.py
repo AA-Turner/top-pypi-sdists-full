@@ -179,6 +179,7 @@ class ComputeWithAllOffersCached(ABC):
     def __init__(self) -> None:
         super().__init__()
         self._offers_cache_lock = threading.Lock()
+        self._offers_cache_execution_lock = threading.Lock()
         self._offers_cache = TTLCache(maxsize=1, ttl=180)
 
     @abstractmethod
@@ -206,7 +207,10 @@ class ComputeWithAllOffersCached(ABC):
         return None
 
     def get_offers(self, requirements: Requirements) -> Iterator[InstanceOfferWithAvailability]:
-        cached_offers = self._get_all_offers_with_availability_cached()
+        with self._offers_cache_execution_lock:
+            # Cache lock does not prevent concurrent execution.
+            # We use a separate lock to avoid requesting offers in parallel, re-doing the work and hitting rate limits.
+            cached_offers = self._get_all_offers_with_availability_cached()
         offers = self.__apply_modifiers(cached_offers, self.get_offers_modifiers(requirements))
         offers = filter_offers_by_requirements(offers, requirements)
         post_filter = self.get_offers_post_filter(requirements)
@@ -906,8 +910,9 @@ def get_shim_pre_start_commands(
         f"dlpath=$(sudo mktemp -t {DSTACK_SHIM_BINARY_NAME}.XXXXXXXXXX)",
         # -sS -- disable progress meter and warnings, but still show errors (unlike bare -s)
         f'sudo curl -sS --compressed --connect-timeout 60 --max-time 240 --retry 1 --output "$dlpath" "{url}"',
-        f'sudo cp "$dlpath" {dstack_shim_binary_path} && sudo rm "$dlpath"',
+        f'sudo mv "$dlpath" {dstack_shim_binary_path}',
         f"sudo chmod +x {dstack_shim_binary_path}",
+        f"{{ sudo chcon system_u:object_r:bin_t:s0 {dstack_shim_binary_path} 2>/dev/null || true; }}",
         f"sudo mkdir {dstack_working_dir} -p",
     ]
 

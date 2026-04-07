@@ -7,7 +7,7 @@ to you under the Apache License, Version 2.0 (the
 "License"); you may not use this file except in compliance
 with the License.  You may obtain a copy of the License at
 
-http://www.apache.org/licenses/LICENSE-2.0
+  http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing,
 software distributed under the License is distributed on an
@@ -559,7 +559,13 @@ class SetDeserializer(ListIO):
 
     @classmethod
     def objectify(cls, buff, reader, nullable=True):
-        return set(ListIO.objectify(buff, reader, nullable))
+        the_list = ListIO.objectify(buff, reader, nullable)
+        try:
+            return set(the_list)
+        except TypeError:
+            log.warning("Coercing Set to list as it contains unhashable elements (e.g. dict, list). "
+                        "See TINKERPOP-3232 for more details.")
+            return the_list
 
 
 class MapIO(_GraphBinaryTypeIO):

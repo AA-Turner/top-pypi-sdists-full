@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: environs
-Version: 15.0.0
+Version: 15.0.1
 Summary: simplified environment variable parsing
 Author-email: Steven Loria <oss@stevenloria.com>
 Requires-Python: >=3.10
@@ -21,7 +21,7 @@ Requires-Dist: typing-extensions; python_version < '3.11'
 Requires-Dist: dj-database-url ; extra == "django"
 Requires-Dist: dj-email-url ; extra == "django"
 Requires-Dist: django-cache-url ; extra == "django"
-Project-URL: Changelog, https://github.com/sloria/environs/blob/master/CHANGELOG.md
+Project-URL: Changelog, https://github.com/sloria/environs/blob/main/CHANGELOG.md
 Project-URL: Issues, https://github.com/sloria/environs/issues
 Project-URL: Source, https://github.com/sloria/environs
 Provides-Extra: django
@@ -534,7 +534,7 @@ SECRET_KEY="not so secret"
 ```
 
 For a more complete example, see
-[django_example.py](https://github.com/sloria/environs/blob/master/examples/django_example.py)
+[django_example.py](https://github.com/sloria/environs/blob/main/examples/django_example.py)
 in the `examples/` directory.
 
 ## Why\...?
@@ -582,6 +582,6 @@ which details specific differences with envparse.
 ## License
 
 MIT licensed. See the
-[LICENSE](https://github.com/sloria/environs/blob/master/LICENSE) file
+[LICENSE](https://github.com/sloria/environs/blob/main/LICENSE) file
 for more details.
 

@@ -13,6 +13,7 @@ from cogames.games.cogs_vs_clips.game.days import DayConfig, DaysVariant
 from cogames.games.cogs_vs_clips.game.elements import ElementsVariant
 from cogames.games.cogs_vs_clips.game.energy import EnergyVariant
 from cogames.games.cogs_vs_clips.game.extractors import ExtractorsVariant
+from cogames.games.cogs_vs_clips.game.forced_role_vibes import ForcedRoleVibesVariant
 from cogames.games.cogs_vs_clips.game.gear import GearVariant
 from cogames.games.cogs_vs_clips.game.gear_stations import GearStationsVariant
 from cogames.games.cogs_vs_clips.game.heart import HeartVariant
@@ -28,7 +29,7 @@ from cogames.games.cogs_vs_clips.game.teams.gear_stations import TeamGearStation
 from cogames.games.cogs_vs_clips.game.teams.hub import TeamHubVariant
 from cogames.games.cogs_vs_clips.game.teams.hub_observations import HubObservationsVariant
 from cogames.games.cogs_vs_clips.game.territory import DamageStrangersVariant, HealTeamVariant, TerritoryVariant
-from cogames.games.cogs_vs_clips.game.vibes import VibesVariant
+from cogames.games.cogs_vs_clips.game.vibes import NoVibesVariant, VibesVariant
 from cogames.games.cogs_vs_clips.missions.arena import make_arena_map_builder
 from cogames.games.cogs_vs_clips.missions.machina_1 import CvCMachina1Variant
 from cogames.games.cogs_vs_clips.missions.mission import CvCMission
@@ -179,6 +180,22 @@ class TestTeamHubVariant:
         hub = env.game.objects["c:hub"]
         assert "deposit" in hub.on_use_handlers
 
+    def test_initial_hearts_override_preserves_default_element_inventory(self):
+        env = _make_env_without_default(
+            [
+                ElementsVariant(),
+                HeartVariant(),
+                TeamHubVariant(initial_hearts={"cogs": 120}),
+            ]
+        )
+        hub = env.game.objects["c:hub"]
+        expected_element_inventory = len(env.game.agents) * 3
+        assert hub.inventory.initial["heart"] == 120
+        assert hub.inventory.initial["oxygen"] == expected_element_inventory
+        assert hub.inventory.initial["carbon"] == expected_element_inventory
+        assert hub.inventory.initial["germanium"] == expected_element_inventory
+        assert hub.inventory.initial["silicon"] == expected_element_inventory
+
 
 class TestHeartVariant:
     def test_adds_heart_limit_to_agents(self):
@@ -288,6 +305,38 @@ class TestVibesVariant:
     def test_enables_change_vibe_action(self):
         env = _make_mission([VibesVariant()]).make_env()
         assert env.game.actions.change_vibe.enabled is True
+
+
+class TestNoVibesVariant:
+    def test_disables_change_vibe_action(self):
+        env = _make_mission([NoVibesVariant()]).make_env()
+        assert env.game.actions.change_vibe.enabled is False
+        assert env.game.vibe_names == VIBE_NAMES
+
+
+class TestForcedRoleVibesVariant:
+    def test_assigns_roles_from_custom_role_order(self):
+        env = _make_mission(
+            [
+                ForcedRoleVibesVariant(
+                    role_order=["miner", "aligner", "scrambler"],
+                    per_team=False,
+                )
+            ]
+        ).make_env()
+
+        assert env.game.actions.change_vibe.enabled is False
+        assert env.game.actions.change_vibe.vibes == []
+        assert [agent.vibe for agent in env.game.agents] == [
+            VIBE_NAMES.index("miner"),
+            VIBE_NAMES.index("aligner"),
+            VIBE_NAMES.index("scrambler"),
+            VIBE_NAMES.index("miner"),
+            VIBE_NAMES.index("aligner"),
+            VIBE_NAMES.index("scrambler"),
+            VIBE_NAMES.index("miner"),
+            VIBE_NAMES.index("aligner"),
+        ]
 
 
 class TestTalkVariant:

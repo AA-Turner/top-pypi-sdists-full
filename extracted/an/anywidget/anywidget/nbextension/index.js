@@ -21,7 +21,7 @@ function v4() {
   return out;
 }
 
-// node_modules/.pnpm/solid-js@1.9.10/node_modules/solid-js/dist/solid.js
+// node_modules/.pnpm/solid-js@1.9.12/node_modules/solid-js/dist/solid.js
 var sharedConfig = {
   context: void 0,
   registry: void 0,
@@ -43,9 +43,6 @@ function setHydrateContext(context) {
 }
 var IS_DEV = false;
 var equalFn = (a, b) => a === b;
-var $PROXY = Symbol("solid-proxy");
-var $TRACK = Symbol("solid-track");
-var $DEVCOMP = Symbol("solid-dev-component");
 var signalOptions = {
   equals: equalFn
 };
@@ -287,6 +284,7 @@ function runComputation(node, value, time) {
     if (node.updatedAt != null && "observers" in node) {
       writeSignal(node, nextValue, true);
     } else if (Transition && Transition.running && node.pure) {
+      if (!Transition.sources.has(node)) node.value = nextValue;
       Transition.sources.add(node);
       node.tValue = nextValue;
     } else node.value = nextValue;
@@ -322,16 +320,26 @@ function createComputation(fn, init, pure, state = STALE, options) {
     }
   }
   if (ExternalSourceConfig && c.fn) {
+    const sourceFn = c.fn;
     const [track, trigger] = createSignal(void 0, {
       equals: false
     });
-    const ordinary = ExternalSourceConfig.factory(c.fn, trigger);
+    const ordinary = ExternalSourceConfig.factory(sourceFn, trigger);
     onCleanup(() => ordinary.dispose());
-    const triggerInTransition = () => startTransition(trigger).then(() => inTransition.dispose());
-    const inTransition = ExternalSourceConfig.factory(c.fn, triggerInTransition);
+    let inTransition;
+    const triggerInTransition = () => startTransition(trigger).then(() => {
+      if (inTransition) {
+        inTransition.dispose();
+        inTransition = void 0;
+      }
+    });
     c.fn = (x) => {
       track();
-      return Transition && Transition.running ? inTransition.track(x) : ordinary.track(x);
+      if (Transition && Transition.running) {
+        if (!inTransition) inTransition = ExternalSourceConfig.factory(sourceFn, triggerInTransition);
+        return inTransition.track(x);
+      }
+      return ordinary.track(x);
     };
   }
   return c;
@@ -562,7 +570,6 @@ function handleError(err, owner = Owner) {
   });
   else runErrors(error, fns, owner);
 }
-var FALLBACK = Symbol("fallback");
 
 // packages/anywidget/src/widget.js
 function assert(condition, message) {
@@ -574,10 +581,7 @@ function is_href(str) {
 async function load_css_href(href, anywidget_id) {
   let prev = document.querySelector(`link[id='${anywidget_id}']`);
   if (prev) {
-    let newLink = (
-      /** @type {HTMLLinkElement} */
-      prev.cloneNode()
-    );
+    let newLink = prev.cloneNode();
     newLink.href = href;
     newLink.addEventListener("load", () => prev?.remove());
     newLink.addEventListener("error", () => prev?.remove());
@@ -663,21 +667,17 @@ async function load_widget(esm, anywidget_id) {
       render: mod.render
     };
   }
-  assert(
-    mod.default,
-    `[anywidget] module must export a default function or object.`
-  );
+  assert(mod.default, `[anywidget] module must export a default function or object.`);
   let widget = typeof mod.default === "function" ? await mod.default() : mod.default;
   return widget;
 }
-var INITIALIZE_MARKER = Symbol("anywidget.initialize");
+var INITIALIZE_MARKER = /* @__PURE__ */ Symbol("anywidget.initialize");
 function model_proxy(model, context) {
   return {
     get: model.get.bind(model),
     set: model.set.bind(model),
     save_changes: model.save_changes.bind(model),
     send: model.send.bind(model),
-    // @ts-expect-error
     on(name, callback) {
       model.on(name, callback, context);
     },
@@ -722,11 +722,7 @@ function invoke(model, name, msg, options = {}) {
       model.off("msg:custom", handler);
     }
     model.on("msg:custom", handler);
-    model.send(
-      { id, kind: "anywidget-command", name, msg },
-      void 0,
-      options.buffers ?? []
-    );
+    model.send({ id, kind: "anywidget-command", name, msg }, void 0, options.buffers ?? []);
   });
 }
 function promise_with_resolvers() {
@@ -756,7 +752,7 @@ var Runtime = class {
   /** @type {Promise<void>} */
   ready;
   /**
-   * @param {base.DOMWidgetModel} model
+   * @param {DOMWidgetModel} model
    * @param {{ signal: AbortSignal }} options
    */
   constructor(model, options) {
@@ -779,21 +775,13 @@ var Runtime = class {
       );
       this.#widget_result = widget_result;
       createEffect(
-        on(
-          css,
-          () => console.debug(`[anywidget] css hot updated: ${id}`),
-          { defer: true }
-        )
+        on(css, () => console.debug(`[anywidget] css hot updated: ${id}`), { defer: true })
       );
       createEffect(
-        on(
-          esm,
-          () => console.debug(`[anywidget] esm hot updated: ${id}`),
-          { defer: true }
-        )
+        on(esm, () => console.debug(`[anywidget] esm hot updated: ${id}`), { defer: true })
       );
       createEffect(() => {
-        load_css(css(), id);
+        return load_css(css(), id);
       });
       createEffect(() => {
         let controller = new AbortController();
@@ -811,13 +799,9 @@ var Runtime = class {
             }
           });
           if (controller.signal.aborted) {
-            safe_cleanup(cleanup, "esm update");
-            return;
+            return safe_cleanup(cleanup, "esm update");
           }
-          controller.signal.addEventListener(
-            "abort",
-            () => safe_cleanup(cleanup, "esm update")
-          );
+          controller.signal.addEventListener("abort", () => safe_cleanup(cleanup, "esm update"));
           set_widget_result({ status: "ready", data: widget });
           resolvers.resolve();
         }).catch((error) => set_widget_result({ status: "error", error }));
@@ -826,7 +810,7 @@ var Runtime = class {
     });
   }
   /**
-   * @param {base.DOMWidgetView} view
+   * @param {DOMWidgetView} view
    * @param {{ signal: AbortSignal }} options
    * @returns {Promise<void>}
    */
@@ -859,8 +843,7 @@ var Runtime = class {
             }
           });
           if (controller.signal.aborted) {
-            safe_cleanup(cleanup, "dispose view - already aborted");
-            return;
+            return safe_cleanup(cleanup, "dispose view - already aborted");
           }
           controller.signal.addEventListener(
             "abort",
@@ -872,7 +855,7 @@ var Runtime = class {
     });
   }
 };
-var version = "0.9.21";
+var version = "0.10.0";
 function widget_default({ DOMWidgetModel, DOMWidgetView }) {
   let RUNTIMES = /* @__PURE__ */ new WeakMap();
   class AnyModel extends DOMWidgetModel {
@@ -882,7 +865,7 @@ function widget_default({ DOMWidgetModel, DOMWidgetView }) {
     static view_name = "AnyView";
     static view_module = "anywidget";
     static view_module_version = version;
-    /** @param {Parameters<InstanceType<DOMWidgetModel>["initialize"]>} args */
+    /** @param {Parameters<InstanceType<typeof DOMWidgetModel>["initialize"]>} args */
     initialize(...args) {
       super.initialize(...args);
       let controller = new AbortController();
@@ -892,7 +875,7 @@ function widget_default({ DOMWidgetModel, DOMWidgetView }) {
       });
       RUNTIMES.set(this, new Runtime(this, { signal: controller.signal }));
     }
-    /** @param {Parameters<InstanceType<DOMWidgetModel>["_handle_comm_msg"]>} msg */
+    /** @param {Parameters<InstanceType<typeof DOMWidgetModel>["_handle_comm_msg"]>} msg */
     async _handle_comm_msg(...msg) {
       let runtime = RUNTIMES.get(this);
       await runtime?.ready;
@@ -908,7 +891,7 @@ function widget_default({ DOMWidgetModel, DOMWidgetView }) {
      */
     serialize(state) {
       let serializers = (
-        /** @type {DOMWidgetModel} */
+        /** @type {typeof DOMWidgetModel} */
         this.constructor.serializers || {}
       );
       for (let k of Object.keys(state)) {

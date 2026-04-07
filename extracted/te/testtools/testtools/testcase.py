@@ -22,15 +22,28 @@ import itertools
 import sys
 import types
 import unittest
-from collections.abc import Callable, Iterator
-from typing import TYPE_CHECKING, NoReturn, ParamSpec, TypeVar, cast, overload
+from collections.abc import Callable, Container, Iterable, Iterator
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    NoReturn,
+    ParamSpec,
+    TypeVar,
+    cast,
+    overload,
+)
 from unittest.case import SkipTest
 
 T = TypeVar("T")
 U = TypeVar("U")
+_E = TypeVar("_E", bound=BaseException)
+_E2 = TypeVar("_E2", bound=BaseException)
+_E3 = TypeVar("_E3", bound=BaseException)
 
 # ruff: noqa: E402 - TypeVars must be defined before importing testtools modules
 from testtools import content
+from testtools._types import ExcInfo, OptExcInfo
 from testtools.matchers import (
     Annotate,
     Contains,
@@ -51,7 +64,6 @@ from testtools.runtest import (
 )
 from testtools.testresult import (
     DetailsDict,
-    ExcInfo,
     ExtendedToOriginalDecorator,
     TestResult,
 )
@@ -240,6 +252,61 @@ def unique_text_generator(prefix: str) -> Iterator[str]:
         index = index + 1
 
 
+class _AssertRaisesContext(Generic[_E]):
+    """A context manager to handle expected exceptions for assertRaises.
+
+    This provides compatibility with unittest's assertRaises context manager.
+    """
+
+    def __init__(
+        self,
+        expected: type[_E] | tuple[type[BaseException], ...],
+        test_case: "TestCase",
+        msg: str | None = None,
+    ) -> None:
+        """Construct an `_AssertRaisesContext`.
+
+        :param expected: The type of exception to expect.
+        :param test_case: The TestCase instance using this context.
+        :param msg: An optional message explaining the failure.
+        """
+        self.expected = expected
+        self.test_case = test_case
+        self.msg = msg
+        self.exception: _E | None = None
+
+    def __enter__(self) -> "Self":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: types.TracebackType | None,
+    ) -> bool:
+        if exc_type is None:
+            try:
+                if isinstance(self.expected, tuple):
+                    exc_name = "({})".format(
+                        ", ".join(e.__name__ for e in self.expected)
+                    )
+                else:
+                    exc_name = self.expected.__name__
+            except AttributeError:
+                exc_name = str(self.expected)
+            if self.msg:
+                error_msg = f"{exc_name} not raised : {self.msg}"
+            else:
+                error_msg = f"{exc_name} not raised"
+            raise self.test_case.failureException(error_msg)
+        if not issubclass(exc_type, self.expected):
+            # let unexpected exceptions pass through
+            return False
+        # store exception for later retrieval
+        self.exception = cast(_E, exc_value)
+        return True
+
+
 class TestCase(unittest.TestCase):
     """Extensions to the basic TestCase.
 
@@ -279,7 +346,7 @@ class TestCase(unittest.TestCase):
             setattr(self, self._testMethodName, _expectedFailure(test_method))
         # Used internally for onException processing - used to gather extra
         # data from exceptions.
-        self.__exception_handlers: list[Callable[[ExcInfo], None]] = []
+        self.__exception_handlers: list[Callable[[OptExcInfo], None]] = []
         # Passed to RunTest to map exceptions to result actions
         self.exception_handlers: list[
             tuple[
@@ -411,7 +478,7 @@ class TestCase(unittest.TestCase):
         """
         self._cleanups.append((function, args, kwargs))
 
-    def addOnException(self, handler: "Callable[[ExcInfo], None]") -> None:
+    def addOnException(self, handler: Callable[[OptExcInfo], None]) -> None:
         """Add a handler to be called when an exception occurs in test code.
 
         This handler cannot affect what result methods are called, and is
@@ -445,7 +512,12 @@ class TestCase(unittest.TestCase):
         matcher = _FlippedEquals(expected)
         self.assertThat(observed, matcher, message)
 
-    def assertIn(self, needle: object, haystack: object, message: str = "") -> None:
+    def assertIn(
+        self,
+        needle: object,
+        haystack: Iterable[Any] | Container[Any],
+        message: str = "",
+    ) -> None:
         """Assert that needle is in haystack."""
         self.assertThat(haystack, Contains(needle), message)
 
@@ -504,26 +576,64 @@ class TestCase(unittest.TestCase):
     @overload  # type: ignore[override]
     def assertRaises(
         self,
-        expected_exception: type[BaseException] | tuple[type[BaseException]],
-        callable: Callable[_P, _R],
-        *args: _P.args,
-        **kwargs: _P.kwargs,
-    ) -> BaseException: ...
+        expected_exception: type[_E],
+        callable: Callable[..., Any],
+        *args: Any,
+        **kwargs: Any,
+    ) -> _E: ...
 
-    @overload  # type: ignore[override]
+    @overload
     def assertRaises(
         self,
-        expected_exception: type[BaseException] | tuple[type[BaseException]],
-        callable: None = ...,
-    ) -> "_AssertRaisesContext": ...
+        expected_exception: tuple[type[BaseException], ...],
+        callable: Callable[..., Any],
+        *args: Any,
+        **kwargs: Any,
+    ) -> BaseException: ...
 
-    def assertRaises(  # type: ignore[override]
+    @overload
+    def assertRaises(
         self,
-        expected_exception: type[BaseException] | tuple[type[BaseException]],
+        expected_exception: type[_E],
+        callable: None = ...,
+        *,
+        msg: str | None = ...,
+    ) -> _AssertRaisesContext[_E]: ...
+
+    @overload
+    def assertRaises(
+        self,
+        expected_exception: tuple[type[_E], type[_E2]],
+        callable: None = ...,
+        *,
+        msg: str | None = ...,
+    ) -> _AssertRaisesContext[_E | _E2]: ...
+
+    @overload
+    def assertRaises(
+        self,
+        expected_exception: tuple[type[_E], type[_E2], type[_E3]],
+        callable: None = ...,
+        *,
+        msg: str | None = ...,
+    ) -> _AssertRaisesContext[_E | _E2 | _E3]: ...
+
+    @overload
+    def assertRaises(
+        self,
+        expected_exception: tuple[type[BaseException], ...],
+        callable: None = ...,
+        *,
+        msg: str | None = ...,
+    ) -> _AssertRaisesContext[BaseException]: ...
+
+    def assertRaises(
+        self,
+        expected_exception: type[_E] | tuple[type[BaseException], ...],
         callable: Callable[_P, _R] | None = None,
-        *args: _P.args,
-        **kwargs: _P.kwargs,
-    ) -> "_AssertRaisesContext | BaseException":
+        *args: Any,
+        **kwargs: Any,
+    ) -> _AssertRaisesContext[Any] | BaseException:
         """Fail unless an exception of class expected_exception is thrown
         by callable when invoked with arguments args and keyword
         arguments kwargs. If a different type of exception is
@@ -552,34 +662,16 @@ class TestCase(unittest.TestCase):
             msg_str: str | None = msg_value if isinstance(msg_value, str) else None
             return _AssertRaisesContext(expected_exception, self, msg=msg_str)
 
-        class ReRaiseOtherTypes(
-            Matcher[
-                tuple[type[BaseException], BaseException, types.TracebackType | None]
-            ]
-        ):
-            def match(
-                self,
-                matchee: tuple[
-                    type[BaseException], BaseException, types.TracebackType | None
-                ],
-            ) -> None:
+        class ReRaiseOtherTypes(Matcher[ExcInfo]):
+            def match(self, matchee: ExcInfo) -> None:
                 if not issubclass(matchee[0], expected_exception):
                     raise matchee[1].with_traceback(matchee[2])
                 return None
 
-        class CaptureMatchee(
-            Matcher[
-                tuple[type[BaseException], BaseException, types.TracebackType | None]
-            ]
-        ):
+        class CaptureMatchee(Matcher[ExcInfo]):
             matchee: BaseException
 
-            def match(
-                self,
-                matchee: tuple[
-                    type[BaseException], BaseException, types.TracebackType | None
-                ],
-            ) -> None:
+            def match(self, matchee: ExcInfo) -> None:
                 self.matchee = matchee[1]
                 return None
 
@@ -591,6 +683,7 @@ class TestCase(unittest.TestCase):
         )
         our_callable: Callable[[], object] = Nullary(callable, *args, **kwargs)
         self.assertThat(our_callable, matcher)
+        # we know that we have the right exception type now
         return capture.matchee
 
     def assertThat(
@@ -633,8 +726,8 @@ class TestCase(unittest.TestCase):
 
     def expectThat(
         self,
-        matchee: object,
-        matcher: "Matcher[object]",
+        matchee: T,
+        matcher: "Matcher[T]",
         message: str = "",
         verbose: bool = False,
     ) -> None:
@@ -648,7 +741,6 @@ class TestCase(unittest.TestCase):
         :param matchee: An object to match with matcher.
         :param matcher: An object meeting the testtools.Matcher protocol.
         :param message: If specified, show this message with any failed match.
-
         """
         mismatch_error = self._matchHelper(matchee, matcher, message, verbose)
 
@@ -737,7 +829,7 @@ class TestCase(unittest.TestCase):
             prefix = self.id()
         return f"{prefix}-{self.getUniqueInteger()}"
 
-    def onException(self, exc_info: ExcInfo, tb_label: str = "traceback") -> None:
+    def onException(self, exc_info: OptExcInfo, tb_label: str = "traceback") -> None:
         """Called when an exception propagates from test code.
 
         :seealso addOnException:
@@ -777,7 +869,7 @@ class TestCase(unittest.TestCase):
         result.addSkip(self, details=self.getDetails())
 
     def _report_traceback(
-        self, exc_info: "ExcInfo | tuple[None, None, None]", tb_label: str = "traceback"
+        self, exc_info: OptExcInfo, tb_label: str = "traceback"
     ) -> None:
         id_gen = self._traceback_id_gens.setdefault(tb_label, itertools.count(0))
         while True:
@@ -836,7 +928,7 @@ class TestCase(unittest.TestCase):
                     )
                 return result
 
-            ret.addBoth(_validate_setup_called)
+            ret.addBoth(_validate_setup_called)  # type: ignore[attr-defined]
         else:
             # Synchronous: validate immediately
             if not self.__setup_called:
@@ -872,7 +964,7 @@ class TestCase(unittest.TestCase):
                     )
                 return result
 
-            ret.addBoth(_validate_teardown_called)
+            ret.addBoth(_validate_teardown_called)  # type: ignore[attr-defined]
         else:
             # Synchronous: validate immediately
             if not self.__teardown_called:
@@ -988,9 +1080,9 @@ class PlaceHolder(unittest.TestCase):
         short_description: str | None = None,
         details: DetailsDict | None = None,
         outcome: str = "addSuccess",
-        error: "ExcInfo | tuple[None, None, None] | None" = None,
+        error: OptExcInfo | None = None,
         tags: frozenset[str] | None = None,
-        timestamps: "tuple[datetime.datetime | None, datetime.datetime | None]" = (
+        timestamps: tuple[datetime.datetime | None, datetime.datetime | None] = (
             None,
             None,
         ),
@@ -1073,9 +1165,9 @@ class PlaceHolder(unittest.TestCase):
 
 def ErrorHolder(
     test_id: str,
-    error: "ExcInfo | tuple[None, None, None]",
+    error: OptExcInfo,
     short_description: str | None = None,
-    details: "DetailsDict | None" = None,
+    details: DetailsDict | None = None,
 ) -> PlaceHolder:
     """Construct an `ErrorHolder`.
 
@@ -1185,7 +1277,7 @@ def skip(reason: str) -> Callable[[_F], _F]:
         if not isinstance(test_item, class_types):
 
             @functools.wraps(test_item)
-            def skip_wrapper(*args: object, **kwargs: object) -> None:
+            def skip_wrapper(*args: object, **kwargs: object) -> NoReturn:
                 raise TestCase.skipException(reason)
 
             test_item = cast(_F, skip_wrapper)
@@ -1223,61 +1315,6 @@ def skipUnless(condition: bool, reason: str) -> Callable[[_F], _F]:
     return _id
 
 
-class _AssertRaisesContext:
-    """A context manager to handle expected exceptions for assertRaises.
-
-    This provides compatibility with unittest's assertRaises context manager.
-    """
-
-    def __init__(
-        self,
-        expected: type[BaseException] | tuple[type[BaseException]],
-        test_case: TestCase,
-        msg: str | None = None,
-    ) -> None:
-        """Construct an `_AssertRaisesContext`.
-
-        :param expected: The type of exception to expect.
-        :param test_case: The TestCase instance using this context.
-        :param msg: An optional message explaining the failure.
-        """
-        self.expected = expected
-        self.test_case = test_case
-        self.msg = msg
-        self.exception: BaseException | None = None
-
-    def __enter__(self) -> "Self":
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: types.TracebackType | None,
-    ) -> bool:
-        if exc_type is None:
-            try:
-                if isinstance(self.expected, tuple):
-                    exc_name = "({})".format(
-                        ", ".join(e.__name__ for e in self.expected)
-                    )
-                else:
-                    exc_name = self.expected.__name__
-            except AttributeError:
-                exc_name = str(self.expected)
-            if self.msg:
-                error_msg = f"{exc_name} not raised : {self.msg}"
-            else:
-                error_msg = f"{exc_name} not raised"
-            raise self.test_case.failureException(error_msg)
-        if not issubclass(exc_type, self.expected):
-            # let unexpected exceptions pass through
-            return False
-        # store exception for later retrieval
-        self.exception = exc_value
-        return True
-
-
 class ExpectedException:
     """A context manager to handle expected exceptions.
 
@@ -1294,7 +1331,7 @@ class ExpectedException:
     def __init__(
         self,
         exc_type: type[BaseException],
-        value_re: str | None = None,
+        value_re: str | Matcher[object] | None = None,
         msg: str | None = None,
     ) -> None:
         """Construct an `ExpectedException`.
@@ -1334,6 +1371,7 @@ class ExpectedException:
             # Type narrow: we know exc_type is not None from check above,
             # and exc_value must not be None for real exceptions
             assert exc_value is not None, "Exception value should not be None"
+            assert traceback is not None, "Traceback value should not be None"
             exc_info_tuple: ExcInfo = (exc_type, exc_value, traceback)
             mismatch = matcher.match(exc_info_tuple)
             if mismatch:
@@ -1341,7 +1379,7 @@ class ExpectedException:
         return True
 
 
-class Nullary:
+class Nullary(Generic[_R]):
     """Turn a callable into a nullary callable.
 
     The advantage of this over ``lambda: f(*args, **kwargs)`` is that it
@@ -1358,7 +1396,7 @@ class Nullary:
         self._args = args
         self._kwargs = kwargs
 
-    def __call__(self) -> object:
+    def __call__(self) -> _R:
         return self._callable_object(*self._args, **self._kwargs)
 
     def __repr__(self) -> str:

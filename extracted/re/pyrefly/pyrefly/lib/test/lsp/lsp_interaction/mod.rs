@@ -13,6 +13,7 @@ mod init;
 
 mod basic;
 mod call_hierarchy;
+mod code_lens;
 mod completion;
 mod configuration;
 mod convert_module_package;
@@ -27,6 +28,7 @@ mod hover;
 mod implementation;
 mod inlay_hint;
 mod io;
+mod no_config_warnings;
 mod notebook_code_action;
 mod notebook_completion;
 mod notebook_definition;

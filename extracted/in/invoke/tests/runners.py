@@ -6,13 +6,22 @@ import sys
 import termios
 import threading
 import types
-from io import StringIO
-from io import BytesIO
+from contextlib import AbstractContextManager
+from io import BytesIO, StringIO
 from itertools import chain, repeat
+from unittest.mock import Mock, call, patch
 
+from _util import (
+    OhNoz,
+    _,
+    _Dummy,
+    _KeyboardInterruptingRunner,
+    mock_pty,
+    mock_subprocess,
+    skip_if_windows,
+)
 from pytest import raises, skip
 from pytest_relaxed import trap
-from unittest.mock import patch, Mock, call
 
 from invoke import (
     CommandTimedOut,
@@ -32,16 +41,6 @@ from invoke import (
 )
 from invoke.runners import default_encoding
 from invoke.terminals import WINDOWS
-
-from _util import (
-    mock_subprocess,
-    mock_pty,
-    skip_if_windows,
-    _Dummy,
-    _KeyboardInterruptingRunner,
-    OhNoz,
-    _,
-)
 
 
 class _RaisingWatcher(StreamWatcher):
@@ -573,7 +572,8 @@ class Runner_:
 
             MockedHandleStdin.handle_stdin = Mock()
             self._runner(klass=MockedHandleStdin).run(
-                _, in_stream=False  # vs None or a stream
+                _,
+                in_stream=False,  # vs None or a stream
             )
             assert not MockedHandleStdin.handle_stdin.called
 
@@ -1826,6 +1826,16 @@ class Result_:
 
 
 class Promise_:
+    def explicitly_inherits_from_abstract_base_class(self) -> None:
+        # Supports improved downstream typechecking.
+        assert AbstractContextManager in Promise.__mro__
+
+    def repr_degrades_gracefully(self) -> None:
+        promise = _runner().run(
+            _, pty=True, encoding="utf-17", shell="sea", asynchronous=True
+        )
+        assert repr(promise) == f"<Promise cmd='{_}'>"
+
     def exposes_read_only_run_params(self):
         runner = _runner()
         promise = runner.run(

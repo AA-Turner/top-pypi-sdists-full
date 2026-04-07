@@ -25,6 +25,14 @@ from .literals import (
     AcceleratorNameType,
     AutoScalingModeType,
     AutoScalingStatusType,
+    BatchGetJobErrorCodeType,
+    BatchGetSessionActionErrorCodeType,
+    BatchGetSessionErrorCodeType,
+    BatchGetStepErrorCodeType,
+    BatchGetTaskErrorCodeType,
+    BatchGetWorkerErrorCodeType,
+    BatchUpdateJobErrorCodeType,
+    BatchUpdateTaskErrorCodeType,
     BudgetActionTypeType,
     BudgetStatusType,
     ComparisonOperatorType,
@@ -116,6 +124,44 @@ __all__ = (
     "AwsCredentialsTypeDef",
     "BatchGetJobEntityRequestTypeDef",
     "BatchGetJobEntityResponseTypeDef",
+    "BatchGetJobErrorTypeDef",
+    "BatchGetJobIdentifierTypeDef",
+    "BatchGetJobItemTypeDef",
+    "BatchGetJobRequestTypeDef",
+    "BatchGetJobResponseTypeDef",
+    "BatchGetSessionActionErrorTypeDef",
+    "BatchGetSessionActionIdentifierTypeDef",
+    "BatchGetSessionActionItemTypeDef",
+    "BatchGetSessionActionRequestTypeDef",
+    "BatchGetSessionActionResponseTypeDef",
+    "BatchGetSessionErrorTypeDef",
+    "BatchGetSessionIdentifierTypeDef",
+    "BatchGetSessionItemTypeDef",
+    "BatchGetSessionRequestTypeDef",
+    "BatchGetSessionResponseTypeDef",
+    "BatchGetStepErrorTypeDef",
+    "BatchGetStepIdentifierTypeDef",
+    "BatchGetStepItemTypeDef",
+    "BatchGetStepRequestTypeDef",
+    "BatchGetStepResponseTypeDef",
+    "BatchGetTaskErrorTypeDef",
+    "BatchGetTaskIdentifierTypeDef",
+    "BatchGetTaskItemTypeDef",
+    "BatchGetTaskRequestTypeDef",
+    "BatchGetTaskResponseTypeDef",
+    "BatchGetWorkerErrorTypeDef",
+    "BatchGetWorkerIdentifierTypeDef",
+    "BatchGetWorkerItemTypeDef",
+    "BatchGetWorkerRequestTypeDef",
+    "BatchGetWorkerResponseTypeDef",
+    "BatchUpdateJobErrorTypeDef",
+    "BatchUpdateJobItemTypeDef",
+    "BatchUpdateJobRequestTypeDef",
+    "BatchUpdateJobResponseTypeDef",
+    "BatchUpdateTaskErrorTypeDef",
+    "BatchUpdateTaskItemTypeDef",
+    "BatchUpdateTaskRequestTypeDef",
+    "BatchUpdateTaskResponseTypeDef",
     "BudgetActionToAddTypeDef",
     "BudgetActionToRemoveTypeDef",
     "BudgetScheduleOutputTypeDef",
@@ -607,6 +653,145 @@ class ManifestPropertiesTypeDef(TypedDict):
     inputManifestPath: NotRequired[str]
     inputManifestHash: NotRequired[str]
 
+class BatchGetJobErrorTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    code: BatchGetJobErrorCodeType
+    message: str
+
+class BatchGetJobIdentifierTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+
+JobParameterTypeDef = TypedDict(
+    "JobParameterTypeDef",
+    {
+        "int": NotRequired[str],
+        "float": NotRequired[str],
+        "string": NotRequired[str],
+        "path": NotRequired[str],
+    },
+)
+
+class BatchGetSessionActionErrorTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    sessionActionId: str
+    code: BatchGetSessionActionErrorCodeType
+    message: str
+
+class BatchGetSessionActionIdentifierTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    sessionActionId: str
+
+class TaskRunManifestPropertiesResponseTypeDef(TypedDict):
+    outputManifestPath: NotRequired[str]
+    outputManifestHash: NotRequired[str]
+
+class BatchGetSessionErrorTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    sessionId: str
+    code: BatchGetSessionErrorCodeType
+    message: str
+
+class BatchGetSessionIdentifierTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    sessionId: str
+
+class BatchGetStepErrorTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    stepId: str
+    code: BatchGetStepErrorCodeType
+    message: str
+
+class BatchGetStepIdentifierTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    stepId: str
+
+class DependencyCountsTypeDef(TypedDict):
+    dependenciesResolved: int
+    dependenciesUnresolved: int
+    consumersResolved: int
+    consumersUnresolved: int
+
+class BatchGetTaskErrorTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    stepId: str
+    taskId: str
+    code: BatchGetTaskErrorCodeType
+    message: str
+
+class BatchGetTaskIdentifierTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    stepId: str
+    taskId: str
+
+class BatchGetWorkerErrorTypeDef(TypedDict):
+    farmId: str
+    fleetId: str
+    workerId: str
+    code: BatchGetWorkerErrorCodeType
+    message: str
+
+class BatchGetWorkerIdentifierTypeDef(TypedDict):
+    farmId: str
+    fleetId: str
+    workerId: str
+
+class BatchUpdateJobErrorTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    code: BatchUpdateJobErrorCodeType
+    message: str
+
+class BatchUpdateJobItemTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    targetTaskRunStatus: NotRequired[JobTargetTaskRunStatusType]
+    priority: NotRequired[int]
+    maxFailedTasksCount: NotRequired[int]
+    maxRetriesPerTask: NotRequired[int]
+    lifecycleStatus: NotRequired[Literal["ARCHIVED"]]
+    maxWorkerCount: NotRequired[int]
+    name: NotRequired[str]
+    description: NotRequired[str]
+
+class BatchUpdateTaskErrorTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    stepId: str
+    taskId: str
+    code: BatchUpdateTaskErrorCodeType
+    message: str
+
+class BatchUpdateTaskItemTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    stepId: str
+    taskId: str
+    targetRunStatus: TaskTargetRunStatusType
+
 BudgetActionToAddTypeDef = TypedDict(
     "BudgetActionToAddTypeDef",
     {
@@ -649,16 +834,6 @@ class HostConfigurationTypeDef(TypedDict):
     scriptBody: str
     scriptTimeoutSeconds: NotRequired[int]
 
-JobParameterTypeDef = TypedDict(
-    "JobParameterTypeDef",
-    {
-        "int": NotRequired[str],
-        "float": NotRequired[str],
-        "string": NotRequired[str],
-        "path": NotRequired[str],
-    },
-)
-
 class CreateLicenseEndpointRequestTypeDef(TypedDict):
     vpcId: str
     subnetIds: Sequence[str]
@@ -680,6 +855,7 @@ class CreateMonitorRequestTypeDef(TypedDict):
     subdomain: str
     roleArn: str
     clientToken: NotRequired[str]
+    identityCenterRegion: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
 class CreateQueueEnvironmentRequestTypeDef(TypedDict):
@@ -805,12 +981,6 @@ class DeleteWorkerRequestTypeDef(TypedDict):
     farmId: str
     fleetId: str
     workerId: str
-
-class DependencyCountsTypeDef(TypedDict):
-    dependenciesResolved: int
-    dependenciesUnresolved: int
-    consumersResolved: int
-    consumersUnresolved: int
 
 class DisassociateMemberFromFarmRequestTypeDef(TypedDict):
     farmId: str
@@ -972,10 +1142,6 @@ class GetSessionActionRequestTypeDef(TypedDict):
     queueId: str
     jobId: str
     sessionActionId: str
-
-class TaskRunManifestPropertiesResponseTypeDef(TypedDict):
-    outputManifestPath: NotRequired[str]
-    outputManifestHash: NotRequired[str]
 
 class GetSessionRequestTypeDef(TypedDict):
     farmId: str
@@ -1196,6 +1362,7 @@ class MonitorSummaryTypeDef(TypedDict):
     identityCenterApplicationArn: str
     createdAt: datetime
     createdBy: str
+    identityCenterRegion: NotRequired[str]
     updatedAt: NotRequired[datetime]
     updatedBy: NotRequired[str]
 
@@ -1607,6 +1774,24 @@ class AssignedTaskRunSessionActionDefinitionTypeDef(TypedDict):
     parameters: dict[str, TaskParameterValueTypeDef]
     taskId: NotRequired[str]
 
+class BatchGetTaskItemTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    stepId: str
+    taskId: str
+    createdAt: datetime
+    createdBy: str
+    runStatus: TaskRunStatusType
+    targetRunStatus: NotRequired[TaskTargetRunStatusType]
+    failureRetryCount: NotRequired[int]
+    startedAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+    updatedBy: NotRequired[str]
+    latestSessionActionId: NotRequired[str]
+    parameters: NotRequired[dict[str, TaskParameterValueTypeDef]]
+
 class TaskRunSessionActionDefinitionSummaryTypeDef(TypedDict):
     stepId: str
     taskId: NotRequired[str]
@@ -1758,6 +1943,7 @@ class GetMonitorResponseTypeDef(TypedDict):
     url: str
     roleArn: str
     identityCenterInstanceArn: str
+    identityCenterRegion: str
     identityCenterApplicationArn: str
     createdAt: datetime
     createdBy: str
@@ -1833,6 +2019,80 @@ class AttachmentsTypeDef(TypedDict):
     manifests: Sequence[ManifestPropertiesTypeDef]
     fileSystem: NotRequired[JobAttachmentsFileSystemType]
 
+class BatchGetJobRequestTypeDef(TypedDict):
+    identifiers: Sequence[BatchGetJobIdentifierTypeDef]
+
+class JobSearchSummaryTypeDef(TypedDict):
+    jobId: NotRequired[str]
+    queueId: NotRequired[str]
+    name: NotRequired[str]
+    lifecycleStatus: NotRequired[JobLifecycleStatusType]
+    lifecycleStatusMessage: NotRequired[str]
+    taskRunStatus: NotRequired[TaskRunStatusType]
+    targetTaskRunStatus: NotRequired[JobTargetTaskRunStatusType]
+    taskRunStatusCounts: NotRequired[dict[TaskRunStatusType, int]]
+    taskFailureRetryCount: NotRequired[int]
+    priority: NotRequired[int]
+    maxFailedTasksCount: NotRequired[int]
+    maxRetriesPerTask: NotRequired[int]
+    createdBy: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    startedAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+    updatedBy: NotRequired[str]
+    jobParameters: NotRequired[dict[str, JobParameterTypeDef]]
+    maxWorkerCount: NotRequired[int]
+    sourceJobId: NotRequired[str]
+
+class BatchGetSessionActionRequestTypeDef(TypedDict):
+    identifiers: Sequence[BatchGetSessionActionIdentifierTypeDef]
+
+class BatchGetSessionRequestTypeDef(TypedDict):
+    identifiers: Sequence[BatchGetSessionIdentifierTypeDef]
+
+class BatchGetStepRequestTypeDef(TypedDict):
+    identifiers: Sequence[BatchGetStepIdentifierTypeDef]
+
+class StepSummaryTypeDef(TypedDict):
+    stepId: str
+    name: str
+    lifecycleStatus: StepLifecycleStatusType
+    taskRunStatus: TaskRunStatusType
+    taskRunStatusCounts: dict[TaskRunStatusType, int]
+    createdAt: datetime
+    createdBy: str
+    lifecycleStatusMessage: NotRequired[str]
+    taskFailureRetryCount: NotRequired[int]
+    targetTaskRunStatus: NotRequired[StepTargetTaskRunStatusType]
+    updatedAt: NotRequired[datetime]
+    updatedBy: NotRequired[str]
+    startedAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    dependencyCounts: NotRequired[DependencyCountsTypeDef]
+
+class BatchGetTaskRequestTypeDef(TypedDict):
+    identifiers: Sequence[BatchGetTaskIdentifierTypeDef]
+
+class BatchGetWorkerRequestTypeDef(TypedDict):
+    identifiers: Sequence[BatchGetWorkerIdentifierTypeDef]
+
+class BatchUpdateJobResponseTypeDef(TypedDict):
+    errors: list[BatchUpdateJobErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class BatchUpdateJobRequestTypeDef(TypedDict):
+    jobs: Sequence[BatchUpdateJobItemTypeDef]
+    clientToken: NotRequired[str]
+
+class BatchUpdateTaskResponseTypeDef(TypedDict):
+    errors: list[BatchUpdateTaskErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class BatchUpdateTaskRequestTypeDef(TypedDict):
+    tasks: Sequence[BatchUpdateTaskItemTypeDef]
+    clientToken: NotRequired[str]
+
 class BudgetScheduleOutputTypeDef(TypedDict):
     fixed: NotRequired[FixedBudgetScheduleOutputTypeDef]
 
@@ -1859,29 +2119,6 @@ class UpdateWorkerResponseTypeDef(TypedDict):
     log: LogConfigurationTypeDef
     hostConfiguration: HostConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-
-class JobSearchSummaryTypeDef(TypedDict):
-    jobId: NotRequired[str]
-    queueId: NotRequired[str]
-    name: NotRequired[str]
-    lifecycleStatus: NotRequired[JobLifecycleStatusType]
-    lifecycleStatusMessage: NotRequired[str]
-    taskRunStatus: NotRequired[TaskRunStatusType]
-    targetTaskRunStatus: NotRequired[JobTargetTaskRunStatusType]
-    taskRunStatusCounts: NotRequired[dict[TaskRunStatusType, int]]
-    taskFailureRetryCount: NotRequired[int]
-    priority: NotRequired[int]
-    maxFailedTasksCount: NotRequired[int]
-    maxRetriesPerTask: NotRequired[int]
-    createdBy: NotRequired[str]
-    createdAt: NotRequired[datetime]
-    endedAt: NotRequired[datetime]
-    startedAt: NotRequired[datetime]
-    updatedAt: NotRequired[datetime]
-    updatedBy: NotRequired[str]
-    jobParameters: NotRequired[dict[str, JobParameterTypeDef]]
-    maxWorkerCount: NotRequired[int]
-    sourceJobId: NotRequired[str]
 
 class CreateStorageProfileRequestTypeDef(TypedDict):
     farmId: str
@@ -1955,23 +2192,6 @@ DateTimeFilterExpressionTypeDef = TypedDict(
 class FixedBudgetScheduleTypeDef(TypedDict):
     startTime: TimestampTypeDef
     endTime: TimestampTypeDef
-
-class StepSummaryTypeDef(TypedDict):
-    stepId: str
-    name: str
-    lifecycleStatus: StepLifecycleStatusType
-    taskRunStatus: TaskRunStatusType
-    taskRunStatusCounts: dict[TaskRunStatusType, int]
-    createdAt: datetime
-    createdBy: str
-    lifecycleStatusMessage: NotRequired[str]
-    taskFailureRetryCount: NotRequired[int]
-    targetTaskRunStatus: NotRequired[StepTargetTaskRunStatusType]
-    updatedAt: NotRequired[datetime]
-    updatedBy: NotRequired[str]
-    startedAt: NotRequired[datetime]
-    endedAt: NotRequired[datetime]
-    dependencyCounts: NotRequired[DependencyCountsTypeDef]
 
 class ListFarmMembersResponseTypeDef(TypedDict):
     members: list[FarmMemberTypeDef]
@@ -2417,6 +2637,11 @@ class AssignedSessionActionDefinitionTypeDef(TypedDict):
         AssignedSyncInputJobAttachmentsSessionActionDefinitionTypeDef
     ]
 
+class BatchGetTaskResponseTypeDef(TypedDict):
+    tasks: list[BatchGetTaskItemTypeDef]
+    errors: list[BatchGetTaskErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class SessionActionDefinitionSummaryTypeDef(TypedDict):
     envEnter: NotRequired[EnvironmentEnterSessionActionDefinitionSummaryTypeDef]
     envExit: NotRequired[EnvironmentExitSessionActionDefinitionSummaryTypeDef]
@@ -2441,6 +2666,33 @@ class ListTasksResponseTypeDef(TypedDict):
     tasks: list[TaskSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class BatchGetJobItemTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    name: str
+    lifecycleStatus: JobLifecycleStatusType
+    lifecycleStatusMessage: str
+    priority: int
+    createdAt: datetime
+    createdBy: str
+    updatedAt: NotRequired[datetime]
+    updatedBy: NotRequired[str]
+    startedAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    taskRunStatus: NotRequired[TaskRunStatusType]
+    targetTaskRunStatus: NotRequired[JobTargetTaskRunStatusType]
+    taskRunStatusCounts: NotRequired[dict[TaskRunStatusType, int]]
+    taskFailureRetryCount: NotRequired[int]
+    storageProfileId: NotRequired[str]
+    maxFailedTasksCount: NotRequired[int]
+    maxRetriesPerTask: NotRequired[int]
+    parameters: NotRequired[dict[str, JobParameterTypeDef]]
+    attachments: NotRequired[AttachmentsOutputTypeDef]
+    description: NotRequired[str]
+    maxWorkerCount: NotRequired[int]
+    sourceJobId: NotRequired[str]
 
 class GetJobResponseTypeDef(TypedDict):
     jobId: str
@@ -2474,6 +2726,17 @@ class JobAttachmentDetailsEntityTypeDef(TypedDict):
 
 AttachmentsUnionTypeDef = Union[AttachmentsTypeDef, AttachmentsOutputTypeDef]
 
+class SearchJobsResponseTypeDef(TypedDict):
+    jobs: list[JobSearchSummaryTypeDef]
+    nextItemOffset: int
+    totalResults: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListStepsResponseTypeDef(TypedDict):
+    steps: list[StepSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class GetBudgetResponseTypeDef(TypedDict):
     budgetId: str
     usageTrackingResource: UsageTrackingResourceTypeDef
@@ -2495,12 +2758,6 @@ class ListBudgetsResponseTypeDef(TypedDict):
     budgets: list[BudgetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-class SearchJobsResponseTypeDef(TypedDict):
-    jobs: list[JobSearchSummaryTypeDef]
-    nextItemOffset: int
-    totalResults: int
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class CustomerManagedFleetConfigurationOutputTypeDef(TypedDict):
     mode: AutoScalingModeType
@@ -2527,10 +2784,34 @@ class SearchFilterExpressionTypeDef(TypedDict):
 class BudgetScheduleTypeDef(TypedDict):
     fixed: NotRequired[FixedBudgetScheduleTypeDef]
 
-class ListStepsResponseTypeDef(TypedDict):
-    steps: list[StepSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
+class BatchGetSessionItemTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    sessionId: str
+    fleetId: str
+    workerId: str
+    startedAt: datetime
+    lifecycleStatus: SessionLifecycleStatusType
+    log: LogConfigurationTypeDef
+    endedAt: NotRequired[datetime]
+    targetLifecycleStatus: NotRequired[Literal["ENDED"]]
+    updatedAt: NotRequired[datetime]
+    updatedBy: NotRequired[str]
+    hostProperties: NotRequired[HostPropertiesResponseTypeDef]
+    workerLog: NotRequired[LogConfigurationTypeDef]
+
+class BatchGetWorkerItemTypeDef(TypedDict):
+    farmId: str
+    fleetId: str
+    workerId: str
+    status: WorkerStatusType
+    createdAt: datetime
+    createdBy: str
+    hostProperties: NotRequired[HostPropertiesResponseTypeDef]
+    log: NotRequired[LogConfigurationTypeDef]
+    updatedAt: NotRequired[datetime]
+    updatedBy: NotRequired[str]
 
 class GetSessionResponseTypeDef(TypedDict):
     sessionId: str
@@ -2657,6 +2938,23 @@ class SessionActionSummaryTypeDef(TypedDict):
     progressPercent: NotRequired[float]
     manifests: NotRequired[list[TaskRunManifestPropertiesResponseTypeDef]]
 
+class BatchGetSessionActionItemTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    sessionActionId: str
+    status: SessionActionStatusType
+    sessionId: str
+    definition: SessionActionDefinitionTypeDef
+    startedAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    workerUpdatedAt: NotRequired[datetime]
+    progressPercent: NotRequired[float]
+    manifests: NotRequired[list[TaskRunManifestPropertiesResponseTypeDef]]
+    processExitCode: NotRequired[int]
+    progressMessage: NotRequired[str]
+    acquiredLimits: NotRequired[list[AcquiredLimitTypeDef]]
+
 class GetSessionActionResponseTypeDef(TypedDict):
     sessionActionId: str
     status: SessionActionStatusType
@@ -2670,6 +2968,11 @@ class GetSessionActionResponseTypeDef(TypedDict):
     progressMessage: str
     acquiredLimits: list[AcquiredLimitTypeDef]
     definition: SessionActionDefinitionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class BatchGetJobResponseTypeDef(TypedDict):
+    jobs: list[BatchGetJobItemTypeDef]
+    errors: list[BatchGetJobErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateJobRequestTypeDef(TypedDict):
@@ -2699,6 +3002,16 @@ SearchGroupedFilterExpressionsTypeDef = TypedDict(
     },
 )
 BudgetScheduleUnionTypeDef = Union[BudgetScheduleTypeDef, BudgetScheduleOutputTypeDef]
+
+class BatchGetSessionResponseTypeDef(TypedDict):
+    sessions: list[BatchGetSessionItemTypeDef]
+    errors: list[BatchGetSessionErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class BatchGetWorkerResponseTypeDef(TypedDict):
+    workers: list[BatchGetWorkerItemTypeDef]
+    errors: list[BatchGetWorkerErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchWorkersResponseTypeDef(TypedDict):
     workers: list[WorkerSearchSummaryTypeDef]
@@ -2755,6 +3068,29 @@ class GetQueueResponseTypeDef(TypedDict):
 SchedulingConfigurationUnionTypeDef = Union[
     SchedulingConfigurationTypeDef, SchedulingConfigurationOutputTypeDef
 ]
+
+class BatchGetStepItemTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    stepId: str
+    name: str
+    lifecycleStatus: StepLifecycleStatusType
+    taskRunStatus: TaskRunStatusType
+    taskRunStatusCounts: dict[TaskRunStatusType, int]
+    createdAt: datetime
+    createdBy: str
+    lifecycleStatusMessage: NotRequired[str]
+    taskFailureRetryCount: NotRequired[int]
+    targetTaskRunStatus: NotRequired[StepTargetTaskRunStatusType]
+    updatedAt: NotRequired[datetime]
+    updatedBy: NotRequired[str]
+    startedAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    dependencyCounts: NotRequired[DependencyCountsTypeDef]
+    requiredCapabilities: NotRequired[StepRequiredCapabilitiesTypeDef]
+    parameterSpace: NotRequired[ParameterSpaceTypeDef]
+    description: NotRequired[str]
 
 class GetStepResponseTypeDef(TypedDict):
     stepId: str
@@ -2814,6 +3150,11 @@ class ListSessionActionsResponseTypeDef(TypedDict):
     sessionActions: list[SessionActionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class BatchGetSessionActionResponseTypeDef(TypedDict):
+    sessionActions: list[BatchGetSessionActionItemTypeDef]
+    errors: list[BatchGetSessionActionErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchJobsRequestTypeDef(TypedDict):
     farmId: str
@@ -2906,6 +3247,11 @@ class UpdateQueueRequestTypeDef(TypedDict):
     allowedStorageProfileIdsToAdd: NotRequired[Sequence[str]]
     allowedStorageProfileIdsToRemove: NotRequired[Sequence[str]]
     schedulingConfiguration: NotRequired[SchedulingConfigurationUnionTypeDef]
+
+class BatchGetStepResponseTypeDef(TypedDict):
+    steps: list[BatchGetStepItemTypeDef]
+    errors: list[BatchGetStepErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchStepsResponseTypeDef(TypedDict):
     steps: list[StepSearchSummaryTypeDef]

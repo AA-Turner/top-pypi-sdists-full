@@ -7,9 +7,8 @@ This section should only depend on the standard core installation in the pyproje
 from __future__ import annotations
 
 import functools
-from importlib import import_module
 from importlib.util import find_spec
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 import numpy as np
 
@@ -17,6 +16,11 @@ from tidy3d.config import config
 
 from .exceptions import Tidy3dImportError
 from .version import __version__
+
+if TYPE_CHECKING:
+    from typing import Literal
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 vtk = {
     "mod": None,
@@ -26,32 +30,36 @@ vtk = {
     "numpy_to_vtk": None,
 }
 
+pyvista = {"mod": None}
+
 tidy3d_extras = {"mod": None, "use_local_subpixel": None}
 
 
 def check_import(module_name: str) -> bool:
     """
-    Check if a module or submodule section has been imported. This is a functional way of loading packages that will still load the corresponding module into the total space.
+    Check if a module or submodule is available for import without actually importing it.
+
+    This uses `importlib.util.find_spec` to check availability without importing,
+    which keeps the module out of `sys.modules` until it's actually needed.
 
     Parameters
     ----------
-    module_name
+    module_name : str
+        The name of the module to check.
 
     Returns
     -------
     bool
-        True if the module has been imported, False otherwise.
+        True if the module is available for import, False otherwise.
 
     """
-    try:
-        import_module(module_name)
-        return True
-    except ImportError:
-        return False
+    return find_spec(module_name) is not None
 
 
-def verify_packages_import(modules: list, required: Literal["any", "all"] = "all"):
-    def decorator(func):
+def verify_packages_import(
+    modules: list[str], required: Literal["any", "all"] = "all"
+) -> Callable[[F], F]:
+    def decorator(func: F) -> F:
         """
         When decorating a method, requires that the specified modules are available. It will raise an error if the
         module is not available depending on the value of the 'required' parameter which represents the type of
@@ -74,7 +82,7 @@ def verify_packages_import(modules: list, required: Literal["any", "all"] = "all
         """
 
         @functools.wraps(func)
-        def checks_modules_import(*args: Any, **kwargs: Any):
+        def checks_modules_import(*args: Any, **kwargs: Any) -> Any:
             """
             Checks if the modules are available. If they are not available, it will raise an error depending on the value.
             """
@@ -123,11 +131,11 @@ def verify_packages_import(modules: list, required: Literal["any", "all"] = "all
     return decorator
 
 
-def requires_vtk(fn):
+def requires_vtk(fn: F) -> F:
     """When decorating a method, requires that vtk is available."""
 
     @functools.wraps(fn)
-    def _fn(*args: Any, **kwargs: Any):
+    def _fn(*args: Any, **kwargs: Any) -> Any:
         if vtk["mod"] is None:
             try:
                 import vtk as vtk_mod
@@ -160,7 +168,31 @@ def requires_vtk(fn):
     return _fn
 
 
-def get_numpy_major_version(module=np):
+def requires_pyvista(fn: F) -> F:
+    """When decorating a method, requires that pyvista is available."""
+
+    @functools.wraps(fn)
+    def _fn(*args: Any, **kwargs: Any) -> Any:
+        if pyvista["mod"] is None:
+            try:
+                import pyvista as pv
+
+                pyvista["mod"] = pv
+
+            except ImportError as exc:
+                raise Tidy3dImportError(
+                    "The package 'pyvista' is required for this operation, but it was not found. "
+                    "Please install the dependencies using: "
+                    "'pip install tidy3d[pyvista]' "
+                    "(this includes pyvista, vtk, and trame packages needed for notebook rendering)."
+                ) from exc
+
+        return fn(*args, **kwargs)
+
+    return _fn
+
+
+def get_numpy_major_version(module: Any = np) -> int:
     """
     Extracts the major version of the installed numpy accordingly.
 
@@ -183,7 +215,7 @@ def get_numpy_major_version(module=np):
     return major_version
 
 
-def _check_tidy3d_extras_available(quiet: bool = False):
+def _check_tidy3d_extras_available(quiet: bool = False) -> None:
     """Helper function to check if 'tidy3d-extras' is available and version matched.
 
     Parameters
@@ -245,7 +277,7 @@ def _check_tidy3d_extras_available(quiet: bool = False):
     tidy3d_extras["mod"] = tidy3d_extras_mod
 
 
-def check_tidy3d_extras_licensed_feature(feature_name: str, quiet: bool = False):
+def check_tidy3d_extras_licensed_feature(feature_name: str, quiet: bool = False) -> None:
     """Helper function to check if a specific feature is licensed in 'tidy3d-extras'.
 
     Parameters
@@ -278,12 +310,12 @@ def check_tidy3d_extras_licensed_feature(feature_name: str, quiet: bool = False)
         )
 
 
-def supports_local_subpixel(fn):
+def supports_local_subpixel(fn: F) -> F:
     """When decorating a method, checks that 'tidy3d-extras' is available,
     conditioned on 'config.simulation.use_local_subpixel'."""
 
     @functools.wraps(fn)
-    def _fn(*args: Any, **kwargs: Any):
+    def _fn(*args: Any, **kwargs: Any) -> Any:
         preference = config.simulation.use_local_subpixel
 
         if preference is False:
@@ -309,11 +341,11 @@ def supports_local_subpixel(fn):
     return _fn
 
 
-def disable_local_subpixel(fn):
+def disable_local_subpixel(fn: F) -> F:
     """When decorating a method, temporarily disables local subpixel."""
 
     @functools.wraps(fn)
-    def _fn(*args: Any, **kwargs: Any):
+    def _fn(*args: Any, **kwargs: Any) -> Any:
         simulation = config.simulation
         previous = simulation.use_local_subpixel
 

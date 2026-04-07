@@ -6,7 +6,7 @@ from django.utils.html import mark_safe
 import django_tables2 as tables
 from django_tables2 import A
 
-from ..app.models import Occupation, Person
+from ..app.models import Person
 from ..utils import attrs, build_request
 
 
@@ -40,7 +40,7 @@ class LinkColumnTest(TestCase):
             first_name = tables.LinkColumn("person", text="foo::bar", args=[A("pk")])
             last_name = tables.LinkColumn(
                 "person",
-                text=lambda row: f'{row["last_name"]} {row["first_name"]}',
+                text=lambda row: f"{row['last_name']} {row['first_name']}",
                 args=[A("pk")],
             )
 
@@ -107,13 +107,9 @@ class LinkColumnTest(TestCase):
             name_linkify = tables.Column(accessor="name", linkify=("escaping", {"pk": A("pk")}))
 
         table = PersonTable([{"name": "<brad>", "pk": 1}])
-        # django==3.0 replaces &#39; with &#x27;, drop first option if django==2.2 support is removed
-        self.assertIn(
-            table.rows[0].get_cell("name"),
-            (
-                '<a href="/&amp;&#39;%22/1/">&lt;brad&gt;</a>'
-                '<a href="/&amp;&#x27;%22/1/">&lt;brad&gt;</a>'
-            ),
+
+        self.assertEqual(
+            table.rows[0].get_cell("name"), '<a href="/&amp;&#x27;%22/1/">&lt;brad&gt;</a>'
         )
 
         # the two columns should result in the same rendered cell contents
@@ -198,29 +194,6 @@ class LinkColumnTest(TestCase):
         message = "for linkify=True, 'Waagmeester' must have a method get_absolute_url"
         with self.assertRaisesMessage(TypeError, message):
             table.as_html(build_request())
-
-    def test_RelatedLinkColumn(self):
-        carpenter = Occupation.objects.create(name="Carpenter")
-        Person.objects.create(first_name="Bob", last_name="Builder", occupation=carpenter)
-
-        class Table(tables.Table):
-            occupation = tables.RelatedLinkColumn()
-            occupation_linkify = tables.Column(accessor="occupation", linkify=True)
-
-        table = Table(Person.objects.all())
-
-        url = reverse("occupation", args=[carpenter.pk])
-        self.assertEqual(table.rows[0].cells["occupation"], f'<a href="{url}">Carpenter</a>')
-
-    def test_RelatedLinkColumn_without_model(self):
-        class Table(tables.Table):
-            occupation = tables.RelatedLinkColumn()
-
-        table = Table([{"occupation": "Fabricator"}])
-
-        message = "for linkify=True, 'Fabricator' must have a method get_absolute_url"
-        with self.assertRaisesMessage(TypeError, message):
-            table.rows[0].cells["occupation"]
 
     def test_value_returns_a_raw_value_without_html(self):
         class Table(tables.Table):

@@ -9,6 +9,33 @@ import QuantConnect.Util.RateLimit
 import System
 
 
+class ISleepStrategy(metaclass=abc.ABCMeta):
+    """
+    Defines a strategy for sleeping the current thread of execution. This is currently used via the
+    ITokenBucket.consume in order to wait for new tokens to become available for consumption.
+    """
+
+    def sleep(self) -> None:
+        """
+        Sleeps the current thread in an implementation specific way
+        and for an implementation specific amount of time
+        """
+        ...
+
+
+class BusyWaitSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStrategy):
+    """
+    Provides a CPU intensive means of waiting for more tokens to be available in ITokenBucket.
+    This strategy is only viable when the requested number of tokens is expected to become available in an
+    extremely short period of time. This implementation aims to keep the current thread executing to prevent
+    potential content switches arising from a thread yielding or sleeping strategy.
+    """
+
+    def sleep(self) -> None:
+        """Provides a CPU intensive sleep by executing Thread.SpinWait for a single spin."""
+        ...
+
+
 class ITokenBucket(metaclass=abc.ABCMeta):
     """
     Defines a token bucket for rate limiting
@@ -63,17 +90,11 @@ class TokenBucket(System.Object):
         ...
 
 
-class ISleepStrategy(metaclass=abc.ABCMeta):
-    """
-    Defines a strategy for sleeping the current thread of execution. This is currently used via the
-    ITokenBucket.consume in order to wait for new tokens to become available for consumption.
-    """
+class IRefillStrategy(metaclass=abc.ABCMeta):
+    """Provides a strategy for making tokens available for consumption in the ITokenBucket"""
 
-    def sleep(self) -> None:
-        """
-        Sleeps the current thread in an implementation specific way
-        and for an implementation specific amount of time
-        """
+    def refill(self) -> int:
+        """Computes the number of new tokens made available, typically via the passing of time."""
         ...
 
 
@@ -112,14 +133,6 @@ class ThreadSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStrat
         ...
 
 
-class IRefillStrategy(metaclass=abc.ABCMeta):
-    """Provides a strategy for making tokens available for consumption in the ITokenBucket"""
-
-    def refill(self) -> int:
-        """Computes the number of new tokens made available, typically via the passing of time."""
-        ...
-
-
 class FixedIntervalRefillStrategy(System.Object, QuantConnect.Util.RateLimit.IRefillStrategy):
     """
     Provides a refill strategy that has a constant, quantized refill rate.
@@ -146,19 +159,6 @@ class FixedIntervalRefillStrategy(System.Object, QuantConnect.Util.RateLimit.IRe
         number of time intervals that have passed and multiplying by the number of tokens to refill for
         each time interval.
         """
-        ...
-
-
-class BusyWaitSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStrategy):
-    """
-    Provides a CPU intensive means of waiting for more tokens to be available in ITokenBucket.
-    This strategy is only viable when the requested number of tokens is expected to become available in an
-    extremely short period of time. This implementation aims to keep the current thread executing to prevent
-    potential content switches arising from a thread yielding or sleeping strategy.
-    """
-
-    def sleep(self) -> None:
-        """Provides a CPU intensive sleep by executing Thread.SpinWait for a single spin."""
         ...
 
 

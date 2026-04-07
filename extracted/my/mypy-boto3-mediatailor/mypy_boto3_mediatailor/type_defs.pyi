@@ -1128,6 +1128,7 @@ class CreatePrefetchScheduleResponseTypeDef(TypedDict):
     RecurringPrefetchConfiguration: RecurringPrefetchConfigurationOutputTypeDef
     ScheduleType: PrefetchScheduleTypeType
     StreamId: str
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetPrefetchScheduleResponseTypeDef(TypedDict):
@@ -1139,6 +1140,7 @@ class GetPrefetchScheduleResponseTypeDef(TypedDict):
     ScheduleType: PrefetchScheduleTypeType
     RecurringPrefetchConfiguration: RecurringPrefetchConfigurationOutputTypeDef
     StreamId: str
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PrefetchScheduleTypeDef(TypedDict):
@@ -1150,6 +1152,7 @@ class PrefetchScheduleTypeDef(TypedDict):
     ScheduleType: NotRequired[PrefetchScheduleTypeType]
     RecurringPrefetchConfiguration: NotRequired[RecurringPrefetchConfigurationOutputTypeDef]
     StreamId: NotRequired[str]
+    Tags: NotRequired[dict[str, str]]
 
 RecurringPrefetchConfigurationUnionTypeDef = Union[
     RecurringPrefetchConfigurationTypeDef, RecurringPrefetchConfigurationOutputTypeDef
@@ -1185,6 +1188,7 @@ class CreatePrefetchScheduleRequestTypeDef(TypedDict):
     RecurringPrefetchConfiguration: NotRequired[RecurringPrefetchConfigurationUnionTypeDef]
     ScheduleType: NotRequired[PrefetchScheduleTypeType]
     StreamId: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
 
 class AudienceMediaOutputTypeDef(TypedDict):
     Audience: NotRequired[str]
@@ -1205,6 +1209,7 @@ class CreateProgramResponseTypeDef(TypedDict):
     ClipRange: ClipRangeTypeDef
     DurationMillis: int
     AudienceMedia: list[AudienceMediaOutputTypeDef]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeProgramResponseTypeDef(TypedDict):
@@ -1220,6 +1225,7 @@ class DescribeProgramResponseTypeDef(TypedDict):
     ClipRange: ClipRangeTypeDef
     DurationMillis: int
     AudienceMedia: list[AudienceMediaOutputTypeDef]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateProgramResponseTypeDef(TypedDict):
@@ -1235,6 +1241,7 @@ class UpdateProgramResponseTypeDef(TypedDict):
     DurationMillis: int
     ScheduledStartTime: datetime
     AudienceMedia: list[AudienceMediaOutputTypeDef]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AlternateMediaTypeDef(TypedDict):
@@ -1263,6 +1270,7 @@ class CreateProgramRequestTypeDef(TypedDict):
     LiveSourceName: NotRequired[str]
     VodSourceName: NotRequired[str]
     AudienceMedia: NotRequired[Sequence[AudienceMediaUnionTypeDef]]
+    Tags: NotRequired[Mapping[str, str]]
 
 class UpdateProgramRequestTypeDef(TypedDict):
     ChannelName: str

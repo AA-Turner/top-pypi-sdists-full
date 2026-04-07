@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: readchar
-Version: 4.2.1
+Version: 4.2.2
 Summary: Library to easily read single chars and key strokes
 Author-email: Miguel Ángel García <miguelangel.garcia@gmail.com>, Jan Wille <mail@janwille.de>
 Maintainer-email: Jan Wille <mail@janwille.de>
@@ -50,6 +50,7 @@ Classifier: Topic :: Software Development :: User Interfaces
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENCE
+Dynamic: license-file
 
 [![GitHub Repository](https://img.shields.io/badge/-GitHub-%230D0D0D?logo=github&labelColor=gray)](https://github.com/magmax/python-readchar)
 [![Latest PyPi version](https://img.shields.io/pypi/v/readchar.svg)](https://pypi.python.org/pypi/readchar)
@@ -168,6 +169,7 @@ Some operating systems are enabled, but not actively tested or supported:
 
 - macOS
 - FreeBSD / OpenBSD
+- Android
 
 Theoretically every Unix based system should work, but they will not be actively tested.
 It is also required that somebody provides initial test results before the OS is enabled

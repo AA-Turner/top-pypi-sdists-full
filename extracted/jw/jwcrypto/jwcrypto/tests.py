@@ -757,6 +757,16 @@ class TestJWK(unittest.TestCase):
             "urn:ietf:params:oauth:jwk-thumbprint:sha-256:{}".format(
                 PublicKeys['thumbprints'][1]))
 
+    def test_unsafe_rsa(self):
+        key = jwk.JWK()
+        key.unsafe_skip_rsa_key_validation = True
+        key.import_from_pem(RSAPrivatePEM, password=RSAPrivatePassword)
+        self.assertTrue(key.has_private)
+        # finally check private works
+        s = jws.JWS(payload='plaintext')
+        s.add_signature(key, None, {"alg": "PS256"})
+        s.serialize()
+
 
 # RFC 7515 - A.1
 A1_protected = \
@@ -1122,7 +1132,7 @@ class TestJWS(unittest.TestCase):
             self.assertEqual(jws_verify.payload, payload)
 
     def test_jws_issue_224(self):
-        key = jwk.JWK().generate(kty='oct')
+        key = jwk.JWK().generate(kty='oct', alg='HS256')
 
         # Test Empty payload is supported for creating and verifying signatures
         s = jws.JWS(payload='')
@@ -1140,7 +1150,7 @@ class TestJWS(unittest.TestCase):
         header = {"alg": "HS256"}
         header_copy = copy.deepcopy(header)
 
-        key = jwk.JWK().generate(kty='oct')
+        key = jwk.JWK().generate(kty='oct', alg='HS256')
 
         s = jws.JWS(payload='test')
         s.add_signature(key, protected=header,
@@ -1509,6 +1519,18 @@ class TestJWE(unittest.TestCase):
         with self.assertRaises(JWKeyNotFound):
             e4.deserialize(e3.serialize(), ks)
 
+    def test_serialize_not_flattened(self):
+        # JWE with flattened=False adds recipients in objects and in serialized
+        e = jwe.JWE(E_A1_ex['plaintext'], flattened=False)
+        e.add_recipient(E_A1_ex['key'], E_A1_ex['protected'])
+        self.assertIn('recipients', e.objects)
+        self.assertIn('recipients', e.serialize())
+
+        e = jwe.JWE(E_A1_ex['plaintext'])
+        e.add_recipient(E_A1_ex['key'], E_A1_ex['protected'])
+        self.assertNotIn('recipients', e.objects)
+        self.assertNotIn('recipients', e.serialize())
+
 
 MMA_vector_key = jwk.JWK(**E_A2_key)
 MMA_vector_ok_cek =  \
@@ -1778,7 +1800,7 @@ class TestJWT(unittest.TestCase):
                               "string_claim": "test"})
 
     def test_claims_typ(self):
-        key = jwk.JWK().generate(kty='oct')
+        key = jwk.JWK().generate(kty='oct', alg='HS256')
         claims = '{"typ":"application/test"}'
         string_header = '{"alg":"HS256"}'
         t = jwt.JWT(string_header, claims)
@@ -1810,7 +1832,7 @@ class TestJWT(unittest.TestCase):
         jwt.JWT(jwt=token, key=key)
 
     def test_empty_claims(self):
-        key = jwk.JWK().generate(kty='oct')
+        key = jwk.JWK().generate(kty='oct', alg='HS256')
 
         # empty dict is valid
         t = jwt.JWT('{"alg":"HS256"}', {})
@@ -1955,6 +1977,68 @@ class TestJWT(unittest.TestCase):
         jwt.JWT(jwt=enctok, key=key)
         key.key_ops = None
 
+    def test_claims_scope(self):
+        key = jwk.JWK().generate(kty='oct', alg='HS256')
+
+        string_header = '{"alg":"HS256"}'
+
+        # no scopes provided
+        claims = '{}'
+        t = jwt.JWT(string_header, claims)
+        t.make_signed_token(key)
+        token = t.serialize()
+        self.assertRaises(jwt.JWTMissingClaim, jwt.JWT, jwt=token,
+                          key=key, check_claims={"scope": "read"})
+
+        # non-string scopes
+        claims = '{"scope": 12345}'
+        t = jwt.JWT(string_header, claims)
+        t.make_signed_token(key)
+        token = t.serialize()
+        self.assertRaises(jwt.JWTInvalidClaimValue, jwt.JWT, jwt=token,
+                          key=key, check_claims={"scope": "read"})
+
+        # empty scopes
+        claims = '{"scope": ""}'
+        t = jwt.JWT(string_header, claims)
+        t.make_signed_token(key)
+        token = t.serialize()
+        self.assertRaises(jwt.JWTInvalidClaimValue, jwt.JWT, jwt=token,
+                          key=key, check_claims={"scope": "read"})
+
+        # one correct scope
+        claims = '{"scope":"read"}'
+        t = jwt.JWT(string_header, claims)
+        t.make_signed_token(key)
+        token = t.serialize()
+        jwt.JWT(jwt=token, key=key, check_claims={"scope": "read"})
+        self.assertRaises(jwt.JWTInvalidClaimValue, jwt.JWT, jwt=token,
+                          key=key, check_claims={"scope": "write"})
+
+        # multiple scopes including the correct one
+        claims = '{"scope":"view read write"}'
+        t = jwt.JWT(string_header, claims)
+        t.make_signed_token(key)
+        token = t.serialize()
+        jwt.JWT(jwt=token, key=key, check_claims={"scope": "view"})
+        jwt.JWT(jwt=token, key=key, check_claims={"scope": "read"})
+        jwt.JWT(jwt=token, key=key, check_claims={"scope": "write"})
+        self.assertRaises(jwt.JWTInvalidClaimValue, jwt.JWT, jwt=token,
+                          key=key, check_claims={"scope": "wrong"})
+
+        # one correct scope, invalid value
+        claims = '{"scope":"read"}'
+        t = jwt.JWT(string_header, claims)
+        t.make_signed_token(key)
+        token = t.serialize()
+        self.assertRaises(jwt.JWTInvalidClaimFormat, jwt.JWT, jwt=token,
+                          key=key, check_claims={"scope": 123})
+        self.assertRaises(jwt.JWTInvalidClaimFormat, jwt.JWT, jwt=token,
+                          key=key, check_claims={"scope": ["test", "wrong"]})
+
+        # finally make sure it doesn't raise if not checked.
+        jwt.JWT(jwt=token, key=key)
+
 
 class ConformanceTests(unittest.TestCase):
 
@@ -2005,17 +2089,17 @@ class ConformanceTests(unittest.TestCase):
 
     def test_jws_loopback(self):
         sign = jws.JWS(payload='message')
-        sign.add_signature(jwk.JWK(kty='oct', k=base64url_encode(b'A' * 16)),
+        sign.add_signature(jwk.JWK(kty='oct', k=base64url_encode(b'A' * 64)),
                            alg="HS512")
         o = sign.serialize()
         check = jws.JWS()
-        check.deserialize(o, jwk.JWK(kty='oct', k=base64url_encode(b'A' * 16)),
+        check.deserialize(o, jwk.JWK(kty='oct', k=base64url_encode(b'A' * 64)),
                           alg="HS512")
         self.assertTrue(check.objects['valid'])
 
     def test_jws_headers_as_dicts(self):
         sign = jws.JWS(payload='message')
-        key = jwk.JWK(kty='oct', k=base64url_encode(b'A' * 16))
+        key = jwk.JWK(kty='oct', k=base64url_encode(b'A' * 64))
         sign.add_signature(key, protected={'alg': 'HS512'},
                            header={'kid': key.thumbprint()})
         o = sign.serialize()
@@ -2124,18 +2208,59 @@ class ConformanceTests(unittest.TestCase):
         enc = jwe.JWE(payload.encode('utf-8'),
                       recipient=key,
                       protected=protected_header).serialize(compact=True)
-        with self.assertRaises(jwe.InvalidJWEData):
-            check = jwe.JWE()
-            check.deserialize(enc)
-            check.decrypt(key)
-
-        defmax = jwe.default_max_compressed_size
-        jwe.default_max_compressed_size = 1000000000
-        # ensure we can eraise the limit and decrypt
         check = jwe.JWE()
         check.deserialize(enc)
+        with self.assertRaises(jwe.InvalidJWEData):
+            check.decrypt(key)
+
+        # raise the limit on compressed token size so we can decrypt
+        defcmax = jwe.default_max_compressed_size
+        jwe.default_max_compressed_size = 10 * 1024 * 1024
+
+        # this passes if we explicitly allow larger plaintext via API
+        check.decrypt(key, max_plaintext=1000000000)
+
+        # this will still fail because the max plaintext length clamps this
+        with self.assertRaises(jwe.InvalidJWEData):
+            check.decrypt(key)
+
+        # ensure that now this can work with changed defaults
+        defpmax = jwe.default_max_plaintext_size
+        jwe.default_max_plaintext_size = 1000000000
         check.decrypt(key)
-        jwe.default_max_compressed_size = defmax
+
+        # restore limits
+        jwe.default_max_compressed_size = defcmax
+
+        # check that this fails the max compressed header limits
+        with self.assertRaises(jwe.InvalidJWEData):
+            check.decrypt(key)
+
+        # restore plaintext limits
+        jwe.default_max_plaintext_size = defpmax
+
+    def test_jws_small_hmac_key_rejected(self):
+        sign = jws.JWS(payload='message')
+        # HS256 requires a 256 bit key, this is 128
+        key = jwk.JWK(kty='oct', k=base64url_encode(b'A' * 16))
+        with self.assertRaises(jwe.InvalidJWEKeyLength):
+            sign.add_signature(key, alg="HS256")
+
+    def test_jws_small_hmac_key_allowed(self):
+        # This is a bad idea, but we allow it if the user
+        # explicitly asks for it.
+        self.addCleanup(setattr, jwa, 'default_enforce_hmac_key_length',
+                        jwa.default_enforce_hmac_key_length)
+        jwa.default_enforce_hmac_key_length = False
+
+        sign = jws.JWS(payload='message')
+        # HS256 requires a 256 bit key, this is 128
+        key = jwk.JWK(kty='oct', k=base64url_encode(b'A' * 16))
+        sign.add_signature(key, alg="HS256")
+        o = sign.serialize()
+        check = jws.JWS()
+        check.deserialize(o, key, alg="HS256")
+        self.assertTrue(check.objects['valid'])
 
 
 class JWATests(unittest.TestCase):
@@ -2143,9 +2268,7 @@ class JWATests(unittest.TestCase):
         for name, cls in jwa.JWA.algorithms_registry.items():
             self.assertEqual(cls.name, name)
             self.assertIn(cls.algorithm_usage_location, {'alg', 'enc'})
-            if name == 'ECDH-ES':
-                self.assertIs(cls.keysize, None)
-            elif name == 'EdDSA':
+            if name in ('ECDH-ES', 'EdDSA', 'Ed25519', 'Ed448'):
                 self.assertIs(cls.keysize, None)
             else:
                 self.assertIsInstance(cls.keysize, int)
@@ -2237,7 +2360,7 @@ class TestUnencodedPayload(unittest.TestCase):
 
     def test_mismatching_encoding(self):
         s = jws.JWS(rfc7797_payload)
-        s.add_signature(jwk.JWK(**SymmetricKeys['keys'][0]),
+        s.add_signature(jwk.JWK(**SymmetricKeys['keys'][1]),
                         protected=rfc7797_e_header)
         with self.assertRaises(jws.InvalidJWSObject):
             s.add_signature(jwk.JWK(**SymmetricKeys['keys'][1]),
@@ -2386,3 +2509,36 @@ class TestOverloadedOperators(unittest.TestCase):
                   f'jwt=JWS.from_json_token("{ser2}"), key=None, ' + \
                   'algs=None, default_claims=None, check_claims=None)'
         self.assertEqual(repr(token), reprrep)
+
+
+class TestRfc9864(unittest.TestCase):
+
+    def test_jws_ed25519(self):
+        payload = b'My Integrity protected message'
+        if 'Ed25519' not in jwk.ImplementedOkpCurves:
+            self.skipTest('Ed25519 not supported')
+        key = jwk.JWK.generate(kty='OKP', crv='Ed25519')
+        protected_header = {"alg": "Ed25519"}
+        jws_token = jws.JWS(payload)
+        jws_token.add_signature(key, None,
+                                json_encode(protected_header), None)
+        serialized_jws = jws_token.serialize(compact=True)
+        jws_obj = jws.JWS()
+        jws_obj.deserialize(serialized_jws, key)
+        self.assertTrue(jws_obj.is_valid)
+        self.assertEqual(jws_obj.payload, payload)
+
+    def test_jws_ed448(self):
+        payload = b'My Integrity protected message'
+        if 'Ed448' not in jwk.ImplementedOkpCurves:
+            self.skipTest('Ed448 not supported')
+        key = jwk.JWK.generate(kty='OKP', crv='Ed448')
+        protected_header = {"alg": "Ed448"}
+        jws_token = jws.JWS(payload)
+        jws_token.add_signature(key, None,
+                                json_encode(protected_header), None)
+        serialized_jws = jws_token.serialize(compact=True)
+        jws_obj = jws.JWS()
+        jws_obj.deserialize(serialized_jws, key)
+        self.assertTrue(jws_obj.is_valid)
+        self.assertEqual(jws_obj.payload, payload)

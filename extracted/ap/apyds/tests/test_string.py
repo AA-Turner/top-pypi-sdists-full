@@ -32,7 +32,7 @@ def test_create_from_same(s: apyds.String) -> None:
     assert str(string) == "string"
 
     with pytest.raises(ValueError):
-        string = apyds.String(s, 100)
+        apyds.String(s, 100)
 
 
 def test_create_from_base(s: apyds.String) -> None:
@@ -52,9 +52,9 @@ def test_create_from_bytes(s: apyds.String) -> None:
     assert str(string) == "string"
 
     with pytest.raises(ValueError):
-        string = apyds.String(s.data(), 100)
+        apyds.String(s.data(), 100)
 
 
 def test_create_fail() -> None:
     with pytest.raises(TypeError):
-        string = apyds.String(100)
+        apyds.String(100)  # type: ignore[arg-type]

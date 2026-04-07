@@ -10,6 +10,7 @@ from slack_bolt.context.get_thread_context.get_thread_context import GetThreadCo
 from slack_bolt.context.respond import Respond
 from slack_bolt.context.save_thread_context import SaveThreadContext
 from slack_bolt.context.say import Say
+from slack_bolt.context.say_stream import SayStream
 from slack_bolt.context.set_status import SetStatus
 from slack_bolt.context.set_suggested_prompts import SetSuggestedPrompts
 from slack_bolt.context.set_title import SetTitle
@@ -102,6 +103,8 @@ class Args:
     """`get_thread_context()` utility function for AI Agents & Assistants"""
     save_thread_context: Optional[SaveThreadContext]
     """`save_thread_context()` utility function for AI Agents & Assistants"""
+    say_stream: Optional[SayStream]
+    """`say_stream()` utility function for conversations, AI Agents & Assistants"""
     # middleware
     next: Callable[[], None]
     """`next()` utility function, which tells the middleware chain that it can continue with the next one"""
@@ -135,6 +138,7 @@ class Args:
         set_suggested_prompts: Optional[SetSuggestedPrompts] = None,
         get_thread_context: Optional[GetThreadContext] = None,
         save_thread_context: Optional[SaveThreadContext] = None,
+        say_stream: Optional[SayStream] = None,
         # As this method is not supposed to be invoked by bolt-python users,
         # the naming conflict with the built-in one affects
         # only the internals of this method
@@ -168,6 +172,7 @@ class Args:
         self.set_suggested_prompts = set_suggested_prompts
         self.get_thread_context = get_thread_context
         self.save_thread_context = save_thread_context
+        self.say_stream = say_stream
 
         self.next: Callable[[], None] = next
         self.next_: Callable[[], None] = next

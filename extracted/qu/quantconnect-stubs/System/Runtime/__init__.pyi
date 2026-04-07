@@ -10,6 +10,22 @@ import System.Runtime.ConstrainedExecution
 import System.Threading
 
 
+class JitInfo(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def get_compilation_time(current_thread: bool = False) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    def get_compiled_il_bytes(current_thread: bool = False) -> int:
+        ...
+
+    @staticmethod
+    def get_compiled_method_count(current_thread: bool = False) -> int:
+        ...
+
+
 class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable):
     """This class has no documentation."""
 
@@ -17,6 +33,22 @@ class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObjec
         ...
 
     def dispose(self) -> None:
+        ...
+
+
+class AmbiguousImplementationException(System.Exception):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
 
@@ -52,18 +84,6 @@ class GCSettings(System.Object):
     IS_SERVER_GC: bool
 
 
-class ProfileOptimization(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def set_profile_root(directory_path: str) -> None:
-        ...
-
-    @staticmethod
-    def start_profile(profile: str) -> None:
-        ...
-
-
 class AssemblyTargetedPatchBandAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -86,35 +106,15 @@ class TargetedPatchingOptOutAttribute(System.Attribute):
         ...
 
 
-class JitInfo(System.Object):
+class ProfileOptimization(System.Object):
     """This class has no documentation."""
 
     @staticmethod
-    def get_compilation_time(current_thread: bool = False) -> datetime.timedelta:
+    def set_profile_root(directory_path: str) -> None:
         ...
 
     @staticmethod
-    def get_compiled_il_bytes(current_thread: bool = False) -> int:
-        ...
-
-    @staticmethod
-    def get_compiled_method_count(current_thread: bool = False) -> int:
-        ...
-
-
-class AmbiguousImplementationException(System.Exception):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+    def start_profile(profile: str) -> None:
         ...
 
 

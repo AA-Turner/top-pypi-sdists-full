@@ -1862,6 +1862,75 @@ def openai_complete(
     )
 
 
+def fetch_file(
+    uri: Underscore | str,
+):
+    """
+    Downloads a file from object storage (gs://, s3://, abfs://) and returns the raw bytes.
+    Returns null on error.
+
+    This is a blocking expression that fetches files during feature computation.
+
+    Parameters
+    ----------
+    uri
+        The object storage URI to download from (e.g., "gs://bucket/path", "s3://bucket/key").
+
+    Returns
+    -------
+    The raw bytes of the downloaded file, or null on error.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Document:
+    ...    id: str
+    ...    uri: str
+    ...    content: bytes = F.fetch_file(_.uri)
+    """
+    return UnderscoreFunction("fetch_file", uri)
+
+
+def fetch_file_raw(
+    uri: Underscore | str,
+):
+    """
+    Downloads a file from object storage (gs://, s3://, abfs://) and returns a struct
+    with data, success, error, and metadata.
+
+    This is a blocking expression that fetches files during feature computation.
+
+    Parameters
+    ----------
+    uri
+        The object storage URI to download from (e.g., "gs://bucket/path", "s3://bucket/key").
+
+    Returns
+    -------
+    A struct containing:
+        - data: The raw bytes of the downloaded file
+        - success: Whether the download succeeded
+        - error: Error message if the download failed
+        - content_length: The size of the downloaded file in bytes
+        - content_type: The MIME type of the downloaded file
+        - uri: The URI that was downloaded
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Document:
+    ...    id: str
+    ...    uri: str
+    ...    content: bytes = F.fetch_file_raw(_.uri).data
+    ...    download_success: bool = F.fetch_file_raw(_.uri).success
+    """
+    return UnderscoreFunction("fetch_file_raw", uri)
+
+
 def json_value(expr: Underscore, path: Union[str, Underscore]):
     """
     Extract structured data from a JSON string feature using a JSONPath expression.
@@ -6255,6 +6324,8 @@ __all__ = (
     "element_at",
     "ends_with",
     "exp",
+    "fetch_file",
+    "fetch_file_raw",
     "flatten",
     "floor",
     "format_datetime",

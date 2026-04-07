@@ -1273,6 +1273,7 @@ class UserData(_message.Message):
         AGE_ASSURANCE_METHOD_EMAIL_DOMAIN: UserData._AgeAssuranceMethod.ValueType  # 6
         AGE_ASSURANCE_METHOD_OS_SIGNAL: UserData._AgeAssuranceMethod.ValueType  # 7
         AGE_ASSURANCE_METHOD_ML_AGE_INFERENCE: UserData._AgeAssuranceMethod.ValueType  # 8
+        AGE_ASSURANCE_METHOD_GOOGLE_WALLET: UserData._AgeAssuranceMethod.ValueType  # 9
 
     class AgeAssuranceMethod(_AgeAssuranceMethod, metaclass=_AgeAssuranceMethodEnumTypeWrapper): ...
     AGE_ASSURANCE_METHOD_UNSPECIFIED: UserData.AgeAssuranceMethod.ValueType  # 0
@@ -1284,6 +1285,7 @@ class UserData(_message.Message):
     AGE_ASSURANCE_METHOD_EMAIL_DOMAIN: UserData.AgeAssuranceMethod.ValueType  # 6
     AGE_ASSURANCE_METHOD_OS_SIGNAL: UserData.AgeAssuranceMethod.ValueType  # 7
     AGE_ASSURANCE_METHOD_ML_AGE_INFERENCE: UserData.AgeAssuranceMethod.ValueType  # 8
+    AGE_ASSURANCE_METHOD_GOOGLE_WALLET: UserData.AgeAssuranceMethod.ValueType  # 9
 
     class _AgeAssuranceVendor:
         ValueType = _typing.NewType("ValueType", _builtins.int)
@@ -1812,8 +1814,10 @@ class UserData(_message.Message):
         START_TIME_FIELD_NUMBER: _builtins.int
         END_TIME_FIELD_NUMBER: _builtins.int
         DAYS_FIELD_NUMBER: _builtins.int
+        ENABLED_FIELD_NUMBER: _builtins.int
         rule_id: _builtins.str
         label: _builtins.str
+        enabled: _builtins.bool
         @_builtins.property
         def start_time(self) -> Global___UserData.TimeOfDay: ...
         @_builtins.property
@@ -1828,10 +1832,11 @@ class UserData(_message.Message):
             start_time: Global___UserData.TimeOfDay | None = ...,
             end_time: Global___UserData.TimeOfDay | None = ...,
             days: _abc.Iterable[Global___UserData.DayOfWeek.ValueType] | None = ...,
+            enabled: _builtins.bool = ...,
         ) -> None: ...
         _HasFieldArgType: _TypeAlias = _typing.Literal["_end_time", b"_end_time", "_start_time", b"_start_time", "end_time", b"end_time", "start_time", b"start_time"]  # noqa: Y015
         def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["_end_time", b"_end_time", "_start_time", b"_start_time", "days", b"days", "end_time", b"end_time", "label", b"label", "rule_id", b"rule_id", "start_time", b"start_time"]  # noqa: Y015
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["_end_time", b"_end_time", "_start_time", b"_start_time", "days", b"days", "enabled", b"enabled", "end_time", b"end_time", "label", b"label", "rule_id", b"rule_id", "start_time", b"start_time"]  # noqa: Y015
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
         _WhichOneofReturnType__end_time: _TypeAlias = _typing.Literal["end_time"]  # noqa: Y015
         _WhichOneofArgType__end_time: _TypeAlias = _typing.Literal["_end_time", b"_end_time"]  # noqa: Y015

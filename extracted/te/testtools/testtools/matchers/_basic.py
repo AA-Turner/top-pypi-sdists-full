@@ -5,10 +5,12 @@ __all__ = [
     "EndsWith",
     "Equals",
     "GreaterThan",
+    "GreaterThanOrEqual",
     "HasLength",
     "Is",
     "IsInstance",
     "LessThan",
+    "LessThanOrEqual",
     "MatchesRegex",
     "Nearly",
     "NotEquals",
@@ -18,7 +20,7 @@ __all__ = [
 
 import operator
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sized
 from pprint import pformat
 from typing import Any, Generic, TypeVar
 
@@ -48,25 +50,6 @@ def _format(thing: object) -> str:
         return result
     pformat_result: str = pformat(thing)
     return pformat_result
-
-
-class _BinaryComparison(Matcher[T]):
-    """Matcher that compares an object to another object."""
-
-    mismatch_string: str
-    # comparator is defined by subclasses - using Any to allow different signatures
-    comparator: Callable[..., Any]
-
-    def __init__(self, expected: T) -> None:
-        self.expected = expected
-
-    def __str__(self) -> str:
-        return f"{self.__class__.__name__}({self.expected!r})"
-
-    def match(self, other: T) -> Mismatch | None:
-        if self.comparator(other, self.expected):
-            return None
-        return _BinaryMismatch(other, self.mismatch_string, self.expected)
 
 
 class _BinaryMismatch(Mismatch, Generic[T]):
@@ -135,6 +118,28 @@ class _BinaryMismatch(Mismatch, Generic[T]):
         return "\n".join(lines)
 
 
+StringMismatch = _BinaryMismatch[str]
+
+
+class _BinaryComparison(Matcher[T]):
+    """Matcher that compares an object to another object."""
+
+    mismatch_string: str
+    # comparator is defined by subclasses - using Any to allow different signatures
+    comparator: Callable[..., Any]
+
+    def __init__(self, expected: T) -> None:
+        self.expected = expected
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}({self.expected!r})"
+
+    def match(self, other: T) -> _BinaryMismatch[T] | None:
+        if self.comparator(other, self.expected):
+            return None
+        return _BinaryMismatch(other, self.mismatch_string, self.expected)
+
+
 class Equals(_BinaryComparison[T]):
     """Matches if the items are equal."""
 
@@ -158,7 +163,7 @@ class _FlippedEquals(Matcher[T]):
     def __str__(self) -> str:
         return f"_FlippedEquals({self._expected!r})"
 
-    def match(self, other: T) -> Mismatch | None:
+    def match(self, other: T) -> _BinaryMismatch[T] | None:
         mismatch = Equals(self._expected).match(other)
         if not mismatch:
             return None
@@ -195,6 +200,20 @@ class GreaterThan(_BinaryComparison[T]):
 
     comparator = operator.gt
     mismatch_string = "<="
+
+
+class LessThanOrEqual(_BinaryComparison[T]):
+    """Matches if the item is less than or equal to the matchers reference object."""
+
+    comparator = operator.le
+    mismatch_string = ">"
+
+
+class GreaterThanOrEqual(_BinaryComparison[T]):
+    """Matches if the item is greater than or equal to the matchers reference object."""
+
+    comparator = operator.ge
+    mismatch_string = "<"
 
 
 class _NotNearlyEqual(Mismatch, Generic[T]):
@@ -245,7 +264,7 @@ class Nearly(Matcher[T]):
     def __str__(self) -> str:
         return f"Nearly({self.expected!r}, delta={self.delta!r})"
 
-    def match(self, actual: T) -> Mismatch | None:
+    def match(self, actual: T) -> _NotNearlyEqual[T] | None:
         try:
             diff = abs(actual - self.expected)  # type: ignore[operator]
             if diff <= self.delta:
@@ -270,7 +289,7 @@ class SameMembers(Matcher[list[T]]):
     def __str__(self) -> str:
         return f"{self.__class__.__name__}({self.expected!r})"
 
-    def match(self, observed: list[T]) -> Mismatch | None:
+    def match(self, observed: list[T]) -> PostfixedMismatch | None:
         expected_only = list_subtract(self.expected, observed)
         observed_only = list_subtract(observed, self.expected)
         if expected_only == observed_only == []:
@@ -313,7 +332,7 @@ class StartsWith(Matcher[str | bytes]):
     def __str__(self) -> str:
         return f"StartsWith({self.expected!r})"
 
-    def match(self, matchee: str | bytes) -> Mismatch | None:
+    def match(self, matchee: str | bytes) -> DoesNotStartWith | None:
         if not matchee.startswith(self.expected):  # type: ignore[arg-type]
             return DoesNotStartWith(matchee, self.expected)
         return None
@@ -348,27 +367,10 @@ class EndsWith(Matcher[str | bytes]):
     def __str__(self) -> str:
         return f"EndsWith({self.expected!r})"
 
-    def match(self, matchee: str | bytes) -> Mismatch | None:
+    def match(self, matchee: str | bytes) -> DoesNotEndWith | None:
         if not matchee.endswith(self.expected):  # type: ignore[arg-type]
             return DoesNotEndWith(matchee, self.expected)
         return None
-
-
-class IsInstance(Matcher[T]):
-    """Matcher that wraps isinstance."""
-
-    def __init__(self, *types: type[T]) -> None:
-        self.types = tuple(types)
-
-    def __str__(self) -> str:
-        return "{}({})".format(
-            self.__class__.__name__, ", ".join(type.__name__ for type in self.types)
-        )
-
-    def match(self, other: T) -> Mismatch | None:
-        if isinstance(other, self.types):
-            return None
-        return NotAnInstance(other, self.types)
 
 
 class NotAnInstance(Mismatch, Generic[T]):
@@ -389,6 +391,23 @@ class NotAnInstance(Mismatch, Generic[T]):
                 ", ".join(type.__name__ for type in self.types)
             )
         return f"'{self.matchee}' is not an instance of {typestr}"
+
+
+class IsInstance(Matcher[T]):
+    """Matcher that wraps isinstance."""
+
+    def __init__(self, *types: type[T]) -> None:
+        self.types = tuple(types)
+
+    def __str__(self) -> str:
+        return "{}({})".format(
+            self.__class__.__name__, ", ".join(type.__name__ for type in self.types)
+        )
+
+    def match(self, other: T) -> NotAnInstance[T] | None:
+        if isinstance(other, self.types):
+            return None
+        return NotAnInstance(other, self.types)
 
 
 class DoesNotContain(Mismatch, Generic[T, U]):
@@ -418,7 +437,7 @@ class Contains(Matcher[T], Generic[T, U]):
     def __str__(self) -> str:
         return f"Contains({self.needle!r})"
 
-    def match(self, matchee: T) -> Mismatch | None:
+    def match(self, matchee: T) -> DoesNotContain[T, U] | None:
         try:
             if self.needle not in matchee:  # type: ignore[operator]
                 return DoesNotContain(matchee, self.needle)
@@ -459,7 +478,7 @@ class MatchesRegex(Matcher[str]):
         return None
 
 
-def has_len(x: Any, y: int) -> bool:
+def has_len(x: Sized, y: int) -> bool:
     return len(x) == y
 
 

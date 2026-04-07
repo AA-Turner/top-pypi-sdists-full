@@ -45,13 +45,13 @@ test("execute_long", () => {
     const target2 = new Rule("r");
     let success1 = false;
     let success2 = false;
-    count1 = search.execute((rule) => {
+    const count1 = search.execute((rule) => {
         if (rule.key() === target1.key()) {
             success1 = true;
         }
         return false;
     });
-    count2 = search.execute((rule) => {
+    const count2 = search.execute((rule) => {
         if (rule.key() === target2.key()) {
             success2 = true;
         }

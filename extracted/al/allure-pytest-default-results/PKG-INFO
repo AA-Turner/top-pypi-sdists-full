@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: allure-pytest-default-results
-Version: 0.1.3
+Version: 0.1.4
 Summary: Generate default "unknown" results to show in Allure Report if test case does not run
 Author: Carl Csaposs
 Author-email: carl.csaposs@canonical.com

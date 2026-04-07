@@ -32,36 +32,6 @@ class TypeDescriptionProviderService(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class IComponentInitializer(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def initialize_existing_component(self, default_values: System.Collections.IDictionary) -> None:
-        ...
-
-    def initialize_new_component(self, default_values: System.Collections.IDictionary) -> None:
-        ...
-
-
-class StandardToolWindows(System.Object):
-    """This class has no documentation."""
-
-    OBJECT_BROWSER: System.Guid = ...
-
-    OUTPUT_WINDOW: System.Guid = ...
-
-    PROJECT_EXPLORER: System.Guid = ...
-
-    PROPERTY_BROWSER: System.Guid = ...
-
-    RELATED_LINKS: System.Guid = ...
-
-    SERVER_EXPLORER: System.Guid = ...
-
-    TASK_LIST: System.Guid = ...
-
-    TOOLBOX: System.Guid = ...
-
-
 class IServiceContainer(IServiceProvider, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -465,159 +435,25 @@ class IDesignerHost(System.ComponentModel.Design.IServiceContainer, metaclass=ab
         ...
 
 
-class IMenuCommandService(metaclass=abc.ABCMeta):
+class DesignerCollection(System.Object, System.Collections.ICollection):
     """This class has no documentation."""
 
     @property
-    @abc.abstractmethod
-    def verbs(self) -> System.ComponentModel.Design.DesignerVerbCollection:
+    def count(self) -> int:
         ...
 
-    def add_command(self, command: System.ComponentModel.Design.MenuCommand) -> None:
-        ...
-
-    def add_verb(self, verb: System.ComponentModel.Design.DesignerVerb) -> None:
-        ...
-
-    def find_command(self, command_id: System.ComponentModel.Design.CommandID) -> System.ComponentModel.Design.MenuCommand:
-        ...
-
-    def global_invoke(self, command_id: System.ComponentModel.Design.CommandID) -> bool:
-        ...
-
-    def remove_command(self, command: System.ComponentModel.Design.MenuCommand) -> None:
-        ...
-
-    def remove_verb(self, verb: System.ComponentModel.Design.DesignerVerb) -> None:
-        ...
-
-    def show_context_menu(self, menu_id: System.ComponentModel.Design.CommandID, x: int, y: int) -> None:
-        ...
-
-
-class ITypeDiscoveryService(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_types(self, base_type: typing.Type, exclude_global_types: bool) -> System.Collections.ICollection:
-        ...
-
-
-class IDesignerOptionService(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_option_value(self, page_name: str, value_name: str) -> System.Object:
-        ...
-
-    def set_option_value(self, page_name: str, value_name: str, value: typing.Any) -> None:
-        ...
-
-
-class DesignerOptionService(System.Object, System.ComponentModel.Design.IDesignerOptionService, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    class DesignerOptionCollection(System.Object, System.Collections.IList):
-        """This class has no documentation."""
-
-        @property
-        def count(self) -> int:
-            ...
-
-        @property
-        def name(self) -> str:
-            ...
-
-        @property
-        def parent(self) -> System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection:
-            ...
-
-        @property
-        def properties(self) -> System.ComponentModel.PropertyDescriptorCollection:
-            ...
-
-        @overload
-        def __getitem__(self, index: int) -> System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection:
-            ...
-
-        @overload
-        def __getitem__(self, name: str) -> System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection:
-            ...
-
-        def copy_to(self, array: System.Array, index: int) -> None:
-            ...
-
-        def get_enumerator(self) -> System.Collections.IEnumerator:
-            ...
-
-        def index_of(self, value: System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection) -> int:
-            ...
-
-        def show_dialog(self) -> bool:
-            ...
-
-    @property
-    def options(self) -> System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection:
-        ...
-
-    def create_option_collection(self, parent: System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection, name: str, value: typing.Any) -> System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection:
-        ...
-
-    def populate_option_collection(self, options: System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection) -> None:
-        ...
-
-    def show_dialog(self, options: System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection, option_object: typing.Any) -> bool:
-        ...
-
-
-class IDesignerFilter(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def post_filter_attributes(self, attributes: System.Collections.IDictionary) -> None:
-        ...
-
-    def post_filter_events(self, events: System.Collections.IDictionary) -> None:
-        ...
-
-    def post_filter_properties(self, properties: System.Collections.IDictionary) -> None:
-        ...
-
-    def pre_filter_attributes(self, attributes: System.Collections.IDictionary) -> None:
-        ...
-
-    def pre_filter_events(self, events: System.Collections.IDictionary) -> None:
-        ...
-
-    def pre_filter_properties(self, properties: System.Collections.IDictionary) -> None:
-        ...
-
-
-class HelpKeywordAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    DEFAULT: System.ComponentModel.Design.HelpKeywordAttribute = ...
-
-    @property
-    def help_keyword(self) -> str:
+    def __getitem__(self, index: int) -> System.ComponentModel.Design.IDesignerHost:
         ...
 
     @overload
-    def __init__(self) -> None:
+    def __init__(self, designers: typing.List[System.ComponentModel.Design.IDesignerHost]) -> None:
         ...
 
     @overload
-    def __init__(self, keyword: str) -> None:
+    def __init__(self, designers: System.Collections.IList) -> None:
         ...
 
-    @overload
-    def __init__(self, t: typing.Type) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def is_default_attribute(self) -> bool:
+    def get_enumerator(self) -> System.Collections.IEnumerator:
         ...
 
 
@@ -636,38 +472,64 @@ class ActiveDesignerEventArgs(System.EventArgs):
         ...
 
 
-class ViewTechnology(IntEnum):
+class DesignerEventArgs(System.EventArgs):
     """This class has no documentation."""
 
-    PASSTHROUGH = 0
+    @property
+    def designer(self) -> System.ComponentModel.Design.IDesignerHost:
+        ...
 
-    WINDOWS_FORMS = 1
+    def __init__(self, host: System.ComponentModel.Design.IDesignerHost) -> None:
+        ...
 
-    DEFAULT = 2
 
-
-class IRootDesigner(System.ComponentModel.Design.IDesigner, metaclass=abc.ABCMeta):
+class IDesignerEventService(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
     @abc.abstractmethod
-    def supported_technologies(self) -> typing.List[System.ComponentModel.Design.ViewTechnology]:
+    def active_designer(self) -> System.ComponentModel.Design.IDesignerHost:
         ...
 
-    def get_view(self, technology: System.ComponentModel.Design.ViewTechnology) -> System.Object:
+    @property
+    @abc.abstractmethod
+    def designers(self) -> System.ComponentModel.Design.DesignerCollection:
         ...
 
-
-class IDictionaryService(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_key(self, value: typing.Any) -> System.Object:
+    @property
+    @abc.abstractmethod
+    def active_designer_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ActiveDesignerEventArgs], typing.Any], typing.Any]:
         ...
 
-    def get_value(self, key: typing.Any) -> System.Object:
+    @active_designer_changed.setter
+    def active_designer_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ActiveDesignerEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
-    def set_value(self, key: typing.Any, value: typing.Any) -> None:
+    @property
+    @abc.abstractmethod
+    def designer_created(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], typing.Any], typing.Any]:
+        ...
+
+    @designer_created.setter
+    def designer_created(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def designer_disposed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], typing.Any], typing.Any]:
+        ...
+
+    @designer_disposed.setter
+    def designer_disposed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def selection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
+        ...
+
+    @selection_changed.setter
+    def selection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
 
@@ -680,39 +542,6 @@ class ComponentEventArgs(System.EventArgs):
 
     def __init__(self, component: System.ComponentModel.IComponent) -> None:
         ...
-
-
-class IExtenderListService(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_extender_providers(self) -> typing.List[System.ComponentModel.IExtenderProvider]:
-        ...
-
-
-class SelectionTypes(IntEnum):
-    """This class has no documentation."""
-
-    AUTO = ...
-
-    NORMAL = ...
-
-    REPLACE = ...
-
-    MOUSE_DOWN = ...
-
-    MOUSE_UP = ...
-
-    CLICK = ...
-
-    PRIMARY = ...
-
-    TOGGLE = ...
-
-    ADD = ...
-
-    REMOVE = ...
-
-    VALID = ...
 
 
 class ComponentChangedEventArgs(System.EventArgs):
@@ -845,100 +674,96 @@ class IComponentChangeService(metaclass=abc.ABCMeta):
         ...
 
 
-class IExtenderProviderService(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def add_extender_provider(self, provider: System.ComponentModel.IExtenderProvider) -> None:
-        ...
-
-    def remove_extender_provider(self, provider: System.ComponentModel.IExtenderProvider) -> None:
-        ...
-
-
-class IInheritanceService(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def add_inherited_components(self, component: System.ComponentModel.IComponent, container: System.ComponentModel.IContainer) -> None:
-        ...
-
-    def get_inheritance_attribute(self, component: System.ComponentModel.IComponent) -> System.ComponentModel.InheritanceAttribute:
-        ...
-
-
-class DesignerCollection(System.Object, System.Collections.ICollection):
+class IMenuCommandService(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
-    def count(self) -> int:
+    @abc.abstractmethod
+    def verbs(self) -> System.ComponentModel.Design.DesignerVerbCollection:
         ...
 
-    def __getitem__(self, index: int) -> System.ComponentModel.Design.IDesignerHost:
+    def add_command(self, command: System.ComponentModel.Design.MenuCommand) -> None:
+        ...
+
+    def add_verb(self, verb: System.ComponentModel.Design.DesignerVerb) -> None:
+        ...
+
+    def find_command(self, command_id: System.ComponentModel.Design.CommandID) -> System.ComponentModel.Design.MenuCommand:
+        ...
+
+    def global_invoke(self, command_id: System.ComponentModel.Design.CommandID) -> bool:
+        ...
+
+    def remove_command(self, command: System.ComponentModel.Design.MenuCommand) -> None:
+        ...
+
+    def remove_verb(self, verb: System.ComponentModel.Design.DesignerVerb) -> None:
+        ...
+
+    def show_context_menu(self, menu_id: System.ComponentModel.Design.CommandID, x: int, y: int) -> None:
+        ...
+
+
+class StandardToolWindows(System.Object):
+    """This class has no documentation."""
+
+    OBJECT_BROWSER: System.Guid = ...
+
+    OUTPUT_WINDOW: System.Guid = ...
+
+    PROJECT_EXPLORER: System.Guid = ...
+
+    PROPERTY_BROWSER: System.Guid = ...
+
+    RELATED_LINKS: System.Guid = ...
+
+    SERVER_EXPLORER: System.Guid = ...
+
+    TASK_LIST: System.Guid = ...
+
+    TOOLBOX: System.Guid = ...
+
+
+class ViewTechnology(IntEnum):
+    """This class has no documentation."""
+
+    PASSTHROUGH = 0
+
+    WINDOWS_FORMS = 1
+
+    DEFAULT = 2
+
+
+class IRootDesigner(System.ComponentModel.Design.IDesigner, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def supported_technologies(self) -> typing.List[System.ComponentModel.Design.ViewTechnology]:
+        ...
+
+    def get_view(self, technology: System.ComponentModel.Design.ViewTechnology) -> System.Object:
+        ...
+
+
+class IReferenceService(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_component(self, reference: typing.Any) -> System.ComponentModel.IComponent:
+        ...
+
+    def get_name(self, reference: typing.Any) -> str:
+        ...
+
+    def get_reference(self, name: str) -> System.Object:
         ...
 
     @overload
-    def __init__(self, designers: typing.List[System.ComponentModel.Design.IDesignerHost]) -> None:
+    def get_references(self) -> typing.List[System.Object]:
         ...
 
     @overload
-    def __init__(self, designers: System.Collections.IList) -> None:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IEnumerator:
-        ...
-
-
-class DesigntimeLicenseContext(System.ComponentModel.LicenseContext):
-    """This class has no documentation."""
-
-    @property
-    def usage_mode(self) -> System.ComponentModel.LicenseUsageMode:
-        ...
-
-    def get_saved_license_key(self, type: typing.Type, resource_assembly: System.Reflection.Assembly) -> str:
-        ...
-
-    def set_saved_license_key(self, type: typing.Type, key: str) -> None:
-        ...
-
-
-class DesigntimeLicenseContextSerializer(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def serialize(o: System.IO.Stream, crypto_key: str, context: System.ComponentModel.Design.DesigntimeLicenseContext) -> None:
-        ...
-
-
-class IResourceService(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_resource_reader(self, info: System.Globalization.CultureInfo) -> System.Resources.IResourceReader:
-        ...
-
-    def get_resource_writer(self, info: System.Globalization.CultureInfo) -> typing.Any:
-        ...
-
-
-class IDesignerHostTransactionState(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def is_closing_transaction(self) -> bool:
-        ...
-
-
-class ITreeDesigner(System.ComponentModel.Design.IDesigner, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def children(self) -> System.Collections.ICollection:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def parent(self) -> System.ComponentModel.Design.IDesigner:
+    def get_references(self, base_type: typing.Type) -> typing.List[System.Object]:
         ...
 
 
@@ -1056,91 +881,73 @@ class StandardCommands(System.Object):
     VERB_LAST: System.ComponentModel.Design.CommandID = ...
 
 
-class HelpKeywordType(IntEnum):
+class ITypeDiscoveryService(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    F_1_KEYWORD = 0
-
-    GENERAL_KEYWORD = 1
-
-    FILTER_KEYWORD = 2
+    def get_types(self, base_type: typing.Type, exclude_global_types: bool) -> System.Collections.ICollection:
+        ...
 
 
-class HelpContextType(IntEnum):
+class IDesignerHostTransactionState(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    AMBIENT = 0
-
-    WINDOW = 1
-
-    SELECTION = 2
-
-    TOOL_WINDOW_SELECTION = 3
+    @property
+    @abc.abstractmethod
+    def is_closing_transaction(self) -> bool:
+        ...
 
 
-class IHelpService(metaclass=abc.ABCMeta):
+class IExtenderProviderService(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    def add_context_attribute(self, name: str, value: str, keyword_type: System.ComponentModel.Design.HelpKeywordType) -> None:
+    def add_extender_provider(self, provider: System.ComponentModel.IExtenderProvider) -> None:
         ...
 
-    def clear_context_attributes(self) -> None:
-        ...
-
-    def create_local_context(self, context_type: System.ComponentModel.Design.HelpContextType) -> System.ComponentModel.Design.IHelpService:
-        ...
-
-    def remove_context_attribute(self, name: str, value: str) -> None:
-        ...
-
-    def remove_local_context(self, local_context: System.ComponentModel.Design.IHelpService) -> None:
-        ...
-
-    def show_help_from_keyword(self, help_keyword: str) -> None:
-        ...
-
-    def show_help_from_url(self, help_url: str) -> None:
+    def remove_extender_provider(self, provider: System.ComponentModel.IExtenderProvider) -> None:
         ...
 
 
-class IComponentDiscoveryService(metaclass=abc.ABCMeta):
+class ITypeResolutionService(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    def get_component_types(self, designer_host: System.ComponentModel.Design.IDesignerHost, base_type: typing.Type) -> System.Collections.ICollection:
-        ...
-
-
-class IReferenceService(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_component(self, reference: typing.Any) -> System.ComponentModel.IComponent:
-        ...
-
-    def get_name(self, reference: typing.Any) -> str:
-        ...
-
-    def get_reference(self, name: str) -> System.Object:
+    @overload
+    def get_assembly(self, name: System.Reflection.AssemblyName) -> System.Reflection.Assembly:
         ...
 
     @overload
-    def get_references(self) -> typing.List[System.Object]:
+    def get_assembly(self, name: System.Reflection.AssemblyName, throw_on_error: bool) -> System.Reflection.Assembly:
+        ...
+
+    def get_path_of_assembly(self, name: System.Reflection.AssemblyName) -> str:
         ...
 
     @overload
-    def get_references(self, base_type: typing.Type) -> typing.List[System.Object]:
+    def get_type(self, name: str) -> typing.Type:
+        ...
+
+    @overload
+    def get_type(self, name: str, throw_on_error: bool) -> typing.Type:
+        ...
+
+    @overload
+    def get_type(self, name: str, throw_on_error: bool, ignore_case: bool) -> typing.Type:
+        ...
+
+    def reference_assembly(self, name: System.Reflection.AssemblyName) -> None:
         ...
 
 
-class ITypeDescriptorFilterService(metaclass=abc.ABCMeta):
+class DesigntimeLicenseContext(System.ComponentModel.LicenseContext):
     """This class has no documentation."""
 
-    def filter_attributes(self, component: System.ComponentModel.IComponent, attributes: System.Collections.IDictionary) -> bool:
+    @property
+    def usage_mode(self) -> System.ComponentModel.LicenseUsageMode:
         ...
 
-    def filter_events(self, component: System.ComponentModel.IComponent, events: System.Collections.IDictionary) -> bool:
+    def get_saved_license_key(self, type: typing.Type, resource_assembly: System.Reflection.Assembly) -> str:
         ...
 
-    def filter_properties(self, component: System.ComponentModel.IComponent, properties: System.Collections.IDictionary) -> bool:
+    def set_saved_license_key(self, type: typing.Type, key: str) -> None:
         ...
 
 
@@ -1172,113 +979,6 @@ class IEventBindingService(metaclass=abc.ABCMeta):
 
     @overload
     def show_code(self, component: System.ComponentModel.IComponent, e: System.ComponentModel.EventDescriptor) -> bool:
-        ...
-
-
-class DesignerEventArgs(System.EventArgs):
-    """This class has no documentation."""
-
-    @property
-    def designer(self) -> System.ComponentModel.Design.IDesignerHost:
-        ...
-
-    def __init__(self, host: System.ComponentModel.Design.IDesignerHost) -> None:
-        ...
-
-
-class IDesignerEventService(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def active_designer(self) -> System.ComponentModel.Design.IDesignerHost:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def designers(self) -> System.ComponentModel.Design.DesignerCollection:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def active_designer_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ActiveDesignerEventArgs], typing.Any], typing.Any]:
-        ...
-
-    @active_designer_changed.setter
-    def active_designer_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ActiveDesignerEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def designer_created(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], typing.Any], typing.Any]:
-        ...
-
-    @designer_created.setter
-    def designer_created(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def designer_disposed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], typing.Any], typing.Any]:
-        ...
-
-    @designer_disposed.setter
-    def designer_disposed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def selection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
-        ...
-
-    @selection_changed.setter
-    def selection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-
-class ISelectionService(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def primary_selection(self) -> System.Object:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def selection_count(self) -> int:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def selection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
-        ...
-
-    @selection_changed.setter
-    def selection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def selection_changing(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
-        ...
-
-    @selection_changing.setter
-    def selection_changing(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    def get_component_selected(self, component: typing.Any) -> bool:
-        ...
-
-    def get_selected_components(self) -> System.Collections.ICollection:
-        ...
-
-    @overload
-    def set_selected_components(self, components: System.Collections.ICollection) -> None:
-        ...
-
-    @overload
-    def set_selected_components(self, components: System.Collections.ICollection, selection_type: System.ComponentModel.Design.SelectionTypes) -> None:
         ...
 
 
@@ -1333,6 +1033,63 @@ class ServiceContainer(System.Object, System.ComponentModel.Design.IServiceConta
         ...
 
 
+class HelpKeywordType(IntEnum):
+    """This class has no documentation."""
+
+    F_1_KEYWORD = 0
+
+    GENERAL_KEYWORD = 1
+
+    FILTER_KEYWORD = 2
+
+
+class HelpContextType(IntEnum):
+    """This class has no documentation."""
+
+    AMBIENT = 0
+
+    WINDOW = 1
+
+    SELECTION = 2
+
+    TOOL_WINDOW_SELECTION = 3
+
+
+class IHelpService(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def add_context_attribute(self, name: str, value: str, keyword_type: System.ComponentModel.Design.HelpKeywordType) -> None:
+        ...
+
+    def clear_context_attributes(self) -> None:
+        ...
+
+    def create_local_context(self, context_type: System.ComponentModel.Design.HelpContextType) -> System.ComponentModel.Design.IHelpService:
+        ...
+
+    def remove_context_attribute(self, name: str, value: str) -> None:
+        ...
+
+    def remove_local_context(self, local_context: System.ComponentModel.Design.IHelpService) -> None:
+        ...
+
+    def show_help_from_keyword(self, help_keyword: str) -> None:
+        ...
+
+    def show_help_from_url(self, help_url: str) -> None:
+        ...
+
+
+class IResourceService(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_resource_reader(self, info: System.Globalization.CultureInfo) -> System.Resources.IResourceReader:
+        ...
+
+    def get_resource_writer(self, info: System.Globalization.CultureInfo) -> typing.Any:
+        ...
+
+
 class CheckoutException(System.Runtime.InteropServices.ExternalException):
     """This class has no documentation."""
 
@@ -1359,33 +1116,276 @@ class CheckoutException(System.Runtime.InteropServices.ExternalException):
         ...
 
 
-class ITypeResolutionService(metaclass=abc.ABCMeta):
+class IInheritanceService(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @overload
-    def get_assembly(self, name: System.Reflection.AssemblyName) -> System.Reflection.Assembly:
+    def add_inherited_components(self, component: System.ComponentModel.IComponent, container: System.ComponentModel.IContainer) -> None:
+        ...
+
+    def get_inheritance_attribute(self, component: System.ComponentModel.IComponent) -> System.ComponentModel.InheritanceAttribute:
+        ...
+
+
+class HelpKeywordAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    DEFAULT: System.ComponentModel.Design.HelpKeywordAttribute = ...
+
+    @property
+    def help_keyword(self) -> str:
         ...
 
     @overload
-    def get_assembly(self, name: System.Reflection.AssemblyName, throw_on_error: bool) -> System.Reflection.Assembly:
-        ...
-
-    def get_path_of_assembly(self, name: System.Reflection.AssemblyName) -> str:
+    def __init__(self) -> None:
         ...
 
     @overload
-    def get_type(self, name: str) -> typing.Type:
+    def __init__(self, keyword: str) -> None:
         ...
 
     @overload
-    def get_type(self, name: str, throw_on_error: bool) -> typing.Type:
+    def __init__(self, t: typing.Type) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def is_default_attribute(self) -> bool:
+        ...
+
+
+class SelectionTypes(IntEnum):
+    """This class has no documentation."""
+
+    AUTO = ...
+
+    NORMAL = ...
+
+    REPLACE = ...
+
+    MOUSE_DOWN = ...
+
+    MOUSE_UP = ...
+
+    CLICK = ...
+
+    PRIMARY = ...
+
+    TOGGLE = ...
+
+    ADD = ...
+
+    REMOVE = ...
+
+    VALID = ...
+
+
+class IExtenderListService(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_extender_providers(self) -> typing.List[System.ComponentModel.IExtenderProvider]:
+        ...
+
+
+class ITypeDescriptorFilterService(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def filter_attributes(self, component: System.ComponentModel.IComponent, attributes: System.Collections.IDictionary) -> bool:
+        ...
+
+    def filter_events(self, component: System.ComponentModel.IComponent, events: System.Collections.IDictionary) -> bool:
+        ...
+
+    def filter_properties(self, component: System.ComponentModel.IComponent, properties: System.Collections.IDictionary) -> bool:
+        ...
+
+
+class IDesignerOptionService(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_option_value(self, page_name: str, value_name: str) -> System.Object:
+        ...
+
+    def set_option_value(self, page_name: str, value_name: str, value: typing.Any) -> None:
+        ...
+
+
+class ISelectionService(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def primary_selection(self) -> System.Object:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def selection_count(self) -> int:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def selection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
+        ...
+
+    @selection_changed.setter
+    def selection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def selection_changing(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
+        ...
+
+    @selection_changing.setter
+    def selection_changing(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    def get_component_selected(self, component: typing.Any) -> bool:
+        ...
+
+    def get_selected_components(self) -> System.Collections.ICollection:
         ...
 
     @overload
-    def get_type(self, name: str, throw_on_error: bool, ignore_case: bool) -> typing.Type:
+    def set_selected_components(self, components: System.Collections.ICollection) -> None:
         ...
 
-    def reference_assembly(self, name: System.Reflection.AssemblyName) -> None:
+    @overload
+    def set_selected_components(self, components: System.Collections.ICollection, selection_type: System.ComponentModel.Design.SelectionTypes) -> None:
+        ...
+
+
+class DesigntimeLicenseContextSerializer(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def serialize(o: System.IO.Stream, crypto_key: str, context: System.ComponentModel.Design.DesigntimeLicenseContext) -> None:
+        ...
+
+
+class IDictionaryService(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_key(self, value: typing.Any) -> System.Object:
+        ...
+
+    def get_value(self, key: typing.Any) -> System.Object:
+        ...
+
+    def set_value(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+
+class DesignerOptionService(System.Object, System.ComponentModel.Design.IDesignerOptionService, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class DesignerOptionCollection(System.Object, System.Collections.IList):
+        """This class has no documentation."""
+
+        @property
+        def count(self) -> int:
+            ...
+
+        @property
+        def name(self) -> str:
+            ...
+
+        @property
+        def parent(self) -> System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection:
+            ...
+
+        @property
+        def properties(self) -> System.ComponentModel.PropertyDescriptorCollection:
+            ...
+
+        @overload
+        def __getitem__(self, index: int) -> System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection:
+            ...
+
+        @overload
+        def __getitem__(self, name: str) -> System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection:
+            ...
+
+        def copy_to(self, array: System.Array, index: int) -> None:
+            ...
+
+        def get_enumerator(self) -> System.Collections.IEnumerator:
+            ...
+
+        def index_of(self, value: System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection) -> int:
+            ...
+
+        def show_dialog(self) -> bool:
+            ...
+
+    @property
+    def options(self) -> System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection:
+        ...
+
+    def create_option_collection(self, parent: System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection, name: str, value: typing.Any) -> System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection:
+        ...
+
+    def populate_option_collection(self, options: System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection) -> None:
+        ...
+
+    def show_dialog(self, options: System.ComponentModel.Design.DesignerOptionService.DesignerOptionCollection, option_object: typing.Any) -> bool:
+        ...
+
+
+class IComponentInitializer(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def initialize_existing_component(self, default_values: System.Collections.IDictionary) -> None:
+        ...
+
+    def initialize_new_component(self, default_values: System.Collections.IDictionary) -> None:
+        ...
+
+
+class IComponentDiscoveryService(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_component_types(self, designer_host: System.ComponentModel.Design.IDesignerHost, base_type: typing.Type) -> System.Collections.ICollection:
+        ...
+
+
+class IDesignerFilter(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def post_filter_attributes(self, attributes: System.Collections.IDictionary) -> None:
+        ...
+
+    def post_filter_events(self, events: System.Collections.IDictionary) -> None:
+        ...
+
+    def post_filter_properties(self, properties: System.Collections.IDictionary) -> None:
+        ...
+
+    def pre_filter_attributes(self, attributes: System.Collections.IDictionary) -> None:
+        ...
+
+    def pre_filter_events(self, events: System.Collections.IDictionary) -> None:
+        ...
+
+    def pre_filter_properties(self, properties: System.Collections.IDictionary) -> None:
+        ...
+
+
+class ITreeDesigner(System.ComponentModel.Design.IDesigner, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def children(self) -> System.Collections.ICollection:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def parent(self) -> System.ComponentModel.Design.IDesigner:
         ...
 
 

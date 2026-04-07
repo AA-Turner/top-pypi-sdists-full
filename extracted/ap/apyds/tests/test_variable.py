@@ -32,7 +32,7 @@ def test_create_from_same(v: apyds.Variable) -> None:
     assert str(variable) == "`variable"
 
     with pytest.raises(ValueError):
-        variable = apyds.Variable(v, 100)
+        apyds.Variable(v, 100)
 
 
 def test_create_from_base(v: apyds.Variable) -> None:
@@ -52,12 +52,12 @@ def test_create_from_bytes(v: apyds.Variable) -> None:
     assert str(variable) == "`variable"
 
     with pytest.raises(ValueError):
-        variable = apyds.Variable(v.data(), 100)
+        apyds.Variable(v.data(), 100)
 
 
 def test_create_fail() -> None:
     with pytest.raises(TypeError):
-        variable = apyds.Variable(100)
+        apyds.Variable(100)  # type: ignore[arg-type]
 
 
 def test_name(v: apyds.Variable) -> None:

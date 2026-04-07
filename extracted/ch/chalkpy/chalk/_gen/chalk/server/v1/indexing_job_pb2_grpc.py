@@ -36,7 +36,9 @@ class IndexingJobServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def GetIndexingJobStatus(self, request, context):
-        """GetIndexingStatus checks if the indexing job has completed successfully for a deployment"""
+        """GetIndexingStatus checks the indexing job status for a deployment.
+        Deprecated: use GetIndexingExport to read export.pb contents.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")

@@ -2,8 +2,8 @@
 
 import platform
 from pathlib import Path
-from setuptools import setup, find_packages
 
+from setuptools import find_packages, setup
 
 this_directory = Path(__file__).parent
 requirements = list(map(str.strip, (this_directory / "requirements.txt").read_text().splitlines()))
@@ -23,20 +23,18 @@ else:
                 "eth_event/main.py",
                 "--strict",
                 "--pretty",
-                "--disable-error-code=attr-defined",
-                "--disable-error-code=typeddict-unknown-key",
                 "--disable-error-code=unused-ignore",
             ],
             group_name="eth_event",
         )
 
 
-with open("README.md", "r") as fh:
+with open("README.md") as fh:
     long_description = fh.read()
 
 setup(
     name="eth-event",
-    version="1.4.6",  # do not edit directly, use bumpversion
+    version="1.4.7",  # do not edit directly, use bumpversion
     license="MIT",
     description="Ethereum event decoder and topic generator",
     long_description=long_description,
@@ -51,7 +49,7 @@ setup(
     keywords=["ethereum"],
     packages=find_packages(exclude=["tests", "tests.*"]),
     package_data={"eth_event": ["py.typed"]},
-    python_requires=">=3.9,<4",
+    python_requires=">=3.10,<4",
     install_requires=requirements,
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -59,7 +57,6 @@ setup(
         "Topic :: Software Development :: Build Tools",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",

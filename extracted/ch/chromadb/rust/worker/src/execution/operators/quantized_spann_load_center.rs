@@ -1,28 +1,31 @@
 use async_trait::async_trait;
 use chroma_error::{ChromaError, ErrorCodes};
 use chroma_segment::{
-    quantized_spann::{QuantizedSpannSegmentError, QuantizedSpannSegmentReader},
+    quantized_spann::{QuantizedSpannSegmentError, QuantizedSpannSegmentReaderShard},
     spann_provider::SpannProvider,
 };
 use chroma_system::{Operator, OperatorType};
-use chroma_types::{Collection, Segment};
+use chroma_types::{Collection, Segment, SegmentShard, SegmentShardError};
 use thiserror::Error;
 
 #[derive(Debug)]
 pub struct QuantizedSpannLoadCenterOutput {
-    pub reader: QuantizedSpannSegmentReader,
+    pub reader: QuantizedSpannSegmentReaderShard,
 }
 
 #[derive(Error, Debug)]
 pub enum QuantizedSpannLoadCenterError {
     #[error("Error loading quantized spann center: {0}")]
     LoadCenterError(#[from] QuantizedSpannSegmentError),
+    #[error(transparent)]
+    SegmentShard(#[from] SegmentShardError),
 }
 
 impl ChromaError for QuantizedSpannLoadCenterError {
     fn code(&self) -> ErrorCodes {
         match self {
             Self::LoadCenterError(e) => e.code(),
+            Self::SegmentShard(e) => e.code(),
         }
     }
 }
@@ -42,9 +45,10 @@ impl Operator<(), QuantizedSpannLoadCenterOutput> for QuantizedSpannLoadCenterOp
         &self,
         _input: &(),
     ) -> Result<QuantizedSpannLoadCenterOutput, QuantizedSpannLoadCenterError> {
+        let vector_segment_shard = SegmentShard::try_from((&self.vector_segment, 0))?;
         let reader = self
             .spann_provider
-            .read_quantized_usearch(&self.collection, &self.vector_segment)
+            .read_quantized_usearch(&self.collection, &vector_segment_shard)
             .await?;
         Ok(QuantizedSpannLoadCenterOutput { reader })
     }

@@ -133,7 +133,7 @@ def test_execute_bulk_assign_success(chronicle_client):
         assert call_args[1]["endpoint_path"] == "cases:executeBulkAssign"
         assert call_args[1]["json"] == {
             "casesIds": [123, 456],
-            "username": "user@example.com",
+            "userName": "user@example.com",
         }
         assert result == {}
 

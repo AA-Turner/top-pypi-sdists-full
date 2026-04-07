@@ -16,13 +16,16 @@
 
 import base64
 import json
+import logging
 from typing import Any
 
+from secops.chronicle.models import APIVersion
 from secops.chronicle.utils.format_utils import remove_none_values
 from secops.chronicle.utils.request_utils import (
     chronicle_paginated_request,
     chronicle_request,
 )
+from secops.exceptions import APIError, SecOpsError
 
 # Constants for size limits
 MAX_LOG_SIZE = 10 * 1024 * 1024  # 10MB per log
@@ -433,3 +436,121 @@ def run_parser(
                             print(f"Warning: Failed to parse statedump: {e}")
 
     return result
+
+
+def trigger_github_checks(
+    client: "ChronicleClient",
+    associated_pr: str,
+    log_type: str,
+    timeout: int = 60,
+) -> dict[str, Any]:
+    """Trigger GitHub checks for a parser.
+
+    Args:
+        client: ChronicleClient instance
+        associated_pr: The PR string (e.g., "owner/repo/pull/123").
+        log_type: The string name of the LogType enum.
+        timeout: Optional request timeout in seconds (default: 60).
+
+    Returns:
+        Dictionary containing the response details.
+
+    Raises:
+        SecOpsError: If input is invalid.
+        APIError: If the API request fails.
+    """
+
+    if not isinstance(log_type, str) or len(log_type.strip()) < 2:
+        raise SecOpsError("log_type must be a valid string of length >= 2")
+
+    if not isinstance(associated_pr, str) or not associated_pr.strip():
+        raise SecOpsError("associated_pr must be a non-empty string")
+
+    pr_parts = associated_pr.split("/")
+    if len(pr_parts) != 4 or pr_parts[2] != "pull" or not pr_parts[3].isdigit():
+        raise SecOpsError(
+            "associated_pr must be in the format 'owner/repo/pull/<number>'"
+        )
+    if not isinstance(timeout, int) or timeout < 0:
+        raise SecOpsError("timeout must be a non-negative integer")
+
+    try:
+        parsers = list_parsers(client, log_type=log_type)
+    except APIError as e:
+        raise APIError(
+            f"Failed to fetch parsers for log type {log_type}: {e}"
+        ) from e
+
+    if not parsers:
+        logging.info(
+            "No parsers found for log type %s. Using fallback parser ID.",
+            log_type,
+        )
+        parser_name = f"logTypes/{log_type}/parsers/-"
+    else:
+        if len(parsers) > 1:
+            logging.warning(
+                "Multiple parsers found for log type %s. Using the first one.",
+                log_type,
+            )
+        parser_name = parsers[0]["name"]
+
+    endpoint_path = f"{parser_name}:runAnalysis"
+    payload = {
+        "report_type": "GITHUB_PARSER_VALIDATION",
+        "pull_request": associated_pr,
+    }
+
+    return chronicle_request(
+        client=client,
+        method="POST",
+        api_version="v1alpha",
+        endpoint_path=endpoint_path,
+        json=payload,
+        timeout=timeout,
+    )
+
+
+def get_analysis_report(
+    client: "ChronicleClient",
+    log_type: str,
+    parser_id: str,
+    report_id: str,
+    timeout: int = 60,
+) -> dict[str, Any]:
+    """Get a parser analysis report.
+
+    Args:
+        client: ChronicleClient instance
+        log_type: Log type of the parser.
+        parser_id: The ID of the parser.
+        report_id: The ID of the analysis report.
+        timeout: Optional timeout in seconds (default: 60).
+
+    Returns:
+        Dictionary containing the analysis report.
+
+    Raises:
+        SecOpsError: If input is invalid.
+        APIError: If the API request fails.
+    """
+    if not isinstance(log_type, str) or not log_type.strip():
+        raise SecOpsError("log_type must be a non-empty string")
+    if not isinstance(parser_id, str) or not parser_id.strip():
+        raise SecOpsError("parser_id must be a non-empty string")
+    if not isinstance(report_id, str) or not report_id.strip():
+        raise SecOpsError("report_id must be a non-empty string")
+    if not isinstance(timeout, int) or timeout < 0:
+        raise SecOpsError("timeout must be a non-negative integer")
+
+    endpoint_path = (
+        f"logTypes/{log_type}/parsers/{parser_id}/analysisReports/{report_id}"
+    )
+
+    return chronicle_request(
+        client=client,
+        method="GET",
+        api_version=APIVersion.V1ALPHA,
+        endpoint_path=endpoint_path,
+        timeout=timeout,
+    )

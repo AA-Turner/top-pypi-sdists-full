@@ -31,6 +31,7 @@ from dstack._internal.server.models import (
 )
 from dstack._internal.server.services import backends as backends_services
 from dstack._internal.server.services.locking import get_locker
+from dstack._internal.server.services.pipelines import PipelineHinterProtocol
 from dstack._internal.server.services.placement import placement_group_model_to_placement_group
 from dstack._internal.server.utils import sentry_utils
 from dstack._internal.utils.common import get_current_datetime, run_async
@@ -48,6 +49,8 @@ class PlacementGroupPipeline(Pipeline[PipelineItem]):
         min_processing_interval: timedelta = timedelta(seconds=15),
         lock_timeout: timedelta = timedelta(seconds=30),
         heartbeat_trigger: timedelta = timedelta(seconds=15),
+        *,
+        pipeline_hinter: PipelineHinterProtocol,
     ) -> None:
         super().__init__(
             workers_num=workers_num,
@@ -70,7 +73,11 @@ class PlacementGroupPipeline(Pipeline[PipelineItem]):
             heartbeater=self._heartbeater,
         )
         self.__workers = [
-            PlacementGroupWorker(queue=self._queue, heartbeater=self._heartbeater)
+            PlacementGroupWorker(
+                queue=self._queue,
+                heartbeater=self._heartbeater,
+                pipeline_hinter=pipeline_hinter,
+            )
             for _ in range(self._workers_num)
         ]
 
@@ -110,7 +117,7 @@ class PlacementGroupFetcher(Fetcher[PipelineItem]):
             queue_check_delay=queue_check_delay,
         )
 
-    @sentry_utils.instrument_named_task("pipeline_tasks.PlacementGroupFetcher.fetch")
+    @sentry_utils.instrument_pipeline_task("PlacementGroupFetcher.fetch")
     async def fetch(self, limit: int) -> list[PipelineItem]:
         placement_group_lock, _ = get_locker(get_db().dialect_name).get_lockset(
             PlacementGroupModel.__tablename__
@@ -172,13 +179,15 @@ class PlacementGroupWorker(Worker[PipelineItem]):
         self,
         queue: asyncio.Queue[PipelineItem],
         heartbeater: Heartbeater[PipelineItem],
+        pipeline_hinter: PipelineHinterProtocol,
     ) -> None:
         super().__init__(
             queue=queue,
             heartbeater=heartbeater,
+            pipeline_hinter=pipeline_hinter,
         )
 
-    @sentry_utils.instrument_named_task("pipeline_tasks.PlacementGroupWorker.process")
+    @sentry_utils.instrument_pipeline_task("PlacementGroupWorker.process")
     async def process(self, item: PipelineItem):
         async with get_session_ctx() as session:
             res = await session.execute(

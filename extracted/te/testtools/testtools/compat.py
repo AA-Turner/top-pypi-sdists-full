@@ -134,21 +134,30 @@ def unicode_output_stream(stream: IO[str]) -> IO[str]:
     The wrapper only allows unicode to be written, not non-ascii bytestrings,
     which is a good thing to ensure sanity and sanitation.
     """
+    warnings.warn(
+        "This is not necessary in Python 3.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
     if sys.platform == "cli" or isinstance(stream, (io.TextIOWrapper, io.StringIO)):
         # Best to never encode before writing in IronPython, or if it is
         # already a TextIO [which in the io library has no encoding
         # attribute).
         return stream
+
     try:
         writer = codecs.getwriter(stream.encoding or "")  # type: ignore[attr-defined]
     except (AttributeError, LookupError):
         return codecs.getwriter("ascii")(stream, "replace")  # type: ignore[arg-type, return-value]
+
     if writer.__module__.rsplit(".", 1)[1].startswith("utf"):
         # The current stream has a unicode encoding so no error handler is needed
         return stream
+
     # Python 3 doesn't seem to make this easy, handle a common case
     try:
-        return stream.__class__(  # type: ignore[call-arg, return-value]
+        return stream.__class__(  # type: ignore[call-arg]
             stream.buffer,  # type: ignore[attr-defined]
             stream.encoding,  # type: ignore[attr-defined]
             "replace",
@@ -157,4 +166,5 @@ def unicode_output_stream(stream: IO[str]) -> IO[str]:
         )
     except AttributeError:
         pass
+
     return writer(stream, "replace")  # type: ignore[arg-type, return-value]

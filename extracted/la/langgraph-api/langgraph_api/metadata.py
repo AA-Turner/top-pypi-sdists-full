@@ -29,6 +29,7 @@ from langgraph_license.validation import plus_features_enabled
 logger = structlog.stdlib.get_logger(__name__)
 
 INTERVAL = 300
+# Not in public docs: set by SaaS control plane, not user-configurable
 REVISION = os.getenv("LANGSMITH_LANGGRAPH_API_REVISION")
 VARIANT = os.getenv("LANGSMITH_LANGGRAPH_API_VARIANT")
 PROJECT_ID = os.getenv("LANGSMITH_HOST_PROJECT_ID")

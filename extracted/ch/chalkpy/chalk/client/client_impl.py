@@ -15,6 +15,7 @@ import sys
 import time
 import traceback
 import uuid
+import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
@@ -183,6 +184,7 @@ from chalk.parsed.branch_state import BranchGraphSummary
 from chalk.parsed.to_proto import ToProtoConverter
 from chalk.prompts import Prompt
 from chalk.queries.query_context import ContextJsonDict, JsonValue
+from chalk.scalinggroup.spec import AutoScalingSpec, ScalingGroupResourceRequest
 from chalk.utils import notebook
 from chalk.utils.collections import FrozenOrderedSet
 from chalk.utils.df_utils import chunk_table, pa_table_to_pl_df
@@ -435,7 +437,8 @@ def _get_column_names(query_input: QueryInput) -> List[str]:
 
 
 def _offline_query_inputs_should_be_uploaded(
-    inputs: Union[QueryInput, Tuple[QueryInput, ...], List[QueryInput]], row_limit: int = 100
+    inputs: Union[QueryInput, Tuple[QueryInput, ...], List[QueryInput]],
+    row_limit: int = 100,
 ) -> bool:
     try:
         import pandas as pd
@@ -537,7 +540,8 @@ def _offline_query_inputs_to_parquet(
                 TS_COL_NAME, pa.array(single_input_times, pa.timestamp("us", "UTC"))
             )
         input_table = input_table.append_column(
-            INDEX_COL_NAME, pa.array(range(offset, offset + len(input_table)), type=pa.int64())
+            INDEX_COL_NAME,
+            pa.array(range(offset, offset + len(input_table)), type=pa.int64()),
         )
 
         offset += len(input_table)
@@ -652,7 +656,8 @@ def _convert_datetime_param(
 
 
 def _convert_datetime_or_timedelta_param(
-    param_name: Literal["lower_bound", "upper_bound"], param: datetime | timedelta | str | None
+    param_name: Literal["lower_bound", "upper_bound"],
+    param: datetime | timedelta | str | None,
 ):
     if isinstance(param, timedelta):
         return param
@@ -724,10 +729,19 @@ class _ChalkHTTPAdapter(HTTPAdapter):
     ):
         self.ssl_context = ssl_context
         super().__init__(
-            pool_connections=pool_connections, pool_maxsize=pool_maxsize, max_retries=max_retries, pool_block=pool_block
+            pool_connections=pool_connections,
+            pool_maxsize=pool_maxsize,
+            max_retries=max_retries,
+            pool_block=pool_block,
         )
 
-    def init_poolmanager(self, connections: int, maxsize: int, block: bool = DEFAULT_POOLBLOCK, **pool_kwargs: Any):
+    def init_poolmanager(
+        self,
+        connections: int,
+        maxsize: int,
+        block: bool = DEFAULT_POOLBLOCK,
+        **pool_kwargs: Any,
+    ):
         if self.ssl_context is not None:
             pool_kwargs["ssl_context"] = self.ssl_context
         return super().init_poolmanager(connections, maxsize, block, **pool_kwargs)
@@ -1029,7 +1043,10 @@ class ChalkAPIClientImpl(ChalkClient):
         if session is None:
             session = requests.Session()
             retries = Retry(connect=3, read=3)
-            session.mount("https://", _ChalkHTTPAdapter(max_retries=retries, ssl_context=ssl_context))
+            session.mount(
+                "https://",
+                _ChalkHTTPAdapter(max_retries=retries, ssl_context=ssl_context),
+            )
             session.mount("http://", HTTPAdapter(max_retries=retries))
 
         self.session = session
@@ -1254,7 +1271,8 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
 
         if response.status_code == 403 and environment_override_warning:
             raise ChalkBaseException(
-                errors=None, detail="403: Cannot override environment when `client_id` and `client_secret` are set."
+                errors=None,
+                detail="403: Cannot override environment when `client_id` and `client_secret` are set.",
             )
 
         def _standardized_raise():
@@ -1396,7 +1414,10 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
                 branch_timeout_value = None
 
             r = self.session.request(
-                method="POST", headers=status_headers, url=status_url, timeout=branch_timeout_value
+                method="POST",
+                headers=status_headers,
+                url=status_url,
+                timeout=branch_timeout_value,
             )
             # Only loop if the branch server needs to be started
             try:
@@ -1413,7 +1434,10 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
                 with tqdm(total=0, desc="Starting branch server") as pbar:
                     for _ in range(90):
                         r = self.session.request(
-                            method="POST", headers=status_headers, url=status_url, timeout=branch_timeout_value
+                            method="POST",
+                            headers=status_headers,
+                            url=status_url,
+                            timeout=branch_timeout_value,
                         )
                         try:
                             resp_json = r.json()
@@ -1450,7 +1474,12 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
             timeout_value = None
 
         return self.session.request(
-            method=method, headers=headers, url=url, json=json_body, data=data, timeout=timeout_value
+            method=method,
+            headers=headers,
+            url=url,
+            json=json_body,
+            data=data,
+            timeout=timeout_value,
         )
 
     def _get_engine_host(self, environment_override: Optional[str]) -> str | None:
@@ -1499,7 +1528,10 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
             return branch
 
     def _get_request_host(
-        self, metadata_request: bool, environment_override: Optional[str], branch: str | None | ellipsis
+        self,
+        metadata_request: bool,
+        environment_override: Optional[str],
+        branch: str | None | ellipsis,
     ) -> str:
         """
         Returns the hostname to use for any requests made by the Chalk Client, whether they are
@@ -1614,7 +1646,13 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
             except Exception:
                 pass
             # Consider filtering sensitive headers
-            sensitive_headers = {"set-cookie", "cookie", "authorization", "x-api-key", "x-auth-token"}
+            sensitive_headers = {
+                "set-cookie",
+                "cookie",
+                "authorization",
+                "x-api-key",
+                "x-auth-token",
+            }
             safe_headers = {k: v for k, v in r.headers.items() if k.lower() not in sensitive_headers}
             formatted_headers = "\n".join([f"  {k}: {v}" for k, v in safe_headers.items()])
             # If still authenticated, raise a nice exception
@@ -1833,7 +1871,9 @@ https://docs.chalk.ai/cli/apply
             pyarrow.feather.write_feather(table, dest=table_buffer, compression=table_compression)
             table_buffer.seek(0)
             request = MultiUploadFeaturesRequest(
-                features=features, table_compression=table_compression, table_bytes=table_buffer.getvalue()
+                features=features,
+                table_compression=table_compression,
+                table_bytes=table_buffer.getvalue(),
             )
             resp = self._request(
                 method="POST",
@@ -1898,6 +1938,51 @@ https://docs.chalk.ai/cli/apply
             )
 
         register_cell_magic(sql_resolver)
+
+        def chalksql(line: str, cell: str | None):
+            """Execute a SQL query against the Chalk SQL engine and display results.
+
+            Usage:
+                %%chalksql
+                SELECT * FROM my_table LIMIT 10
+            """
+            import io
+
+            import pyarrow.parquet as pq
+
+            client = ChalkAPIClientImpl.latest_client
+            if client is None:
+                raise RuntimeError("No ChalkClient has been instantiated. Create one first with ChalkClient().")
+
+            from chalk.client.client_grpc import ChalkGRPCClient
+
+            grpc_client = ChalkGRPCClient(
+                client_id=client._client_id,
+                client_secret=client._client_secret,
+                environment=client._primary_environment,
+                api_server=client._api_server,
+            )
+
+            sql = cell.strip() if cell else ""
+            if not sql:
+                raise ValueError("No SQL provided in cell body.")
+
+            response = grpc_client.run_sql(sql)
+
+            if response.errors:
+                error_msgs = [e.message for e in response.errors]
+                raise RuntimeError(f"SQL query failed: {'; '.join(error_msgs)}")
+
+            if response.parquet:
+                table = pq.read_table(io.BytesIO(response.parquet))
+                df = table.to_pandas()
+                from IPython.display import display
+
+                display(df)
+            else:
+                print(f"Query completed (query_id={response.query_id}), but no data was returned.")
+
+        register_cell_magic(chalksql)
 
     def load_features(
         self,
@@ -1970,7 +2055,12 @@ https://docs.chalk.ai/cli/apply
         for k, v in feature_sets.items():
             seen = set()
             table = Table(title=k, title_justify="left", width=max_name_len + max_type_len + 10)
-            table.add_column("Feature", justify="left", style=Style(color=UNDERLYING_CYAN), no_wrap=True)
+            table.add_column(
+                "Feature",
+                justify="left",
+                style=Style(color=UNDERLYING_CYAN),
+                no_wrap=True,
+            )
             table.add_column("Type", style=Style(color=SHADOWY_LAVENDER))
             if has_descriptions:
                 table.add_column("Description", style=Style(color=SHADOWY_LAVENDER), overflow="fold")
@@ -2112,7 +2202,10 @@ https://docs.chalk.ai/cli/apply
                 connect_timeout=connect_timeout,
             )
             return OnlineQueryResponseImpl(
-                data=resp.data, errors=resp.errors or [], warnings=all_warnings, meta=resp.meta
+                data=resp.data,
+                errors=resp.errors or [],
+                warnings=all_warnings,
+                meta=resp.meta,
             )
 
     def multi_query(
@@ -2186,7 +2279,10 @@ https://docs.chalk.ai/cli/apply
             all_responses = OnlineQueryResponseFeather.deserialize(resp.content)
 
             bulk_results = []
-            for query_name, serialized_single_result in all_responses.query_results_bytes.items():
+            for (
+                query_name,
+                serialized_single_result,
+            ) in all_responses.query_results_bytes.items():
                 single_feather_result = OnlineQueryResultFeather.deserialize(serialized_single_result)
                 scalars_df = None
                 groups_dfs = None
@@ -2202,19 +2298,26 @@ https://docs.chalk.ai/cli/apply
                     scalars_df = scalars_pl
 
                     groups_dfs = {}
-                    for feature_name, feature_results_bytes in single_feather_result.groups_data.items():
+                    for (
+                        feature_name,
+                        feature_results_bytes,
+                    ) in single_feather_result.groups_data.items():
                         feature_pa = pyarrow.feather.read_table(BytesIO(feature_results_bytes))
                         feature_pl = pa_table_to_pl_df(feature_pa)
                         groups_dfs[feature_name] = feature_pl
 
                 bulk_result = BulkOnlineQueryResult(
-                    scalars_df=scalars_df, groups_dfs=groups_dfs, errors=errors, meta=query_meta
+                    scalars_df=scalars_df,
+                    groups_dfs=groups_dfs,
+                    errors=errors,
+                    meta=query_meta,
                 )
                 bulk_results.append(bulk_result)
             return BulkOnlineQueryResponse(results=bulk_results)
         else:
             raise ChalkBaseException(
-                errors=None, detail="Unexpected response from server -- failed to receive Feather encoded data."
+                errors=None,
+                detail="Unexpected response from server -- failed to receive Feather encoded data.",
             )
 
     def query_bulk(
@@ -2328,7 +2431,10 @@ https://docs.chalk.ai/cli/apply
         all_responses = OnlineQueryResponseFeather.deserialize(resp.content)
 
         bulk_results = []
-        for query_name, serialized_single_result in all_responses.query_results_bytes.items():
+        for (
+            query_name,
+            serialized_single_result,
+        ) in all_responses.query_results_bytes.items():
             single_feather_result = OnlineQueryResultFeather.deserialize(serialized_single_result)
             scalars_df = None
             groups_dfs = None
@@ -2345,20 +2451,33 @@ https://docs.chalk.ai/cli/apply
                 scalars_df = scalars_pl
 
                 groups_dfs = {}
-                for feature_name, feature_results_bytes in single_feather_result.groups_data.items():
+                for (
+                    feature_name,
+                    feature_results_bytes,
+                ) in single_feather_result.groups_data.items():
                     feature_pa = pyarrow.feather.read_table(BytesIO(feature_results_bytes))
                     feature_pl = pa_table_to_pl_df(feature_pa)
                     groups_dfs[feature_name] = feature_pl
 
             bulk_result = BulkOnlineQueryResult(
-                scalars_df=scalars_df, groups_dfs=groups_dfs, errors=errors, meta=query_meta
+                scalars_df=scalars_df,
+                groups_dfs=groups_dfs,
+                errors=errors,
+                meta=query_meta,
             )
             bulk_results.append(bulk_result)
         return BulkOnlineQueryResponse(results=bulk_results)
 
     def offline_query(
         self,
-        input: Union[QueryInput, OfflineQueryInputUri, Tuple[QueryInput, ...], List[QueryInput], str, None] = None,
+        input: Union[
+            QueryInput,
+            OfflineQueryInputUri,
+            Tuple[QueryInput, ...],
+            List[QueryInput],
+            str,
+            None,
+        ] = None,
         input_times: Union[Sequence[datetime], datetime, Sequence[Sequence[datetime]], None] = None,
         output: Sequence[FeatureReference] = (),
         required_output: Sequence[FeatureReference] = (),
@@ -2415,6 +2534,13 @@ https://docs.chalk.ai/cli/apply
             or num_workers is not None
             or (use_metaplanner is not None and use_metaplanner)
         )
+
+        if env_overrides is not None and not run_asynchronously:
+            warnings.warn(
+                "env_overrides is only supported for asynchronous offline queries (run_asynchronously=True) and will be ignored.",
+                UserWarning,
+                stacklevel=2,
+            )
 
         lower_bound = _convert_datetime_or_timedelta_param("lower_bound", lower_bound)
         upper_bound = _convert_datetime_or_timedelta_param("upper_bound", upper_bound)
@@ -2825,7 +2951,17 @@ https://docs.chalk.ai/cli/apply
         feature_for_lower_upper_bound: Optional[FeatureReference] = None,
         use_job_queue: bool = False,
     ) -> Dataset:
-        if sum([dataset_name is not None, dataset_id is not None, revision_id is not None, input is not None]) != 1:
+        if (
+            sum(
+                [
+                    dataset_name is not None,
+                    dataset_id is not None,
+                    revision_id is not None,
+                    input is not None,
+                ]
+            )
+            != 1
+        ):
             if input is None or dataset_name is None:
                 raise ValueError(
                     "'ChalkClient.prompt_evaluation' must be called with exactly one of 'dataset_name', 'dataset_id', 'revision_id' or 'input'"
@@ -3172,7 +3308,17 @@ https://docs.chalk.ai/cli/apply
         revision_id: str | uuid.UUID | None = None,
         job_id: str | uuid.UUID | None = None,
     ) -> Dataset:
-        if sum([dataset_name is not None, dataset_id is not None, revision_id is not None, job_id is not None]) != 1:
+        if (
+            sum(
+                [
+                    dataset_name is not None,
+                    dataset_id is not None,
+                    revision_id is not None,
+                    job_id is not None,
+                ]
+            )
+            != 1
+        ):
             raise ValueError(
                 "'ChalkClient.get_dataset' must be called with exactly one of 'dataset_name', 'dataset_id' or 'job_id'"
             )
@@ -3305,7 +3451,10 @@ https://docs.chalk.ai/cli/apply
         return initialized_dataset
 
     def set_dataset_revision_metadata(
-        self, environment: EnvironmentId, revision_id: str | uuid.UUID, metadata: Mapping[str, Any]
+        self,
+        environment: EnvironmentId,
+        revision_id: str | uuid.UUID,
+        metadata: Mapping[str, Any],
     ):
         response = self._request(
             method="POST",
@@ -3397,7 +3546,10 @@ https://docs.chalk.ai/cli/apply
             method="DELETE",
             uri="/v1/features/columns",
             json=FeatureDropRequest(
-                namespace=namespace, features=features, retain_offline=retain_offline, retain_online=retain_online
+                namespace=namespace,
+                features=features,
+                retain_offline=retain_offline,
+                retain_online=retain_online,
             ),
             response=FeatureDropResponse,
             environment_override=environment,
@@ -3445,7 +3597,8 @@ https://docs.chalk.ai/cli/apply
                 upper_bound=upper_bound and upper_bound.isoformat(),
                 timestamping_mode=timestamping_mode,
                 persistence_settings=PersistenceSettings(
-                    persist_online_storage=store_online, persist_offline_storage=store_offline
+                    persist_online_storage=store_online,
+                    persist_offline_storage=store_offline,
                 ),
                 override_target_image_tag=override_target_image_tag,
                 idempotency_key=idempotency_key,
@@ -4093,7 +4246,10 @@ https://docs.chalk.ai/cli/apply
                         old_branch_text = f" from `{old_branch}`"
                     from IPython.display import display_markdown
 
-                    display_markdown(f"Set branch for Chalk client{old_branch_text} to `{branch_name}`.", raw=True)
+                    display_markdown(
+                        f"Set branch for Chalk client{old_branch_text} to `{branch_name}`.",
+                        raw=True,
+                    )
 
             button0.on_click(on_button_clicked0)
         except Exception:
@@ -4214,7 +4370,10 @@ https://docs.chalk.ai/cli/apply
         return response
 
     def get_job_status_v4(
-        self, request: DatasetJobStatusRequest, environment: Optional[EnvironmentId], branch: Optional[BranchId]
+        self,
+        request: DatasetJobStatusRequest,
+        environment: Optional[EnvironmentId],
+        branch: Optional[BranchId],
     ) -> GetOfflineQueryJobResponse:
         from tenacity import Retrying, retry_if_exception_message, stop_after_attempt
         from tenacity.wait import wait_exponential_jitter
@@ -4302,7 +4461,10 @@ https://docs.chalk.ai/cli/apply
         )
 
     def get_anonymous_dataset(
-        self, revision_id: str, environment: Optional[EnvironmentId], branch: Optional[BranchId]
+        self,
+        revision_id: str,
+        environment: Optional[EnvironmentId],
+        branch: Optional[BranchId],
     ) -> DatasetImpl:
         try:
             response = self._get_dataset_from_job_id(
@@ -4631,7 +4793,13 @@ https://docs.chalk.ai/cli/apply
         payloads: List[StreamResolverTestMessagePayload] = []
         first_type = type(message_bodies[0])
         for i, (message, key, timestamp, headers) in enumerate(
-            zip(message_bodies, message_keys_list, timestamp_datetimes, message_headers, strict=True)
+            zip(
+                message_bodies,
+                message_keys_list,
+                timestamp_datetimes,
+                message_headers,
+                strict=True,
+            )
         ):
             if not isinstance(message, first_type):
                 raise ValueError(
@@ -5043,7 +5211,12 @@ https://docs.chalk.ai/cli/apply
                     values_for_key = [values.get(key)]
                 expected.extend(
                     [
-                        Result(fqn=key, value=v, error=feature_errors.get(key, None), cache_hit=key in cache_hits)
+                        Result(
+                            fqn=key,
+                            value=v,
+                            error=feature_errors.get(key, None),
+                            cache_hit=key in cache_hits,
+                        )
                         for v in values_for_key  # type: ignore
                         if v is not ...
                     ]
@@ -5309,7 +5482,10 @@ https://docs.chalk.ai/cli/apply
                         continue
                     fqn = k.fqn and render_fqn(k.fqn)
                     row = [
-                        Color.render("Actual", Color.G if k.fqn in safe or no_expectations else Color.R),
+                        Color.render(
+                            "Actual",
+                            Color.G if k.fqn in safe or no_expectations else Color.R,
+                        ),
                         fqn if prefix else fqn.split(".")[-1],
                         str(k.value),
                     ]
@@ -5387,7 +5563,10 @@ https://docs.chalk.ai/cli/apply
         return None
 
     def get_incremental_cursor(
-        self, *, resolver: str | Resolver | None = None, scheduled_query: str | None = None
+        self,
+        *,
+        resolver: str | Resolver | None = None,
+        scheduled_query: str | None = None,
     ) -> GetIncrementalProgressResponse:
         if scheduled_query is None and resolver is None:
             raise ValueError("Either scheduled_query or resolver must be provided")
@@ -5482,6 +5661,7 @@ https://docs.chalk.ai/cli/apply
         output_features: Optional[list[str]] = None,
         source_config: Optional[SourceConfig] = None,
         dependencies: Optional[List[str]] = None,
+        model_image: Optional[str] = None,
         environment: Optional[EnvironmentId] = None,
     ) -> RegisterModelVersionResponse:
         from chalk.client.client_grpc import ChalkGRPCClient
@@ -5509,9 +5689,68 @@ https://docs.chalk.ai/cli/apply
             output_features=output_features,
             source_config=source_config,
             dependencies=dependencies,
+            model_image=model_image,
         )
 
         return resp
+
+    def deploy_model_version_to_scaling_group(
+        self,
+        name: str,
+        model_name: str,
+        model_version: int,
+        scaling: Optional["AutoScalingSpec"] = None,
+        resources: Optional["ScalingGroupResourceRequest"] = None,
+        handler: Optional[str] = None,
+        env_vars: Optional[Dict[str, str]] = None,
+        environment: Optional[EnvironmentId] = None,
+    ) -> dict[str, Any]:
+        """Deploy a registered model version as a scaling group.
+
+        Parameters
+        ----------
+        name
+            Name for the scaling group.
+        model_name
+            Name of the registered model.
+        model_version
+            Version number of the model to deploy.
+        scaling
+            Autoscaling configuration (min/max replicas, CPU target).
+        resources
+            Resource requests (CPU, memory, GPU).
+        handler
+            Dotted path to handler function (default: "model.handler").
+        env_vars
+            Extra environment variables to inject into the container.
+        environment
+            Environment to deploy to.
+        """
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=environment or self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        _scaling = scaling or AutoScalingSpec()
+        _resources = resources or ScalingGroupResourceRequest()
+
+        return client_grpc.deploy_model_version_to_scaling_group(
+            name=name,
+            model_name=model_name,
+            model_version=model_version,
+            min_replicas=_scaling.min_replicas,
+            max_replicas=_scaling.max_replicas,
+            target_cpu_utilization_percentage=_scaling.target_cpu_utilization_percentage,
+            cpu=_resources.cpu,
+            memory=_resources.memory,
+            gpu=_resources.gpu,
+            handler=handler,
+            env_vars=env_vars,
+        )
 
     def download_model_artifact(
         self,

@@ -5,9 +5,9 @@
 # to you under the Apache License, Version 2.0 (the
 # "License"); you may not use this file except in compliance
 # with the License.  You may obtain a copy of the License at
-# 
-# http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
 # Unless required by applicable law or agreed to in writing,
 # software distributed under the License is distributed on an
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -458,9 +458,18 @@ class SetIO(_GraphSONTypeIO):
         In case Java returns numeric values of different types which
         python don't recognize, coerce and return a list.
         See comments of TINKERPOP-1844 for more details
+
+        In case the set contains non-hashable elements (e.g. dict, list),
+        coerce and return a list.
+        See TINKERPOP-3232 for more details
         """
         new_list = [reader.to_object(obj) for obj in s]
-        new_set = set(new_list)
+        try:
+            new_set = set(new_list)
+        except TypeError:
+            log.warning("Coercing g:Set to list as it contains unhashable elements (e.g. dict, list). "
+                        "See TINKERPOP-3232 for more details.")
+            return new_list
         if len(new_list) != len(new_set):
             log.warning("Coercing g:Set to list due to java numeric values. "
                         "See TINKERPOP-1844 for more details.")

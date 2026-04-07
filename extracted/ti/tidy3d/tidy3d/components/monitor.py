@@ -3,42 +3,71 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 import numpy as np
-import pydantic.v1 as pydantic
+from pydantic import (
+    Field,
+    NonNegativeFloat,
+    PositiveFloat,
+    PositiveInt,
+    field_validator,
+    model_validator,
+)
 
 from tidy3d.constants import HERTZ, MICROMETER, RADIAN, SECOND, inf
 from tidy3d.exceptions import SetupError, ValidationError
 from tidy3d.log import log
 
 from .apodization import ApodizationSpec
-from .base import Tidy3dBaseModel, cached_property, skip_if_fields_missing
+from .autograd.parallel_adjoint_bases import (
+    _build_diffraction_bases_for_freq,
+    _build_mode_bases,
+    _build_point_field_bases,
+)
+from .base import Tidy3dBaseModel, cached_property
 from .base_sim.monitor import AbstractMonitor
+from .diffraction import (
+    DIFFRACTION_POLARIZATIONS,
+    bloch_vec_at_freq,
+    compute_angles,
+    diffraction_monitor_medium,
+    diffraction_orders,
+    domain_size_2d,
+    reciprocal_coords,
+    sim_bloch_vecs,
+)
 from .medium import MediumType
 from .microwave.base import MicrowaveBaseModel
 from .mode_spec import ModeSpec
 from .types import (
-    ArrayFloat1D,
     AuxField,
-    Ax,
     Axis,
-    Bound,
     BoxSurface,
     Coordinate,
     Direction,
     EMField,
+    EMSurfaceField,
     FreqArray,
-    FreqBound,
     ObsGridArray,
-    Size,
 )
 from .validators import (
     assert_plane,
+    assert_volumetric,
+    validate_colocated_integration,
     validate_freqs_min,
     validate_freqs_not_empty,
 )
 from .viz import ARROW_ALPHA, ARROW_COLOR_MONITOR
+
+if TYPE_CHECKING:
+    from pydantic import FieldValidationInfo
+
+    from tidy3d.compat import Self
+
+    from .autograd.parallel_adjoint_bases import DiffractionAdjointBasis, ParallelAdjointBasis
+    from .simulation import Simulation
+    from .types import ArrayFloat1D, Ax, Bound, FreqBound, Size
 
 BYTES_REAL = 4
 BYTES_COMPLEX = 8
@@ -52,10 +81,88 @@ WARN_NUM_MODES = 100
 WINDOW_FACTOR = 15
 
 
-class Monitor(AbstractMonitor):
-    """Abstract base class for monitors."""
+def _diffraction_parallel_adjoint_bases(
+    monitor: PlanarMonitor,
+    simulation: Simulation,
+    monitor_index: int,
+) -> list[ParallelAdjointBasis]:
+    """Shared helper for diffraction-style parallel adjoint bases."""
+    if not isinstance(monitor, DiffractionMonitor):
+        raise ValueError("Parallel adjoint diffraction bases require a DiffractionMonitor.")
 
-    interval_space: tuple[Literal[1], Literal[1], Literal[1]] = pydantic.Field(
+    medium = diffraction_monitor_medium(simulation, monitor)
+    orders_x, orders_y = diffraction_orders(simulation, monitor, medium)
+    if orders_x.size == 0 or orders_y.size == 0:
+        return []
+
+    size_x, size_y = domain_size_2d(simulation, monitor)
+    bloch_vec_x, bloch_vec_y = sim_bloch_vecs(simulation, monitor)
+
+    bases: list[DiffractionAdjointBasis] = []
+    freqs = [float(freq) for freq in monitor.freqs]
+    for freq_index, freq in enumerate(freqs):
+        ux = reciprocal_coords(
+            orders=orders_x,
+            size=size_x,
+            bloch_vec=bloch_vec_at_freq(bloch_vec_x, freq_index),
+            f=freq,
+            medium=medium,
+        )
+        uy = reciprocal_coords(
+            orders=orders_y,
+            size=size_y,
+            bloch_vec=bloch_vec_at_freq(bloch_vec_y, freq_index),
+            f=freq,
+            medium=medium,
+        )
+        theta_vals, _ = compute_angles((ux, uy))
+        order_x_index = {int(val): idx for idx, val in enumerate(orders_x)}
+        order_y_index = {int(val): idx for idx, val in enumerate(orders_y)}
+        bases.extend(
+            _build_diffraction_bases_for_freq(
+                monitor_name=monitor.name,
+                monitor_index=monitor_index,
+                freq=freq,
+                orders_x=orders_x,
+                orders_y=orders_y,
+                pols=DIFFRACTION_POLARIZATIONS,
+                theta_for=lambda ox,
+                oy,
+                theta_vals=theta_vals,
+                order_x_index=order_x_index,
+                order_y_index=order_y_index: float(
+                    np.asarray(theta_vals[order_x_index[ox], order_y_index[oy]]).item()
+                ),
+            )
+        )
+    return bases
+
+
+class Monitor(AbstractMonitor):
+    """Abstract base class for monitors.
+
+    Notes
+    -----
+
+        **Practical Advice**
+
+        **Choosing a Monitor Type**
+
+        - ``FluxMonitor`` — total power flow through a surface.
+          Output: ``sim_data["name"].flux`` (xarray DataArray indexed by frequency).
+        - ``ModeMonitor`` — decompose fields into waveguide mode amplitudes.
+          Output: ``sim_data["name"].amps.sel(direction="+", mode_index=0)``.
+          Size should be 3-4x the waveguide width in each transverse dimension.
+        - ``FieldMonitor`` — record E/H field components in the frequency domain.
+          Output: ``sim_data["name"].Ex``, ``.Ey``, etc.
+        - ``FieldTimeMonitor`` — record E/H fields vs time. Useful for animations
+          and time-domain decay analysis (Q-factor extraction).
+        - ``DiffractionMonitor`` — grating diffraction order efficiencies.
+        - ``FieldProjectionAngleMonitor`` — far-field radiation pattern via
+          near-to-far-field transformation.
+    """
+
+    interval_space: tuple[Literal[1], Literal[1], Literal[1]] = Field(
         (1, 1, 1),
         title="Spatial Interval",
         description="Number of grid step intervals between monitor recordings. If equal to 1, "
@@ -64,7 +171,7 @@ class Monitor(AbstractMonitor):
         "Not all monitors support values different from 1.",
     )
 
-    colocate: Literal[True] = pydantic.Field(
+    colocate: Literal[True] = Field(
         True,
         title="Colocate Fields",
         description="Defines whether fields are colocated to grid cell boundaries (i.e. to the "
@@ -72,8 +179,16 @@ class Monitor(AbstractMonitor):
         "monitors depending on their specific function.",
     )
 
+    use_colocated_integration: Literal[True] = Field(
+        True,
+        title="Use Colocated Integration",
+        description="Whether to use colocated fields for flux, dot products, and overlap "
+        "integrals. Hard-coded to ``True`` for most monitor types. Can be toggled on field "
+        "and overlap monitors.",
+    )
+
     @property
-    def _to_solver_monitor(self):
+    def _to_solver_monitor(self) -> Self:
         """Monitor definition that will be used to define the field recording during the time
         stepping."""
         return self
@@ -86,19 +201,28 @@ class Monitor(AbstractMonitor):
         """Size of intermediate data recorded by the monitor during a solver run."""
         return self.storage_size(num_cells=num_cells, tmesh=tmesh)
 
+    def supports_parallel_adjoint(self) -> bool:
+        """Return ``True`` if this monitor can provide parallel adjoint bases."""
+        return False
+
+    def parallel_adjoint_bases(
+        self, simulation: Simulation, monitor_index: int
+    ) -> list[ParallelAdjointBasis]:
+        """Return parallel adjoint bases for this monitor."""
+        return []
+
 
 class FreqMonitor(Monitor, ABC):
-    """:class:`Monitor` that records data in the frequency-domain."""
+    """:class:`~tidy3d.Monitor` that records data in the frequency-domain."""
 
-    freqs: FreqArray = pydantic.Field(
-        ...,
+    freqs: FreqArray = Field(
         title="Frequencies",
         description="Array or list of frequencies stored by the field monitor.",
-        units=HERTZ,
+        json_schema_extra={"units": HERTZ},
     )
 
-    apodization: ApodizationSpec = pydantic.Field(
-        ApodizationSpec(),
+    apodization: ApodizationSpec = Field(
+        default_factory=ApodizationSpec,
         title="Apodization Specification",
         description="Sets parameters of (optional) apodization. Apodization applies a windowing "
         "function to the Fourier transform of the time-domain fields into frequency-domain ones, "
@@ -110,13 +234,16 @@ class FreqMonitor(Monitor, ABC):
     _freqs_not_empty = validate_freqs_not_empty()
     _freqs_lower_bound = validate_freqs_min()
 
-    @pydantic.validator("freqs", always=True)
-    def _warn_num_freqs(cls, val, values):
+    @field_validator("freqs")
+    @classmethod
+    def _warn_num_freqs(
+        cls: type[FreqMonitor], val: FreqArray, info: FieldValidationInfo
+    ) -> FreqArray:
         """Warn if number of frequencies is too large."""
         if len(val) > WARN_NUM_FREQS:
             log.warning(
                 f"A large number ({len(val)}) of frequencies detected in monitor "
-                f"'{values['name']}'. This can lead to solver slow-down and increased cost. "
+                f"'{info.field_name}'. This can lead to solver slow-down and increased cost. "
                 "Consider decreasing the number of frequencies in the monitor. This may become a "
                 "hard limit in future Tidy3D versions.",
                 custom_loc=["freqs"],
@@ -129,31 +256,31 @@ class FreqMonitor(Monitor, ABC):
 
         Returns
         -------
-        Tuple[float, float]
+        tuple[float, float]
             Minimum and maximum frequencies of the frequency array.
         """
         return (min(self.freqs), max(self.freqs))
 
 
 class TimeMonitor(Monitor, ABC):
-    """:class:`Monitor` that records data in the time-domain."""
+    """:class:`~tidy3d.Monitor` that records data in the time-domain."""
 
-    start: pydantic.NonNegativeFloat = pydantic.Field(
+    start: NonNegativeFloat = Field(
         0.0,
         title="Start Time",
         description="Time at which to start monitor recording.",
-        units=SECOND,
+        json_schema_extra={"units": SECOND},
     )
 
-    stop: pydantic.NonNegativeFloat = pydantic.Field(
+    stop: Optional[NonNegativeFloat] = Field(
         None,
         title="Stop Time",
         description="Time at which to stop monitor recording.  "
         "If not specified, record until end of simulation.",
-        units=SECOND,
+        json_schema_extra={"units": SECOND},
     )
 
-    interval: pydantic.PositiveInt = pydantic.Field(
+    interval: Optional[PositiveInt] = Field(
         None,
         title="Time Interval",
         description="Sampling rate of the monitor: number of time steps between each measurement. "
@@ -162,14 +289,14 @@ class TimeMonitor(Monitor, ABC):
         "This can be useful for reducing data storage as needed by the application.",
     )
 
-    @pydantic.validator("interval", always=True)
-    @skip_if_fields_missing(["start", "stop"])
-    def _warn_interval_default(cls, val, values):
+    @model_validator(mode="after")
+    def _warn_interval_default(self) -> Self:
         """If all defaults used for time sampler, warn and set ``interval=1`` internally."""
+        val = self.interval
 
         if val is None:
-            start = values.get("start")
-            stop = values.get("stop")
+            start = self.start
+            stop = self.stop
             if start == 0.0 and stop is None:
                 log.warning(
                     "The monitor 'interval' field was left as its default value, "
@@ -185,18 +312,18 @@ class TimeMonitor(Monitor, ABC):
                 )
 
             # set 'interval = 1' for backwards compatibility
-            val = 1
+            object.__setattr__(self, "interval", 1)
 
-        return val
+        return self
 
-    @pydantic.validator("stop", always=True, allow_reuse=True)
-    @skip_if_fields_missing(["start"])
-    def stop_greater_than_start(cls, val, values):
+    @model_validator(mode="after")
+    def stop_greater_than_start(self) -> Self:
         """Ensure sure stop is greater than or equal to start."""
-        start = values.get("start")
-        if val and val < start:
+        stop = self.stop
+        start = self.start
+        if stop and stop < start:
             raise SetupError("Monitor start time is greater than stop time.")
-        return val
+        return self
 
     def time_inds(self, tmesh: ArrayFloat1D) -> tuple[int, int]:
         """Compute the starting and stopping index of the monitor in a given discrete time mesh."""
@@ -235,30 +362,40 @@ class TimeMonitor(Monitor, ABC):
 
 
 class AbstractFieldMonitor(Monitor, ABC):
-    """:class:`Monitor` that records electromagnetic field data as a function of x,y,z."""
+    """:class:`~tidy3d.Monitor` that records electromagnetic field data as a function of x,y,z."""
 
-    fields: tuple[EMField, ...] = pydantic.Field(
+    fields: tuple[EMField, ...] = Field(
         ["Ex", "Ey", "Ez", "Hx", "Hy", "Hz"],
         title="Field Components",
         description="Collection of field components to store in the monitor.",
     )
 
-    interval_space: tuple[pydantic.PositiveInt, pydantic.PositiveInt, pydantic.PositiveInt] = (
-        pydantic.Field(
-            (1, 1, 1),
-            title="Spatial Interval",
-            description="Number of grid step intervals between monitor recordings. If equal to 1, "
-            "there will be no downsampling. If greater than 1, the step will be applied, but the "
-            "first and last point of the monitor grid are always included.",
-        )
+    interval_space: tuple[PositiveInt, PositiveInt, PositiveInt] = Field(
+        (1, 1, 1),
+        title="Spatial Interval",
+        description="Number of grid step intervals between monitor recordings. If equal to 1, "
+        "there will be no downsampling. If greater than 1, the step will be applied, but the "
+        "first and last point of the monitor grid are always included.",
     )
 
-    colocate: bool = pydantic.Field(
+    colocate: bool = Field(
         True,
         title="Colocate Fields",
         description="Toggle whether fields should be colocated to grid cell boundaries (i.e. "
         "primal grid nodes).",
     )
+
+    use_colocated_integration: bool = Field(
+        True,
+        title="Use Colocated Integration",
+        description="Only takes effect when ``colocate=False``. If ``True``, flux, dot "
+        "products, and overlap integrals still use fields interpolated to grid cell "
+        "boundaries (colocated), even though the field data is stored at native Yee grid "
+        "positions. Experimental feature that can give improved accuracy by avoiding "
+        "interpolation of fields to Yee cell positions for integration.",
+    )
+
+    _colocated_integration_validator = validate_colocated_integration()
 
     def _storage_size_solver(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
         """Size of intermediate data recorded by the monitor during a solver run."""
@@ -288,24 +425,22 @@ class AbstractAuxFieldMonitor(Monitor, ABC):
         free-carrier density.
     """
 
-    fields: tuple[AuxField, ...] = pydantic.Field(
+    fields: tuple[AuxField, ...] = Field(
         (),
         title="Aux Field Components",
         description="Collection of auxiliary field components to store in the monitor. "
         "Auxiliary fields which are not present in the simulation will be zero.",
     )
 
-    interval_space: tuple[pydantic.PositiveInt, pydantic.PositiveInt, pydantic.PositiveInt] = (
-        pydantic.Field(
-            (1, 1, 1),
-            title="Spatial Interval",
-            description="Number of grid step intervals between monitor recordings. If equal to 1, "
-            "there will be no downsampling. If greater than 1, the step will be applied, but the "
-            "first and last point of the monitor grid are always included.",
-        )
+    interval_space: tuple[PositiveInt, PositiveInt, PositiveInt] = Field(
+        (1, 1, 1),
+        title="Spatial Interval",
+        description="Number of grid step intervals between monitor recordings. If equal to 1, "
+        "there will be no downsampling. If greater than 1, the step will be applied, but the "
+        "first and last point of the monitor grid are always included.",
     )
 
-    colocate: bool = pydantic.Field(
+    colocate: bool = Field(
         True,
         title="Colocate Fields",
         description="Toggle whether fields should be colocated to grid cell boundaries (i.e. "
@@ -327,7 +462,7 @@ class AbstractAuxFieldMonitor(Monitor, ABC):
 
 
 class PlanarMonitor(Monitor, ABC):
-    """:class:`Monitor` that has a planar geometry."""
+    """:class:`~tidy3d.Monitor` that has a planar geometry."""
 
     _plane_validator = assert_plane()
 
@@ -337,29 +472,121 @@ class PlanarMonitor(Monitor, ABC):
         return self.size.index(0.0)
 
 
-class AbstractModeMonitor(PlanarMonitor, FreqMonitor):
-    """:class:`Monitor` that records mode-related data."""
+class AbstractOverlapMonitor(PlanarMonitor, FreqMonitor):
+    """:class:`~tidy3d.Monitor` that projects fields onto a specified basis and stores overlap amplitudes.
 
-    mode_spec: ModeSpec = pydantic.Field(
-        ModeSpec(),
+    This base is shared by ModeMonitor and Gaussian-overlap monitors.
+    """
+
+    store_fields_direction: Optional[Direction] = Field(
+        None,
+        title="Store Fields",
+        description="Propagation direction for the field profiles stored from overlap calculation.",
+    )
+
+    colocate: bool = Field(
+        True,
+        title="Colocate Fields",
+        description="Toggle whether fields should be colocated to grid cell boundaries (i.e. primal grid nodes).",
+    )
+
+    use_colocated_integration: bool = Field(
+        True,
+        title="Use Colocated Integration",
+        description="Only takes effect when ``colocate=False``. If ``True``, dot products "
+        "and overlap integrals still use fields interpolated to grid cell boundaries "
+        "(colocated), even though the field data is stored at native Yee grid positions. "
+        "Experimental feature that can give improved accuracy by avoiding interpolation of "
+        "fields to Yee cell positions for integration.",
+    )
+
+    _colocated_integration_validator = validate_colocated_integration()
+
+    conjugated_dot_product: bool = Field(
+        True,
+        title="Conjugated Dot Product",
+        description="Use conjugated or non-conjugated dot product for overlap/decomposition.",
+    )
+
+    _draw_overlap_arrows: bool = True
+    """Whether to draw arrows in AbstractOverlapMonitor.plot(). Subclasses override to False."""
+
+    def plot(
+        self,
+        x: Optional[float] = None,
+        y: Optional[float] = None,
+        z: Optional[float] = None,
+        ax: Ax = None,
+        **patch_kwargs: dict[str, Any],
+    ) -> Ax:
+        """Plot this overlap monitor with an arrow indicating propagation direction."""
+        ax = super().plot(x=x, y=y, z=z, ax=ax, **patch_kwargs)
+
+        if not self._draw_overlap_arrows:
+            return ax
+
+        kwargs_alpha = patch_kwargs.get("alpha")
+        arrow_alpha = ARROW_ALPHA if kwargs_alpha is None else kwargs_alpha
+
+        ax = self._plot_arrow(
+            x=x,
+            y=y,
+            z=z,
+            ax=ax,
+            direction=self._dir_arrow,
+            bend_radius=None,
+            bend_axis=None,
+            color=ARROW_COLOR_MONITOR,
+            alpha=arrow_alpha,
+            both_dirs=True,
+        )
+        return ax
+
+    @cached_property
+    def _dir_arrow(self) -> tuple[float, float, float]:
+        """Monitor direction normal vector in cartesian coordinates."""
+        theta, phi = self._angles
+        dx = np.cos(phi) * np.sin(theta)
+        dy = np.sin(phi) * np.sin(theta)
+        dz = np.cos(theta)
+        return self.unpop_axis(dz, (dx, dy), axis=self.normal_axis)
+
+    @property
+    def _angles(self) -> tuple[float, float]:
+        """Angle tuple (theta, phi) in radians. Children override to supply values."""
+        return (0.0, 0.0)
+
+    def _storage_size_solver(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
+        """Default size of intermediate data; store all fields on plane for overlap."""
+        num_sample = len(getattr(self, "freqs", [0]))
+        return BYTES_COMPLEX * num_cells * num_sample * 6
+
+
+class AbstractModeMonitor(AbstractOverlapMonitor):
+    """:class:`~tidy3d.Monitor` that records mode-related data."""
+
+    _draw_overlap_arrows: bool = False  # AbstractModeMonitor.plot() draws its own arrows
+
+    mode_spec: ModeSpec = Field(
+        default_factory=ModeSpec,
         title="Mode Specification",
         description="Parameters to feed to mode solver which determine modes measured by monitor.",
     )
 
-    store_fields_direction: Direction = pydantic.Field(
+    store_fields_direction: Optional[Direction] = Field(
         None,
         title="Store Fields",
         description="Propagation direction for the mode field profiles stored from mode solving.",
     )
 
-    colocate: bool = pydantic.Field(
+    colocate: bool = Field(
         True,
         title="Colocate Fields",
         description="Toggle whether fields should be colocated to grid cell boundaries (i.e. "
         "primal grid nodes).",
     )
 
-    conjugated_dot_product: bool = pydantic.Field(
+    conjugated_dot_product: bool = Field(
         True,
         title="Conjugated Dot Product",
         description="Use conjugated or non-conjugated dot product for mode decomposition.",
@@ -401,12 +628,8 @@ class AbstractModeMonitor(PlanarMonitor, FreqMonitor):
         return ax
 
     @cached_property
-    def _dir_arrow(self) -> tuple[float, float, float]:
-        """Source direction normal vector in cartesian coordinates."""
-        dx = np.cos(self.mode_spec.angle_phi) * np.sin(self.mode_spec.angle_theta)
-        dy = np.sin(self.mode_spec.angle_phi) * np.sin(self.mode_spec.angle_theta)
-        dz = np.cos(self.mode_spec.angle_theta)
-        return self.unpop_axis(dz, (dx, dy), axis=self.normal_axis)
+    def _angles(self) -> tuple[float, float]:
+        return (self.mode_spec.angle_theta, self.mode_spec.angle_phi)
 
     @cached_property
     def _bend_axis(self) -> Axis:
@@ -417,13 +640,16 @@ class AbstractModeMonitor(PlanarMonitor, FreqMonitor):
         direction = self.unpop_axis(0, in_plane, axis=self.normal_axis)
         return direction.index(1)
 
-    @pydantic.validator("mode_spec", always=True)
-    def _warn_num_modes(cls, val, values):
+    @field_validator("mode_spec")
+    @classmethod
+    def _warn_num_modes(
+        cls: type[ModeMonitor], val: ModeSpec, info: FieldValidationInfo
+    ) -> ModeSpec:
         """Warn if number of modes is too large."""
-        if val.num_modes > WARN_NUM_MODES:
+        if isinstance(val.num_modes, int) and val.num_modes > WARN_NUM_MODES:
             log.warning(
                 f"A large number ({val.num_modes}) of modes requested in monitor "
-                f"'{values['name']}'. This can lead to solver slow-down and increased cost. "
+                f"'{info.field_name}'. This can lead to solver slow-down and increased cost. "
                 "Consider decreasing the number of modes and using 'ModeSpec.target_neff' "
                 "to target the modes of interest. This may become a hard limit in future "
                 "Tidy3D versions.",
@@ -447,8 +673,138 @@ class AbstractModeMonitor(PlanarMonitor, FreqMonitor):
         return bytes_single
 
 
+class AbstractGaussianOverlapMonitor(AbstractOverlapMonitor):
+    """:class:`~tidy3d.Monitor` that records amplitudes from decomposition onto a Gaussian-like beam.
+
+    Common fields and behavior shared by GaussianOverlapMonitor and
+    AstigmaticGaussianOverlapMonitor.
+    """
+
+    angle_theta: float = Field(
+        0.0,
+        title="Polar Angle",
+        description="Polar angle of propagation direction.",
+        json_schema_extra={"units": RADIAN},
+    )
+
+    angle_phi: float = Field(
+        0.0,
+        title="Azimuth Angle",
+        description="Azimuth angle of propagation direction.",
+        json_schema_extra={"units": RADIAN},
+    )
+
+    pol_angle: float = Field(
+        0,
+        title="Polarization Angle",
+        description="Specifies the angle between the electric field polarization of the "
+        "source and the plane defined by the injection axis and the propagation axis (rad). "
+        "``pol_angle=0`` (default) specifies P polarization, "
+        "while ``pol_angle=np.pi/2`` specifies S polarization. "
+        "At normal incidence when S and P are undefined, ``pol_angle=0`` defines: "
+        "- ``Ey`` polarization for propagation along ``x``."
+        "- ``Ex`` polarization for propagation along ``y``."
+        "- ``Ex`` polarization for propagation along ``z``.",
+        json_schema_extra={"units": RADIAN},
+    )
+
+    @property
+    def _angles(self) -> tuple[float, float]:
+        return (self.angle_theta, self.angle_phi)
+
+    def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
+        """Size of monitor storage given the number of points after discretization."""
+        # store complex amplitudes for +/- directions
+        num_dirs = 2
+        return BYTES_COMPLEX * len(self.freqs) * num_dirs
+
+
+class GaussianOverlapMonitor(AbstractGaussianOverlapMonitor):
+    """:class:`~tidy3d.Monitor` that records amplitudes from decomposition onto a Gaussian beam.
+
+    Example
+    -------
+    >>> gauss = GaussianOverlapMonitor(
+    ...     size=(0, 3, 3),
+    ...     freqs=[2e14],
+    ...     pol_angle=np.pi / 2,
+    ...     waist_radius=1.0,
+    ...     name="gaussian_monitor",
+    ... )
+
+    Notes
+    --------
+        If one wants the focus 'in front' of the monitor, a negative value of ``waist_distance``
+        is needed. See also :class:`.GaussianBeam`.
+    """
+
+    waist_radius: PositiveFloat = Field(
+        1.0,
+        title="Waist Radius",
+        description="Radius of the beam at the waist.",
+        json_schema_extra={"units": MICROMETER},
+    )
+
+    waist_distance: float = Field(
+        0.0,
+        title="Waist Distance",
+        description="Distance from the beam waist along the propagation direction. "
+        "A positive value places the waist behind the monitor plane (toward the negative normal axis). "
+        "A negative value places the waist in front of the monitor plane. "
+        "For an angled beam, the distance is measured along the rotated propagation direction.",
+        json_schema_extra={"units": MICROMETER},
+    )
+
+
+class AstigmaticGaussianOverlapMonitor(AbstractGaussianOverlapMonitor):
+    """:class:`~tidy3d.Monitor` that records amplitudes from decomposition onto an astigmatic Gaussian beam.
+
+    The simple astigmatic Gaussian distribution allows
+    both an elliptical intensity profile and different waist locations for the two principal axes
+    of the ellipse. When equal waist sizes and equal waist distances are specified in the two
+    directions, this monitor becomes equivalent to :class:`GaussianOverlapMonitor`.
+
+    Notes
+    -----
+
+        This class implements the simple astigmatic Gaussian beam described in _`[1]`.
+
+        **References**:
+
+        .. [1] Kochkina et al., Applied Optics, vol. 52, issue 24, 2013.
+
+    Example
+    -------
+    >>> gauss = AstigmaticGaussianOverlapMonitor(
+    ...     size=(0,3,3),
+    ...     pol_angle=np.pi / 2,
+    ...     waist_sizes=(1.0, 2.0),
+    ...     waist_distances = (3.0, 4.0),
+    ...     freqs=[2e14],
+    ...     name="astigmatic_gaussian_monitor",
+    ... )
+    """
+
+    waist_sizes: tuple[PositiveFloat, PositiveFloat] = Field(
+        (1.0, 1.0),
+        title="Waist sizes",
+        description="Size of the beam at the waist in the local x and y directions.",
+        json_schema_extra={"units": MICROMETER},
+    )
+
+    waist_distances: tuple[float, float] = Field(
+        (0.0, 0.0),
+        title="Waist distances",
+        description="Distance to the beam waist along the propagation direction "
+        "for the waist sizes in the local x and y directions. "
+        "Positive values place the waist behind the monitor plane (toward the negative normal axis); "
+        "negative values place the waist in front of the monitor plane.",
+        json_schema_extra={"units": MICROMETER},
+    )
+
+
 class FieldMonitor(AbstractFieldMonitor, FreqMonitor):
-    """:class:`Monitor` that records electromagnetic fields in the frequency domain.
+    """:class:`~tidy3d.Monitor` that records electromagnetic fields in the frequency domain.
 
     Notes
     -----
@@ -456,6 +812,7 @@ class FieldMonitor(AbstractFieldMonitor, FreqMonitor):
         :class:`FieldMonitor` objects operate by running a discrete Fourier transform of the fields at a given set of
         frequencies to perform the calculation “in-place” with the time stepping. :class:`FieldMonitor`  objects are
         useful for investigating the steady-state field distribution in 2D and 3D regions of the simulation.
+
 
     Example
     -------
@@ -486,9 +843,29 @@ class FieldMonitor(AbstractFieldMonitor, FreqMonitor):
         # stores 1 complex number per grid cell, per frequency, per field
         return BYTES_COMPLEX * num_cells * len(self.freqs) * len(self.fields)
 
+    def supports_parallel_adjoint(self) -> bool:
+        """Return ``True`` when the field monitor is a single-point probe."""
+        return len(self.zero_dims) == 3
+
+    def parallel_adjoint_bases(
+        self, simulation: Simulation, monitor_index: int
+    ) -> list[ParallelAdjointBasis]:
+        """Return parallel adjoint bases for single-point field monitors."""
+        if not self.supports_parallel_adjoint():
+            return []
+        if not self.colocate:
+            raise ValueError("Parallel adjoint point sources require colocated field monitors.")
+        component_freqs = {component: list(self.freqs) for component in self.fields}
+        return _build_point_field_bases(
+            component_freqs=component_freqs,
+            monitor_name=self.name,
+            monitor_index=monitor_index,
+            data_path_prefix=("data", monitor_index),
+        )
+
 
 class FieldTimeMonitor(AbstractFieldMonitor, TimeMonitor):
-    """:class:`Monitor` that records electromagnetic fields in the time domain.
+    """:class:`~tidy3d.Monitor` that records electromagnetic fields in the time domain.
 
     Notes
     -----
@@ -561,34 +938,32 @@ class AuxFieldTimeMonitor(AbstractAuxFieldMonitor, TimeMonitor):
 
 
 class AbstractMediumPropertyMonitor(FreqMonitor, ABC):
-    """:class:`Monitor` that records material properties in the frequency domain."""
+    """:class:`~tidy3d.Monitor` that records material properties in the frequency domain."""
 
-    colocate: Literal[False] = pydantic.Field(
+    colocate: Literal[False] = Field(
         False,
         title="Colocate Fields",
         description="Colocation turned off, since colocated medium property values do not have a "
         "physical meaning - they do not correspond to the subpixel-averaged ones.",
     )
 
-    interval_space: tuple[pydantic.PositiveInt, pydantic.PositiveInt, pydantic.PositiveInt] = (
-        pydantic.Field(
-            (1, 1, 1),
-            title="Spatial Interval",
-            description="Number of grid step intervals between monitor recordings. If equal to 1, "
-            "there will be no downsampling. If greater than 1, the step will be applied, but the "
-            "first and last point of the monitor grid are always included.",
-        )
+    interval_space: tuple[PositiveInt, PositiveInt, PositiveInt] = Field(
+        (1, 1, 1),
+        title="Spatial Interval",
+        description="Number of grid step intervals between monitor recordings. If equal to 1, "
+        "there will be no downsampling. If greater than 1, the step will be applied, but the "
+        "first and last point of the monitor grid are always included.",
     )
 
-    apodization: ApodizationSpec = pydantic.Field(
-        ApodizationSpec(),
+    apodization: ApodizationSpec = Field(
+        default_factory=ApodizationSpec,
         title="Apodization Specification",
         description="This field is ignored in this monitor.",
     )
 
 
 class MediumMonitor(AbstractMediumPropertyMonitor):
-    """:class:`Monitor` that records the diagonal components of the complex-valued relative
+    """:class:`~tidy3d.Monitor` that records the diagonal components of the complex-valued relative
     permittivity and permeability tensor in the frequency domain. The recorded data has the same shape as a
     :class:`.FieldMonitor` of the same geometry: the permittivity and permeability values are saved at the
     Yee grid locations, and can be interpolated to any point inside the monitor.
@@ -617,7 +992,7 @@ class MediumMonitor(AbstractMediumPropertyMonitor):
 
 
 class PermittivityMonitor(AbstractMediumPropertyMonitor):
-    """:class:`Monitor` that records the diagonal components of the complex-valued relative
+    """:class:`~tidy3d.Monitor` that records the diagonal components of the complex-valued relative
     permittivity tensor in the frequency domain. The recorded data has the same shape as a
     :class:`.FieldMonitor` of the same geometry: the permittivity values are saved at the
     Yee grid locations, and can be interpolated to any point inside the monitor.
@@ -649,7 +1024,7 @@ class SurfaceIntegrationMonitor(Monitor, ABC):
     """Abstract class for monitors that perform surface integrals during the solver run, as in
     flux and near to far transformations."""
 
-    normal_dir: Direction = pydantic.Field(
+    normal_dir: Optional[Direction] = Field(
         None,
         title="Normal Vector Orientation",
         description="Direction of the surface monitor's normal vector w.r.t. "
@@ -657,51 +1032,48 @@ class SurfaceIntegrationMonitor(Monitor, ABC):
         "Applies to surface monitors only, and defaults to ``'+'`` if not provided.",
     )
 
-    exclude_surfaces: tuple[BoxSurface, ...] = pydantic.Field(
+    exclude_surfaces: Optional[tuple[BoxSurface, ...]] = Field(
         None,
         title="Excluded Surfaces",
         description="Surfaces to exclude in the integration, if a volume monitor.",
     )
 
     @property
-    def integration_surfaces(self):
+    def integration_surfaces(self) -> list[SurfaceIntegrationMonitor]:
         """Surfaces of the monitor where fields will be recorded for subsequent integration."""
         if self.size.count(0.0) == 0:
-            return self.surfaces_with_exclusion(**self.dict())
+            return self.surfaces_with_exclusion(**self.model_dump())
         return [self]
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def normal_dir_exists_for_surface(cls, values):
+    @model_validator(mode="after")
+    def normal_dir_exists_for_surface(self) -> Self:
         """If the monitor is a surface, set default ``normal_dir`` if not provided.
         If the monitor is a box, warn that ``normal_dir`` is relevant only for surfaces."""
-        normal_dir = values.get("normal_dir")
-        name = values.get("name")
-        size = values.get("size")
-        if size.count(0.0) != 1:
-            if normal_dir is not None:
+        if self.size.count(0.0) != 1:
+            if self.normal_dir is not None:
                 log.warning(
                     "The ``normal_dir`` field is relevant only for surface monitors "
-                    f"and will be ignored for monitor {name}, which is a box."
+                    f"and will be ignored for monitor {self.name}, which is a box."
                 )
         else:
-            if normal_dir is None:
-                values["normal_dir"] = "+"
-        return values
+            if self.normal_dir is None:
+                object.__setattr__(self, "normal_dir", "+")
+        return self
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def check_excluded_surfaces(cls, values):
+    @model_validator(mode="after")
+    def check_excluded_surfaces(self) -> Self:
         """Error if ``exclude_surfaces`` is provided for a surface monitor."""
-        exclude_surfaces = values.get("exclude_surfaces")
+        exclude_surfaces = self.exclude_surfaces
         if exclude_surfaces is None:
-            return values
-        name = values.get("name")
-        size = values.get("size")
+            return self
+        name = self.name
+        size = self.size
         if size.count(0.0) > 0:
             raise SetupError(
                 f"Can't specify ``exclude_surfaces`` for surface monitor {name}; "
                 "valid for box monitors only."
             )
-        return values
+        return self
 
     def _storage_size_solver(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
         """Size of intermediate data recorded by the monitor during a solver run."""
@@ -712,11 +1084,11 @@ class SurfaceIntegrationMonitor(Monitor, ABC):
 
 
 class AbstractFluxMonitor(SurfaceIntegrationMonitor, ABC):
-    """:class:`Monitor` that records flux during the solver run."""
+    """:class:`~tidy3d.Monitor` that records flux during the solver run."""
 
 
 class FluxMonitor(AbstractFluxMonitor, FreqMonitor):
-    """:class:`Monitor` that records power flux in the frequency domain.
+    """:class:`~tidy3d.Monitor` that records power flux in the frequency domain.
 
     Notes
     -----
@@ -725,6 +1097,23 @@ class FluxMonitor(AbstractFluxMonitor, FreqMonitor):
         positive sign corresponding to power flow in the positive direction along the axis normal to
         the plane. If the geometry is a 3D box, the total power coming out of the box is returned by
         integrating the flux over all box surfaces (except the ones defined in ``exclude_surfaces``).
+
+        **Practical Advice**
+
+        If measured transmission exceeds 1.0 or is negative, verify that the monitor normal axis
+        aligns with the expected power flow direction. A common mistake is placing a flux monitor
+        with its normal pointing opposite to the propagation direction.
+
+        **Extracting transmission**::
+
+            sim_data = web.run(sim, task_name="my_sim")
+            flux = sim_data["flux_monitor"].flux  # xarray DataArray indexed by frequency
+
+            # If source injects 1W (ModeSource at center frequency), flux IS the transmission
+            T = flux.values
+
+            # For normalization against a reference simulation:
+            # T = flux_device / flux_reference
 
     Example
     -------
@@ -749,7 +1138,7 @@ class FluxMonitor(AbstractFluxMonitor, FreqMonitor):
 
 
 class FluxTimeMonitor(AbstractFluxMonitor, TimeMonitor):
-    """:class:`Monitor` that records power flux in the time domain.
+    """:class:`~tidy3d.Monitor` that records power flux in the time domain.
 
     Notes
     -----
@@ -778,7 +1167,7 @@ class FluxTimeMonitor(AbstractFluxMonitor, TimeMonitor):
 
 
 class ModeMonitor(AbstractModeMonitor):
-    """:class:`Monitor` that records amplitudes from modal decomposition of fields on plane.
+    """:class:`~tidy3d.Monitor` that records amplitudes from modal decomposition of fields on plane.
 
     Notes
     ------
@@ -789,6 +1178,22 @@ class ModeMonitor(AbstractModeMonitor):
 
         We can also use the mode amplitudes recorded in the mode monitor to reveal the decomposition
         of the radiated power into forward- and backward-propagating modes, respectively.
+
+        **Practical Advice**
+
+        For reliable mode decomposition, place mode monitors in straight waveguide sections where the mode
+        profile is well-defined. The monitor should be large enough to capture the full mode profile including
+        evanescent tails — a typical sizing is 3-4x the waveguide width in each transverse dimension.
+
+        **Extracting mode amplitudes**::
+
+            amps = sim_data["mode_monitor"].amps
+
+            # Forward-propagating power in fundamental mode
+            T_mode0 = np.abs(amps.sel(direction="+", mode_index=0).values) ** 2
+
+            # Backward-propagating (reflection)
+            R_mode0 = np.abs(amps.sel(direction="-", mode_index=0).values) ** 2
 
         .. TODO give an example of how to extract the data from this mode.
 
@@ -816,7 +1221,7 @@ class ModeMonitor(AbstractModeMonitor):
     """
 
     @property
-    def _to_solver_monitor(self):
+    def _to_solver_monitor(self) -> Self:
         """Monitor definition that will be used to define the field recording during the time
         stepping."""
         return self.updated_copy(colocate=False)
@@ -839,9 +1244,29 @@ class ModeMonitor(AbstractModeMonitor):
                 fields_size *= 2
         return amps_size + fields_size
 
+    def supports_parallel_adjoint(self) -> bool:
+        """Return ``True`` for mode monitor amplitude adjoints."""
+        return True
+
+    def parallel_adjoint_bases(
+        self, simulation: Simulation, monitor_index: int
+    ) -> list[ParallelAdjointBasis]:
+        """Return parallel adjoint bases for mode monitor amplitudes."""
+        freqs = [float(freq) for freq in self._stored_freqs]
+        directions = ("+", "-")
+        mode_indices = range(self.mode_spec.num_modes)
+        return _build_mode_bases(
+            freqs=freqs,
+            directions=directions,
+            mode_indices=mode_indices,
+            monitor_name=self.name,
+            monitor_index=monitor_index,
+            data_path=("data", monitor_index, "amps"),
+        )
+
 
 class ModeSolverMonitor(AbstractModeMonitor):
-    """:class:`Monitor` that stores the mode field profiles returned by the mode solver in the
+    """:class:`~tidy3d.Monitor` that stores the mode field profiles returned by the mode solver in the
     monitor plane.
 
     Example
@@ -855,15 +1280,15 @@ class ModeSolverMonitor(AbstractModeMonitor):
     ...     name='mode_monitor')
     """
 
-    direction: Direction = pydantic.Field(
+    direction: Direction = Field(
         "+",
         title="Propagation Direction",
         description="Direction of waveguide mode propagation along the axis defined by its normal "
         "dimension.",
     )
 
-    fields: tuple[EMField, ...] = pydantic.Field(
-        ["Ex", "Ey", "Ez", "Hx", "Hy", "Hz"],
+    fields: tuple[EMField, ...] = Field(
+        ("Ex", "Ey", "Ez", "Hx", "Hy", "Hz"),
         title="Field Components",
         description="Collection of field components to store in the monitor. Note that some "
         "methods like ``flux``, ``dot`` require all tangential field components, while others "
@@ -875,19 +1300,19 @@ class ModeSolverMonitor(AbstractModeMonitor):
         """Return actually stored frequencies of the data."""
         return self.mode_spec._sampling_freqs_mode_solver_data(freqs=self.freqs)
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def set_store_fields(cls, values):
+    @model_validator(mode="after")
+    def set_store_fields(self) -> Self:
         """Ensure 'store_fields_direction' is compatible with 'direction'."""
-        store_fields_direction = values["store_fields_direction"]
-        direction = values["direction"]
+        store_fields_direction = self.store_fields_direction
+        direction = self.direction
         if store_fields_direction is None:
-            values["store_fields_direction"] = direction
+            object.__setattr__(self, "store_fields_direction", direction)
         elif store_fields_direction != direction:
             raise ValidationError(
                 f"The values of 'direction' ({direction}) and 'store_fields_direction' "
                 f"({store_fields_direction}) must be equal."
             )
-        return values
+        return self
 
     def storage_size(self, num_cells: int, tmesh: int) -> int:
         """Size of monitor storage given the number of points after discretization."""
@@ -912,14 +1337,12 @@ class FieldProjectionSurface(Tidy3dBaseModel):
         * `Performing near field to far field projections <../../notebooks/FieldProjections.html>`_
     """
 
-    monitor: FieldMonitor = pydantic.Field(
-        ...,
+    monitor: FieldMonitor = Field(
         title="Field Monitor",
         description=":class:`.FieldMonitor` on which near fields will be sampled and integrated.",
     )
 
-    normal_dir: Direction = pydantic.Field(
-        ...,
+    normal_dir: Direction = Field(
         title="Normal Vector Orientation",
         description=":class:`.Direction` of the surface monitor's normal vector w.r.t.\
  the positive x, y or z unit vectors. Must be one of '+' or '-'.",
@@ -931,8 +1354,9 @@ class FieldProjectionSurface(Tidy3dBaseModel):
         # assume that the monitor's axis is in the direction where the monitor is thinnest
         return self.monitor.size.index(0.0)
 
-    @pydantic.validator("monitor", always=True)
-    def is_plane(cls, val):
+    @field_validator("monitor")
+    @classmethod
+    def is_plane(cls, val: FieldMonitor) -> FieldMonitor:
         """Ensures that the monitor is a plane, i.e., its ``size`` attribute has exactly 1 zero"""
         size = val.size
         if size.count(0.0) != 1:
@@ -941,19 +1365,19 @@ class FieldProjectionSurface(Tidy3dBaseModel):
 
 
 class AbstractFieldProjectionMonitor(SurfaceIntegrationMonitor, FreqMonitor):
-    """:class:`Monitor` that samples electromagnetic near fields in the frequency domain
+    """:class:`~tidy3d.Monitor` that samples electromagnetic near fields in the frequency domain
     and projects them to a given set of observation points.
     """
 
-    custom_origin: Optional[Coordinate] = pydantic.Field(
+    custom_origin: Optional[Coordinate] = Field(
         None,
         title="Local Origin",
         description="Local origin used for defining observation points. If ``None``, uses the "
         "monitor's center.",
-        units=MICROMETER,
+        json_schema_extra={"units": MICROMETER},
     )
 
-    far_field_approx: bool = pydantic.Field(
+    far_field_approx: bool = Field(
         True,
         title="Far Field Approximation",
         description="Whether to enable the far field approximation when projecting fields. "
@@ -963,22 +1387,20 @@ class AbstractFieldProjectionMonitor(SurfaceIntegrationMonitor, FreqMonitor):
         "in the far field of the device.",
     )
 
-    interval_space: tuple[pydantic.PositiveInt, pydantic.PositiveInt, pydantic.PositiveInt] = (
-        pydantic.Field(
-            (1, 1, 1),
-            title="Spatial Interval",
-            description="Number of grid step intervals at which near fields are recorded for "
-            "projection to the far field, along each direction. If equal to 1, there will be no "
-            "downsampling. If greater than 1, the step will be applied, but the first and last "
-            "point of the monitor grid are always included. Using values greater than 1 can "
-            "help speed up server-side far field projections with minimal accuracy loss, "
-            "especially in cases where it is necessary for the grid resolution to be high for "
-            "the FDTD simulation, but such a high resolution is unnecessary for the purpose of "
-            "projecting the recorded near fields to the far field.",
-        )
+    interval_space: tuple[PositiveInt, PositiveInt, PositiveInt] = Field(
+        (1, 1, 1),
+        title="Spatial Interval",
+        description="Number of grid step intervals at which near fields are recorded for "
+        "projection to the far field, along each direction. If equal to 1, there will be no "
+        "downsampling. If greater than 1, the step will be applied, but the first and last "
+        "point of the monitor grid are always included. Using values greater than 1 can "
+        "help speed up server-side far field projections with minimal accuracy loss, "
+        "especially in cases where it is necessary for the grid resolution to be high for "
+        "the FDTD simulation, but such a high resolution is unnecessary for the purpose of "
+        "projecting the recorded near fields to the far field.",
     )
 
-    window_size: tuple[pydantic.NonNegativeFloat, pydantic.NonNegativeFloat] = pydantic.Field(
+    window_size: tuple[NonNegativeFloat, NonNegativeFloat] = Field(
         (0, 0),
         title="Spatial filtering window size",
         description="Size of the transition region of the windowing function used to ensure that "
@@ -995,7 +1417,7 @@ class AbstractFieldProjectionMonitor(SurfaceIntegrationMonitor, FreqMonitor):
         "and otherwise must remain (0, 0).",
     )
 
-    medium: MediumType = pydantic.Field(
+    medium: Optional[MediumType] = Field(
         None,
         title="Projection medium",
         description="Medium through which to project fields. Generally, the fields should be "
@@ -1005,12 +1427,12 @@ class AbstractFieldProjectionMonitor(SurfaceIntegrationMonitor, FreqMonitor):
         "non-default ``medium``.",
     )
 
-    @pydantic.validator("window_size", always=True)
-    @skip_if_fields_missing(["size", "name"])
-    def window_size_for_surface(cls, val, values):
+    @model_validator(mode="after")
+    def window_size_for_surface(self) -> Self:
         """Ensures that windowing is applied for surface monitors only."""
-        size = values.get("size")
-        name = values.get("name")
+        val = self.window_size
+        size = self.size
+        name = self.name
 
         if size.count(0.0) != 1:
             if val != (0, 0):
@@ -1018,16 +1440,19 @@ class AbstractFieldProjectionMonitor(SurfaceIntegrationMonitor, FreqMonitor):
                     f"A non-zero 'window_size' cannot be used for projection monitor '{name}'. "
                     "Windowing can be applied only for surface projection monitors."
                 )
-        return val
+        return self
 
-    @pydantic.validator("window_size", always=True)
-    @skip_if_fields_missing(["name"])
-    def window_size_leq_one(cls, val, values):
+    @field_validator("window_size")
+    @classmethod
+    def window_size_leq_one(
+        cls: type[AbstractFieldProjectionMonitor],
+        val: tuple[float, float],
+        info: FieldValidationInfo,
+    ) -> tuple[float, float]:
         """Ensures that each component of the window size is less than or equal to 1."""
-        name = values.get("name")
         if val[0] > 1 or val[1] > 1:
             raise ValidationError(
-                f"Each component of 'window_size' for monitor '{name}' "
+                f"Each component of 'window_size' for monitor '{info.field_name}' "
                 "must be less than or equal to 1."
             )
         return val
@@ -1115,7 +1540,7 @@ class AbstractFieldProjectionMonitor(SurfaceIntegrationMonitor, FreqMonitor):
 
 
 class FieldProjectionAngleMonitor(AbstractFieldProjectionMonitor):
-    """:class:`Monitor` that samples electromagnetic near fields in the frequency domain
+    """:class:`~tidy3d.Monitor` that samples electromagnetic near fields in the frequency domain
     and projects them at given observation angles.
 
     Notes
@@ -1219,27 +1644,25 @@ class FieldProjectionAngleMonitor(AbstractFieldProjectionMonitor):
         * `Multilevel blazed diffraction grating <../../notebooks/GratingEfficiency.html>`_: For far field projections in the context of perdiodic boundary conditions.
     """
 
-    proj_distance: float = pydantic.Field(
+    proj_distance: float = Field(
         1e6,
         title="Projection Distance",
         description="Radial distance of the projection points from ``local_origin``.",
-        units=MICROMETER,
+        json_schema_extra={"units": MICROMETER},
     )
 
-    theta: ObsGridArray = pydantic.Field(
-        ...,
+    theta: ObsGridArray = Field(
         title="Polar Angles",
         description="Polar angles with respect to the global z axis, relative to the location of "
         "``local_origin``, at which to project fields.",
-        units=RADIAN,
+        json_schema_extra={"units": RADIAN},
     )
 
-    phi: ObsGridArray = pydantic.Field(
-        ...,
+    phi: ObsGridArray = Field(
         title="Azimuth Angles",
         description="Azimuth angles with respect to the global z axis, relative to the location of "
         "``local_origin``, at which to project fields.",
-        units=RADIAN,
+        json_schema_extra={"units": RADIAN},
     )
 
     def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
@@ -1251,7 +1674,7 @@ class FieldProjectionAngleMonitor(AbstractFieldProjectionMonitor):
 
 class DirectivityMonitor(MicrowaveBaseModel, FieldProjectionAngleMonitor, FluxMonitor):
     """
-    :class:`Monitor` that records the radiation characteristics of antennas in the frequency domain
+    :class:`~tidy3d.Monitor` that records the radiation characteristics of antennas in the frequency domain
     at specified observation angles.
 
     Note
@@ -1281,7 +1704,7 @@ class DirectivityMonitor(MicrowaveBaseModel, FieldProjectionAngleMonitor, FluxMo
     ... )
     """
 
-    far_field_approx: Literal[True] = pydantic.Field(
+    far_field_approx: Literal[True] = Field(
         True,
         title="Far Field Approximation",
         description="Directivity calculations require the far field approximation. "
@@ -1299,7 +1722,7 @@ class DirectivityMonitor(MicrowaveBaseModel, FieldProjectionAngleMonitor, FluxMo
 
 
 class FieldProjectionCartesianMonitor(AbstractFieldProjectionMonitor):
-    """:class:`Monitor` that samples electromagnetic near fields in the frequency domain
+    """:class:`~tidy3d.Monitor` that samples electromagnetic near fields in the frequency domain
     and projects them on a Cartesian observation plane.
 
     Notes
@@ -1402,38 +1825,35 @@ class FieldProjectionCartesianMonitor(AbstractFieldProjectionMonitor):
         * `Multilevel blazed diffraction grating <../../notebooks/GratingEfficiency.html>`_
     """
 
-    proj_axis: Axis = pydantic.Field(
-        ...,
+    proj_axis: Axis = Field(
         title="Projection Plane Axis",
         description="Axis along which the observation plane is oriented.",
     )
 
-    proj_distance: float = pydantic.Field(
+    proj_distance: float = Field(
         1e6,
         title="Projection Distance",
         description="Signed distance of the projection plane along ``proj_axis``. "
         "from the plane containing ``local_origin``.",
-        units=MICROMETER,
+        json_schema_extra={"units": MICROMETER},
     )
 
-    x: ObsGridArray = pydantic.Field(
-        ...,
+    x: ObsGridArray = Field(
         title="Local x Observation Coordinates",
         description="Local x observation coordinates w.r.t. ``local_origin`` and ``proj_axis``. "
         "When ``proj_axis`` is 0, this corresponds to the global y axis. "
         "When ``proj_axis`` is 1, this corresponds to the global x axis. "
         "When ``proj_axis`` is 2, this corresponds to the global x axis. ",
-        units=MICROMETER,
+        json_schema_extra={"units": MICROMETER},
     )
 
-    y: ObsGridArray = pydantic.Field(
-        ...,
+    y: ObsGridArray = Field(
         title="Local y Observation Coordinates",
         description="Local y observation coordinates w.r.t. ``local_origin`` and ``proj_axis``. "
         "When ``proj_axis`` is 0, this corresponds to the global z axis. "
         "When ``proj_axis`` is 1, this corresponds to the global z axis. "
         "When ``proj_axis`` is 2, this corresponds to the global y axis. ",
-        units=MICROMETER,
+        json_schema_extra={"units": MICROMETER},
     )
 
     def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
@@ -1444,7 +1864,7 @@ class FieldProjectionCartesianMonitor(AbstractFieldProjectionMonitor):
 
 
 class FieldProjectionKSpaceMonitor(AbstractFieldProjectionMonitor):
-    """:class:`Monitor` that samples electromagnetic near fields in the frequency domain
+    """:class:`~tidy3d.Monitor` that samples electromagnetic near fields in the frequency domain
     and projects them on an observation plane defined in k-space.
 
      Notes
@@ -1511,21 +1931,19 @@ class FieldProjectionKSpaceMonitor(AbstractFieldProjectionMonitor):
         * `Multilevel blazed diffraction grating <../../notebooks/GratingEfficiency.html>`_
     """
 
-    proj_axis: Axis = pydantic.Field(
-        ...,
+    proj_axis: Axis = Field(
         title="Projection Plane Axis",
         description="Axis along which the observation plane is oriented.",
     )
 
-    proj_distance: float = pydantic.Field(
+    proj_distance: float = Field(
         1e6,
         title="Projection Distance",
         description="Radial distance of the projection points from ``local_origin``.",
-        units=MICROMETER,
+        json_schema_extra={"units": MICROMETER},
     )
 
-    ux: ObsGridArray = pydantic.Field(
-        ...,
+    ux: ObsGridArray = Field(
         title="Normalized kx",
         description="Local x component of wave vectors on the observation plane, "
         "relative to ``local_origin`` and oriented with respect to ``proj_axis``, "
@@ -1533,8 +1951,7 @@ class FieldProjectionKSpaceMonitor(AbstractFieldProjectionMonitor):
         "associated with the background medium. Must be in the range [-1, 1].",
     )
 
-    uy: ObsGridArray = pydantic.Field(
-        ...,
+    uy: ObsGridArray = Field(
         title="Normalized ky",
         description="Local y component of wave vectors on the observation plane, "
         "relative to ``local_origin`` and oriented with respect to ``proj_axis``, "
@@ -1542,17 +1959,17 @@ class FieldProjectionKSpaceMonitor(AbstractFieldProjectionMonitor):
         "associated with the background medium. Must be in the range [-1, 1].",
     )
 
-    @pydantic.root_validator()
-    def reciprocal_vector_range(cls, values):
+    @model_validator(mode="after")
+    def reciprocal_vector_range(self) -> Self:
         """Ensure that ux, uy are in [-1, 1]."""
-        maxabs_ux = max(list(values.get("ux")), key=abs)
-        maxabs_uy = max(list(values.get("uy")), key=abs)
-        name = values.get("name")
+        maxabs_ux = max(list(self.ux), key=abs)
+        maxabs_uy = max(list(self.uy), key=abs)
+        name = self.name
         if maxabs_ux > 1:
             raise SetupError(f"Entries of 'ux' must lie in the range [-1, 1] for monitor {name}.")
         if maxabs_uy > 1:
             raise SetupError(f"Entries of 'uy' must lie in the range [-1, 1] for monitor {name}.")
-        return values
+        return self
 
     def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
         """Size of monitor storage given the number of points after discretization."""
@@ -1562,7 +1979,7 @@ class FieldProjectionKSpaceMonitor(AbstractFieldProjectionMonitor):
 
 
 class DiffractionMonitor(PlanarMonitor, FreqMonitor):
-    """:class:`Monitor` that uses a 2D Fourier transform to compute the
+    """:class:`~tidy3d.Monitor` that uses a 2D Fourier transform to compute the
     diffraction amplitudes and efficiency for allowed diffraction orders.
 
     Note
@@ -1601,7 +2018,7 @@ class DiffractionMonitor(PlanarMonitor, FreqMonitor):
         * `Multilevel blazed diffraction grating <../../notebooks/GratingEfficiency.html>`_
     """
 
-    normal_dir: Direction = pydantic.Field(
+    normal_dir: Direction = Field(
         "+",
         title="Normal Vector Orientation",
         description="Direction of the surface monitor's normal vector w.r.t. "
@@ -1609,7 +2026,7 @@ class DiffractionMonitor(PlanarMonitor, FreqMonitor):
         "Defaults to ``'+'`` if not provided.",
     )
 
-    colocate: Literal[False] = pydantic.Field(
+    colocate: Literal[False] = Field(
         False,
         title="Colocate Fields",
         description="Defines whether fields are colocated to grid cell boundaries (i.e. to the "
@@ -1617,8 +2034,9 @@ class DiffractionMonitor(PlanarMonitor, FreqMonitor):
         "monitors depending on their specific function.",
     )
 
-    @pydantic.validator("size", always=True)
-    def diffraction_monitor_size(cls, val):
+    @field_validator("size")
+    @classmethod
+    def diffraction_monitor_size(cls: type[DiffractionMonitor], val: Size) -> Size:
         """Ensure that the monitor is infinite in the transverse direction."""
         if val.count(inf) != 2:
             raise SetupError(
@@ -1632,6 +2050,189 @@ class DiffractionMonitor(PlanarMonitor, FreqMonitor):
         # assumes 1 diffraction order per frequency; actual size will be larger
         return BYTES_COMPLEX * len(self.freqs)
 
+    def supports_parallel_adjoint(self) -> bool:
+        """Return ``True`` for diffraction monitor adjoints based on amplitude data."""
+        return True
+
+    def parallel_adjoint_bases(
+        self, simulation: Simulation, monitor_index: int
+    ) -> list[ParallelAdjointBasis]:
+        """Return parallel adjoint bases for diffraction monitor amplitudes."""
+        return _diffraction_parallel_adjoint_bases(self, simulation, monitor_index)
+
     def _storage_size_solver(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
         """Size of intermediate data recorded by the monitor during a solver run."""
         return BYTES_COMPLEX * num_cells * len(self.freqs) * 6
+
+
+class AbstractSurfaceMonitor(Monitor, ABC):
+    """:class:`Monitor` that records electromagnetic field data as a function of x,y,z on PEC and lossy metal surfaces."""
+
+    fields: tuple[EMSurfaceField, ...] = Field(
+        ["E", "H"],
+        title="Field Components",
+        description="Collection of field components to store in the monitor.",
+    )
+
+    interval_space: tuple[Literal[1], Literal[1], Literal[1]] = Field(
+        (1, 1, 1),
+        title="Spatial Interval",
+        description="Number of grid step intervals between monitor recordings. "
+        "Only the value of 1 (no downsampling) is currently supported for surface monitors.",
+    )
+
+    colocate: Literal[True] = Field(
+        True,
+        title="Colocate Fields",
+        description="For surface monitors fields are always colocated on surface.",
+    )
+
+    _check_volumetic = assert_volumetric()
+
+    @model_validator(mode="after")
+    def _warn_beta_stage(self) -> Self:
+        """Warn that surface monitors are in beta stage."""
+
+        log.warning(
+            "Surface monitors are currently in beta stage. Please exercise caution when analyzing "
+            "surface monitor data and verify results carefully. If you encounter any issues, "
+            "please report them to our support team.",
+            log_once=True,
+        )
+        return self
+
+
+class SurfaceFieldMonitor(AbstractSurfaceMonitor, FreqMonitor):
+    """:class:`Monitor` that records electromagnetic fields in the frequency domain on PEC and lossy metal surfaces.
+
+    Notes
+    -----
+
+        :class:`SurfaceFieldMonitor` objects operate by running a discrete Fourier transform of the fields at a given set of
+        frequencies to perform the calculation "in-place" with the time stepping. These monitors are designed
+        to record fields on PEC (:class:`PECMedium`) and lossy metal (:class:`LossyMetalMedium`) surfaces,
+        storing the normal E and tangential H fields.
+
+    Example
+    -------
+    >>> import tidy3d as td
+    >>> old_logging_level = td.config.logging_level
+    >>> td.config.logging_level = "ERROR"
+    >>> monitor = SurfaceFieldMonitor(
+    ...     center=(1,2,3),
+    ...     size=(2,2,2),
+    ...     fields=['E', 'H'],
+    ...     freqs=[250e12, 300e12],
+    ...     name='surface_monitor')
+    >>> td.config.logging_level = old_logging_level
+    """
+
+    def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
+        """Size of monitor storage given the number of points after discretization.
+        In general, this is severely overestimated for surface monitors.
+        """
+
+        # estimation based on triangulated surface when it crosses cells in xy plane
+        num_tris = num_cells * 6
+        num_points = num_cells * 4
+
+        # storing 3 coordinate components per point
+        storage = 3 * BYTES_REAL * num_points
+
+        # storing 3 indices per triangle
+        storage += 3 * BYTES_REAL * num_tris
+
+        # EH field values + normal field
+        storage += (
+            BYTES_COMPLEX * num_points * len(self.freqs) * len(self.fields) * 3
+            + 3 * num_points * BYTES_REAL
+        )
+
+        return storage
+
+    def _storage_size_solver(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
+        """Size of intermediate data recorded by the monitor during a solver run."""
+
+        # fields
+        storage = BYTES_COMPLEX * num_cells * len(self.freqs) * len(self.fields) * 3
+
+        # fields valid map
+        storage += BYTES_REAL * num_cells * len(self.freqs) * len(self.fields) * 3
+
+        # auxiliary variables (normals and locations)
+        storage += BYTES_REAL * num_cells * 7 * 4
+
+        return storage
+
+
+class SurfaceFieldTimeMonitor(AbstractSurfaceMonitor, TimeMonitor):
+    """:class:`Monitor` that records electromagnetic fields in the time domain on PEC and lossy metal surfaces.
+
+    Notes
+    -----
+
+        :class:`SurfaceFieldTimeMonitor` objects are best used to monitor the time dependence of the fields
+        on PEC (:class:`PECMedium`) and lossy metal (:class:`LossyMetalMedium`) surfaces. They can also be used to create
+        “animations” of the field pattern evolution.
+
+        To create an animation, we need to capture the frames at different time instances of the simulation. This can
+        be done by using a :class:`SurfaceFieldTimeMonitor`. Usually a FDTD simulation contains a large number of time steps
+        and grid points. Recording the field at every time step and grid point will result in a large dataset. For
+        the purpose of making animations, this is usually unnecessary.
+
+
+    Example
+    -------
+    >>> import tidy3d as td
+    >>> old_logging_level = td.config.logging_level
+    >>> td.config.logging_level = "ERROR"
+    >>> monitor = SurfaceFieldTimeMonitor(
+    ...     center=(1,2,3),
+    ...     size=(2,2,2),
+    ...     fields=['H'],
+    ...     start=1e-13,
+    ...     stop=5e-13,
+    ...     interval=2,
+    ...     name='movie_monitor')
+    >>> td.config.logging_level = old_logging_level
+    """
+
+    def storage_size(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
+        """Size of monitor storage given the number of points after discretization.
+        In general, this is severely overestimated for surface monitors.
+        """
+        num_steps = self.num_steps(tmesh)
+
+        # estimation based on triangulated surface when it crosses cells in xy plane
+        num_tris = num_cells * 6
+        num_points = num_cells * 4
+
+        # storing 3 coordinate components per point
+        storage = 3 * BYTES_REAL * num_points
+
+        # storing 3 indices per triangle
+        storage += 3 * BYTES_REAL * num_tris
+
+        # EH field values + normal field
+        storage += (
+            BYTES_COMPLEX * num_points * num_steps * len(self.fields) * 3
+            + 3 * num_points * BYTES_REAL
+        )
+
+        return storage
+
+    def _storage_size_solver(self, num_cells: int, tmesh: ArrayFloat1D) -> int:
+        """Size of intermediate data recorded by the monitor during a solver run."""
+
+        num_steps = self.num_steps(tmesh)
+
+        # fields
+        storage = BYTES_COMPLEX * num_cells * num_steps * len(self.fields) * 3
+
+        # fields valid map
+        storage += BYTES_REAL * num_cells * num_steps * len(self.fields) * 3
+
+        # auxiliary variables (normals and locations)
+        storage += BYTES_REAL * num_cells * 7 * 4
+
+        return storage

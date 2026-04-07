@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-import tidy3d as td
-from tidy3d.components.autograd import AutogradFieldMap
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import tidy3d as td
+    from tidy3d.components.autograd import AutogradFieldMap
 
 
 def setup_fwd(
@@ -37,7 +40,7 @@ def postprocess_fwd(
 
     # strip out the tracer AutogradFieldMap for the .data from the original sim
     data_traced = sim_data_original._strip_traced_fields(
-        include_untraced_data_arrays=True, starting_path=("data",)
+        include_untraced_data_arrays=True, starting_paths=(("data",),)
     )
 
     # return the AutogradFieldMap that autograd registers as the "output" of the primitive

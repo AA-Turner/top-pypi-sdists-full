@@ -86,6 +86,10 @@ pub fn render_markdown(doc: &InternalDocument) -> String {
             .join("\n");
     }
 
+    // Strip arXiv watermark/sidebar noise that gets concatenated with body text.
+    // Only applies to the first ~2000 chars (first page area) to avoid touching references.
+    output = strip_arxiv_watermark_noise(output);
+
     // Trim trailing whitespace but keep single trailing newline
     let trimmed_len = output.trim_end().len();
     if trimmed_len == 0 {
@@ -95,6 +99,48 @@ pub fn render_markdown(doc: &InternalDocument) -> String {
     output.push('\n');
     tracing::debug!(output_length = output.len(), "markdown rendering complete");
     output
+}
+
+/// Strip arXiv watermark noise from rendered markdown.
+///
+/// LaTeX-generated PDFs often have a rotated sidebar with the arXiv identifier
+/// that pdfium concatenates with body text. This strips patterns like:
+/// "Title N arXiv:NNNN.NNNNNvN [cat.SC] DD Mon YYYY" from the first pages.
+fn strip_arxiv_watermark_noise(mut text: String) -> String {
+    // Only search the first portion of the text (roughly first 2 pages)
+    let search_limit = text.len().min(6000);
+    let search_area = &text[..search_limit];
+
+    // Match: optional preceding short fragment + arXiv ID + optional version + category + date
+    let re = regex::Regex::new(
+        r"(?:\s+\S+(?:\s+\S+){0,8})?\s*arXiv:\d{4}\.\d{4,5}(?:v\d+)?(?:\s*\[[\w.-]+\])?\s*(?:\d{1,2}\s+\w+\s+\d{4})?",
+    )
+    .expect("valid regex");
+
+    if let Some(m) = re.find(search_area) {
+        // Only strip if it looks like a watermark (appears near end of a paragraph,
+        // not in the middle of a sentence about arXiv).
+        let after = &search_area[m.end()..];
+        let before_char = if m.start() > 0 {
+            search_area[..m.start()].chars().last()
+        } else {
+            None
+        };
+
+        // Strip if preceded by a sentence-ending period or is at end of paragraph
+        let is_at_paragraph_boundary = before_char == Some('.') || after.starts_with('\n') || after.starts_with("\n\n");
+        if is_at_paragraph_boundary {
+            let start = m.start();
+            let end = m.end();
+            tracing::trace!(
+                stripped = %&text[start..end].chars().take(80).collect::<String>(),
+                "stripping arXiv watermark from markdown output"
+            );
+            text.replace_range(start..end, "");
+        }
+    }
+
+    text
 }
 
 /// Shared comrak options with all GFM extensions enabled.

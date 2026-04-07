@@ -27,42 +27,6 @@ class StronglyConnectedComponent:
         ...
 
 
-class MarkCrossReferencesArgs:
-    """This class has no documentation."""
-
-    @property
-    def component_count(self) -> System.UIntPtr:
-        ...
-
-    @component_count.setter
-    def component_count(self, value: System.UIntPtr) -> None:
-        ...
-
-    @property
-    def components(self) -> typing.Any:
-        ...
-
-    @components.setter
-    def components(self, value: typing.Any) -> None:
-        ...
-
-    @property
-    def cross_reference_count(self) -> System.UIntPtr:
-        ...
-
-    @cross_reference_count.setter
-    def cross_reference_count(self, value: System.UIntPtr) -> None:
-        ...
-
-    @property
-    def cross_references(self) -> typing.Any:
-        ...
-
-    @cross_references.setter
-    def cross_references(self, value: typing.Any) -> None:
-        ...
-
-
 class ComponentCrossReference:
     """This class has no documentation."""
 
@@ -100,6 +64,42 @@ class JavaMarshal(System.Object):
 
     @staticmethod
     def initialize(mark_cross_references: typing.Any) -> None:
+        ...
+
+
+class MarkCrossReferencesArgs:
+    """This class has no documentation."""
+
+    @property
+    def component_count(self) -> System.UIntPtr:
+        ...
+
+    @component_count.setter
+    def component_count(self, value: System.UIntPtr) -> None:
+        ...
+
+    @property
+    def components(self) -> typing.Any:
+        ...
+
+    @components.setter
+    def components(self, value: typing.Any) -> None:
+        ...
+
+    @property
+    def cross_reference_count(self) -> System.UIntPtr:
+        ...
+
+    @cross_reference_count.setter
+    def cross_reference_count(self, value: System.UIntPtr) -> None:
+        ...
+
+    @property
+    def cross_references(self) -> typing.Any:
+        ...
+
+    @cross_references.setter
+    def cross_references(self, value: typing.Any) -> None:
         ...
 
 

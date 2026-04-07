@@ -21,6 +21,52 @@ QuantConnect_Brokerages_Authentication__EventContainer_Callable = typing.TypeVar
 QuantConnect_Brokerages_Authentication__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Brokerages_Authentication__EventContainer_ReturnType")
 
 
+class TokenType(IntEnum):
+    """Defines the supported types of access tokens used for authentication."""
+
+    BEARER = 0
+    """A Bearer token, typically used for standard HTTP Authorization headers."""
+
+    SESSION_TOKEN = 1
+    """A Session token, typically used for username/password authorization headers."""
+
+
+class AccessTokenMetaDataResponse(QuantConnect.Api.RestResponse, metaclass=abc.ABCMeta):
+    """Represents a response containing metadata about an access token issued by Lean."""
+
+    @property
+    def access_token(self) -> str:
+        """Gets the access token provided by Lean."""
+        ...
+
+    @property
+    def token_type(self) -> QuantConnect.Brokerages.Authentication.TokenType:
+        """Gets the type of the token (e.g., "Bearer")."""
+        ...
+
+    @property
+    def expiration(self) -> datetime.datetime:
+        """Gets the UTC expiration timestamp of the access token, with a 1-minute safety buffer applied."""
+        ...
+
+    @expiration.setter
+    def expiration(self, value: datetime.datetime) -> None:
+        ...
+
+    def __init__(self, access_token: str, token_type: QuantConnect.Brokerages.Authentication.TokenType, expires: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes a new instance of the AccessTokenMetaDataResponse class.
+        
+        
+        This codeEntityType is protected.
+        
+        :param access_token: The access token string provided by the authentication service.
+        :param token_type: The type of the token (e.g., Bearer).
+        :param expires: The expiration time of the access token (in UTC), with safety buffer applied.
+        """
+        ...
+
+
 class OAuthTokenRequest(System.Object):
     """
     Represents a Lean platform token request, including all fields required by the
@@ -91,129 +137,6 @@ class OAuthTokenRequest(System.Object):
         
         :returns: A JSON string representing the current request.
         """
-        ...
-
-
-class TokenType(IntEnum):
-    """Defines the supported types of access tokens used for authentication."""
-
-    BEARER = 0
-    """A Bearer token, typically used for standard HTTP Authorization headers."""
-
-    SESSION_TOKEN = 1
-    """A Session token, typically used for username/password authorization headers."""
-
-
-class AccessTokenMetaDataResponse(QuantConnect.Api.RestResponse, metaclass=abc.ABCMeta):
-    """Represents a response containing metadata about an access token issued by Lean."""
-
-    @property
-    def access_token(self) -> str:
-        """Gets the access token provided by Lean."""
-        ...
-
-    @property
-    def token_type(self) -> QuantConnect.Brokerages.Authentication.TokenType:
-        """Gets the type of the token (e.g., "Bearer")."""
-        ...
-
-    @property
-    def expiration(self) -> datetime.datetime:
-        """Gets the UTC expiration timestamp of the access token, with a 1-minute safety buffer applied."""
-        ...
-
-    @expiration.setter
-    def expiration(self, value: datetime.datetime) -> None:
-        ...
-
-    def __init__(self, access_token: str, token_type: QuantConnect.Brokerages.Authentication.TokenType, expires: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes a new instance of the AccessTokenMetaDataResponse class.
-        
-        
-        This codeEntityType is protected.
-        
-        :param access_token: The access token string provided by the authentication service.
-        :param token_type: The type of the token (e.g., Bearer).
-        :param expires: The expiration time of the access token (in UTC), with safety buffer applied.
-        """
-        ...
-
-
-class AccessTokenMetaDataRequest(System.Object, metaclass=abc.ABCMeta):
-    """Represents the base request for obtaining an access token, including brokerage and account information."""
-
-    @property
-    def brokerage(self) -> str:
-        """
-        Gets the name of the brokerage associated with the access token request.
-        The value is normalized to lowercase.
-        """
-        ...
-
-    @property
-    def account_id(self) -> str:
-        """Gets the account identifier (e.g., account number) associated with the brokerage."""
-        ...
-
-    def __init__(self, brokerage: str, account_id: str) -> None:
-        """
-        Initializes a new instance of the AccessTokenMetaDataRequest class.
-        
-        
-        This codeEntityType is protected.
-        
-        :param brokerage: The name of the brokerage making the request. Will be normalized to lowercase.
-        :param account_id: The account number or identifier associated with the brokerage.
-        """
-        ...
-
-    def to_json(self) -> str:
-        """
-        Serializes the request into a compact JSON string with camelCase property naming.
-        
-        :returns: A JSON string representing the current request.
-        """
-        ...
-
-
-class LeanTokenCredentials(QuantConnect.Api.RestResponse):
-    """
-    Represents credentials required for token-based authentication,
-    including the access token and its type (e.g., Bearer).
-    """
-
-    @property
-    def token_type(self) -> QuantConnect.Brokerages.Authentication.TokenType:
-        """Gets the type of the token (e.g., Bearer)."""
-        ...
-
-    @token_type.setter
-    def token_type(self, value: QuantConnect.Brokerages.Authentication.TokenType) -> None:
-        ...
-
-    @property
-    def access_token(self) -> str:
-        """Gets the token string used for authentication."""
-        ...
-
-    @access_token.setter
-    def access_token(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, token_type: QuantConnect.Brokerages.Authentication.TokenType, access_token: str) -> None:
-        """
-        Initializes a new instance of the LeanTokenCredentials class.
-        
-        :param token_type: The type of the token.
-        :param access_token: The token string.
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the LeanTokenCredentials class."""
         ...
 
 
@@ -387,6 +310,43 @@ class LeanOAuthTokenHandler(typing.Generic[QuantConnect_Brokerages_Authenticatio
         ...
 
 
+class AccessTokenMetaDataRequest(System.Object, metaclass=abc.ABCMeta):
+    """Represents the base request for obtaining an access token, including brokerage and account information."""
+
+    @property
+    def brokerage(self) -> str:
+        """
+        Gets the name of the brokerage associated with the access token request.
+        The value is normalized to lowercase.
+        """
+        ...
+
+    @property
+    def account_id(self) -> str:
+        """Gets the account identifier (e.g., account number) associated with the brokerage."""
+        ...
+
+    def __init__(self, brokerage: str, account_id: str) -> None:
+        """
+        Initializes a new instance of the AccessTokenMetaDataRequest class.
+        
+        
+        This codeEntityType is protected.
+        
+        :param brokerage: The name of the brokerage making the request. Will be normalized to lowercase.
+        :param account_id: The account number or identifier associated with the brokerage.
+        """
+        ...
+
+    def to_json(self) -> str:
+        """
+        Serializes the request into a compact JSON string with camelCase property naming.
+        
+        :returns: A JSON string representing the current request.
+        """
+        ...
+
+
 class LeanTokenHandler(typing.Generic[QuantConnect_Brokerages_Authentication_LeanTokenHandler_T], metaclass=abc.ABCMeta):
     """
     Provides base functionality for token-based HTTP request handling.
@@ -466,6 +426,46 @@ class LeanTokenHandler(typing.Generic[QuantConnect_Brokerages_Authentication_Lea
         :param cancellation_token: A cancellation token to cancel the operation.
         :returns: A task representing the asynchronous operation, containing the HTTP response message.
         """
+        ...
+
+
+class LeanTokenCredentials(QuantConnect.Api.RestResponse):
+    """
+    Represents credentials required for token-based authentication,
+    including the access token and its type (e.g., Bearer).
+    """
+
+    @property
+    def token_type(self) -> QuantConnect.Brokerages.Authentication.TokenType:
+        """Gets the type of the token (e.g., Bearer)."""
+        ...
+
+    @token_type.setter
+    def token_type(self, value: QuantConnect.Brokerages.Authentication.TokenType) -> None:
+        ...
+
+    @property
+    def access_token(self) -> str:
+        """Gets the token string used for authentication."""
+        ...
+
+    @access_token.setter
+    def access_token(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, token_type: QuantConnect.Brokerages.Authentication.TokenType, access_token: str) -> None:
+        """
+        Initializes a new instance of the LeanTokenCredentials class.
+        
+        :param token_type: The type of the token.
+        :param access_token: The token string.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the LeanTokenCredentials class."""
         ...
 
 

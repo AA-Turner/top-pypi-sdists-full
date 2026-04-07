@@ -7,6 +7,7 @@ from typing import (
     Any,
     Callable,
     Collection,
+    Dict,
     Iterable,
     List,
     Literal,
@@ -60,6 +61,7 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     from chalk.client.api import APINamespace
+    from chalk.scalinggroup.spec import AutoScalingSpec, ScalingGroupResourceRequest
 
     QueryInput = Mapping[FeatureReference, Any] | pd.DataFrame | pl.DataFrame | DataFrame
 
@@ -2336,6 +2338,7 @@ class ChalkClient:
         output_features: Optional[list[str]] = None,
         source_config: Optional[SourceConfig] = None,
         dependencies: Optional[List[str]] = None,
+        model_image: Optional[str] = None,
     ) -> RegisterModelVersionResponse:
         """Register a model in the Chalk model registry.
 
@@ -2343,6 +2346,9 @@ class ChalkClient:
         ----------
         name
             Unique name for the model.
+        model_image
+            Docker image for model serving (must have chalk-remote-call-python installed).
+            If provided, the model can be deployed to a scaling group via deploy_scaling_group().
         aliases
             List of version aliases (e.g., `["v1.0", "latest"]`).
         model
@@ -2352,9 +2358,11 @@ class ChalkClient:
         additional_files
             Additional files needed for inference (tokenizers, configs, etc.)
         model_type
-            Type of model framework
+            Type of model framework.
+        model_class
+            Task the model solves.
         model_encoding
-            Serialization format
+            Serialization format.
         input_schema
             Definition of the input schema. Can be:
             - `dict`: Dictionary mapping column names to dtypes for tabular data
@@ -2387,15 +2395,19 @@ class ChalkClient:
 
         Examples
         --------
-        Register from Python object:
 
+        Register from Python object (for engine deployment):
+
+        >>> from chalk.client import ChalkClient
+        >>> import pyarrow as pa
+        >>> client = ChalkClient()
         >>> client.register_model_version(
         ...     name="RiskModel",
         ...     model=trained_pytorch_model,
         ...     model_type=ModelType.PYTORCH,
         ... )
 
-        Register from local files:
+        Register from local files (for engine deployment):
 
         >>> from chalk.client import ChalkClient
         >>> import pyarrow as pa
@@ -2408,11 +2420,65 @@ class ChalkClient:
         ...     output_schema={"prob": pa.float64()},
         ... )
 
-        Register from s3 path:
+        Register with a Docker image (for scaling group deployment):
+
+        >>> from chalk.client import ChalkClient
+        >>> import pyarrow as pa
+        >>> client = ChalkClient()
         >>> client.register_model_version(
-        ...     name="RiskModel",
-        ...     model_paths=["s3://my-bucket/path/to/model.pth"],
-        ...     model_type=ModelType.PYTORCH,
+        ...     name="ner-model",
+        ...     input_schema={"text": pa.large_string()},
+        ...     output_schema={"entities": pa.large_string()},
+        ...     model_image="ghcr.io/my-org/ner-model:latest",
+        ... )
+
+        """
+        ...
+
+    def deploy_model_version_to_scaling_group(
+        self,
+        name: str,
+        model_name: str,
+        model_version: int,
+        scaling: Optional["AutoScalingSpec"] = None,
+        resources: Optional["ScalingGroupResourceRequest"] = None,
+        handler: Optional[str] = None,
+        env_vars: Optional[Dict[str, str]] = None,
+    ) -> dict[str, Any]:
+        """Deploy a registered model version as a scaling group.
+
+        Parameters
+        ----------
+        name
+            Name for the scaling group.
+        model_name
+            Name of the registered model.
+        model_version
+            Version number of the model to deploy.
+        scaling
+            Autoscaling configuration (min/max replicas, CPU target).
+        resources
+            Resource requests (CPU, memory, GPU).
+        handler
+            Dotted path to handler function (default: "model.handler").
+        env_vars
+            Extra environment variables to inject into the container.
+
+        Examples
+        --------
+        >>> from chalk.scalinggroup import AutoScalingSpec, ScalingGroupResourceRequest
+        >>> model_version = client.register_model_version(
+        ...     name="ner-model",
+        ...     input_schema={"text": pa.large_string()},
+        ...     output_schema={"entities": pa.large_string()},
+        ...     model_image="ghcr.io/my-org/ner-model:latest",
+        ... )
+        >>> client.deploy_model_version_to_scaling_group(
+        ...     name="my-ner-sg",
+        ...     model_name="ner-model",
+        ...     model_version=model_version.model_version,
+        ...     scaling=AutoScalingSpec(min_replicas=1, max_replicas=2),
+        ...     resources=ScalingGroupResourceRequest(cpu="2", memory="4Gi"),
         ... )
         """
         ...

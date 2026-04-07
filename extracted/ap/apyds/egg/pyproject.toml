@@ -32,7 +32,7 @@ include = ["apyds_egg"]
 dev = [
   "ruff>=0.14.10,<0.16.0",
   "pytest~=9.0.2",
-  "pytest-cov~=7.0.0",
+  "pytest-cov>=7.0,<7.2",
 ]
 
 [tool.ruff]

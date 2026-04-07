@@ -47,7 +47,7 @@ def run_each(root: Path, ns: str, project_data: dict, options: dict) -> Tuple[bo
     is_quiet = options['quiet']
     is_strict = options['strict']
     is_verbose = options['verbose']
-    name = project_data['name']
+    name = project_data.get('alias') or project_data['name']
     deps = project_data['deps']
     alias = options['alias']
     from_lock_file = libs.is_from_lock_file(deps)

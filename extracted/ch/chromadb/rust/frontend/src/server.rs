@@ -73,17 +73,36 @@ impl chroma_error::ChromaError for RateLimitError {
     }
 }
 
+/// Response containing the fork count for a collection.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ForkCountResponse {
+    /// The number of forks for this collection.
+    pub count: usize,
+}
+
 async fn graceful_shutdown(system: System) {
     #[cfg(unix)]
     {
-        match signal(SignalKind::terminate()) {
-            Ok(mut sigterm) => {
-                sigterm.recv().await;
-                tracing::info!("Received SIGTERM, shutting down service");
-            }
+        let mut sigterm = match signal(SignalKind::terminate()) {
+            Ok(s) => s,
             Err(err) => {
                 tracing::error!("Failed to create SIGTERM handler: {err}");
                 return;
+            }
+        };
+        let mut sigint = match signal(SignalKind::interrupt()) {
+            Ok(s) => s,
+            Err(err) => {
+                tracing::error!("Failed to create SIGINT handler: {err}");
+                return;
+            }
+        };
+        tokio::select! {
+            _ = sigterm.recv() => {
+                tracing::info!("Received SIGTERM, shutting down service");
+            }
+            _ = sigint.recv() => {
+                tracing::info!("Received SIGINT, shutting down service");
             }
         }
     }
@@ -128,6 +147,7 @@ pub struct Metrics {
     update_collection: Counter<u64>,
     delete_collection: Counter<u64>,
     fork_collection: Counter<u64>,
+    fork_count: Counter<u64>,
     collection_add: Counter<u64>,
     collection_update: Counter<u64>,
     collection_upsert: Counter<u64>,
@@ -166,6 +186,7 @@ impl Metrics {
             update_collection: meter.u64_counter("update_collection").build(),
             delete_collection: meter.u64_counter("delete_collection").build(),
             fork_collection: meter.u64_counter("fork_collection").build(),
+            fork_count: meter.u64_counter("fork_count").build(),
             collection_add: meter.u64_counter("collection_add").build(),
             collection_update: meter.u64_counter("collection_update").build(),
             collection_upsert: meter.u64_counter("collection_upsert").build(),
@@ -286,6 +307,10 @@ impl FrontendServer {
             .route(
                 "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/fork",
                 post(fork_collection),
+            )
+            .route(
+                "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/fork_count",
+                get(fork_count),
             )
             .route(
                 "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/add",
@@ -1734,6 +1759,7 @@ async fn fork_collection(
             tenant.clone(),
             database.clone(),
             collection_id.0.to_string(),
+            server.config.region.clone(),
         ));
 
     let request = chroma_types::ForkCollectionRequest::try_new(
@@ -1750,6 +1776,79 @@ async fn fork_collection(
             .meter(metering_context_container)
             .await?,
     ))
+}
+
+/// Get fork count
+/// Returns the number of forks for a collection.
+#[utoipa::path(
+    get,
+    path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/fork_count",
+    summary = "Get fork count",
+    description = "Returns the number of forks for a collection.",
+    tag = "Collection",
+    security(
+        ("ApiKeyAuth" = [])
+    ),
+    responses(
+        (status = 200, description = "Fork count retrieved successfully", body = ForkCountResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 404, description = "Collection not found", body = ErrorResponse),
+        (status = 500, description = "Server error", body = ErrorResponse)
+    ),
+    params(
+        ("tenant" = String, Path, description = "Tenant UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254"),
+        ("database" = String, Path, description = "Database name"),
+        ("collection_id" = String, Path, description = "Collection UUID", example = "1e30d217-3d78-4f8c-b244-79381dc6a254")
+    ),
+    extensions(
+        ("x-codeSamples" = json!([
+            {
+                "lang": "typescript",
+                "label": "Get fork count",
+                "source": "const count = await collection.forkCount();"
+            },
+            {
+                "lang": "python",
+                "label": "Get fork count",
+                "source": "count = collection.fork_count()"
+            }
+        ]))
+    )
+)]
+async fn fork_count(
+    headers: HeaderMap,
+    Path((tenant, database, collection_id)): Path<(String, String, String)>,
+    State(mut server): State<FrontendServer>,
+) -> Result<Json<ForkCountResponse>, ServerError> {
+    server.metrics.fork_count.add(1, &[]);
+    tracing::info!(name: "fork_count", tenant_name = %tenant, database_name = %database, collection_id = %collection_id);
+    let database_name = DatabaseName::new(&database).ok_or_else(|| {
+        ValidationError::InvalidArgument("database name must be at least 3 characters".to_string())
+    })?;
+    let collection_uuid =
+        CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?;
+    server
+        .authenticate_and_authorize_collection(
+            &headers,
+            AuthzAction::CountForks,
+            AuthzResource {
+                tenant: Some(tenant.clone()),
+                database: Some(database.clone()),
+                collection: Some(collection_id.clone()),
+            },
+            database_name,
+            collection_uuid,
+        )
+        .await?;
+    let _guard = server.scorecard_request(&[
+        "op:fork_count",
+        format!("tenant:{}", tenant).as_str(),
+        format!("collection:{}", collection_id).as_str(),
+    ])?;
+
+    let count = server.frontend.fork_count(collection_uuid).await?;
+
+    Ok(Json(ForkCountResponse { count }))
 }
 
 /// Add records
@@ -1856,6 +1955,7 @@ async fn collection_add(
             database.clone(),
             collection_id.0.to_string(),
             WriteAction::Add,
+            server.config.region.clone(),
         ));
 
     metering_context_container.enter();
@@ -1990,6 +2090,7 @@ async fn collection_update(
             database.clone(),
             collection_id.0.to_string(),
             WriteAction::Update,
+            server.config.region.clone(),
         ));
 
     metering_context_container.enter();
@@ -2124,6 +2225,7 @@ async fn collection_upsert(
             database.clone(),
             collection_id.0.to_string(),
             WriteAction::Upsert,
+            server.config.region.clone(),
         ));
 
     metering_context_container.enter();
@@ -2264,6 +2366,7 @@ async fn collection_delete(
             database.clone(),
             collection_id.0.to_string(),
             ReadAction::GetForDelete,
+            server.config.region.clone(),
         ));
 
     tracing::info!(name: "collection_delete", tenant_name = %tenant, database_name = %database, collection_id = %collection_id, num_ids = %payload.ids.as_ref().map_or(0, |ids| ids.len()), has_where = r#where.is_some());
@@ -2279,7 +2382,7 @@ async fn collection_delete(
     let response = Box::pin(
         server
             .frontend
-            .delete(request)
+            .delete(request, server.config.region.clone())
             .meter(metering_context_container),
     )
     .await?;
@@ -2380,6 +2483,7 @@ async fn collection_count(
             database.clone(),
             collection_id.clone(),
             ReadAction::Count,
+            server.config.region.clone(),
         ))
     } else {
         chroma_metering::create::<ExternalCollectionReadContext>(
@@ -2388,6 +2492,7 @@ async fn collection_count(
                 database.clone(),
                 collection_id.clone(),
                 ReadAction::Count,
+                server.config.region.clone(),
             ),
         )
     };
@@ -2493,6 +2598,7 @@ async fn indexing_status(
             database.clone(),
             collection_id.clone(),
             ReadAction::Query,
+            server.config.region.clone(),
         ));
 
     metering_context_container.enter();
@@ -2645,6 +2751,7 @@ async fn collection_get(
             database.clone(),
             collection_id.0.to_string(),
             ReadAction::Get,
+            server.config.region.clone(),
         ))
     } else {
         chroma_metering::create::<ExternalCollectionReadContext>(
@@ -2653,6 +2760,7 @@ async fn collection_get(
                 database.clone(),
                 collection_id.0.to_string(),
                 ReadAction::Get,
+                server.config.region.clone(),
             ),
         )
     };
@@ -2820,6 +2928,7 @@ async fn collection_query(
             database.clone(),
             collection_id.0.to_string(),
             ReadAction::Query,
+            server.config.region.clone(),
         ))
     } else {
         chroma_metering::create::<ExternalCollectionReadContext>(
@@ -2828,6 +2937,7 @@ async fn collection_query(
                 database.clone(),
                 collection_id.0.to_string(),
                 ReadAction::Query,
+                server.config.region.clone(),
             ),
         )
     };
@@ -2978,6 +3088,7 @@ async fn collection_search(
             database.clone(),
             collection_id.0.to_string(),
             ReadAction::Search,
+            server.config.region.clone(),
         ))
     } else {
         chroma_metering::create::<ExternalCollectionReadContext>(
@@ -2986,6 +3097,7 @@ async fn collection_search(
                 database.clone(),
                 collection_id.0.to_string(),
                 ReadAction::Search,
+                server.config.region.clone(),
             ),
         )
     };
@@ -3266,6 +3378,7 @@ impl Modify for ChromaTokenSecurityAddon {
         update_collection,
         delete_collection,
         fork_collection,
+        fork_count,
         collection_add,
         collection_update,
         collection_upsert,

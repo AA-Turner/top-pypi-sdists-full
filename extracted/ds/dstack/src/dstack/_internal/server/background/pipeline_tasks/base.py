@@ -24,6 +24,7 @@ from sqlalchemy import and_, or_, update
 from sqlalchemy.orm import Mapped
 
 from dstack._internal.server.db import get_session_ctx
+from dstack._internal.server.services.pipelines import PipelineHinterProtocol
 from dstack._internal.utils.common import get_current_datetime
 from dstack._internal.utils.logging import get_logger
 
@@ -255,6 +256,7 @@ class Heartbeater(Generic[ItemT]):
 
 class Fetcher(Generic[ItemT], ABC):
     _DEFAULT_FETCH_DELAYS = [0.5, 1, 2, 5]
+    """Increasing fetch delays on empty fetches to avoid frequent selects on low-activity/low-resource servers."""
 
     def __init__(
         self,
@@ -297,7 +299,10 @@ class Fetcher(Generic[ItemT], ABC):
                         self._fetch_event.wait(),
                         timeout=self._next_fetch_delay(empty_fetch_count),
                     )
-                except TimeoutError:
+                except (
+                    asyncio.TimeoutError,  # < Python 3.11
+                    TimeoutError,  # >= Python 3.11
+                ):
                     pass
                 empty_fetch_count += 1
                 self._fetch_event.clear()
@@ -319,7 +324,15 @@ class Fetcher(Generic[ItemT], ABC):
         pass
 
     def _next_fetch_delay(self, empty_fetch_count: int) -> float:
-        next_delay = self._fetch_delays[min(empty_fetch_count, len(self._fetch_delays) - 1)]
+        effective_empty_fetch_count = empty_fetch_count
+        if random.random() < 0.1:
+            # Empty fetch count can be 0 not because there are no items in the DB,
+            # but for other reasons such as waiting parent resource processing.
+            # From time to time, force minimal next delay to avoid empty results due to rare fetches.
+            effective_empty_fetch_count = 0
+        next_delay = self._fetch_delays[
+            min(effective_empty_fetch_count, len(self._fetch_delays) - 1)
+        ]
         jitter = random.random() * 0.4 - 0.2
         return next_delay * (1 + jitter)
 
@@ -329,9 +342,11 @@ class Worker(Generic[ItemT], ABC):
         self,
         queue: asyncio.Queue[ItemT],
         heartbeater: Heartbeater[ItemT],
+        pipeline_hinter: PipelineHinterProtocol,
     ) -> None:
         self._queue = queue
         self._heartbeater = heartbeater
+        self._pipeline_hinter = pipeline_hinter
         self._running = False
 
     async def start(self):

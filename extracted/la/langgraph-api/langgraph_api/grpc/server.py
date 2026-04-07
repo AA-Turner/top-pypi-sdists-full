@@ -24,6 +24,7 @@ from langgraph_grpc_common.proto.encryption_pb2_grpc import (
 from langgraph_api import config
 from langgraph_api.grpc.servicers.checkpointer import CheckpointerServicerImpl
 from langgraph_api.grpc.servicers.encryption import EncryptionServicerImpl
+from langgraph_api.utils.network import format_hostport, get_healthcheck_target_host
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -103,8 +104,7 @@ async def start_python_grpc_server(
         add_EncryptionServicer_to_server(encryption_servicer, server)
         await logger.ainfo("Registered Encryption service")
 
-    # Bind to loopback interface only
-    bind_address = f"{host}:{port}"
+    bind_address = format_hostport(host, port)
     resolved_port = server.add_insecure_port(bind_address)
 
     await server.start()
@@ -167,9 +167,9 @@ async def wait_until_python_grpc_ready(
     Raises:
         RuntimeError: If the server is not ready within the timeout period.
     """
-    host = "127.0.0.1"
+    host = get_healthcheck_target_host(config.PYTHON_GRPC_BIND_HOST)
     port = config.PYTHON_GRPC_SERVER_PORT
-    address = f"{host}:{port}"
+    address = format_hostport(host, port)
     max_attempts = int(timeout_seconds / interval_seconds)
 
     await logger.ainfo(

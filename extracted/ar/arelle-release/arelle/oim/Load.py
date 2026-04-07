@@ -205,8 +205,7 @@ htmlBodyTemplate = "<body xmlns='http://www.w3.org/1999/xhtml'>\n{0}\n</body>\n"
 xhtmlTagPrefix = "{http://www.w3.org/1999/xhtml}"
 builtInDimensionKeys = frozenset({"concept", "entity", "period", "unit", "language"})
 
-UNSUPPORTED_DATA_TYPES = XbrlConst.dtrPrefixedContentItemTypes + (
-    qname(XbrlConst.xbrli,"fractionItemType"), )
+UNSUPPORTED_DATA_TYPES = XbrlConst.dtrPrefixedContentItemTypes | {qname(XbrlConst.xbrli, "fractionItemType")}
 
 # CSV Files
 CSV_PARAMETER_FILE = 1
@@ -922,7 +921,7 @@ def _loadFromOIM(cntlr, error, warning, modelXbrl, oimFile, mappedUri):
                             "JSON error while %(action)s, %(file)s \"metadata\" worksheet, error %(error)s",
                             file=filepath, action=currentAction, error=ex)
             # allow report setup or extension objects processing
-            for pluginXbrlMethod in modelXbrl.modelManager.cntlr.pluginManager.pluginClassMethods("LoadFromOim.DocumentSetup"):
+            for pluginXbrlMethod in modelXbrl.modelManager.cntlr.plugins.hooks("LoadFromOim.DocumentSetup"):
                 pluginXbrlMethod(modelXbrl, oimObject, oimFile)
             # identify document type (JSON or CSV)
             documentInfo = jsonGet(oimObject, "documentInfo", {})

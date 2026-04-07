@@ -2,24 +2,27 @@
 
 from __future__ import annotations
 
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pydantic.v1 as pd
-from xarray import DataArray as XrDataArray
 
 from tidy3d.components.base import cached_property
-from tidy3d.components.data.data_array import (
-    CellDataArray,
-    IndexedDataArray,
-    PointDataArray,
-)
-from tidy3d.components.types import ArrayLike, Axis, Bound, Coordinate
+from tidy3d.components.data.data_array import CellDataArray, IndexedDataArray, PointDataArray
 from tidy3d.exceptions import DataError
 from tidy3d.packaging import requires_vtk, vtk
 
 from .base import UnstructuredGridDataset
 from .triangular import TriangularGridDataset
+
+if TYPE_CHECKING:
+    from typing import Literal, Optional, Union
+
+    from pydantic import PositiveInt
+    from vtkmodules.vtkCommonDataModel import vtkUnstructuredGrid
+    from xarray import DataArray
+    from xarray import DataArray as XrDataArray
+
+    from tidy3d.components.types import ArrayLike, Ax, Axis, Bound, Coordinate
 
 
 class TetrahedralGridDataset(UnstructuredGridDataset):
@@ -34,6 +37,9 @@ class TetrahedralGridDataset(UnstructuredGridDataset):
 
     Example
     -------
+    >>> import numpy as np
+    >>> from tidy3d.components.data.data_array import PointDataArray, CellDataArray, IndexedDataArray
+    >>>
     >>> tet_grid_points = PointDataArray(
     ...     [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
     ...     coords=dict(index=np.arange(4), axis=np.arange(3)),
@@ -58,17 +64,17 @@ class TetrahedralGridDataset(UnstructuredGridDataset):
     """ Fundametal parameters to set up based on grid dimensionality """
 
     @classmethod
-    def _traingular_dataset_type(cls) -> type:
+    def _triangular_dataset_type(cls) -> type:
         """Corresponding class for triangular grid datasets. We need to know this when creating a triangular slice from a tetrahedral grid."""
         return TriangularGridDataset
 
     @classmethod
-    def _point_dims(cls) -> pd.PositiveInt:
+    def _point_dims(cls) -> PositiveInt:
         """Dimensionality of stored grid point coordinates."""
         return 3
 
     @classmethod
-    def _cell_num_vertices(cls) -> pd.PositiveInt:
+    def _cell_num_vertices(cls) -> PositiveInt:
         """Number of vertices in a cell."""
         return 4
 
@@ -83,37 +89,56 @@ class TetrahedralGridDataset(UnstructuredGridDataset):
 
     @classmethod
     @requires_vtk
-    def _vtk_cell_type(cls):
+    def _vtk_cell_type(cls) -> int:
         """VTK cell type to use in the VTK representation."""
         return vtk["mod"].VTK_TETRA
+
+    @classmethod
+    def _cell_types_numpy(cls, vtk_obj: vtkUnstructuredGrid) -> np.ndarray:
+        """Return cell types as a numpy array with a compatibility fallback."""
+        cell_types_array = vtk_obj.GetCellTypesArray()
+        if cell_types_array is not None:
+            return np.array(vtk["vtk_to_numpy"](cell_types_array), copy=True)
+
+        # VTK may return ``None`` for the consolidated array while still exposing per-cell types.
+        num_cells = vtk_obj.GetNumberOfCells()
+        return np.fromiter(
+            (vtk_obj.GetCellType(ind) for ind in range(num_cells)), dtype=int, count=num_cells
+        )
 
     @classmethod
     @requires_vtk
     def _from_vtk_obj(
         cls,
-        vtk_obj,
-        field=None,
+        vtk_obj: vtkUnstructuredGrid,
+        field: Optional[str] = None,
         remove_degenerate_cells: bool = False,
         remove_unused_points: bool = False,
-        values_type=IndexedDataArray,
+        values_type: type = IndexedDataArray,
         expect_complex: bool = False,
         ignore_invalid_cells: bool = False,
     ) -> TetrahedralGridDataset:
         """Initialize from a vtkUnstructuredGrid instance."""
 
         # read point, cells, and values info from a vtk instance
-        cells_numpy = vtk["vtk_to_numpy"](vtk_obj.GetCells().GetConnectivityArray())
-        points_numpy = vtk["vtk_to_numpy"](vtk_obj.GetPoints().GetData())
+        cells_numpy = np.array(
+            vtk["vtk_to_numpy"](vtk_obj.GetCells().GetConnectivityArray()),
+            copy=True,
+        )
+        points_numpy = np.array(vtk["vtk_to_numpy"](vtk_obj.GetPoints().GetData()), copy=True)
         values = cls._get_values_from_vtk(
             vtk_obj, len(points_numpy), field, values_type, expect_complex
         )
 
         # verify cell_types
-        cells_types = vtk["vtk_to_numpy"](vtk_obj.GetCellTypesArray())
+        cells_types = cls._cell_types_numpy(vtk_obj)
         invalid_cells = cells_types != cls._vtk_cell_type()
         if any(invalid_cells):
             if ignore_invalid_cells:
-                cell_offsets = vtk["vtk_to_numpy"](vtk_obj.GetCells().GetOffsetsArray())
+                cell_offsets = np.array(
+                    vtk["vtk_to_numpy"](vtk_obj.GetCells().GetOffsetsArray()),
+                    copy=True,
+                )
                 valid_cell_offsets = cell_offsets[:-1][invalid_cells == 0]
                 cells_numpy = cells_numpy[
                     np.ravel(
@@ -172,11 +197,11 @@ class TetrahedralGridDataset(UnstructuredGridDataset):
 
         slice_vtk = self._plane_slice_raw(axis=axis, pos=pos)
 
-        return self._traingular_dataset_type()._from_vtk_obj(
+        return self._triangular_dataset_type()._from_vtk_obj(
             slice_vtk,
             remove_degenerate_cells=True,
             remove_unused_points=True,
-            field=self._values_coords_dict,
+            field=self._non_spatial_coords_dict,
             values_type=self._values_type,
             expect_complex=self.is_complex,
         )
@@ -295,19 +320,20 @@ class TetrahedralGridDataset(UnstructuredGridDataset):
 
     """ Data selection """
 
-    @requires_vtk
     def sel(
         self,
         x: Union[float, ArrayLike] = None,
         y: Union[float, ArrayLike] = None,
         z: Union[float, ArrayLike] = None,
-        method=None,
+        method: Optional[Literal["nearest", "pad", "ffill", "backfill", "bfill"]] = None,
         **sel_kwargs: Any,
     ) -> Union[TriangularGridDataset, XrDataArray]:
-        """Extract/interpolate data along one or more spatial or non-spatial directions. Must provide at least one argument
-        among 'x', 'y', 'z' or non-spatial dimensions through additional arguments. Along spatial dimensions a suitable slicing of
-        grid is applied (plane slice, line slice, or interpolation). Selection along non-spatial dimensions is forwarded to
-        .sel() xarray function. Parameter 'method' applies only to non-spatial dimensions.
+        """Extract/interpolate data along one or more spatial or non-spatial directions.
+
+        Must provide at least one argument among 'x', 'y', 'z' or non-spatial dimensions
+        through additional arguments. Along spatial dimensions a suitable slicing of
+        grid is applied (plane slice, line slice, or interpolation). Selection along
+        non-spatial dimensions is forwarded to .sel() xarray function.
 
         Parameters
         ----------
@@ -317,8 +343,8 @@ class TetrahedralGridDataset(UnstructuredGridDataset):
             y-coordinate of the slice.
         z : Union[float, ArrayLike] = None
             z-coordinate of the slice.
-        method: Literal[None, "nearest", "pad", "ffill", "backfill", "bfill"] = None
-            Method to use in xarray sel() function.
+        method : Optional[Literal["nearest", "pad", "ffill", "backfill", "bfill"]] = None
+            Method to use for inexact matches (applies to non-spatial dimensions only).
         **sel_kwargs : dict
             Keyword arguments to pass to the xarray sel() function.
 
@@ -361,7 +387,67 @@ class TetrahedralGridDataset(UnstructuredGridDataset):
 
         return self_after_non_spatial_sel
 
-    def get_cell_volumes(self):
+    def plot(
+        self,
+        x: Optional[float] = None,
+        y: Optional[float] = None,
+        z: Optional[float] = None,
+        max_cells: Optional[int] = None,
+        **kwargs: Any,
+    ) -> Ax:
+        """Plot a 2D slice of the tetrahedral grid data.
+
+        Exactly one of ``x``, ``y``, or ``z`` must be provided to select the
+        slicing plane.  The slice produces a :class:`.TriangularGridDataset`
+        whose ``.plot()`` method is then called with the remaining keyword
+        arguments.
+
+        Parameters
+        ----------
+        x : float = None
+            Position of the slicing plane along the x-axis.
+        y : float = None
+            Position of the slicing plane along the y-axis.
+        z : float = None
+            Position of the slicing plane along the z-axis.
+        max_cells : int = None
+            When set, the triangular slice is decimated to approximately this many
+            cells before plotting. Forwarded to :meth:`TriangularGridDataset.plot`.
+        **kwargs : dict
+            Keyword arguments forwarded to :meth:`TriangularGridDataset.plot`.
+
+        Returns
+        -------
+        matplotlib.axes._subplots.Axes
+            The supplied or created matplotlib axes.
+        """
+        sel_kwargs = {}
+        if x is not None:
+            sel_kwargs["x"] = x
+        if y is not None:
+            sel_kwargs["y"] = y
+        if z is not None:
+            sel_kwargs["z"] = z
+
+        if len(sel_kwargs) != 1:
+            raise DataError(
+                "Exactly one of 'x', 'y', or 'z' must be provided to select a 2D slice "
+                "for plotting."
+            )
+
+        axis = list("xyz").index(next(iter(sel_kwargs)))
+        tri_data = self.sel(**sel_kwargs)
+        ax = tri_data.plot(max_cells=max_cells, **kwargs)
+
+        # Clip axis limits to the original tetrahedral domain bounds so that
+        # triangles straddling the boundary don't stretch the plot extent.
+        in_plane = [d for d in range(3) if d != axis]
+        tet_bounds = self.bounds
+        ax.set_xlim(tet_bounds[0][in_plane[0]], tet_bounds[1][in_plane[0]])
+        ax.set_ylim(tet_bounds[0][in_plane[1]], tet_bounds[1][in_plane[1]])
+        return ax
+
+    def get_cell_volumes(self) -> DataArray:
         """Get the volumes associated to each cell in the grid"""
         v0 = self.points[self.cells.sel(vertex_index=0)]
         e01 = self.points[self.cells.sel(vertex_index=1)] - v0

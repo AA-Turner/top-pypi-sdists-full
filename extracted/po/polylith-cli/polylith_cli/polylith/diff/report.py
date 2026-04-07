@@ -9,7 +9,7 @@ def print_diff_details(projects_data: List[dict], bases: List[str], components: 
         return
     console = Console(theme=theme.poly_theme)
     options = {'command': 'diff'}
-    table = info.report.build_bricks_in_projects_table(projects_data, bases, components, options)
+    table = info.build_bricks_in_projects_table(projects_data, bases, components, options)
     console.print(table, overflow='ellipsis')
 
 def print_detected_changes(changes: List[str], markup: str, short: bool) -> None:

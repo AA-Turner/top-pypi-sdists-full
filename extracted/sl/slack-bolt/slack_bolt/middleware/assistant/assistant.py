@@ -7,6 +7,7 @@ from slack_bolt.context.save_thread_context import SaveThreadContext
 from slack_bolt.context.assistant.thread_context_store.store import AssistantThreadContextStore
 from slack_bolt.listener_matcher.builtins import build_listener_matcher
 
+from slack_bolt.middleware.attaching_conversation_kwargs import AttachingConversationKwargs
 from slack_bolt.request.request import BoltRequest
 from slack_bolt.response.response import BoltResponse
 from slack_bolt.listener_matcher import CustomListenerMatcher
@@ -67,7 +68,7 @@ class Assistant(Middleware):
                 self.build_listener(
                     listener_or_functions=func,
                     matchers=all_matchers,
-                    middleware=middleware,  # type:ignore[arg-type]
+                    middleware=middleware,  # type: ignore[arg-type]
                 )
             )
             return func
@@ -106,7 +107,7 @@ class Assistant(Middleware):
                 self.build_listener(
                     listener_or_functions=func,
                     matchers=all_matchers,
-                    middleware=middleware,  # type:ignore[arg-type]
+                    middleware=middleware,  # type: ignore[arg-type]
                 )
             )
             return func
@@ -145,7 +146,7 @@ class Assistant(Middleware):
                 self.build_listener(
                     listener_or_functions=func,
                     matchers=all_matchers,
-                    middleware=middleware,  # type:ignore[arg-type]
+                    middleware=middleware,  # type: ignore[arg-type]
                 )
             )
             return func
@@ -184,7 +185,7 @@ class Assistant(Middleware):
                 self.build_listener(
                     listener_or_functions=func,
                     matchers=all_matchers,
-                    middleware=middleware,  # type:ignore[arg-type]
+                    middleware=middleware,  # type: ignore[arg-type]
                 )
             )
             return func
@@ -214,13 +215,13 @@ class Assistant(Middleware):
     ):
         return [CustomListenerMatcher(app_name=self.app_name, func=primary_matcher)] + (
             custom_matchers or []
-        )  # type:ignore[operator]
+        )  # type: ignore[operator]
 
     @staticmethod
     def default_thread_context_changed(save_thread_context: SaveThreadContext, payload: dict):
         save_thread_context(payload["assistant_thread"]["context"])
 
-    def process(  # type:ignore[return]
+    def process(  # type: ignore[return]
         self, *, req: BoltRequest, resp: BoltResponse, next: Callable[[], BoltResponse]
     ) -> Optional[BoltResponse]:
         if self._thread_context_changed_listeners is None:
@@ -236,6 +237,15 @@ class Assistant(Middleware):
             if listeners is not None:
                 for listener in listeners:
                     if listener.matches(req=req, resp=resp):
+                        middleware_resp, next_was_not_called = listener.run_middleware(req=req, resp=resp)
+                        if next_was_not_called:
+                            if middleware_resp is not None:
+                                return middleware_resp
+                            # The listener middleware didn't call next().
+                            # Skip this listener and try the next one.
+                            continue
+                        if middleware_resp is not None:
+                            resp = middleware_resp
                         return listener_runner.run(
                             request=req,
                             response=resp,
@@ -255,13 +265,14 @@ class Assistant(Middleware):
         middleware: Optional[List[Middleware]] = None,
         base_logger: Optional[Logger] = None,
     ) -> Listener:
-        if isinstance(listener_or_functions, Callable):  # type:ignore[arg-type]
-            listener_or_functions = [listener_or_functions]  # type:ignore[list-item]
+        if isinstance(listener_or_functions, Callable):  # type: ignore[arg-type]
+            listener_or_functions = [listener_or_functions]  # type: ignore[list-item]
 
         if isinstance(listener_or_functions, Listener):
             return listener_or_functions
         elif isinstance(listener_or_functions, list):
             middleware = middleware if middleware else []
+            middleware.insert(0, AttachingConversationKwargs(self.thread_context_store))
             functions = listener_or_functions
             ack_function = functions.pop(0)
 
@@ -270,7 +281,7 @@ class Assistant(Middleware):
             for matcher in matchers:
                 if isinstance(matcher, ListenerMatcher):
                     listener_matchers.append(matcher)
-                elif isinstance(matcher, Callable):  # type:ignore[arg-type]
+                elif isinstance(matcher, Callable):  # type: ignore[arg-type]
                     listener_matchers.append(
                         build_listener_matcher(
                             func=matcher,

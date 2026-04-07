@@ -6,6 +6,7 @@ import struct
 import sys
 import threading
 import time
+from contextlib import AbstractContextManager
 from subprocess import PIPE, Popen
 from types import TracebackType
 from typing import (
@@ -1614,7 +1615,7 @@ class Result:
         return "\n\n" + "\n".join(getattr(self, stream).splitlines()[-count:])
 
 
-class Promise(Result):
+class Promise(Result, AbstractContextManager):
     """
     A promise of some future `Result`, yielded from asynchronous execution.
 
@@ -1629,6 +1630,9 @@ class Promise(Result):
 
     .. versionadded:: 1.4
     """
+
+    #: The `.Runner` instance which made this `.Promise`.
+    runner: Runner
 
     def __init__(self, runner: "Runner") -> None:
         """
@@ -1677,6 +1681,9 @@ class Promise(Result):
         exc_tb: Optional[TracebackType],
     ) -> None:
         self.join()
+
+    def __repr__(self) -> str:
+        return f"<Promise cmd={self.command!r}>"
 
 
 def normalize_hide(

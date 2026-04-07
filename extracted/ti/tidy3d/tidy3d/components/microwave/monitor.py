@@ -2,30 +2,32 @@
 
 from __future__ import annotations
 
-import pydantic.v1 as pydantic
+from pydantic import Field
 
 from tidy3d.components.microwave.base import MicrowaveBaseModel
-from tidy3d.components.microwave.mode_spec import MicrowaveModeSpec
+from tidy3d.components.microwave.mode_spec import MicrowaveModeSpec, MicrowaveModeSpecType
 from tidy3d.components.monitor import ModeMonitor, ModeSolverMonitor
+from tidy3d.components.types.base import TYPE_TAG_STR
 
 
 class MicrowaveModeMonitorBase(MicrowaveBaseModel):
-    """Base class for microwave mode monitors that use :class:`.MicrowaveModeSpec`.
+    """Base class for microwave mode monitors that use :class:`~tidy3d.rf.MicrowaveModeSpec`.
 
     This mixin provides the ``mode_spec`` field configured for RF and microwave applications,
     including characteristic impedance calculations and transmission line analysis.
 
     Notes
     -----
-    This is a mixin class that provides the :class:`.MicrowaveModeSpec` field for mode monitors.
+    This is a mixin class that provides the :class:`~tidy3d.rf.MicrowaveModeSpec` field for mode monitors.
     It must be placed first in the inheritance list to ensure its ``mode_spec`` field takes
     precedence over the base :class:`.ModeSpec` field from :class:`.AbstractModeMonitor`.
     """
 
-    mode_spec: MicrowaveModeSpec = pydantic.Field(
+    mode_spec: MicrowaveModeSpecType = Field(
         default_factory=MicrowaveModeSpec._default_without_license_warning,
         title="Mode Specification",
         description="Parameters to feed to mode solver which determine modes measured by monitor.",
+        discriminator=TYPE_TAG_STR,
     )
 
 

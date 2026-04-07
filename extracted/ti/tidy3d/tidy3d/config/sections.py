@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import os
-from os import PathLike
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 from urllib.parse import urlparse
 
 import numpy as np
@@ -36,7 +35,16 @@ from tidy3d.log import (
 from .registry import get_manager as _get_attached_manager
 from .registry import register_handler, register_section
 
+if TYPE_CHECKING:
+    from os import PathLike
+
+VALID_VGPU_ALLOCATIONS = (1, 2, 4, 8)
+
 TLS_VERSION_CHOICES = {"TLSv1", "TLSv1_1", "TLSv1_2", "TLSv1_3"}
+ParallelAdjointModeDirectionPolicy = Literal[
+    "assume_outgoing",
+    "run_both_directions",
+]
 
 
 class ConfigSection(BaseModel):
@@ -101,7 +109,18 @@ class SimulationConfig(ConfigSection):
         None,
         title="Use local subpixel",
         description=(
-            "If True, force local subpixel averaging; False disables it; None keeps default behavior."
+            "Controls whether local subpixel averaging is used in "
+            "'Simulation.epsilon', 'ModeSimulation.run_local', and 'ModeSolver.solve'. "
+            "Subpixel averaging improves the accuracy of these computations. "
+            "This feature requires the 'tidy3d-extras' package, which "
+            r"can be installed using 'pip install tidy3d\[extras]'. "
+            "If True, local subpixel averaging is enabled, and these functions will "
+            "raise an error if 'tidy3d-extras' is not installed. "
+            "If False, local subpixel averaging is disabled and these functions "
+            "will use permittivity staircasing instead. "
+            "If None (the default), local subpixel averaging will be used when "
+            "'tidy3d-extras' is installed and will silently fall back "
+            "to permittivity staircasing otherwise."
         ),
     )
 
@@ -198,6 +217,28 @@ class AdjointConfig(ConfigSection):
         json_schema_extra={"persist": True},
     )
 
+    parallel_run: bool = Field(
+        False,
+        title="Enable parallel adjoint sources",
+        description=(
+            "When True, run canonical adjoint simulations in parallel with the forward solve for "
+            "supported monitor types when local gradients are enabled."
+        ),
+        json_schema_extra={"persist": True},
+    )
+
+    parallel_adjoint_mode_direction_policy: ParallelAdjointModeDirectionPolicy = Field(
+        "assume_outgoing",
+        title="Parallel adjoint mode direction policy",
+        description=(
+            "Policy for selecting propagation directions when launching parallel adjoint mode "
+            "simulations. 'assume_outgoing' uses the monitor position relative to the simulation "
+            "center to choose a single outgoing direction and flips it for the adjoint source. "
+            "'run_both_directions' launches adjoint sources for both '+' and '-' mode directions."
+        ),
+        json_schema_extra={"persist": True},
+    )
+
     gradient_precision: Literal["single", "double"] = Field(
         "single",
         title="Gradient precision",
@@ -259,6 +300,18 @@ class AdjointConfig(ConfigSection):
         ),
     )
 
+    memory_allotment_fraction: float = Field(
+        0.75,
+        title="Adjoint memory allotment fraction",
+        description=(
+            "Fraction of reported available RAM reserved for local adjoint postprocessing "
+            "when auto-selecting frequency chunk sizes."
+        ),
+        ge=0.0,
+        le=1.0,
+        json_schema_extra={"persist": True},
+    )
+
     max_traced_structures: PositiveInt = Field(
         500,
         title="Max traced structures",
@@ -314,6 +367,92 @@ def apply_adjoint(config: AdjointConfig) -> None:
     )
 
 
+@register_section("run")
+class RunConfig(ConfigSection):
+    """Default run configuration for web submissions."""
+
+    solver_version: Optional[str] = Field(
+        None,
+        title="Solver version",
+        description="Default solver version to use for web runs.",
+    )
+
+    worker_group: Optional[str] = Field(
+        None,
+        title="Worker group",
+        description="Default worker group to use for web runs.",
+    )
+
+    simulation_type: str = Field(
+        "tidy3d",
+        title="Simulation type",
+        description="Default simulation type label for uploaded tasks.",
+    )
+
+    additional_payload: Optional[dict[str, Any]] = Field(
+        None,
+        title="Additional payload",
+        description="Additional submit payload serialized to JSON and sent under 'additionalPayload'.",
+    )
+
+    pay_type: str = Field(
+        "AUTO",
+        title="Payment type",
+        description="Default payment type for web runs.",
+    )
+
+    @field_validator("pay_type", mode="before")
+    @classmethod
+    def _validate_pay_type(cls, value: Any) -> str:
+        from tidy3d.web.core.types import PayType
+
+        candidate = getattr(value, "value", value)
+        return PayType(candidate).value
+
+
+@register_section("vgpu")
+class VgpuConfig(ConfigSection):
+    """Default vGPU configuration for web runs."""
+
+    priority: Optional[int] = Field(
+        None,
+        title="Priority",
+        description="Default queue priority for vGPU runs (1 = lowest, 10 = highest).",
+    )
+
+    vgpu_allocation: Optional[int] = Field(
+        None,
+        title="vGPU allocation",
+        description="Default virtual GPU allocation for vGPU runs.",
+    )
+
+    ignore_memory_limit: Optional[bool] = Field(
+        None,
+        title="Ignore memory limit",
+        description="Default flag to allow vGPU runs above the estimated memory limit.",
+    )
+
+    @field_validator("priority")
+    @classmethod
+    def _validate_priority(cls, value: Optional[int]) -> Optional[int]:
+        if value is None:
+            return value
+        if value < 1 or value > 10:
+            raise ValueError("Priority must be between '1' and '10' if specified.")
+        return value
+
+    @field_validator("vgpu_allocation")
+    @classmethod
+    def _validate_vgpu_allocation(cls, value: Optional[int]) -> Optional[int]:
+        if value is None:
+            return value
+        if value not in VALID_VGPU_ALLOCATIONS:
+            raise ValueError(
+                f"vgpu_allocation must be one of {list(VALID_VGPU_ALLOCATIONS)} if specified."
+            )
+        return value
+
+
 class WebConfig(ConfigSection):
     """Web/HTTP configuration."""
 
@@ -361,6 +500,15 @@ class WebConfig(ConfigSection):
         description="HTTP request timeout in seconds.",
         ge=0,
         le=300,
+    )
+
+    default_num_workers: PositiveInt = Field(
+        10,
+        title="Default batch workers",
+        description=(
+            "Default worker count for configurable ``Batch`` thread pools when ``num_workers`` "
+            "is not provided. Upload/start uses a fixed concurrency of 64 workers."
+        ),
     )
 
     ssl_version: Optional[str] = Field(
@@ -474,7 +622,7 @@ class LocalCacheConfig(ConfigSection):
     """Settings controlling the optional local simulation cache."""
 
     enabled: bool = Field(
-        False,
+        True,
         title="Enable cache",
         description="Enable or disable the local simulation cache.",
         json_schema_extra={"persist": True},
@@ -502,6 +650,7 @@ class LocalCacheConfig(ConfigSection):
     )
 
     @field_validator("directory", mode="before")
+    @classmethod
     def _ensure_directory_exists(cls, v: PathLike) -> Path:
         """Expand ~, resolve path, and create directory if missing before DirectoryPath validation."""
         p = Path(v).expanduser().resolve()
@@ -512,6 +661,25 @@ class LocalCacheConfig(ConfigSection):
     def _serialize_directory(self, value: Path) -> str:
         """Persist directory as strings."""
         return str(value)
+
+
+class BatchDataCacheConfig(ConfigSection):
+    """Settings controlling in-memory caching for batch data."""
+
+    enabled: bool = Field(
+        True,
+        title="Enable batch data cache",
+        description="Cache batch results in memory when files are below the size threshold.",
+    )
+
+    max_total_size_gb: NonNegativeFloat = Field(
+        1.0,
+        title="Maximum total batch data size (GB)",
+        description=(
+            "Cache batch task data only when the combined size of all task data files is at or "
+            "below this threshold. Set to 0 to disable."
+        ),
+    )
 
 
 @register_section("plugins")
@@ -527,14 +695,17 @@ if not WASM_BUILD:
     register_section("web")(WebConfig)
     register_handler("web")(apply_web)
     register_section("local_cache")(LocalCacheConfig)
+    register_section("batch_data_cache")(BatchDataCacheConfig)
 
 
 __all__ = [
     "AdjointConfig",
+    "BatchDataCacheConfig",
     "LocalCacheConfig",
     "LoggingConfig",
     "MicrowaveConfig",
     "PluginsContainer",
+    "RunConfig",
     "SimulationConfig",
     "WebConfig",
 ]

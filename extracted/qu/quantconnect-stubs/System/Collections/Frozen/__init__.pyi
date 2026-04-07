@@ -19,16 +19,6 @@ System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate = typing.TypeVar(
 class FrozenDictionary(typing.Generic[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue], System.Object, System.Collections.Generic.IDictionary[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue], System.Collections.Generic.IReadOnlyDictionary[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue]], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    class Enumerator(System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue]]):
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System.Collections.Generic.KeyValuePair[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue]:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
     class AlternateLookup(typing.Generic[System_Collections_Frozen_FrozenDictionary_AlternateLookup_TAlternateKey]):
         """This class has no documentation."""
 
@@ -43,6 +33,16 @@ class FrozenDictionary(typing.Generic[System_Collections_Frozen_FrozenDictionary
             ...
 
         def try_get_value(self, key: System_Collections_Frozen_FrozenDictionary_AlternateLookup_TAlternateKey, value: typing.Optional[System_Collections_Frozen_FrozenDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Frozen_FrozenDictionary_TValue]:
+            ...
+
+    class Enumerator(System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue]]):
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System.Collections.Generic.KeyValuePair[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue]:
+            ...
+
+        def move_next(self) -> bool:
             ...
 
     EMPTY: System.Collections.Frozen.FrozenDictionary[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue]
@@ -99,16 +99,6 @@ class FrozenDictionary(typing.Generic[System_Collections_Frozen_FrozenDictionary
 class FrozenSet(typing.Generic[System_Collections_Frozen_FrozenSet_T], System.Object, System.Collections.Generic.ISet[System_Collections_Frozen_FrozenSet_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Frozen_FrozenSet_T], System.Collections.ICollection, typing.Iterable[System_Collections_Frozen_FrozenSet_T], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Frozen_FrozenSet_T]):
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System_Collections_Frozen_FrozenSet_T:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
     class AlternateLookup(typing.Generic[System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate]):
         """This class has no documentation."""
 
@@ -120,6 +110,16 @@ class FrozenSet(typing.Generic[System_Collections_Frozen_FrozenSet_T], System.Ob
             ...
 
         def try_get_value(self, equal_value: System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate, actual_value: typing.Optional[System_Collections_Frozen_FrozenSet_T]) -> typing.Tuple[bool, System_Collections_Frozen_FrozenSet_T]:
+            ...
+
+    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Frozen_FrozenSet_T]):
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System_Collections_Frozen_FrozenSet_T:
+            ...
+
+        def move_next(self) -> bool:
             ...
 
     EMPTY: System.Collections.Frozen.FrozenSet[System_Collections_Frozen_FrozenSet_T]

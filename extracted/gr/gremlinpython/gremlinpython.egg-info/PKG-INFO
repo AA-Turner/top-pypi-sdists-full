@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gremlinpython
-Version: 3.8.0
+Version: 3.8.1
 Summary: Gremlin-Python for Apache TinkerPop
 Maintainer-email: Apache TinkerPop <dev@tinkerpop.apache.org>
 License: Apache 2
@@ -25,6 +25,7 @@ Requires-Dist: ujson>=2.0.0; extra == "ujson"
 Provides-Extra: test
 Requires-Dist: pytest<8.0.0,>=6.2.5; extra == "test"
 Requires-Dist: radish-bdd==0.18.2; extra == "test"
+Requires-Dist: lxml==5.3.0; extra == "test"
 Requires-Dist: PyHamcrest<3.0.0,>=1.9.0; extra == "test"
 Requires-Dist: PyYAML>=5.3; extra == "test"
 Dynamic: license-file

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apyds
-Version: 0.0.20
+Version: 0.0.21
 Summary: A deductive system
 Author-Email: Hao Zhang <hzhangxyz@outlook.com>
 License-Expression: AGPL-3.0-or-later
@@ -9,7 +9,7 @@ Requires-Python: <3.15,>=3.11
 Provides-Extra: dev
 Requires-Dist: ruff<0.16.0,>=0.14.10; extra == "dev"
 Requires-Dist: pytest~=9.0.2; extra == "dev"
-Requires-Dist: pytest-cov~=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov<7.2,>=7.0; extra == "dev"
 Description-Content-Type: text/markdown
 
 # DS - A Deductive System

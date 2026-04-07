@@ -134,7 +134,7 @@ DEFAULT_SETTINGS_DICT_DOC = {
         "Alpha value of the reference trajectories in plots."
     ),
     "plot_reference_color": (
-        "black",
+        "#444444",
         "Color of the reference trajectories in plots."
     ),
     "plot_reference_linestyle": (
@@ -216,8 +216,12 @@ DEFAULT_SETTINGS_DICT_DOC = {
     ),
     "rerun_spawn": (
         True,
-        "Spawn a viewer window when logging data to rerun.\n"
+        "Spawn a viewer window when logging data to Rerun.\n"
         "If set to False, the viewer must be started manually."
+    ),
+    "rerun_viewer_port": (
+        9876,
+        "Port for the Rerun viewer gRPC proxy."
     ),
     "ros2_bag_storage_plugin": (
         "mcap",

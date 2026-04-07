@@ -5,57 +5,30 @@ from __future__ import annotations
 import functools
 import pathlib
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Sequence
-from os import PathLike
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 import autograd.numpy as np
-import pydantic.v1 as pydantic
 import shapely
-from numpy._typing import ArrayLike, NDArray
-from typing_extensions import Self
+from pydantic import Field, NonNegativeFloat, field_validator, model_validator
 
-try:
-    from matplotlib import patches
-except ImportError:
-    pass
-
-from tidy3d.compat import _shapely_is_older_than
-from tidy3d.components.autograd import (
-    AutogradFieldMap,
-    TracedCoordinate,
-    TracedFloat,
-    TracedSize,
-    get_static,
-)
-from tidy3d.components.autograd.derivative_utils import DerivativeInfo
+from tidy3d.compat import _package_is_older_than
+from tidy3d.components.autograd import TracedCoordinate, TracedFloat, TracedSize, get_static
 from tidy3d.components.base import Tidy3dBaseModel, cached_property
 from tidy3d.components.geometry.bound_ops import bounds_intersection, bounds_union
 from tidy3d.components.geometry.float_utils import increment_float
 from tidy3d.components.transformation import ReflectionFromPlane, RotationAroundAxis
 from tidy3d.components.types import (
-    ArrayFloat2D,
-    ArrayFloat3D,
-    Ax,
     Axis,
-    Bound,
     ClipOperationType,
     Coordinate,
-    Coordinate2D,
-    LengthUnit,
     MatrixReal4x4,
     PlanePosition,
-    Shapely,
-    Size,
-    annotate_type,
 )
+from tidy3d.components.types.base import discriminated_union
 from tidy3d.components.viz import (
     ARROW_LENGTH,
     PLOT_BUFFER,
-    PlotParams,
-    VisualizationSpec,
     add_ax_if_none,
-    arrow_style,
     equal_aspect,
     plot_params_geometry,
     polygon_patch,
@@ -68,18 +41,43 @@ from tidy3d.exceptions import (
     Tidy3dImportError,
     Tidy3dKeyError,
     ValidationError,
+    format_chained_exception_message,
 )
 from tidy3d.log import log
 from tidy3d.packaging import verify_packages_import
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+    from os import PathLike
+    from typing import Callable, Union
+
+    import pydantic
     from gdstk import Cell
     from matplotlib.backend_bases import Event
     from matplotlib.patches import FancyArrowPatch
+    from numpy.typing import ArrayLike, NDArray
+    from pydantic import NonNegativeInt, PositiveFloat
+    from typing_extensions import Self
+
+    from tidy3d.components.autograd import AutogradFieldMap
+    from tidy3d.components.autograd.derivative_utils import DerivativeInfo
+    from tidy3d.components.types import (
+        ArrayFloat2D,
+        ArrayFloat3D,
+        Ax,
+        Bound,
+        Coordinate2D,
+        LengthUnit,
+        Shapely,
+        Size,
+    )
+    from tidy3d.components.viz import PlotParams, VisualizationSpec
 
 POLY_GRID_SIZE = 1e-12
 POLY_TOLERANCE_RATIO = 1e-12
 POLY_DISTANCE_TOLERANCE = 8e-12
+# Tolerance for validating linear-only transforms (no translation)
+LINEAR_TRANSFORM_TOL = 1e-12
 
 
 _shapely_operations = {
@@ -97,6 +95,53 @@ _bit_operations = {
 }
 
 
+# Validators for geometry classes (defined here instead of validators.py to avoid circular imports)
+def assert_geometry_finite(field_name: str = "geometry") -> Callable[[type, Geometry], Geometry]:
+    """Validator that ensures a geometry field has finite bounds."""
+
+    @field_validator(field_name)
+    @classmethod
+    def geometry_has_finite_bounds(cls: type, val: Geometry) -> Geometry:
+        """Raise validation error if geometry has non-finite bounds."""
+        if not np.isfinite(val.bounds).all():
+            raise ValidationError(
+                f"'{cls.__name__}' requires a geometry with finite dimensions. "
+                "Try using a large value instead of 'inf' when creating geometries."
+            )
+        return val
+
+    return geometry_has_finite_bounds
+
+
+def check_transform_invertible(transform: MatrixReal4x4, index: Optional[int] = None) -> None:
+    """Check if a transform matrix is invertible.
+
+    Parameters
+    ----------
+    transform : MatrixReal4x4
+        The 4x4 transformation matrix to check.
+    index : Optional[int]
+        If provided, includes the index in the error message (for array of transforms).
+
+    Raises
+    ------
+    ValidationError
+        If the transform matrix is not invertible.
+    """
+    try:
+        _ = np.linalg.inv(transform)
+    except np.linalg.LinAlgError as err:
+        if index is not None:
+            raise ValidationError(
+                format_chained_exception_message(
+                    f"Transform at index {index} is not invertible", err
+                )
+            ) from err
+        raise ValidationError(
+            format_chained_exception_message("Transform matrix is not invertible", err)
+        ) from err
+
+
 class Geometry(Tidy3dBaseModel, ABC):
     """Abstract base class, defines where something exists in space."""
 
@@ -108,7 +153,7 @@ class Geometry(Tidy3dBaseModel, ABC):
     def inside(self, x: NDArray[float], y: NDArray[float], z: NDArray[float]) -> NDArray[bool]:
         """For input arrays ``x``, ``y``, ``z`` of arbitrary but identical shape, return an array
         with the same shape which is ``True`` for every point in zip(x, y, z) that is inside the
-        volume of the :class:`Geometry`, and ``False`` otherwise.
+        volume of the :class:`~tidy3d.Geometry`, and ``False`` otherwise.
 
         Parameters
         ----------
@@ -182,7 +227,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        Tuple[slice, slice, slice]
+        tuple[slice, slice, slice]
             Slices into each of the three arrays that are inside the geometry bounds.
         """
         bounds = self.bounds
@@ -254,7 +299,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
@@ -286,7 +331,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
@@ -308,7 +353,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane. For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
         """
@@ -321,13 +366,13 @@ class Geometry(Tidy3dBaseModel, ABC):
     def intersects(
         self, other: Geometry, strict_inequality: tuple[bool, bool, bool] = [False, False, False]
     ) -> bool:
-        """Returns ``True`` if two :class:`Geometry` have intersecting `.bounds`.
+        """Returns ``True`` if two :class:`~tidy3d.Geometry` have intersecting `.bounds`.
 
         Parameters
         ----------
-        other : :class:`Geometry`
+        other : :class:`~tidy3d.Geometry`
             Geometry to check intersection with.
-        strict_inequality : Tuple[bool, bool, bool] = [False, False, False]
+        strict_inequality : tuple[bool, bool, bool] = [False, False, False]
             For each dimension, defines whether to include equality in the boundaries comparison.
             If ``False``, equality is included, and two geometries that only intersect at their
             boundaries will evaluate as ``True``. If ``True``, such geometries will evaluate as
@@ -364,9 +409,9 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Parameters
         ----------
-        other : :class:`Geometry`
+        other : :class:`~tidy3d.Geometry`
             Geometry to check containment with.
-        strict_inequality : Tuple[bool, bool, bool] = [False, False, False]
+        strict_inequality : tuple[bool, bool, bool] = [False, False, False]
             For each dimension, defines whether to include equality in the boundaries comparison.
             If ``False``, equality will be considered as contained. If ``True``, ``other``'s
             bounds must be strictly within the bounds of ``self``.
@@ -442,7 +487,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        Tuple[float, float, float], Tuple[float, float float]
+        tuple[float, float, float], tuple[float, float float]
             Min and max bounds packaged as ``(minx, miny, minz), (maxx, maxy, maxz)``.
         """
 
@@ -458,18 +503,18 @@ class Geometry(Tidy3dBaseModel, ABC):
 
     @cached_property
     def bounding_box(self) -> Box:
-        """Returns :class:`Box` representation of the bounding box of a :class:`Geometry`.
+        """Returns :class:`~tidy3d.Box` representation of the bounding box of a :class:`~tidy3d.Geometry`.
 
         Returns
         -------
-        :class:`Box`
+        :class:`~tidy3d.Box`
             Geometric object representing bounding box.
         """
         return Box.from_bounds(*self.bounds)
 
     @cached_property
     def zero_dims(self) -> list[Axis]:
-        """A list of axes along which the :class:`Geometry` is zero-sized based on its bounds."""
+        """A list of axes along which the :class:`~tidy3d.Geometry` is zero-sized based on its bounds."""
         zero_dims = []
         for dim in range(3):
             if self.bounds[1][dim] == self.bounds[0][dim]:
@@ -486,7 +531,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        Tuple[float, float], Tuple[Tuple[float, float], Tuple[float, float]]
+        tuple[float, float], tuple[tuple[float, float], tuple[float, float]]
             Bounds along axis and a tuple of bounds in the ordered planar coordinates.
             Packed as ``(zmin, zmax), ((xmin, ymin), (xmax, ymax))``.
         """
@@ -659,7 +704,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-            Tuple[float, float], Tuple[float, float]
+            tuple[float, float], tuple[float, float]
         The x and y plot limits, packed as ``(xmin, xmax), (ymin, ymax)``.
         """
         _, ((xmin, ymin), (xmax, ymax)) = self._pop_bounds(axis=axis)
@@ -769,14 +814,14 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Parameters
         ----------
-        coord : Tuple[Any, Any, Any]
+        coord : tuple[Any, Any, Any]
             Tuple of three values in original coordinate system.
         axis : int
             Integer index into 'xyz' (0,1,2).
 
         Returns
         -------
-        Any, Tuple[Any, Any]
+        Any, tuple[Any, Any]
             The input coordinates are separated into the one along the axis provided
             and the two on the planar coordinates,
             like ``axis_coord, (planar_coord1, planar_coord2)``.
@@ -793,14 +838,14 @@ class Geometry(Tidy3dBaseModel, ABC):
         ----------
         ax_coord : Any
             Value along axis direction.
-        plane_coords : Tuple[Any, Any]
+        plane_coords : tuple[Any, Any]
             Values along ordered planar directions.
         axis : int
             Integer index into 'xyz' (0,1,2).
 
         Returns
         -------
-        Tuple[Any, Any, Any]
+        tuple[Any, Any, Any]
             The three values in the xyz coordinate system.
         """
         coords = list(plane_coords)
@@ -917,7 +962,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Parameters
         ----------
-        bounds : Tuple[Tuple[float, float, float], Tuple[float, float, float]] = None
+        bounds : tuple[tuple[float, float, float], tuple[float, float, float]] = None
             Min and max bounds packaged as ``(minx, miny, minz), (maxx, maxy, maxz)``.
 
         Returns
@@ -940,7 +985,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Parameters
         ----------
-        bounds : Tuple[Tuple[float, float, float], Tuple[float, float, float]] = None
+        bounds : tuple[tuple[float, float, float], tuple[float, float, float]] = None
             Min and max bounds packaged as ``(minx, miny, minz), (maxx, maxy, maxz)``.
 
         Returns
@@ -972,7 +1017,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        :class:`Geometry`
+        :class:`~tidy3d.Geometry`
             Translated copy of this geometry.
         """
         return Transformed(geometry=self, transform=Transformed.translation(x, y, z))
@@ -991,7 +1036,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        :class:`Geometry`
+        :class:`~tidy3d.Geometry`
             Scaled copy of this geometry.
         """
         return Transformed(geometry=self, transform=Transformed.scaling(x, y, z))
@@ -1003,12 +1048,12 @@ class Geometry(Tidy3dBaseModel, ABC):
         ----------
         angle : float
             Rotation angle (in radians).
-        axis : Union[int, Tuple[float, float, float]]
+        axis : Union[int, tuple[float, float, float]]
             Axis of rotation: 0, 1, or 2 for x, y, and z, respectively, or a 3D vector.
 
         Returns
         -------
-        :class:`Geometry`
+        :class:`~tidy3d.Geometry`
             Rotated copy of this geometry.
         """
         return Transformed(geometry=self, transform=Transformed.rotation(angle, axis))
@@ -1018,16 +1063,72 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Parameters
         ----------
-        normal : Tuple[float, float, float]
+        normal : tuple[float, float, float]
             The 3D normal vector of the plane of reflection. The plane is assumed
                 to pass through the origin (0,0,0).
 
         Returns
         -------
-        :class:`Geometry`
+        :class:`~tidy3d.Geometry`
             Reflected copy of this geometry.
         """
         return Transformed(geometry=self, transform=Transformed.reflection(normal))
+
+    def array(
+        self,
+        offsets: Optional[ArrayLike] = None,
+        transforms: Optional[ArrayLike] = None,
+    ) -> GeometryArray:
+        """Return an array of copies of this geometry with optional offsets and/or linear transforms.
+
+        This method creates a :class:`GeometryArray` containing multiple copies of this
+        geometry. When both ``offsets`` and ``transforms`` are provided, transforms are
+        applied to each copy before the translation given by offsets is applied.
+
+        Parameters
+        ----------
+        offsets : Optional[ArrayLike] = None
+            Optional array of offset vectors with shape (N, 3) where N is the number of
+            geometries. Each row specifies the (x, y, z) translation for one geometry
+            (after any transform is applied). If not provided, no additional translation
+            is applied beyond any transforms.
+        transforms : Optional[ArrayLike] = None
+            Optional array of 4x4 linear-only transform matrices with shape (N, 4, 4).
+            Each transform must be a valid homogeneous linear transform
+            (rotation/reflection/scale/shear) with no translation component.
+            Typical transforms can be created using ``Transformed.rotation``,
+            ``Transformed.reflection``, or ``Transformed.scaling``.
+
+        Returns
+        -------
+        :class:`GeometryArray`
+            Array containing N copies of this geometry.
+
+        Notes
+        -----
+        - ``offsets`` represent all per-instance translation.
+        - ``transforms`` represent linear transforms only and must not contain translation.
+        - If both ``offsets`` and ``transforms`` are ``None``, the array contains a single
+          instance of the base geometry.
+        - If both are provided, they must have the same length and transforms are applied
+          before the translation given by offsets.
+        - Adjoint/autodiff is not currently supported for ``GeometryArray``.
+
+        Example
+        -------
+        >>> import tidy3d as td
+        >>> import numpy as np
+        >>> box = td.Box(size=(1, 1, 1))
+        >>> # Create a 2x2 grid of boxes using offsets
+        >>> offsets = [[0, 0, 0], [2, 0, 0], [0, 2, 0], [2, 2, 0]]
+        >>> array = box.array(offsets=offsets)
+        >>> # Create array using linear transforms only (rotation around z-axis)
+        >>> transforms = [np.eye(4), td.Transformed.rotation(np.pi/4, 2)]
+        >>> array = box.array(transforms=transforms)
+        >>> # Both None gives single instance of base geometry
+        >>> array = box.array()
+        """
+        return GeometryArray(geometry=self, offsets=offsets, transforms=transforms)
 
     """ Field and coordinate transformations """
 
@@ -1046,7 +1147,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        Tuple[float, float, float]
+        tuple[float, float, float]
             r, theta, and phi coordinates relative to ``local_origin``.
         """
         r = np.sqrt(x**2 + y**2 + z**2)
@@ -1069,7 +1170,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        Tuple[float, float, float]
+        tuple[float, float, float]
             x, y, and z coordinates relative to ``local_origin``.
         """
         r_sin_theta = r * np.sin(theta)
@@ -1099,7 +1200,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        Tuple[float, float, float]
+        tuple[float, float, float]
             x, y, and z components of the vector field in cartesian coordinates.
         """
         sin_theta = np.sin(theta)
@@ -1132,7 +1233,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        Tuple[float, float, float]
+        tuple[float, float, float]
             radial (s), elevation (theta), and azimuthal (phi) components
             of the vector field in spherical coordinates.
         """
@@ -1160,7 +1261,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        Tuple[float, float]
+        tuple[float, float]
             theta and phi coordinates relative to ``local_origin``.
         """
         phi_local = np.arctan2(uy, ux)
@@ -1188,7 +1289,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         gds_cell: Cell,
         gds_layer: int,
         gds_dtype: Optional[int] = None,
-        gds_scale: pydantic.PositiveFloat = 1.0,
+        gds_scale: PositiveFloat = 1.0,
     ) -> list[ArrayFloat2D]:
         """Load polygon vertices from a ``gdstk.Cell``.
 
@@ -1207,7 +1308,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        List[ArrayFloat2D]
+        list[ArrayFloat2D]
             List of polygon vertices
         """
 
@@ -1242,7 +1343,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         slab_bounds: tuple[float, float],
         gds_layer: int,
         gds_dtype: Optional[int] = None,
-        gds_scale: pydantic.PositiveFloat = 1.0,
+        gds_scale: PositiveFloat = 1.0,
         dilation: float = 0.0,
         sidewall_angle: float = 0,
         reference_plane: PlanePosition = "middle",
@@ -1255,7 +1356,7 @@ class Geometry(Tidy3dBaseModel, ABC):
             ``gdstk.Cell`` containing 2D geometric data.
         axis : int
             Integer index defining the extrusion axis: 0 (x), 1 (y), or 2 (z).
-        slab_bounds: Tuple[float, float]
+        slab_bounds: tuple[float, float]
             Minimal and maximal positions of the extruded slab along ``axis``.
         gds_layer : int
             Layer index in the ``gds_cell``.
@@ -1278,7 +1379,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        :class:`Geometry`
+        :class:`~tidy3d.Geometry`
             Geometries created from the 2D data.
         """
         import gdstk
@@ -1304,7 +1405,7 @@ class Geometry(Tidy3dBaseModel, ABC):
                             shape, axis, slab_bounds, dilation, sidewall_angle, reference_plane
                         )
                     )
-                except pydantic.ValidationError as error:
+                except ValidationError as error:
                     consolidated_logger.warning(str(error))
                 except Tidy3dError as error:
                     consolidated_logger.warning(str(error))
@@ -1328,7 +1429,7 @@ class Geometry(Tidy3dBaseModel, ABC):
             of any of those.
         axis : int
             Integer index defining the extrusion axis: 0 (x), 1 (y), or 2 (z).
-        slab_bounds: Tuple[float, float]
+        slab_bounds: tuple[float, float]
             Minimal and maximal positions of the extruded slab along ``axis``.
         dilation : float
             Dilation of the polygon in the base by shifting each edge along its normal outwards
@@ -1344,7 +1445,7 @@ class Geometry(Tidy3dBaseModel, ABC):
 
         Returns
         -------
-        :class:`Geometry`
+        :class:`~tidy3d.Geometry`
             Geometry extruded from the 2D data.
         """
         return from_shapely(shape, axis, slab_bounds, dilation, sidewall_angle, reference_plane)
@@ -1355,8 +1456,8 @@ class Geometry(Tidy3dBaseModel, ABC):
         x: Optional[float] = None,
         y: Optional[float] = None,
         z: Optional[float] = None,
-        gds_layer: pydantic.NonNegativeInt = 0,
-        gds_dtype: pydantic.NonNegativeInt = 0,
+        gds_layer: NonNegativeInt = 0,
+        gds_dtype: NonNegativeInt = 0,
     ) -> list:
         """Convert a Geometry object's planar slice to a .gds type polygon.
 
@@ -1405,8 +1506,8 @@ class Geometry(Tidy3dBaseModel, ABC):
         x: Optional[float] = None,
         y: Optional[float] = None,
         z: Optional[float] = None,
-        gds_layer: pydantic.NonNegativeInt = 0,
-        gds_dtype: pydantic.NonNegativeInt = 0,
+        gds_layer: NonNegativeInt = 0,
+        gds_dtype: NonNegativeInt = 0,
     ) -> None:
         """Append a Geometry object's planar slice to a .gds cell.
 
@@ -1445,8 +1546,8 @@ class Geometry(Tidy3dBaseModel, ABC):
         x: Optional[float] = None,
         y: Optional[float] = None,
         z: Optional[float] = None,
-        gds_layer: pydantic.NonNegativeInt = 0,
-        gds_dtype: pydantic.NonNegativeInt = 0,
+        gds_layer: NonNegativeInt = 0,
+        gds_dtype: NonNegativeInt = 0,
         gds_cell_name: str = "MAIN",
     ) -> None:
         """Export a Geometry object's planar slice to a .gds file.
@@ -1454,7 +1555,7 @@ class Geometry(Tidy3dBaseModel, ABC):
         Parameters
         ----------
         fname : PathLike
-            Full path to the .gds file to save the :class:`Geometry` slice to.
+            Full path to the .gds file to save the :class:`~tidy3d.Geometry` slice to.
         x : float = None
             Position of plane in x direction, only one of x,y,z can be specified to define plane.
         y : float = None
@@ -1472,8 +1573,11 @@ class Geometry(Tidy3dBaseModel, ABC):
             import gdstk
         except ImportError as e:
             raise Tidy3dImportError(
-                "Python module 'gdstk' not found. To export geometries to .gds "
-                "files, please install it."
+                format_chained_exception_message(
+                    "Python module 'gdstk' not found. To export geometries to .gds files, "
+                    "please install it",
+                    e,
+                )
             ) from e
 
         library = gdstk.Library()
@@ -1567,14 +1671,15 @@ class Geometry(Tidy3dBaseModel, ABC):
 class Centered(Geometry, ABC):
     """Geometry with a well defined center."""
 
-    center: TracedCoordinate = pydantic.Field(
+    center: TracedCoordinate = Field(
         (0.0, 0.0, 0.0),
         title="Center",
         description="Center of object in x, y, and z.",
-        units=MICROMETER,
+        json_schema_extra={"units": MICROMETER},
     )
 
-    @pydantic.validator("center", always=True)
+    @field_validator("center")
+    @classmethod
     def _center_not_inf(cls, val: tuple[float, float, float]) -> tuple[float, float, float]:
         """Make sure center is not infinitiy."""
         if any(np.isinf(v) for v in val):
@@ -1612,7 +1717,7 @@ class SimplePlaneIntersection(Geometry, ABC):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
@@ -1662,7 +1767,7 @@ class SimplePlaneIntersection(Geometry, ABC):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
@@ -1672,11 +1777,13 @@ class SimplePlaneIntersection(Geometry, ABC):
 class Planar(SimplePlaneIntersection, Geometry, ABC):
     """Geometry with one ``axis`` that is slab-like with thickness ``height``."""
 
-    axis: Axis = pydantic.Field(
-        2, title="Axis", description="Specifies dimension of the planar axis (0,1,2) -> (x,y,z)."
+    axis: Axis = Field(
+        2,
+        title="Axis",
+        description="Specifies dimension of the planar axis (0,1,2) -> (x,y,z).",
     )
 
-    sidewall_angle: TracedFloat = pydantic.Field(
+    sidewall_angle: TracedFloat = Field(
         0.0,
         title="Sidewall angle",
         description="Angle of the sidewall. "
@@ -1685,10 +1792,10 @@ class Planar(SimplePlaneIntersection, Geometry, ABC):
         "along the ``axis`` direction; "
         "and ``-np.pi/2<sidewall_angle<0`` specifies an expanding cross section "
         "along the ``axis`` direction.",
-        units=RADIAN,
+        json_schema_extra={"units": RADIAN},
     )
 
-    reference_plane: PlanePosition = pydantic.Field(
+    reference_plane: PlanePosition = Field(
         "middle",
         title="Reference plane for cross section",
         description="The position of the plane where the supplied cross section are "
@@ -1699,15 +1806,15 @@ class Planar(SimplePlaneIntersection, Geometry, ABC):
         "``top`` refers to the positive side of the y-axis.",
     )
 
-    @pydantic.validator("sidewall_angle", always=True)
-    def validate_angle(cls, value: float) -> float:
+    @field_validator("sidewall_angle")
+    @classmethod
+    def validate_angle(cls, val: float) -> float:
         lower_bound = -np.pi / 2
         upper_bound = np.pi / 2
-        if (value <= lower_bound) or (value >= upper_bound):
+        if (val <= lower_bound) or (val >= upper_bound):
             # u03C0 is unicode for pi
-            raise ValidationError(f"Sidewall angle ({value}) must be between -π/2 and π/2 rad.")
-
-        return value
+            raise ValidationError(f"Sidewall angle ({val}) must be between -π/2 and π/2 rad.")
+        return val
 
     @property
     @abstractmethod
@@ -1769,7 +1876,7 @@ class Planar(SimplePlaneIntersection, Geometry, ABC):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
         `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>``.
@@ -1795,7 +1902,7 @@ class Planar(SimplePlaneIntersection, Geometry, ABC):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
@@ -1814,7 +1921,7 @@ class Planar(SimplePlaneIntersection, Geometry, ABC):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
@@ -1874,15 +1981,18 @@ class Planar(SimplePlaneIntersection, Geometry, ABC):
 class Circular(Geometry):
     """Geometry with circular characteristics (specified by a radius)."""
 
-    radius: pydantic.NonNegativeFloat = pydantic.Field(
-        ..., title="Radius", description="Radius of geometry.", units=MICROMETER
+    radius: NonNegativeFloat = Field(
+        title="Radius",
+        description="Radius of geometry.",
+        json_schema_extra={"units": MICROMETER},
     )
 
-    @pydantic.validator("radius", always=True)
+    @field_validator("radius")
+    @classmethod
     def _radius_not_inf(cls, val: float) -> float:
         """Make sure center is not infinitiy."""
         if np.isinf(val):
-            raise ValidationError("radius can not be td.inf.")
+            raise ValidationError("radius can not be 'td.inf'.")
         return val
 
     def _intersect_dist(self, position: float, z0: float) -> float:
@@ -1918,22 +2028,21 @@ class Box(SimplePlaneIntersection, Centered):
     >>> b = Box(center=(1,2,3), size=(2,2,2))
     """
 
-    size: TracedSize = pydantic.Field(
-        ...,
+    size: TracedSize = Field(
         title="Size",
         description="Size in x, y, and z directions.",
-        units=MICROMETER,
+        json_schema_extra={"units": MICROMETER},
     )
 
     @classmethod
     def from_bounds(cls, rmin: Coordinate, rmax: Coordinate, **kwargs: Any) -> Self:
-        """Constructs a :class:`Box` from minimum and maximum coordinate bounds
+        """Constructs a :class:`~tidy3d.Box` from minimum and maximum coordinate bounds
 
         Parameters
         ----------
-        rmin : Tuple[float, float, float]
+        rmin : tuple[float, float, float]
             (x, y, z) coordinate of the minimum values.
-        rmax : Tuple[float, float, float]
+        rmax : tuple[float, float, float]
             (x, y, z) coordinate of the maximum values.
 
         Example
@@ -1954,9 +2063,19 @@ class Box(SimplePlaneIntersection, Centered):
             )
         return self.size.index(0.0)
 
+    @staticmethod
+    def _surface_keys(size: Size) -> tuple[list[str], set[int]]:
+        """Return the canonical surface keys and indices dropped for infinite dimensions."""
+        surface_keys = [coord + direction for coord in "xyz" for direction in "-+"]
+        del_idx = {
+            2 * idx + offset for idx, _size in enumerate(size) if _size == inf for offset in (0, 1)
+        }
+        surface_keys = [key for idx, key in enumerate(surface_keys) if idx not in del_idx]
+        return surface_keys, del_idx
+
     @classmethod
     def surfaces(cls, size: Size, center: Coordinate, **kwargs: Any) -> list[Self]:
-        """Returns a list of 6 :class:`Box` instances corresponding to each surface of a 3D volume.
+        """Returns a list of 6 :class:`~tidy3d.Box` instances corresponding to each surface of a 3D volume.
         The output surfaces are stored in the order [x-, x+, y-, y+, z-, z+], where x, y, and z
         denote which axis is perpendicular to that surface, while "-" and "+" denote the direction
         of the normal vector of that surface. If a name is provided, each output surface's name
@@ -1965,9 +2084,9 @@ class Box(SimplePlaneIntersection, Centered):
 
         Parameters
         ----------
-        size : Tuple[float, float, float]
+        size : tuple[float, float, float]
             Size of object in x, y, and z directions.
-        center : Tuple[float, float, float]
+        center : tuple[float, float, float]
             Center of object in x, y, and z.
 
         Example
@@ -2000,41 +2119,25 @@ class Box(SimplePlaneIntersection, Centered):
 
                 surface_index += 1
 
+        surface_keys, del_idx = cls._surface_keys(size)
         name_base = kwargs.pop("name", "")
         kwargs.pop("normal_dir", None)
 
-        names = []
-        normal_dirs = []
-
-        for coord in "xyz":
-            for direction in "-+":
-                surface_name = name_base + "_" + coord + direction
-                names.append(surface_name)
-                normal_dirs.append(direction)
-
-        # ignore surfaces that are infinitely far away
-        del_idx = []
-        for idx, _size in enumerate(size):
-            if _size == inf:
-                del_idx.append(idx)
-        del_idx = [[2 * i, 2 * i + 1] for i in del_idx]
-        del_idx = [item for sublist in del_idx for item in sublist]
-
-        def del_items(items: Iterable, indices: int) -> list:
+        def del_items(items: Iterable, indices: set[int]) -> list:
             """Delete list items at indices."""
             return [i for j, i in enumerate(items) if j not in indices]
 
         centers = del_items(centers, del_idx)
         sizes = del_items(sizes, del_idx)
-        names = del_items(names, del_idx)
-        normal_dirs = del_items(normal_dirs, del_idx)
+        names = [name_base + "_" + surface_key for surface_key in surface_keys]
+        normal_dirs = [surface_key[-1] for surface_key in surface_keys]
 
         surfaces = []
         for _cent, _size, _name, _normal_dir in zip(centers, sizes, names, normal_dirs):
-            if "normal_dir" in cls.__dict__["__fields__"]:
+            if "normal_dir" in cls.model_fields:
                 kwargs["normal_dir"] = _normal_dir
 
-            if "name" in cls.__dict__["__fields__"]:
+            if "name" in cls.model_fields:
                 kwargs["name"] = _name
 
             surface = cls(center=_cent, size=_size, **kwargs)
@@ -2044,7 +2147,7 @@ class Box(SimplePlaneIntersection, Centered):
 
     @classmethod
     def surfaces_with_exclusion(cls, size: Size, center: Coordinate, **kwargs: Any) -> list[Self]:
-        """Returns a list of 6 :class:`Box` instances corresponding to each surface of a 3D volume.
+        """Returns a list of 6 :class:`~tidy3d.Box` instances corresponding to each surface of a 3D volume.
         The output surfaces are stored in the order [x-, x+, y-, y+, z-, z+], where x, y, and z
         denote which axis is perpendicular to that surface, while "-" and "+" denote the direction
         of the normal vector of that surface. If a name is provided, each output surface's name
@@ -2055,9 +2158,9 @@ class Box(SimplePlaneIntersection, Centered):
 
         Parameters
         ----------
-        size : Tuple[float, float, float]
+        size : tuple[float, float, float]
             Size of object in x, y, and z directions.
-        center : Tuple[float, float, float]
+        center : tuple[float, float, float]
             Center of object in x, y, and z.
 
         Example
@@ -2068,8 +2171,14 @@ class Box(SimplePlaneIntersection, Centered):
         """
         exclude_surfaces = kwargs.pop("exclude_surfaces", None)
         surfaces = cls.surfaces(size=size, center=center, **kwargs)
-        if "name" in cls.__dict__["__fields__"] and exclude_surfaces:
-            surfaces = [surf for surf in surfaces if surf.name[-2:] not in exclude_surfaces]
+        if exclude_surfaces:
+            surface_keys, _ = cls._surface_keys(size)
+            exclude_surfaces = set(exclude_surfaces)
+            surfaces = [
+                surf
+                for surf, surface_key in zip(surfaces, surface_keys)
+                if surface_key not in exclude_surfaces
+            ]
         return surfaces
 
     @verify_packages_import(["trimesh"])
@@ -2095,7 +2204,7 @@ class Box(SimplePlaneIntersection, Centered):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
@@ -2154,7 +2263,7 @@ class Box(SimplePlaneIntersection, Centered):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
@@ -2182,7 +2291,7 @@ class Box(SimplePlaneIntersection, Centered):
     def inside(self, x: NDArray[float], y: NDArray[float], z: NDArray[float]) -> NDArray[bool]:
         """For input arrays ``x``, ``y``, ``z`` of arbitrary but identical shape, return an array
         with the same shape which is ``True`` for every point in zip(x, y, z) that is inside the
-        volume of the :class:`Geometry`, and ``False`` otherwise.
+        volume of the :class:`~tidy3d.Geometry`, and ``False`` otherwise.
 
         Parameters
         ----------
@@ -2207,14 +2316,14 @@ class Box(SimplePlaneIntersection, Centered):
         return (dist_x <= Lx / 2) * (dist_y <= Ly / 2) * (dist_z <= Lz / 2)
 
     def intersections_with(
-        self, other: Shapely, cleanup: bool = True, quad_segs: Optional[int] = None
+        self, other: Geometry, cleanup: bool = True, quad_segs: Optional[int] = None
     ) -> list[Shapely]:
         """Returns list of shapely geometries representing the intersections of the geometry with
         this 2D box.
 
         Parameters
         ----------
-        other : Shapely
+        other : :class:`~tidy3d.Geometry`
             Geometry to intersect with.
         cleanup : bool = True
             If True, removes extremely small features from each polygon's boundary.
@@ -2224,7 +2333,7 @@ class Box(SimplePlaneIntersection, Centered):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect this 2D box.
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
@@ -2265,7 +2374,7 @@ class Box(SimplePlaneIntersection, Centered):
         y: Optional[tuple[pydantic.NonNegativeFloat, pydantic.NonNegativeFloat]] = None,
         z: Optional[tuple[pydantic.NonNegativeFloat, pydantic.NonNegativeFloat]] = None,
     ) -> Box:
-        """Created a padded copy of a :class:`Box` instance.
+        """Created a padded copy of a :class:`~tidy3d.Box` instance.
 
         Parameters
         ----------
@@ -2279,7 +2388,7 @@ class Box(SimplePlaneIntersection, Centered):
         Returns
         -------
         Box
-            Padded instance of :class:`Box`.
+            Padded instance of :class:`~tidy3d.Box`.
         """
 
         # Validate that padding values are non-negative
@@ -2312,7 +2421,7 @@ class Box(SimplePlaneIntersection, Centered):
 
         Returns
         -------
-        Tuple[float, float, float], Tuple[float, float float]
+        tuple[float, float, float], tuple[float, float float]
             Min and max bounds packaged as ``(minx, miny, minz), (maxx, maxy, maxz)``.
         """
         size = self.size
@@ -2323,18 +2432,18 @@ class Box(SimplePlaneIntersection, Centered):
 
     @cached_property
     def geometry(self) -> Box:
-        """:class:`Box` representation of self (used for subclasses of Box).
+        """:class:`~tidy3d.Box` representation of self (used for subclasses of Box).
 
         Returns
         -------
-        :class:`Box`
-            Instance of :class:`Box` representing self's geometry.
+        :class:`~tidy3d.Box`
+            Instance of :class:`~tidy3d.Box` representing self's geometry.
         """
         return Box(center=self.center, size=self.size)
 
     @cached_property
     def zero_dims(self) -> list[Axis]:
-        """A list of axes along which the :class:`Box` is zero-sized."""
+        """A list of axes along which the :class:`~tidy3d.Box` is zero-sized."""
         return [dim for dim, size in enumerate(self.size) if size == 0]
 
     @cached_property
@@ -2353,7 +2462,7 @@ class Box(SimplePlaneIntersection, Centered):
         new_center[axis] = (bounds[0] + bounds[1]) / 2
         new_size = list(self.size)
         new_size[axis] = bounds[1] - bounds[0]
-        return self.updated_copy(center=new_center, size=new_size)
+        return self.updated_copy(center=tuple(new_center), size=tuple(new_size))
 
     def _plot_arrow(
         self,
@@ -2373,7 +2482,7 @@ class Box(SimplePlaneIntersection, Centered):
 
         Parameters
         ----------
-        direction: Tuple[float, float, float]
+        direction: tuple[float, float, float]
             Normalized vector describing the arrow direction.
         x : float = None
             Position of plotting plane in x direction.
@@ -2399,6 +2508,9 @@ class Box(SimplePlaneIntersection, Centered):
         matplotlib.axes._subplots.Axes
             The matplotlib axes with the arrow added.
         """
+        from matplotlib import patches
+
+        from tidy3d.components.viz.styles import arrow_style
 
         plot_axis, _ = self.parse_xyz_kwargs(x=x, y=y, z=z)
         _, (dx, dy) = self.pop_axis(direction, axis=plot_axis)
@@ -2433,7 +2545,7 @@ class Box(SimplePlaneIntersection, Centered):
                 arrow = patches.FancyArrowPatch(
                     (x0, y0),
                     (x0 + v_x, y0 + v_y),
-                    arrowstyle=arrow_style,
+                    arrowstyle=arrow_style(),
                     color=color,
                     alpha=alpha,
                     zorder=np.inf,
@@ -2461,6 +2573,8 @@ class Box(SimplePlaneIntersection, Centered):
         sign: float,
         bend_radius: float | None,
     ) -> Callable[[Event], None]:
+        from matplotlib import patches
+
         def _cb(event: Event) -> None:
             # We only want to set the shape once, so we disconnect ourselves
             event.canvas.mpl_disconnect(arrow.set_shape_cb[0])
@@ -2617,9 +2731,7 @@ class Box(SimplePlaneIntersection, Centered):
 
         # First, check if the face is outside the simulation domain in which case set the
         # face gradient to 0.
-        bounds_normal, bounds_perp = self.pop_axis(
-            np.array(derivative_info.bounds).T, axis=axis_normal
-        )
+        bounds_normal, _ = self.pop_axis(np.array(derivative_info.bounds).T, axis=axis_normal)
         coord_normal_face = bounds_normal[min_max_index]
 
         if min_max_index == 0:
@@ -2644,10 +2756,6 @@ class Box(SimplePlaneIntersection, Centered):
             return 0.0
 
         is_2d = np.any(is_2d_map)
-
-        sim_bounds_normal, sim_bounds_perp = self.pop_axis(
-            np.array(derivative_info.simulation_bounds).T, axis=axis_normal
-        )
 
         # Build point grid
         adaptive_spacing = derivative_info.adaptive_vjp_spacing()
@@ -2762,39 +2870,33 @@ class Box(SimplePlaneIntersection, Centered):
 class Transformed(Geometry):
     """Class representing a transformed geometry."""
 
-    geometry: annotate_type(GeometryType) = pydantic.Field(
-        ..., title="Geometry", description="Base geometry to be transformed."
+    geometry: discriminated_union(GeometryType) = Field(
+        title="Geometry",
+        description="Base geometry to be transformed.",
     )
 
-    transform: MatrixReal4x4 = pydantic.Field(
-        np.eye(4).tolist(),
+    transform: MatrixReal4x4 = Field(
+        default_factory=lambda: np.eye(4).tolist(),
         title="Transform",
         description="Transform matrix applied to the base geometry.",
     )
 
-    @pydantic.validator("transform")
+    _geometry_is_finite = assert_geometry_finite("geometry")
+
+    @field_validator("transform")
+    @classmethod
     def _transform_is_invertible(cls, val: MatrixReal4x4) -> MatrixReal4x4:
-        # If the transform is not invertible, this will raise an error
-        _ = np.linalg.inv(val)
+        """Raise validation error if transform is not invertible."""
+        check_transform_invertible(val)
         return val
 
-    @pydantic.validator("geometry")
-    def _geometry_is_finite(cls, val: GeometryType) -> GeometryType:
-        if not np.isfinite(val.bounds).all():
-            raise ValidationError(
-                "Transformations are only supported on geometries with finite dimensions. "
-                "Try using a large value instead of 'inf' when creating geometries that undergo "
-                "transformations."
-            )
-        return val
-
-    @pydantic.root_validator(skip_on_failure=True)
-    def _apply_transforms(cls, values: dict[str, Any]) -> dict[str, Any]:
-        while isinstance(values["geometry"], Transformed):
-            inner = values["geometry"]
-            values["geometry"] = inner.geometry
-            values["transform"] = np.dot(values["transform"], inner.transform)
-        return values
+    @model_validator(mode="after")
+    def _apply_transforms(self: dict[str, Any]) -> dict[str, Any]:
+        while isinstance(self.geometry, Transformed):
+            inner = self.geometry
+            object.__setattr__(self, "geometry", inner.geometry)
+            object.__setattr__(self, "transform", np.dot(self.transform, inner.transform))
+        return self
 
     @cached_property
     def inverse(self) -> MatrixReal4x4:
@@ -2833,7 +2935,7 @@ class Transformed(Geometry):
 
         Returns
         -------
-        Tuple[float, float, float], Tuple[float, float, float]
+        tuple[float, float, float], tuple[float, float, float]
             Min and max bounds packaged as ``(minx, miny, minz), (maxx, maxy, maxz)``.
         """
         # NOTE (Lucas): The bounds are overestimated because we don't want to calculate
@@ -2867,7 +2969,7 @@ class Transformed(Geometry):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
@@ -2883,7 +2985,7 @@ class Transformed(Geometry):
     def inside(self, x: NDArray[float], y: NDArray[float], z: NDArray[float]) -> NDArray[bool]:
         """For input arrays ``x``, ``y``, ``z`` of arbitrary but identical shape, return an array
         with the same shape which is ``True`` for every point in zip(x, y, z) that is inside the
-        volume of the :class:`Geometry`, and ``False`` otherwise.
+        volume of the :class:`~tidy3d.Geometry`, and ``False`` otherwise.
 
         Parameters
         ----------
@@ -2919,6 +3021,17 @@ class Transformed(Geometry):
         """Returns object's surface area within given bounds."""
         log.warning("Surface area of transformed elements cannot be calculated.")
         return None
+
+    @staticmethod
+    def identity() -> MatrixReal4x4:
+        """Return an identity matrix where no transform is applied.
+
+        Returns
+        -------
+        numpy.ndarray
+            Identity transform matrix with shape (4, 4).
+        """
+        return np.eye(4)
 
     @staticmethod
     def translation(x: float, y: float, z: float) -> MatrixReal4x4:
@@ -2986,7 +3099,7 @@ class Transformed(Geometry):
         ----------
         angle : float
             Rotation angle (in radians).
-        axis : Union[int, Tuple[float, float, float]]
+        axis : Union[int, tuple[float, float, float]]
             Axis of rotation: 0, 1, or 2 for x, y, and z, respectively, or a 3D vector.
 
         Returns
@@ -3004,7 +3117,7 @@ class Transformed(Geometry):
 
         Parameters
         ----------
-        normal : Tuple[float, float, float]
+        normal : tuple[float, float, float]
             Normal of the plane of reflection.
 
         Returns
@@ -3067,26 +3180,24 @@ class Transformed(Geometry):
 class ClipOperation(Geometry):
     """Class representing the result of a set operation between geometries."""
 
-    operation: ClipOperationType = pydantic.Field(
-        ...,
+    operation: ClipOperationType = Field(
         title="Operation Type",
         description="Operation to be performed between geometries.",
     )
 
-    geometry_a: annotate_type(GeometryType) = pydantic.Field(
-        ...,
+    geometry_a: discriminated_union(GeometryType) = Field(
         title="Geometry A",
         description="First operand for the set operation. It can be any geometry type, including "
         ":class:`GeometryGroup`.",
     )
 
-    geometry_b: annotate_type(GeometryType) = pydantic.Field(
-        ...,
+    geometry_b: discriminated_union(GeometryType) = Field(
         title="Geometry B",
         description="Second operand for the set operation. It can also be any geometry type.",
     )
 
-    @pydantic.validator("geometry_a", "geometry_b", always=True)
+    @field_validator("geometry_a", "geometry_b")
+    @classmethod
     def _geometries_untraced(cls, val: GeometryType) -> GeometryType:
         """Make sure that ``ClipOperation`` geometries do not contain tracers."""
         traced = val._strip_traced_fields()
@@ -3112,7 +3223,7 @@ class ClipOperation(Geometry):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             Valid polygons retrieved from ``base geometry``.
         """
         unfiltered_geoms = []
@@ -3188,7 +3299,7 @@ class ClipOperation(Geometry):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
@@ -3232,7 +3343,7 @@ class ClipOperation(Geometry):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
             `Shapely's Documentaton <https://shapely.readthedocs.io/en/stable/project.html>`_.
@@ -3252,7 +3363,7 @@ class ClipOperation(Geometry):
 
         Returns
         -------
-        Tuple[float, float, float], Tuple[float, float float]
+        tuple[float, float, float], tuple[float, float float]
             Min and max bounds packaged as ``(minx, miny, minz), (maxx, maxy, maxz)``.
         """
         # Overestimates
@@ -3277,7 +3388,7 @@ class ClipOperation(Geometry):
     def inside(self, x: NDArray[float], y: NDArray[float], z: NDArray[float]) -> NDArray[bool]:
         """For input arrays ``x``, ``y``, ``z`` of arbitrary but identical shape, return an array
         with the same shape which is ``True`` for every point in zip(x, y, z) that is inside the
-        volume of the :class:`Geometry`, and ``False`` otherwise.
+        volume of the :class:`~tidy3d.Geometry`, and ``False`` otherwise.
 
         Parameters
         ----------
@@ -3367,18 +3478,16 @@ class ClipOperation(Geometry):
 class GeometryGroup(Geometry):
     """A collection of Geometry objects that can be called as a single geometry object."""
 
-    geometries: tuple[annotate_type(GeometryType), ...] = pydantic.Field(
-        ...,
+    geometries: tuple[discriminated_union(GeometryType), ...] = Field(
         title="Geometries",
         description="Tuple of geometries in a single grouping. "
         "Can provide significant performance enhancement in ``Structure`` when all geometries are "
         "assigned the same medium.",
     )
 
-    @pydantic.validator("geometries", always=True)
-    def _geometries_not_empty(
-        cls, val: tuple[annotate_type(GeometryType), ...]
-    ) -> tuple[annotate_type(GeometryType), ...]:
+    @field_validator("geometries")
+    @classmethod
+    def _geometries_not_empty(cls, val: tuple[GeometryType, ...]) -> tuple[GeometryType, ...]:
         """make sure geometries are not empty."""
         if not len(val) > 0:
             raise ValidationError("GeometryGroup.geometries must not be empty.")
@@ -3390,7 +3499,7 @@ class GeometryGroup(Geometry):
 
         Returns
         -------
-        Tuple[float, float, float], Tuple[float, float, float]
+        tuple[float, float, float], tuple[float, float, float]
             Min and max bounds packaged as ``(minx, miny, minz), (maxx, maxy, maxz)``.
         """
 
@@ -3426,7 +3535,7 @@ class GeometryGroup(Geometry):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
@@ -3465,7 +3574,7 @@ class GeometryGroup(Geometry):
 
         Returns
         -------
-        List[shapely.geometry.base.BaseGeometry]
+        list[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
@@ -3500,7 +3609,7 @@ class GeometryGroup(Geometry):
     def inside(self, x: NDArray[float], y: NDArray[float], z: NDArray[float]) -> NDArray[bool]:
         """For input arrays ``x``, ``y``, ``z`` of arbitrary but identical shape, return an array
         with the same shape which is ``True`` for every point in zip(x, y, z) that is inside the
-        volume of the :class:`Geometry`, and ``False`` otherwise.
+        volume of the :class:`~tidy3d.Geometry`, and ``False`` otherwise.
 
         Parameters
         ----------
@@ -3572,9 +3681,9 @@ class GeometryGroup(Geometry):
     def _update_from_bounds(self, bounds: tuple[float, float], axis: Axis) -> GeometryGroup:
         """Returns an updated geometry which has been transformed to fit within ``bounds``
         along the ``axis`` direction."""
-        new_geometries = [
+        new_geometries = tuple(
             geometry._update_from_bounds(bounds=bounds, axis=axis) for geometry in self.geometries
-        ]
+        )
         return self.updated_copy(geometries=new_geometries)
 
     def _compute_derivatives(self, derivative_info: DerivativeInfo) -> AutogradFieldMap:
@@ -3585,28 +3694,392 @@ class GeometryGroup(Geometry):
         # create interpolators once for all geometries to avoid redundant field data conversions
         interpolators = derivative_info.interpolators or derivative_info.create_interpolators()
 
-        for field_path in derivative_info.paths:
-            _, index, *geo_path = field_path
-            geo = self.geometries[index]
-            # pass pre-computed interpolators if available
-            geo_info = derivative_info.updated_copy(
-                paths=[tuple(geo_path)],
-                bounds=geo.bounds,
-                bounds_intersect=self.bounds_intersection(
-                    geo.bounds, derivative_info.simulation_bounds
-                ),
-                deep=False,
-                interpolators=interpolators,
-            )
+        with derivative_info.cache_min_spacing_from_permittivity():
+            for field_path in derivative_info.paths:
+                _, index, *geo_path = field_path
 
-            vjp_dict_geo = geo._compute_derivatives(geo_info)
+                geo = self.geometries[index]
+                # pass pre-computed interpolators if available
+                geo_info = derivative_info.updated_copy(
+                    paths=[tuple(geo_path)],
+                    bounds=geo.bounds,
+                    bounds_intersect=self.bounds_intersection(
+                        geo.bounds, derivative_info.simulation_bounds
+                    ),
+                    deep=False,
+                    interpolators=interpolators,
+                )
 
-            if len(vjp_dict_geo) != 1:
-                raise AssertionError("Got multiple gradients for single geometry field.")
+                vjp_dict_geo = geo._compute_derivatives(geo_info)
 
-            grad_vjps[field_path] = vjp_dict_geo.popitem()[1]
+                if len(vjp_dict_geo) != 1:
+                    raise AssertionError("Got multiple gradients for single geometry field.")
+
+                grad_vjps[field_path] = vjp_dict_geo.popitem()[1]
 
         return grad_vjps
+
+
+class GeometryArray(Geometry):
+    """A geometry representing an array of copies of a base geometry, with optional offsets
+    and/or linear transformations applied to each copy.
+
+    This class provides an efficient way to represent arrays of repeated geometries,
+    avoiding the need to create many individual geometry objects.
+
+    The instance pose for each copy is defined as: ``T(offsets[i]) @ L(transforms[i])``,
+    where ``T`` is a translation matrix and ``L`` is the linear transform. In other words,
+    the transform is applied first, then the translation.
+
+    Notes
+    -----
+    - ``offsets`` represent all per-instance translation.
+    - ``transforms`` represent linear transforms only (rotation/reflection/scale/shear)
+      and must not contain translation. Use ``offsets`` for translations.
+    - If both ``offsets`` and ``transforms`` are ``None``, the array contains a single
+      instance of the base geometry at the origin.
+    - If both are provided, they must have the same length.
+    - Adjoint/autodiff is not currently supported for ``GeometryArray``.
+
+    Parameters
+    ----------
+    geometry : GeometryType
+        Base geometry to be repeated in the array. Must have finite bounds.
+    offsets : Optional[tuple[Coordinate, ...]]
+        Optional tuple of 3D coordinate offsets. Each offset translates the base geometry
+        (after any transform is applied) to create a copy. If not provided, no additional
+        translation is applied beyond any transforms.
+    transforms : Optional[tuple[MatrixReal4x4, ...]]
+        Optional tuple of 4x4 linear-only transformation matrices. Each transform must be
+        a valid homogeneous linear transform (rotation/reflection/scale/shear) with no
+        translation component (i.e., ``transform[:3, 3] == 0`` and
+        ``transform[3, :] == [0, 0, 0, 1]``). Typical transforms can be created using
+        ``Transformed.rotation``, ``Transformed.reflection``, or ``Transformed.scaling``.
+
+    Example
+    -------
+    >>> import tidy3d as td
+    >>> import numpy as np
+    >>> box = td.Box(size=(1, 1, 1))
+    >>> # Using offsets only:
+    >>> offsets = [[0, 0, 0], [2, 0, 0], [0, 2, 0], [2, 2, 0]]
+    >>> array = td.GeometryArray(geometry=box, offsets=offsets)
+    >>> # Or use the convenience method:
+    >>> array = box.array(offsets=offsets)
+    >>> # Using linear transforms only (rotation around z-axis):
+    >>> rot_0 = td.Transformed.rotation(0, 2)  # no rotation
+    >>> rot_90 = td.Transformed.rotation(np.pi/2, 2)  # 90 degree rotation
+    >>> array = td.GeometryArray(geometry=box, transforms=[rot_0, rot_90])
+    >>> # Both None gives single instance of base geometry:
+    >>> array = td.GeometryArray(geometry=box)
+    """
+
+    geometry: discriminated_union(GeometryType) = Field(
+        ...,
+        title="Geometry",
+        description="Base geometry to be repeated in the array.",
+    )
+
+    offsets: Optional[tuple[Coordinate, ...]] = Field(
+        None,
+        title="Offsets",
+        description="A tuple of 3D coordinate offsets. Each offset translates the base "
+        "geometry (after any transform is applied) to create a copy. If not provided, no "
+        "additional translation is applied beyond any transforms.",
+    )
+
+    transforms: Optional[tuple[MatrixReal4x4, ...]] = Field(
+        None,
+        title="Transforms",
+        description="A tuple of 4x4 linear-only transformation matrices "
+        "(rotation/reflection/scale/shear, no translation). Typical transforms can be "
+        "created using ``Transformed.rotation``, ``Transformed.reflection``, or ``Transformed.scaling``. "
+        "Each transform is applied to the base geometry before the corresponding offset translation. "
+        "If not provided, only translations from offsets are applied.",
+    )
+
+    _geometry_is_finite = assert_geometry_finite("geometry")
+
+    @field_validator("transforms")
+    @classmethod
+    def _validate_transforms(
+        cls, val: Optional[tuple[MatrixReal4x4, ...]]
+    ) -> Optional[tuple[MatrixReal4x4, ...]]:
+        """Validate that transforms are invertible, linear-only, and non-empty if provided."""
+        if val is None:
+            return val
+
+        # Must not be empty if provided
+        if len(val) < 1:
+            raise ValidationError("'transforms' must have at least one transform when provided.")
+
+        # Check each transform
+        for i, transform in enumerate(val):
+            # Check invertibility
+            check_transform_invertible(transform, index=i)
+
+            # Check linear-only (no translation)
+            transform_array = np.asarray(transform)
+
+            # Check translation column: transform[:3, 3] should be zero
+            translation = transform_array[:3, 3]
+            if not np.allclose(translation, 0, atol=LINEAR_TRANSFORM_TOL):
+                idx_msg = f"at index {i}"
+                raise ValidationError(
+                    f"Transform {idx_msg} contains translation in [:3, 3] = {translation.tolist()}. "
+                    "GeometryArray transforms must be linear-only (rotation/reflection/scale/shear). "
+                    "Use the 'offsets' parameter for translations."
+                )
+
+            # Check bottom row: transform[3, :] should be [0, 0, 0, 1]
+            bottom_row = transform_array[3, :]
+            expected_bottom = np.array([0, 0, 0, 1])
+            if not np.allclose(bottom_row, expected_bottom, atol=LINEAR_TRANSFORM_TOL):
+                idx_msg = f"at index {i}"
+                raise ValidationError(
+                    f"Transform {idx_msg} has invalid homogeneous form: [3, :] = {bottom_row.tolist()}. "
+                    "Expected [0, 0, 0, 1]."
+                )
+
+        return val
+
+    @model_validator(mode="after")
+    def _validate_offsets_and_transforms(self) -> Self:
+        """Validate offsets and transforms are consistent."""
+        offsets = self.offsets
+        transforms = self.transforms
+
+        # If offsets provided, must not be empty
+        if offsets is not None and len(offsets) < 1:
+            raise ValidationError("'offsets' must have at least one offset when provided.")
+
+        # If both provided, lengths must match
+        if offsets is not None and transforms is not None:
+            if len(offsets) != len(transforms):
+                raise ValidationError(
+                    f"Number of transforms ({len(transforms)}) must match "
+                    f"number of offsets ({len(offsets)}) when both are provided."
+                )
+
+        return self
+
+    @cached_property
+    def num_geometries(self) -> int:
+        """Number of geometries in the array."""
+        if self.offsets is not None:
+            return len(self.offsets)
+        if self.transforms is not None:
+            return len(self.transforms)
+        # Both None means single geometry (base geometry at origin)
+        return 1
+
+    @cached_property
+    def _all_transforms(self) -> np.ndarray:
+        """Compute all 4x4 transforms for all geometries in a vectorized way.
+
+        Returns
+        -------
+        numpy.ndarray
+            Array of shape (num_geometries, 4, 4) containing the full transform
+            (rotation/scale + translation) for each geometry in the array.
+        """
+        n = self.num_geometries
+        shape = (n, 4, 4)
+
+        # Get all transforms, defaulting to identity if not provided
+        if self.transforms is not None:
+            transforms = np.array(self.transforms)
+        else:
+            transforms = np.broadcast_to(Transformed.identity(), shape)
+
+        # Build translation matrices for all offsets
+        # translation matrix: [[1,0,0,x], [0,1,0,y], [0,0,1,z], [0,0,0,1]]
+        translations = np.broadcast_to(Transformed.identity(), shape).copy()
+        if self.offsets is not None:
+            translations[:, :3, 3] = self.offsets
+
+        # Apply transform, then translation: result = translation @ transform
+        return np.matmul(translations, transforms)
+
+    def _get_full_transform(self, index: int) -> MatrixReal4x4:
+        """Get the full 4x4 transform for a geometry at given index (transform + translation)."""
+        return self._all_transforms[index]
+
+    @cached_property
+    def _transformed_geometries(self) -> list[Transformed]:
+        """List of transformed geometries in the array."""
+        return [
+            Transformed(geometry=self.geometry, transform=transform)
+            for transform in self._all_transforms
+        ]
+
+    @cached_property
+    def _geometry_group(self) -> GeometryGroup:
+        """Return a GeometryGroup containing all transformed geometries in the array."""
+        return GeometryGroup(geometries=tuple(self._transformed_geometries))
+
+    @cached_property
+    def bounds(self) -> Bound:
+        """Returns bounding box min and max coordinates.
+
+        Returns
+        -------
+        Tuple[float, float, float], Tuple[float, float, float]
+            Min and max bounds packaged as ``(minx, miny, minz), (maxx, maxy, maxz)``.
+        """
+        return self._geometry_group.bounds
+
+    def intersections_tilted_plane(
+        self,
+        normal: Coordinate,
+        origin: Coordinate,
+        to_2D: MatrixReal4x4,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
+    ) -> list[Shapely]:
+        """Return a list of shapely geometries at the plane specified by normal and origin.
+
+        Parameters
+        ----------
+        normal : Coordinate
+            Vector defining the normal direction to the plane.
+        origin : Coordinate
+            Vector defining the plane origin.
+        to_2D : MatrixReal4x4
+            Transformation matrix to apply to resulting shapes.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            high-quality visualization settings.
+
+        Returns
+        -------
+        List[shapely.geometry.base.BaseGeometry]
+            List of 2D shapes that intersect plane.
+            For more details refer to
+            `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
+        """
+        return self._geometry_group.intersections_tilted_plane(
+            normal, origin, to_2D, cleanup=cleanup, quad_segs=quad_segs
+        )
+
+    def intersections_plane(
+        self,
+        x: Optional[float] = None,
+        y: Optional[float] = None,
+        z: Optional[float] = None,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
+    ) -> list[Shapely]:
+        """Returns list of shapely geometries at plane specified by one non-None value of x,y,z.
+
+        Parameters
+        ----------
+        x : float = None
+            Position of plane in x direction, only one of x,y,z can be specified to define plane.
+        y : float = None
+            Position of plane in y direction, only one of x,y,z can be specified to define plane.
+        z : float = None
+            Position of plane in z direction, only one of x,y,z can be specified to define plane.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            high-quality visualization settings.
+
+        Returns
+        -------
+        List[shapely.geometry.base.BaseGeometry]
+            List of 2D shapes that intersect plane.
+            For more details refer to
+            `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
+        """
+        return self._geometry_group.intersections_plane(
+            x=x, y=y, z=z, cleanup=cleanup, quad_segs=quad_segs
+        )
+
+    def intersects_axis_position(self, axis: int, position: float) -> bool:
+        """Whether self intersects plane specified by a given position along a normal axis.
+
+        Parameters
+        ----------
+        axis : int = None
+            Axis normal to the plane.
+        position : float = None
+            Position of plane along the normal axis.
+
+        Returns
+        -------
+        bool
+            Whether this geometry intersects the plane.
+        """
+        return self._geometry_group.intersects_axis_position(axis, position)
+
+    def inside(self, x: NDArray[float], y: NDArray[float], z: NDArray[float]) -> NDArray[bool]:
+        """For input arrays ``x``, ``y``, ``z`` of arbitrary but identical shape, return an array
+        with the same shape which is ``True`` for every point in zip(x, y, z) that is inside the
+        volume of the :class:`Geometry`, and ``False`` otherwise.
+
+        Parameters
+        ----------
+        x : np.ndarray[float]
+            Array of point positions in x direction.
+        y : np.ndarray[float]
+            Array of point positions in y direction.
+        z : np.ndarray[float]
+            Array of point positions in z direction.
+
+        Returns
+        -------
+        np.ndarray[bool]
+            ``True`` for every point that is inside the geometry.
+        """
+        return self._geometry_group.inside(x, y, z)
+
+    def _volume(self, bounds: Bound) -> float:
+        """Returns object's volume within given bounds."""
+        return self._geometry_group._volume(bounds)
+
+    def _surface_area(self, bounds: Bound) -> float:
+        """Returns object's surface area within given bounds."""
+        # Surface area cannot be reliably computed when non-trivial transforms are present
+        if self.transforms is not None:
+            log.warning("Surface area of transformed elements cannot be calculated.")
+            return None
+        # For pure translations, sum surface areas using local bounds for base geometry
+        total_area = 0.0
+        for geom in self._transformed_geometries:
+            # Transform bounds to local coordinate system
+            vertices = np.dot(geom.inverse, Transformed._vertices_from_bounds(bounds))[:3]
+            local_bounds = (tuple(vertices.min(axis=1)), tuple(vertices.max(axis=1)))
+            instance_area = self.geometry.surface_area(local_bounds)
+            if instance_area is None:
+                return None
+            total_area += instance_area
+        return total_area
+
+    @cached_property
+    def _normal_2dmaterial(self) -> Axis:
+        """Get the normal to the given geometry, checking that it is a 2D geometry."""
+        return self._geometry_group._normal_2dmaterial
+
+    def _update_from_bounds(self, bounds: tuple[float, float], axis: Axis) -> GeometryGroup:
+        """Returns an updated geometry which has been transformed to fit within ``bounds``
+        along the ``axis`` direction."""
+        return self._geometry_group._update_from_bounds(bounds=bounds, axis=axis)
+
+    def _compute_derivatives(self, derivative_info: DerivativeInfo) -> AutogradFieldMap:
+        """Compute the adjoint derivatives for this object.
+
+        Raises
+        ------
+        NotImplementedError
+            Adjoint/autodiff is not currently supported for GeometryArray.
+        """
+        raise NotImplementedError(
+            "Adjoint is not currently supported for 'GeometryArray'.",
+        )
 
 
 def cleanup_shapely_object(obj: Shapely, tolerance_ratio: float = POLY_TOLERANCE_RATIO) -> Shapely:
@@ -3631,13 +4104,8 @@ def cleanup_shapely_object(obj: Shapely, tolerance_ratio: float = POLY_TOLERANCE
     This function does not attempt to delete overlapping, nearby, or collinear vertices.
     To solve that problem, use ``shapely.simplify()`` afterwards.
     """
-    if _shapely_is_older_than("2.1"):
-        log.warning(
-            "Using old versions of the shapely library (prior to v2.1) may cause "
-            "plot errors.  This can be solved by upgrading to Python 3.10 "
-            "(or later) and reinstalling Tidy3d.",
-            log_once=True,
-        )
+    if _package_is_older_than("shapely", "2.1"):
+        log.warning("Versions of shapely prior to v2.1 may cause plot errors.", log_once=True)
         return obj
     if obj.is_empty:
         return obj
@@ -3645,10 +4113,9 @@ def cleanup_shapely_object(obj: Shapely, tolerance_ratio: float = POLY_TOLERANCE
     object_size = min(obj.bounds[2] - obj.bounds[0], obj.bounds[3] - obj.bounds[1])
     if object_size == 0.0:
         return shapely.Polygon([])
-    # In order to prevent numerical overflow or underflow errors, we first subtract
-    # the centroid and divide by (rescale) the size of the object so it is not too big.
+
+    # To prevent numerical over- or underflow errors, subtract the centroid and rescale
     normalized_obj = shapely.affinity.affine_transform(
-        # https://shapely.readthedocs.io/en/stable/manual.html#affine-transformations
         obj,
         matrix=[
             1 / object_size,
@@ -3661,20 +4128,22 @@ def cleanup_shapely_object(obj: Shapely, tolerance_ratio: float = POLY_TOLERANCE
     )
     # Important: Remove any self intersections beforehand using `shapely.make_valid()`.
     valid_obj = shapely.make_valid(normalized_obj, method="structure", keep_collapsed=False)
+
     # To get rid of small thin features, erode(shrink), dilate(expand), and erode again.
-    eroded_obj = shapely.buffer(  # This removes outward spikes
+    eroded_obj = shapely.buffer(
         valid_obj,
         distance=-tolerance_ratio,
-        cap_style="square",  # (optional parameter to reduce computation time)
-        quad_segs=3,  # (optional parameter to reduce computation time)
+        cap_style="square",
+        quad_segs=3,
     )
-    dilated_obj = shapely.buffer(  # This removes inward spikes and tiny holes
+    dilated_obj = shapely.buffer(
         eroded_obj,
         distance=2 * tolerance_ratio,
         cap_style="square",
         quad_segs=3,
     )
     cleaned_obj = dilated_obj
+
     # Optional: Now shrink the polygon back to the original size.
     cleaned_obj = shapely.buffer(
         cleaned_obj,

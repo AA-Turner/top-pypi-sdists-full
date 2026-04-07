@@ -25,10 +25,13 @@ from ..types.recency_weight import RecencyWeight
 from ..types.reranker import Reranker
 from ..types.search_filters import SearchFilters
 from ..types.success_response import SuccessResponse
+from .community.client import AsyncCommunityClient, CommunityClient
 from .edge.client import AsyncEdgeClient, EdgeClient
 from .episode.client import AsyncEpisodeClient, EpisodeClient
 from .node.client import AsyncNodeClient, NodeClient
 from .raw_client import AsyncRawGraphClient, RawGraphClient
+from .saga.client import AsyncSagaClient, SagaClient
+from .theme.client import AsyncThemeClient, ThemeClient
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -37,11 +40,17 @@ OMIT = typing.cast(typing.Any, ...)
 class GraphClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._raw_client = RawGraphClient(client_wrapper=client_wrapper)
+        self.community = CommunityClient(client_wrapper=client_wrapper)
+
         self.edge = EdgeClient(client_wrapper=client_wrapper)
 
         self.episode = EpisodeClient(client_wrapper=client_wrapper)
 
         self.node = NodeClient(client_wrapper=client_wrapper)
+
+        self.saga = SagaClient(client_wrapper=client_wrapper)
+
+        self.theme = ThemeClient(client_wrapper=client_wrapper)
 
     @property
     def with_raw_response(self) -> RawGraphClient:
@@ -290,6 +299,7 @@ class GraphClient:
         type: GraphDataType,
         created_at: typing.Optional[str] = OMIT,
         graph_id: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
         source_description: typing.Optional[str] = OMIT,
         user_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -307,6 +317,9 @@ class GraphClient:
 
         graph_id : typing.Optional[str]
             graph_id is the ID of the graph to which the data will be added. If adding to the user graph, please use user_id field instead.
+
+        metadata : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+            Optional metadata key-value pairs. Max 10 keys. Values must be strings, numbers, booleans, or arrays of scalars.
 
         source_description : typing.Optional[str]
 
@@ -338,6 +351,7 @@ class GraphClient:
             type=type,
             created_at=created_at,
             graph_id=graph_id,
+            metadata=metadata,
             source_description=source_description,
             user_id=user_id,
             request_options=request_options,
@@ -405,6 +419,7 @@ class GraphClient:
         fact_uuid: typing.Optional[str] = OMIT,
         graph_id: typing.Optional[str] = OMIT,
         invalid_at: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
         source_node_attributes: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
         source_node_labels: typing.Optional[typing.Sequence[str]] = OMIT,
         source_node_name: typing.Optional[str] = OMIT,
@@ -447,6 +462,10 @@ class GraphClient:
 
         invalid_at : typing.Optional[str]
             The time (if any) at which the fact stops being true
+
+        metadata : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+            Optional metadata key-value pairs for the shadow episode created for this fact triple.
+            Max 10 keys. Values must be strings, numbers, or booleans.
 
         source_node_attributes : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
             Additional attributes of the source node. Values must be scalar types (string, number, boolean, or null).
@@ -514,6 +533,7 @@ class GraphClient:
             fact_uuid=fact_uuid,
             graph_id=graph_id,
             invalid_at=invalid_at,
+            metadata=metadata,
             source_node_attributes=source_node_attributes,
             source_node_labels=source_node_labels,
             source_node_name=source_node_name,
@@ -630,6 +650,7 @@ class GraphClient:
         *,
         page_number: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
+        search: typing.Optional[str] = None,
         order_by: typing.Optional[str] = None,
         asc: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -644,6 +665,9 @@ class GraphClient:
 
         page_size : typing.Optional[int]
             Number of graphs to retrieve per page.
+
+        search : typing.Optional[str]
+            Search term for filtering graphs by graph_id.
 
         order_by : typing.Optional[str]
             Column to sort by (created_at, group_id, name).
@@ -669,12 +693,18 @@ class GraphClient:
         client.graph.list_all(
             page_number=1,
             page_size=1,
+            search="search",
             order_by="order_by",
             asc=True,
         )
         """
         _response = self._raw_client.list_all(
-            page_number=page_number, page_size=page_size, order_by=order_by, asc=asc, request_options=request_options
+            page_number=page_number,
+            page_size=page_size,
+            search=search,
+            order_by=order_by,
+            asc=asc,
+            request_options=request_options,
         )
         return _response.data
 
@@ -781,8 +811,10 @@ class GraphClient:
         center_node_uuid: typing.Optional[str] = OMIT,
         graph_id: typing.Optional[str] = OMIT,
         limit: typing.Optional[int] = OMIT,
+        max_characters: typing.Optional[int] = OMIT,
         mmr_lambda: typing.Optional[float] = OMIT,
         reranker: typing.Optional[Reranker] = OMIT,
+        return_raw_results: typing.Optional[bool] = OMIT,
         scope: typing.Optional[GraphSearchScope] = OMIT,
         search_filters: typing.Optional[SearchFilters] = OMIT,
         user_id: typing.Optional[str] = OMIT,
@@ -808,14 +840,20 @@ class GraphClient:
         limit : typing.Optional[int]
             The maximum number of facts to retrieve. Defaults to 10. Limited to 50.
 
+        max_characters : typing.Optional[int]
+            Maximum total characters across all selected results when scope=auto. Defaults to 2000. Limited to 50000.
+
         mmr_lambda : typing.Optional[float]
             weighting for maximal marginal relevance
 
         reranker : typing.Optional[Reranker]
             Defaults to RRF
 
+        return_raw_results : typing.Optional[bool]
+            When scope=auto, include the selected raw graph results alongside the materialized context block.
+
         scope : typing.Optional[GraphSearchScope]
-            Defaults to Edges. Communities will be added in the future.
+            Defaults to Edges.
 
         search_filters : typing.Optional[SearchFilters]
             Search filters to apply to the search
@@ -829,7 +867,7 @@ class GraphClient:
         Returns
         -------
         GraphSearchResults
-            Graph search results
+            Graph search results or auto-context block
 
         Examples
         --------
@@ -848,8 +886,10 @@ class GraphClient:
             center_node_uuid=center_node_uuid,
             graph_id=graph_id,
             limit=limit,
+            max_characters=max_characters,
             mmr_lambda=mmr_lambda,
             reranker=reranker,
+            return_raw_results=return_raw_results,
             scope=scope,
             search_filters=search_filters,
             user_id=user_id,
@@ -967,11 +1007,17 @@ class GraphClient:
 class AsyncGraphClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._raw_client = AsyncRawGraphClient(client_wrapper=client_wrapper)
+        self.community = AsyncCommunityClient(client_wrapper=client_wrapper)
+
         self.edge = AsyncEdgeClient(client_wrapper=client_wrapper)
 
         self.episode = AsyncEpisodeClient(client_wrapper=client_wrapper)
 
         self.node = AsyncNodeClient(client_wrapper=client_wrapper)
+
+        self.saga = AsyncSagaClient(client_wrapper=client_wrapper)
+
+        self.theme = AsyncThemeClient(client_wrapper=client_wrapper)
 
     @property
     def with_raw_response(self) -> AsyncRawGraphClient:
@@ -1260,6 +1306,7 @@ class AsyncGraphClient:
         type: GraphDataType,
         created_at: typing.Optional[str] = OMIT,
         graph_id: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
         source_description: typing.Optional[str] = OMIT,
         user_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1277,6 +1324,9 @@ class AsyncGraphClient:
 
         graph_id : typing.Optional[str]
             graph_id is the ID of the graph to which the data will be added. If adding to the user graph, please use user_id field instead.
+
+        metadata : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+            Optional metadata key-value pairs. Max 10 keys. Values must be strings, numbers, booleans, or arrays of scalars.
 
         source_description : typing.Optional[str]
 
@@ -1316,6 +1366,7 @@ class AsyncGraphClient:
             type=type,
             created_at=created_at,
             graph_id=graph_id,
+            metadata=metadata,
             source_description=source_description,
             user_id=user_id,
             request_options=request_options,
@@ -1391,6 +1442,7 @@ class AsyncGraphClient:
         fact_uuid: typing.Optional[str] = OMIT,
         graph_id: typing.Optional[str] = OMIT,
         invalid_at: typing.Optional[str] = OMIT,
+        metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
         source_node_attributes: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
         source_node_labels: typing.Optional[typing.Sequence[str]] = OMIT,
         source_node_name: typing.Optional[str] = OMIT,
@@ -1433,6 +1485,10 @@ class AsyncGraphClient:
 
         invalid_at : typing.Optional[str]
             The time (if any) at which the fact stops being true
+
+        metadata : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
+            Optional metadata key-value pairs for the shadow episode created for this fact triple.
+            Max 10 keys. Values must be strings, numbers, or booleans.
 
         source_node_attributes : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
             Additional attributes of the source node. Values must be scalar types (string, number, boolean, or null).
@@ -1508,6 +1564,7 @@ class AsyncGraphClient:
             fact_uuid=fact_uuid,
             graph_id=graph_id,
             invalid_at=invalid_at,
+            metadata=metadata,
             source_node_attributes=source_node_attributes,
             source_node_labels=source_node_labels,
             source_node_name=source_node_name,
@@ -1640,6 +1697,7 @@ class AsyncGraphClient:
         *,
         page_number: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
+        search: typing.Optional[str] = None,
         order_by: typing.Optional[str] = None,
         asc: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1654,6 +1712,9 @@ class AsyncGraphClient:
 
         page_size : typing.Optional[int]
             Number of graphs to retrieve per page.
+
+        search : typing.Optional[str]
+            Search term for filtering graphs by graph_id.
 
         order_by : typing.Optional[str]
             Column to sort by (created_at, group_id, name).
@@ -1684,6 +1745,7 @@ class AsyncGraphClient:
             await client.graph.list_all(
                 page_number=1,
                 page_size=1,
+                search="search",
                 order_by="order_by",
                 asc=True,
             )
@@ -1692,7 +1754,12 @@ class AsyncGraphClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.list_all(
-            page_number=page_number, page_size=page_size, order_by=order_by, asc=asc, request_options=request_options
+            page_number=page_number,
+            page_size=page_size,
+            search=search,
+            order_by=order_by,
+            asc=asc,
+            request_options=request_options,
         )
         return _response.data
 
@@ -1807,8 +1874,10 @@ class AsyncGraphClient:
         center_node_uuid: typing.Optional[str] = OMIT,
         graph_id: typing.Optional[str] = OMIT,
         limit: typing.Optional[int] = OMIT,
+        max_characters: typing.Optional[int] = OMIT,
         mmr_lambda: typing.Optional[float] = OMIT,
         reranker: typing.Optional[Reranker] = OMIT,
+        return_raw_results: typing.Optional[bool] = OMIT,
         scope: typing.Optional[GraphSearchScope] = OMIT,
         search_filters: typing.Optional[SearchFilters] = OMIT,
         user_id: typing.Optional[str] = OMIT,
@@ -1834,14 +1903,20 @@ class AsyncGraphClient:
         limit : typing.Optional[int]
             The maximum number of facts to retrieve. Defaults to 10. Limited to 50.
 
+        max_characters : typing.Optional[int]
+            Maximum total characters across all selected results when scope=auto. Defaults to 2000. Limited to 50000.
+
         mmr_lambda : typing.Optional[float]
             weighting for maximal marginal relevance
 
         reranker : typing.Optional[Reranker]
             Defaults to RRF
 
+        return_raw_results : typing.Optional[bool]
+            When scope=auto, include the selected raw graph results alongside the materialized context block.
+
         scope : typing.Optional[GraphSearchScope]
-            Defaults to Edges. Communities will be added in the future.
+            Defaults to Edges.
 
         search_filters : typing.Optional[SearchFilters]
             Search filters to apply to the search
@@ -1855,7 +1930,7 @@ class AsyncGraphClient:
         Returns
         -------
         GraphSearchResults
-            Graph search results
+            Graph search results or auto-context block
 
         Examples
         --------
@@ -1882,8 +1957,10 @@ class AsyncGraphClient:
             center_node_uuid=center_node_uuid,
             graph_id=graph_id,
             limit=limit,
+            max_characters=max_characters,
             mmr_lambda=mmr_lambda,
             reranker=reranker,
+            return_raw_results=return_raw_results,
             scope=scope,
             search_filters=search_filters,
             user_id=user_id,

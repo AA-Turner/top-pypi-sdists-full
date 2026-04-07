@@ -89,7 +89,7 @@ fn test_simple_int_annotation() {
       "start_col": 3,
       "start_line": 1
     },
-    "type": "type[builtins.int]"
+    "type": "builtins.type[builtins.int]"
   },
   {
     "location": {
@@ -153,7 +153,7 @@ def f(foos: list[Foo]) -> int:
       "start_col": 7,
       "start_line": 3
     },
-    "type": "type[builtins.int | None]"
+    "type": "builtins.type[builtins.int | None]"
   },
   {
     "location": {
@@ -162,7 +162,7 @@ def f(foos: list[Foo]) -> int:
       "start_col": 7,
       "start_line": 3
     },
-    "type": "type[builtins.int]"
+    "type": "builtins.type[builtins.int]"
   },
   {
     "location": {
@@ -180,7 +180,7 @@ def f(foos: list[Foo]) -> int:
       "start_col": 12,
       "start_line": 4
     },
-    "type": "type[builtins.list[main.Foo]]"
+    "type": "builtins.type[builtins.list[main.Foo]]"
   },
   {
     "location": {
@@ -189,7 +189,7 @@ def f(foos: list[Foo]) -> int:
       "start_col": 12,
       "start_line": 4
     },
-    "type": "type[builtins.list]"
+    "type": "builtins.type[builtins.list]"
   },
   {
     "location": {
@@ -198,7 +198,7 @@ def f(foos: list[Foo]) -> int:
       "start_col": 17,
       "start_line": 4
     },
-    "type": "type[main.Foo]"
+    "type": "builtins.type[main.Foo]"
   },
   {
     "location": {
@@ -207,7 +207,7 @@ def f(foos: list[Foo]) -> int:
       "start_col": 26,
       "start_line": 4
     },
-    "type": "type[builtins.int]"
+    "type": "builtins.type[builtins.int]"
   },
   {
     "location": {
@@ -252,7 +252,7 @@ def f(foos: list[Foo]) -> int:
       "start_col": 9,
       "start_line": 6
     },
-    "type": "type[builtins.set]"
+    "type": "builtins.type[builtins.set]"
   },
   {
     "location": {
@@ -434,6 +434,104 @@ class A:
     // "Internal error: a variable has leaked across thread boundaries."
     // Keep as a regression to ensure lambda-parameter Vars cannot leak.
     let _ = query.get_types_in_file(module_name, path).unwrap();
+}
+
+/// Regression test: legacy implicit type alias to a builtin container must not
+/// produce double-qualified names like `typing.builtins.type[...]` in query mode.
+#[test]
+fn test_legacy_implicit_type_alias_no_double_qualification() {
+    let tdir = TempDir::new().unwrap();
+    let file_path = tdir.path().join("main.py");
+    let code = r#"
+from typing import Any
+RawData = dict[str, Any]
+def f(x: RawData) -> None:
+    pass
+"#;
+    fs_anyhow::write(&file_path, code).unwrap();
+
+    let query = create_query();
+    let module_name = ModuleName::from_str("main");
+    let path = ModulePath::filesystem(file_path.clone());
+
+    let errors = query.add_files(vec![(module_name, path.clone())]);
+    assert!(errors.is_empty(), "Unexpected errors: {:?}", errors);
+
+    let types = query.get_types_in_file(module_name, path).unwrap();
+    let actual = types_to_json_string(types);
+
+    // The type of `x` should NOT contain "typing.builtins." — that's double-qualification.
+    assert!(
+        !actual.contains("typing.builtins."),
+        "Double-qualified 'typing.builtins.' found in output:\n{actual}",
+    );
+}
+
+/// Regression test: `Annotated` type alias must not produce double-qualified
+/// names like `typing.typing.Annotated[...]` in query mode.
+#[test]
+fn test_annotated_type_alias_no_double_qualification() {
+    let tdir = TempDir::new().unwrap();
+    let file_path = tdir.path().join("main.py");
+    let code = r#"
+from typing import Annotated, TypeAlias
+PrimitiveIntID = Annotated[int, "metadata"]
+def f(x: PrimitiveIntID) -> None:
+    pass
+"#;
+    fs_anyhow::write(&file_path, code).unwrap();
+
+    let query = create_query();
+    let module_name = ModuleName::from_str("main");
+    let path = ModulePath::filesystem(file_path.clone());
+
+    let errors = query.add_files(vec![(module_name, path.clone())]);
+    assert!(errors.is_empty(), "Unexpected errors: {:?}", errors);
+
+    let types = query.get_types_in_file(module_name, path).unwrap();
+    let actual = types_to_json_string(types);
+
+    // The output should NOT contain "typing.typing." — that's double-qualification.
+    assert!(
+        !actual.contains("typing.typing."),
+        "Double-qualified 'typing.typing.' found in output:\n{actual}",
+    );
+}
+
+/// Explicit TypeAlias should show `typing.TypeAlias[...]`, not
+/// `typing.typing.TypeAlias[...]`.
+#[test]
+fn test_explicit_type_alias_no_double_qualification() {
+    let tdir = TempDir::new().unwrap();
+    let file_path = tdir.path().join("main.py");
+    let code = r#"
+from typing import Any, TypeAlias
+MyDict: TypeAlias = dict[str, Any]
+def f(x: MyDict) -> None:
+    pass
+"#;
+    fs_anyhow::write(&file_path, code).unwrap();
+
+    let query = create_query();
+    let module_name = ModuleName::from_str("main");
+    let path = ModulePath::filesystem(file_path.clone());
+
+    let errors = query.add_files(vec![(module_name, path.clone())]);
+    assert!(errors.is_empty(), "Unexpected errors: {:?}", errors);
+
+    let types = query.get_types_in_file(module_name, path).unwrap();
+    let actual = types_to_json_string(types);
+
+    // Should not have double-qualified typing prefix.
+    assert!(
+        !actual.contains("typing.typing."),
+        "Double-qualified 'typing.typing.' found in output:\n{actual}",
+    );
+    // Should not have typing.builtins. either.
+    assert!(
+        !actual.contains("typing.builtins."),
+        "Double-qualified 'typing.builtins.' found in output:\n{actual}",
+    );
 }
 
 #[test]

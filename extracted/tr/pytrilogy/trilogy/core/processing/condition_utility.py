@@ -60,6 +60,83 @@ TARGET_TYPES = (int, date, float, datetime, bool, str)
 REDUCABLE_TYPES = (int, float, date, bool, datetime, str, BuildFunction)
 
 
+def _is_tautology(node: BuildComparison) -> bool:
+    """True for comparisons that always evaluate to true (e.g. True IS True)."""
+    return (
+        node.left == node.right
+        and isinstance(node.left, bool)
+        and node.operator in (ComparisonOperator.EQ, ComparisonOperator.IS)
+    )
+
+
+def _unwrap_condition_boolean_wrapper(
+    conditional: BuildComparison,
+) -> BuildComparison | BuildConditional | BuildParenthetical | BuildSubselectComparison:
+    """Collapse redundant wrappers like ``(<condition>) = True``.
+
+    The parser can wrap parenthesized boolean expressions in an equality-to-True
+    comparison when materializing a WHERE clause. Downstream routing logic treats
+    conditions atomically, so normalize that form back to the original condition.
+    """
+    if conditional.operator not in (ComparisonOperator.EQ, ComparisonOperator.IS):
+        return conditional
+
+    if conditional.right is True and isinstance(conditional.left, CONDITION_TYPES):
+        return flatten_conditions(conditional.left)
+    if conditional.left is True and isinstance(conditional.right, CONDITION_TYPES):
+        return flatten_conditions(conditional.right)
+    return conditional
+
+
+def flatten_conditions(
+    conditional: BuildComparison | BuildConditional | BuildParenthetical,
+) -> BuildComparison | BuildConditional | BuildParenthetical:
+    """Simplify a condition tree.
+
+    - Unwraps parentheticals around leaf comparisons/subselects (not around
+      conditionals, where parens may enforce OR-vs-AND precedence).
+    - Drops tautologies (e.g. True IS True) from AND chains.
+    """
+    if isinstance(conditional, BuildParenthetical) and isinstance(
+        conditional.content,
+        (BuildComparison, BuildSubselectComparison, BuildParenthetical),
+    ):
+        return flatten_conditions(conditional.content)
+    if isinstance(conditional, BuildComparison):
+        unwrapped = _unwrap_condition_boolean_wrapper(conditional)
+        if unwrapped is not conditional:
+            return unwrapped
+    if isinstance(conditional, BuildConditional):
+        left = conditional.left
+        right = conditional.right
+        new_left = (
+            flatten_conditions(left) if isinstance(left, CONDITION_TYPES) else left
+        )
+        new_right = (
+            flatten_conditions(right) if isinstance(right, CONDITION_TYPES) else right
+        )
+        # Drop tautologies from AND chains
+        if conditional.operator == BooleanOperator.AND:
+            left_taut = isinstance(new_left, BuildComparison) and _is_tautology(
+                new_left
+            )
+            right_taut = isinstance(new_right, BuildComparison) and _is_tautology(
+                new_right
+            )
+            if left_taut and right_taut:
+                assert isinstance(new_left, BuildComparison)
+                return new_left  # both trivial, return either
+            if left_taut:
+                return new_right if isinstance(new_right, CONDITION_TYPES) else conditional  # type: ignore
+            if right_taut:
+                return new_left if isinstance(new_left, CONDITION_TYPES) else conditional  # type: ignore
+        if new_left is not left or new_right is not right:
+            return BuildConditional(
+                left=new_left, right=new_right, operator=conditional.operator
+            )
+    return conditional
+
+
 def is_scalar_condition(
     element: (
         int

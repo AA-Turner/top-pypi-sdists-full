@@ -65,5 +65,5 @@ def _wait_until_ready(driver, timeout: float = 10.0):
     except Exception:
         pass
     # small settle delay for late JS injections
-    time.sleep(0.3)
+   
 

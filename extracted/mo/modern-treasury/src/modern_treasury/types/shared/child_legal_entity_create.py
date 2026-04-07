@@ -7,6 +7,7 @@ from datetime import date, datetime
 from typing_extensions import Literal
 
 from ..._models import BaseModel
+from .third_party_verification import ThirdPartyVerification
 from .identification_create_request import IdentificationCreateRequest
 from .legal_entity_address_create_request import LegalEntityAddressCreateRequest
 from .legal_entity_industry_classification import LegalEntityIndustryClassification
@@ -20,7 +21,6 @@ __all__ = [
     "PhoneNumber",
     "Regulators",
     "Regulator",
-    "ThirdPartyVerification",
     "WealthAndEmploymentDetails",
 ]
 
@@ -121,16 +121,6 @@ Regulators = Regulator
 
 Please use Regulator instead.
 """
-
-
-class ThirdPartyVerification(BaseModel):
-    """Information describing a third-party verification run by an external vendor."""
-
-    vendor: Literal["persona"]
-    """The vendor that performed the verification, e.g. `persona`."""
-
-    vendor_verification_id: str
-    """The identification of the third party verification in `vendor`'s system."""
 
 
 class WealthAndEmploymentDetails(BaseModel):
@@ -408,11 +398,17 @@ class ChildLegalEntityCreate(BaseModel):
     risk_rating: Optional[Literal["low", "medium", "high"]] = None
     """The risk rating of the legal entity. One of low, medium, high."""
 
+    service_provider_legal_entity_id: Optional[str] = None
+    """The UUID of the parent legal entity in the service provider tree."""
+
     suffix: Optional[str] = None
     """An individual's suffix."""
 
     third_party_verification: Optional[ThirdPartyVerification] = None
-    """Information describing a third-party verification run by an external vendor."""
+    """Deprecated. Use `third_party_verifications` instead."""
+
+    third_party_verifications: Optional[List[ThirdPartyVerification]] = None
+    """A list of third-party verifications run by external vendors."""
 
     ticker_symbol: Optional[str] = None
     """Stock ticker symbol for publicly traded companies."""

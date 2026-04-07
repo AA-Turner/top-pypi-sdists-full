@@ -28,7 +28,9 @@ class IndexingJobServiceStub:
         GetIndexingJobStatusRequest,
         GetIndexingJobStatusResponse,
     ]
-    """GetIndexingStatus checks if the indexing job has completed successfully for a deployment"""
+    """GetIndexingStatus checks the indexing job status for a deployment.
+    Deprecated: use GetIndexingExport to read export.pb contents.
+    """
     GetIndexingExport: UnaryUnaryMultiCallable[
         GetIndexingExportRequest,
         GetIndexingExportResponse,
@@ -45,7 +47,9 @@ class IndexingJobServiceServicer(metaclass=ABCMeta):
         request: GetIndexingJobStatusRequest,
         context: ServicerContext,
     ) -> GetIndexingJobStatusResponse:
-        """GetIndexingStatus checks if the indexing job has completed successfully for a deployment"""
+        """GetIndexingStatus checks the indexing job status for a deployment.
+        Deprecated: use GetIndexingExport to read export.pb contents.
+        """
     @abstractmethod
     def GetIndexingExport(
         self,

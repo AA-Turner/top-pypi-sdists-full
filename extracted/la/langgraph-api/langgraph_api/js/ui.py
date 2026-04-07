@@ -28,6 +28,7 @@ UI_SCHEMAS_FILE = UI_ROOT_DIR / "schemas.json"
 async def start_ui_bundler() -> None:
     # LANGGRAPH_UI_ROOT_DIR is only set by in-memory server
     # @see langgraph_api/cli.py
+    # Not in public docs: LANGGRAPH_UI is populated by langgraph.json config
     if not UI_USE_BUNDLER or not os.getenv("LANGGRAPH_UI"):
         return
 

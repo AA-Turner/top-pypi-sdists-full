@@ -7,11 +7,12 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, BinaryIO, cast
 
 from arelle import (
     FileSource, PackageManager,
 )
+from arelle.FileSource import FileNamedBytesIO
 from arelle.ModelDocumentType import ModelDocumentType
 from arelle.UrlUtil import isHttpUrl
 from arelle.typing import TypeGetText
@@ -29,11 +30,11 @@ class EntrypointParseResult:
     filesource: FileSource.FileSource | None
 
 
-def parseEntrypointFileInput(cntlr: Cntlr, entrypointFile: str | None, sourceZipStream=None, fallbackSelect=True) -> EntrypointParseResult:
+def parseEntrypointFileInput(cntlr: Cntlr, entrypointFile: str | None, sourceZipStream: BinaryIO | FileNamedBytesIO | None = None, fallbackSelect: bool = True) -> EntrypointParseResult:
     # entrypointFile may be absent (if input is a POSTED zip or file name ending in .zip)
     #    or may be a | separated set of file names
     _entryPoints = []
-    _checkIfXmlIsEis = cntlr.modelManager.disclosureSystem and cntlr.modelManager.disclosureSystem.validationType == "EFM"
+    _checkIfXmlIsEis = cntlr.modelManager.disclosureSystem.validationType == "EFM"
     if entrypointFile:
         _f = entrypointFile
         try: # may be a json list
@@ -66,10 +67,10 @@ def parseEntrypointFileInput(cntlr: Cntlr, entrypointFile: str | None, sourceZip
     return EntrypointParseResult(success=True, entrypointFiles=_entrypointFiles, filesource=filesource)
 
 
-def filesourceEntrypointFiles(filesource, entrypointFiles=None, inlineOnly=False, fallbackSelect=True):
+def filesourceEntrypointFiles(filesource: FileSource.FileSource, entrypointFiles: list[dict[str, Any]] | None = None, inlineOnly: bool = False, fallbackSelect: bool = True) -> list[dict[str, str]]:
     if entrypointFiles is None:
         entrypointFiles = []
-    for pluginXbrlMethod in filesource.pluginClassMethods("FileSource.EntrypointFiles"):
+    for pluginXbrlMethod in filesource.hooks("FileSource.EntrypointFiles"):
         resultEntrypointFiles = pluginXbrlMethod(filesource, inlineOnly)
         if resultEntrypointFiles is not None:
             del entrypointFiles[:]  # clear list
@@ -79,59 +80,59 @@ def filesourceEntrypointFiles(filesource, entrypointFiles=None, inlineOnly=False
         if filesource.isTaxonomyPackage:  # if archive is also a taxonomy package, activate mappings
             filesource.loadTaxonomyPackageMappings()
         # HF note: a web api request to load a specific file from archive is ignored, is this right?
-        discoveredEntrypointFiles = []
+        del entrypointFiles[:]
         if reportPackage := filesource.reportPackage:
-            del entrypointFiles[:]
             assert isinstance(filesource.basefile, str)
             for report in reportPackage.reports or []:
                 if report.isInline:
                     reportEntries = [{"file": f} for f in report.fullPathFiles]
                     ixdsDiscovered = False
-                    for pluginXbrlMethod in filesource.pluginClassMethods("InlineDocumentSet.Discovery"):
+                    for pluginXbrlMethod in filesource.hooks("InlineDocumentSet.Discovery"):
                         pluginXbrlMethod(filesource, reportEntries)
                         ixdsDiscovered = True
                     if not ixdsDiscovered and len(reportEntries) > 1:
                         raise RuntimeError(_("Loading error. Inline document set encountered. Enable 'InlineXbrlDocumentSet' plug-in to load this filing: {0}").format(filesource.url))
-                    discoveredEntrypointFiles.extend(reportEntries)
+                    entrypointFiles.extend(reportEntries)
                 elif not inlineOnly:
-                    discoveredEntrypointFiles.append({"file": report.fullPathPrimary})
+                    entrypointFiles.append({"file": report.fullPathPrimary})
         elif fallbackSelect:
             # attempt to find inline XBRL files before instance files, .xhtml before probing others (ESMA)
-            urlsByType = {}
+            urlsByType: dict[int, list[str]] = {}
             for _archiveFile in (filesource.dir or ()): # .dir might be none if IOerror
                 filesource.select(_archiveFile)
+                assert isinstance(filesource.url, str)
                 identifiedType = ModelDocumentType.identify(filesource, filesource.url)
                 if identifiedType in (ModelDocumentType.INSTANCE, ModelDocumentType.INLINEXBRL, ModelDocumentType.HTML):
                     urlsByType.setdefault(identifiedType, []).append(filesource.url)
             # use inline instances, if any, else non-inline instances
             for identifiedType in ((ModelDocumentType.INLINEXBRL,) if inlineOnly else (ModelDocumentType.INLINEXBRL, ModelDocumentType.INSTANCE)):
                 for url in urlsByType.get(identifiedType, []):
-                    discoveredEntrypointFiles.append({"file":url})
-                if discoveredEntrypointFiles:
+                    entrypointFiles.append({"file":url})
+                if entrypointFiles:
                     if identifiedType == ModelDocumentType.INLINEXBRL:
-                        for pluginXbrlMethod in filesource.pluginClassMethods("InlineDocumentSet.Discovery"):
-                            pluginXbrlMethod(filesource, discoveredEntrypointFiles) # group into IXDS if plugin feature is available
+                        for pluginXbrlMethod in filesource.hooks("InlineDocumentSet.Discovery"):
+                            pluginXbrlMethod(filesource, entrypointFiles) # group into IXDS if plugin feature is available
                     break # found inline (or non-inline) entrypoint files, don't look for any other type
             # for ESEF non-consolidated xhtml documents accept an xhtml entry point
-            if not discoveredEntrypointFiles and not inlineOnly:
+            if not entrypointFiles and not inlineOnly:
                 for url in urlsByType.get(ModelDocumentType.HTML, []):
-                    discoveredEntrypointFiles.append({"file":url})
-            if not discoveredEntrypointFiles and filesource.taxonomyPackage is not None:
-                for packageEntry in filesource.taxonomyPackage.get('entryPoints', {}).values():
+                    entrypointFiles.append({"file":url})
+            if not entrypointFiles and filesource.taxonomyPackage is not None:
+                # Looks like the type of values in the taxonomyPackage dict depends on the key
+                entryPoints = cast(
+                    dict[str, list[tuple[str | None, str, str]]],
+                    filesource.taxonomyPackage.get('entryPoints', {})
+                )
+                for packageEntry in entryPoints.values():
                     for _resolvedUrl, remappedUrl, _closest in packageEntry:
-                        discoveredEntrypointFiles.append({"file": remappedUrl})
-        if discoveredEntrypointFiles:
-            # Only clear archive entry points if we discovered new ones.
-            # This could be a plugin loaded archive, such as an Excel file.
-            del entrypointFiles[:]
-            entrypointFiles.extend(discoveredEntrypointFiles)
+                        entrypointFiles.append({"file": remappedUrl})
 
 
-    elif os.path.isdir(filesource.url):
+    elif os.path.isdir(cast(str, filesource.url)):
         del entrypointFiles[:] # clear list
         hasInline = False
-        for _file in os.listdir(filesource.url):
-            _path = os.path.join(filesource.url, _file)
+        for _file in os.listdir(cast(str, filesource.url)):
+            _path = os.path.join(cast(str, filesource.url), _file)
             if os.path.isfile(_path):
                 identifiedType = ModelDocumentType.identify(filesource, _path)
                 if identifiedType == ModelDocumentType.INLINEXBRL:
@@ -139,7 +140,7 @@ def filesourceEntrypointFiles(filesource, entrypointFiles=None, inlineOnly=False
                 if identifiedType in (ModelDocumentType.INSTANCE, ModelDocumentType.INLINEXBRL):
                     entrypointFiles.append({"file":_path})
         if hasInline: # group into IXDS if plugin feature is available
-            for pluginXbrlMethod in filesource.pluginClassMethods("InlineDocumentSet.Discovery"):
+            for pluginXbrlMethod in filesource.hooks("InlineDocumentSet.Discovery"):
                 pluginXbrlMethod(filesource, entrypointFiles)
 
     return entrypointFiles

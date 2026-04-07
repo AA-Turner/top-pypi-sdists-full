@@ -1,5 +1,4 @@
 import os
-from contextlib import suppress
 
 if not (
     (disable_truststore := os.getenv("DISABLE_TRUSTSTORE"))
@@ -16,11 +15,13 @@ import logging.config
 import pathlib
 import signal
 import socket
+from contextlib import suppress
 
 import structlog
 
 from langgraph_api.api.meta import meta_pool_stats
 from langgraph_api.utils.errors import GraphLoadError, HealthServerStartupError
+from langgraph_api.utils.network import format_hostport, normalize_host
 from langgraph_runtime import lifespan
 from langgraph_runtime.database import healthcheck
 from langgraph_runtime.metrics import get_metrics
@@ -32,12 +33,30 @@ shutdown_reason: str | None = None
 
 
 def _ensure_port_available(host: str, port: int) -> None:
+    host = normalize_host(host)
+    last_error: OSError | None = None
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind((host, port))
+        addrinfos = socket.getaddrinfo(
+            host,
+            port,
+            type=socket.SOCK_STREAM,
+            flags=socket.AI_PASSIVE,
+        )
     except OSError as exc:
         raise HealthServerStartupError(host, port, exc) from exc
+
+    for family, socktype, proto, _, sockaddr in addrinfos:
+        try:
+            with socket.socket(family, socktype, proto) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind(sockaddr)
+                return
+        except OSError as exc:
+            last_error = exc
+
+    if last_error is None:
+        last_error = OSError(f"Could not resolve bind address for host {host!r}")
+    raise HealthServerStartupError(host, port, last_error)
 
 
 async def health_and_metrics_server():
@@ -51,7 +70,8 @@ async def health_and_metrics_server():
     from langgraph_api.api.meta import METRICS_FORMATS  # noqa: PLC0415
 
     port = int(os.getenv("PORT", "8080"))
-    host = os.getenv("LANGGRAPH_SERVER_HOST", "0.0.0.0")
+    # Not in public docs: LANGGRAPH_SERVER_HOST is internal
+    host = normalize_host(os.getenv("LANGGRAPH_SERVER_HOST", "0.0.0.0"))
 
     async def health_endpoint(request: Request):
         check_db = int(request.query_params.get("check_db", "1"))
@@ -137,7 +157,9 @@ async def health_and_metrics_server():
     # Server will run indefinitely until the process is terminated
     server = uvicorn.Server(config)
 
-    logger.info(f"Health and metrics server started at http://{host}:{port}")
+    logger.info(
+        f"Health and metrics server started at http://{format_hostport(host, port)}"
+    )
     try:
         # Use the internal serve to skip capturing signals, otherwise there's a race condition
         # where uvicorn captures the signal and will exit early before the queue can gracefully shutdown

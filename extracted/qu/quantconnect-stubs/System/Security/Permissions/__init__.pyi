@@ -7,50 +7,6 @@ import System.Security
 import System.Security.Permissions
 
 
-class SecurityPermissionFlag(IntEnum):
-    """This class has no documentation."""
-
-    ALL_FLAGS = 16383
-
-    ASSERTION = 1
-
-    BINDING_REDIRECTS = 8192
-
-    CONTROL_APP_DOMAIN = 1024
-
-    CONTROL_DOMAIN_POLICY = 256
-
-    CONTROL_EVIDENCE = 32
-
-    CONTROL_POLICY = 64
-
-    CONTROL_PRINCIPAL = 512
-
-    CONTROL_THREAD = 16
-
-    EXECUTION = 8
-
-    INFRASTRUCTURE = 4096
-
-    NO_FLAGS = 0
-
-    REMOTING_CONFIGURATION = 2048
-
-    SERIALIZATION_FORMATTER = 128
-
-    SKIP_VERIFICATION = 4
-
-    UNMANAGED_CODE = 2
-
-
-class PermissionState(IntEnum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    UNRESTRICTED = 1
-
-
 class SecurityAction(IntEnum):
     """This class has no documentation."""
 
@@ -104,6 +60,50 @@ class CodeAccessSecurityAttribute(System.Security.Permissions.SecurityAttribute,
 
     def __init__(self, action: System.Security.Permissions.SecurityAction) -> None:
         ...
+
+
+class PermissionState(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    UNRESTRICTED = 1
+
+
+class SecurityPermissionFlag(IntEnum):
+    """This class has no documentation."""
+
+    ALL_FLAGS = 16383
+
+    ASSERTION = 1
+
+    BINDING_REDIRECTS = 8192
+
+    CONTROL_APP_DOMAIN = 1024
+
+    CONTROL_DOMAIN_POLICY = 256
+
+    CONTROL_EVIDENCE = 32
+
+    CONTROL_POLICY = 64
+
+    CONTROL_PRINCIPAL = 512
+
+    CONTROL_THREAD = 16
+
+    EXECUTION = 8
+
+    INFRASTRUCTURE = 4096
+
+    NO_FLAGS = 0
+
+    REMOTING_CONFIGURATION = 2048
+
+    SERIALIZATION_FORMATTER = 128
+
+    SKIP_VERIFICATION = 4
+
+    UNMANAGED_CODE = 2
 
 
 class SecurityPermissionAttribute(System.Security.Permissions.CodeAccessSecurityAttribute):

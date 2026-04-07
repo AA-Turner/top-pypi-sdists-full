@@ -3,7 +3,7 @@ Type annotations for dlm service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dlm/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -175,17 +175,19 @@ class TagTypeDef(TypedDict):
 
 
 class FastRestoreRuleOutputTypeDef(TypedDict):
-    AvailabilityZones: list[str]
     Count: NotRequired[int]
     Interval: NotRequired[int]
     IntervalUnit: NotRequired[RetentionIntervalUnitValuesType]
+    AvailabilityZones: NotRequired[list[str]]
+    AvailabilityZoneIds: NotRequired[list[str]]
 
 
 class FastRestoreRuleTypeDef(TypedDict):
-    AvailabilityZones: Sequence[str]
     Count: NotRequired[int]
     Interval: NotRequired[int]
     IntervalUnit: NotRequired[RetentionIntervalUnitValuesType]
+    AvailabilityZones: NotRequired[Sequence[str]]
+    AvailabilityZoneIds: NotRequired[Sequence[str]]
 
 
 class GetLifecyclePoliciesRequestTypeDef(TypedDict):

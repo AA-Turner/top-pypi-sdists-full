@@ -145,3 +145,90 @@ class TestSessionJournalSingleton:
         journal2 = get_journal()
         ctx = journal2.get_context()
         assert len(ctx["files_accessed"]) == 1
+
+class TestSessionJournalSortBy:
+    """Tests for get_context() sort_by parameter."""
+
+    def test_get_context_sort_by_frequency(self):
+        """Test that get_context sorts all components by frequency."""
+        from jcodemunch_mcp.tools.session_journal import SessionJournal
+        journal = SessionJournal()
+
+        # Files with different read counts
+        journal.record_read("least_read.py", "get_file_outline")
+        journal.record_read("most_read.py", "get_file_outline")
+        journal.record_read("most_read.py", "get_file_content")
+        journal.record_read("most_read.py", "get_file_content")
+        journal.record_read("moderately_read.py", "get_file_outline")
+        journal.record_read("moderately_read.py", "get_file_content")
+
+        # Queries with different frequencies
+        journal.record_search("least_searched", 5)
+        journal.record_search("most_searched", 2)
+        journal.record_search("most_searched", 3)
+        journal.record_search("moderately_searched", 4)
+
+        # Edits with different counts
+        journal.record_edit("least_edited.py")
+        journal.record_edit("most_edited.py")
+        journal.record_edit("most_edited.py")
+        journal.record_edit("most_edited.py")
+        journal.record_edit("moderately_edited.py")
+        journal.record_edit("moderately_edited.py")
+
+        context = journal.get_context(
+            max_files=10, max_queries=10, max_edits=10, sort_by="frequency"
+        )
+
+        # Verify files sorted by read count descending
+        files = context["files_accessed"]
+        assert files[0]["file"] == "most_read.py"
+        assert files[0]["reads"] == 3
+        assert files[1]["file"] == "moderately_read.py"
+        assert files[1]["reads"] == 2
+        assert files[2]["file"] == "least_read.py"
+        assert files[2]["reads"] == 1
+
+        # Verify queries sorted by count descending
+        searches = context["recent_searches"]
+        assert searches[0]["query"] == "most_searched"
+        assert searches[0]["count"] == 2
+
+        # Verify edits sorted by edit count descending
+        edits = context["files_edited"]
+        assert edits[0]["file"] == "most_edited.py"
+        assert edits[0]["edits"] == 3
+        assert edits[1]["file"] == "moderately_edited.py"
+        assert edits[1]["edits"] == 2
+        assert edits[2]["file"] == "least_edited.py"
+        assert edits[2]["edits"] == 1
+
+    def test_get_context_sort_by_timestamp(self):
+        """Test that get_context sorts by timestamp when sort_by='timestamp'."""
+        from jcodemunch_mcp.tools.session_journal import SessionJournal
+        journal = SessionJournal()
+
+        journal.record_read("first_read.py", "get_file_outline")
+        journal.record_read("second_read.py", "get_file_content")
+
+        context_default = journal.get_context(max_files=10, max_queries=10, max_edits=10)
+        context_timestamp = journal.get_context(
+            max_files=10, max_queries=10, max_edits=10, sort_by="timestamp"
+        )
+
+        assert context_default["files_accessed"] == context_timestamp["files_accessed"]
+
+    def test_get_context_default_sort_is_timestamp(self):
+        """Test that default sorting is by timestamp."""
+        from jcodemunch_mcp.tools.session_journal import SessionJournal
+        journal = SessionJournal()
+
+        journal.record_read("first_read.py", "get_file_outline")
+        journal.record_read("second_read.py", "get_file_content")
+
+        context_default = journal.get_context(max_files=10, max_queries=10, max_edits=10)
+        context_timestamp = journal.get_context(
+            max_files=10, max_queries=10, max_edits=10, sort_by="timestamp"
+        )
+
+        assert len(context_default["files_accessed"]) == len(context_timestamp["files_accessed"])

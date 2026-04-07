@@ -1,43 +1,67 @@
 from __future__ import annotations
 
-from typing import Callable, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import autograd.numpy as np
-import pydantic.v1 as pd
-from numpy.typing import NDArray
+from pydantic import Field, NonNegativeFloat
 
 from tidy3d.components.base import Tidy3dBaseModel
-from tidy3d.components.types import ArrayFloat2D
 from tidy3d.plugins.autograd.types import PaddingType
 
 from .parametrizations import FilterAndProject
+from .symmetries import MirrorSymmetry, expand_mirror_symmetry
+
+if TYPE_CHECKING:
+    from typing import Callable
+
+    from numpy.typing import NDArray
+
+    from tidy3d.components.types import ArrayFloat2D
 
 
 class ErosionDilationPenalty(Tidy3dBaseModel):
     """A class that computes a penalty for erosion/dilation of a parameter map not being unity."""
 
-    radius: Union[float, tuple[float, ...]] = pd.Field(
-        ..., title="Radius", description="The radius of the kernel."
+    radius: Union[float, tuple[float, ...]] = Field(
+        title="Radius",
+        description="The radius of the kernel.",
     )
-    dl: Union[float, tuple[float, ...]] = pd.Field(
-        ..., title="Grid Spacing", description="The grid spacing."
+    dl: Union[float, tuple[float, ...]] = Field(
+        title="Grid Spacing",
+        description="The grid spacing.",
     )
-    size_px: Union[int, tuple[int, ...]] = pd.Field(
-        None, title="Size in Pixels", description="The size of the kernel in pixels."
+    size_px: Optional[Union[int, tuple[int, ...]]] = Field(
+        None,
+        title="Size in Pixels",
+        description="The size of the kernel in pixels.",
     )
-    beta: pd.NonNegativeFloat = pd.Field(
-        20.0, title="Beta", description="The beta parameter for the tanh projection."
+    beta: NonNegativeFloat = Field(
+        20.0,
+        title="Beta",
+        description="The beta parameter for the tanh projection.",
     )
-    eta: pd.NonNegativeFloat = pd.Field(
-        0.5, title="Eta", description="The eta parameter for the tanh projection."
+    eta: NonNegativeFloat = Field(
+        0.5,
+        title="Eta",
+        description="The eta parameter for the tanh projection.",
     )
-    filter_type: str = pd.Field(
-        "conic", title="Filter Type", description="The type of filter to create."
+    filter_type: str = Field(
+        "conic",
+        title="Filter Type",
+        description="The type of filter to create.",
     )
-    padding: PaddingType = pd.Field(
-        "reflect", title="Padding", description="The padding mode to use."
+    padding: PaddingType = Field(
+        "reflect",
+        title="Padding",
+        description="The padding mode to use.",
     )
-    delta_eta: float = pd.Field(
+    symmetry: Optional[MirrorSymmetry] = Field(
+        None,
+        title="Mirror Symmetry",
+        description="Optional per-axis mirror symmetry applied by expanding the array across "
+        "selected low or high boundaries before evaluating the penalty.",
+    )
+    delta_eta: float = Field(
         0.01,
         title="Delta Eta",
         description="The binarization threshold for erosion and dilation operations.",
@@ -56,6 +80,10 @@ class ErosionDilationPenalty(Tidy3dBaseModel):
         float
             The computed erosion/dilation penalty.
         """
+        working_array = array
+        if self.symmetry is not None:
+            working_array, _ = expand_mirror_symmetry(array, symmetry=self.symmetry)
+
         filtproj = FilterAndProject(
             radius=self.radius,
             dl=self.dl,
@@ -69,19 +97,19 @@ class ErosionDilationPenalty(Tidy3dBaseModel):
         eta_dilate = 0.0 + self.delta_eta
         eta_eroded = 1.0 - self.delta_eta
 
-        def _dilate(arr: NDArray):
+        def _dilate(arr: NDArray) -> NDArray:
             return filtproj(arr, eta=eta_dilate)
 
-        def _erode(arr: NDArray):
+        def _erode(arr: NDArray) -> NDArray:
             return filtproj(arr, eta=eta_eroded)
 
-        def _open(arr: NDArray):
+        def _open(arr: NDArray) -> NDArray:
             return _dilate(_erode(arr))
 
-        def _close(arr: NDArray):
+        def _close(arr: NDArray) -> NDArray:
             return _erode(_dilate(arr))
 
-        diff = _close(array) - _open(array)
+        diff = _close(working_array) - _open(working_array)
 
         if not np.any(diff):
             return 0.0
@@ -98,6 +126,7 @@ def make_erosion_dilation_penalty(
     eta: float = 0.5,
     delta_eta: float = 0.01,
     padding: PaddingType = "reflect",
+    symmetry: Optional[MirrorSymmetry] = None,
 ) -> Callable:
     """Computes a penalty for erosion/dilation of a parameter map not being unity.
 
@@ -113,6 +142,7 @@ def make_erosion_dilation_penalty(
         eta=eta,
         delta_eta=delta_eta,
         padding=padding,
+        symmetry=symmetry,
     )
 
 

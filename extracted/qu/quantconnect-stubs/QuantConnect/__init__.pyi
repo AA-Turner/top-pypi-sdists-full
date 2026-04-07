@@ -40,9 +40,9 @@ import System.Threading
 import System.Threading.Tasks
 import System.Timers
 
+QuantConnect_SecurityIdentifier = typing.Any
 QuantConnect_Symbol = typing.Any
 DateTimeZone = typing.Any
-QuantConnect_SecurityIdentifier = typing.Any
 ZipArchiveMode = typing.Any
 CompressionLevel = typing.Any
 
@@ -50,40 +50,6 @@ QuantConnect_ExtendedDictionary_TKey = typing.TypeVar("QuantConnect_ExtendedDict
 QuantConnect_ExtendedDictionary_TValue = typing.TypeVar("QuantConnect_ExtendedDictionary_TValue")
 QuantConnect__EventContainer_Callable = typing.TypeVar("QuantConnect__EventContainer_Callable")
 QuantConnect__EventContainer_ReturnType = typing.TypeVar("QuantConnect__EventContainer_ReturnType")
-
-
-class SeriesType(IntEnum):
-    """Available types of chart series"""
-
-    LINE = 0
-    """Line Plot for Value Types (0)"""
-
-    SCATTER = 1
-    """Scatter Plot for Chart Distinct Types (1)"""
-
-    CANDLE = 2
-    """Charts (2)"""
-
-    BAR = 3
-    """Bar chart (3)"""
-
-    FLAG = 4
-    """Flag indicators (4)"""
-
-    STACKED_AREA = 5
-    """100% area chart showing relative proportions of series values at each time index (5)"""
-
-    PIE = 6
-    """Pie chart (6)"""
-
-    TREEMAP = 7
-    """Treemap Plot (7)"""
-
-    HEATMAP = 9
-    """Heatmap Plot (9) -- NOTE: 8 is reserved"""
-
-    SCATTER_3D = 9
-    """Scatter 3D Plot (10)"""
 
 
 class ISeriesPoint(metaclass=abc.ABCMeta):
@@ -108,581 +74,147 @@ class ISeriesPoint(metaclass=abc.ABCMeta):
         ...
 
 
-class BaseSeries(System.Object, metaclass=abc.ABCMeta):
-    """Chart Series Object - Series data and properties for a chart:"""
-
-    @property
-    def name(self) -> str:
-        """Name of the series."""
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def unit(self) -> str:
-        """Axis for the chart series."""
-        ...
-
-    @unit.setter
-    def unit(self, value: str) -> None:
-        ...
-
-    @property
-    def index(self) -> int:
-        """Index/position of the series on the chart."""
-        ...
-
-    @index.setter
-    def index(self, value: int) -> None:
-        ...
-
-    @property
-    def index_name(self) -> str:
-        """Axis name for the chart series."""
-        ...
-
-    @index_name.setter
-    def index_name(self, value: str) -> None:
-        ...
-
-    @property
-    def z_index(self) -> typing.Optional[int]:
-        """Defines the visual Z index of the series on the chart."""
-        ...
-
-    @z_index.setter
-    def z_index(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def series_type(self) -> QuantConnect.SeriesType:
-        """Chart type for the series:"""
-        ...
-
-    @series_type.setter
-    def series_type(self, value: QuantConnect.SeriesType) -> None:
-        ...
-
-    @property
-    def tooltip(self) -> str:
-        """An optional tooltip template"""
-        ...
-
-    @tooltip.setter
-    def tooltip(self, value: str) -> None:
-        ...
-
-    @property
-    def values(self) -> typing.List[QuantConnect.ISeriesPoint]:
-        """
-        The series list of values.
-        These values are assumed to be in ascending time order (first points earliest, last points latest)
-        """
-        ...
-
-    @values.setter
-    def values(self, value: typing.List[QuantConnect.ISeriesPoint]) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Default constructor for chart series
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, type: QuantConnect.SeriesType) -> None:
-        """
-        Constructor method for Chart Series
-        
-        
-        This codeEntityType is protected.
-        
-        :param name: Name of the chart series
-        :param type: Type of the series
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, type: QuantConnect.SeriesType, index: int) -> None:
-        """
-        Foundational constructor on the series class
-        
-        
-        This codeEntityType is protected.
-        
-        :param name: Name of the series
-        :param type: Type of the series
-        :param index: Series index position on the chart
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, type: QuantConnect.SeriesType, index: int, unit: str) -> None:
-        """
-        Foundational constructor on the series class
-        
-        
-        This codeEntityType is protected.
-        
-        :param name: Name of the series
-        :param type: Type of the series
-        :param index: Series index position on the chart
-        :param unit: Unit for the series axis
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, type: QuantConnect.SeriesType, unit: str) -> None:
-        """
-        Constructor method for Chart Series
-        
-        
-        This codeEntityType is protected.
-        
-        :param name: Name of the chart series
-        :param type: Type of the chart series
-        :param unit: Unit of the series
-        """
-        ...
-
-    @overload
-    def add_point(self, point: QuantConnect.ISeriesPoint) -> None:
-        """
-        Add a new point to this series
-        
-        :param point: The data point to add
-        """
-        ...
-
-    @overload
-    def add_point(self, time: typing.Union[datetime.datetime, datetime.date], values: typing.List[float]) -> None:
-        """
-        Add a new point to this series
-        
-        :param time: The time of the data point
-        :param values: The values of the data point
-        """
-        ...
-
-    def clone(self, empty: bool = False) -> QuantConnect.BaseSeries:
-        """Return a new instance clone of this object"""
-        ...
-
-    def clone_values(self) -> typing.List[QuantConnect.ISeriesPoint]:
-        """
-        Return a list of cloned values
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    def consolidate_chart_points(self) -> QuantConnect.ISeriesPoint:
-        """
-        Will sum up all chart points into a new single value, using the time of latest point
-        
-        :returns: The new chart point.
-        """
-        ...
-
-    @staticmethod
-    def create(series_type: QuantConnect.SeriesType, name: str, index: int = 0, unit: str = "$") -> QuantConnect.BaseSeries:
-        """
-        Creates a series according to the specified type.
-        
-        :param series_type: The series type
-        :param name: The name of the series
-        :param index: Series index position on the chart
-        :param unit: Unit for the series axis
-        :returns: A CandlestickSeries if series_type is SeriesType.CANDLE.
-        A Series otherwise.
-        """
-        ...
-
-    def get_updates(self) -> QuantConnect.BaseSeries:
-        """
-        Get the updates since the last call to this function.
-        
-        :returns: List of the updates from the series.
-        """
-        ...
-
-    def purge(self) -> None:
-        """Removes the data from this series and resets the update position to 0"""
-        ...
-
-
-class ScatterMarkerSymbol(IntEnum):
-    """Shape or symbol for the marker in a scatter plot"""
-
-    NONE = 0
-    """Circle symbol (0)"""
-
-    CIRCLE = 1
-    """Circle symbol (1)"""
-
-    SQUARE = 2
-    """Square symbol (2)"""
-
-    DIAMOND = 3
-    """Diamond symbol (3)"""
-
-    TRIANGLE = 4
-    """Triangle symbol (4)"""
-
-    TRIANGLE_DOWN = 5
-    """Triangle-down symbol (5)"""
-
-
-class Series(QuantConnect.BaseSeries):
-    """Chart Series Object - Series data and properties for a chart:"""
-
-    @property
-    def color(self) -> System.Drawing.Color:
-        """Color the series"""
-        ...
-
-    @color.setter
-    def color(self, value: System.Drawing.Color) -> None:
-        ...
-
-    @property
-    def scatter_marker_symbol(self) -> QuantConnect.ScatterMarkerSymbol:
-        """Shape or symbol for the marker in a scatter plot"""
-        ...
-
-    @scatter_marker_symbol.setter
-    def scatter_marker_symbol(self, value: QuantConnect.ScatterMarkerSymbol) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default constructor for chart series"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Constructor method for Chart Series
-        
-        :param name: Name of the chart series
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, type: QuantConnect.SeriesType, index: int) -> None:
-        """
-        Foundational constructor on the series class
-        
-        :param name: Name of the series
-        :param type: Type of the series
-        :param index: Index position on the chart of the series
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, type: QuantConnect.SeriesType, index: int, unit: str) -> None:
-        """
-        Foundational constructor on the series class
-        
-        :param name: Name of the series
-        :param type: Type of the series
-        :param index: Index position on the chart of the series
-        :param unit: Unit for the series axis
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, type: QuantConnect.SeriesType = ..., unit: str = "$") -> None:
-        """
-        Constructor method for Chart Series
-        
-        :param name: Name of the chart series
-        :param type: Type of the chart series
-        :param unit: Unit of the series
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, type: QuantConnect.SeriesType, unit: str, color: System.Drawing.Color) -> None:
-        """
-        Constructor method for Chart Series
-        
-        :param name: Name of the chart series
-        :param type: Type of the chart series
-        :param unit: Unit of the series
-        :param color: Color of the series
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, type: QuantConnect.SeriesType, unit: str, color: System.Drawing.Color, symbol: QuantConnect.ScatterMarkerSymbol = ...) -> None:
-        """
-        Constructor method for Chart Series
-        
-        :param name: Name of the chart series
-        :param type: Type of the chart series
-        :param unit: Unit of the series
-        :param color: Color of the series
-        :param symbol: Symbol for the marker in a scatter plot series
-        """
-        ...
-
-    @overload
-    def add_point(self, time: typing.Union[datetime.datetime, datetime.date], value: float) -> None:
-        """
-        Add a new point to this series
-        
-        :param time: Time of the chart point
-        :param value: Value of the chart point
-        """
-        ...
-
-    @overload
-    def add_point(self, point: QuantConnect.ISeriesPoint) -> None:
-        """
-        Add a new point to this series
-        
-        :param point: The data point to add
-        """
-        ...
-
-    @overload
-    def add_point(self, time: typing.Union[datetime.datetime, datetime.date], values: typing.List[float]) -> None:
-        """
-        Add a new point to this series
-        
-        :param time: The time of the data point
-        :param values: The values of the data point
-        """
-        ...
-
-    def clone(self, empty: bool = False) -> QuantConnect.BaseSeries:
-        """Return a new instance clone of this object"""
-        ...
-
-    def consolidate_chart_points(self) -> QuantConnect.ISeriesPoint:
-        """
-        Will sum up all chart points into a new single value, using the time of latest point
-        
-        :returns: The new chart point.
-        """
-        ...
-
-
-class DocumentationAttribute(System.Attribute):
-    """Custom attribute used for documentation"""
-
-    @property
-    def tag(self) -> str:
-        """The documentation tag"""
-        ...
-
-    @property
-    def weight(self) -> int:
-        """The associated weight of this attribute and tag"""
-        ...
-
-    @property
-    def line(self) -> int:
-        """The associated line of this attribute"""
-        ...
-
-    @property
-    def file_name(self) -> str:
-        """The associated file name of this attribute"""
-        ...
-
-    @property
-    def type_id(self) -> System.Object:
-        """The attributes type id, we override it to ignore it when serializing"""
-        ...
-
-    def __init__(self, tag: str, weight: int = 0, line: int = 0, file_name: str = ...) -> None:
-        """Creates a new instance"""
-        ...
-
-
-class Globals(System.Object):
-    """Provides application level constant values"""
-
-    api: str
-    """The base api url address to use"""
-
-    user_id: int
-    """The user Id"""
-
-    project_id: int
-    """The project id"""
-
-    user_token: str
-    """The user token"""
-
-    organization_id: str
-    """The organization id"""
-
-    results_destination_folder: str
-    """The results destination folder"""
-
-    data_folder: str
-    """The root directory of the data folder for this application"""
-
-    live_mode: bool
-    """True if running in live mode"""
-
-    CACHE: str = "./cache/data"
-    """The directory used for storing downloaded remote files"""
-
-    version: str
-    """The version of lean"""
-
-    cache_data_folder: str
-    """Data path to cache folder location"""
-
-    @staticmethod
-    def get_data_folder_path(relative_path: str) -> str:
-        """Helper method that will build a data folder path checking if it exists on the cache folder else will return data folder"""
-        ...
-
-    @staticmethod
-    def reset() -> None:
-        """Resets global values with the Config data."""
-        ...
-
-
-class SymbolValueJsonConverter:
-    """
-    Defines a JsonConverter to be used when you only want to serialize
-    the Symbol.value property instead of the full Symbol
-    instance
-    """
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determines whether this instance can convert the specified object type.
-        
-        :param object_type: Type of the object.
-        :returns: true if this instance can convert the specified object type; otherwise, false.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Reads the JSON representation of the object.
-        
-        :param reader: The Newtonsoft.Json.JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
-        :returns: The object value.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """
-        Writes the JSON representation of the object.
-        
-        :param writer: The Newtonsoft.Json.JsonWriter to write to.
-        :param value: The value.
-        :param serializer: The calling serializer.
-        """
-        ...
-
-
-class IsolatorLimitResult(System.Object):
-    """Represents the result of the Isolator limiter callback"""
-
-    @property
-    def current_time_step_elapsed(self) -> datetime.timedelta:
-        """Gets the amount of time spent on the current time step"""
-        ...
-
-    @property
-    def error_message(self) -> str:
-        """Gets the error message or an empty string if no error on the current time step"""
-        ...
-
-    @property
-    def is_within_custom_limits(self) -> bool:
-        """Returns true if there are no errors in the current time step"""
-        ...
-
-    def __init__(self, current_time_step_elapsed: datetime.timedelta, error_message: str) -> None:
-        """
-        Initializes a new instance of the IsolatorLimitResult class
-        
-        :param current_time_step_elapsed: The amount of time spent on the current time step
-        :param error_message: The error message or an empty string if no error on the current time step
-        """
-        ...
-
-
-class IIsolatorLimitResultProvider(metaclass=abc.ABCMeta):
-    """
-    Provides an abstraction for managing isolator limit results.
-    This is originally intended to be used by the training feature to permit a single
-    algorithm time loop to extend past the default of ten minutes
-    """
-
-    def is_within_limit(self) -> QuantConnect.IsolatorLimitResult:
-        """Determines whether or not a custom isolator limit has be reached."""
-        ...
-
-    def request_additional_time(self, minutes: int) -> None:
-        """
-        Requests additional time from the isolator result provider. This is intended
-        to prevent is_within_limit from returning an error result.
-        This method will throw a TimeoutException if there is insufficient
-        resources available to fulfill the specified number of minutes.
-        
-        :param minutes: The number of additional minutes to request
-        """
-        ...
-
-    def try_request_additional_time(self, minutes: int) -> bool:
-        """
-        Attempts to request additional time from the isolator result provider. This is intended
-        to prevent is_within_limit from returning an error result.
-        This method will only return false if there is insufficient resources available to fulfill
-        the specified number of minutes.
-        
-        :param minutes: The number of additional minutes to request
-        """
-        ...
-
-
-class TimeUpdatedEventArgs(System.EventArgs):
-    """Event arguments class for the LocalTimeKeeper.time_updated event"""
+class Candlestick(System.Object, QuantConnect.ISeriesPoint):
+    """Single candlestick for a candlestick chart"""
 
     @property
     def time(self) -> datetime.datetime:
-        """Gets the new time"""
+        """The candlestick time"""
+        ...
+
+    @time.setter
+    def time(self, value: datetime.datetime) -> None:
         ...
 
     @property
-    def time_zone(self) -> typing.Any:
-        """Gets the time zone"""
+    def long_time(self) -> int:
+        """The candlestick time in seconds since Unix Epoch"""
         ...
 
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], time_zone: typing.Any) -> None:
+    @property
+    def open(self) -> typing.Optional[float]:
+        """The candlestick open price"""
+        ...
+
+    @open.setter
+    def open(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def high(self) -> typing.Optional[float]:
+        """The candlestick high price"""
+        ...
+
+    @high.setter
+    def high(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def low(self) -> typing.Optional[float]:
+        """The candlestick low price"""
+        ...
+
+    @low.setter
+    def low(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def close(self) -> typing.Optional[float]:
+        """The candlestick close price"""
+        ...
+
+    @close.setter
+    def close(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor"""
+        ...
+
+    @overload
+    def __init__(self, time: int, open: typing.Optional[float], high: typing.Optional[float], low: typing.Optional[float], close: typing.Optional[float]) -> None:
         """
-        Initializes a new instance of the TimeUpdatedEventArgs class
+        Constructor taking the candlestick values
         
-        :param time: The newly updated time
-        :param time_zone: The time zone of the new time
+        :param time: Candlestick time in seconds since Unix Epoch
+        :param open: Candlestick open price
+        :param high: Candlestick high price
+        :param low: Candlestick low price
+        :param close: Candlestick close price
         """
         ...
 
+    @overload
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], open: typing.Optional[float], high: typing.Optional[float], low: typing.Optional[float], close: typing.Optional[float]) -> None:
+        """
+        Constructor taking candlestick values and time in DateTime format
+        
+        :param time: Candlestick time in seconds
+        :param open: Candlestick open price
+        :param high: Candlestick high price
+        :param low: Candlestick low price
+        :param close: Candlestick close price
+        """
+        ...
 
-class BinaryComparisonExtensions(System.Object):
-    """Provides convenience extension methods for applying a BinaryComparison to collections."""
+    @overload
+    def __init__(self, bar: QuantConnect.Data.Market.TradeBar) -> None:
+        """
+        Constructor taking candlestick values and time in DateTime format
+        
+        :param bar: Bar which data will be used to create the candlestick
+        """
+        ...
+
+    @overload
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], bar: QuantConnect.Data.Market.Bar) -> None:
+        """
+        Constructor taking candlestick values and time in DateTime format
+        
+        :param time: Candlestick time in seconds
+        :param bar: Bar which data will be used to create the candlestick
+        """
+        ...
+
+    @overload
+    def __init__(self, candlestick: QuantConnect.Candlestick) -> None:
+        """
+        Copy constructor
+        
+        :param candlestick: Candlestick to copy from
+        """
+        ...
+
+    def clone(self) -> QuantConnect.ISeriesPoint:
+        """
+        Clones this instance
+        
+        :returns: Clone of this instance.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Provides a readable string representation of this instance."""
+        ...
+
+    @overload
+    def update(self, value: typing.Optional[float]) -> None:
+        """
+        Updates the candlestick with a new value. This will aggregate the OHLC bar
+        
+        :param value: The new value
+        """
+        ...
+
+    @overload
+    def update(self, value: float) -> None:
+        """
+        Updates the candlestick with a new value. This will aggregate the OHLC bar
+        
+        :param value: The new value
+        """
+        ...
 
 
 class SecurityType(IntEnum):
@@ -725,16 +257,6 @@ class SecurityType(IntEnum):
     """Crypto Future Type (11)"""
 
 
-class OptionRight(IntEnum):
-    """Specifies the different types of options"""
-
-    CALL = 0
-    """A call option, the right to buy at the strike price (0)"""
-
-    PUT = 1
-    """A put option, the right to sell at the strike price (1)"""
-
-
 class OptionStyle(IntEnum):
     """Specifies the style of an option"""
 
@@ -745,433 +267,14 @@ class OptionStyle(IntEnum):
     """European style options are able to be exercised on the expiration date only (1)"""
 
 
-class SecurityIdentifier(System.Object, System.IEquatable[QuantConnect_SecurityIdentifier], System.IComparable[QuantConnect_SecurityIdentifier]):
-    """Defines a unique identifier for securities"""
+class OptionRight(IntEnum):
+    """Specifies the different types of options"""
 
-    EMPTY: QuantConnect.SecurityIdentifier = ...
-    """Gets an instance of SecurityIdentifier that is empty, that is, one with no symbol specified"""
+    CALL = 0
+    """A call option, the right to buy at the strike price (0)"""
 
-    NONE: QuantConnect.SecurityIdentifier = ...
-    """Gets an instance of SecurityIdentifier that is explicitly no symbol"""
-
-    DEFAULT_DATE: datetime.datetime = ...
-    """Gets the date to be used when it does not apply."""
-
-    INVALID_SYMBOL_CHARACTERS: System.Collections.Generic.HashSet[str] = ...
-    """Gets the set of invalids symbol characters"""
-
-    @property
-    def has_underlying(self) -> bool:
-        """
-        Gets whether or not this SecurityIdentifier is a derivative,
-        that is, it has a valid underlying property
-        """
-        ...
-
-    @property
-    def underlying(self) -> QuantConnect.SecurityIdentifier:
-        """
-        Gets the underlying security identifier for this security identifier. When there is
-        no underlying, this property will return a value of EMPTY.
-        """
-        ...
-
-    @property
-    def date(self) -> datetime.datetime:
-        """
-        Gets the date component of this identifier. For equities this
-        is the first date the security traded. Technically speaking,
-        in LEAN, this is the first date mentioned in the map_files.
-        For futures and options this is the expiry date of the contract.
-        For other asset classes, this property will throw an
-        exception as the field is not specified.
-        """
-        ...
-
-    @property
-    def symbol(self) -> str:
-        """
-        Gets the original symbol used to generate this security identifier.
-        For equities, by convention this is the first ticker symbol for which
-        the security traded
-        """
-        ...
-
-    @property
-    def market(self) -> str:
-        """
-        Gets the market component of this security identifier. If located in the
-        internal mappings, the full string is returned. If the value is unknown,
-        the integer value is returned as a string.
-        """
-        ...
-
-    @property
-    def security_type(self) -> QuantConnect.SecurityType:
-        """Gets the security type component of this security identifier."""
-        ...
-
-    @property
-    def strike_price(self) -> float:
-        """
-        Gets the option strike price. This only applies if SecurityType is Option,
-        IndexOption or FutureOption and will thrown anexception if accessed otherwise.
-        """
-        ...
-
-    @property
-    def option_right(self) -> QuantConnect.OptionRight:
-        """
-        Gets the option type component of this security identifier. This
-        only applies if SecurityType is Option, IndexOption or FutureOption
-        and will throw an exception if accessed otherwise.
-        """
-        ...
-
-    @property
-    def option_style(self) -> QuantConnect.OptionStyle:
-        """
-        Gets the option style component of this security identifier. This
-        only applies if SecurityType is Option, IndexOption or FutureOption
-        and will throw an exception if accessed otherwise.
-        """
-        ...
-
-    def __eq__(self, right: QuantConnect.SecurityIdentifier) -> bool:
-        """Override equals operator"""
-        ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: QuantConnect.SecurityIdentifier) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: QuantConnect.SecurityIdentifier) -> bool:
-        ...
-
-    @overload
-    def __init__(self, symbol: str, properties: int) -> None:
-        """
-        Initializes a new instance of the SecurityIdentifier class
-        
-        :param symbol: The base36 string encoded as a long using alpha <0-9A-Z>
-        :param properties: Other data defining properties of the symbol including market,
-        security type, listing or expiry date, strike/call/put/style for options, ect...
-        """
-        ...
-
-    @overload
-    def __init__(self, symbol: str, properties: int, underlying: QuantConnect.SecurityIdentifier) -> None:
-        """
-        Initializes a new instance of the SecurityIdentifier class
-        
-        :param symbol: The base36 string encoded as a long using alpha <0-9A-Z>
-        :param properties: Other data defining properties of the symbol including market,
-        security type, listing or expiry date, strike/call/put/style for options, ect...
-        :param underlying: Specifies a SecurityIdentifier that represents the underlying security
-        """
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: QuantConnect.SecurityIdentifier) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: QuantConnect.SecurityIdentifier) -> bool:
-        ...
-
-    def __ne__(self, right: QuantConnect.SecurityIdentifier) -> bool:
-        """Override not equals operator"""
-        ...
-
-    @overload
-    def compare_to(self, obj: typing.Any) -> int:
-        """
-        Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
-        
-        :param obj: An object to compare with this instance.
-        :returns: A value that indicates the relative order of the objects being compared. The return value has these meanings: Value Meaning Less than zero This instance precedes obj in the sort order. Zero This instance occurs in the same position in the sort order as obj. Greater than zero This instance follows obj in the sort order.
-        """
-        ...
-
-    @overload
-    def compare_to(self, other: QuantConnect.SecurityIdentifier) -> int:
-        """
-        Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
-        
-        :param other: An object to compare with this instance.
-        :returns: A value that indicates the relative order of the objects being compared. The return value has these meanings: Value Meaning Less than zero This instance precedes other in the sort order.  Zero This instance occurs in the same position in the sort order as other. Greater than zero This instance follows other in the sort order.
-        """
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified System.Object is equal to the current System.Object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    @overload
-    def equals(self, other: QuantConnect.SecurityIdentifier) -> bool:
-        """
-        Indicates whether the current object is equal to another object of the same type.
-        
-        :param other: An object to compare with this object.
-        :returns: true if the current object is equal to the other parameter; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def generate_base(data_type: typing.Type, symbol: str, market: str, map_symbol: bool = False, date: typing.Optional[datetime.datetime] = None) -> QuantConnect.SecurityIdentifier:
-        """
-        Generates a new SecurityIdentifier for a custom security with the option of providing the first date
-        
-        :param data_type: The custom data type
-        :param symbol: The ticker symbol of this security
-        :param market: The security's market
-        :param map_symbol: Whether or not we should map this symbol
-        :param date: First date that the security traded on
-        :returns: A new SecurityIdentifier representing the specified base security.
-        """
-        ...
-
-    @staticmethod
-    def generate_base_symbol(data_type: typing.Type, symbol: str) -> str:
-        """
-        Generates the symbol property for QuantConnect.SecurityType.Base security identifiers
-        
-        :param data_type: The base data custom data type if namespacing is required, null otherwise
-        :param symbol: The ticker symbol
-        :returns: The value used for the security identifier's symbol.
-        """
-        ...
-
-    @staticmethod
-    def generate_cfd(symbol: str, market: str) -> QuantConnect.SecurityIdentifier:
-        """
-        Generates a new SecurityIdentifier for a CFD security
-        
-        :param symbol: The CFD contract symbol
-        :param market: The security's market
-        :returns: A new SecurityIdentifier representing the specified CFD security.
-        """
-        ...
-
-    @staticmethod
-    def generate_constituent_identifier(symbol: str, security_type: QuantConnect.SecurityType, market: str) -> QuantConnect.SecurityIdentifier:
-        """
-        Generates a new SecurityIdentifier for a ConstituentsUniverseData.
-        Note that the symbol ticker is case sensitive here.
-        
-        :param symbol: The ticker to use for this constituent identifier
-        :param security_type: The security type of this constituent universe
-        :param market: The security's market
-        :returns: A new SecurityIdentifier representing the specified constituent universe.
-        """
-        ...
-
-    @staticmethod
-    def generate_crypto(symbol: str, market: str) -> QuantConnect.SecurityIdentifier:
-        """
-        Generates a new SecurityIdentifier for a Crypto pair
-        
-        :param symbol: The currency pair in the format similar to: 'EURUSD'
-        :param market: The security's market
-        :returns: A new SecurityIdentifier representing the specified Crypto pair.
-        """
-        ...
-
-    @staticmethod
-    def generate_crypto_future(expiry: typing.Union[datetime.datetime, datetime.date], symbol: str, market: str) -> QuantConnect.SecurityIdentifier:
-        """
-        Generates a new SecurityIdentifier for a CryptoFuture pair
-        
-        :param expiry: The date the future expires
-        :param symbol: The currency pair in the format similar to: 'EURUSD'
-        :param market: The security's market
-        :returns: A new SecurityIdentifier representing the specified CryptoFuture pair.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def generate_equity(symbol: str, market: str, map_symbol: bool = True, map_file_provider: QuantConnect.Interfaces.IMapFileProvider = None, mapping_resolve_date: typing.Optional[datetime.datetime] = None) -> QuantConnect.SecurityIdentifier:
-        """
-        Helper overload that will search the mapfiles to resolve the first date. This implementation
-        uses the configured IMapFileProvider via the Composer.INSTANCE
-        
-        :param symbol: The symbol as it is known today
-        :param market: The market
-        :param map_symbol: Specifies if symbol should be mapped using map file provider
-        :param map_file_provider: Specifies the IMapFileProvider to use for resolving symbols, specify null to load from Composer
-        :param mapping_resolve_date: The date to use to resolve the map file. Default value is DateTime.Today
-        :returns: A new SecurityIdentifier representing the specified symbol today.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def generate_equity(date: typing.Union[datetime.datetime, datetime.date], symbol: str, market: str) -> QuantConnect.SecurityIdentifier:
-        """
-        Generates a new SecurityIdentifier for an equity
-        
-        :param date: The first date this security traded (in LEAN this is the first date in the map_file
-        :param symbol: The ticker symbol this security traded under on the date
-        :param market: The security's market
-        :returns: A new SecurityIdentifier representing the specified equity security.
-        """
-        ...
-
-    @staticmethod
-    def generate_forex(symbol: str, market: str) -> QuantConnect.SecurityIdentifier:
-        """
-        Generates a new SecurityIdentifier for a forex pair
-        
-        :param symbol: The currency pair in the format similar to: 'EURUSD'
-        :param market: The security's market
-        :returns: A new SecurityIdentifier representing the specified forex pair.
-        """
-        ...
-
-    @staticmethod
-    def generate_future(expiry: typing.Union[datetime.datetime, datetime.date], symbol: str, market: str) -> QuantConnect.SecurityIdentifier:
-        """
-        Generates a new SecurityIdentifier for a future
-        
-        :param expiry: The date the future expires
-        :param symbol: The security's symbol
-        :param market: The market
-        :returns: A new SecurityIdentifier representing the specified futures security.
-        """
-        ...
-
-    @staticmethod
-    def generate_index(symbol: str, market: str) -> QuantConnect.SecurityIdentifier:
-        """
-        Generates a new SecurityIdentifier for a INDEX security
-        
-        :param symbol: The Index contract symbol
-        :param market: The security's market
-        :returns: A new SecurityIdentifier representing the specified INDEX security.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def generate_option(expiry: typing.Union[datetime.datetime, datetime.date], underlying: QuantConnect.SecurityIdentifier, market: str, strike: float, option_right: QuantConnect.OptionRight, option_style: QuantConnect.OptionStyle) -> QuantConnect.SecurityIdentifier:
-        """
-        Generates a new SecurityIdentifier for an option
-        
-        :param expiry: The date the option expires
-        :param underlying: The underlying security's symbol
-        :param market: The market
-        :param strike: The strike price
-        :param option_right: The option type, call or put
-        :param option_style: The option style, American or European
-        :returns: A new SecurityIdentifier representing the specified option security.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def generate_option(expiry: typing.Union[datetime.datetime, datetime.date], underlying: QuantConnect.SecurityIdentifier, target_option: str, market: str, strike: float, option_right: QuantConnect.OptionRight, option_style: QuantConnect.OptionStyle) -> QuantConnect.SecurityIdentifier:
-        """
-        Generates a new SecurityIdentifier for an option
-        
-        :param expiry: The date the option expires
-        :param underlying: The underlying security's symbol
-        :param target_option: The target option ticker. This is useful when the option ticker does not match the underlying, e.g. SPX index and the SPXW weekly option. If null is provided will use underlying
-        :param market: The market
-        :param strike: The strike price
-        :param option_right: The option type, call or put
-        :param option_style: The option style, American or European
-        :returns: A new SecurityIdentifier representing the specified option security.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Serves as a hash function for a particular type.
-        
-        :returns: A hash code for the current System.Object.
-        """
-        ...
-
-    @staticmethod
-    def parse(value: str) -> QuantConnect.SecurityIdentifier:
-        """
-        Parses the specified string into a SecurityIdentifier
-        The string must be a 40 digit number. The first 20 digits must be parseable
-        to a 64 bit unsigned integer and contain ancillary data about the security.
-        The second 20 digits must also be parseable as a 64 bit unsigned integer and
-        contain the symbol encoded from base36, this provides for 12 alpha numeric case
-        insensitive characters.
-        
-        :param value: The string value to be parsed
-        :returns: A new SecurityIdentifier instance if the value is able to be parsed.
-        """
-        ...
-
-    @staticmethod
-    def ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> str:
-        """
-        For the given symbol will resolve the ticker it used at the requested date
-        
-        :param symbol: The symbol to get the ticker for
-        :param date: The date to map the symbol to
-        :returns: The ticker for a date and symbol.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-    @staticmethod
-    def try_get_custom_data_type(symbol: str, type: typing.Optional[str]) -> typing.Tuple[bool, str]:
-        """Tries to fetch the custom data type associated with a symbol"""
-        ...
-
-    @staticmethod
-    def try_get_custom_data_type_instance(symbol: str, type: typing.Optional[typing.Type]) -> typing.Tuple[bool, typing.Type]:
-        """Tries to fetch the custom data type associated with a symbol"""
-        ...
-
-    @staticmethod
-    def try_parse(value: str, identifier: typing.Optional[QuantConnect.SecurityIdentifier]) -> typing.Tuple[bool, QuantConnect.SecurityIdentifier]:
-        """
-        Attempts to parse the specified value as a SecurityIdentifier.
-        
-        :param value: The string value to be parsed
-        :param identifier: The result of parsing, when this function returns true, identifier
-        was properly created and reflects the input string, when this function returns false identifier
-        will equal default(SecurityIdentifier)
-        :returns: True on success, otherwise false.
-        """
-        ...
+    PUT = 1
+    """A put option, the right to sell at the strike price (1)"""
 
 
 class Symbol(System.Object, System.IEquatable[QuantConnect_Symbol], System.IComparable):
@@ -1626,2065 +729,515 @@ class Symbol(System.Object, System.IEquatable[QuantConnect_Symbol], System.IComp
         ...
 
 
-class SymbolRepresentation(System.Object):
-    """Public static helper class that does parsing/generation of symbol representations (options, futures)"""
-
-    class FutureTickerProperties(System.Object):
-        """Class contains future ticker properties returned by ParseFutureTicker()"""
-
-        @property
-        def underlying(self) -> str:
-            """Underlying name"""
-            ...
-
-        @underlying.setter
-        def underlying(self, value: str) -> None:
-            ...
-
-        @property
-        def expiration_year_short(self) -> int:
-            """Short expiration year"""
-            ...
-
-        @expiration_year_short.setter
-        def expiration_year_short(self, value: int) -> None:
-            ...
-
-        @property
-        def expiration_year_short_length(self) -> int:
-            """Short expiration year digits"""
-            ...
-
-        @expiration_year_short_length.setter
-        def expiration_year_short_length(self, value: int) -> None:
-            ...
-
-        @property
-        def expiration_month(self) -> int:
-            """Expiration month"""
-            ...
-
-        @expiration_month.setter
-        def expiration_month(self, value: int) -> None:
-            ...
-
-        @property
-        def expiration_day(self) -> int:
-            """Expiration day"""
-            ...
-
-        @expiration_day.setter
-        def expiration_day(self, value: int) -> None:
-            ...
-
-    class OptionTickerProperties(System.Object):
-        """Class contains option ticker properties returned by ParseOptionTickerIQFeed()"""
-
-        @property
-        def underlying(self) -> str:
-            """Underlying name"""
-            ...
-
-        @underlying.setter
-        def underlying(self, value: str) -> None:
-            ...
-
-        @property
-        def option_right(self) -> QuantConnect.OptionRight:
-            """Option right"""
-            ...
-
-        @option_right.setter
-        def option_right(self, value: QuantConnect.OptionRight) -> None:
-            ...
-
-        @property
-        def option_strike(self) -> float:
-            """Option strike"""
-            ...
-
-        @option_strike.setter
-        def option_strike(self, value: float) -> None:
-            ...
-
-        @property
-        def expiration_date(self) -> datetime.datetime:
-            """Expiration date"""
-            ...
-
-        @expiration_date.setter
-        def expiration_date(self, value: datetime.datetime) -> None:
-            ...
-
-    OPTION_CODE_LOOKUP: System.Collections.Generic.IReadOnlyDictionary[str, System.Tuple[int, QuantConnect.OptionRight]]
-    """
-    A dictionary that maps option symbols to a tuple containing the option series number and the option right (Call or Put).
-    The key represents a single character option symbol, and the value contains the series number and the associated option right.
-    """
-
-    FUTURES_MONTH_CODE_LOOKUP: System.Collections.Generic.IReadOnlyDictionary[str, int]
-    """Provides a lookup dictionary for mapping futures month codes to their corresponding numeric values."""
-
-    FUTURES_MONTH_LOOKUP: System.Collections.Generic.IReadOnlyDictionary[int, str]
-    """Provides a lookup dictionary for mapping numeric values to their corresponding futures month codes."""
-
-    @staticmethod
-    def generate_future_ticker(underlying: str, expiration: typing.Union[datetime.datetime, datetime.date], double_digits_year: bool = True, include_expiration_date: bool = True) -> str:
-        """
-        Returns future symbol ticker from underlying and expiration date. Function can generate tickers of two formats: one and two digits year.
-        Format <Ticker><2 digit day code><1 char month code><2/1 digit year code>, more information at http://help.tradestation.com/09_01/tradestationhelp/symbology/futures_symbology.htm
-        
-        :param underlying: String underlying
-        :param expiration: Expiration date
-        :param double_digits_year: True if year should represented by two digits; False - one digit
-        :param include_expiration_date: True if expiration date should be included
-        :returns: The user friendly future ticker.
-        """
-        ...
-
-    @staticmethod
-    def generate_option_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-        """
-        Function returns option ticker from IQFeed option ticker
-        For example CSCO1220V19 Cisco October Put at 19.00 Expiring on 10/20/12
-        Symbology details: http://www.iqfeed.net/symbolguide/index.cfm?symbolguide=guide&displayaction=support%C2%A7ion=guide&web=iqfeed&guide=options&web=IQFeed&type=stock
-        
-        :param symbol: THe option symbol
-        :returns: The option ticker.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def generate_option_ticker_osi(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-        """
-        Returns option symbol ticker in accordance with OSI symbology
-        More information can be found at http://www.optionsclearing.com/components/docs/initiatives/symbology/symbology_initiative_v1_8.pdf
-        
-        :param symbol: Symbol object to create OSI ticker from
-        :returns: The OSI ticker representation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def generate_option_ticker_osi(underlying: str, right: QuantConnect.OptionRight, strike_price: float, expiration: typing.Union[datetime.datetime, datetime.date]) -> str:
-        """
-        Returns option symbol ticker in accordance with OSI symbology
-        More information can be found at http://www.optionsclearing.com/components/docs/initiatives/symbology/symbology_initiative_v1_8.pdf
-        
-        :param underlying: Underlying string
-        :param right: Option right
-        :param strike_price: Option strike
-        :param expiration: Option expiration date
-        :returns: The OSI ticker representation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def generate_option_ticker_osi_compact(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-        """
-        Returns option symbol ticker in accordance with OSI symbology
-        More information can be found at http://www.optionsclearing.com/components/docs/initiatives/symbology/symbology_initiative_v1_8.pdf
-        
-        :param symbol: Symbol object to create OSI ticker from
-        :returns: The OSI ticker representation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def generate_option_ticker_osi_compact(underlying: str, right: QuantConnect.OptionRight, strike_price: float, expiration: typing.Union[datetime.datetime, datetime.date]) -> str:
-        """
-        Returns option symbol ticker in accordance with OSI symbology
-        More information can be found at http://www.optionsclearing.com/components/docs/initiatives/symbology/symbology_initiative_v1_8.pdf
-        
-        :param underlying: Underlying string
-        :param right: Option right
-        :param strike_price: Option strike
-        :param expiration: Option expiration date
-        :returns: The OSI ticker representation.
-        """
-        ...
-
-    @staticmethod
-    def parse_future_option_symbol(ticker: str, strike_scale: int = 1) -> QuantConnect.Symbol:
-        """
-        Creates a future option Symbol from the provided ticker
-        
-        :param ticker: The future option ticker, for example 'ESZ0 P3590'
-        :param strike_scale: Optional the future option strike scale factor
-        """
-        ...
-
-    @staticmethod
-    def parse_future_symbol(ticker: str, future_year: typing.Optional[int] = None) -> QuantConnect.Symbol:
-        """
-        Helper method to parse and generate a future symbol from a given user friendly representation
-        
-        :param ticker: The future ticker, for example 'ESZ1'
-        :param future_year: Clarifies the year for the current future
-        :returns: The future symbol or null if failed.
-        """
-        ...
-
-    @staticmethod
-    def parse_future_ticker(ticker: str) -> QuantConnect.SymbolRepresentation.FutureTickerProperties:
-        """
-        Function returns underlying name, expiration year, expiration month, expiration day for the future contract ticker. Function detects if
-        the format used is either 1 or 2 digits year, and if day code is present (will default to 1rst day of month). Returns null, if parsing failed.
-        Format <Ticker><2 digit day code OPTIONAL><1 char month code><2/1 digit year code>
-        
-        :param ticker: 
-        :returns: Results containing 1) underlying name, 2) short expiration year, 3) expiration month.
-        """
-        ...
-
-    @staticmethod
-    def parse_option_ticker_iq_feed(ticker: str) -> QuantConnect.SymbolRepresentation.OptionTickerProperties:
-        """
-        Function returns option contract parameters (underlying name, expiration date, strike, right) from IQFeed option ticker
-        Symbology details: http://www.iqfeed.net/symbolguide/index.cfm?symbolguide=guide&displayaction=support%C2%A7ion=guide&web=iqfeed&guide=options&web=IQFeed&type=stock
-        
-        :param ticker: IQFeed option ticker
-        :returns: Results containing 1) underlying name, 2) option right, 3) option strike 4) expiration date.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_option_ticker_osi(ticker: str, security_type: QuantConnect.SecurityType = ..., market: str = ...) -> QuantConnect.Symbol:
-        """
-        Parses the specified OSI options ticker into a Symbol object
-        
-        :param ticker: The OSI compliant option ticker string
-        :param security_type: The security type
-        :param market: The associated market
-        :returns: Symbol object for the specified OSI option ticker string.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_option_ticker_osi(ticker: str, security_type: QuantConnect.SecurityType, option_style: QuantConnect.OptionStyle, market: str) -> QuantConnect.Symbol:
-        """
-        Parses the specified OSI options ticker into a Symbol object
-        
-        :param ticker: The OSI compliant option ticker string
-        :param security_type: The security type
-        :param market: The associated market
-        :param option_style: The option style
-        :returns: Symbol object for the specified OSI option ticker string.
-        """
-        ...
-
-    @staticmethod
-    def parse_ticker_from_user_input(ticker: str, security_type: QuantConnect.SecurityType, market: str) -> QuantConnect.Symbol:
-        """
-        Converts a user-provided ticker string into a Symbol object,
-        handling different security types such as stocks, options, futures, and index options.
-        
-        :param ticker: The ticker string input by the user.
-        :param security_type: The type of security (e.g., Equity, Option, Future).
-        :param market: The market or exchange the symbol belongs to (optional for some types).
-        :returns: A Symbol representing the specified security.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_decompose_option_ticker_osi(ticker: str, option_ticker: typing.Optional[str], expiry: typing.Optional[typing.Union[datetime.datetime, datetime.date]], right: typing.Optional[QuantConnect.OptionRight], strike: typing.Optional[float]) -> typing.Tuple[bool, str, typing.Union[datetime.datetime, datetime.date], QuantConnect.OptionRight, float]:
-        """
-        Tries to decompose the specified OSI options ticker into its components
-        
-        :param ticker: The OSI option ticker
-        :param option_ticker: The option ticker extracted from the OSI symbol
-        :param expiry: The option contract expiry date
-        :param right: The option contract right
-        :param strike: The option contract strike price
-        :returns: True if the OSI symbol was in the right format and could be decomposed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_decompose_option_ticker_osi(ticker: str, security_type: QuantConnect.SecurityType, option_ticker: typing.Optional[str], underlying_ticker: typing.Optional[str], expiry: typing.Optional[typing.Union[datetime.datetime, datetime.date]], right: typing.Optional[QuantConnect.OptionRight], strike: typing.Optional[float]) -> typing.Tuple[bool, str, str, typing.Union[datetime.datetime, datetime.date], QuantConnect.OptionRight, float]:
-        """
-        Tries to decompose the specified OSI options ticker into its components
-        
-        :param ticker: The OSI option ticker
-        :param security_type: The option security type
-        :param option_ticker: The option ticker extracted from the OSI symbol
-        :param underlying_ticker: The underlying ticker
-        :param expiry: The option contract expiry date
-        :param right: The option contract right
-        :param strike: The option contract strike price
-        :returns: True if the OSI symbol was in the right format and could be decomposed.
-        """
-        ...
-
-
-class ITimeProvider(metaclass=abc.ABCMeta):
-    """
-    Provides access to the current time in UTC. This doesn't necessarily
-    need to be wall-clock time, but rather the current time in some system
-    """
-
-    def get_utc_now(self) -> datetime.datetime:
-        """
-        Gets the current time in UTC
-        
-        :returns: The current time in UTC.
-        """
-        ...
-
-
-class IsolatorLimitResultProvider(System.Object):
-    """Provides access to the NullIsolatorLimitResultProvider and extension methods supporting ScheduledEvent"""
-
-    NULL: QuantConnect.IIsolatorLimitResultProvider = ...
-    """Provides access to a null implementation of IIsolatorLimitResultProvider"""
-
-    @staticmethod
-    @overload
-    def consume(isolator_limit_provider: QuantConnect.IIsolatorLimitResultProvider, scheduled_event: QuantConnect.Scheduling.ScheduledEvent, scan_time_utc: typing.Union[datetime.datetime, datetime.date], time_monitor: QuantConnect.Scheduling.TimeMonitor) -> None:
-        """Convenience method for invoking a scheduled event's Scan method inside the IsolatorLimitResultProvider"""
-        ...
-
-    @staticmethod
-    @overload
-    def consume(isolator_limit_provider: QuantConnect.IIsolatorLimitResultProvider, time_provider: QuantConnect.ITimeProvider, code: typing.Callable[[], typing.Any], time_monitor: QuantConnect.Scheduling.TimeMonitor) -> None:
-        """
-        Executes the provided code block and while the code block is running, continually consume from
-        the limit result provided one token each minute. This function allows the code to run for the
-        first full minute without requesting additional time from the provider. Following that, every
-        minute an additional one minute will be requested from the provider.
-        """
-        ...
-
-
-class ChartPoint(System.Object, QuantConnect.ISeriesPoint):
-    """Single Chart Point Value Type for QCAlgorithm.Plot();"""
+class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue], System.Object, QuantConnect.Interfaces.IExtendedDictionary[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue], metaclass=abc.ABCMeta):
+    """Provides a base class for types holding key value pairs with helper methods for easy usage in Python"""
 
     @property
-    def time(self) -> datetime.datetime:
-        """Time of this chart series point"""
-        ...
-
-    @time.setter
-    def time(self, value: datetime.datetime) -> None:
+    @abc.abstractmethod
+    def count(self) -> int:
+        """Gets the number of elements contained in the dictionary"""
         ...
 
     @property
-    def x(self) -> int:
-        """Chart point time"""
-        ...
-
-    @x.setter
-    def x(self, value: int) -> None:
-        ...
-
-    @property
-    def y(self) -> typing.Optional[float]:
-        """Chart point value"""
-        ...
-
-    @y.setter
-    def y(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def x(self) -> int:
-        """Shortcut for x for C# naming conventions"""
-        ...
-
-    @property
-    def y(self) -> typing.Optional[float]:
-        """Shortcut for y for C# naming conventions"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default constructor. Using in SeriesSampler."""
-        ...
-
-    @overload
-    def __init__(self, x_value: int, y_value: typing.Optional[float]) -> None:
+    @abc.abstractmethod
+    def get_keys(self) -> typing.Iterable[QuantConnect_ExtendedDictionary_TKey]:
         """
-        Constructor that takes both x, y value pairs
-        
-        :param x_value: X value often representing a time in seconds
-        :param y_value: Y value
-        """
-        ...
-
-    @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], value: typing.Optional[float]) -> None:
-        """
-        Constructor that takes both x, y value pairs
-        
-        :param time: This point time
-        :param value: Y value
-        """
-        ...
-
-    @overload
-    def __init__(self, point: QuantConnect.ChartPoint) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.ISeriesPoint:
-        """
-        Clones this instance
-        
-        :returns: Clone of this instance.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Provides a readable string representation of this instance."""
-        ...
-
-
-class ScatterChartPoint(QuantConnect.ChartPoint):
-    """A chart point for a scatter series plot"""
-
-    @property
-    def tooltip(self) -> str:
-        """A summary of this point for the tooltip"""
-        ...
-
-    @tooltip.setter
-    def tooltip(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time: int, value: typing.Optional[float], tooltip: str = None) -> None:
-        """Creates a new instance at the specified time and value"""
-        ...
-
-    @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], value: typing.Optional[float], tooltip: str = None) -> None:
-        """Creates a new instance at the specified time and value"""
-        ...
-
-    def clone(self) -> QuantConnect.ISeriesPoint:
-        """
-        Clones this instance
-        
-        :returns: Clone of this instance.
-        """
-        ...
-
-
-class ChartType(IntEnum):
-    """Type of chart - should we draw the series as overlayed or stacked"""
-
-    OVERLAY = 0
-
-    STACKED = 1
-
-
-class Chart(System.Object):
-    """Single Parent Chart Object for Custom Charting"""
-
-    @property
-    def name(self) -> str:
-        """Name of the Chart"""
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def chart_type(self) -> QuantConnect.ChartType:
-        """ChartType is now obsolete. Please use Series indexes instead by setting index in the series constructor."""
-        warnings.warn("ChartType is now obsolete. Please use Series indexes instead by setting index in the series constructor.", DeprecationWarning)
-
-    @chart_type.setter
-    def chart_type(self, value: QuantConnect.ChartType) -> None:
-        warnings.warn("ChartType is now obsolete. Please use Series indexes instead by setting index in the series constructor.", DeprecationWarning)
-
-    @property
-    def series(self) -> System.Collections.Generic.Dictionary[str, QuantConnect.BaseSeries]:
-        ...
-
-    @series.setter
-    def series(self, value: System.Collections.Generic.Dictionary[str, QuantConnect.BaseSeries]) -> None:
-        ...
-
-    @property
-    def symbol(self) -> QuantConnect.Symbol:
-        """Associated symbol if any, making this an asset plot"""
-        ...
-
-    @symbol.setter
-    def symbol(self, value: QuantConnect.Symbol) -> None:
-        ...
-
-    @property
-    def legend_disabled(self) -> bool:
-        """True to hide this series legend from the chart"""
-        ...
-
-    @legend_disabled.setter
-    def legend_disabled(self, value: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default constructor for chart:"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Constructor for a chart
-        
-        :param name: String name of the chart
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
-        """
-        Constructor for a chart
-        
-        :param name: String name of the chart
-        :param symbol: Associated symbol if any
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, type: QuantConnect.ChartType = ...) -> None:
-        """
-        Chart Constructor:
-        
-        
-        ChartType is now obsolete and ignored in charting. Please use Series indexes instead by setting index in the series constructor.
-        
-        :param name: Name of the Chart
-        :param type: Type of the chart
-        """
-        ...
-
-    def add_series(self, series: QuantConnect.BaseSeries) -> None:
-        """
-        Add a reference to this chart series:
-        
-        :param series: Chart series class object
-        """
-        ...
-
-    def aggregate(self, series_type: QuantConnect.SeriesType = ...) -> QuantConnect.Chart:
-        """Helper method to consolidate a chart into a single series chart by summing all values"""
-        ...
-
-    def clone(self) -> QuantConnect.Chart:
-        """Return a new instance clone of this object"""
-        ...
-
-    def clone_empty(self) -> QuantConnect.Chart:
-        """Return a new empty instance clone of this object"""
-        ...
-
-    def get_updates(self) -> QuantConnect.Chart:
-        """
-        Fetch a chart with only the updates since the last request,
-        Underlying series will save the index position.
-        """
-        ...
-
-    @overload
-    def try_add_and_get_series(self, name: str, type: QuantConnect.SeriesType, index: int, unit: str, color: System.Drawing.Color, symbol: QuantConnect.ScatterMarkerSymbol, force_add_new: bool = False) -> QuantConnect.Series:
-        """
-        Gets Series if already present in chart, else will add a new series and return it
-        
-        :param name: Name of the series
-        :param type: Type of the series
-        :param index: Index position on the chart of the series
-        :param unit: Unit for the series axis
-        :param color: Color of the series
-        :param symbol: Symbol for the marker in a scatter plot series
-        :param force_add_new: True will always add a new Series instance, stepping on existing if any
-        """
-        ...
-
-    @overload
-    def try_add_and_get_series(self, name: str, template_series: QuantConnect.BaseSeries, force_add_new: bool = False) -> QuantConnect.BaseSeries:
-        """
-        Gets Series if already present in chart, else will add a new series and return it
-        
-        :param name: Name of the series
-        :param template_series: Series to be used as a template. It will be clone without values if the series is added to the chart
-        :param force_add_new: True will always add a new Series instance, stepping on existing if any
-        """
-        ...
-
-
-class TradingDay(System.Object):
-    """Class contains trading events associated with particular day in TradingCalendar"""
-
-    @property
-    def date(self) -> datetime.datetime:
-        """The date that this instance is associated with"""
-        ...
-
-    @property
-    def business_day(self) -> bool:
-        """Property returns true, if the day is a business day"""
-        ...
-
-    @property
-    def public_holiday(self) -> bool:
-        """Property returns true, if the day is a public holiday"""
-        ...
-
-    @property
-    def weekend(self) -> bool:
-        """Property returns true, if the day is a weekend"""
-        ...
-
-    @property
-    def option_expirations(self) -> typing.Iterable[QuantConnect.Symbol]:
-        """Property returns the list of options (among currently traded) that expire on this day"""
-        ...
-
-    @property
-    def future_expirations(self) -> typing.Iterable[QuantConnect.Symbol]:
-        """Property returns the list of futures (among currently traded) that expire on this day"""
-        ...
-
-    @property
-    def future_rolls(self) -> typing.Iterable[QuantConnect.Symbol]:
-        """Property returns the list of futures (among currently traded) that roll forward on this day"""
-        ...
-
-    @property
-    def symbol_delistings(self) -> typing.Iterable[QuantConnect.Symbol]:
-        """Property returns the list of symbols (among currently traded) that are delisted on this day"""
-        ...
-
-    @property
-    def equity_dividends(self) -> typing.Iterable[QuantConnect.Symbol]:
-        """Property returns the list of symbols (among currently traded) that have ex-dividend date on this day"""
-        ...
-
-
-class TradingDayType(IntEnum):
-    """Enum lists available trading events"""
-
-    BUSINESS_DAY = 0
-    """Business day (0)"""
-
-    PUBLIC_HOLIDAY = 1
-    """Public Holiday (1)"""
-
-    WEEKEND = 2
-    """Weekend (2)"""
-
-    OPTION_EXPIRATION = 3
-    """Option Expiration Date (3)"""
-
-    FUTURE_EXPIRATION = 4
-    """Futures Expiration Date (4)"""
-
-    FUTURE_ROLL = 5
-    """Futures Roll Date (5)"""
-
-    SYMBOL_DELISTING = 6
-    """Symbol Delisting Date (6)"""
-
-    EQUITY_DIVIDENDS = 7
-    """Equity Ex-dividend Date (7)"""
-
-    ECONOMIC_EVENT = 8
-    """FX Economic Event (8)"""
-
-
-class TradingCalendar(System.Object):
-    """Class represents trading calendar, populated with variety of events relevant to currently trading instruments"""
-
-    def __init__(self, security_manager: QuantConnect.Securities.SecurityManager, market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> None:
-        """
-        Initialize a new TradingCalendar instance.
-        
-        :param security_manager: SecurityManager for this calendar
-        :param market_hours_database: MarketHoursDatabase for this calendar
-        """
-        ...
-
-    def get_days_by_type(self, type: QuantConnect.TradingDayType, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.TradingDay]:
-        """
-        Method returns TradingDay of the specified type (TradingDayType) that contains trading events associated with the range of dates
-        
-        :param type: Type of the events
-        :param start: Start date of the range (inclusive)
-        :param end: End date of the range (inclusive)
-        :returns: >Populated list of TradingDay.
-        """
-        ...
-
-    @overload
-    def get_trading_day(self) -> QuantConnect.TradingDay:
-        """
-        Method returns TradingDay that contains trading events associated with today's date
-        
-        :returns: Populated instance of TradingDay.
-        """
-        ...
-
-    @overload
-    def get_trading_day(self, day: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.TradingDay:
-        """
-        Method returns TradingDay that contains trading events associated with the given date
-        
-        :returns: Populated instance of TradingDay.
-        """
-        ...
-
-    def get_trading_days(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.TradingDay]:
-        """
-        Method returns TradingDay that contains trading events associated with the range of dates
-        
-        :param start: Start date of the range (inclusive)
-        :param end: End date of the range (inclusive)
-        :returns: >Populated list of TradingDay.
-        """
-        ...
-
-
-class Country(System.Object):
-    """
-    The Country class contains all countries normalized for your convenience.
-    It maps the country name to its ISO 3166-1 alpha-3 code, see https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3
-    """
-
-    AFGHANISTAN: str = "AFG"
-    """Afghanistan"""
-
-    ALAND_ISLANDS: str = "ALA"
-    """Aland Islands"""
-
-    ALBANIA: str = "ALB"
-    """Albania"""
-
-    ALGERIA: str = "DZA"
-    """Algeria"""
-
-    AMERICAN_SAMOA: str = "ASM"
-    """American Samoa"""
-
-    ANDORRA: str = "AND"
-    """Andorra"""
-
-    ANGOLA: str = "AGO"
-    """Angola"""
-
-    ANGUILLA: str = "AIA"
-    """Anguilla"""
-
-    ANTARCTICA: str = "ATA"
-    """Antarctica"""
-
-    ANTIGUA_AND_BARBUDA: str = "ATG"
-    """Antigua and Barbuda"""
-
-    ARGENTINA: str = "ARG"
-    """Argentina"""
-
-    ARMENIA: str = "ARM"
-    """Armenia"""
-
-    ARUBA: str = "ABW"
-    """Aruba"""
-
-    AUSTRALIA: str = "AUS"
-    """Australia"""
-
-    AUSTRIA: str = "AUT"
-    """Austria"""
-
-    AZERBAIJAN: str = "AZE"
-    """Azerbaijan"""
-
-    BAHAMAS: str = "BHS"
-    """Bahamas"""
-
-    BAHRAIN: str = "BHR"
-    """Bahrain"""
-
-    BANGLADESH: str = "BGD"
-    """Bangladesh"""
-
-    BARBADOS: str = "BRB"
-    """Barbados"""
-
-    BELARUS: str = "BLR"
-    """Belarus"""
-
-    BELGIUM: str = "BEL"
-    """Belgium"""
-
-    BELIZE: str = "BLZ"
-    """Belize"""
-
-    BENIN: str = "BEN"
-    """Benin"""
-
-    BERMUDA: str = "BMU"
-    """Bermuda"""
-
-    BHUTAN: str = "BTN"
-    """Bhutan"""
-
-    BOLIVIA: str = "BOL"
-    """Bolivia"""
-
-    BONAIRE: str = "BES"
-    """Bonaire"""
-
-    BOSNIA_AND_HERZEGOVINA: str = "BIH"
-    """Bosnia and Herzegovina"""
-
-    BOTSWANA: str = "BWA"
-    """Botswana"""
-
-    BOUVET_ISLAND: str = "BVT"
-    """Bouvet Island"""
-
-    BRAZIL: str = "BRA"
-    """Brazil"""
-
-    BRITISH_INDIAN_OCEAN_TERRITORY: str = "IOT"
-    """British Indian Ocean Territory"""
-
-    BRUNEI_DARUSSALAM: str = "BRN"
-    """Brunei Darussalam"""
-
-    BULGARIA: str = "BGR"
-    """Bulgaria"""
-
-    BURKINA_FASO: str = "BFA"
-    """Burkina Faso"""
-
-    BURUNDI: str = "BDI"
-    """Burundi"""
-
-    CABO_VERDE: str = "CPV"
-    """Cabo Verde"""
-
-    CAMBODIA: str = "KHM"
-    """Cambodia"""
-
-    CAMEROON: str = "CMR"
-    """Cameroon"""
-
-    CANADA: str = "CAN"
-    """Canada"""
-
-    CAYMAN_ISLANDS: str = "CYM"
-    """Cayman Islands"""
-
-    CENTRAL_AFRICAN_REPUBLIC: str = "CAF"
-    """Central African Republic"""
-
-    CHAD: str = "TCD"
-    """Chad"""
-
-    CHILE: str = "CHL"
-    """Chile"""
-
-    CHINA: str = "CHN"
-    """China"""
-
-    CHRISTMAS_ISLAND: str = "CXR"
-    """Christmas Island"""
-
-    COCOS_KEELING_ISLANDS: str = "CCK"
-    """Cocos Keeling Islands"""
-
-    COLOMBIA: str = "COL"
-    """Colombia"""
-
-    COMOROS: str = "COM"
-    """Comoros"""
-
-    DEMOCRATIC_REPUBLIC_OF_CONGO: str = "COD"
-    """Democratic Republic of Congo"""
-
-    CONGO: str = "COG"
-    """Congo"""
-
-    COOK_ISLANDS: str = "COK"
-    """Cook Islands"""
-
-    COSTA_RICA: str = "CRI"
-    """Costa Rica"""
-
-    IVORY_COAST: str = "CIV"
-    """Ivory Coast"""
-
-    CROATIA: str = "HRV"
-    """Croatia"""
-
-    CUBA: str = "CUB"
-    """Cuba"""
-
-    CURAÇAO: str = "CUW"
-    """Curaçao"""
-
-    CYPRUS: str = "CYP"
-    """Cyprus"""
-
-    CZECHIA: str = "CZE"
-    """Czechia"""
-
-    DENMARK: str = "DNK"
-    """Denmark"""
-
-    DJIBOUTI: str = "DJI"
-    """Djibouti"""
-
-    DOMINICA: str = "DMA"
-    """Dominica"""
-
-    DOMINICAN_REPUBLIC: str = "DOM"
-    """Dominican Republic"""
-
-    ECUADOR: str = "ECU"
-    """Ecuador"""
-
-    EGYPT: str = "EGY"
-    """Egypt"""
-
-    EL_SALVADOR: str = "SLV"
-    """El Salvador"""
-
-    EQUATORIAL_GUINEA: str = "GNQ"
-    """Equatorial Guinea"""
-
-    ERITREA: str = "ERI"
-    """Eritrea"""
-
-    ESTONIA: str = "EST"
-    """Estonia"""
-
-    ESWATINI: str = "SWZ"
-    """Eswatini"""
-
-    ETHIOPIA: str = "ETH"
-    """Ethiopia"""
-
-    FALKLAND_ISLANDS: str = "FLK"
-    """Falkland Islands"""
-
-    FAROE_ISLANDS: str = "FRO"
-    """Faroe Islands"""
-
-    FIJI: str = "FJI"
-    """Fiji"""
-
-    FINLAND: str = "FIN"
-    """Finland"""
-
-    FRANCE: str = "FRA"
-    """France"""
-
-    FRENCH_GUIANA: str = "GUF"
-    """French Guiana"""
-
-    FRENCH_POLYNESIA: str = "PYF"
-    """French Polynesia"""
-
-    FRENCH_SOUTHERN_TERRITORIES: str = "ATF"
-    """French Southern Territories"""
-
-    GABON: str = "GAB"
-    """Gabon"""
-
-    GAMBIA: str = "GMB"
-    """Gambia"""
-
-    GEORGIA: str = "GEO"
-    """Georgia"""
-
-    GERMANY: str = "DEU"
-    """Germany"""
-
-    GHANA: str = "GHA"
-    """Ghana"""
-
-    GIBRALTAR: str = "GIB"
-    """Gibraltar"""
-
-    GREECE: str = "GRC"
-    """Greece"""
-
-    GREENLAND: str = "GRL"
-    """Greenland"""
-
-    GRENADA: str = "GRD"
-    """Grenada"""
-
-    GUADELOUPE: str = "GLP"
-    """Guadeloupe"""
-
-    GUAM: str = "GUM"
-    """Guam"""
-
-    GUATEMALA: str = "GTM"
-    """Guatemala"""
-
-    GUERNSEY: str = "GGY"
-    """Guernsey"""
-
-    GUINEA: str = "GIN"
-    """Guinea"""
-
-    GUINEA_BISSAU: str = "GNB"
-    """Guinea-Bissau"""
-
-    GUYANA: str = "GUY"
-    """Guyana"""
-
-    HAITI: str = "HTI"
-    """Haiti"""
-
-    HEARD_ISLAND_AND_MCDONALD_ISLANDS: str = "HMD"
-    """Heard Island and McDonald Islands"""
-
-    HOLY_SEE: str = "VAT"
-    """Holy See"""
-
-    HONDURAS: str = "HND"
-    """Honduras"""
-
-    HONG_KONG: str = "HKG"
-    """Hong Kong"""
-
-    HUNGARY: str = "HUN"
-    """Hungary"""
-
-    ICELAND: str = "ISL"
-    """Iceland"""
-
-    INDIA: str = "IND"
-    """India"""
-
-    INDONESIA: str = "IDN"
-    """Indonesia"""
-
-    IRAN: str = "IRN"
-    """Iran"""
-
-    IRAQ: str = "IRQ"
-    """Iraq"""
-
-    IRELAND: str = "IRL"
-    """Ireland"""
-
-    ISLE_OF_MAN: str = "IMN"
-    """Isle of Man"""
-
-    ISRAEL: str = "ISR"
-    """Israel"""
-
-    ITALY: str = "ITA"
-    """Italy"""
-
-    JAMAICA: str = "JAM"
-    """Jamaica"""
-
-    JAPAN: str = "JPN"
-    """Japan"""
-
-    JERSEY: str = "JEY"
-    """Jersey"""
-
-    JORDAN: str = "JOR"
-    """Jordan"""
-
-    KAZAKHSTAN: str = "KAZ"
-    """Kazakhstan"""
-
-    KENYA: str = "KEN"
-    """Kenya"""
-
-    KIRIBATI: str = "KIR"
-    """Kiribati"""
-
-    NORTH_KOREA: str = "PRK"
-    """North Korea"""
-
-    KOREA: str = "KOR"
-    """Korea"""
-
-    KUWAIT: str = "KWT"
-    """Kuwait"""
-
-    KYRGYZSTAN: str = "KGZ"
-    """Kyrgyzstan"""
-
-    LAOS: str = "LAO"
-    """Laos"""
-
-    LATVIA: str = "LVA"
-    """Latvia"""
-
-    LEBANON: str = "LBN"
-    """Lebanon"""
-
-    LESOTHO: str = "LSO"
-    """Lesotho"""
-
-    LIBERIA: str = "LBR"
-    """Liberia"""
-
-    LIBYA: str = "LBY"
-    """Libya"""
-
-    LIECHTENSTEIN: str = "LIE"
-    """Liechtenstein"""
-
-    LITHUANIA: str = "LTU"
-    """Lithuania"""
-
-    LUXEMBOURG: str = "LUX"
-    """Luxembourg"""
-
-    MACAO: str = "MAC"
-    """Macao"""
-
-    MADAGASCAR: str = "MDG"
-    """Madagascar"""
-
-    MALAWI: str = "MWI"
-    """Malawi"""
-
-    MALAYSIA: str = "MYS"
-    """Malaysia"""
-
-    MALDIVES: str = "MDV"
-    """Maldives"""
-
-    MALI: str = "MLI"
-    """Mali"""
-
-    MALTA: str = "MLT"
-    """Malta"""
-
-    MARSHALL_ISLANDS: str = "MHL"
-    """Marshall Islands"""
-
-    MARTINIQUE: str = "MTQ"
-    """Martinique"""
-
-    MAURITANIA: str = "MRT"
-    """Mauritania"""
-
-    MAURITIUS: str = "MUS"
-    """Mauritius"""
-
-    MAYOTTE: str = "MYT"
-    """Mayotte"""
-
-    MEXICO: str = "MEX"
-    """Mexico"""
-
-    MICRONESIA: str = "FSM"
-    """Micronesia"""
-
-    MOLDOVA: str = "MDA"
-    """Moldova"""
-
-    MONACO: str = "MCO"
-    """Monaco"""
-
-    MONGOLIA: str = "MNG"
-    """Mongolia"""
-
-    MONTENEGRO: str = "MNE"
-    """Montenegro"""
-
-    MONTSERRAT: str = "MSR"
-    """Montserrat"""
-
-    MOROCCO: str = "MAR"
-    """Morocco"""
-
-    MOZAMBIQUE: str = "MOZ"
-    """Mozambique"""
-
-    MYANMAR: str = "MMR"
-    """Myanmar"""
-
-    NAMIBIA: str = "NAM"
-    """Namibia"""
-
-    NAURU: str = "NRU"
-    """Nauru"""
-
-    NEPAL: str = "NPL"
-    """Nepal"""
-
-    NETHERLANDS: str = "NLD"
-    """Netherlands"""
-
-    NEW_CALEDONIA: str = "NCL"
-    """New Caledonia"""
-
-    NEW_ZEALAND: str = "NZL"
-    """New Zealand"""
-
-    NICARAGUA: str = "NIC"
-    """Nicaragua"""
-
-    NIGER: str = "NER"
-    """Niger"""
-
-    NIGERIA: str = "NGA"
-    """Nigeria"""
-
-    NIUE: str = "NIU"
-    """Niue"""
-
-    NORFOLK_ISLAND: str = "NFK"
-    """Norfolk Island"""
-
-    NORTH_MACEDONIA: str = "MKD"
-    """North Macedonia"""
-
-    NORTHERN_MARIANA_ISLANDS: str = "MNP"
-    """Northern Mariana Islands"""
-
-    NORWAY: str = "NOR"
-    """Norway"""
-
-    OMAN: str = "OMN"
-    """Oman"""
-
-    PAKISTAN: str = "PAK"
-    """Pakistan"""
-
-    PALAU: str = "PLW"
-    """Palau"""
-
-    PALESTINE: str = "PSE"
-    """Palestine"""
-
-    PANAMA: str = "PAN"
-    """Panama"""
-
-    PAPUA_NEW_GUINEA: str = "PNG"
-    """Papua New Guinea"""
-
-    PARAGUAY: str = "PRY"
-    """Paraguay"""
-
-    PERU: str = "PER"
-    """Peru"""
-
-    PHILIPPINES: str = "PHL"
-    """Philippines"""
-
-    PITCAIRN: str = "PCN"
-    """Pitcairn"""
-
-    POLAND: str = "POL"
-    """Poland"""
-
-    PORTUGAL: str = "PRT"
-    """Portugal"""
-
-    PUERTO_RICO: str = "PRI"
-    """Puerto Rico"""
-
-    QATAR: str = "QAT"
-    """Qatar"""
-
-    REUNION: str = "REU"
-    """Reunion"""
-
-    ROMANIA: str = "ROU"
-    """Romania"""
-
-    RUSSIA: str = "RUS"
-    """Russia"""
-
-    RWANDA: str = "RWA"
-    """Rwanda"""
-
-    SAINT_BARTHÉLEMY: str = "BLM"
-    """Saint Barthélemy"""
-
-    SAINT_HELENA: str = "SHN"
-    """Saint Helena"""
-
-    SAINT_KITTS_AND_NEVIS: str = "KNA"
-    """Saint Kitts and Nevis"""
-
-    SAINT_LUCIA: str = "LCA"
-    """Saint Lucia"""
-
-    SAINT_MARTIN_FRENCH_PART: str = "MAF"
-    """Saint Martin French part"""
-
-    SAINT_PIERRE_AND_MIQUELON: str = "SPM"
-    """Saint Pierre and Miquelon"""
-
-    SAINT_VINCENT_AND_THE_GRENADINES: str = "VCT"
-    """Saint Vincent and the Grenadines"""
-
-    SAMOA: str = "WSM"
-    """Samoa"""
-
-    SAN_MARINO: str = "SMR"
-    """San Marino"""
-
-    SAO_TOME_AND_PRINCIPE: str = "STP"
-    """Sao Tome and Principe"""
-
-    SAUDI_ARABIA: str = "SAU"
-    """Saudi Arabia"""
-
-    SENEGAL: str = "SEN"
-    """Senegal"""
-
-    SERBIA: str = "SRB"
-    """Serbia"""
-
-    SEYCHELLES: str = "SYC"
-    """Seychelles"""
-
-    SIERRA_LEONE: str = "SLE"
-    """Sierra Leone"""
-
-    SINGAPORE: str = "SGP"
-    """Singapore"""
-
-    SINT_MAARTEN_DUTCH_PART: str = "SXM"
-    """Sint Maarten Dutch part"""
-
-    SLOVAKIA: str = "SVK"
-    """Slovakia"""
-
-    SLOVENIA: str = "SVN"
-    """Slovenia"""
-
-    SOLOMON_ISLANDS: str = "SLB"
-    """Solomon Islands"""
-
-    SOMALIA: str = "SOM"
-    """Somalia"""
-
-    SOUTH_AFRICA: str = "ZAF"
-    """South Africa"""
-
-    SOUTH_GEORGIA_AND_THE_SOUTH_SANDWICH_ISLANDS: str = "SGS"
-    """South Georgia and the South Sandwich Islands"""
-
-    SOUTH_SUDAN: str = "SSD"
-    """South Sudan"""
-
-    SPAIN: str = "ESP"
-    """Spain"""
-
-    SRI_LANKA: str = "LKA"
-    """Sri Lanka"""
-
-    SUDAN: str = "SDN"
-    """Sudan"""
-
-    SURINAME: str = "SUR"
-    """Suriname"""
-
-    SVALBARD: str = "SJM"
-    """Svalbard"""
-
-    SWEDEN: str = "SWE"
-    """Sweden"""
-
-    SWITZERLAND: str = "CHE"
-    """Switzerland"""
-
-    SYRIA: str = "SYR"
-    """Syria"""
-
-    TAIWAN: str = "TWN"
-    """Taiwan"""
-
-    TAJIKISTAN: str = "TJK"
-    """Tajikistan"""
-
-    TANZANIA: str = "TZA"
-    """Tanzania"""
-
-    THAILAND: str = "THA"
-    """Thailand"""
-
-    TIMOR_LESTE: str = "TLS"
-    """Timor-Leste"""
-
-    TOGO: str = "TGO"
-    """Togo"""
-
-    TOKELAU: str = "TKL"
-    """Tokelau"""
-
-    TONGA: str = "TON"
-    """Tonga"""
-
-    TRINIDAD_AND_TOBAGO: str = "TTO"
-    """Trinidad and Tobago"""
-
-    TUNISIA: str = "TUN"
-    """Tunisia"""
-
-    TURKEY: str = "TUR"
-    """Turkey"""
-
-    TURKMENISTAN: str = "TKM"
-    """Turkmenistan"""
-
-    TURKS_AND_CAICOS_ISLANDS: str = "TCA"
-    """Turks and Caicos Islands"""
-
-    TUVALU: str = "TUV"
-    """Tuvalu"""
-
-    UGANDA: str = "UGA"
-    """Uganda"""
-
-    UKRAINE: str = "UKR"
-    """Ukraine"""
-
-    UNITED_ARAB_EMIRATES: str = "ARE"
-    """United Arab Emirates"""
-
-    UNITED_KINGDOM: str = "GBR"
-    """United Kingdom"""
-
-    UNITED_STATES_MINOR_OUTLYING_ISLANDS: str = "UMI"
-    """United States Minor Outlying Islands"""
-
-    UNITED_STATES: str = "USA"
-    """United States"""
-
-    EUROPEAN_UNION: str = "EUR"
-    """European Union"""
-
-    URUGUAY: str = "URY"
-    """Uruguay"""
-
-    UZBEKISTAN: str = "UZB"
-    """Uzbekistan"""
-
-    VANUATU: str = "VUT"
-    """Vanuatu"""
-
-    VENEZUELA: str = "VEN"
-    """Venezuela"""
-
-    VIETNAM: str = "VNM"
-    """Vietnam"""
-
-    VIRGIN_ISLANDS_BRITISH: str = "VGB"
-    """Virgin Islands British"""
-
-    VIRGIN_ISLANDS_US: str = "VIR"
-    """Virgin Islands US"""
-
-    WALLIS_AND_FUTUNA: str = "WLF"
-    """Wallis and Futuna"""
-
-    WESTERN_SAHARA: str = "ESH"
-    """Western Sahara"""
-
-    YEMEN: str = "YEM"
-    """Yemen"""
-
-    ZAMBIA: str = "ZMB"
-    """Zambia"""
-
-    ZIMBABWE: str = "ZWE"
-    """Zimbabwe"""
-
-
-class CapacityEstimate(System.Object):
-    """Estimates dollar volume capacity of algorithm (in account currency) using all Symbols in the portfolio."""
-
-    @property
-    def capacity(self) -> float:
-        """The total capacity of the strategy at a point in time"""
-        ...
-
-    @property
-    def lowest_capacity_asset(self) -> QuantConnect.Symbol:
-        """Provide a reference to the lowest capacity symbol used in scaling down the capacity for debugging."""
-        ...
-
-    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
-        """
-        Initializes an instance of the class.
-        
-        :param algorithm: Used to get data at the current time step and access the portfolio state
-        """
-        ...
-
-    def on_order_event(self, order_event: QuantConnect.Orders.OrderEvent) -> None:
-        """
-        Processes an order whenever it's encountered so that we can calculate the capacity
-        
-        :param order_event: Order event to use to calculate capacity
-        """
-        ...
-
-    def update_market_capacity(self, force_process: bool) -> None:
-        ...
-
-
-class ChartSeriesJsonConverter:
-    """Convert a Chart Series to and from JSON"""
-
-    @property
-    def can_read(self) -> bool:
-        """This converter wont be used to read JSON. Will throw exception if manually called."""
-        ...
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """Indicates whether the given object type can be converted into Chart Series"""
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """Converts a JSON file into a Chart Series object"""
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """Converts a Chart Series object into a JSON file"""
-        ...
-
-
-class CandlestickSeries(QuantConnect.BaseSeries):
-    """Candlestick Chart Series Object - Series data and properties for a candlestick chart"""
-
-    @overload
-    def __init__(self) -> None:
-        """Default constructor for chart series"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Constructor method for Chart Series
-        
-        :param name: Name of the chart series
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, index: int) -> None:
-        """
-        Foundational constructor on the series class
-        
-        :param name: Name of the series
-        :param index: Index position on the chart of the series
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, index: int, unit: str) -> None:
-        """
-        Foundational constructor on the series class
-        
-        :param name: Name of the series
-        :param index: Index position on the chart of the series
-        :param unit: Unit for the series axis
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, unit: str) -> None:
-        """
-        Constructor method for Chart Series
-        
-        :param name: Name of the chart series
-        :param unit: Unit of the series
-        """
-        ...
-
-    @overload
-    def add_point(self, time: typing.Union[datetime.datetime, datetime.date], open: float, high: float, low: float, close: float) -> None:
-        """
-        Add a new point to this series
-        
-        :param time: Time of the chart point
-        :param open: Candlestick open price
-        :param high: Candlestick high price
-        :param low: Candlestick low price
-        :param close: Candlestick close price
-        """
-        ...
-
-    @overload
-    def add_point(self, bar: QuantConnect.Data.Market.TradeBar) -> None:
-        """Add a new point to this series"""
-        ...
-
-    @overload
-    def add_point(self, point: QuantConnect.ISeriesPoint) -> None:
-        """
-        Add a new point to this series
-        
-        :param point: The data point to add
-        """
-        ...
-
-    @overload
-    def add_point(self, time: typing.Union[datetime.datetime, datetime.date], values: typing.List[float]) -> None:
-        """
-        Add a new point to this series
-        
-        :param time: The time of the data point
-        :param values: The values of the data point
-        """
-        ...
-
-    def clone(self, empty: bool = False) -> QuantConnect.BaseSeries:
-        """Return a new instance clone of this object"""
-        ...
-
-    def consolidate_chart_points(self) -> QuantConnect.ISeriesPoint:
-        """
-        Will sum up all candlesticks into a new single one, using the time of latest point
-        
-        :returns: The new candlestick.
-        """
-        ...
-
-
-class DataMonitorReport(System.Object):
-    """Report generated by the IDataMonitor class that contains information about data requests"""
-
-    @property
-    def succeeded_data_requests_count(self) -> int:
-        """Gets the number of data files that were requested and successfully fetched"""
-        ...
-
-    @succeeded_data_requests_count.setter
-    def succeeded_data_requests_count(self, value: int) -> None:
-        ...
-
-    @property
-    def failed_data_requests_count(self) -> int:
-        """Gets the number of data files that were requested but could not be fetched"""
-        ...
-
-    @failed_data_requests_count.setter
-    def failed_data_requests_count(self, value: int) -> None:
-        ...
-
-    @property
-    def succeeded_universe_data_requests_count(self) -> int:
-        """Gets the number of universe data files that were requested and successfully fetched"""
-        ...
-
-    @succeeded_universe_data_requests_count.setter
-    def succeeded_universe_data_requests_count(self, value: int) -> None:
-        ...
-
-    @property
-    def failed_universe_data_requests_count(self) -> int:
-        """Gets the number of universe data files that were requested but could not be fetched"""
-        ...
-
-    @failed_universe_data_requests_count.setter
-    def failed_universe_data_requests_count(self, value: int) -> None:
-        ...
-
-    @property
-    def total_requests_count(self) -> int:
-        """Gets the number of data files that were requested"""
-        ...
-
-    @property
-    def failed_data_requests_percentage(self) -> float:
-        """Fets the percentage of data requests that could not be satisfied"""
-        ...
-
-    @property
-    def total_universe_data_requests_count(self) -> int:
-        """Gets the number of universe data files that were requested"""
-        ...
-
-    @property
-    def failed_universe_data_requests_percentage(self) -> float:
-        """Fets the percentage of universe data requests that could not be satisfied"""
-        ...
-
-    @property
-    def data_request_rates(self) -> typing.Sequence[float]:
-        """Rates at which data requests were made per second"""
-        ...
-
-    @data_request_rates.setter
-    def data_request_rates(self, value: typing.Sequence[float]) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes an empty instance of the DataMonitorReport class"""
-        ...
-
-    @overload
-    def __init__(self, succeeded_data_requests_count: int, failed_data_requests_count: int, succeeded_universe_data_requests_count: int, failed_universe_data_requests_count: int, data_request_rates: typing.Sequence[float]) -> None:
-        """
-        Initializes a new instance of the DataMonitorReport class
-        
-        :param succeeded_data_requests_count: Number of data paths that were requested and successfuly served
-        :param failed_data_requests_count: Number of data paths that were requested but could not be served
-        :param succeeded_universe_data_requests_count: Number of universe data paths that were requested and successfuly served
-        :param failed_universe_data_requests_count: Number of universe data paths that were requested but could not be served
-        :param data_request_rates: Rates at which data requests were made per second
-        """
-        ...
-
-
-class DataProviderEventArgs(System.EventArgs, metaclass=abc.ABCMeta):
-    """Defines a base class for IDataProviderEvents"""
-
-    @property
-    def symbol(self) -> QuantConnect.Symbol:
-        """Gets the symbol being processed that generated the event"""
-        ...
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
-        """
-        Initializes a new instance of the DataProviderEventArgs class
+        Gets an System.Collections.Generic.ICollection`1 containing the key objects of the System.Collections.Generic.IDictionary`2.
         
         
         This codeEntityType is protected.
+        """
+        ...
+
+    @property
+    @abc.abstractmethod
+    def get_values(self) -> typing.Iterable[QuantConnect_ExtendedDictionary_TValue]:
+        """
+        Gets an System.Collections.Generic.ICollection`1 containing the values in the System.Collections.Generic.IDictionary`2.
         
-        :param symbol: Symbol being processed that generated the event
-        """
-        ...
-
-
-class InvalidConfigurationDetectedEventArgs(QuantConnect.DataProviderEventArgs):
-    """Event arguments for the IDataProviderEvents.invalid_configuration_detected event"""
-
-    @property
-    def message(self) -> str:
-        """Gets the error message"""
-        ...
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], message: str) -> None:
-        """
-        Initializes a new instance of the InvalidConfigurationDetectedEventArgs class
         
-        :param symbol: Symbol being processed that generated the event
-        :param message: The error message
+        This codeEntityType is protected.
         """
         ...
-
-
-class NumericalPrecisionLimitedEventArgs(QuantConnect.DataProviderEventArgs):
-    """Event arguments for the IDataProviderEvents.numerical_precision_limited event"""
 
     @property
-    def message(self) -> str:
-        """Gets the error message"""
+    def is_read_only(self) -> bool:
+        """Gets a value indicating whether the IDictionary object is read-only."""
         ...
 
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], message: str) -> None:
+    def __contains__(self, key: QuantConnect_ExtendedDictionary_TKey) -> bool:
         """
-        Initializes a new instance of the NumericalPrecisionLimitedEventArgs class
+        Checks if the dictionary contains the specified key.
         
-        :param symbol: Symbol being processed that generated the event
-        :param message: The error message
+        :param key: The key to locate in the dictionary
+        :returns: true if the dictionary contains an element with the specified key; otherwise, false.
         """
         ...
 
-
-class DownloadFailedEventArgs(QuantConnect.DataProviderEventArgs):
-    """Event arguments for the IDataProviderEvents.download_failed event"""
-
-    @property
-    def message(self) -> str:
-        """Gets the error message"""
-        ...
-
-    @property
-    def stack_trace(self) -> str:
-        """Gets the error stack trace"""
-        ...
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], message: str, stack_trace: str = ...) -> None:
+    def __getitem__(self, key: QuantConnect_ExtendedDictionary_TKey) -> QuantConnect_ExtendedDictionary_TValue:
         """
-        Initializes a new instance of the DownloadFailedEventArgs class
+        Indexer method for the base dictioanry to access the objects by their symbol.
         
-        :param symbol: Symbol being processed that generated the event
-        :param message: The error message
-        :param stack_trace: The error stack trace
+        :param key: Key object indexer
+        :returns: Object of t_value.
         """
         ...
 
-
-class ReaderErrorDetectedEventArgs(QuantConnect.DataProviderEventArgs):
-    """Event arguments for the IDataProviderEvents.reader_error_detected event"""
-
-    @property
-    def message(self) -> str:
-        """Gets the error message"""
+    def __len__(self) -> int:
         ...
 
-    @property
-    def stack_trace(self) -> str:
-        """Gets the error stack trace"""
-        ...
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], message: str, stack_trace: str = ...) -> None:
+    def __setitem__(self, key: QuantConnect_ExtendedDictionary_TKey, value: QuantConnect_ExtendedDictionary_TValue) -> None:
         """
-        Initializes a new instance of the ReaderErrorDetectedEventArgs class
+        Indexer method for the base dictioanry to access the objects by their symbol.
         
-        :param symbol: Symbol being processed that generated the event
-        :param message: The error message
-        :param stack_trace: The error stack trace
+        :param key: Key object indexer
+        :returns: Object of t_value.
+        """
+        ...
+
+    def check_for_implicitly_created_symbol(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
+        """
+        Checks if the symbol is implicitly created from a string, in which case it is not in the symbol cache,
+        and throws a KeyNotFoundException.
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    def clear(self) -> None:
+        """Removes all keys and values from the IExtendedDictionary{TKey, TValue}."""
+        ...
+
+    def clear(self) -> None:
+        """Removes all items from the System.Collections.Generic.ICollection`1."""
+        ...
+
+    def contains_key(self, key: QuantConnect_ExtendedDictionary_TKey) -> bool:
+        """
+        Checks if the dictionary contains the specified key.
+        
+        :param key: The key to locate in the dictionary
+        :returns: true if the dictionary contains an element with the specified key; otherwise, false.
+        """
+        ...
+
+    def copy(self) -> typing.Dict[typing.Any, typing.Any]:
+        """
+        Creates a shallow copy of the IExtendedDictionary{TKey, TValue}.
+        
+        :returns: Returns a shallow copy of the dictionary. It doesn't modify the original dictionary.
+        """
+        ...
+
+    @overload
+    def fromkeys(self, sequence: typing.List[QuantConnect_ExtendedDictionary_TKey]) -> typing.Dict[typing.Any, typing.Any]:
+        """
+        Creates a new dictionary from the given sequence of elements.
+        
+        :param sequence: Sequence of elements which is to be used as keys for the new dictionary
+        :returns: Returns a new dictionary with the given sequence of elements as the keys of the dictionary.
+        """
+        ...
+
+    @overload
+    def fromkeys(self, sequence: typing.List[QuantConnect_ExtendedDictionary_TKey], value: QuantConnect_ExtendedDictionary_TValue) -> typing.Dict[typing.Any, typing.Any]:
+        """
+        Creates a new dictionary from the given sequence of elements with a value provided by the user.
+        
+        :param sequence: Sequence of elements which is to be used as keys for the new dictionary
+        :param value: Value which is set to each each element of the dictionary
+        :returns: Returns a new dictionary with the given sequence of elements as the keys of the dictionary.
+        Each element of the newly created dictionary is set to the provided value.
+        """
+        ...
+
+    @overload
+    def get(self, key: QuantConnect_ExtendedDictionary_TKey) -> QuantConnect_ExtendedDictionary_TValue:
+        """
+        Returns the value for the specified key if key is in dictionary.
+        
+        :param key: key to be searched in the dictionary
+        :returns: The value for the specified key if key is in dictionary.
+        None if the key is not found and value is not specified.
+        """
+        ...
+
+    @overload
+    def get(self, key: QuantConnect_ExtendedDictionary_TKey, value: QuantConnect_ExtendedDictionary_TValue) -> QuantConnect_ExtendedDictionary_TValue:
+        """
+        Returns the value for the specified key if key is in dictionary.
+        
+        :param key: key to be searched in the dictionary
+        :param value: Value to be returned if the key is not found. The default value is null.
+        :returns: The value for the specified key if key is in dictionary.
+        value if the key is not found and value is specified.
+        """
+        ...
+
+    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue]]:
+        """
+        Gets all the items in the dictionary
+        
+        :returns: All the items in the dictionary.
+        """
+        ...
+
+    def items(self) -> typing.List[typing.Any]:
+        """
+        Returns a view object that displays a list of dictionary's (key, value) tuple pairs.
+        
+        :returns: Returns a view object that displays a list of a given dictionary's (key, value) tuple pair.
+        """
+        ...
+
+    def keys(self) -> typing.List[typing.Any]:
+        """
+        Returns a view object that displays a list of all the key objects in the dictionary
+        
+        :returns: Returns a view object that displays a list of all the key objects.
+        When the dictionary is changed, the view object also reflect these changes.
+        """
+        ...
+
+    @overload
+    def pop(self, key: QuantConnect_ExtendedDictionary_TKey) -> QuantConnect_ExtendedDictionary_TValue:
+        """
+        Removes and returns an element from a dictionary having the given key.
+        
+        :param key: Key which is to be searched for removal
+        :returns: If key is found - removed/popped element from the dictionary
+        If key is not found - KeyError exception is raised.
+        """
+        ...
+
+    @overload
+    def pop(self, key: QuantConnect_ExtendedDictionary_TKey, default_value: QuantConnect_ExtendedDictionary_TValue) -> QuantConnect_ExtendedDictionary_TValue:
+        """
+        Removes and returns an element from a dictionary having the given key.
+        
+        :param key: Key which is to be searched for removal
+        :param default_value: Value which is to be returned when the key is not in the dictionary
+        :returns: If key is found - removed/popped element from the dictionary
+        If key is not found - value specified as the second argument(default).
+        """
+        ...
+
+    def popitem(self) -> typing.Any:
+        """
+        Returns and removes an arbitrary element (key, value) pair from the dictionary.
+        
+        :returns: Returns an arbitrary element (key, value) pair from the dictionary
+        removes an arbitrary element(the same element which is returned) from the dictionary.
+        Note: Arbitrary elements and random elements are not same.The popitem() doesn't return a random element.
+        """
+        ...
+
+    def remove(self, key: QuantConnect_ExtendedDictionary_TKey) -> bool:
+        """
+        Removes the value with the specified key
+        
+        :param key: The key object of the element to remove.
+        :returns: true if the element is successfully found and removed; otherwise, false.
+        """
+        ...
+
+    @overload
+    def setdefault(self, key: QuantConnect_ExtendedDictionary_TKey) -> QuantConnect_ExtendedDictionary_TValue:
+        """
+        Returns the value of a key (if the key is in dictionary). If not, it inserts key with a value to the dictionary.
+        
+        :param key: Key with null/None value is inserted to the dictionary if key is not in the dictionary.
+        :returns: The value of the key if it is in the dictionary
+        None if key is not in the dictionary.
+        """
+        ...
+
+    @overload
+    def setdefault(self, key: QuantConnect_ExtendedDictionary_TKey, default_value: QuantConnect_ExtendedDictionary_TValue) -> QuantConnect_ExtendedDictionary_TValue:
+        """
+        Returns the value of a key (if the key is in dictionary). If not, it inserts key with a value to the dictionary.
+        
+        :param key: Key with a value default_value is inserted to the dictionary if key is not in the dictionary.
+        :param default_value: Default value
+        :returns: The value of the key if it is in the dictionary
+        default_value if key is not in the dictionary and default_value is specified.
+        """
+        ...
+
+    def try_get_value(self, key: QuantConnect_ExtendedDictionary_TKey, value: typing.Optional[QuantConnect_ExtendedDictionary_TValue]) -> typing.Tuple[bool, QuantConnect_ExtendedDictionary_TValue]:
+        """
+        Gets the value associated with the specified key.
+        
+        :param key: The key whose value to get.
+        :param value: When this method returns, the value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter. This parameter is passed uninitialized.
+        :returns: true if the object that implements System.Collections.Generic.IDictionary`2 contains an element with the specified key; otherwise, false.
+        """
+        ...
+
+    def update(self, other: typing.Any) -> None:
+        """
+        Updates the dictionary with the elements from the another dictionary object or from an iterable of key/value pairs.
+        The update() method adds element(s) to the dictionary if the key is not in the dictionary.If the key is in the dictionary, it updates the key with the new value.
+        
+        :param other: Takes either a dictionary or an iterable object of key/value pairs (generally tuples).
+        """
+        ...
+
+    def values(self) -> typing.List[typing.Any]:
+        """
+        Returns a view object that displays a list of all the values in the dictionary.
+        
+        :returns: Returns a view object that displays a list of all values in a given dictionary.
         """
         ...
 
 
-class StartDateLimitedEventArgs(QuantConnect.DataProviderEventArgs):
-    """Event arguments for the IDataProviderEvents.start_date_limited event"""
+class Field(System.Object):
+    """Provides static properties to be used as selectors with the indicator system"""
+
+    BID_CLOSE: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selectes the Bid close price"""
+
+    BID_OPEN: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selectes the Bid open price"""
+
+    BID_LOW: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selectes the Bid low price"""
+
+    BID_HIGH: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selectes the Bid high price"""
+
+    ASK_CLOSE: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selectes the Ask close price"""
+
+    ASK_OPEN: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selectes the Ask open price"""
+
+    ASK_LOW: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selectes the Ask low price"""
+
+    ASK_HIGH: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selectes the Ask high price"""
+
+    ASK_PRICE: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selectes the Ask price"""
+
+    BID_PRICE: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selectes the Bid price"""
+
+    OPEN: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selects the Open value"""
+
+    HIGH: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selects the High value"""
+
+    LOW: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selects the Low value"""
+
+    CLOSE: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selects the Close value"""
+
+    AVERAGE: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Defines an average price that is equal to (O + H + L + C) / 4"""
+
+    MEDIAN: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Defines an average price that is equal to (H + L) / 2"""
+
+    TYPICAL: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Defines an average price that is equal to (H + L + C) / 3"""
+
+    WEIGHTED: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Defines an average price that is equal to (H + L + 2*C) / 4"""
+
+    SEVEN_BAR: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Defines an average price that is equal to (2*O + H + L + 3*C)/7"""
+
+    VOLUME: typing.Callable[[QuantConnect.Data.IBaseData], float]
+    """Gets a selector that selectors the Volume value"""
+
+
+class DocumentationAttribute(System.Attribute):
+    """Custom attribute used for documentation"""
 
     @property
-    def message(self) -> str:
-        """Gets the error message"""
-        ...
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], message: str) -> None:
-        """
-        Initializes a new instance of the StartDateLimitedEventArgs class
-        
-        :param symbol: Symbol being processed that generated the event
-        :param message: The error message
-        """
-        ...
-
-
-class NewTradableDateEventArgs(QuantConnect.DataProviderEventArgs):
-    """Event arguments for the NewTradableDate event"""
-
-    @property
-    def date(self) -> datetime.datetime:
-        """The new tradable date"""
+    def tag(self) -> str:
+        """The documentation tag"""
         ...
 
     @property
-    def last_base_data(self) -> QuantConnect.Data.BaseData:
-        """
-        The last BaseData of the Security
-        for which we are enumerating
-        """
+    def weight(self) -> int:
+        """The associated weight of this attribute and tag"""
         ...
 
     @property
-    def last_raw_price(self) -> typing.Optional[float]:
-        """The last raw security price we have"""
+    def line(self) -> int:
+        """The associated line of this attribute"""
         ...
 
-    def __init__(self, date: typing.Union[datetime.datetime, datetime.date], last_base_data: QuantConnect.Data.BaseData, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], last_raw_price: typing.Optional[float]) -> None:
-        """
-        Initializes a new instance of the NewTradableDateEventArgs class
-        
-        :param date: The new tradable date
-        :param last_base_data: The last BaseData of the
-        Security for which we are enumerating
-        :param symbol: The Symbol of the new tradable date
-        :param last_raw_price: The last raw security price we have
-        """
+    @property
+    def file_name(self) -> str:
+        """The associated file name of this attribute"""
         ...
 
-
-class Parse(System.Object):
-    """Provides methods for parsing strings using CultureInfo.InvariantCulture"""
-
-    @staticmethod
-    def date_time(value: str) -> datetime.datetime:
-        """
-        Parses the provided value as a System.DateTime using System.DateTime.Parse(string,IFormatProvider)
-        with CultureInfo.InvariantCulture
-        """
+    @property
+    def type_id(self) -> System.Object:
+        """The attributes type id, we override it to ignore it when serializing"""
         ...
 
-    @staticmethod
-    @overload
-    def date_time_exact(value: str, format: str) -> datetime.datetime:
-        """
-        Parses the provided value as a System.DateTime using System.DateTime.ParseExact(string,string,IFormatProvider)
-        with the specified format and CultureInfo.InvariantCulture
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def date_time_exact(value: str, format: str, date_time_styles: System.Globalization.DateTimeStyles) -> datetime.datetime:
-        """
-        Parses the provided value as a System.DateTime using System.DateTime.ParseExact(string,string,IFormatProvider)
-        with the specified format, date_time_styles and CultureInfo.InvariantCulture
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def decimal(value: str) -> float:
-        """Parses the provided value as a decimal using CultureInfo.InvariantCulture"""
-        ...
-
-    @staticmethod
-    @overload
-    def decimal(value: str, number_styles: System.Globalization.NumberStyles) -> float:
-        """
-        Parses the provided value as a decimal using the specified number_styles
-        and CultureInfo.InvariantCulture
-        """
-        ...
-
-    @staticmethod
-    def double(value: str) -> float:
-        """Parses the provided value as a double using CultureInfo.InvariantCulture"""
-        ...
-
-    @staticmethod
-    def int(value: str) -> int:
-        """Parses the provided value as a int using CultureInfo.InvariantCulture"""
-        ...
-
-    @staticmethod
-    @overload
-    def long(value: str) -> int:
-        """Parses the provided value as a long using CultureInfo.InvariantCulture"""
-        ...
-
-    @staticmethod
-    @overload
-    def long(value: str, number_styles: System.Globalization.NumberStyles) -> int:
-        """
-        Parses the provided value as a long using CultureInfo.InvariantCulture
-        and the specified number_styles
-        """
-        ...
-
-    @staticmethod
-    def time_span(value: str) -> datetime.timedelta:
-        """
-        Parses the provided value as a System.TimeSpan using System.TimeSpan.Parse(string,IFormatProvider)
-        with CultureInfo.InvariantCulture
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(input: str, value: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
-        """Tries to parse the provided value with TryParse as a System.TimeSpan using CultureInfo.InvariantCulture."""
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(input: str, date_time_style: System.Globalization.DateTimeStyles, value: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
-        """
-        Tries to parse the provided value with TryParse as a System.DateTime using the specified date_time_style
-        and CultureInfo.InvariantCulture.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(input: str, number_style: System.Globalization.NumberStyles, value: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        """
-        Tries to parse the provided value with TryParse as a double using the specified number_style
-        and CultureInfo.InvariantCulture.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(input: str, number_style: System.Globalization.NumberStyles, value: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to parse the provided value with TryParse as a int using the specified number_style
-        and CultureInfo.InvariantCulture.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse_exact(input: str, format: str, time_span_style: System.Globalization.TimeSpanStyles, value: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
-        """
-        Tries to parse the provided value with TryParse as a System.TimeSpan, format
-        string, TimeSpanStyles, and using CultureInfo.InvariantCulture
-        
-        :param input: 
-        :param format: 
-        :param time_span_style: 
-        :param value: 
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse_exact(input: str, format: str, date_time_style: System.Globalization.DateTimeStyles, value: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
-        """
-        Tries to parse the provided value with TryParse as a System.DateTime using the
-        specified date_time_style, the format format, and
-        CultureInfo.InvariantCulture.
-        """
+    def __init__(self, tag: str, weight: int = 0, line: int = 0, file_name: str = ...) -> None:
+        """Creates a new instance"""
         ...
 
 
-class RealTimeSynchronizedTimer(System.Object):
-    """Real time timer class for precise callbacks on a millisecond resolution in a self managed thread."""
+class DefaultConverter:
+    """Helper json converter to use the default json converter, breaking inheritance json converter"""
 
-    @overload
-    def __init__(self) -> None:
-        """Constructor for Real Time Event Driver:"""
+    @property
+    def can_read(self) -> bool:
+        """Indicates if this object can be read"""
         ...
 
-    @overload
-    def __init__(self, period: datetime.timedelta, callback: typing.Callable[[datetime.datetime], typing.Any]) -> None:
-        """
-        Trigger an event callback after precisely milliseconds-lapsed.
-        This is expensive, it creates a new thread and closely monitors the loop.
-        
-        :param period: delay period between event callbacks
-        :param callback: Callback event passed the UTC time the event is intended to be triggered
-        """
+    @property
+    def can_write(self) -> bool:
+        """Indicates if this object can be written"""
         ...
 
-    def pause(self) -> None:
-        """Hang the real time event:"""
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """Indicates if the given type can be assigned to this object"""
         ...
 
-    def resume(self) -> None:
-        """Resume clock"""
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """Creates an object from a given JSON reader and other arguments"""
         ...
 
-    def scanner(self) -> None:
-        """Scan the stopwatch for the desired millisecond delay:"""
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Writes a JSON file from the given object and the other arguments"""
         ...
 
-    def start(self) -> None:
-        """Start the synchronized real time timer - fire events at start of each second or minute"""
-        ...
 
-    def stop(self) -> None:
-        """Stop the real time timer:"""
-        ...
+class TimeZones(System.Object):
+    """Provides access to common time zones"""
+
+    UTC: typing.Any = ...
+    """Gets the Universal Coordinated time zone."""
+
+    NEW_YORK: typing.Any = ...
+    """Gets the time zone for New York City, USA. This is a daylight savings time zone."""
+
+    EASTERN_STANDARD: typing.Any = ...
+    """Get the Eastern Standard Time (EST) WITHOUT daylight savings, this is a constant -5 hour offset"""
+
+    LONDON: typing.Any = ...
+    """Gets the time zone for London, England. This is a daylight savings time zone."""
+
+    HONG_KONG: typing.Any = ...
+    """Gets the time zone for Hong Kong, China."""
+
+    TOKYO: typing.Any = ...
+    """Gets the time zone for Tokyo, Japan."""
+
+    ROME: typing.Any = ...
+    """Gets the time zone for Rome, Italy. This is a daylight savings time zone."""
+
+    SYDNEY: typing.Any = ...
+    """Gets the time zone for Sydney, Australia. This is a daylight savings time zone."""
+
+    VANCOUVER: typing.Any = ...
+    """Gets the time zone for Vancouver, Canada."""
+
+    TORONTO: typing.Any = ...
+    """Gets the time zone for Toronto, Canada. This is a daylight savings time zone."""
+
+    CHICAGO: typing.Any = ...
+    """Gets the time zone for Chicago, USA. This is a daylight savings time zone."""
+
+    LOS_ANGELES: typing.Any = ...
+    """Gets the time zone for Los Angeles, USA. This is a daylight savings time zone."""
+
+    PHOENIX: typing.Any = ...
+    """Gets the time zone for Phoenix, USA. This is a daylight savings time zone."""
+
+    AUCKLAND: typing.Any = ...
+    """Gets the time zone for Auckland, New Zealand. This is a daylight savings time zone."""
+
+    MOSCOW: typing.Any = ...
+    """Gets the time zone for Moscow, Russia."""
+
+    MADRID: typing.Any = ...
+    """Gets the time zone for Madrid, Span. This is a daylight savings time zone."""
+
+    BUENOS_AIRES: typing.Any = ...
+    """Gets the time zone for Buenos Aires, Argentia."""
+
+    BRISBANE: typing.Any = ...
+    """Gets the time zone for Brisbane, Australia."""
+
+    SAO_PAULO: typing.Any = ...
+    """Gets the time zone for Sao Paulo, Brazil. This is a daylight savings time zone."""
+
+    CAIRO: typing.Any = ...
+    """Gets the time zone for Cairo, Egypt."""
+
+    JOHANNESBURG: typing.Any = ...
+    """Gets the time zone for Johannesburg, South Africa."""
+
+    ANCHORAGE: typing.Any = ...
+    """Gets the time zone for Anchorage, USA. This is a daylight savings time zone."""
+
+    DENVER: typing.Any = ...
+    """Gets the time zone for Denver, USA. This is a daylight savings time zone."""
+
+    DETROIT: typing.Any = ...
+    """Gets the time zone for Detroit, USA. This is a daylight savings time zone."""
+
+    MEXICO_CITY: typing.Any = ...
+    """Gets the time zone for Mexico City, Mexico. This is a daylight savings time zone."""
+
+    JERUSALEM: typing.Any = ...
+    """Gets the time zone for Jerusalem, Israel. This is a daylight savings time zone."""
+
+    SHANGHAI: typing.Any = ...
+    """Gets the time zone for Shanghai, China."""
+
+    MELBOURNE: typing.Any = ...
+    """Gets the time zone for Melbourne, Australia. This is a daylight savings time zone."""
+
+    AMSTERDAM: typing.Any = ...
+    """Gets the time zone for Amsterdam, Netherlands. This is a daylight savings time zone."""
+
+    ATHENS: typing.Any = ...
+    """Gets the time zone for Athens, Greece. This is a daylight savings time zone."""
+
+    BERLIN: typing.Any = ...
+    """Gets the time zone for Berlin, Germany. This is a daylight savings time zone."""
+
+    BUCHAREST: typing.Any = ...
+    """Gets the time zone for Bucharest, Romania. This is a daylight savings time zone."""
+
+    DUBLIN: typing.Any = ...
+    """Gets the time zone for Dublin, Ireland. This is a daylight savings time zone."""
+
+    HELSINKI: typing.Any = ...
+    """Gets the time zone for Helsinki, Finland. This is a daylight savings time zone."""
+
+    ISTANBUL: typing.Any = ...
+    """Gets the time zone for Istanbul, Turkey. This is a daylight savings time zone."""
+
+    MINSK: typing.Any = ...
+    """Gets the time zone for Minsk, Belarus."""
+
+    PARIS: typing.Any = ...
+    """Gets the time zone for Paris, France. This is a daylight savings time zone."""
+
+    ZURICH: typing.Any = ...
+    """Gets the time zone for Zurich, Switzerland. This is a daylight savings time zone."""
+
+    HONOLULU: typing.Any = ...
+    """Gets the time zone for Honolulu, USA. This is a daylight savings time zone."""
+
+    KOLKATA: typing.Any = ...
+    """Gets the time zone for Kolkata, India."""
 
 
 class DateFormat(System.Object):
@@ -4486,6 +2039,2638 @@ class AlgorithmMode(IntEnum):
     """Research (3)"""
 
 
+class SeriesType(IntEnum):
+    """Available types of chart series"""
+
+    LINE = 0
+    """Line Plot for Value Types (0)"""
+
+    SCATTER = 1
+    """Scatter Plot for Chart Distinct Types (1)"""
+
+    CANDLE = 2
+    """Charts (2)"""
+
+    BAR = 3
+    """Bar chart (3)"""
+
+    FLAG = 4
+    """Flag indicators (4)"""
+
+    STACKED_AREA = 5
+    """100% area chart showing relative proportions of series values at each time index (5)"""
+
+    PIE = 6
+    """Pie chart (6)"""
+
+    TREEMAP = 7
+    """Treemap Plot (7)"""
+
+    HEATMAP = 9
+    """Heatmap Plot (9) -- NOTE: 8 is reserved"""
+
+    SCATTER_3D = 9
+    """Scatter 3D Plot (10)"""
+
+
+class BaseSeries(System.Object, metaclass=abc.ABCMeta):
+    """Chart Series Object - Series data and properties for a chart:"""
+
+    @property
+    def name(self) -> str:
+        """Name of the series."""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def unit(self) -> str:
+        """Axis for the chart series."""
+        ...
+
+    @unit.setter
+    def unit(self, value: str) -> None:
+        ...
+
+    @property
+    def index(self) -> int:
+        """Index/position of the series on the chart."""
+        ...
+
+    @index.setter
+    def index(self, value: int) -> None:
+        ...
+
+    @property
+    def index_name(self) -> str:
+        """Axis name for the chart series."""
+        ...
+
+    @index_name.setter
+    def index_name(self, value: str) -> None:
+        ...
+
+    @property
+    def z_index(self) -> typing.Optional[int]:
+        """Defines the visual Z index of the series on the chart."""
+        ...
+
+    @z_index.setter
+    def z_index(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def series_type(self) -> QuantConnect.SeriesType:
+        """Chart type for the series:"""
+        ...
+
+    @series_type.setter
+    def series_type(self, value: QuantConnect.SeriesType) -> None:
+        ...
+
+    @property
+    def tooltip(self) -> str:
+        """An optional tooltip template"""
+        ...
+
+    @tooltip.setter
+    def tooltip(self, value: str) -> None:
+        ...
+
+    @property
+    def values(self) -> typing.List[QuantConnect.ISeriesPoint]:
+        """
+        The series list of values.
+        These values are assumed to be in ascending time order (first points earliest, last points latest)
+        """
+        ...
+
+    @values.setter
+    def values(self, value: typing.List[QuantConnect.ISeriesPoint]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Default constructor for chart series
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, type: QuantConnect.SeriesType) -> None:
+        """
+        Constructor method for Chart Series
+        
+        
+        This codeEntityType is protected.
+        
+        :param name: Name of the chart series
+        :param type: Type of the series
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, type: QuantConnect.SeriesType, index: int) -> None:
+        """
+        Foundational constructor on the series class
+        
+        
+        This codeEntityType is protected.
+        
+        :param name: Name of the series
+        :param type: Type of the series
+        :param index: Series index position on the chart
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, type: QuantConnect.SeriesType, index: int, unit: str) -> None:
+        """
+        Foundational constructor on the series class
+        
+        
+        This codeEntityType is protected.
+        
+        :param name: Name of the series
+        :param type: Type of the series
+        :param index: Series index position on the chart
+        :param unit: Unit for the series axis
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, type: QuantConnect.SeriesType, unit: str) -> None:
+        """
+        Constructor method for Chart Series
+        
+        
+        This codeEntityType is protected.
+        
+        :param name: Name of the chart series
+        :param type: Type of the chart series
+        :param unit: Unit of the series
+        """
+        ...
+
+    @overload
+    def add_point(self, point: QuantConnect.ISeriesPoint) -> None:
+        """
+        Add a new point to this series
+        
+        :param point: The data point to add
+        """
+        ...
+
+    @overload
+    def add_point(self, time: typing.Union[datetime.datetime, datetime.date], values: typing.List[float]) -> None:
+        """
+        Add a new point to this series
+        
+        :param time: The time of the data point
+        :param values: The values of the data point
+        """
+        ...
+
+    def clone(self, empty: bool = False) -> QuantConnect.BaseSeries:
+        """Return a new instance clone of this object"""
+        ...
+
+    def clone_values(self) -> typing.List[QuantConnect.ISeriesPoint]:
+        """
+        Return a list of cloned values
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    def consolidate_chart_points(self) -> QuantConnect.ISeriesPoint:
+        """
+        Will sum up all chart points into a new single value, using the time of latest point
+        
+        :returns: The new chart point.
+        """
+        ...
+
+    @staticmethod
+    def create(series_type: QuantConnect.SeriesType, name: str, index: int = 0, unit: str = "$") -> QuantConnect.BaseSeries:
+        """
+        Creates a series according to the specified type.
+        
+        :param series_type: The series type
+        :param name: The name of the series
+        :param index: Series index position on the chart
+        :param unit: Unit for the series axis
+        :returns: A CandlestickSeries if series_type is SeriesType.CANDLE.
+        A Series otherwise.
+        """
+        ...
+
+    def get_updates(self) -> QuantConnect.BaseSeries:
+        """
+        Get the updates since the last call to this function.
+        
+        :returns: List of the updates from the series.
+        """
+        ...
+
+    def purge(self) -> None:
+        """Removes the data from this series and resets the update position to 0"""
+        ...
+
+
+class ScatterMarkerSymbol(IntEnum):
+    """Shape or symbol for the marker in a scatter plot"""
+
+    NONE = 0
+    """Circle symbol (0)"""
+
+    CIRCLE = 1
+    """Circle symbol (1)"""
+
+    SQUARE = 2
+    """Square symbol (2)"""
+
+    DIAMOND = 3
+    """Diamond symbol (3)"""
+
+    TRIANGLE = 4
+    """Triangle symbol (4)"""
+
+    TRIANGLE_DOWN = 5
+    """Triangle-down symbol (5)"""
+
+
+class Series(QuantConnect.BaseSeries):
+    """Chart Series Object - Series data and properties for a chart:"""
+
+    @property
+    def color(self) -> System.Drawing.Color:
+        """Color the series"""
+        ...
+
+    @color.setter
+    def color(self, value: System.Drawing.Color) -> None:
+        ...
+
+    @property
+    def scatter_marker_symbol(self) -> QuantConnect.ScatterMarkerSymbol:
+        """Shape or symbol for the marker in a scatter plot"""
+        ...
+
+    @scatter_marker_symbol.setter
+    def scatter_marker_symbol(self, value: QuantConnect.ScatterMarkerSymbol) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for chart series"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Constructor method for Chart Series
+        
+        :param name: Name of the chart series
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, type: QuantConnect.SeriesType, index: int) -> None:
+        """
+        Foundational constructor on the series class
+        
+        :param name: Name of the series
+        :param type: Type of the series
+        :param index: Index position on the chart of the series
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, type: QuantConnect.SeriesType, index: int, unit: str) -> None:
+        """
+        Foundational constructor on the series class
+        
+        :param name: Name of the series
+        :param type: Type of the series
+        :param index: Index position on the chart of the series
+        :param unit: Unit for the series axis
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, type: QuantConnect.SeriesType = ..., unit: str = "$") -> None:
+        """
+        Constructor method for Chart Series
+        
+        :param name: Name of the chart series
+        :param type: Type of the chart series
+        :param unit: Unit of the series
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, type: QuantConnect.SeriesType, unit: str, color: System.Drawing.Color) -> None:
+        """
+        Constructor method for Chart Series
+        
+        :param name: Name of the chart series
+        :param type: Type of the chart series
+        :param unit: Unit of the series
+        :param color: Color of the series
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, type: QuantConnect.SeriesType, unit: str, color: System.Drawing.Color, symbol: QuantConnect.ScatterMarkerSymbol = ...) -> None:
+        """
+        Constructor method for Chart Series
+        
+        :param name: Name of the chart series
+        :param type: Type of the chart series
+        :param unit: Unit of the series
+        :param color: Color of the series
+        :param symbol: Symbol for the marker in a scatter plot series
+        """
+        ...
+
+    @overload
+    def add_point(self, time: typing.Union[datetime.datetime, datetime.date], value: float) -> None:
+        """
+        Add a new point to this series
+        
+        :param time: Time of the chart point
+        :param value: Value of the chart point
+        """
+        ...
+
+    @overload
+    def add_point(self, point: QuantConnect.ISeriesPoint) -> None:
+        """
+        Add a new point to this series
+        
+        :param point: The data point to add
+        """
+        ...
+
+    @overload
+    def add_point(self, time: typing.Union[datetime.datetime, datetime.date], values: typing.List[float]) -> None:
+        """
+        Add a new point to this series
+        
+        :param time: The time of the data point
+        :param values: The values of the data point
+        """
+        ...
+
+    def clone(self, empty: bool = False) -> QuantConnect.BaseSeries:
+        """Return a new instance clone of this object"""
+        ...
+
+    def consolidate_chart_points(self) -> QuantConnect.ISeriesPoint:
+        """
+        Will sum up all chart points into a new single value, using the time of latest point
+        
+        :returns: The new chart point.
+        """
+        ...
+
+
+class ITimeProvider(metaclass=abc.ABCMeta):
+    """
+    Provides access to the current time in UTC. This doesn't necessarily
+    need to be wall-clock time, but rather the current time in some system
+    """
+
+    def get_utc_now(self) -> datetime.datetime:
+        """
+        Gets the current time in UTC
+        
+        :returns: The current time in UTC.
+        """
+        ...
+
+
+class Globals(System.Object):
+    """Provides application level constant values"""
+
+    api: str
+    """The base api url address to use"""
+
+    user_id: int
+    """The user Id"""
+
+    project_id: int
+    """The project id"""
+
+    user_token: str
+    """The user token"""
+
+    organization_id: str
+    """The organization id"""
+
+    results_destination_folder: str
+    """The results destination folder"""
+
+    data_folder: str
+    """The root directory of the data folder for this application"""
+
+    live_mode: bool
+    """True if running in live mode"""
+
+    CACHE: str = "./cache/data"
+    """The directory used for storing downloaded remote files"""
+
+    version: str
+    """The version of lean"""
+
+    cache_data_folder: str
+    """Data path to cache folder location"""
+
+    @staticmethod
+    def get_data_folder_path(relative_path: str) -> str:
+        """Helper method that will build a data folder path checking if it exists on the cache folder else will return data folder"""
+        ...
+
+    @staticmethod
+    def reset() -> None:
+        """Resets global values with the Config data."""
+        ...
+
+
+class ChartPoint(System.Object, QuantConnect.ISeriesPoint):
+    """Single Chart Point Value Type for QCAlgorithm.Plot();"""
+
+    @property
+    def time(self) -> datetime.datetime:
+        """Time of this chart series point"""
+        ...
+
+    @time.setter
+    def time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def x(self) -> int:
+        """Chart point time"""
+        ...
+
+    @x.setter
+    def x(self, value: int) -> None:
+        ...
+
+    @property
+    def y(self) -> typing.Optional[float]:
+        """Chart point value"""
+        ...
+
+    @y.setter
+    def y(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def x(self) -> int:
+        """Shortcut for x for C# naming conventions"""
+        ...
+
+    @property
+    def y(self) -> typing.Optional[float]:
+        """Shortcut for y for C# naming conventions"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor. Using in SeriesSampler."""
+        ...
+
+    @overload
+    def __init__(self, x_value: int, y_value: typing.Optional[float]) -> None:
+        """
+        Constructor that takes both x, y value pairs
+        
+        :param x_value: X value often representing a time in seconds
+        :param y_value: Y value
+        """
+        ...
+
+    @overload
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], value: typing.Optional[float]) -> None:
+        """
+        Constructor that takes both x, y value pairs
+        
+        :param time: This point time
+        :param value: Y value
+        """
+        ...
+
+    @overload
+    def __init__(self, point: QuantConnect.ChartPoint) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.ISeriesPoint:
+        """
+        Clones this instance
+        
+        :returns: Clone of this instance.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Provides a readable string representation of this instance."""
+        ...
+
+
+class IsolatorLimitResult(System.Object):
+    """Represents the result of the Isolator limiter callback"""
+
+    @property
+    def current_time_step_elapsed(self) -> datetime.timedelta:
+        """Gets the amount of time spent on the current time step"""
+        ...
+
+    @property
+    def error_message(self) -> str:
+        """Gets the error message or an empty string if no error on the current time step"""
+        ...
+
+    @property
+    def is_within_custom_limits(self) -> bool:
+        """Returns true if there are no errors in the current time step"""
+        ...
+
+    def __init__(self, current_time_step_elapsed: datetime.timedelta, error_message: str) -> None:
+        """
+        Initializes a new instance of the IsolatorLimitResult class
+        
+        :param current_time_step_elapsed: The amount of time spent on the current time step
+        :param error_message: The error message or an empty string if no error on the current time step
+        """
+        ...
+
+
+class Isolator(System.Object):
+    """
+    Isolator class - create a new instance of the algorithm and ensure it doesn't
+    exceed memory or time execution limits.
+    """
+
+    @property
+    def cancellation_token_source(self) -> System.Threading.CancellationTokenSource:
+        """Algo cancellation controls - cancel source."""
+        ...
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the Isolator class"""
+        ...
+
+    @overload
+    def execute_with_time_limit(self, time_span: datetime.timedelta, within_custom_limits: typing.Callable[[], QuantConnect.IsolatorLimitResult], code_block: typing.Callable[[], typing.Any], memory_cap: int = 1024, sleep_interval_millis: int = 1000, worker_thread: QuantConnect.Util.WorkerThread = None) -> bool:
+        """
+        Execute a code block with a maximum limit on time and memory.
+        
+        :param time_span: Timeout in timespan
+        :param within_custom_limits: Function used to determine if the code_block is within custom limits, such as with algorithm manager
+        timing individual time loops, return a non-null and non-empty string with a message indicating the error/reason for stoppage
+        :param code_block: Action codeblock to execute
+        :param memory_cap: Maximum memory allocation, default 1024Mb
+        :param sleep_interval_millis: Sleep interval between each check in ms
+        :param worker_thread: The worker thread instance that will execute the provided action, if null
+        will use a Task
+        :returns: True if algorithm exited successfully, false if cancelled because it exceeded limits.
+        """
+        ...
+
+    @overload
+    def execute_with_time_limit(self, time_span: datetime.timedelta, code_block: typing.Callable[[], typing.Any], memory_cap: int, sleep_interval_millis: int = 1000, worker_thread: QuantConnect.Util.WorkerThread = None) -> bool:
+        """
+        Execute a code block with a maximum limit on time and memory.
+        
+        :param time_span: Timeout in timespan
+        :param code_block: Action codeblock to execute
+        :param memory_cap: Maximum memory allocation, default 1024Mb
+        :param sleep_interval_millis: Sleep interval between each check in ms
+        :param worker_thread: The worker thread instance that will execute the provided action, if null
+        will use a Task
+        :returns: True if algorithm exited successfully, false if cancelled because it exceeded limits.
+        """
+        ...
+
+
+class SymbolCache(System.Object):
+    """
+    Provides a string->Symbol mapping to allow for user defined strings to be lifted into a Symbol
+    This is mainly used via the Symbol implicit operator, but also functions that create securities
+    should also call Set to add new mappings
+    """
+
+    @staticmethod
+    def clear() -> None:
+        """Clears the current caches"""
+        ...
+
+    @staticmethod
+    def get_symbol(ticker: str) -> QuantConnect.Symbol:
+        """
+        Gets the Symbol object that is mapped to the specified string ticker symbol
+        
+        :param ticker: The string ticker symbol
+        :returns: The symbol object that maps to the specified string ticker symbol.
+        """
+        ...
+
+    @staticmethod
+    def get_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+        """
+        Gets the string ticker symbol that is mapped to the specified Symbol
+        
+        :param symbol: The symbol object
+        :returns: The string ticker symbol that maps to the specified symbol object.
+        """
+        ...
+
+    @staticmethod
+    def set(ticker: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
+        """
+        Adds a mapping for the specified ticker
+        
+        :param ticker: The string ticker symbol
+        :param symbol: The symbol object that maps to the string ticker symbol
+        """
+        ...
+
+    @staticmethod
+    def try_get_symbol(ticker: str, symbol: typing.Optional[typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]]) -> typing.Tuple[bool, typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]]:
+        """
+        Gets the Symbol object that is mapped to the specified string ticker symbol
+        
+        :param ticker: The string ticker symbol
+        :param symbol: The output symbol object
+        :returns: The symbol object that maps to the specified string ticker symbol.
+        """
+        ...
+
+    @staticmethod
+    def try_get_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], ticker: typing.Optional[str]) -> typing.Tuple[bool, str]:
+        """
+        Gets the string ticker symbol that is mapped to the specified Symbol
+        
+        :param symbol: The symbol object
+        :param ticker: The output string ticker symbol
+        :returns: The string ticker symbol that maps to the specified symbol object.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_remove(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Removes the mapping for the specified symbol from the cache
+        
+        :param symbol: The symbol whose mappings are to be removed
+        :returns: True if the symbol mapping were removed from the cache.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_remove(ticker: str) -> bool:
+        """
+        Removes the mapping for the specified symbol from the cache
+        
+        :param ticker: The ticker whose mappings are to be removed
+        :returns: True if the symbol mapping were removed from the cache.
+        """
+        ...
+
+
+class RegressionTestException(System.Exception):
+    """Custom exception class for regression tests"""
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new instance of a RegressionTestException"""
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        """
+        Creates a new isntance of a RegressionTestException
+        
+        :param message: Message to be thrown by the exception
+        """
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        """
+        Creates a new instance of a RegressionTestException
+        
+        :param message: Message to be thrown by the exception
+        :param inner: Inner exception thrown
+        """
+        ...
+
+
+class DataDownloaderGetParameters(System.Object):
+    """Model class for passing in parameters for historical data"""
+
+    @property
+    def symbol(self) -> QuantConnect.Symbol:
+        """Symbol for the data we're looking for."""
+        ...
+
+    @symbol.setter
+    def symbol(self, value: QuantConnect.Symbol) -> None:
+        ...
+
+    @property
+    def resolution(self) -> QuantConnect.Resolution:
+        """Resolution of the data request"""
+        ...
+
+    @resolution.setter
+    def resolution(self, value: QuantConnect.Resolution) -> None:
+        ...
+
+    @property
+    def start_utc(self) -> datetime.datetime:
+        """Start time of the data in UTC"""
+        ...
+
+    @start_utc.setter
+    def start_utc(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def end_utc(self) -> datetime.datetime:
+        """End time of the data in UTC"""
+        ...
+
+    @end_utc.setter
+    def end_utc(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def tick_type(self) -> QuantConnect.TickType:
+        """The type of tick to get"""
+        ...
+
+    @tick_type.setter
+    def tick_type(self, value: QuantConnect.TickType) -> None:
+        ...
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: QuantConnect.Resolution, start_utc: typing.Union[datetime.datetime, datetime.date], end_utc: typing.Union[datetime.datetime, datetime.date], tick_type: typing.Optional[QuantConnect.TickType] = None) -> None:
+        """
+        Initialize model class for passing in parameters for historical data
+        
+        :param symbol: Symbol for the data we're looking for.
+        :param resolution: Resolution of the data request
+        :param start_utc: Start time of the data in UTC
+        :param end_utc: End time of the data in UTC
+        :param tick_type: <Optional> The type of tick to get. Defaults to QuantConnect.TickType.Trade
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string representation of the DataDownloaderGetParameters object.
+        
+        :returns: A string representing the object's properties.
+        """
+        ...
+
+
+class IDataDownloader(metaclass=abc.ABCMeta):
+    """Data Downloader Interface for pulling data from a remote source."""
+
+    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Iterable[QuantConnect.Data.BaseData]:
+        """
+        Get historical data enumerable for a single symbol, type and resolution given this start and end time (in UTC).
+        
+        :param data_downloader_get_parameters: model class for passing in parameters for historical data
+        :returns: Enumerable of base data for this symbol.
+        """
+        ...
+
+
+class TradingDay(System.Object):
+    """Class contains trading events associated with particular day in TradingCalendar"""
+
+    @property
+    def date(self) -> datetime.datetime:
+        """The date that this instance is associated with"""
+        ...
+
+    @property
+    def business_day(self) -> bool:
+        """Property returns true, if the day is a business day"""
+        ...
+
+    @property
+    def public_holiday(self) -> bool:
+        """Property returns true, if the day is a public holiday"""
+        ...
+
+    @property
+    def weekend(self) -> bool:
+        """Property returns true, if the day is a weekend"""
+        ...
+
+    @property
+    def option_expirations(self) -> typing.Iterable[QuantConnect.Symbol]:
+        """Property returns the list of options (among currently traded) that expire on this day"""
+        ...
+
+    @property
+    def future_expirations(self) -> typing.Iterable[QuantConnect.Symbol]:
+        """Property returns the list of futures (among currently traded) that expire on this day"""
+        ...
+
+    @property
+    def future_rolls(self) -> typing.Iterable[QuantConnect.Symbol]:
+        """Property returns the list of futures (among currently traded) that roll forward on this day"""
+        ...
+
+    @property
+    def symbol_delistings(self) -> typing.Iterable[QuantConnect.Symbol]:
+        """Property returns the list of symbols (among currently traded) that are delisted on this day"""
+        ...
+
+    @property
+    def equity_dividends(self) -> typing.Iterable[QuantConnect.Symbol]:
+        """Property returns the list of symbols (among currently traded) that have ex-dividend date on this day"""
+        ...
+
+
+class TradingDayType(IntEnum):
+    """Enum lists available trading events"""
+
+    BUSINESS_DAY = 0
+    """Business day (0)"""
+
+    PUBLIC_HOLIDAY = 1
+    """Public Holiday (1)"""
+
+    WEEKEND = 2
+    """Weekend (2)"""
+
+    OPTION_EXPIRATION = 3
+    """Option Expiration Date (3)"""
+
+    FUTURE_EXPIRATION = 4
+    """Futures Expiration Date (4)"""
+
+    FUTURE_ROLL = 5
+    """Futures Roll Date (5)"""
+
+    SYMBOL_DELISTING = 6
+    """Symbol Delisting Date (6)"""
+
+    EQUITY_DIVIDENDS = 7
+    """Equity Ex-dividend Date (7)"""
+
+    ECONOMIC_EVENT = 8
+    """FX Economic Event (8)"""
+
+
+class TradingCalendar(System.Object):
+    """Class represents trading calendar, populated with variety of events relevant to currently trading instruments"""
+
+    def __init__(self, security_manager: QuantConnect.Securities.SecurityManager, market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> None:
+        """
+        Initialize a new TradingCalendar instance.
+        
+        :param security_manager: SecurityManager for this calendar
+        :param market_hours_database: MarketHoursDatabase for this calendar
+        """
+        ...
+
+    def get_days_by_type(self, type: QuantConnect.TradingDayType, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.TradingDay]:
+        """
+        Method returns TradingDay of the specified type (TradingDayType) that contains trading events associated with the range of dates
+        
+        :param type: Type of the events
+        :param start: Start date of the range (inclusive)
+        :param end: End date of the range (inclusive)
+        :returns: >Populated list of TradingDay.
+        """
+        ...
+
+    @overload
+    def get_trading_day(self) -> QuantConnect.TradingDay:
+        """
+        Method returns TradingDay that contains trading events associated with today's date
+        
+        :returns: Populated instance of TradingDay.
+        """
+        ...
+
+    @overload
+    def get_trading_day(self, day: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.TradingDay:
+        """
+        Method returns TradingDay that contains trading events associated with the given date
+        
+        :returns: Populated instance of TradingDay.
+        """
+        ...
+
+    def get_trading_days(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.TradingDay]:
+        """
+        Method returns TradingDay that contains trading events associated with the range of dates
+        
+        :param start: Start date of the range (inclusive)
+        :param end: End date of the range (inclusive)
+        :returns: >Populated list of TradingDay.
+        """
+        ...
+
+
+class SymbolJsonConverter:
+    """
+    Defines a JsonConverter to be used when deserializing to
+    the Symbol class.
+    """
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determines whether this instance can convert the specified object type.
+        
+        :param object_type: Type of the object.
+        :returns: true if this instance can convert the specified object type; otherwise, false.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Reads the JSON representation of the object.
+        
+        :param reader: The Newtonsoft.Json.JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        :returns: The object value.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """
+        Writes the JSON representation of the object.
+        
+        :param writer: The Newtonsoft.Json.JsonWriter to write to.
+        :param value: The value.
+        :param serializer: The calling serializer.
+        """
+        ...
+
+
+class Country(System.Object):
+    """
+    The Country class contains all countries normalized for your convenience.
+    It maps the country name to its ISO 3166-1 alpha-3 code, see https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3
+    """
+
+    AFGHANISTAN: str = "AFG"
+    """Afghanistan"""
+
+    ALAND_ISLANDS: str = "ALA"
+    """Aland Islands"""
+
+    ALBANIA: str = "ALB"
+    """Albania"""
+
+    ALGERIA: str = "DZA"
+    """Algeria"""
+
+    AMERICAN_SAMOA: str = "ASM"
+    """American Samoa"""
+
+    ANDORRA: str = "AND"
+    """Andorra"""
+
+    ANGOLA: str = "AGO"
+    """Angola"""
+
+    ANGUILLA: str = "AIA"
+    """Anguilla"""
+
+    ANTARCTICA: str = "ATA"
+    """Antarctica"""
+
+    ANTIGUA_AND_BARBUDA: str = "ATG"
+    """Antigua and Barbuda"""
+
+    ARGENTINA: str = "ARG"
+    """Argentina"""
+
+    ARMENIA: str = "ARM"
+    """Armenia"""
+
+    ARUBA: str = "ABW"
+    """Aruba"""
+
+    AUSTRALIA: str = "AUS"
+    """Australia"""
+
+    AUSTRIA: str = "AUT"
+    """Austria"""
+
+    AZERBAIJAN: str = "AZE"
+    """Azerbaijan"""
+
+    BAHAMAS: str = "BHS"
+    """Bahamas"""
+
+    BAHRAIN: str = "BHR"
+    """Bahrain"""
+
+    BANGLADESH: str = "BGD"
+    """Bangladesh"""
+
+    BARBADOS: str = "BRB"
+    """Barbados"""
+
+    BELARUS: str = "BLR"
+    """Belarus"""
+
+    BELGIUM: str = "BEL"
+    """Belgium"""
+
+    BELIZE: str = "BLZ"
+    """Belize"""
+
+    BENIN: str = "BEN"
+    """Benin"""
+
+    BERMUDA: str = "BMU"
+    """Bermuda"""
+
+    BHUTAN: str = "BTN"
+    """Bhutan"""
+
+    BOLIVIA: str = "BOL"
+    """Bolivia"""
+
+    BONAIRE: str = "BES"
+    """Bonaire"""
+
+    BOSNIA_AND_HERZEGOVINA: str = "BIH"
+    """Bosnia and Herzegovina"""
+
+    BOTSWANA: str = "BWA"
+    """Botswana"""
+
+    BOUVET_ISLAND: str = "BVT"
+    """Bouvet Island"""
+
+    BRAZIL: str = "BRA"
+    """Brazil"""
+
+    BRITISH_INDIAN_OCEAN_TERRITORY: str = "IOT"
+    """British Indian Ocean Territory"""
+
+    BRUNEI_DARUSSALAM: str = "BRN"
+    """Brunei Darussalam"""
+
+    BULGARIA: str = "BGR"
+    """Bulgaria"""
+
+    BURKINA_FASO: str = "BFA"
+    """Burkina Faso"""
+
+    BURUNDI: str = "BDI"
+    """Burundi"""
+
+    CABO_VERDE: str = "CPV"
+    """Cabo Verde"""
+
+    CAMBODIA: str = "KHM"
+    """Cambodia"""
+
+    CAMEROON: str = "CMR"
+    """Cameroon"""
+
+    CANADA: str = "CAN"
+    """Canada"""
+
+    CAYMAN_ISLANDS: str = "CYM"
+    """Cayman Islands"""
+
+    CENTRAL_AFRICAN_REPUBLIC: str = "CAF"
+    """Central African Republic"""
+
+    CHAD: str = "TCD"
+    """Chad"""
+
+    CHILE: str = "CHL"
+    """Chile"""
+
+    CHINA: str = "CHN"
+    """China"""
+
+    CHRISTMAS_ISLAND: str = "CXR"
+    """Christmas Island"""
+
+    COCOS_KEELING_ISLANDS: str = "CCK"
+    """Cocos Keeling Islands"""
+
+    COLOMBIA: str = "COL"
+    """Colombia"""
+
+    COMOROS: str = "COM"
+    """Comoros"""
+
+    DEMOCRATIC_REPUBLIC_OF_CONGO: str = "COD"
+    """Democratic Republic of Congo"""
+
+    CONGO: str = "COG"
+    """Congo"""
+
+    COOK_ISLANDS: str = "COK"
+    """Cook Islands"""
+
+    COSTA_RICA: str = "CRI"
+    """Costa Rica"""
+
+    IVORY_COAST: str = "CIV"
+    """Ivory Coast"""
+
+    CROATIA: str = "HRV"
+    """Croatia"""
+
+    CUBA: str = "CUB"
+    """Cuba"""
+
+    CURAÇAO: str = "CUW"
+    """Curaçao"""
+
+    CYPRUS: str = "CYP"
+    """Cyprus"""
+
+    CZECHIA: str = "CZE"
+    """Czechia"""
+
+    DENMARK: str = "DNK"
+    """Denmark"""
+
+    DJIBOUTI: str = "DJI"
+    """Djibouti"""
+
+    DOMINICA: str = "DMA"
+    """Dominica"""
+
+    DOMINICAN_REPUBLIC: str = "DOM"
+    """Dominican Republic"""
+
+    ECUADOR: str = "ECU"
+    """Ecuador"""
+
+    EGYPT: str = "EGY"
+    """Egypt"""
+
+    EL_SALVADOR: str = "SLV"
+    """El Salvador"""
+
+    EQUATORIAL_GUINEA: str = "GNQ"
+    """Equatorial Guinea"""
+
+    ERITREA: str = "ERI"
+    """Eritrea"""
+
+    ESTONIA: str = "EST"
+    """Estonia"""
+
+    ESWATINI: str = "SWZ"
+    """Eswatini"""
+
+    ETHIOPIA: str = "ETH"
+    """Ethiopia"""
+
+    FALKLAND_ISLANDS: str = "FLK"
+    """Falkland Islands"""
+
+    FAROE_ISLANDS: str = "FRO"
+    """Faroe Islands"""
+
+    FIJI: str = "FJI"
+    """Fiji"""
+
+    FINLAND: str = "FIN"
+    """Finland"""
+
+    FRANCE: str = "FRA"
+    """France"""
+
+    FRENCH_GUIANA: str = "GUF"
+    """French Guiana"""
+
+    FRENCH_POLYNESIA: str = "PYF"
+    """French Polynesia"""
+
+    FRENCH_SOUTHERN_TERRITORIES: str = "ATF"
+    """French Southern Territories"""
+
+    GABON: str = "GAB"
+    """Gabon"""
+
+    GAMBIA: str = "GMB"
+    """Gambia"""
+
+    GEORGIA: str = "GEO"
+    """Georgia"""
+
+    GERMANY: str = "DEU"
+    """Germany"""
+
+    GHANA: str = "GHA"
+    """Ghana"""
+
+    GIBRALTAR: str = "GIB"
+    """Gibraltar"""
+
+    GREECE: str = "GRC"
+    """Greece"""
+
+    GREENLAND: str = "GRL"
+    """Greenland"""
+
+    GRENADA: str = "GRD"
+    """Grenada"""
+
+    GUADELOUPE: str = "GLP"
+    """Guadeloupe"""
+
+    GUAM: str = "GUM"
+    """Guam"""
+
+    GUATEMALA: str = "GTM"
+    """Guatemala"""
+
+    GUERNSEY: str = "GGY"
+    """Guernsey"""
+
+    GUINEA: str = "GIN"
+    """Guinea"""
+
+    GUINEA_BISSAU: str = "GNB"
+    """Guinea-Bissau"""
+
+    GUYANA: str = "GUY"
+    """Guyana"""
+
+    HAITI: str = "HTI"
+    """Haiti"""
+
+    HEARD_ISLAND_AND_MCDONALD_ISLANDS: str = "HMD"
+    """Heard Island and McDonald Islands"""
+
+    HOLY_SEE: str = "VAT"
+    """Holy See"""
+
+    HONDURAS: str = "HND"
+    """Honduras"""
+
+    HONG_KONG: str = "HKG"
+    """Hong Kong"""
+
+    HUNGARY: str = "HUN"
+    """Hungary"""
+
+    ICELAND: str = "ISL"
+    """Iceland"""
+
+    INDIA: str = "IND"
+    """India"""
+
+    INDONESIA: str = "IDN"
+    """Indonesia"""
+
+    IRAN: str = "IRN"
+    """Iran"""
+
+    IRAQ: str = "IRQ"
+    """Iraq"""
+
+    IRELAND: str = "IRL"
+    """Ireland"""
+
+    ISLE_OF_MAN: str = "IMN"
+    """Isle of Man"""
+
+    ISRAEL: str = "ISR"
+    """Israel"""
+
+    ITALY: str = "ITA"
+    """Italy"""
+
+    JAMAICA: str = "JAM"
+    """Jamaica"""
+
+    JAPAN: str = "JPN"
+    """Japan"""
+
+    JERSEY: str = "JEY"
+    """Jersey"""
+
+    JORDAN: str = "JOR"
+    """Jordan"""
+
+    KAZAKHSTAN: str = "KAZ"
+    """Kazakhstan"""
+
+    KENYA: str = "KEN"
+    """Kenya"""
+
+    KIRIBATI: str = "KIR"
+    """Kiribati"""
+
+    NORTH_KOREA: str = "PRK"
+    """North Korea"""
+
+    KOREA: str = "KOR"
+    """Korea"""
+
+    KUWAIT: str = "KWT"
+    """Kuwait"""
+
+    KYRGYZSTAN: str = "KGZ"
+    """Kyrgyzstan"""
+
+    LAOS: str = "LAO"
+    """Laos"""
+
+    LATVIA: str = "LVA"
+    """Latvia"""
+
+    LEBANON: str = "LBN"
+    """Lebanon"""
+
+    LESOTHO: str = "LSO"
+    """Lesotho"""
+
+    LIBERIA: str = "LBR"
+    """Liberia"""
+
+    LIBYA: str = "LBY"
+    """Libya"""
+
+    LIECHTENSTEIN: str = "LIE"
+    """Liechtenstein"""
+
+    LITHUANIA: str = "LTU"
+    """Lithuania"""
+
+    LUXEMBOURG: str = "LUX"
+    """Luxembourg"""
+
+    MACAO: str = "MAC"
+    """Macao"""
+
+    MADAGASCAR: str = "MDG"
+    """Madagascar"""
+
+    MALAWI: str = "MWI"
+    """Malawi"""
+
+    MALAYSIA: str = "MYS"
+    """Malaysia"""
+
+    MALDIVES: str = "MDV"
+    """Maldives"""
+
+    MALI: str = "MLI"
+    """Mali"""
+
+    MALTA: str = "MLT"
+    """Malta"""
+
+    MARSHALL_ISLANDS: str = "MHL"
+    """Marshall Islands"""
+
+    MARTINIQUE: str = "MTQ"
+    """Martinique"""
+
+    MAURITANIA: str = "MRT"
+    """Mauritania"""
+
+    MAURITIUS: str = "MUS"
+    """Mauritius"""
+
+    MAYOTTE: str = "MYT"
+    """Mayotte"""
+
+    MEXICO: str = "MEX"
+    """Mexico"""
+
+    MICRONESIA: str = "FSM"
+    """Micronesia"""
+
+    MOLDOVA: str = "MDA"
+    """Moldova"""
+
+    MONACO: str = "MCO"
+    """Monaco"""
+
+    MONGOLIA: str = "MNG"
+    """Mongolia"""
+
+    MONTENEGRO: str = "MNE"
+    """Montenegro"""
+
+    MONTSERRAT: str = "MSR"
+    """Montserrat"""
+
+    MOROCCO: str = "MAR"
+    """Morocco"""
+
+    MOZAMBIQUE: str = "MOZ"
+    """Mozambique"""
+
+    MYANMAR: str = "MMR"
+    """Myanmar"""
+
+    NAMIBIA: str = "NAM"
+    """Namibia"""
+
+    NAURU: str = "NRU"
+    """Nauru"""
+
+    NEPAL: str = "NPL"
+    """Nepal"""
+
+    NETHERLANDS: str = "NLD"
+    """Netherlands"""
+
+    NEW_CALEDONIA: str = "NCL"
+    """New Caledonia"""
+
+    NEW_ZEALAND: str = "NZL"
+    """New Zealand"""
+
+    NICARAGUA: str = "NIC"
+    """Nicaragua"""
+
+    NIGER: str = "NER"
+    """Niger"""
+
+    NIGERIA: str = "NGA"
+    """Nigeria"""
+
+    NIUE: str = "NIU"
+    """Niue"""
+
+    NORFOLK_ISLAND: str = "NFK"
+    """Norfolk Island"""
+
+    NORTH_MACEDONIA: str = "MKD"
+    """North Macedonia"""
+
+    NORTHERN_MARIANA_ISLANDS: str = "MNP"
+    """Northern Mariana Islands"""
+
+    NORWAY: str = "NOR"
+    """Norway"""
+
+    OMAN: str = "OMN"
+    """Oman"""
+
+    PAKISTAN: str = "PAK"
+    """Pakistan"""
+
+    PALAU: str = "PLW"
+    """Palau"""
+
+    PALESTINE: str = "PSE"
+    """Palestine"""
+
+    PANAMA: str = "PAN"
+    """Panama"""
+
+    PAPUA_NEW_GUINEA: str = "PNG"
+    """Papua New Guinea"""
+
+    PARAGUAY: str = "PRY"
+    """Paraguay"""
+
+    PERU: str = "PER"
+    """Peru"""
+
+    PHILIPPINES: str = "PHL"
+    """Philippines"""
+
+    PITCAIRN: str = "PCN"
+    """Pitcairn"""
+
+    POLAND: str = "POL"
+    """Poland"""
+
+    PORTUGAL: str = "PRT"
+    """Portugal"""
+
+    PUERTO_RICO: str = "PRI"
+    """Puerto Rico"""
+
+    QATAR: str = "QAT"
+    """Qatar"""
+
+    REUNION: str = "REU"
+    """Reunion"""
+
+    ROMANIA: str = "ROU"
+    """Romania"""
+
+    RUSSIA: str = "RUS"
+    """Russia"""
+
+    RWANDA: str = "RWA"
+    """Rwanda"""
+
+    SAINT_BARTHÉLEMY: str = "BLM"
+    """Saint Barthélemy"""
+
+    SAINT_HELENA: str = "SHN"
+    """Saint Helena"""
+
+    SAINT_KITTS_AND_NEVIS: str = "KNA"
+    """Saint Kitts and Nevis"""
+
+    SAINT_LUCIA: str = "LCA"
+    """Saint Lucia"""
+
+    SAINT_MARTIN_FRENCH_PART: str = "MAF"
+    """Saint Martin French part"""
+
+    SAINT_PIERRE_AND_MIQUELON: str = "SPM"
+    """Saint Pierre and Miquelon"""
+
+    SAINT_VINCENT_AND_THE_GRENADINES: str = "VCT"
+    """Saint Vincent and the Grenadines"""
+
+    SAMOA: str = "WSM"
+    """Samoa"""
+
+    SAN_MARINO: str = "SMR"
+    """San Marino"""
+
+    SAO_TOME_AND_PRINCIPE: str = "STP"
+    """Sao Tome and Principe"""
+
+    SAUDI_ARABIA: str = "SAU"
+    """Saudi Arabia"""
+
+    SENEGAL: str = "SEN"
+    """Senegal"""
+
+    SERBIA: str = "SRB"
+    """Serbia"""
+
+    SEYCHELLES: str = "SYC"
+    """Seychelles"""
+
+    SIERRA_LEONE: str = "SLE"
+    """Sierra Leone"""
+
+    SINGAPORE: str = "SGP"
+    """Singapore"""
+
+    SINT_MAARTEN_DUTCH_PART: str = "SXM"
+    """Sint Maarten Dutch part"""
+
+    SLOVAKIA: str = "SVK"
+    """Slovakia"""
+
+    SLOVENIA: str = "SVN"
+    """Slovenia"""
+
+    SOLOMON_ISLANDS: str = "SLB"
+    """Solomon Islands"""
+
+    SOMALIA: str = "SOM"
+    """Somalia"""
+
+    SOUTH_AFRICA: str = "ZAF"
+    """South Africa"""
+
+    SOUTH_GEORGIA_AND_THE_SOUTH_SANDWICH_ISLANDS: str = "SGS"
+    """South Georgia and the South Sandwich Islands"""
+
+    SOUTH_SUDAN: str = "SSD"
+    """South Sudan"""
+
+    SPAIN: str = "ESP"
+    """Spain"""
+
+    SRI_LANKA: str = "LKA"
+    """Sri Lanka"""
+
+    SUDAN: str = "SDN"
+    """Sudan"""
+
+    SURINAME: str = "SUR"
+    """Suriname"""
+
+    SVALBARD: str = "SJM"
+    """Svalbard"""
+
+    SWEDEN: str = "SWE"
+    """Sweden"""
+
+    SWITZERLAND: str = "CHE"
+    """Switzerland"""
+
+    SYRIA: str = "SYR"
+    """Syria"""
+
+    TAIWAN: str = "TWN"
+    """Taiwan"""
+
+    TAJIKISTAN: str = "TJK"
+    """Tajikistan"""
+
+    TANZANIA: str = "TZA"
+    """Tanzania"""
+
+    THAILAND: str = "THA"
+    """Thailand"""
+
+    TIMOR_LESTE: str = "TLS"
+    """Timor-Leste"""
+
+    TOGO: str = "TGO"
+    """Togo"""
+
+    TOKELAU: str = "TKL"
+    """Tokelau"""
+
+    TONGA: str = "TON"
+    """Tonga"""
+
+    TRINIDAD_AND_TOBAGO: str = "TTO"
+    """Trinidad and Tobago"""
+
+    TUNISIA: str = "TUN"
+    """Tunisia"""
+
+    TURKEY: str = "TUR"
+    """Turkey"""
+
+    TURKMENISTAN: str = "TKM"
+    """Turkmenistan"""
+
+    TURKS_AND_CAICOS_ISLANDS: str = "TCA"
+    """Turks and Caicos Islands"""
+
+    TUVALU: str = "TUV"
+    """Tuvalu"""
+
+    UGANDA: str = "UGA"
+    """Uganda"""
+
+    UKRAINE: str = "UKR"
+    """Ukraine"""
+
+    UNITED_ARAB_EMIRATES: str = "ARE"
+    """United Arab Emirates"""
+
+    UNITED_KINGDOM: str = "GBR"
+    """United Kingdom"""
+
+    UNITED_STATES_MINOR_OUTLYING_ISLANDS: str = "UMI"
+    """United States Minor Outlying Islands"""
+
+    UNITED_STATES: str = "USA"
+    """United States"""
+
+    EUROPEAN_UNION: str = "EUR"
+    """European Union"""
+
+    URUGUAY: str = "URY"
+    """Uruguay"""
+
+    UZBEKISTAN: str = "UZB"
+    """Uzbekistan"""
+
+    VANUATU: str = "VUT"
+    """Vanuatu"""
+
+    VENEZUELA: str = "VEN"
+    """Venezuela"""
+
+    VIETNAM: str = "VNM"
+    """Vietnam"""
+
+    VIRGIN_ISLANDS_BRITISH: str = "VGB"
+    """Virgin Islands British"""
+
+    VIRGIN_ISLANDS_US: str = "VIR"
+    """Virgin Islands US"""
+
+    WALLIS_AND_FUTUNA: str = "WLF"
+    """Wallis and Futuna"""
+
+    WESTERN_SAHARA: str = "ESH"
+    """Western Sahara"""
+
+    YEMEN: str = "YEM"
+    """Yemen"""
+
+    ZAMBIA: str = "ZMB"
+    """Zambia"""
+
+    ZIMBABWE: str = "ZWE"
+    """Zimbabwe"""
+
+
+class ScatterChartPoint(QuantConnect.ChartPoint):
+    """A chart point for a scatter series plot"""
+
+    @property
+    def tooltip(self) -> str:
+        """A summary of this point for the tooltip"""
+        ...
+
+    @tooltip.setter
+    def tooltip(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time: int, value: typing.Optional[float], tooltip: str = None) -> None:
+        """Creates a new instance at the specified time and value"""
+        ...
+
+    @overload
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], value: typing.Optional[float], tooltip: str = None) -> None:
+        """Creates a new instance at the specified time and value"""
+        ...
+
+    def clone(self) -> QuantConnect.ISeriesPoint:
+        """
+        Clones this instance
+        
+        :returns: Clone of this instance.
+        """
+        ...
+
+
+class SecurityIdentifier(System.Object, System.IEquatable[QuantConnect_SecurityIdentifier], System.IComparable[QuantConnect_SecurityIdentifier]):
+    """Defines a unique identifier for securities"""
+
+    EMPTY: QuantConnect.SecurityIdentifier = ...
+    """Gets an instance of SecurityIdentifier that is empty, that is, one with no symbol specified"""
+
+    NONE: QuantConnect.SecurityIdentifier = ...
+    """Gets an instance of SecurityIdentifier that is explicitly no symbol"""
+
+    DEFAULT_DATE: datetime.datetime = ...
+    """Gets the date to be used when it does not apply."""
+
+    INVALID_SYMBOL_CHARACTERS: System.Collections.Generic.HashSet[str] = ...
+    """Gets the set of invalids symbol characters"""
+
+    @property
+    def has_underlying(self) -> bool:
+        """
+        Gets whether or not this SecurityIdentifier is a derivative,
+        that is, it has a valid underlying property
+        """
+        ...
+
+    @property
+    def underlying(self) -> QuantConnect.SecurityIdentifier:
+        """
+        Gets the underlying security identifier for this security identifier. When there is
+        no underlying, this property will return a value of EMPTY.
+        """
+        ...
+
+    @property
+    def date(self) -> datetime.datetime:
+        """
+        Gets the date component of this identifier. For equities this
+        is the first date the security traded. Technically speaking,
+        in LEAN, this is the first date mentioned in the map_files.
+        For futures and options this is the expiry date of the contract.
+        For other asset classes, this property will throw an
+        exception as the field is not specified.
+        """
+        ...
+
+    @property
+    def symbol(self) -> str:
+        """
+        Gets the original symbol used to generate this security identifier.
+        For equities, by convention this is the first ticker symbol for which
+        the security traded
+        """
+        ...
+
+    @property
+    def market(self) -> str:
+        """
+        Gets the market component of this security identifier. If located in the
+        internal mappings, the full string is returned. If the value is unknown,
+        the integer value is returned as a string.
+        """
+        ...
+
+    @property
+    def security_type(self) -> QuantConnect.SecurityType:
+        """Gets the security type component of this security identifier."""
+        ...
+
+    @property
+    def strike_price(self) -> float:
+        """
+        Gets the option strike price. This only applies if SecurityType is Option,
+        IndexOption or FutureOption and will thrown anexception if accessed otherwise.
+        """
+        ...
+
+    @property
+    def option_right(self) -> QuantConnect.OptionRight:
+        """
+        Gets the option type component of this security identifier. This
+        only applies if SecurityType is Option, IndexOption or FutureOption
+        and will throw an exception if accessed otherwise.
+        """
+        ...
+
+    @property
+    def option_style(self) -> QuantConnect.OptionStyle:
+        """
+        Gets the option style component of this security identifier. This
+        only applies if SecurityType is Option, IndexOption or FutureOption
+        and will throw an exception if accessed otherwise.
+        """
+        ...
+
+    def __eq__(self, right: QuantConnect.SecurityIdentifier) -> bool:
+        """Override equals operator"""
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: QuantConnect.SecurityIdentifier) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: QuantConnect.SecurityIdentifier) -> bool:
+        ...
+
+    @overload
+    def __init__(self, symbol: str, properties: int) -> None:
+        """
+        Initializes a new instance of the SecurityIdentifier class
+        
+        :param symbol: The base36 string encoded as a long using alpha <0-9A-Z>
+        :param properties: Other data defining properties of the symbol including market,
+        security type, listing or expiry date, strike/call/put/style for options, ect...
+        """
+        ...
+
+    @overload
+    def __init__(self, symbol: str, properties: int, underlying: QuantConnect.SecurityIdentifier) -> None:
+        """
+        Initializes a new instance of the SecurityIdentifier class
+        
+        :param symbol: The base36 string encoded as a long using alpha <0-9A-Z>
+        :param properties: Other data defining properties of the symbol including market,
+        security type, listing or expiry date, strike/call/put/style for options, ect...
+        :param underlying: Specifies a SecurityIdentifier that represents the underlying security
+        """
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: QuantConnect.SecurityIdentifier) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: QuantConnect.SecurityIdentifier) -> bool:
+        ...
+
+    def __ne__(self, right: QuantConnect.SecurityIdentifier) -> bool:
+        """Override not equals operator"""
+        ...
+
+    @overload
+    def compare_to(self, obj: typing.Any) -> int:
+        """
+        Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
+        
+        :param obj: An object to compare with this instance.
+        :returns: A value that indicates the relative order of the objects being compared. The return value has these meanings: Value Meaning Less than zero This instance precedes obj in the sort order. Zero This instance occurs in the same position in the sort order as obj. Greater than zero This instance follows obj in the sort order.
+        """
+        ...
+
+    @overload
+    def compare_to(self, other: QuantConnect.SecurityIdentifier) -> int:
+        """
+        Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
+        
+        :param other: An object to compare with this instance.
+        :returns: A value that indicates the relative order of the objects being compared. The return value has these meanings: Value Meaning Less than zero This instance precedes other in the sort order.  Zero This instance occurs in the same position in the sort order as other. Greater than zero This instance follows other in the sort order.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified System.Object is equal to the current System.Object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, other: QuantConnect.SecurityIdentifier) -> bool:
+        """
+        Indicates whether the current object is equal to another object of the same type.
+        
+        :param other: An object to compare with this object.
+        :returns: true if the current object is equal to the other parameter; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def generate_base(data_type: typing.Type, symbol: str, market: str, map_symbol: bool = False, date: typing.Optional[datetime.datetime] = None) -> QuantConnect.SecurityIdentifier:
+        """
+        Generates a new SecurityIdentifier for a custom security with the option of providing the first date
+        
+        :param data_type: The custom data type
+        :param symbol: The ticker symbol of this security
+        :param market: The security's market
+        :param map_symbol: Whether or not we should map this symbol
+        :param date: First date that the security traded on
+        :returns: A new SecurityIdentifier representing the specified base security.
+        """
+        ...
+
+    @staticmethod
+    def generate_base_symbol(data_type: typing.Type, symbol: str) -> str:
+        """
+        Generates the symbol property for QuantConnect.SecurityType.Base security identifiers
+        
+        :param data_type: The base data custom data type if namespacing is required, null otherwise
+        :param symbol: The ticker symbol
+        :returns: The value used for the security identifier's symbol.
+        """
+        ...
+
+    @staticmethod
+    def generate_cfd(symbol: str, market: str) -> QuantConnect.SecurityIdentifier:
+        """
+        Generates a new SecurityIdentifier for a CFD security
+        
+        :param symbol: The CFD contract symbol
+        :param market: The security's market
+        :returns: A new SecurityIdentifier representing the specified CFD security.
+        """
+        ...
+
+    @staticmethod
+    def generate_constituent_identifier(symbol: str, security_type: QuantConnect.SecurityType, market: str) -> QuantConnect.SecurityIdentifier:
+        """
+        Generates a new SecurityIdentifier for a ConstituentsUniverseData.
+        Note that the symbol ticker is case sensitive here.
+        
+        :param symbol: The ticker to use for this constituent identifier
+        :param security_type: The security type of this constituent universe
+        :param market: The security's market
+        :returns: A new SecurityIdentifier representing the specified constituent universe.
+        """
+        ...
+
+    @staticmethod
+    def generate_crypto(symbol: str, market: str) -> QuantConnect.SecurityIdentifier:
+        """
+        Generates a new SecurityIdentifier for a Crypto pair
+        
+        :param symbol: The currency pair in the format similar to: 'EURUSD'
+        :param market: The security's market
+        :returns: A new SecurityIdentifier representing the specified Crypto pair.
+        """
+        ...
+
+    @staticmethod
+    def generate_crypto_future(expiry: typing.Union[datetime.datetime, datetime.date], symbol: str, market: str) -> QuantConnect.SecurityIdentifier:
+        """
+        Generates a new SecurityIdentifier for a CryptoFuture pair
+        
+        :param expiry: The date the future expires
+        :param symbol: The currency pair in the format similar to: 'EURUSD'
+        :param market: The security's market
+        :returns: A new SecurityIdentifier representing the specified CryptoFuture pair.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def generate_equity(symbol: str, market: str, map_symbol: bool = True, map_file_provider: QuantConnect.Interfaces.IMapFileProvider = None, mapping_resolve_date: typing.Optional[datetime.datetime] = None) -> QuantConnect.SecurityIdentifier:
+        """
+        Helper overload that will search the mapfiles to resolve the first date. This implementation
+        uses the configured IMapFileProvider via the Composer.INSTANCE
+        
+        :param symbol: The symbol as it is known today
+        :param market: The market
+        :param map_symbol: Specifies if symbol should be mapped using map file provider
+        :param map_file_provider: Specifies the IMapFileProvider to use for resolving symbols, specify null to load from Composer
+        :param mapping_resolve_date: The date to use to resolve the map file. Default value is DateTime.Today
+        :returns: A new SecurityIdentifier representing the specified symbol today.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def generate_equity(date: typing.Union[datetime.datetime, datetime.date], symbol: str, market: str) -> QuantConnect.SecurityIdentifier:
+        """
+        Generates a new SecurityIdentifier for an equity
+        
+        :param date: The first date this security traded (in LEAN this is the first date in the map_file
+        :param symbol: The ticker symbol this security traded under on the date
+        :param market: The security's market
+        :returns: A new SecurityIdentifier representing the specified equity security.
+        """
+        ...
+
+    @staticmethod
+    def generate_forex(symbol: str, market: str) -> QuantConnect.SecurityIdentifier:
+        """
+        Generates a new SecurityIdentifier for a forex pair
+        
+        :param symbol: The currency pair in the format similar to: 'EURUSD'
+        :param market: The security's market
+        :returns: A new SecurityIdentifier representing the specified forex pair.
+        """
+        ...
+
+    @staticmethod
+    def generate_future(expiry: typing.Union[datetime.datetime, datetime.date], symbol: str, market: str) -> QuantConnect.SecurityIdentifier:
+        """
+        Generates a new SecurityIdentifier for a future
+        
+        :param expiry: The date the future expires
+        :param symbol: The security's symbol
+        :param market: The market
+        :returns: A new SecurityIdentifier representing the specified futures security.
+        """
+        ...
+
+    @staticmethod
+    def generate_index(symbol: str, market: str) -> QuantConnect.SecurityIdentifier:
+        """
+        Generates a new SecurityIdentifier for a INDEX security
+        
+        :param symbol: The Index contract symbol
+        :param market: The security's market
+        :returns: A new SecurityIdentifier representing the specified INDEX security.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def generate_option(expiry: typing.Union[datetime.datetime, datetime.date], underlying: QuantConnect.SecurityIdentifier, market: str, strike: float, option_right: QuantConnect.OptionRight, option_style: QuantConnect.OptionStyle) -> QuantConnect.SecurityIdentifier:
+        """
+        Generates a new SecurityIdentifier for an option
+        
+        :param expiry: The date the option expires
+        :param underlying: The underlying security's symbol
+        :param market: The market
+        :param strike: The strike price
+        :param option_right: The option type, call or put
+        :param option_style: The option style, American or European
+        :returns: A new SecurityIdentifier representing the specified option security.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def generate_option(expiry: typing.Union[datetime.datetime, datetime.date], underlying: QuantConnect.SecurityIdentifier, target_option: str, market: str, strike: float, option_right: QuantConnect.OptionRight, option_style: QuantConnect.OptionStyle) -> QuantConnect.SecurityIdentifier:
+        """
+        Generates a new SecurityIdentifier for an option
+        
+        :param expiry: The date the option expires
+        :param underlying: The underlying security's symbol
+        :param target_option: The target option ticker. This is useful when the option ticker does not match the underlying, e.g. SPX index and the SPXW weekly option. If null is provided will use underlying
+        :param market: The market
+        :param strike: The strike price
+        :param option_right: The option type, call or put
+        :param option_style: The option style, American or European
+        :returns: A new SecurityIdentifier representing the specified option security.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Serves as a hash function for a particular type.
+        
+        :returns: A hash code for the current System.Object.
+        """
+        ...
+
+    @staticmethod
+    def parse(value: str) -> QuantConnect.SecurityIdentifier:
+        """
+        Parses the specified string into a SecurityIdentifier
+        The string must be a 40 digit number. The first 20 digits must be parseable
+        to a 64 bit unsigned integer and contain ancillary data about the security.
+        The second 20 digits must also be parseable as a 64 bit unsigned integer and
+        contain the symbol encoded from base36, this provides for 12 alpha numeric case
+        insensitive characters.
+        
+        :param value: The string value to be parsed
+        :returns: A new SecurityIdentifier instance if the value is able to be parsed.
+        """
+        ...
+
+    @staticmethod
+    def ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], date: typing.Union[datetime.datetime, datetime.date]) -> str:
+        """
+        For the given symbol will resolve the ticker it used at the requested date
+        
+        :param symbol: The symbol to get the ticker for
+        :param date: The date to map the symbol to
+        :returns: The ticker for a date and symbol.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+    @staticmethod
+    def try_get_custom_data_type(symbol: str, type: typing.Optional[str]) -> typing.Tuple[bool, str]:
+        """Tries to fetch the custom data type associated with a symbol"""
+        ...
+
+    @staticmethod
+    def try_get_custom_data_type_instance(symbol: str, type: typing.Optional[typing.Type]) -> typing.Tuple[bool, typing.Type]:
+        """Tries to fetch the custom data type associated with a symbol"""
+        ...
+
+    @staticmethod
+    def try_parse(value: str, identifier: typing.Optional[QuantConnect.SecurityIdentifier]) -> typing.Tuple[bool, QuantConnect.SecurityIdentifier]:
+        """
+        Attempts to parse the specified value as a SecurityIdentifier.
+        
+        :param value: The string value to be parsed
+        :param identifier: The result of parsing, when this function returns true, identifier
+        was properly created and reflects the input string, when this function returns false identifier
+        will equal default(SecurityIdentifier)
+        :returns: True on success, otherwise false.
+        """
+        ...
+
+
+class SymbolValueJsonConverter:
+    """
+    Defines a JsonConverter to be used when you only want to serialize
+    the Symbol.value property instead of the full Symbol
+    instance
+    """
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determines whether this instance can convert the specified object type.
+        
+        :param object_type: Type of the object.
+        :returns: true if this instance can convert the specified object type; otherwise, false.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Reads the JSON representation of the object.
+        
+        :param reader: The Newtonsoft.Json.JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        :returns: The object value.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """
+        Writes the JSON representation of the object.
+        
+        :param writer: The Newtonsoft.Json.JsonWriter to write to.
+        :param value: The value.
+        :param serializer: The calling serializer.
+        """
+        ...
+
+
+class AlgorithmSettings(System.Object, QuantConnect.Interfaces.IAlgorithmSettings):
+    """This class includes user settings for the algorithm which can be changed in the IAlgorithm.initialize method"""
+
+    @property
+    def automatic_indicator_warm_up(self) -> bool:
+        """Gets whether or not WarmUpIndicator is allowed to warm up indicators"""
+        ...
+
+    @automatic_indicator_warm_up.setter
+    def automatic_indicator_warm_up(self, value: bool) -> None:
+        ...
+
+    @property
+    def rebalance_portfolio_on_security_changes(self) -> typing.Optional[bool]:
+        """True if should rebalance portfolio on security changes. True by default"""
+        ...
+
+    @rebalance_portfolio_on_security_changes.setter
+    def rebalance_portfolio_on_security_changes(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def rebalance_portfolio_on_insight_changes(self) -> typing.Optional[bool]:
+        """True if should rebalance portfolio on new insights or expiration of insights. True by default"""
+        ...
+
+    @rebalance_portfolio_on_insight_changes.setter
+    def rebalance_portfolio_on_insight_changes(self, value: typing.Optional[bool]) -> None:
+        ...
+
+    @property
+    def max_absolute_portfolio_target_percentage(self) -> float:
+        """The absolute maximum valid total portfolio value target percentage"""
+        ...
+
+    @max_absolute_portfolio_target_percentage.setter
+    def max_absolute_portfolio_target_percentage(self, value: float) -> None:
+        ...
+
+    @property
+    def min_absolute_portfolio_target_percentage(self) -> float:
+        """The absolute minimum valid total portfolio value target percentage"""
+        ...
+
+    @min_absolute_portfolio_target_percentage.setter
+    def min_absolute_portfolio_target_percentage(self, value: float) -> None:
+        ...
+
+    @property
+    def minimum_order_margin_portfolio_percentage(self) -> float:
+        """Configurable minimum order margin portfolio percentage to ignore bad orders, orders with unrealistic small sizes"""
+        ...
+
+    @minimum_order_margin_portfolio_percentage.setter
+    def minimum_order_margin_portfolio_percentage(self, value: float) -> None:
+        ...
+
+    @property
+    def data_subscription_limit(self) -> int:
+        """
+        Gets/sets the maximum number of concurrent market data subscriptions available
+        
+        
+        This property is deprecated. Please observe data subscription limits set by your brokerage to avoid runtime errors.
+        """
+        warnings.warn("This property is deprecated. Please observe data subscription limits set by your brokerage to avoid runtime errors.", DeprecationWarning)
+
+    @data_subscription_limit.setter
+    def data_subscription_limit(self, value: int) -> None:
+        warnings.warn("This property is deprecated. Please observe data subscription limits set by your brokerage to avoid runtime errors.", DeprecationWarning)
+
+    @property
+    def free_portfolio_value(self) -> typing.Optional[float]:
+        """
+        Gets/sets the SetHoldings buffers value.
+        The buffer is used for orders not to be rejected due to volatility when using SetHoldings and CalculateOrderQuantity
+        """
+        ...
+
+    @free_portfolio_value.setter
+    def free_portfolio_value(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def free_portfolio_value_percentage(self) -> float:
+        """
+        Gets/sets the SetHoldings buffers value percentage.
+        This percentage will be used to set the free_portfolio_value
+        based on the SecurityPortfolioManager.total_portfolio_value
+        """
+        ...
+
+    @free_portfolio_value_percentage.setter
+    def free_portfolio_value_percentage(self, value: float) -> None:
+        ...
+
+    @property
+    def liquidate_enabled(self) -> bool:
+        """Gets/sets if Liquidate() is enabled"""
+        ...
+
+    @liquidate_enabled.setter
+    def liquidate_enabled(self, value: bool) -> None:
+        ...
+
+    @property
+    def stale_price_time_span(self) -> datetime.timedelta:
+        """Gets/sets the minimum time span elapsed to consider a market fill price as stale (defaults to one hour)"""
+        ...
+
+    @stale_price_time_span.setter
+    def stale_price_time_span(self, value: datetime.timedelta) -> None:
+        ...
+
+    @property
+    def warmup_resolution(self) -> typing.Optional[QuantConnect.Resolution]:
+        """The warmup resolution to use if any"""
+        ...
+
+    @warmup_resolution.setter
+    def warmup_resolution(self, value: typing.Optional[QuantConnect.Resolution]) -> None:
+        ...
+
+    @property
+    def warm_up_resolution(self) -> typing.Optional[QuantConnect.Resolution]:
+        """The warmup resolution to use if any"""
+        ...
+
+    @warm_up_resolution.setter
+    def warm_up_resolution(self, value: typing.Optional[QuantConnect.Resolution]) -> None:
+        ...
+
+    @property
+    def trading_days_per_year(self) -> typing.Optional[int]:
+        """Number of trading days per year for this Algorithm's portfolio statistics."""
+        ...
+
+    @trading_days_per_year.setter
+    def trading_days_per_year(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def daily_precise_end_time(self) -> bool:
+        """True if daily strict end times are enabled"""
+        ...
+
+    @daily_precise_end_time.setter
+    def daily_precise_end_time(self, value: bool) -> None:
+        ...
+
+    @property
+    def daily_consolidation_use_extended_market_hours(self) -> bool:
+        """True if extended market hours should be used for daily consolidation, when extended market hours is enabled"""
+        ...
+
+    @daily_consolidation_use_extended_market_hours.setter
+    def daily_consolidation_use_extended_market_hours(self, value: bool) -> None:
+        ...
+
+    @property
+    def databases_refresh_period(self) -> datetime.timedelta:
+        """Gets the time span used to refresh the market hours and symbol properties databases"""
+        ...
+
+    @databases_refresh_period.setter
+    def databases_refresh_period(self, value: datetime.timedelta) -> None:
+        ...
+
+    @property
+    def ignore_unknown_asset_holdings(self) -> bool:
+        """
+        Determines whether to terminate the algorithm when an asset holding is not supported by Lean or the brokerage.
+        Defaults to true, meaning that the algorithm will not be terminated if an asset holding is not supported.
+        """
+        ...
+
+    @ignore_unknown_asset_holdings.setter
+    def ignore_unknown_asset_holdings(self, value: bool) -> None:
+        ...
+
+    @property
+    def performance_sample_period(self) -> datetime.timedelta:
+        """Performance tracking sample period to use if any, useful to debug performance issues"""
+        ...
+
+    @performance_sample_period.setter
+    def performance_sample_period(self, value: datetime.timedelta) -> None:
+        ...
+
+    @property
+    def seed_initial_prices(self) -> bool:
+        """Determines whether to seed initial prices for all selected and manually added securities."""
+        ...
+
+    @seed_initial_prices.setter
+    def seed_initial_prices(self, value: bool) -> None:
+        ...
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the AlgorithmSettings class"""
+        ...
+
+
+class OS(System.Object):
+    """Operating systems class for managing anything that is operation system specific."""
+
+    IS_LINUX: bool
+    """Global Flag :: Operating System"""
+
+    IS_WINDOWS: bool
+    """Global Flag :: Operating System"""
+
+    PATH_SEPARATION: str
+    """Character Separating directories in this OS:"""
+
+    DRIVE_SPACE_REMAINING: int
+    """Get the drive space remaining on windows and linux in MB"""
+
+    DRIVE_SPACE_USED: int
+    """Get the drive space remaining on windows and linux in MB"""
+
+    DRIVE_TOTAL_SPACE: int
+    """Total space on the drive"""
+
+    APPLICATION_MEMORY_USED: int
+    """Gets the amount of private memory allocated for the current process (includes both managed and unmanaged memory)."""
+
+    TOTAL_PHYSICAL_MEMORY_USED: int
+    """Get the RAM used on the machine:"""
+
+    CPU_USAGE: float
+    """Total CPU usage as a percentage"""
+
+    @staticmethod
+    def dispose() -> None:
+        """Disposes of the OS internal resources"""
+        ...
+
+    @staticmethod
+    def get_server_statistics() -> System.Collections.Generic.Dictionary[str, str]:
+        """Gets the statistics of the machine, including CPU% and RAM"""
+        ...
+
+    @staticmethod
+    def initialize() -> None:
+        """Initializes the OS internal resources"""
+        ...
+
+
+class CandlestickSeries(QuantConnect.BaseSeries):
+    """Candlestick Chart Series Object - Series data and properties for a candlestick chart"""
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for chart series"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Constructor method for Chart Series
+        
+        :param name: Name of the chart series
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, index: int) -> None:
+        """
+        Foundational constructor on the series class
+        
+        :param name: Name of the series
+        :param index: Index position on the chart of the series
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, index: int, unit: str) -> None:
+        """
+        Foundational constructor on the series class
+        
+        :param name: Name of the series
+        :param index: Index position on the chart of the series
+        :param unit: Unit for the series axis
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, unit: str) -> None:
+        """
+        Constructor method for Chart Series
+        
+        :param name: Name of the chart series
+        :param unit: Unit of the series
+        """
+        ...
+
+    @overload
+    def add_point(self, time: typing.Union[datetime.datetime, datetime.date], open: float, high: float, low: float, close: float) -> None:
+        """
+        Add a new point to this series
+        
+        :param time: Time of the chart point
+        :param open: Candlestick open price
+        :param high: Candlestick high price
+        :param low: Candlestick low price
+        :param close: Candlestick close price
+        """
+        ...
+
+    @overload
+    def add_point(self, bar: QuantConnect.Data.Market.TradeBar) -> None:
+        """Add a new point to this series"""
+        ...
+
+    @overload
+    def add_point(self, point: QuantConnect.ISeriesPoint) -> None:
+        """
+        Add a new point to this series
+        
+        :param point: The data point to add
+        """
+        ...
+
+    @overload
+    def add_point(self, time: typing.Union[datetime.datetime, datetime.date], values: typing.List[float]) -> None:
+        """
+        Add a new point to this series
+        
+        :param time: The time of the data point
+        :param values: The values of the data point
+        """
+        ...
+
+    def clone(self, empty: bool = False) -> QuantConnect.BaseSeries:
+        """Return a new instance clone of this object"""
+        ...
+
+    def consolidate_chart_points(self) -> QuantConnect.ISeriesPoint:
+        """
+        Will sum up all candlesticks into a new single one, using the time of latest point
+        
+        :returns: The new candlestick.
+        """
+        ...
+
+
+class IIsolatorLimitResultProvider(metaclass=abc.ABCMeta):
+    """
+    Provides an abstraction for managing isolator limit results.
+    This is originally intended to be used by the training feature to permit a single
+    algorithm time loop to extend past the default of ten minutes
+    """
+
+    def is_within_limit(self) -> QuantConnect.IsolatorLimitResult:
+        """Determines whether or not a custom isolator limit has be reached."""
+        ...
+
+    def request_additional_time(self, minutes: int) -> None:
+        """
+        Requests additional time from the isolator result provider. This is intended
+        to prevent is_within_limit from returning an error result.
+        This method will throw a TimeoutException if there is insufficient
+        resources available to fulfill the specified number of minutes.
+        
+        :param minutes: The number of additional minutes to request
+        """
+        ...
+
+    def try_request_additional_time(self, minutes: int) -> bool:
+        """
+        Attempts to request additional time from the isolator result provider. This is intended
+        to prevent is_within_limit from returning an error result.
+        This method will only return false if there is insufficient resources available to fulfill
+        the specified number of minutes.
+        
+        :param minutes: The number of additional minutes to request
+        """
+        ...
+
+
 class AlgorithmConfiguration(System.Object):
     """
     This class includes algorithm configuration settings and parameters.
@@ -4613,382 +4798,1274 @@ class AlgorithmConfiguration(System.Object):
         ...
 
 
-class TimeZoneOffsetProvider(System.Object):
-    """
-    Represents the discontinuties in a single time zone and provides offsets to UTC.
-    This type assumes that times will be asked in a forward marching manner.
-    This type is not thread safe.
-    """
+class ChartType(IntEnum):
+    """Type of chart - should we draw the series as overlayed or stacked"""
+
+    OVERLAY = 0
+
+    STACKED = 1
+
+
+class Chart(System.Object):
+    """Single Parent Chart Object for Custom Charting"""
 
     @property
-    def time_zone(self) -> typing.Any:
-        """Gets the time zone this instances provides offsets for"""
+    def name(self) -> str:
+        """Name of the Chart"""
         ...
 
-    def __init__(self, time_zone: typing.Any, utc_start_time: typing.Union[datetime.datetime, datetime.date], utc_end_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes a new instance of the TimeZoneOffsetProvider class
-        
-        :param time_zone: The time zone to provide offsets for
-        :param utc_start_time: The start of the range of offsets.
-        Careful here, it will determine the current discontinuity offset value. When requested to convert a date we only look forward for new discontinuities
-        but we suppose the current offset is correct for the requested date if in the past.
-        :param utc_end_time: The end of the range of offsets
-        """
-        ...
-
-    def convert_from_utc(self, utc_time: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
-        """
-        Converts the specified utc_time using the offset resolved from
-        a call to get_offset_ticks
-        
-        :param utc_time: The time to convert from utc
-        :returns: The same instant in time represented in the time_zone.
-        """
-        ...
-
-    def convert_to_utc(self, local_time: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
-        """
-        Converts the specified local time to UTC. This function will advance this offset provider
-        
-        :param local_time: The local time to be converted to UTC
-        :returns: The specified time in UTC.
-        """
-        ...
-
-    def get_next_discontinuity(self) -> int:
-        """
-        Gets this offset provider's next discontinuity
-        
-        :returns: The next discontinuity in UTC ticks.
-        """
-        ...
-
-    def get_offset_ticks(self, utc_time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        """
-        Gets the offset in ticks from this time zone to UTC, such that UTC time + offset = local time
-        
-        :param utc_time: The time in UTC to get an offset to local
-        :returns: The offset in ticks between UTC and the local time zone.
-        """
-        ...
-
-
-class BinaryComparison(System.Object):
-    """
-    Enumeration class defining binary comparisons and providing access to expressions and functions
-    capable of evaluating a particular comparison for any type. If a particular type does not implement
-    a binary comparison than an exception will be thrown.
-    """
-
-    EQUAL: QuantConnect.BinaryComparison = ...
-    """Gets the BinaryComparison equivalent of ExpressionType.Equal"""
-
-    NOT_EQUAL: QuantConnect.BinaryComparison = ...
-    """Gets the BinaryComparison equivalent of ExpressionType.NotEqual"""
-
-    LESS_THAN: QuantConnect.BinaryComparison = ...
-    """Gets the BinaryComparison equivalent of ExpressionType.LessThan"""
-
-    GREATER_THAN: QuantConnect.BinaryComparison = ...
-    """Gets the BinaryComparison equivalent of ExpressionType.GreaterThan"""
-
-    LESS_THAN_OR_EQUAL: QuantConnect.BinaryComparison = ...
-    """Gets the BinaryComparison equivalent of ExpressionType.LessThanOrEqual"""
-
-    GREATER_THAN_OR_EQUAL: QuantConnect.BinaryComparison = ...
-    """Gets the BinaryComparison equivalent of ExpressionType.GreaterThanOrEqual"""
-
-    @property
-    def type(self) -> typing.Any:
-        """Gets the expression type defining the binary comparison."""
-        ...
-
-    def flip_operands(self) -> QuantConnect.BinaryComparison:
-        """
-        Flips the logic ordering of the comparison's operands. For example, LESS_THAN
-        is converted into GREATER_THAN
-        """
-        ...
-
-    @staticmethod
-    def from_expression_type(type: typing.Any) -> QuantConnect.BinaryComparison:
-        """Gets the BinaryComparison matching the provided type"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-
-class SymbolJsonConverter:
-    """
-    Defines a JsonConverter to be used when deserializing to
-    the Symbol class.
-    """
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determines whether this instance can convert the specified object type.
-        
-        :param object_type: Type of the object.
-        :returns: true if this instance can convert the specified object type; otherwise, false.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Reads the JSON representation of the object.
-        
-        :param reader: The Newtonsoft.Json.JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
-        :returns: The object value.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """
-        Writes the JSON representation of the object.
-        
-        :param writer: The Newtonsoft.Json.JsonWriter to write to.
-        :param value: The value.
-        :param serializer: The calling serializer.
-        """
-        ...
-
-
-class SymbolCache(System.Object):
-    """
-    Provides a string->Symbol mapping to allow for user defined strings to be lifted into a Symbol
-    This is mainly used via the Symbol implicit operator, but also functions that create securities
-    should also call Set to add new mappings
-    """
-
-    @staticmethod
-    def clear() -> None:
-        """Clears the current caches"""
-        ...
-
-    @staticmethod
-    def get_symbol(ticker: str) -> QuantConnect.Symbol:
-        """
-        Gets the Symbol object that is mapped to the specified string ticker symbol
-        
-        :param ticker: The string ticker symbol
-        :returns: The symbol object that maps to the specified string ticker symbol.
-        """
-        ...
-
-    @staticmethod
-    def get_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-        """
-        Gets the string ticker symbol that is mapped to the specified Symbol
-        
-        :param symbol: The symbol object
-        :returns: The string ticker symbol that maps to the specified symbol object.
-        """
-        ...
-
-    @staticmethod
-    def set(ticker: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
-        """
-        Adds a mapping for the specified ticker
-        
-        :param ticker: The string ticker symbol
-        :param symbol: The symbol object that maps to the string ticker symbol
-        """
-        ...
-
-    @staticmethod
-    def try_get_symbol(ticker: str, symbol: typing.Optional[typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]]) -> typing.Tuple[bool, typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]]:
-        """
-        Gets the Symbol object that is mapped to the specified string ticker symbol
-        
-        :param ticker: The string ticker symbol
-        :param symbol: The output symbol object
-        :returns: The symbol object that maps to the specified string ticker symbol.
-        """
-        ...
-
-    @staticmethod
-    def try_get_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], ticker: typing.Optional[str]) -> typing.Tuple[bool, str]:
-        """
-        Gets the string ticker symbol that is mapped to the specified Symbol
-        
-        :param symbol: The symbol object
-        :param ticker: The output string ticker symbol
-        :returns: The string ticker symbol that maps to the specified symbol object.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_remove(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
-        """
-        Removes the mapping for the specified symbol from the cache
-        
-        :param symbol: The symbol whose mappings are to be removed
-        :returns: True if the symbol mapping were removed from the cache.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_remove(ticker: str) -> bool:
-        """
-        Removes the mapping for the specified symbol from the cache
-        
-        :param ticker: The ticker whose mappings are to be removed
-        :returns: True if the symbol mapping were removed from the cache.
-        """
-        ...
-
-
-class Candlestick(System.Object, QuantConnect.ISeriesPoint):
-    """Single candlestick for a candlestick chart"""
-
-    @property
-    def time(self) -> datetime.datetime:
-        """The candlestick time"""
-        ...
-
-    @time.setter
-    def time(self, value: datetime.datetime) -> None:
+    @name.setter
+    def name(self, value: str) -> None:
         ...
 
     @property
-    def long_time(self) -> int:
-        """The candlestick time in seconds since Unix Epoch"""
+    def chart_type(self) -> QuantConnect.ChartType:
+        """ChartType is now obsolete. Please use Series indexes instead by setting index in the series constructor."""
+        warnings.warn("ChartType is now obsolete. Please use Series indexes instead by setting index in the series constructor.", DeprecationWarning)
+
+    @chart_type.setter
+    def chart_type(self, value: QuantConnect.ChartType) -> None:
+        warnings.warn("ChartType is now obsolete. Please use Series indexes instead by setting index in the series constructor.", DeprecationWarning)
+
+    @property
+    def series(self) -> System.Collections.Generic.Dictionary[str, QuantConnect.BaseSeries]:
+        ...
+
+    @series.setter
+    def series(self, value: System.Collections.Generic.Dictionary[str, QuantConnect.BaseSeries]) -> None:
         ...
 
     @property
-    def open(self) -> typing.Optional[float]:
-        """The candlestick open price"""
+    def symbol(self) -> QuantConnect.Symbol:
+        """Associated symbol if any, making this an asset plot"""
         ...
 
-    @open.setter
-    def open(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def high(self) -> typing.Optional[float]:
-        """The candlestick high price"""
-        ...
-
-    @high.setter
-    def high(self, value: typing.Optional[float]) -> None:
+    @symbol.setter
+    def symbol(self, value: QuantConnect.Symbol) -> None:
         ...
 
     @property
-    def low(self) -> typing.Optional[float]:
-        """The candlestick low price"""
+    def legend_disabled(self) -> bool:
+        """True to hide this series legend from the chart"""
         ...
 
-    @low.setter
-    def low(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def close(self) -> typing.Optional[float]:
-        """The candlestick close price"""
-        ...
-
-    @close.setter
-    def close(self, value: typing.Optional[float]) -> None:
+    @legend_disabled.setter
+    def legend_disabled(self, value: bool) -> None:
         ...
 
     @overload
     def __init__(self) -> None:
-        """Default constructor"""
+        """Default constructor for chart:"""
         ...
 
     @overload
-    def __init__(self, time: int, open: typing.Optional[float], high: typing.Optional[float], low: typing.Optional[float], close: typing.Optional[float]) -> None:
+    def __init__(self, name: str) -> None:
         """
-        Constructor taking the candlestick values
+        Constructor for a chart
         
-        :param time: Candlestick time in seconds since Unix Epoch
-        :param open: Candlestick open price
-        :param high: Candlestick high price
-        :param low: Candlestick low price
-        :param close: Candlestick close price
+        :param name: String name of the chart
         """
         ...
 
     @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], open: typing.Optional[float], high: typing.Optional[float], low: typing.Optional[float], close: typing.Optional[float]) -> None:
+    def __init__(self, name: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
         """
-        Constructor taking candlestick values and time in DateTime format
+        Constructor for a chart
         
-        :param time: Candlestick time in seconds
-        :param open: Candlestick open price
-        :param high: Candlestick high price
-        :param low: Candlestick low price
-        :param close: Candlestick close price
+        :param name: String name of the chart
+        :param symbol: Associated symbol if any
         """
         ...
 
     @overload
-    def __init__(self, bar: QuantConnect.Data.Market.TradeBar) -> None:
+    def __init__(self, name: str, type: QuantConnect.ChartType = ...) -> None:
         """
-        Constructor taking candlestick values and time in DateTime format
+        Chart Constructor:
         
-        :param bar: Bar which data will be used to create the candlestick
+        
+        ChartType is now obsolete and ignored in charting. Please use Series indexes instead by setting index in the series constructor.
+        
+        :param name: Name of the Chart
+        :param type: Type of the chart
+        """
+        ...
+
+    def add_series(self, series: QuantConnect.BaseSeries) -> None:
+        """
+        Add a reference to this chart series:
+        
+        :param series: Chart series class object
+        """
+        ...
+
+    def aggregate(self, series_type: QuantConnect.SeriesType = ...) -> QuantConnect.Chart:
+        """Helper method to consolidate a chart into a single series chart by summing all values"""
+        ...
+
+    def clone(self) -> QuantConnect.Chart:
+        """Return a new instance clone of this object"""
+        ...
+
+    def clone_empty(self) -> QuantConnect.Chart:
+        """Return a new empty instance clone of this object"""
+        ...
+
+    def get_updates(self) -> QuantConnect.Chart:
+        """
+        Fetch a chart with only the updates since the last request,
+        Underlying series will save the index position.
         """
         ...
 
     @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], bar: QuantConnect.Data.Market.Bar) -> None:
+    def try_add_and_get_series(self, name: str, type: QuantConnect.SeriesType, index: int, unit: str, color: System.Drawing.Color, symbol: QuantConnect.ScatterMarkerSymbol, force_add_new: bool = False) -> QuantConnect.Series:
         """
-        Constructor taking candlestick values and time in DateTime format
+        Gets Series if already present in chart, else will add a new series and return it
         
-        :param time: Candlestick time in seconds
-        :param bar: Bar which data will be used to create the candlestick
+        :param name: Name of the series
+        :param type: Type of the series
+        :param index: Index position on the chart of the series
+        :param unit: Unit for the series axis
+        :param color: Color of the series
+        :param symbol: Symbol for the marker in a scatter plot series
+        :param force_add_new: True will always add a new Series instance, stepping on existing if any
         """
         ...
 
     @overload
-    def __init__(self, candlestick: QuantConnect.Candlestick) -> None:
+    def try_add_and_get_series(self, name: str, template_series: QuantConnect.BaseSeries, force_add_new: bool = False) -> QuantConnect.BaseSeries:
         """
-        Copy constructor
+        Gets Series if already present in chart, else will add a new series and return it
         
-        :param candlestick: Candlestick to copy from
+        :param name: Name of the series
+        :param template_series: Series to be used as a template. It will be clone without values if the series is added to the chart
+        :param force_add_new: True will always add a new Series instance, stepping on existing if any
         """
         ...
 
-    def clone(self) -> QuantConnect.ISeriesPoint:
-        """
-        Clones this instance
-        
-        :returns: Clone of this instance.
-        """
+
+class Result(System.Object):
+    """
+    Base class for backtesting and live results that packages result data.
+    LiveResultBacktestResult
+    """
+
+    @property
+    def charts(self) -> System.Collections.Generic.IDictionary[str, QuantConnect.Chart]:
+        """Charts updates for the live algorithm since the last result packet"""
         ...
 
-    def to_string(self) -> str:
-        """Provides a readable string representation of this instance."""
+    @charts.setter
+    def charts(self, value: System.Collections.Generic.IDictionary[str, QuantConnect.Chart]) -> None:
+        ...
+
+    @property
+    def orders(self) -> System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order]:
+        """Order updates since the last result packet"""
+        ...
+
+    @orders.setter
+    def orders(self, value: System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order]) -> None:
+        ...
+
+    @property
+    def order_events(self) -> typing.List[QuantConnect.Orders.OrderEvent]:
+        """OrderEvent updates since the last result packet"""
+        ...
+
+    @order_events.setter
+    def order_events(self, value: typing.List[QuantConnect.Orders.OrderEvent]) -> None:
+        ...
+
+    @property
+    def profit_loss(self) -> System.Collections.Generic.IDictionary[datetime.datetime, float]:
+        """Trade profit and loss information since the last algorithm result packet"""
+        ...
+
+    @profit_loss.setter
+    def profit_loss(self, value: System.Collections.Generic.IDictionary[datetime.datetime, float]) -> None:
+        ...
+
+    @property
+    def statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
+        """Statistics information sent during the algorithm operations."""
+        ...
+
+    @statistics.setter
+    def statistics(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
+        ...
+
+    @property
+    def runtime_statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
+        """Runtime banner/updating statistics in the title banner of the live algorithm GUI."""
+        ...
+
+    @runtime_statistics.setter
+    def runtime_statistics(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
+        ...
+
+    @property
+    def state(self) -> System.Collections.Generic.IDictionary[str, str]:
+        """State of the result packet."""
+        ...
+
+    @state.setter
+    def state(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
+        ...
+
+    @property
+    def server_statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
+        """Server status information, including CPU/RAM usage, ect..."""
+        ...
+
+    @server_statistics.setter
+    def server_statistics(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
+        ...
+
+    @property
+    def algorithm_configuration(self) -> QuantConnect.AlgorithmConfiguration:
+        """The algorithm's configuration required for report generation"""
+        ...
+
+    @algorithm_configuration.setter
+    def algorithm_configuration(self, value: QuantConnect.AlgorithmConfiguration) -> None:
+        ...
+
+    @property
+    def total_performance(self) -> QuantConnect.Statistics.AlgorithmPerformance:
+        """Rolling window detailed statistics."""
+        ...
+
+    @total_performance.setter
+    def total_performance(self, value: QuantConnect.Statistics.AlgorithmPerformance) -> None:
         ...
 
     @overload
-    def update(self, value: typing.Optional[float]) -> None:
-        """
-        Updates the candlestick with a new value. This will aggregate the OHLC bar
-        
-        :param value: The new value
-        """
+    def __init__(self) -> None:
+        """Creates new empty instance"""
         ...
 
     @overload
-    def update(self, value: float) -> None:
+    def __init__(self, parameters: QuantConnect.Packets.BaseResultParameters) -> None:
+        """Creates a new result from the given parameters"""
+        ...
+
+
+class StubsAvoidImplicitsAttribute(System.Attribute):
+    """
+    Custom attribute used for marking properties, fields or arguments types that should not
+    be expanded to include other types they can be implicitly converted to.
+    """
+
+
+class TimeUpdatedEventArgs(System.EventArgs):
+    """Event arguments class for the LocalTimeKeeper.time_updated event"""
+
+    @property
+    def time(self) -> datetime.datetime:
+        """Gets the new time"""
+        ...
+
+    @property
+    def time_zone(self) -> typing.Any:
+        """Gets the time zone"""
+        ...
+
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], time_zone: typing.Any) -> None:
         """
-        Updates the candlestick with a new value. This will aggregate the OHLC bar
+        Initializes a new instance of the TimeUpdatedEventArgs class
         
-        :param value: The new value
+        :param time: The newly updated time
+        :param time_zone: The time zone of the new time
+        """
+        ...
+
+
+class LocalTimeKeeper(System.Object):
+    """
+    Represents the current local time. This object is created via the TimeKeeper to
+    manage conversions to local time.
+    """
+
+    @property
+    def time_updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.TimeUpdatedEventArgs], typing.Any], typing.Any]:
+        """Event fired each time UpdateTime is called"""
+        ...
+
+    @time_updated.setter
+    def time_updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.TimeUpdatedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def time_zone(self) -> typing.Any:
+        """Gets the time zone of this LocalTimeKeeper"""
+        ...
+
+    @property
+    def local_time(self) -> datetime.datetime:
+        """Gets the current time in terms of the time_zone"""
+        ...
+
+
+class Time(System.Object):
+    """Time helper class collection for working with trading dates"""
+
+    class DateTimeWithZone:
+        """Live charting is sensitive to timezone so need to convert the local system time to a UTC and display in browser as UTC."""
+
+        @property
+        def universal_time(self) -> datetime.datetime:
+            """Gets the universal time."""
+            ...
+
+        @property
+        def time_zone(self) -> System.TimeZoneInfo:
+            """Gets the time zone."""
+            ...
+
+        @property
+        def local_time(self) -> datetime.datetime:
+            """Gets the local time."""
+            ...
+
+        def __init__(self, date_time: typing.Union[datetime.datetime, datetime.date], time_zone: System.TimeZoneInfo) -> None:
+            """
+            Initializes a new instance of the QuantConnect.Time.DateTimeWithZone struct.
+            
+            :param date_time: Date time.
+            :param time_zone: Time zone.
+            """
+            ...
+
+    class MonthYearJsonConverter:
+        """Helper method to deserialize month/year"""
+
+        def __init__(self) -> None:
+            """Creates a new instance"""
+            ...
+
+    live_auxiliary_data_offset: datetime.timedelta
+    """Allows specifying an offset to trigger the tradable date event"""
+
+    END_OF_TIME: datetime.datetime = ...
+    """Provides a value far enough in the future the current computer hardware will have decayed :)"""
+
+    end_of_time_time_span: datetime.timedelta = ...
+    """Provides a time span based on END_OF_TIME"""
+
+    START: datetime.datetime = ...
+    """Provides a common and normalized start time for Lean data"""
+
+    BEGINNING_OF_TIME: datetime.datetime = ...
+    """Provides a value far enough in the past that can be used as a lower bound on dates, 12/30/1899"""
+
+    MAX_TIME_SPAN: datetime.timedelta = ...
+    """
+    Provides a value large enough that we won't hit the limit, while small enough
+    we can still do math against it without checking everywhere for TimeSpan.MaxValue
+    """
+
+    ONE_YEAR: datetime.timedelta = ...
+    """One Year TimeSpan Period Constant"""
+
+    ONE_DAY: datetime.timedelta = ...
+    """One Day TimeSpan Period Constant"""
+
+    ONE_HOUR: datetime.timedelta = ...
+    """One Hour TimeSpan Period Constant"""
+
+    ONE_MINUTE: datetime.timedelta = ...
+    """One Minute TimeSpan Period Constant"""
+
+    ONE_SECOND: datetime.timedelta = ...
+    """One Second TimeSpan Period Constant"""
+
+    ONE_MILLISECOND: datetime.timedelta = ...
+    """One Millisecond TimeSpan Period Constant"""
+
+    @staticmethod
+    def abs(time_span: datetime.timedelta) -> datetime.timedelta:
+        """
+        Gets the absolute value of the specified time span
+        
+        :param time_span: Time span whose absolute value we seek
+        :returns: The absolute value of the specified time span.
+        """
+        ...
+
+    @staticmethod
+    def date_time_range(_from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], step: datetime.timedelta) -> typing.Iterable[datetime.datetime]:
+        """
+        Define an enumerable date time range using the given time step
+        
+        :param _from: DateTime start date time
+        :param thru: DateTime end date time
+        :returns: Enumerable date time range.
+        """
+        ...
+
+    @staticmethod
+    def date_time_to_unix_time_stamp(time: typing.Union[datetime.datetime, datetime.date]) -> float:
+        """
+        Convert a Datetime to Unix Timestamp
+        
+        :param time: C# datetime object
+        :returns: Double unix timestamp.
+        """
+        ...
+
+    @staticmethod
+    def date_time_to_unix_time_stamp_milliseconds(time: typing.Union[datetime.datetime, datetime.date]) -> float:
+        """
+        Convert a Datetime to Unix Timestamp
+        
+        :param time: C# datetime object
+        :returns: Double unix timestamp.
+        """
+        ...
+
+    @staticmethod
+    def date_time_to_unix_time_stamp_nanoseconds(time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        """
+        Convert a Datetime to Unix Timestamp
+        
+        :param time: C# datetime object
+        :returns: Int64 unix timestamp.
+        """
+        ...
+
+    @staticmethod
+    def each_day(_from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
+        """
+        Define an enumerable date range and return each date as a datetime object in the date range
+        
+        :param _from: DateTime start date
+        :param thru: DateTime end date
+        :returns: Enumerable date range.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def each_tradeable_day(securities: System.Collections.Generic.ICollection[QuantConnect.Securities.Security], _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
+        """
+        Define an enumerable date range of tradeable dates - skip the holidays and weekends when securities in this algorithm don't trade.
+        
+        :param securities: Securities we have in portfolio
+        :param _from: Start date
+        :param thru: End date
+        :returns: Enumerable date range.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def each_tradeable_day(security: QuantConnect.Securities.Security, _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], extended_market_hours: bool = False) -> typing.Iterable[datetime.datetime]:
+        """
+        Define an enumerable date range of tradeable dates - skip the holidays and weekends when securities in this algorithm don't trade.
+        
+        :param security: The security to get tradeable dates for
+        :param _from: Start date
+        :param thru: End date
+        :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
+        :returns: Enumerable date range.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def each_tradeable_day(exchange: QuantConnect.Securities.SecurityExchangeHours, _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], extended_market_hours: bool = False) -> typing.Iterable[datetime.datetime]:
+        """
+        Define an enumerable date range of tradeable dates - skip the holidays and weekends when securities in this algorithm don't trade.
+        
+        :param exchange: The security to get tradeable dates for
+        :param _from: Start date
+        :param thru: End date
+        :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
+        :returns: Enumerable date range.
+        """
+        ...
+
+    @staticmethod
+    def each_tradeable_day_in_time_zone(exchange: QuantConnect.Securities.SecurityExchangeHours, _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], time_zone: typing.Any, include_extended_market_hours: bool = True) -> typing.Iterable[datetime.datetime]:
+        """
+        Define an enumerable date range of tradeable dates but expressed in a different time zone.
+        
+        :param exchange: The exchange hours
+        :param _from: The start time in the exchange time zone
+        :param thru: The end time in the exchange time zone (inclusive of the final day)
+        :param time_zone: The timezone to project the dates into (inclusive of the final day)
+        :param include_extended_market_hours: True to include extended market hours trading in the search, false otherwise
+        """
+        ...
+
+    @staticmethod
+    def get_end_time_for_trade_bars(exchange_hours: QuantConnect.Securities.SecurityExchangeHours, start: typing.Union[datetime.datetime, datetime.date], bar_size: datetime.timedelta, bar_count: int, extended_market_hours: bool) -> datetime.datetime:
+        """
+        Determines the end time at which the requested number of bars of the given  will have elapsed.
+        NOTE: The start time is not discretized by bar_size units like is done in get_start_time_for_trade_bars
+        
+        :param exchange_hours: The exchange hours used to test for market open hours
+        :param start: The end time of the last bar over the requested period
+        :param bar_size: The length of each bar
+        :param bar_count: The number of bars requested
+        :param extended_market_hours: True to allow extended market hours bars, otherwise false for only normal market hours
+        :returns: The start time that would provide the specified number of bars ending at the specified end time, rounded down by the requested bar size.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_next_live_auxiliary_data_due_time() -> datetime.timedelta:
+        """
+        Helper method to get the new live auxiliary data due time
+        
+        :returns: The due time for the new auxiliary data emission.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_next_live_auxiliary_data_due_time(utc_now: typing.Union[datetime.datetime, datetime.date]) -> datetime.timedelta:
+        """
+        Helper method to get the new live auxiliary data due time
+        
+        :param utc_now: The current utc time
+        :returns: The due time for the new auxiliary data emission.
+        """
+        ...
+
+    @staticmethod
+    def get_number_of_trade_bars_in_interval(exchange_hours: QuantConnect.Securities.SecurityExchangeHours, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], bar_size: datetime.timedelta) -> int:
+        """
+        Gets the number of trade bars of the specified bar_size that fit between the start and end
+        
+        :param exchange_hours: The exchange used to test for market open hours
+        :param start: The start time of the interval in the exchange time zone
+        :param end: The end time of the interval in the exchange time zone
+        :param bar_size: The step size used to count number of bars between start and end
+        :returns: The number of bars of the specified size between start and end times.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_second_uneven_wait(wait_time_millis: int) -> int:
+        """
+        Helper method to adjust a waiting time, in milliseconds, so it's uneven with the second turn around
+        
+        :param wait_time_millis: The desired wait time
+        :returns: The adjusted wait time.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_second_uneven_wait(now: typing.Union[datetime.datetime, datetime.date], wait_time_millis: int) -> int:
+        """
+        Helper method to adjust a waiting time, in milliseconds, so it's uneven with the second turn around
+        
+        :param now: The current time
+        :param wait_time_millis: The desired wait time
+        :returns: The adjusted wait time.
+        """
+        ...
+
+    @staticmethod
+    def get_start_time_for_trade_bars(exchange_hours: QuantConnect.Securities.SecurityExchangeHours, end: typing.Union[datetime.datetime, datetime.date], bar_size: datetime.timedelta, bar_count: int, extended_market_hours: bool, data_time_zone: typing.Any, daily_precise_end_time: bool = False) -> datetime.datetime:
+        """
+        Determines the start time required to produce the requested number of bars and the given size
+        
+        :param exchange_hours: The exchange hours used to test for market open hours
+        :param end: The end time of the last bar over the requested period
+        :param bar_size: The length of each bar
+        :param bar_count: The number of bars requested
+        :param extended_market_hours: True to allow extended market hours bars, otherwise false for only normal market hours
+        :param data_time_zone: Timezone for this data
+        :param daily_precise_end_time: True if daily strict end times are enabled
+        :returns: The start time that would provide the specified number of bars ending at the specified end time, rounded down by the requested bar size.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def max(one: datetime.timedelta, two: datetime.timedelta) -> datetime.timedelta:
+        """Returns the timespan with the larger value"""
+        ...
+
+    @staticmethod
+    @overload
+    def max(one: typing.Union[datetime.datetime, datetime.date], two: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+        """Returns the larger of two date times"""
+        ...
+
+    @staticmethod
+    @overload
+    def min(one: datetime.timedelta, two: datetime.timedelta) -> datetime.timedelta:
+        """Returns the timespan with the smaller value"""
+        ...
+
+    @staticmethod
+    @overload
+    def min(one: typing.Union[datetime.datetime, datetime.date], two: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+        """Returns the smaller of two date times"""
+        ...
+
+    @staticmethod
+    def multiply(interval: datetime.timedelta, multiplier: float) -> datetime.timedelta:
+        """
+        Multiplies the specified interval by the multiplier
+        
+        :param interval: The interval to be multiplied, such as TimeSpan.FromSeconds(1)
+        :param multiplier: The number of times to multiply the interval
+        :returns: The multiplied interval, such as 1s*5 = 5s.
+        """
+        ...
+
+    @staticmethod
+    def normalize_instant_within_range(start: typing.Union[datetime.datetime, datetime.date], current: typing.Union[datetime.datetime, datetime.date], period: datetime.timedelta) -> float:
+        """
+        Normalizes the current time within the specified period
+        time = start => 0
+        time = start + period => 1
+        
+        :param start: The start time of the range
+        :param current: The current time we seek to normalize
+        :param period: The time span of the range
+        :returns: The normalized time.
+        """
+        ...
+
+    @staticmethod
+    def normalize_time_step(period: datetime.timedelta, step_size: datetime.timedelta) -> float:
+        """
+        Normalizes the step size as a percentage of the period.
+        
+        :param period: The period to normalize against
+        :param step_size: The step size to be normaized
+        :returns: The normalized step size as a percentage of the period.
+        """
+        ...
+
+    @staticmethod
+    def parse_date(date_to_parse: str) -> datetime.datetime:
+        """
+        Parse a standard YY MM DD date into a DateTime. Attempt common date formats
+        
+        :param date_to_parse: String date time to parse
+        :returns: Date time.
+        """
+        ...
+
+    @staticmethod
+    def parse_fix_utc_timestamp(date_to_parse: str) -> datetime.datetime:
+        """
+        Parse a standard YY MM DD date into a DateTime. Attempt common date formats
+        
+        :param date_to_parse: String date time to parse
+        :returns: Date time.
+        """
+        ...
+
+    @staticmethod
+    def time_stamp() -> float:
+        """
+        Get the current time as a unix timestamp
+        
+        :returns: Double value of the unix as UTC timestamp.
+        """
+        ...
+
+    @staticmethod
+    def tradable_date(securities: typing.List[QuantConnect.Securities.Security], day: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        """
+        Make sure this date is not a holiday, or weekend for the securities in this algorithm.
+        
+        :param securities: Security manager from the algorithm
+        :param day: DateTime to check if trade-able.
+        :returns: True if tradeable date.
+        """
+        ...
+
+    @staticmethod
+    def tradeable_dates(securities: System.Collections.Generic.ICollection[QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], finish: typing.Union[datetime.datetime, datetime.date]) -> int:
+        """
+        Could of the number of tradeable dates within this period.
+        
+        :param securities: Securities we're trading
+        :param start: Start of Date Loop
+        :param finish: End of Date Loop
+        :returns: Number of dates.
+        """
+        ...
+
+    @staticmethod
+    def unix_millisecond_time_stamp_to_date_time(unix_time_stamp: float) -> datetime.datetime:
+        """
+        Create a C# DateTime from a UnixTimestamp
+        
+        :param unix_time_stamp: Decimal unix timestamp (Time since Midnight Jan 1 1970) in milliseconds
+        :returns: C# date time object.
+        """
+        ...
+
+    @staticmethod
+    def unix_nanosecond_time_stamp_to_date_time(unix_time_stamp: int) -> datetime.datetime:
+        """
+        Create a C# DateTime from a UnixTimestamp
+        
+        :param unix_time_stamp: Int64 unix timestamp (Time since Midnight Jan 1 1970) in nanoseconds
+        :returns: C# date time object.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def unix_time_stamp_to_date_time(unix_time_stamp: float) -> datetime.datetime:
+        """
+        Create a C# DateTime from a UnixTimestamp
+        
+        :param unix_time_stamp: Double unix timestamp (Time since Midnight Jan 1 1970)
+        :returns: C# date timeobject.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def unix_time_stamp_to_date_time(unix_time_stamp: int) -> datetime.datetime:
+        """
+        Create a C# DateTime from a UnixTimestamp
+        
+        :param unix_time_stamp: Long unix timestamp (Time since Midnight Jan 1 1970)
+        :returns: C# date time object.
+        """
+        ...
+
+
+class BinaryComparisonExtensions(System.Object):
+    """Provides convenience extension methods for applying a BinaryComparison to collections."""
+
+
+class DataMonitorReport(System.Object):
+    """Report generated by the IDataMonitor class that contains information about data requests"""
+
+    @property
+    def succeeded_data_requests_count(self) -> int:
+        """Gets the number of data files that were requested and successfully fetched"""
+        ...
+
+    @succeeded_data_requests_count.setter
+    def succeeded_data_requests_count(self, value: int) -> None:
+        ...
+
+    @property
+    def failed_data_requests_count(self) -> int:
+        """Gets the number of data files that were requested but could not be fetched"""
+        ...
+
+    @failed_data_requests_count.setter
+    def failed_data_requests_count(self, value: int) -> None:
+        ...
+
+    @property
+    def succeeded_universe_data_requests_count(self) -> int:
+        """Gets the number of universe data files that were requested and successfully fetched"""
+        ...
+
+    @succeeded_universe_data_requests_count.setter
+    def succeeded_universe_data_requests_count(self, value: int) -> None:
+        ...
+
+    @property
+    def failed_universe_data_requests_count(self) -> int:
+        """Gets the number of universe data files that were requested but could not be fetched"""
+        ...
+
+    @failed_universe_data_requests_count.setter
+    def failed_universe_data_requests_count(self, value: int) -> None:
+        ...
+
+    @property
+    def total_requests_count(self) -> int:
+        """Gets the number of data files that were requested"""
+        ...
+
+    @property
+    def failed_data_requests_percentage(self) -> float:
+        """Fets the percentage of data requests that could not be satisfied"""
+        ...
+
+    @property
+    def total_universe_data_requests_count(self) -> int:
+        """Gets the number of universe data files that were requested"""
+        ...
+
+    @property
+    def failed_universe_data_requests_percentage(self) -> float:
+        """Fets the percentage of universe data requests that could not be satisfied"""
+        ...
+
+    @property
+    def data_request_rates(self) -> typing.Sequence[float]:
+        """Rates at which data requests were made per second"""
+        ...
+
+    @data_request_rates.setter
+    def data_request_rates(self, value: typing.Sequence[float]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes an empty instance of the DataMonitorReport class"""
+        ...
+
+    @overload
+    def __init__(self, succeeded_data_requests_count: int, failed_data_requests_count: int, succeeded_universe_data_requests_count: int, failed_universe_data_requests_count: int, data_request_rates: typing.Sequence[float]) -> None:
+        """
+        Initializes a new instance of the DataMonitorReport class
+        
+        :param succeeded_data_requests_count: Number of data paths that were requested and successfuly served
+        :param failed_data_requests_count: Number of data paths that were requested but could not be served
+        :param succeeded_universe_data_requests_count: Number of universe data paths that were requested and successfuly served
+        :param failed_universe_data_requests_count: Number of universe data paths that were requested but could not be served
+        :param data_request_rates: Rates at which data requests were made per second
+        """
+        ...
+
+
+class DataProviderEventArgs(System.EventArgs, metaclass=abc.ABCMeta):
+    """Defines a base class for IDataProviderEvents"""
+
+    @property
+    def symbol(self) -> QuantConnect.Symbol:
+        """Gets the symbol being processed that generated the event"""
+        ...
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
+        """
+        Initializes a new instance of the DataProviderEventArgs class
+        
+        
+        This codeEntityType is protected.
+        
+        :param symbol: Symbol being processed that generated the event
+        """
+        ...
+
+
+class InvalidConfigurationDetectedEventArgs(QuantConnect.DataProviderEventArgs):
+    """Event arguments for the IDataProviderEvents.invalid_configuration_detected event"""
+
+    @property
+    def message(self) -> str:
+        """Gets the error message"""
+        ...
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], message: str) -> None:
+        """
+        Initializes a new instance of the InvalidConfigurationDetectedEventArgs class
+        
+        :param symbol: Symbol being processed that generated the event
+        :param message: The error message
+        """
+        ...
+
+
+class NumericalPrecisionLimitedEventArgs(QuantConnect.DataProviderEventArgs):
+    """Event arguments for the IDataProviderEvents.numerical_precision_limited event"""
+
+    @property
+    def message(self) -> str:
+        """Gets the error message"""
+        ...
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], message: str) -> None:
+        """
+        Initializes a new instance of the NumericalPrecisionLimitedEventArgs class
+        
+        :param symbol: Symbol being processed that generated the event
+        :param message: The error message
+        """
+        ...
+
+
+class DownloadFailedEventArgs(QuantConnect.DataProviderEventArgs):
+    """Event arguments for the IDataProviderEvents.download_failed event"""
+
+    @property
+    def message(self) -> str:
+        """Gets the error message"""
+        ...
+
+    @property
+    def stack_trace(self) -> str:
+        """Gets the error stack trace"""
+        ...
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], message: str, stack_trace: str = ...) -> None:
+        """
+        Initializes a new instance of the DownloadFailedEventArgs class
+        
+        :param symbol: Symbol being processed that generated the event
+        :param message: The error message
+        :param stack_trace: The error stack trace
+        """
+        ...
+
+
+class ReaderErrorDetectedEventArgs(QuantConnect.DataProviderEventArgs):
+    """Event arguments for the IDataProviderEvents.reader_error_detected event"""
+
+    @property
+    def message(self) -> str:
+        """Gets the error message"""
+        ...
+
+    @property
+    def stack_trace(self) -> str:
+        """Gets the error stack trace"""
+        ...
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], message: str, stack_trace: str = ...) -> None:
+        """
+        Initializes a new instance of the ReaderErrorDetectedEventArgs class
+        
+        :param symbol: Symbol being processed that generated the event
+        :param message: The error message
+        :param stack_trace: The error stack trace
+        """
+        ...
+
+
+class StartDateLimitedEventArgs(QuantConnect.DataProviderEventArgs):
+    """Event arguments for the IDataProviderEvents.start_date_limited event"""
+
+    @property
+    def message(self) -> str:
+        """Gets the error message"""
+        ...
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], message: str) -> None:
+        """
+        Initializes a new instance of the StartDateLimitedEventArgs class
+        
+        :param symbol: Symbol being processed that generated the event
+        :param message: The error message
+        """
+        ...
+
+
+class NewTradableDateEventArgs(QuantConnect.DataProviderEventArgs):
+    """Event arguments for the NewTradableDate event"""
+
+    @property
+    def date(self) -> datetime.datetime:
+        """The new tradable date"""
+        ...
+
+    @property
+    def last_base_data(self) -> QuantConnect.Data.BaseData:
+        """
+        The last BaseData of the Security
+        for which we are enumerating
+        """
+        ...
+
+    @property
+    def last_raw_price(self) -> typing.Optional[float]:
+        """The last raw security price we have"""
+        ...
+
+    def __init__(self, date: typing.Union[datetime.datetime, datetime.date], last_base_data: QuantConnect.Data.BaseData, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], last_raw_price: typing.Optional[float]) -> None:
+        """
+        Initializes a new instance of the NewTradableDateEventArgs class
+        
+        :param date: The new tradable date
+        :param last_base_data: The last BaseData of the
+        Security for which we are enumerating
+        :param symbol: The Symbol of the new tradable date
+        :param last_raw_price: The last raw security price we have
+        """
+        ...
+
+
+class Parse(System.Object):
+    """Provides methods for parsing strings using CultureInfo.InvariantCulture"""
+
+    @staticmethod
+    def date_time(value: str) -> datetime.datetime:
+        """
+        Parses the provided value as a System.DateTime using System.DateTime.Parse(string,IFormatProvider)
+        with CultureInfo.InvariantCulture
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def date_time_exact(value: str, format: str) -> datetime.datetime:
+        """
+        Parses the provided value as a System.DateTime using System.DateTime.ParseExact(string,string,IFormatProvider)
+        with the specified format and CultureInfo.InvariantCulture
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def date_time_exact(value: str, format: str, date_time_styles: System.Globalization.DateTimeStyles) -> datetime.datetime:
+        """
+        Parses the provided value as a System.DateTime using System.DateTime.ParseExact(string,string,IFormatProvider)
+        with the specified format, date_time_styles and CultureInfo.InvariantCulture
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def decimal(value: str) -> float:
+        """Parses the provided value as a decimal using CultureInfo.InvariantCulture"""
+        ...
+
+    @staticmethod
+    @overload
+    def decimal(value: str, number_styles: System.Globalization.NumberStyles) -> float:
+        """
+        Parses the provided value as a decimal using the specified number_styles
+        and CultureInfo.InvariantCulture
+        """
+        ...
+
+    @staticmethod
+    def double(value: str) -> float:
+        """Parses the provided value as a double using CultureInfo.InvariantCulture"""
+        ...
+
+    @staticmethod
+    def int(value: str) -> int:
+        """Parses the provided value as a int using CultureInfo.InvariantCulture"""
+        ...
+
+    @staticmethod
+    @overload
+    def long(value: str) -> int:
+        """Parses the provided value as a long using CultureInfo.InvariantCulture"""
+        ...
+
+    @staticmethod
+    @overload
+    def long(value: str, number_styles: System.Globalization.NumberStyles) -> int:
+        """
+        Parses the provided value as a long using CultureInfo.InvariantCulture
+        and the specified number_styles
+        """
+        ...
+
+    @staticmethod
+    def time_span(value: str) -> datetime.timedelta:
+        """
+        Parses the provided value as a System.TimeSpan using System.TimeSpan.Parse(string,IFormatProvider)
+        with CultureInfo.InvariantCulture
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(input: str, value: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
+        """Tries to parse the provided value with TryParse as a System.TimeSpan using CultureInfo.InvariantCulture."""
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(input: str, date_time_style: System.Globalization.DateTimeStyles, value: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
+        """
+        Tries to parse the provided value with TryParse as a System.DateTime using the specified date_time_style
+        and CultureInfo.InvariantCulture.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(input: str, number_style: System.Globalization.NumberStyles, value: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        """
+        Tries to parse the provided value with TryParse as a double using the specified number_style
+        and CultureInfo.InvariantCulture.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(input: str, number_style: System.Globalization.NumberStyles, value: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to parse the provided value with TryParse as a int using the specified number_style
+        and CultureInfo.InvariantCulture.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_exact(input: str, format: str, time_span_style: System.Globalization.TimeSpanStyles, value: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
+        """
+        Tries to parse the provided value with TryParse as a System.TimeSpan, format
+        string, TimeSpanStyles, and using CultureInfo.InvariantCulture
+        
+        :param input: 
+        :param format: 
+        :param time_span_style: 
+        :param value: 
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_exact(input: str, format: str, date_time_style: System.Globalization.DateTimeStyles, value: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
+        """
+        Tries to parse the provided value with TryParse as a System.DateTime using the
+        specified date_time_style, the format format, and
+        CultureInfo.InvariantCulture.
+        """
+        ...
+
+
+class StubsIgnoreAttribute(System.Attribute):
+    """
+    P
+    Custom attribute used for marking classes, methods, properties, etc. that should be ignored by the stubs generator
+    """
+
+
+class StringExtensions(System.Object):
+    """
+    Provides extension methods for properly parsing and serializing values while properly using
+    an IFormatProvider/CultureInfo when applicable
+    """
+
+    @staticmethod
+    def convert_invariant(value: typing.Any, conversion_type: typing.Type) -> System.Object:
+        """
+        Converts the provided value as conversion_type
+        using CultureInfo
+        """
+        ...
+
+    @staticmethod
+    def ends_with_invariant(value: str, ending: str, ignore_case: bool = False) -> bool:
+        """
+        Checks if the string ends with the provided ending using CultureInfo
+        while optionally ignoring case.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def index_of_invariant(value: str, character: str) -> int:
+        """Gets the index of the specified character using StringComparison"""
+        ...
+
+    @staticmethod
+    @overload
+    def index_of_invariant(value: str, substring: str, ignore_case: bool = False) -> int:
+        """
+        Gets the index of the specified substring using StringComparison
+        or System.StringComparison.InvariantCultureIgnoreCase when ignore_case is true
+        """
+        ...
+
+    @staticmethod
+    def invariant(formattable: System.FormattableString) -> str:
+        """
+        Non-extension method alias for FormattableString.Invariant
+        This supports the using static QuantConnect.StringExtensions syntax
+        and is aimed at ensuring all formatting is piped through this class instead of
+        alternatively piping through directly to FormattableString.Invariant
+        """
+        ...
+
+    @staticmethod
+    def last_index_of_invariant(value: str, substring: str, ignore_case: bool = False) -> int:
+        """
+        Gets the index of the specified substring using StringComparison
+        or System.StringComparison.InvariantCultureIgnoreCase when ignore_case is true
+        """
+        ...
+
+    @staticmethod
+    def safe_substring(value: str, start_index: int, length: int) -> str:
+        """
+        Retrieves a substring from this instance. The substring starts at a specified
+        character position and has a specified length.
+        """
+        ...
+
+    @staticmethod
+    def starts_with_invariant(value: str, beginning: str, ignore_case: bool = False) -> bool:
+        """
+        Checks if the string starts with the provided beginning using CultureInfo
+        while optionally ignoring case.
+        """
+        ...
+
+    @staticmethod
+    def to_iso_8601_invariant(date_time: typing.Union[datetime.datetime, datetime.date]) -> str:
+        """Provides a convenience methods for converting a DateTime to an invariant ISO-8601 string"""
+        ...
+
+    @staticmethod
+    @overload
+    def to_string_invariant(convertible: System.IConvertible) -> str:
+        """Converts the provided value to a string using CultureInfo"""
+        ...
+
+    @staticmethod
+    @overload
+    def to_string_invariant(formattable: System.IFormattable, format: str) -> str:
+        """
+        Formats the provided value using the specified format and
+        CultureInfo
+        """
+        ...
+
+    @staticmethod
+    def truncate(value: str, max_length: int) -> str:
+        """
+        Truncates a string to the specified maximum length
+        
+        :param value: The string
+        :param max_length: The maximum allowed string
+        :returns: A new string with max_length characters if the original one's length was greater than the maximum allowed length.
+        Otherwise, the original string is returned.
+        """
+        ...
+
+
+class ChartSeriesJsonConverter:
+    """Convert a Chart Series to and from JSON"""
+
+    @property
+    def can_read(self) -> bool:
+        """This converter wont be used to read JSON. Will throw exception if manually called."""
+        ...
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """Indicates whether the given object type can be converted into Chart Series"""
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """Converts a JSON file into a Chart Series object"""
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Converts a Chart Series object into a JSON file"""
+        ...
+
+
+class AlgorithmUtils(System.Object):
+    """Provides utility methods for or related to algorithms"""
+
+    @staticmethod
+    def seed_securities(securities: typing.Sequence[QuantConnect.Securities.Security], algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
+        """
+        Seeds the provided securities with their last known prices from the algorithm
+        
+        :param securities: The securities to seed
+        :param algorithm: The algorithm instance
         """
         ...
 
@@ -6718,162 +7795,399 @@ class Extensions(System.Object):
         ...
 
 
-class ScatterChartPointJsonConverter:
-    """ScatterChartPoint json converter"""
+class SeriesSampler(System.Object):
+    """A type capable of taking a chart and resampling using a linear interpolation strategy"""
 
     @property
-    def can_write(self) -> bool:
-        """Default writer"""
-        ...
-
-    def can_convert(self, object_type: typing.Type) -> bool:
+    def step(self) -> datetime.timedelta:
         """
-        Determine if this Converter can convert this type
+        The desired sampling resolution
         
-        :param object_type: Type that we would like to convert
-        :returns: True if Series.
+        
+        This codeEntityType is protected.
         """
         ...
 
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """Reads series from Json"""
+    @step.setter
+    def step(self, value: datetime.timedelta) -> None:
         ...
 
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """Writes a Json from series"""
+    @property
+    def sub_sample(self) -> bool:
+        """True if sub sampling is enabled, if false only subsampling will happen"""
+        ...
+
+    @sub_sample.setter
+    def sub_sample(self, value: bool) -> None:
+        ...
+
+    def __init__(self, resolution: datetime.timedelta) -> None:
+        """
+        Creates a new SeriesSampler to sample Series data on the specified resolution
+        
+        :param resolution: The desired sampling resolution
+        """
+        ...
+
+    @staticmethod
+    def interpolate(x_0: float, y_0: typing.Optional[float], x_1: float, y_1: typing.Optional[float], x_target: float, step: float) -> typing.Optional[float]:
+        """
+        Linear interpolation used for sampling
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    def sample(self, series: QuantConnect.BaseSeries, start: typing.Union[datetime.datetime, datetime.date], stop: typing.Union[datetime.datetime, datetime.date], truncate_values: bool = False) -> QuantConnect.BaseSeries:
+        """
+        Samples the given series
+        
+        :param series: The series to be sampled
+        :param start: The date to start sampling, if before start of data then start of data will be used
+        :param stop: The date to stop sampling, if after stop of data, then stop of data will be used
+        :param truncate_values: True will truncate values to integers
+        :returns: The sampled series.
+        """
+        ...
+
+    def sample_chart(self, chart: QuantConnect.Chart, start: typing.Union[datetime.datetime, datetime.date], stop: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Chart:
+        """
+        Samples the given chart
+        
+        :param chart: The chart to be sampled
+        :param start: The date to start sampling
+        :param stop: The date to stop sampling
+        :returns: The sampled chart.
+        """
+        ...
+
+    def sample_charts(self, charts: System.Collections.Generic.IDictionary[str, QuantConnect.Chart], start: typing.Union[datetime.datetime, datetime.date], stop: typing.Union[datetime.datetime, datetime.date]) -> System.Collections.Generic.Dictionary[str, QuantConnect.Chart]:
+        """
+        Samples the given charts
+        
+        :param charts: The charts to be sampled
+        :param start: The date to start sampling
+        :param stop: The date to stop sampling
+        :returns: The sampled charts.
+        """
         ...
 
 
-class Result(System.Object):
+class RealTimeProvider(System.Object, QuantConnect.ITimeProvider):
     """
-    Base class for backtesting and live results that packages result data.
-    LiveResultBacktestResult
+    Provides an implementation of ITimeProvider that
+    uses DateTime.UtcNow to provide the current time
     """
 
-    @property
-    def charts(self) -> System.Collections.Generic.IDictionary[str, QuantConnect.Chart]:
-        """Charts updates for the live algorithm since the last result packet"""
+    INSTANCE: QuantConnect.ITimeProvider = ...
+    """Provides a static instance of the RealTimeProvider"""
+
+    def get_utc_now(self) -> datetime.datetime:
+        """
+        Gets the current time in UTC
+        
+        :returns: The current time in UTC.
+        """
         ...
 
-    @charts.setter
-    def charts(self, value: System.Collections.Generic.IDictionary[str, QuantConnect.Chart]) -> None:
+
+class SymbolRepresentation(System.Object):
+    """Public static helper class that does parsing/generation of symbol representations (options, futures)"""
+
+    class FutureTickerProperties(System.Object):
+        """Class contains future ticker properties returned by ParseFutureTicker()"""
+
+        @property
+        def underlying(self) -> str:
+            """Underlying name"""
+            ...
+
+        @underlying.setter
+        def underlying(self, value: str) -> None:
+            ...
+
+        @property
+        def expiration_year_short(self) -> int:
+            """Short expiration year"""
+            ...
+
+        @expiration_year_short.setter
+        def expiration_year_short(self, value: int) -> None:
+            ...
+
+        @property
+        def expiration_year_short_length(self) -> int:
+            """Short expiration year digits"""
+            ...
+
+        @expiration_year_short_length.setter
+        def expiration_year_short_length(self, value: int) -> None:
+            ...
+
+        @property
+        def expiration_month(self) -> int:
+            """Expiration month"""
+            ...
+
+        @expiration_month.setter
+        def expiration_month(self, value: int) -> None:
+            ...
+
+        @property
+        def expiration_day(self) -> int:
+            """Expiration day"""
+            ...
+
+        @expiration_day.setter
+        def expiration_day(self, value: int) -> None:
+            ...
+
+    class OptionTickerProperties(System.Object):
+        """Class contains option ticker properties returned by ParseOptionTickerIQFeed()"""
+
+        @property
+        def underlying(self) -> str:
+            """Underlying name"""
+            ...
+
+        @underlying.setter
+        def underlying(self, value: str) -> None:
+            ...
+
+        @property
+        def option_right(self) -> QuantConnect.OptionRight:
+            """Option right"""
+            ...
+
+        @option_right.setter
+        def option_right(self, value: QuantConnect.OptionRight) -> None:
+            ...
+
+        @property
+        def option_strike(self) -> float:
+            """Option strike"""
+            ...
+
+        @option_strike.setter
+        def option_strike(self, value: float) -> None:
+            ...
+
+        @property
+        def expiration_date(self) -> datetime.datetime:
+            """Expiration date"""
+            ...
+
+        @expiration_date.setter
+        def expiration_date(self, value: datetime.datetime) -> None:
+            ...
+
+    OPTION_CODE_LOOKUP: System.Collections.Generic.IReadOnlyDictionary[str, System.Tuple[int, QuantConnect.OptionRight]]
+    """
+    A dictionary that maps option symbols to a tuple containing the option series number and the option right (Call or Put).
+    The key represents a single character option symbol, and the value contains the series number and the associated option right.
+    """
+
+    FUTURES_MONTH_CODE_LOOKUP: System.Collections.Generic.IReadOnlyDictionary[str, int]
+    """Provides a lookup dictionary for mapping futures month codes to their corresponding numeric values."""
+
+    FUTURES_MONTH_LOOKUP: System.Collections.Generic.IReadOnlyDictionary[int, str]
+    """Provides a lookup dictionary for mapping numeric values to their corresponding futures month codes."""
+
+    @staticmethod
+    def generate_future_ticker(underlying: str, expiration: typing.Union[datetime.datetime, datetime.date], double_digits_year: bool = True, include_expiration_date: bool = True) -> str:
+        """
+        Returns future symbol ticker from underlying and expiration date. Function can generate tickers of two formats: one and two digits year.
+        Format <Ticker><2 digit day code><1 char month code><2/1 digit year code>, more information at http://help.tradestation.com/09_01/tradestationhelp/symbology/futures_symbology.htm
+        
+        :param underlying: String underlying
+        :param expiration: Expiration date
+        :param double_digits_year: True if year should represented by two digits; False - one digit
+        :param include_expiration_date: True if expiration date should be included
+        :returns: The user friendly future ticker.
+        """
         ...
 
-    @property
-    def orders(self) -> System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order]:
-        """Order updates since the last result packet"""
+    @staticmethod
+    def generate_option_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+        """
+        Function returns option ticker from IQFeed option ticker
+        For example CSCO1220V19 Cisco October Put at 19.00 Expiring on 10/20/12
+        Symbology details: http://www.iqfeed.net/symbolguide/index.cfm?symbolguide=guide&displayaction=support%C2%A7ion=guide&web=iqfeed&guide=options&web=IQFeed&type=stock
+        
+        :param symbol: THe option symbol
+        :returns: The option ticker.
+        """
         ...
 
-    @orders.setter
-    def orders(self, value: System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order]) -> None:
-        ...
-
-    @property
-    def order_events(self) -> typing.List[QuantConnect.Orders.OrderEvent]:
-        """OrderEvent updates since the last result packet"""
-        ...
-
-    @order_events.setter
-    def order_events(self, value: typing.List[QuantConnect.Orders.OrderEvent]) -> None:
-        ...
-
-    @property
-    def profit_loss(self) -> System.Collections.Generic.IDictionary[datetime.datetime, float]:
-        """Trade profit and loss information since the last algorithm result packet"""
-        ...
-
-    @profit_loss.setter
-    def profit_loss(self, value: System.Collections.Generic.IDictionary[datetime.datetime, float]) -> None:
-        ...
-
-    @property
-    def statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
-        """Statistics information sent during the algorithm operations."""
-        ...
-
-    @statistics.setter
-    def statistics(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
-        ...
-
-    @property
-    def runtime_statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
-        """Runtime banner/updating statistics in the title banner of the live algorithm GUI."""
-        ...
-
-    @runtime_statistics.setter
-    def runtime_statistics(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
-        ...
-
-    @property
-    def state(self) -> System.Collections.Generic.IDictionary[str, str]:
-        """State of the result packet."""
-        ...
-
-    @state.setter
-    def state(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
-        ...
-
-    @property
-    def server_statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
-        """Server status information, including CPU/RAM usage, ect..."""
-        ...
-
-    @server_statistics.setter
-    def server_statistics(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
-        ...
-
-    @property
-    def algorithm_configuration(self) -> QuantConnect.AlgorithmConfiguration:
-        """The algorithm's configuration required for report generation"""
-        ...
-
-    @algorithm_configuration.setter
-    def algorithm_configuration(self, value: QuantConnect.AlgorithmConfiguration) -> None:
-        ...
-
-    @property
-    def total_performance(self) -> QuantConnect.Statistics.AlgorithmPerformance:
-        """Rolling window detailed statistics."""
-        ...
-
-    @total_performance.setter
-    def total_performance(self, value: QuantConnect.Statistics.AlgorithmPerformance) -> None:
-        ...
-
+    @staticmethod
     @overload
-    def __init__(self) -> None:
-        """Creates new empty instance"""
+    def generate_option_ticker_osi(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+        """
+        Returns option symbol ticker in accordance with OSI symbology
+        More information can be found at http://www.optionsclearing.com/components/docs/initiatives/symbology/symbology_initiative_v1_8.pdf
+        
+        :param symbol: Symbol object to create OSI ticker from
+        :returns: The OSI ticker representation.
+        """
         ...
 
+    @staticmethod
     @overload
-    def __init__(self, parameters: QuantConnect.Packets.BaseResultParameters) -> None:
-        """Creates a new result from the given parameters"""
+    def generate_option_ticker_osi(underlying: str, right: QuantConnect.OptionRight, strike_price: float, expiration: typing.Union[datetime.datetime, datetime.date]) -> str:
+        """
+        Returns option symbol ticker in accordance with OSI symbology
+        More information can be found at http://www.optionsclearing.com/components/docs/initiatives/symbology/symbology_initiative_v1_8.pdf
+        
+        :param underlying: Underlying string
+        :param right: Option right
+        :param strike_price: Option strike
+        :param expiration: Option expiration date
+        :returns: The OSI ticker representation.
+        """
         ...
 
-
-class LocalTimeKeeper(System.Object):
-    """
-    Represents the current local time. This object is created via the TimeKeeper to
-    manage conversions to local time.
-    """
-
-    @property
-    def time_updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.TimeUpdatedEventArgs], typing.Any], typing.Any]:
-        """Event fired each time UpdateTime is called"""
+    @staticmethod
+    @overload
+    def generate_option_ticker_osi_compact(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+        """
+        Returns option symbol ticker in accordance with OSI symbology
+        More information can be found at http://www.optionsclearing.com/components/docs/initiatives/symbology/symbology_initiative_v1_8.pdf
+        
+        :param symbol: Symbol object to create OSI ticker from
+        :returns: The OSI ticker representation.
+        """
         ...
 
-    @time_updated.setter
-    def time_updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.TimeUpdatedEventArgs], typing.Any], typing.Any]) -> None:
+    @staticmethod
+    @overload
+    def generate_option_ticker_osi_compact(underlying: str, right: QuantConnect.OptionRight, strike_price: float, expiration: typing.Union[datetime.datetime, datetime.date]) -> str:
+        """
+        Returns option symbol ticker in accordance with OSI symbology
+        More information can be found at http://www.optionsclearing.com/components/docs/initiatives/symbology/symbology_initiative_v1_8.pdf
+        
+        :param underlying: Underlying string
+        :param right: Option right
+        :param strike_price: Option strike
+        :param expiration: Option expiration date
+        :returns: The OSI ticker representation.
+        """
         ...
 
-    @property
-    def time_zone(self) -> typing.Any:
-        """Gets the time zone of this LocalTimeKeeper"""
+    @staticmethod
+    def parse_future_option_symbol(ticker: str, strike_scale: int = 1) -> QuantConnect.Symbol:
+        """
+        Creates a future option Symbol from the provided ticker
+        
+        :param ticker: The future option ticker, for example 'ESZ0 P3590'
+        :param strike_scale: Optional the future option strike scale factor
+        """
         ...
 
-    @property
-    def local_time(self) -> datetime.datetime:
-        """Gets the current time in terms of the time_zone"""
+    @staticmethod
+    def parse_future_symbol(ticker: str, future_year: typing.Optional[int] = None) -> QuantConnect.Symbol:
+        """
+        Helper method to parse and generate a future symbol from a given user friendly representation
+        
+        :param ticker: The future ticker, for example 'ESZ1'
+        :param future_year: Clarifies the year for the current future
+        :returns: The future symbol or null if failed.
+        """
+        ...
+
+    @staticmethod
+    def parse_future_ticker(ticker: str) -> QuantConnect.SymbolRepresentation.FutureTickerProperties:
+        """
+        Function returns underlying name, expiration year, expiration month, expiration day for the future contract ticker. Function detects if
+        the format used is either 1 or 2 digits year, and if day code is present (will default to 1rst day of month). Returns null, if parsing failed.
+        Format <Ticker><2 digit day code OPTIONAL><1 char month code><2/1 digit year code>
+        
+        :param ticker: 
+        :returns: Results containing 1) underlying name, 2) short expiration year, 3) expiration month.
+        """
+        ...
+
+    @staticmethod
+    def parse_option_ticker_iq_feed(ticker: str) -> QuantConnect.SymbolRepresentation.OptionTickerProperties:
+        """
+        Function returns option contract parameters (underlying name, expiration date, strike, right) from IQFeed option ticker
+        Symbology details: http://www.iqfeed.net/symbolguide/index.cfm?symbolguide=guide&displayaction=support%C2%A7ion=guide&web=iqfeed&guide=options&web=IQFeed&type=stock
+        
+        :param ticker: IQFeed option ticker
+        :returns: Results containing 1) underlying name, 2) option right, 3) option strike 4) expiration date.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse_option_ticker_osi(ticker: str, security_type: QuantConnect.SecurityType = ..., market: str = ...) -> QuantConnect.Symbol:
+        """
+        Parses the specified OSI options ticker into a Symbol object
+        
+        :param ticker: The OSI compliant option ticker string
+        :param security_type: The security type
+        :param market: The associated market
+        :returns: Symbol object for the specified OSI option ticker string.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse_option_ticker_osi(ticker: str, security_type: QuantConnect.SecurityType, option_style: QuantConnect.OptionStyle, market: str) -> QuantConnect.Symbol:
+        """
+        Parses the specified OSI options ticker into a Symbol object
+        
+        :param ticker: The OSI compliant option ticker string
+        :param security_type: The security type
+        :param market: The associated market
+        :param option_style: The option style
+        :returns: Symbol object for the specified OSI option ticker string.
+        """
+        ...
+
+    @staticmethod
+    def parse_ticker_from_user_input(ticker: str, security_type: QuantConnect.SecurityType, market: str) -> QuantConnect.Symbol:
+        """
+        Converts a user-provided ticker string into a Symbol object,
+        handling different security types such as stocks, options, futures, and index options.
+        
+        :param ticker: The ticker string input by the user.
+        :param security_type: The type of security (e.g., Equity, Option, Future).
+        :param market: The market or exchange the symbol belongs to (optional for some types).
+        :returns: A Symbol representing the specified security.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_decompose_option_ticker_osi(ticker: str, option_ticker: typing.Optional[str], expiry: typing.Optional[typing.Union[datetime.datetime, datetime.date]], right: typing.Optional[QuantConnect.OptionRight], strike: typing.Optional[float]) -> typing.Tuple[bool, str, typing.Union[datetime.datetime, datetime.date], QuantConnect.OptionRight, float]:
+        """
+        Tries to decompose the specified OSI options ticker into its components
+        
+        :param ticker: The OSI option ticker
+        :param option_ticker: The option ticker extracted from the OSI symbol
+        :param expiry: The option contract expiry date
+        :param right: The option contract right
+        :param strike: The option contract strike price
+        :returns: True if the OSI symbol was in the right format and could be decomposed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_decompose_option_ticker_osi(ticker: str, security_type: QuantConnect.SecurityType, option_ticker: typing.Optional[str], underlying_ticker: typing.Optional[str], expiry: typing.Optional[typing.Union[datetime.datetime, datetime.date]], right: typing.Optional[QuantConnect.OptionRight], strike: typing.Optional[float]) -> typing.Tuple[bool, str, str, typing.Union[datetime.datetime, datetime.date], QuantConnect.OptionRight, float]:
+        """
+        Tries to decompose the specified OSI options ticker into its components
+        
+        :param ticker: The OSI option ticker
+        :param security_type: The option security type
+        :param option_ticker: The option ticker extracted from the OSI symbol
+        :param underlying_ticker: The underlying ticker
+        :param expiry: The option contract expiry date
+        :param right: The option contract right
+        :param strike: The option contract strike price
+        :returns: True if the OSI symbol was in the right format and could be decomposed.
+        """
         ...
 
 
@@ -6945,1093 +8259,239 @@ class TimeKeeper(System.Object, QuantConnect.Interfaces.ITimeKeeper):
         ...
 
 
-class Field(System.Object):
-    """Provides static properties to be used as selectors with the indicator system"""
-
-    BID_CLOSE: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Bid close price"""
-
-    BID_OPEN: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Bid open price"""
-
-    BID_LOW: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Bid low price"""
-
-    BID_HIGH: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Bid high price"""
-
-    ASK_CLOSE: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Ask close price"""
-
-    ASK_OPEN: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Ask open price"""
-
-    ASK_LOW: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Ask low price"""
-
-    ASK_HIGH: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Ask high price"""
-
-    ASK_PRICE: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Ask price"""
-
-    BID_PRICE: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Bid price"""
-
-    OPEN: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selects the Open value"""
-
-    HIGH: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selects the High value"""
-
-    LOW: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selects the Low value"""
-
-    CLOSE: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selects the Close value"""
-
-    AVERAGE: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Defines an average price that is equal to (O + H + L + C) / 4"""
-
-    MEDIAN: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Defines an average price that is equal to (H + L) / 2"""
-
-    TYPICAL: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Defines an average price that is equal to (H + L + C) / 3"""
-
-    WEIGHTED: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Defines an average price that is equal to (H + L + 2*C) / 4"""
-
-    SEVEN_BAR: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Defines an average price that is equal to (2*O + H + L + 3*C)/7"""
-
-    VOLUME: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectors the Volume value"""
-
-
-class Time(System.Object):
-    """Time helper class collection for working with trading dates"""
-
-    class DateTimeWithZone:
-        """Live charting is sensitive to timezone so need to convert the local system time to a UTC and display in browser as UTC."""
-
-        @property
-        def universal_time(self) -> datetime.datetime:
-            """Gets the universal time."""
-            ...
-
-        @property
-        def time_zone(self) -> System.TimeZoneInfo:
-            """Gets the time zone."""
-            ...
-
-        @property
-        def local_time(self) -> datetime.datetime:
-            """Gets the local time."""
-            ...
-
-        def __init__(self, date_time: typing.Union[datetime.datetime, datetime.date], time_zone: System.TimeZoneInfo) -> None:
-            """
-            Initializes a new instance of the QuantConnect.Time.DateTimeWithZone struct.
-            
-            :param date_time: Date time.
-            :param time_zone: Time zone.
-            """
-            ...
-
-    class MonthYearJsonConverter:
-        """Helper method to deserialize month/year"""
-
-        def __init__(self) -> None:
-            """Creates a new instance"""
-            ...
-
-    live_auxiliary_data_offset: datetime.timedelta
-    """Allows specifying an offset to trigger the tradable date event"""
-
-    END_OF_TIME: datetime.datetime = ...
-    """Provides a value far enough in the future the current computer hardware will have decayed :)"""
-
-    end_of_time_time_span: datetime.timedelta = ...
-    """Provides a time span based on END_OF_TIME"""
-
-    START: datetime.datetime = ...
-    """Provides a common and normalized start time for Lean data"""
-
-    BEGINNING_OF_TIME: datetime.datetime = ...
-    """Provides a value far enough in the past that can be used as a lower bound on dates, 12/30/1899"""
-
-    MAX_TIME_SPAN: datetime.timedelta = ...
+class TimeZoneOffsetProvider(System.Object):
     """
-    Provides a value large enough that we won't hit the limit, while small enough
-    we can still do math against it without checking everywhere for TimeSpan.MaxValue
+    Represents the discontinuties in a single time zone and provides offsets to UTC.
+    This type assumes that times will be asked in a forward marching manner.
+    This type is not thread safe.
     """
 
-    ONE_YEAR: datetime.timedelta = ...
-    """One Year TimeSpan Period Constant"""
+    @property
+    def time_zone(self) -> typing.Any:
+        """Gets the time zone this instances provides offsets for"""
+        ...
 
-    ONE_DAY: datetime.timedelta = ...
-    """One Day TimeSpan Period Constant"""
+    def __init__(self, time_zone: typing.Any, utc_start_time: typing.Union[datetime.datetime, datetime.date], utc_end_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes a new instance of the TimeZoneOffsetProvider class
+        
+        :param time_zone: The time zone to provide offsets for
+        :param utc_start_time: The start of the range of offsets.
+        Careful here, it will determine the current discontinuity offset value. When requested to convert a date we only look forward for new discontinuities
+        but we suppose the current offset is correct for the requested date if in the past.
+        :param utc_end_time: The end of the range of offsets
+        """
+        ...
 
-    ONE_HOUR: datetime.timedelta = ...
-    """One Hour TimeSpan Period Constant"""
+    def convert_from_utc(self, utc_time: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+        """
+        Converts the specified utc_time using the offset resolved from
+        a call to get_offset_ticks
+        
+        :param utc_time: The time to convert from utc
+        :returns: The same instant in time represented in the time_zone.
+        """
+        ...
 
-    ONE_MINUTE: datetime.timedelta = ...
-    """One Minute TimeSpan Period Constant"""
+    def convert_to_utc(self, local_time: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+        """
+        Converts the specified local time to UTC. This function will advance this offset provider
+        
+        :param local_time: The local time to be converted to UTC
+        :returns: The specified time in UTC.
+        """
+        ...
 
-    ONE_SECOND: datetime.timedelta = ...
-    """One Second TimeSpan Period Constant"""
+    def get_next_discontinuity(self) -> int:
+        """
+        Gets this offset provider's next discontinuity
+        
+        :returns: The next discontinuity in UTC ticks.
+        """
+        ...
 
-    ONE_MILLISECOND: datetime.timedelta = ...
-    """One Millisecond TimeSpan Period Constant"""
+    def get_offset_ticks(self, utc_time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        """
+        Gets the offset in ticks from this time zone to UTC, such that UTC time + offset = local time
+        
+        :param utc_time: The time in UTC to get an offset to local
+        :returns: The offset in ticks between UTC and the local time zone.
+        """
+        ...
+
+
+class FileExtension(System.Object):
+    """Helper methods for file management"""
+
+    RESERVED_WORDS_PREFIX: str = ...
+    """Reserved words prefix from Configuration"""
 
     @staticmethod
-    def abs(time_span: datetime.timedelta) -> datetime.timedelta:
+    def from_normalized_path(path: str) -> str:
         """
-        Gets the absolute value of the specified time span
-        
-        :param time_span: Time span whose absolute value we seek
-        :returns: The absolute value of the specified time span.
+        Takes a modified path (see to_normalized_path(string)) and (if applicable)
+        returns the original path proposed by LEAN
         """
         ...
 
     @staticmethod
-    def date_time_range(_from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], step: datetime.timedelta) -> typing.Iterable[datetime.datetime]:
+    def to_normalized_path(path: str) -> str:
         """
-        Define an enumerable date time range using the given time step
-        
-        :param _from: DateTime start date time
-        :param thru: DateTime end date time
-        :returns: Enumerable date time range.
+        Takes a given path and (if applicable) returns a modified path accepted by
+        Windows OS
         """
         ...
 
-    @staticmethod
-    def date_time_to_unix_time_stamp(time: typing.Union[datetime.datetime, datetime.date]) -> float:
-        """
-        Convert a Datetime to Unix Timestamp
-        
-        :param time: C# datetime object
-        :returns: Double unix timestamp.
-        """
-        ...
 
-    @staticmethod
-    def date_time_to_unix_time_stamp_milliseconds(time: typing.Union[datetime.datetime, datetime.date]) -> float:
-        """
-        Convert a Datetime to Unix Timestamp
-        
-        :param time: C# datetime object
-        :returns: Double unix timestamp.
-        """
-        ...
+class Expiry(System.Object):
+    """Provides static functions that can be used to compute a future DateTime (expiry) given a DateTime."""
 
-    @staticmethod
-    def date_time_to_unix_time_stamp_nanoseconds(time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        """
-        Convert a Datetime to Unix Timestamp
-        
-        :param time: C# datetime object
-        :returns: Int64 unix timestamp.
-        """
-        ...
+    ONE_MONTH: typing.Callable[[datetime.datetime], datetime.datetime]
+    """Computes a date/time one month after a given date/time (nth day to nth day)"""
 
-    @staticmethod
-    def each_day(_from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
-        """
-        Define an enumerable date range and return each date as a datetime object in the date range
-        
-        :param _from: DateTime start date
-        :param thru: DateTime end date
-        :returns: Enumerable date range.
-        """
-        ...
+    ONE_QUARTER: typing.Callable[[datetime.datetime], datetime.datetime]
+    """Computes a date/time one quarter after a given date/time (nth day to nth day)"""
 
-    @staticmethod
+    ONE_YEAR: typing.Callable[[datetime.datetime], datetime.datetime]
+    """Computes a date/time one year after a given date/time (nth day to nth day)"""
+
+    END_OF_DAY: typing.Callable[[datetime.datetime], datetime.datetime]
+    """Computes the end of day (mid-night of the next day) of given date/time"""
+
+    END_OF_WEEK: typing.Callable[[datetime.datetime], datetime.datetime]
+    """Computes the end of week (next Monday) of given date/time"""
+
+    END_OF_MONTH: typing.Callable[[datetime.datetime], datetime.datetime]
+    """Computes the end of month (1st of the next month) of given date/time"""
+
+    END_OF_QUARTER: typing.Callable[[datetime.datetime], datetime.datetime]
+    """Computes the end of quarter (1st of the starting month of next quarter) of given date/time"""
+
+    END_OF_YEAR: typing.Callable[[datetime.datetime], datetime.datetime]
+    """Computes the end of year (1st of the next year) of given date/time"""
+
+
+class RealTimeSynchronizedTimer(System.Object):
+    """Real time timer class for precise callbacks on a millisecond resolution in a self managed thread."""
+
     @overload
-    def each_tradeable_day(securities: System.Collections.Generic.ICollection[QuantConnect.Securities.Security], _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
-        """
-        Define an enumerable date range of tradeable dates - skip the holidays and weekends when securities in this algorithm don't trade.
-        
-        :param securities: Securities we have in portfolio
-        :param _from: Start date
-        :param thru: End date
-        :returns: Enumerable date range.
-        """
+    def __init__(self) -> None:
+        """Constructor for Real Time Event Driver:"""
         ...
 
-    @staticmethod
     @overload
-    def each_tradeable_day(security: QuantConnect.Securities.Security, _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], extended_market_hours: bool = False) -> typing.Iterable[datetime.datetime]:
+    def __init__(self, period: datetime.timedelta, callback: typing.Callable[[datetime.datetime], typing.Any]) -> None:
         """
-        Define an enumerable date range of tradeable dates - skip the holidays and weekends when securities in this algorithm don't trade.
+        Trigger an event callback after precisely milliseconds-lapsed.
+        This is expensive, it creates a new thread and closely monitors the loop.
         
-        :param security: The security to get tradeable dates for
-        :param _from: Start date
-        :param thru: End date
-        :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
-        :returns: Enumerable date range.
+        :param period: delay period between event callbacks
+        :param callback: Callback event passed the UTC time the event is intended to be triggered
         """
         ...
 
-    @staticmethod
-    @overload
-    def each_tradeable_day(exchange: QuantConnect.Securities.SecurityExchangeHours, _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], extended_market_hours: bool = False) -> typing.Iterable[datetime.datetime]:
-        """
-        Define an enumerable date range of tradeable dates - skip the holidays and weekends when securities in this algorithm don't trade.
-        
-        :param exchange: The security to get tradeable dates for
-        :param _from: Start date
-        :param thru: End date
-        :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
-        :returns: Enumerable date range.
-        """
+    def pause(self) -> None:
+        """Hang the real time event:"""
         ...
 
-    @staticmethod
-    def each_tradeable_day_in_time_zone(exchange: QuantConnect.Securities.SecurityExchangeHours, _from: typing.Union[datetime.datetime, datetime.date], thru: typing.Union[datetime.datetime, datetime.date], time_zone: typing.Any, include_extended_market_hours: bool = True) -> typing.Iterable[datetime.datetime]:
-        """
-        Define an enumerable date range of tradeable dates but expressed in a different time zone.
-        
-        :param exchange: The exchange hours
-        :param _from: The start time in the exchange time zone
-        :param thru: The end time in the exchange time zone (inclusive of the final day)
-        :param time_zone: The timezone to project the dates into (inclusive of the final day)
-        :param include_extended_market_hours: True to include extended market hours trading in the search, false otherwise
-        """
+    def resume(self) -> None:
+        """Resume clock"""
         ...
 
-    @staticmethod
-    def get_end_time_for_trade_bars(exchange_hours: QuantConnect.Securities.SecurityExchangeHours, start: typing.Union[datetime.datetime, datetime.date], bar_size: datetime.timedelta, bar_count: int, extended_market_hours: bool) -> datetime.datetime:
-        """
-        Determines the end time at which the requested number of bars of the given  will have elapsed.
-        NOTE: The start time is not discretized by bar_size units like is done in get_start_time_for_trade_bars
-        
-        :param exchange_hours: The exchange hours used to test for market open hours
-        :param start: The end time of the last bar over the requested period
-        :param bar_size: The length of each bar
-        :param bar_count: The number of bars requested
-        :param extended_market_hours: True to allow extended market hours bars, otherwise false for only normal market hours
-        :returns: The start time that would provide the specified number of bars ending at the specified end time, rounded down by the requested bar size.
-        """
+    def scanner(self) -> None:
+        """Scan the stopwatch for the desired millisecond delay:"""
         ...
 
-    @staticmethod
-    @overload
-    def get_next_live_auxiliary_data_due_time() -> datetime.timedelta:
-        """
-        Helper method to get the new live auxiliary data due time
-        
-        :returns: The due time for the new auxiliary data emission.
-        """
+    def start(self) -> None:
+        """Start the synchronized real time timer - fire events at start of each second or minute"""
         ...
 
-    @staticmethod
-    @overload
-    def get_next_live_auxiliary_data_due_time(utc_now: typing.Union[datetime.datetime, datetime.date]) -> datetime.timedelta:
-        """
-        Helper method to get the new live auxiliary data due time
-        
-        :param utc_now: The current utc time
-        :returns: The due time for the new auxiliary data emission.
-        """
-        ...
-
-    @staticmethod
-    def get_number_of_trade_bars_in_interval(exchange_hours: QuantConnect.Securities.SecurityExchangeHours, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], bar_size: datetime.timedelta) -> int:
-        """
-        Gets the number of trade bars of the specified bar_size that fit between the start and end
-        
-        :param exchange_hours: The exchange used to test for market open hours
-        :param start: The start time of the interval in the exchange time zone
-        :param end: The end time of the interval in the exchange time zone
-        :param bar_size: The step size used to count number of bars between start and end
-        :returns: The number of bars of the specified size between start and end times.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_second_uneven_wait(wait_time_millis: int) -> int:
-        """
-        Helper method to adjust a waiting time, in milliseconds, so it's uneven with the second turn around
-        
-        :param wait_time_millis: The desired wait time
-        :returns: The adjusted wait time.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_second_uneven_wait(now: typing.Union[datetime.datetime, datetime.date], wait_time_millis: int) -> int:
-        """
-        Helper method to adjust a waiting time, in milliseconds, so it's uneven with the second turn around
-        
-        :param now: The current time
-        :param wait_time_millis: The desired wait time
-        :returns: The adjusted wait time.
-        """
-        ...
-
-    @staticmethod
-    def get_start_time_for_trade_bars(exchange_hours: QuantConnect.Securities.SecurityExchangeHours, end: typing.Union[datetime.datetime, datetime.date], bar_size: datetime.timedelta, bar_count: int, extended_market_hours: bool, data_time_zone: typing.Any, daily_precise_end_time: bool = False) -> datetime.datetime:
-        """
-        Determines the start time required to produce the requested number of bars and the given size
-        
-        :param exchange_hours: The exchange hours used to test for market open hours
-        :param end: The end time of the last bar over the requested period
-        :param bar_size: The length of each bar
-        :param bar_count: The number of bars requested
-        :param extended_market_hours: True to allow extended market hours bars, otherwise false for only normal market hours
-        :param data_time_zone: Timezone for this data
-        :param daily_precise_end_time: True if daily strict end times are enabled
-        :returns: The start time that would provide the specified number of bars ending at the specified end time, rounded down by the requested bar size.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def max(one: datetime.timedelta, two: datetime.timedelta) -> datetime.timedelta:
-        """Returns the timespan with the larger value"""
-        ...
-
-    @staticmethod
-    @overload
-    def max(one: typing.Union[datetime.datetime, datetime.date], two: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
-        """Returns the larger of two date times"""
-        ...
-
-    @staticmethod
-    @overload
-    def min(one: datetime.timedelta, two: datetime.timedelta) -> datetime.timedelta:
-        """Returns the timespan with the smaller value"""
-        ...
-
-    @staticmethod
-    @overload
-    def min(one: typing.Union[datetime.datetime, datetime.date], two: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
-        """Returns the smaller of two date times"""
-        ...
-
-    @staticmethod
-    def multiply(interval: datetime.timedelta, multiplier: float) -> datetime.timedelta:
-        """
-        Multiplies the specified interval by the multiplier
-        
-        :param interval: The interval to be multiplied, such as TimeSpan.FromSeconds(1)
-        :param multiplier: The number of times to multiply the interval
-        :returns: The multiplied interval, such as 1s*5 = 5s.
-        """
-        ...
-
-    @staticmethod
-    def normalize_instant_within_range(start: typing.Union[datetime.datetime, datetime.date], current: typing.Union[datetime.datetime, datetime.date], period: datetime.timedelta) -> float:
-        """
-        Normalizes the current time within the specified period
-        time = start => 0
-        time = start + period => 1
-        
-        :param start: The start time of the range
-        :param current: The current time we seek to normalize
-        :param period: The time span of the range
-        :returns: The normalized time.
-        """
-        ...
-
-    @staticmethod
-    def normalize_time_step(period: datetime.timedelta, step_size: datetime.timedelta) -> float:
-        """
-        Normalizes the step size as a percentage of the period.
-        
-        :param period: The period to normalize against
-        :param step_size: The step size to be normaized
-        :returns: The normalized step size as a percentage of the period.
-        """
-        ...
-
-    @staticmethod
-    def parse_date(date_to_parse: str) -> datetime.datetime:
-        """
-        Parse a standard YY MM DD date into a DateTime. Attempt common date formats
-        
-        :param date_to_parse: String date time to parse
-        :returns: Date time.
-        """
-        ...
-
-    @staticmethod
-    def parse_fix_utc_timestamp(date_to_parse: str) -> datetime.datetime:
-        """
-        Parse a standard YY MM DD date into a DateTime. Attempt common date formats
-        
-        :param date_to_parse: String date time to parse
-        :returns: Date time.
-        """
-        ...
-
-    @staticmethod
-    def time_stamp() -> float:
-        """
-        Get the current time as a unix timestamp
-        
-        :returns: Double value of the unix as UTC timestamp.
-        """
-        ...
-
-    @staticmethod
-    def tradable_date(securities: typing.List[QuantConnect.Securities.Security], day: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        """
-        Make sure this date is not a holiday, or weekend for the securities in this algorithm.
-        
-        :param securities: Security manager from the algorithm
-        :param day: DateTime to check if trade-able.
-        :returns: True if tradeable date.
-        """
-        ...
-
-    @staticmethod
-    def tradeable_dates(securities: System.Collections.Generic.ICollection[QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], finish: typing.Union[datetime.datetime, datetime.date]) -> int:
-        """
-        Could of the number of tradeable dates within this period.
-        
-        :param securities: Securities we're trading
-        :param start: Start of Date Loop
-        :param finish: End of Date Loop
-        :returns: Number of dates.
-        """
-        ...
-
-    @staticmethod
-    def unix_millisecond_time_stamp_to_date_time(unix_time_stamp: float) -> datetime.datetime:
-        """
-        Create a C# DateTime from a UnixTimestamp
-        
-        :param unix_time_stamp: Decimal unix timestamp (Time since Midnight Jan 1 1970) in milliseconds
-        :returns: C# date time object.
-        """
-        ...
-
-    @staticmethod
-    def unix_nanosecond_time_stamp_to_date_time(unix_time_stamp: int) -> datetime.datetime:
-        """
-        Create a C# DateTime from a UnixTimestamp
-        
-        :param unix_time_stamp: Int64 unix timestamp (Time since Midnight Jan 1 1970) in nanoseconds
-        :returns: C# date time object.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def unix_time_stamp_to_date_time(unix_time_stamp: float) -> datetime.datetime:
-        """
-        Create a C# DateTime from a UnixTimestamp
-        
-        :param unix_time_stamp: Double unix timestamp (Time since Midnight Jan 1 1970)
-        :returns: C# date timeobject.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def unix_time_stamp_to_date_time(unix_time_stamp: int) -> datetime.datetime:
-        """
-        Create a C# DateTime from a UnixTimestamp
-        
-        :param unix_time_stamp: Long unix timestamp (Time since Midnight Jan 1 1970)
-        :returns: C# date time object.
-        """
+    def stop(self) -> None:
+        """Stop the real time timer:"""
         ...
 
 
-class DataDownloaderGetParameters(System.Object):
-    """Model class for passing in parameters for historical data"""
+class BinaryComparison(System.Object):
+    """
+    Enumeration class defining binary comparisons and providing access to expressions and functions
+    capable of evaluating a particular comparison for any type. If a particular type does not implement
+    a binary comparison than an exception will be thrown.
+    """
+
+    EQUAL: QuantConnect.BinaryComparison = ...
+    """Gets the BinaryComparison equivalent of ExpressionType.Equal"""
+
+    NOT_EQUAL: QuantConnect.BinaryComparison = ...
+    """Gets the BinaryComparison equivalent of ExpressionType.NotEqual"""
+
+    LESS_THAN: QuantConnect.BinaryComparison = ...
+    """Gets the BinaryComparison equivalent of ExpressionType.LessThan"""
+
+    GREATER_THAN: QuantConnect.BinaryComparison = ...
+    """Gets the BinaryComparison equivalent of ExpressionType.GreaterThan"""
+
+    LESS_THAN_OR_EQUAL: QuantConnect.BinaryComparison = ...
+    """Gets the BinaryComparison equivalent of ExpressionType.LessThanOrEqual"""
+
+    GREATER_THAN_OR_EQUAL: QuantConnect.BinaryComparison = ...
+    """Gets the BinaryComparison equivalent of ExpressionType.GreaterThanOrEqual"""
 
     @property
-    def symbol(self) -> QuantConnect.Symbol:
-        """Symbol for the data we're looking for."""
+    def type(self) -> typing.Any:
+        """Gets the expression type defining the binary comparison."""
         ...
 
-    @symbol.setter
-    def symbol(self, value: QuantConnect.Symbol) -> None:
-        ...
-
-    @property
-    def resolution(self) -> QuantConnect.Resolution:
-        """Resolution of the data request"""
-        ...
-
-    @resolution.setter
-    def resolution(self, value: QuantConnect.Resolution) -> None:
-        ...
-
-    @property
-    def start_utc(self) -> datetime.datetime:
-        """Start time of the data in UTC"""
-        ...
-
-    @start_utc.setter
-    def start_utc(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def end_utc(self) -> datetime.datetime:
-        """End time of the data in UTC"""
-        ...
-
-    @end_utc.setter
-    def end_utc(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def tick_type(self) -> QuantConnect.TickType:
-        """The type of tick to get"""
-        ...
-
-    @tick_type.setter
-    def tick_type(self, value: QuantConnect.TickType) -> None:
-        ...
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: QuantConnect.Resolution, start_utc: typing.Union[datetime.datetime, datetime.date], end_utc: typing.Union[datetime.datetime, datetime.date], tick_type: typing.Optional[QuantConnect.TickType] = None) -> None:
+    def flip_operands(self) -> QuantConnect.BinaryComparison:
         """
-        Initialize model class for passing in parameters for historical data
-        
-        :param symbol: Symbol for the data we're looking for.
-        :param resolution: Resolution of the data request
-        :param start_utc: Start time of the data in UTC
-        :param end_utc: End time of the data in UTC
-        :param tick_type: <Optional> The type of tick to get. Defaults to QuantConnect.TickType.Trade
+        Flips the logic ordering of the comparison's operands. For example, LESS_THAN
+        is converted into GREATER_THAN
         """
+        ...
+
+    @staticmethod
+    def from_expression_type(type: typing.Any) -> QuantConnect.BinaryComparison:
+        """Gets the BinaryComparison matching the provided type"""
         ...
 
     def to_string(self) -> str:
         """
-        Returns a string representation of the DataDownloaderGetParameters object.
+        Returns a string that represents the current object.
         
-        :returns: A string representing the object's properties.
+        :returns: A string that represents the current object.
         """
         ...
 
 
-class StubsAvoidImplicitsAttribute(System.Attribute):
-    """
-    Custom attribute used for marking properties, fields or arguments types that should not
-    be expanded to include other types they can be implicitly converted to.
-    """
-
-
-class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue], System.Object, QuantConnect.Interfaces.IExtendedDictionary[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue], metaclass=abc.ABCMeta):
-    """Provides a base class for types holding key value pairs with helper methods for easy usage in Python"""
+class CapacityEstimate(System.Object):
+    """Estimates dollar volume capacity of algorithm (in account currency) using all Symbols in the portfolio."""
 
     @property
-    @abc.abstractmethod
-    def count(self) -> int:
-        """Gets the number of elements contained in the dictionary"""
+    def capacity(self) -> float:
+        """The total capacity of the strategy at a point in time"""
         ...
 
     @property
-    @abc.abstractmethod
-    def get_keys(self) -> typing.Iterable[QuantConnect_ExtendedDictionary_TKey]:
+    def lowest_capacity_asset(self) -> QuantConnect.Symbol:
+        """Provide a reference to the lowest capacity symbol used in scaling down the capacity for debugging."""
+        ...
+
+    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
         """
-        Gets an System.Collections.Generic.ICollection`1 containing the key objects of the System.Collections.Generic.IDictionary`2.
+        Initializes an instance of the class.
         
+        :param algorithm: Used to get data at the current time step and access the portfolio state
+        """
+        ...
+
+    def on_order_event(self, order_event: QuantConnect.Orders.OrderEvent) -> None:
+        """
+        Processes an order whenever it's encountered so that we can calculate the capacity
         
-        This codeEntityType is protected.
+        :param order_event: Order event to use to calculate capacity
         """
         ...
 
-    @property
-    @abc.abstractmethod
-    def get_values(self) -> typing.Iterable[QuantConnect_ExtendedDictionary_TValue]:
-        """
-        Gets an System.Collections.Generic.ICollection`1 containing the values in the System.Collections.Generic.IDictionary`2.
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    @property
-    def is_read_only(self) -> bool:
-        """Gets a value indicating whether the IDictionary object is read-only."""
-        ...
-
-    def __contains__(self, key: QuantConnect_ExtendedDictionary_TKey) -> bool:
-        """
-        Checks if the dictionary contains the specified key.
-        
-        :param key: The key to locate in the dictionary
-        :returns: true if the dictionary contains an element with the specified key; otherwise, false.
-        """
-        ...
-
-    def __getitem__(self, key: QuantConnect_ExtendedDictionary_TKey) -> QuantConnect_ExtendedDictionary_TValue:
-        """
-        Indexer method for the base dictioanry to access the objects by their symbol.
-        
-        :param key: Key object indexer
-        :returns: Object of t_value.
-        """
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    def __setitem__(self, key: QuantConnect_ExtendedDictionary_TKey, value: QuantConnect_ExtendedDictionary_TValue) -> None:
-        """
-        Indexer method for the base dictioanry to access the objects by their symbol.
-        
-        :param key: Key object indexer
-        :returns: Object of t_value.
-        """
-        ...
-
-    def check_for_implicitly_created_symbol(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
-        """
-        Checks if the symbol is implicitly created from a string, in which case it is not in the symbol cache,
-        and throws a KeyNotFoundException.
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    def clear(self) -> None:
-        """Removes all keys and values from the IExtendedDictionary{TKey, TValue}."""
-        ...
-
-    def clear(self) -> None:
-        """Removes all items from the System.Collections.Generic.ICollection`1."""
-        ...
-
-    def contains_key(self, key: QuantConnect_ExtendedDictionary_TKey) -> bool:
-        """
-        Checks if the dictionary contains the specified key.
-        
-        :param key: The key to locate in the dictionary
-        :returns: true if the dictionary contains an element with the specified key; otherwise, false.
-        """
-        ...
-
-    def copy(self) -> typing.Dict[typing.Any, typing.Any]:
-        """
-        Creates a shallow copy of the IExtendedDictionary{TKey, TValue}.
-        
-        :returns: Returns a shallow copy of the dictionary. It doesn't modify the original dictionary.
-        """
-        ...
-
-    @overload
-    def fromkeys(self, sequence: typing.List[QuantConnect_ExtendedDictionary_TKey]) -> typing.Dict[typing.Any, typing.Any]:
-        """
-        Creates a new dictionary from the given sequence of elements.
-        
-        :param sequence: Sequence of elements which is to be used as keys for the new dictionary
-        :returns: Returns a new dictionary with the given sequence of elements as the keys of the dictionary.
-        """
-        ...
-
-    @overload
-    def fromkeys(self, sequence: typing.List[QuantConnect_ExtendedDictionary_TKey], value: QuantConnect_ExtendedDictionary_TValue) -> typing.Dict[typing.Any, typing.Any]:
-        """
-        Creates a new dictionary from the given sequence of elements with a value provided by the user.
-        
-        :param sequence: Sequence of elements which is to be used as keys for the new dictionary
-        :param value: Value which is set to each each element of the dictionary
-        :returns: Returns a new dictionary with the given sequence of elements as the keys of the dictionary.
-        Each element of the newly created dictionary is set to the provided value.
-        """
-        ...
-
-    @overload
-    def get(self, key: QuantConnect_ExtendedDictionary_TKey) -> QuantConnect_ExtendedDictionary_TValue:
-        """
-        Returns the value for the specified key if key is in dictionary.
-        
-        :param key: key to be searched in the dictionary
-        :returns: The value for the specified key if key is in dictionary.
-        None if the key is not found and value is not specified.
-        """
-        ...
-
-    @overload
-    def get(self, key: QuantConnect_ExtendedDictionary_TKey, value: QuantConnect_ExtendedDictionary_TValue) -> QuantConnect_ExtendedDictionary_TValue:
-        """
-        Returns the value for the specified key if key is in dictionary.
-        
-        :param key: key to be searched in the dictionary
-        :param value: Value to be returned if the key is not found. The default value is null.
-        :returns: The value for the specified key if key is in dictionary.
-        value if the key is not found and value is specified.
-        """
-        ...
-
-    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue]]:
-        """
-        Gets all the items in the dictionary
-        
-        :returns: All the items in the dictionary.
-        """
-        ...
-
-    def items(self) -> typing.List[typing.Any]:
-        """
-        Returns a view object that displays a list of dictionary's (key, value) tuple pairs.
-        
-        :returns: Returns a view object that displays a list of a given dictionary's (key, value) tuple pair.
-        """
-        ...
-
-    def keys(self) -> typing.List[typing.Any]:
-        """
-        Returns a view object that displays a list of all the key objects in the dictionary
-        
-        :returns: Returns a view object that displays a list of all the key objects.
-        When the dictionary is changed, the view object also reflect these changes.
-        """
-        ...
-
-    @overload
-    def pop(self, key: QuantConnect_ExtendedDictionary_TKey) -> QuantConnect_ExtendedDictionary_TValue:
-        """
-        Removes and returns an element from a dictionary having the given key.
-        
-        :param key: Key which is to be searched for removal
-        :returns: If key is found - removed/popped element from the dictionary
-        If key is not found - KeyError exception is raised.
-        """
-        ...
-
-    @overload
-    def pop(self, key: QuantConnect_ExtendedDictionary_TKey, default_value: QuantConnect_ExtendedDictionary_TValue) -> QuantConnect_ExtendedDictionary_TValue:
-        """
-        Removes and returns an element from a dictionary having the given key.
-        
-        :param key: Key which is to be searched for removal
-        :param default_value: Value which is to be returned when the key is not in the dictionary
-        :returns: If key is found - removed/popped element from the dictionary
-        If key is not found - value specified as the second argument(default).
-        """
-        ...
-
-    def popitem(self) -> typing.Any:
-        """
-        Returns and removes an arbitrary element (key, value) pair from the dictionary.
-        
-        :returns: Returns an arbitrary element (key, value) pair from the dictionary
-        removes an arbitrary element(the same element which is returned) from the dictionary.
-        Note: Arbitrary elements and random elements are not same.The popitem() doesn't return a random element.
-        """
-        ...
-
-    def remove(self, key: QuantConnect_ExtendedDictionary_TKey) -> bool:
-        """
-        Removes the value with the specified key
-        
-        :param key: The key object of the element to remove.
-        :returns: true if the element is successfully found and removed; otherwise, false.
-        """
-        ...
-
-    @overload
-    def setdefault(self, key: QuantConnect_ExtendedDictionary_TKey) -> QuantConnect_ExtendedDictionary_TValue:
-        """
-        Returns the value of a key (if the key is in dictionary). If not, it inserts key with a value to the dictionary.
-        
-        :param key: Key with null/None value is inserted to the dictionary if key is not in the dictionary.
-        :returns: The value of the key if it is in the dictionary
-        None if key is not in the dictionary.
-        """
-        ...
-
-    @overload
-    def setdefault(self, key: QuantConnect_ExtendedDictionary_TKey, default_value: QuantConnect_ExtendedDictionary_TValue) -> QuantConnect_ExtendedDictionary_TValue:
-        """
-        Returns the value of a key (if the key is in dictionary). If not, it inserts key with a value to the dictionary.
-        
-        :param key: Key with a value default_value is inserted to the dictionary if key is not in the dictionary.
-        :param default_value: Default value
-        :returns: The value of the key if it is in the dictionary
-        default_value if key is not in the dictionary and default_value is specified.
-        """
-        ...
-
-    def try_get_value(self, key: QuantConnect_ExtendedDictionary_TKey, value: typing.Optional[QuantConnect_ExtendedDictionary_TValue]) -> typing.Tuple[bool, QuantConnect_ExtendedDictionary_TValue]:
-        """
-        Gets the value associated with the specified key.
-        
-        :param key: The key whose value to get.
-        :param value: When this method returns, the value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter. This parameter is passed uninitialized.
-        :returns: true if the object that implements System.Collections.Generic.IDictionary`2 contains an element with the specified key; otherwise, false.
-        """
-        ...
-
-    def update(self, other: typing.Any) -> None:
-        """
-        Updates the dictionary with the elements from the another dictionary object or from an iterable of key/value pairs.
-        The update() method adds element(s) to the dictionary if the key is not in the dictionary.If the key is in the dictionary, it updates the key with the new value.
-        
-        :param other: Takes either a dictionary or an iterable object of key/value pairs (generally tuples).
-        """
-        ...
-
-    def values(self) -> typing.List[typing.Any]:
-        """
-        Returns a view object that displays a list of all the values in the dictionary.
-        
-        :returns: Returns a view object that displays a list of all values in a given dictionary.
-        """
-        ...
-
-
-class Isolator(System.Object):
-    """
-    Isolator class - create a new instance of the algorithm and ensure it doesn't
-    exceed memory or time execution limits.
-    """
-
-    @property
-    def cancellation_token_source(self) -> System.Threading.CancellationTokenSource:
-        """Algo cancellation controls - cancel source."""
-        ...
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the Isolator class"""
-        ...
-
-    @overload
-    def execute_with_time_limit(self, time_span: datetime.timedelta, within_custom_limits: typing.Callable[[], QuantConnect.IsolatorLimitResult], code_block: typing.Callable[[], typing.Any], memory_cap: int = 1024, sleep_interval_millis: int = 1000, worker_thread: QuantConnect.Util.WorkerThread = None) -> bool:
-        """
-        Execute a code block with a maximum limit on time and memory.
-        
-        :param time_span: Timeout in timespan
-        :param within_custom_limits: Function used to determine if the code_block is within custom limits, such as with algorithm manager
-        timing individual time loops, return a non-null and non-empty string with a message indicating the error/reason for stoppage
-        :param code_block: Action codeblock to execute
-        :param memory_cap: Maximum memory allocation, default 1024Mb
-        :param sleep_interval_millis: Sleep interval between each check in ms
-        :param worker_thread: The worker thread instance that will execute the provided action, if null
-        will use a Task
-        :returns: True if algorithm exited successfully, false if cancelled because it exceeded limits.
-        """
-        ...
-
-    @overload
-    def execute_with_time_limit(self, time_span: datetime.timedelta, code_block: typing.Callable[[], typing.Any], memory_cap: int, sleep_interval_millis: int = 1000, worker_thread: QuantConnect.Util.WorkerThread = None) -> bool:
-        """
-        Execute a code block with a maximum limit on time and memory.
-        
-        :param time_span: Timeout in timespan
-        :param code_block: Action codeblock to execute
-        :param memory_cap: Maximum memory allocation, default 1024Mb
-        :param sleep_interval_millis: Sleep interval between each check in ms
-        :param worker_thread: The worker thread instance that will execute the provided action, if null
-        will use a Task
-        :returns: True if algorithm exited successfully, false if cancelled because it exceeded limits.
-        """
-        ...
-
-
-class AlgorithmSettings(System.Object, QuantConnect.Interfaces.IAlgorithmSettings):
-    """This class includes user settings for the algorithm which can be changed in the IAlgorithm.initialize method"""
-
-    @property
-    def automatic_indicator_warm_up(self) -> bool:
-        """Gets whether or not WarmUpIndicator is allowed to warm up indicators"""
-        ...
-
-    @automatic_indicator_warm_up.setter
-    def automatic_indicator_warm_up(self, value: bool) -> None:
-        ...
-
-    @property
-    def rebalance_portfolio_on_security_changes(self) -> typing.Optional[bool]:
-        """True if should rebalance portfolio on security changes. True by default"""
-        ...
-
-    @rebalance_portfolio_on_security_changes.setter
-    def rebalance_portfolio_on_security_changes(self, value: typing.Optional[bool]) -> None:
-        ...
-
-    @property
-    def rebalance_portfolio_on_insight_changes(self) -> typing.Optional[bool]:
-        """True if should rebalance portfolio on new insights or expiration of insights. True by default"""
-        ...
-
-    @rebalance_portfolio_on_insight_changes.setter
-    def rebalance_portfolio_on_insight_changes(self, value: typing.Optional[bool]) -> None:
-        ...
-
-    @property
-    def max_absolute_portfolio_target_percentage(self) -> float:
-        """The absolute maximum valid total portfolio value target percentage"""
-        ...
-
-    @max_absolute_portfolio_target_percentage.setter
-    def max_absolute_portfolio_target_percentage(self, value: float) -> None:
-        ...
-
-    @property
-    def min_absolute_portfolio_target_percentage(self) -> float:
-        """The absolute minimum valid total portfolio value target percentage"""
-        ...
-
-    @min_absolute_portfolio_target_percentage.setter
-    def min_absolute_portfolio_target_percentage(self, value: float) -> None:
-        ...
-
-    @property
-    def minimum_order_margin_portfolio_percentage(self) -> float:
-        """Configurable minimum order margin portfolio percentage to ignore bad orders, orders with unrealistic small sizes"""
-        ...
-
-    @minimum_order_margin_portfolio_percentage.setter
-    def minimum_order_margin_portfolio_percentage(self, value: float) -> None:
-        ...
-
-    @property
-    def data_subscription_limit(self) -> int:
-        """
-        Gets/sets the maximum number of concurrent market data subscriptions available
-        
-        
-        This property is deprecated. Please observe data subscription limits set by your brokerage to avoid runtime errors.
-        """
-        warnings.warn("This property is deprecated. Please observe data subscription limits set by your brokerage to avoid runtime errors.", DeprecationWarning)
-
-    @data_subscription_limit.setter
-    def data_subscription_limit(self, value: int) -> None:
-        warnings.warn("This property is deprecated. Please observe data subscription limits set by your brokerage to avoid runtime errors.", DeprecationWarning)
-
-    @property
-    def free_portfolio_value(self) -> typing.Optional[float]:
-        """
-        Gets/sets the SetHoldings buffers value.
-        The buffer is used for orders not to be rejected due to volatility when using SetHoldings and CalculateOrderQuantity
-        """
-        ...
-
-    @free_portfolio_value.setter
-    def free_portfolio_value(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def free_portfolio_value_percentage(self) -> float:
-        """
-        Gets/sets the SetHoldings buffers value percentage.
-        This percentage will be used to set the free_portfolio_value
-        based on the SecurityPortfolioManager.total_portfolio_value
-        """
-        ...
-
-    @free_portfolio_value_percentage.setter
-    def free_portfolio_value_percentage(self, value: float) -> None:
-        ...
-
-    @property
-    def liquidate_enabled(self) -> bool:
-        """Gets/sets if Liquidate() is enabled"""
-        ...
-
-    @liquidate_enabled.setter
-    def liquidate_enabled(self, value: bool) -> None:
-        ...
-
-    @property
-    def stale_price_time_span(self) -> datetime.timedelta:
-        """Gets/sets the minimum time span elapsed to consider a market fill price as stale (defaults to one hour)"""
-        ...
-
-    @stale_price_time_span.setter
-    def stale_price_time_span(self, value: datetime.timedelta) -> None:
-        ...
-
-    @property
-    def warmup_resolution(self) -> typing.Optional[QuantConnect.Resolution]:
-        """The warmup resolution to use if any"""
-        ...
-
-    @warmup_resolution.setter
-    def warmup_resolution(self, value: typing.Optional[QuantConnect.Resolution]) -> None:
-        ...
-
-    @property
-    def warm_up_resolution(self) -> typing.Optional[QuantConnect.Resolution]:
-        """The warmup resolution to use if any"""
-        ...
-
-    @warm_up_resolution.setter
-    def warm_up_resolution(self, value: typing.Optional[QuantConnect.Resolution]) -> None:
-        ...
-
-    @property
-    def trading_days_per_year(self) -> typing.Optional[int]:
-        """Number of trading days per year for this Algorithm's portfolio statistics."""
-        ...
-
-    @trading_days_per_year.setter
-    def trading_days_per_year(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def daily_precise_end_time(self) -> bool:
-        """True if daily strict end times are enabled"""
-        ...
-
-    @daily_precise_end_time.setter
-    def daily_precise_end_time(self, value: bool) -> None:
-        ...
-
-    @property
-    def daily_consolidation_use_extended_market_hours(self) -> bool:
-        """True if extended market hours should be used for daily consolidation, when extended market hours is enabled"""
-        ...
-
-    @daily_consolidation_use_extended_market_hours.setter
-    def daily_consolidation_use_extended_market_hours(self, value: bool) -> None:
-        ...
-
-    @property
-    def databases_refresh_period(self) -> datetime.timedelta:
-        """Gets the time span used to refresh the market hours and symbol properties databases"""
-        ...
-
-    @databases_refresh_period.setter
-    def databases_refresh_period(self, value: datetime.timedelta) -> None:
-        ...
-
-    @property
-    def ignore_unknown_asset_holdings(self) -> bool:
-        """
-        Determines whether to terminate the algorithm when an asset holding is not supported by Lean or the brokerage.
-        Defaults to true, meaning that the algorithm will not be terminated if an asset holding is not supported.
-        """
-        ...
-
-    @ignore_unknown_asset_holdings.setter
-    def ignore_unknown_asset_holdings(self, value: bool) -> None:
-        ...
-
-    @property
-    def performance_sample_period(self) -> datetime.timedelta:
-        """Performance tracking sample period to use if any, useful to debug performance issues"""
-        ...
-
-    @performance_sample_period.setter
-    def performance_sample_period(self, value: datetime.timedelta) -> None:
-        ...
-
-    @property
-    def seed_initial_prices(self) -> bool:
-        """Determines whether to seed initial prices for all selected and manually added securities."""
-        ...
-
-    @seed_initial_prices.setter
-    def seed_initial_prices(self, value: bool) -> None:
-        ...
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the AlgorithmSettings class"""
+    def update_market_capacity(self, force_process: bool) -> None:
         ...
 
 
@@ -8170,173 +8630,6 @@ class Currencies(System.Object):
         :param parsed_value: The decimal equivalent to the string value after conversion
         :returns: True if the value was succesfuly converted.
         """
-        ...
-
-
-class AlgorithmUtils(System.Object):
-    """Provides utility methods for or related to algorithms"""
-
-    @staticmethod
-    def seed_securities(securities: typing.Sequence[QuantConnect.Securities.Security], algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
-        """
-        Seeds the provided securities with their last known prices from the algorithm
-        
-        :param securities: The securities to seed
-        :param algorithm: The algorithm instance
-        """
-        ...
-
-
-class SeriesSampler(System.Object):
-    """A type capable of taking a chart and resampling using a linear interpolation strategy"""
-
-    @property
-    def step(self) -> datetime.timedelta:
-        """
-        The desired sampling resolution
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    @step.setter
-    def step(self, value: datetime.timedelta) -> None:
-        ...
-
-    @property
-    def sub_sample(self) -> bool:
-        """True if sub sampling is enabled, if false only subsampling will happen"""
-        ...
-
-    @sub_sample.setter
-    def sub_sample(self, value: bool) -> None:
-        ...
-
-    def __init__(self, resolution: datetime.timedelta) -> None:
-        """
-        Creates a new SeriesSampler to sample Series data on the specified resolution
-        
-        :param resolution: The desired sampling resolution
-        """
-        ...
-
-    @staticmethod
-    def interpolate(x_0: float, y_0: typing.Optional[float], x_1: float, y_1: typing.Optional[float], x_target: float, step: float) -> typing.Optional[float]:
-        """
-        Linear interpolation used for sampling
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    def sample(self, series: QuantConnect.BaseSeries, start: typing.Union[datetime.datetime, datetime.date], stop: typing.Union[datetime.datetime, datetime.date], truncate_values: bool = False) -> QuantConnect.BaseSeries:
-        """
-        Samples the given series
-        
-        :param series: The series to be sampled
-        :param start: The date to start sampling, if before start of data then start of data will be used
-        :param stop: The date to stop sampling, if after stop of data, then stop of data will be used
-        :param truncate_values: True will truncate values to integers
-        :returns: The sampled series.
-        """
-        ...
-
-    def sample_chart(self, chart: QuantConnect.Chart, start: typing.Union[datetime.datetime, datetime.date], stop: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Chart:
-        """
-        Samples the given chart
-        
-        :param chart: The chart to be sampled
-        :param start: The date to start sampling
-        :param stop: The date to stop sampling
-        :returns: The sampled chart.
-        """
-        ...
-
-    def sample_charts(self, charts: System.Collections.Generic.IDictionary[str, QuantConnect.Chart], start: typing.Union[datetime.datetime, datetime.date], stop: typing.Union[datetime.datetime, datetime.date]) -> System.Collections.Generic.Dictionary[str, QuantConnect.Chart]:
-        """
-        Samples the given charts
-        
-        :param charts: The charts to be sampled
-        :param start: The date to start sampling
-        :param stop: The date to stop sampling
-        :returns: The sampled charts.
-        """
-        ...
-
-
-class Expiry(System.Object):
-    """Provides static functions that can be used to compute a future DateTime (expiry) given a DateTime."""
-
-    ONE_MONTH: typing.Callable[[datetime.datetime], datetime.datetime]
-    """Computes a date/time one month after a given date/time (nth day to nth day)"""
-
-    ONE_QUARTER: typing.Callable[[datetime.datetime], datetime.datetime]
-    """Computes a date/time one quarter after a given date/time (nth day to nth day)"""
-
-    ONE_YEAR: typing.Callable[[datetime.datetime], datetime.datetime]
-    """Computes a date/time one year after a given date/time (nth day to nth day)"""
-
-    END_OF_DAY: typing.Callable[[datetime.datetime], datetime.datetime]
-    """Computes the end of day (mid-night of the next day) of given date/time"""
-
-    END_OF_WEEK: typing.Callable[[datetime.datetime], datetime.datetime]
-    """Computes the end of week (next Monday) of given date/time"""
-
-    END_OF_MONTH: typing.Callable[[datetime.datetime], datetime.datetime]
-    """Computes the end of month (1st of the next month) of given date/time"""
-
-    END_OF_QUARTER: typing.Callable[[datetime.datetime], datetime.datetime]
-    """Computes the end of quarter (1st of the starting month of next quarter) of given date/time"""
-
-    END_OF_YEAR: typing.Callable[[datetime.datetime], datetime.datetime]
-    """Computes the end of year (1st of the next year) of given date/time"""
-
-
-class StubsIgnoreAttribute(System.Attribute):
-    """
-    P
-    Custom attribute used for marking classes, methods, properties, etc. that should be ignored by the stubs generator
-    """
-
-
-class IDataDownloader(metaclass=abc.ABCMeta):
-    """Data Downloader Interface for pulling data from a remote source."""
-
-    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Iterable[QuantConnect.Data.BaseData]:
-        """
-        Get historical data enumerable for a single symbol, type and resolution given this start and end time (in UTC).
-        
-        :param data_downloader_get_parameters: model class for passing in parameters for historical data
-        :returns: Enumerable of base data for this symbol.
-        """
-        ...
-
-
-class DefaultConverter:
-    """Helper json converter to use the default json converter, breaking inheritance json converter"""
-
-    @property
-    def can_read(self) -> bool:
-        """Indicates if this object can be read"""
-        ...
-
-    @property
-    def can_write(self) -> bool:
-        """Indicates if this object can be written"""
-        ...
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """Indicates if the given type can be assigned to this object"""
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """Creates an object from a given JSON reader and other arguments"""
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """Writes a JSON file from the given object and the other arguments"""
         ...
 
 
@@ -8492,345 +8785,101 @@ class Market(System.Object):
         ...
 
 
-class RealTimeProvider(System.Object, QuantConnect.ITimeProvider):
-    """
-    Provides an implementation of ITimeProvider that
-    uses DateTime.UtcNow to provide the current time
-    """
+class IsolatorLimitResultProvider(System.Object):
+    """Provides access to the NullIsolatorLimitResultProvider and extension methods supporting ScheduledEvent"""
 
-    INSTANCE: QuantConnect.ITimeProvider = ...
-    """Provides a static instance of the RealTimeProvider"""
+    NULL: QuantConnect.IIsolatorLimitResultProvider = ...
+    """Provides access to a null implementation of IIsolatorLimitResultProvider"""
 
-    def get_utc_now(self) -> datetime.datetime:
+    @staticmethod
+    @overload
+    def consume(isolator_limit_provider: QuantConnect.IIsolatorLimitResultProvider, scheduled_event: QuantConnect.Scheduling.ScheduledEvent, scan_time_utc: typing.Union[datetime.datetime, datetime.date], time_monitor: QuantConnect.Scheduling.TimeMonitor) -> None:
+        """Convenience method for invoking a scheduled event's Scan method inside the IsolatorLimitResultProvider"""
+        ...
+
+    @staticmethod
+    @overload
+    def consume(isolator_limit_provider: QuantConnect.IIsolatorLimitResultProvider, time_provider: QuantConnect.ITimeProvider, code: typing.Callable[[], typing.Any], time_monitor: QuantConnect.Scheduling.TimeMonitor) -> None:
         """
-        Gets the current time in UTC
+        Executes the provided code block and while the code block is running, continually consume from
+        the limit result provided one token each minute. This function allows the code to run for the
+        first full minute without requesting additional time from the provider. Following that, every
+        minute an additional one minute will be requested from the provider.
+        """
+        ...
+
+
+class ScatterChartPointJsonConverter:
+    """ScatterChartPoint json converter"""
+
+    @property
+    def can_write(self) -> bool:
+        """Default writer"""
+        ...
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determine if this Converter can convert this type
         
-        :returns: The current time in UTC.
+        :param object_type: Type that we would like to convert
+        :returns: True if Series.
         """
         ...
 
-
-class OS(System.Object):
-    """Operating systems class for managing anything that is operation system specific."""
-
-    IS_LINUX: bool
-    """Global Flag :: Operating System"""
-
-    IS_WINDOWS: bool
-    """Global Flag :: Operating System"""
-
-    PATH_SEPARATION: str
-    """Character Separating directories in this OS:"""
-
-    DRIVE_SPACE_REMAINING: int
-    """Get the drive space remaining on windows and linux in MB"""
-
-    DRIVE_SPACE_USED: int
-    """Get the drive space remaining on windows and linux in MB"""
-
-    DRIVE_TOTAL_SPACE: int
-    """Total space on the drive"""
-
-    APPLICATION_MEMORY_USED: int
-    """Gets the amount of private memory allocated for the current process (includes both managed and unmanaged memory)."""
-
-    TOTAL_PHYSICAL_MEMORY_USED: int
-    """Get the RAM used on the machine:"""
-
-    CPU_USAGE: float
-    """Total CPU usage as a percentage"""
-
-    @staticmethod
-    def dispose() -> None:
-        """Disposes of the OS internal resources"""
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """Reads series from Json"""
         ...
 
-    @staticmethod
-    def get_server_statistics() -> System.Collections.Generic.Dictionary[str, str]:
-        """Gets the statistics of the machine, including CPU% and RAM"""
-        ...
-
-    @staticmethod
-    def initialize() -> None:
-        """Initializes the OS internal resources"""
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Writes a Json from series"""
         ...
 
 
-class StringExtensions(System.Object):
-    """
-    Provides extension methods for properly parsing and serializing values while properly using
-    an IFormatProvider/CultureInfo when applicable
-    """
+class ZipStreamWriter(System.IO.TextWriter):
+    """Provides an implementation of TextWriter to write to a zip file"""
 
-    @staticmethod
-    def convert_invariant(value: typing.Any, conversion_type: typing.Type) -> System.Object:
-        """
-        Converts the provided value as conversion_type
-        using CultureInfo
-        """
+    @property
+    def encoding(self) -> System.Text.Encoding:
+        """When overridden in a derived class, returns the character encoding in which the output is written."""
         ...
 
-    @staticmethod
-    def ends_with_invariant(value: str, ending: str, ignore_case: bool = False) -> bool:
+    def __init__(self, filename: str, zip_entry: str) -> None:
         """
-        Checks if the string ends with the provided ending using CultureInfo
-        while optionally ignoring case.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def index_of_invariant(value: str, character: str) -> int:
-        """Gets the index of the specified character using StringComparison"""
-        ...
-
-    @staticmethod
-    @overload
-    def index_of_invariant(value: str, substring: str, ignore_case: bool = False) -> int:
-        """
-        Gets the index of the specified substring using StringComparison
-        or System.StringComparison.InvariantCultureIgnoreCase when ignore_case is true
-        """
-        ...
-
-    @staticmethod
-    def invariant(formattable: System.FormattableString) -> str:
-        """
-        Non-extension method alias for FormattableString.Invariant
-        This supports the using static QuantConnect.StringExtensions syntax
-        and is aimed at ensuring all formatting is piped through this class instead of
-        alternatively piping through directly to FormattableString.Invariant
-        """
-        ...
-
-    @staticmethod
-    def last_index_of_invariant(value: str, substring: str, ignore_case: bool = False) -> int:
-        """
-        Gets the index of the specified substring using StringComparison
-        or System.StringComparison.InvariantCultureIgnoreCase when ignore_case is true
-        """
-        ...
-
-    @staticmethod
-    def safe_substring(value: str, start_index: int, length: int) -> str:
-        """
-        Retrieves a substring from this instance. The substring starts at a specified
-        character position and has a specified length.
-        """
-        ...
-
-    @staticmethod
-    def starts_with_invariant(value: str, beginning: str, ignore_case: bool = False) -> bool:
-        """
-        Checks if the string starts with the provided beginning using CultureInfo
-        while optionally ignoring case.
-        """
-        ...
-
-    @staticmethod
-    def to_iso_8601_invariant(date_time: typing.Union[datetime.datetime, datetime.date]) -> str:
-        """Provides a convenience methods for converting a DateTime to an invariant ISO-8601 string"""
-        ...
-
-    @staticmethod
-    @overload
-    def to_string_invariant(convertible: System.IConvertible) -> str:
-        """Converts the provided value to a string using CultureInfo"""
-        ...
-
-    @staticmethod
-    @overload
-    def to_string_invariant(formattable: System.IFormattable, format: str) -> str:
-        """
-        Formats the provided value using the specified format and
-        CultureInfo
-        """
-        ...
-
-    @staticmethod
-    def truncate(value: str, max_length: int) -> str:
-        """
-        Truncates a string to the specified maximum length
+        Initializes a new instance of the ZipStreamWriter class
         
-        :param value: The string
-        :param max_length: The maximum allowed string
-        :returns: A new string with max_length characters if the original one's length was greater than the maximum allowed length.
-        Otherwise, the original string is returned.
+        :param filename: The output zip file name
+        :param zip_entry: The file name in the zip file
         """
         ...
 
-
-class FileExtension(System.Object):
-    """Helper methods for file management"""
-
-    RESERVED_WORDS_PREFIX: str = ...
-    """Reserved words prefix from Configuration"""
-
-    @staticmethod
-    def from_normalized_path(path: str) -> str:
+    def dispose(self, disposing: bool) -> None:
         """
-        Takes a modified path (see to_normalized_path(string)) and (if applicable)
-        returns the original path proposed by LEAN
-        """
-        ...
-
-    @staticmethod
-    def to_normalized_path(path: str) -> str:
-        """
-        Takes a given path and (if applicable) returns a modified path accepted by
-        Windows OS
-        """
-        ...
-
-
-class TimeZones(System.Object):
-    """Provides access to common time zones"""
-
-    UTC: typing.Any = ...
-    """Gets the Universal Coordinated time zone."""
-
-    NEW_YORK: typing.Any = ...
-    """Gets the time zone for New York City, USA. This is a daylight savings time zone."""
-
-    EASTERN_STANDARD: typing.Any = ...
-    """Get the Eastern Standard Time (EST) WITHOUT daylight savings, this is a constant -5 hour offset"""
-
-    LONDON: typing.Any = ...
-    """Gets the time zone for London, England. This is a daylight savings time zone."""
-
-    HONG_KONG: typing.Any = ...
-    """Gets the time zone for Hong Kong, China."""
-
-    TOKYO: typing.Any = ...
-    """Gets the time zone for Tokyo, Japan."""
-
-    ROME: typing.Any = ...
-    """Gets the time zone for Rome, Italy. This is a daylight savings time zone."""
-
-    SYDNEY: typing.Any = ...
-    """Gets the time zone for Sydney, Australia. This is a daylight savings time zone."""
-
-    VANCOUVER: typing.Any = ...
-    """Gets the time zone for Vancouver, Canada."""
-
-    TORONTO: typing.Any = ...
-    """Gets the time zone for Toronto, Canada. This is a daylight savings time zone."""
-
-    CHICAGO: typing.Any = ...
-    """Gets the time zone for Chicago, USA. This is a daylight savings time zone."""
-
-    LOS_ANGELES: typing.Any = ...
-    """Gets the time zone for Los Angeles, USA. This is a daylight savings time zone."""
-
-    PHOENIX: typing.Any = ...
-    """Gets the time zone for Phoenix, USA. This is a daylight savings time zone."""
-
-    AUCKLAND: typing.Any = ...
-    """Gets the time zone for Auckland, New Zealand. This is a daylight savings time zone."""
-
-    MOSCOW: typing.Any = ...
-    """Gets the time zone for Moscow, Russia."""
-
-    MADRID: typing.Any = ...
-    """Gets the time zone for Madrid, Span. This is a daylight savings time zone."""
-
-    BUENOS_AIRES: typing.Any = ...
-    """Gets the time zone for Buenos Aires, Argentia."""
-
-    BRISBANE: typing.Any = ...
-    """Gets the time zone for Brisbane, Australia."""
-
-    SAO_PAULO: typing.Any = ...
-    """Gets the time zone for Sao Paulo, Brazil. This is a daylight savings time zone."""
-
-    CAIRO: typing.Any = ...
-    """Gets the time zone for Cairo, Egypt."""
-
-    JOHANNESBURG: typing.Any = ...
-    """Gets the time zone for Johannesburg, South Africa."""
-
-    ANCHORAGE: typing.Any = ...
-    """Gets the time zone for Anchorage, USA. This is a daylight savings time zone."""
-
-    DENVER: typing.Any = ...
-    """Gets the time zone for Denver, USA. This is a daylight savings time zone."""
-
-    DETROIT: typing.Any = ...
-    """Gets the time zone for Detroit, USA. This is a daylight savings time zone."""
-
-    MEXICO_CITY: typing.Any = ...
-    """Gets the time zone for Mexico City, Mexico. This is a daylight savings time zone."""
-
-    JERUSALEM: typing.Any = ...
-    """Gets the time zone for Jerusalem, Israel. This is a daylight savings time zone."""
-
-    SHANGHAI: typing.Any = ...
-    """Gets the time zone for Shanghai, China."""
-
-    MELBOURNE: typing.Any = ...
-    """Gets the time zone for Melbourne, Australia. This is a daylight savings time zone."""
-
-    AMSTERDAM: typing.Any = ...
-    """Gets the time zone for Amsterdam, Netherlands. This is a daylight savings time zone."""
-
-    ATHENS: typing.Any = ...
-    """Gets the time zone for Athens, Greece. This is a daylight savings time zone."""
-
-    BERLIN: typing.Any = ...
-    """Gets the time zone for Berlin, Germany. This is a daylight savings time zone."""
-
-    BUCHAREST: typing.Any = ...
-    """Gets the time zone for Bucharest, Romania. This is a daylight savings time zone."""
-
-    DUBLIN: typing.Any = ...
-    """Gets the time zone for Dublin, Ireland. This is a daylight savings time zone."""
-
-    HELSINKI: typing.Any = ...
-    """Gets the time zone for Helsinki, Finland. This is a daylight savings time zone."""
-
-    ISTANBUL: typing.Any = ...
-    """Gets the time zone for Istanbul, Turkey. This is a daylight savings time zone."""
-
-    MINSK: typing.Any = ...
-    """Gets the time zone for Minsk, Belarus."""
-
-    PARIS: typing.Any = ...
-    """Gets the time zone for Paris, France. This is a daylight savings time zone."""
-
-    ZURICH: typing.Any = ...
-    """Gets the time zone for Zurich, Switzerland. This is a daylight savings time zone."""
-
-    HONOLULU: typing.Any = ...
-    """Gets the time zone for Honolulu, USA. This is a daylight savings time zone."""
-
-    KOLKATA: typing.Any = ...
-    """Gets the time zone for Kolkata, India."""
-
-
-class RegressionTestException(System.Exception):
-    """Custom exception class for regression tests"""
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new instance of a RegressionTestException"""
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        """
-        Creates a new isntance of a RegressionTestException
+        Releases the unmanaged resources used by the System.IO.TextWriter and optionally releases the managed resources.
         
-        :param message: Message to be thrown by the exception
+        
+        This codeEntityType is protected.
+        
+        :param disposing: true to release both managed and unmanaged resources; false to release only unmanaged resources.
         """
         ...
 
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
+    def flush(self) -> None:
+        """Clears all buffers for the current writer and causes any buffered data to be written to the underlying device."""
+        ...
+
+    def write(self, value: str) -> None:
         """
-        Creates a new instance of a RegressionTestException
+        Writes a character to the text string or stream.
         
-        :param message: Message to be thrown by the exception
-        :param inner: Inner exception thrown
+        :param value: The character to write to the text stream.
+        """
+        ...
+
+    def write_line(self, value: str) -> None:
+        """
+        Writes a string followed by a line terminator to the text string or stream.
+        
+        :param value: The string to write. If value is null, only the line terminator is written.
         """
         ...
 
@@ -9261,55 +9310,6 @@ class Compression(System.Object):
         :param compression_level: The desired compression level
         :param leave_stream_open: True to leave the taget stream open
         :returns: The zipped file as a byte array.
-        """
-        ...
-
-
-class ZipStreamWriter(System.IO.TextWriter):
-    """Provides an implementation of TextWriter to write to a zip file"""
-
-    @property
-    def encoding(self) -> System.Text.Encoding:
-        """When overridden in a derived class, returns the character encoding in which the output is written."""
-        ...
-
-    def __init__(self, filename: str, zip_entry: str) -> None:
-        """
-        Initializes a new instance of the ZipStreamWriter class
-        
-        :param filename: The output zip file name
-        :param zip_entry: The file name in the zip file
-        """
-        ...
-
-    def dispose(self, disposing: bool) -> None:
-        """
-        Releases the unmanaged resources used by the System.IO.TextWriter and optionally releases the managed resources.
-        
-        
-        This codeEntityType is protected.
-        
-        :param disposing: true to release both managed and unmanaged resources; false to release only unmanaged resources.
-        """
-        ...
-
-    def flush(self) -> None:
-        """Clears all buffers for the current writer and causes any buffered data to be written to the underlying device."""
-        ...
-
-    def write(self, value: str) -> None:
-        """
-        Writes a character to the text string or stream.
-        
-        :param value: The character to write to the text stream.
-        """
-        ...
-
-    def write_line(self, value: str) -> None:
-        """
-        Writes a string followed by a line terminator to the text string or stream.
-        
-        :param value: The string to write. If value is null, only the line terminator is written.
         """
         ...
 
@@ -9887,6 +9887,522 @@ class Messages(System.Object):
             """Returns a string saying a duplicated key was found while processing the given file"""
             ...
 
+    class Insight(System.Object):
+        """Provides user-facing messages for the Algorithm.Framework.Alphas.Insight class and its consumers or related classes"""
+
+        invalid_bar_count: str = "Insight barCount must be greater than zero."
+        """Returns a string message saying: Insight barCount must be grater than zero"""
+
+        invalid_period: str = "Insight period must be greater than or equal to 1 second."
+        """Returns a string message saying: Insight period must be greater than or equal to 1 second"""
+
+        invalid_close_time_utc: str = "Insight closeTimeUtc must be greater than generatedTimeUtc."
+        """Returns a string message saying: Insight closeTimeUtc must be greater than generatedTimeUtc"""
+
+        invalid_close_time_local: str = "Insight closeTimeLocal must not be in the past."
+        """Returns a string message saying: Insight closeTimeLocal must not be in the past"""
+
+        @staticmethod
+        def generated_time_utc_not_set(insight: QuantConnect.Algorithm.Framework.Alphas.Insight) -> str:
+            """Returns a string message saying the Insight's GeneratedTimeUtc property must be set before calling SetPeriodAndCloseTime"""
+            ...
+
+        @staticmethod
+        def insight_already_assigned_to_a_group(insight: QuantConnect.Algorithm.Framework.Alphas.Insight) -> str:
+            """
+            Returns a string message saying it was impossible to set group id on the given insight because it has already
+            been assigned to a group
+            """
+            ...
+
+        @staticmethod
+        def short_to_string(insight: QuantConnect.Algorithm.Framework.Alphas.Insight) -> str:
+            """Parses a short insight into a string containing basic information about it"""
+            ...
+
+        @staticmethod
+        def to_string(insight: QuantConnect.Algorithm.Framework.Alphas.Insight) -> str:
+            """Parses the given insight into a string containing basic information about it"""
+            ...
+
+    class InsightScore(System.Object):
+        """Provides user-facing messages for the Algorithm.Framework.Alphas.InsightScore class and its consumers or related classes"""
+
+        @staticmethod
+        def to_string(insight_score: QuantConnect.Algorithm.Framework.Alphas.InsightScore) -> str:
+            """Parses an InsightScore object into a string message containing basic information about it"""
+            ...
+
+    class InsightManager(System.Object):
+        """Provides user-facing messages for the Algorithm.Framework.Alphas.Analysis.InsightManager class and its consumers or related classes"""
+
+        invalid_extra_analysis_period_ratio: str = "extraAnalysisPeriodRatio must be greater than or equal to zero."
+        """String message saying extraAnalysisPeriodRatio must be greater than or equal to zero"""
+
+        @staticmethod
+        def zero_initial_price_value(frontier_time_utc: typing.Union[datetime.datetime, datetime.date], insight: QuantConnect.Algorithm.Framework.Alphas.Insight) -> str:
+            """Returns a string message warning the user of an insight with zero initial price"""
+            ...
+
+    class ReadOnlySecurityValuesCollection(System.Object):
+        """Provides user-facing messages for the ReadOnlySecurityValuesCollection class and its consumers or related classes"""
+
+        @staticmethod
+        def security_values_for_symbol_not_found(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+            """Returns a string message saying no SecurityValues were found for the given symbol"""
+            ...
+
+    class DefaultBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.DefaultBrokerageModel class and its consumers or related classes"""
+
+        unsupported_market_on_open_orders_for_futures_and_future_options: str = "MarketOnOpen orders are not supported for futures and future options."
+        """String message saying: MarketOnOpen orders are not supported for futures and future options"""
+
+        no_data_for_symbol: str = "There is no data for this symbol yet, please check the security.HasData flag to ensure there is at least one data point."
+        """String message saying: There is no data for this symbol yet"""
+
+        order_update_not_supported: str = "Brokerage does not support update. You must cancel and re-create instead."
+        """String message saying: Brokerage does not support update. You must cancel and re-create instead"""
+
+        @staticmethod
+        def invalid_order_quantity(security: QuantConnect.Securities.Security, quantity: float) -> str:
+            """Returns a string message saying the quantity given was invalid for the given security"""
+            ...
+
+        @staticmethod
+        def invalid_order_size(security: QuantConnect.Securities.Security, quantity: float, price: float) -> str:
+            """Returns a string message saying the given order size (quantity * price) was invalid for the given security"""
+            ...
+
+        @staticmethod
+        def invalid_security_type_for_leverage(security: QuantConnect.Securities.Security) -> str:
+            """Returns a string message saying the type of the given security is invalid"""
+            ...
+
+        @staticmethod
+        def invalid_security_type_to_get_fill_model(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, security: QuantConnect.Securities.Security) -> str:
+            """Returns a string message saying the type of the given security is invalid for the given brokerage GetFillModel() method"""
+            ...
+
+        @staticmethod
+        def unsupported_cross_zero_by_order_type(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order_type: QuantConnect.Orders.OrderType) -> str:
+            """Returns a message indicating that the specified order type is not supported for orders that cross the zero holdings threshold."""
+            ...
+
+        @staticmethod
+        def unsupported_cross_zero_order_update(brokerage_model: QuantConnect.Brokerages.IBrokerageModel) -> str:
+            """Returns a string message saying the given brokerage does not support updating the quantity of Cross Zero orders"""
+            ...
+
+        @staticmethod
+        def unsupported_market_on_open_order_time(window_start: System.TimeOnly, window_end: System.TimeOnly) -> str:
+            """
+            Builds a descriptive error message when a OrderType.MARKET_ON_OPEN
+            order is submitted outside the valid submission window.
+            
+            :param window_start: The start of the valid submission window (typically evening of the prior day).
+            :param window_end: The end of the valid submission window (typically morning of the next day).
+            :returns: A formatted string describing why the order is not valid at the current time,
+            including the allowed submission window and suggested fixes.
+            """
+            ...
+
+        @staticmethod
+        def unsupported_order_type(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order: QuantConnect.Orders.Order, supported_order_types: typing.List[QuantConnect.Orders.OrderType]) -> str:
+            """
+            Returns a string message saying the type of the given order is unsupported by the given brokerage model. It also
+            mentions the supported order types
+            """
+            ...
+
+        @staticmethod
+        def unsupported_security_type(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, security: QuantConnect.Securities.Security) -> str:
+            """Retunrns a string message saying the type of the given security is not supported by the given brokerage"""
+            ...
+
+        @staticmethod
+        def unsupported_time_in_force(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order: QuantConnect.Orders.Order) -> str:
+            """
+            Returns a string message saying the Time In Force of the given order is unsupported by the given brokerage
+            model
+            """
+            ...
+
+        @staticmethod
+        def unsupported_update_quantity_order(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order_type: QuantConnect.Orders.OrderType) -> str:
+            """Returns a message indicating that the specified order type cannot be updated quantity using the given brokerage model."""
+            ...
+
+    class AlpacaBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.AlpacaBrokerageModel class and its consumers or related classes"""
+
+        @staticmethod
+        def trading_outside_regular_hours_not_supported(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order_type: QuantConnect.Orders.OrderType, time_in_force: QuantConnect.Orders.TimeInForce) -> str:
+            """
+            Returns a message indicating that the specified order type is not supported for trading outside
+            regular hours by the given brokerage model.
+            """
+            ...
+
+    class AlphaStreamsBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.AlphaStreamsBrokerageModel class and its consumers or related classes"""
+
+        unsupported_account_type: str = "The Alpha Streams brokerage does not currently support Cash trading."
+        """String message saying: The Alpha Streams brokerage does not currently support Cash trading"""
+
+    class AxosBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.AxosClearingBrokerageModel class and its consumers or related classes"""
+
+        @staticmethod
+        def non_integer_order_quantity(order: QuantConnect.Orders.Order) -> str:
+            """
+            Returns a string message saying the order quantity must be Integer. It also contains
+            the quantity of the given order
+            """
+            ...
+
+    class BinanceBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.BinanceBrokerageModel class and its consumers or related classes"""
+
+        @staticmethod
+        def unsupported_order_type_for_security_type(order: QuantConnect.Orders.Order, security: QuantConnect.Securities.Security) -> str:
+            """
+            Returns a string message saying the type of the given order is unsupported for the symbol of the given
+            security
+            """
+            ...
+
+        @staticmethod
+        def unsupported_order_type_with_link_to_supported_types(base_api_endpoint: str, order: QuantConnect.Orders.Order, security: QuantConnect.Securities.Security) -> str:
+            """
+            Returns a string message saying the type of the given order is unsupported for the symbol of the given
+            security. The message also contains a link to the supported order types in Binance
+            """
+            ...
+
+    class BinanceUSBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.BinanceUSBrokerageModel class and its consumers or related classes"""
+
+        unsupported_account_type: str = "The Binance.US brokerage does not currently support Margin trading."
+        """String message saying: The Binance.US brokerage does not currently support Margin trading"""
+
+    class BrokerageMessageEvent(System.Object):
+        """Provides user-facing messages for the Brokerages.BrokerageMessageEvent class and its consumers or related classes"""
+
+        disconnect_code: str = "Disconnect"
+        """String message saying: Disconnect"""
+
+        reconnect_code: str = "Reconnect"
+        """String message saying: Reconnect"""
+
+        @staticmethod
+        def to_string(message_event: QuantConnect.Brokerages.BrokerageMessageEvent) -> str:
+            """Parses a given BrokerageMessageEvent object into a string containing basic information about it"""
+            ...
+
+    class DefaultBrokerageMessageHandler(System.Object):
+        """Provides user-facing messages for the Brokerages.DefaultBrokerageMessageHandler class and its consumers or related classes"""
+
+        brokerage_error_context: str = "Brokerage Error"
+        """String message saying: Brokerage Error"""
+
+        disconnected: str = "DefaultBrokerageMessageHandler.Handle(): Disconnected."
+        """String message saying: DefaultBrokerageMessageHandler.Handle(): Disconnected"""
+
+        reconnected: str = "DefaultBrokerageMessageHandler.Handle(): Reconnected."
+        """String message saying: DefaultBrookerageMessageHandler.Handle(): Reconnected"""
+
+        disconnected_when_exchanges_are_closed: str = "DefaultBrokerageMessageHandler.Handle(): Disconnect when exchanges are closed, checking back before exchange open."
+        """
+        String message saying: DefaultBrokerageMessageHandler.Handle(): Disconnect when exchanges are closed,
+        checking back before exchange open
+        """
+
+        still_disconnected: str = "DefaultBrokerageMessageHandler.Handle(): Still disconnected, goodbye."
+        """String message saying: DefaultBrokerageMessageHandler.Handle(): Still disconnected, goodbye"""
+
+        brokerage_disconnected_shut_down_context: str = "Brokerage Disconnect"
+        """String message saying: Brokerage Disconnect"""
+
+        @staticmethod
+        def brokerage_info(message_event: QuantConnect.Brokerages.BrokerageMessageEvent) -> str:
+            """Returns a string message with basic information about the given message event"""
+            ...
+
+        @staticmethod
+        def brokerage_warning(message_event: QuantConnect.Brokerages.BrokerageMessageEvent) -> str:
+            """Returns a string message warning from the given message event"""
+            ...
+
+        @staticmethod
+        def disconnected_when_exchanges_are_open(reconnection_timeout: datetime.timedelta) -> str:
+            """
+            Returns a string message saying the brokerage is disconnected when exchanges are open and that it's
+            trying to reconnect for the given reconnection timeout minutes
+            """
+            ...
+
+        @staticmethod
+        def ignore_unrecognized_order(brokerage_order_id: str) -> str:
+            """
+            Returns a string message notify about unrecognized orders that are not being observed by Lean
+            
+            :param brokerage_order_id: The brokerage order id.
+            :returns: The string represent unrecognized message.
+            """
+            ...
+
+        @staticmethod
+        def time_until_next_market_open(time_until_next_market_open: datetime.timedelta) -> str:
+            """Returns a string message with the time until the next market open"""
+            ...
+
+    class ExanteBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.ExanteBrokerageModel class and its consumers or related classes"""
+
+        null_order: str = "Order is null."
+        """String message saying: Order is null"""
+
+        price_not_set: str = "Price is not set."
+        """String message saying: Price is not set"""
+
+    class FTXBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.FTXBrokerageModel class and its consumers or related classes"""
+
+        trigger_price_too_high: str = "Trigger price too high: must be below current market price."
+        """String message saying: Trigger price too high, must be below current market price"""
+
+        trigger_price_too_low: str = "Trigger price too low: must be above current market price."
+        """String message saying: Trigger price too low, must be above current market price"""
+
+    class FxcmBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.FxcmBrokerageModel class and its consumers or related classes"""
+
+        invalid_order_price: str = "Limit Buy orders and Stop Sell orders must be below market, Limit Sell orders and Stop Buy orders must be above market."
+        """
+        String message saying: Limit Buy orders and Stop Sell orders must be below market, Limit Sell orders and Stop Buy orders
+        must be above market
+        """
+
+        @staticmethod
+        def invalid_order_quantity_for_lot_size(security: QuantConnect.Securities.Security) -> str:
+            """
+            Returns a string message saying the order quantity must be a multiple of LotSize. It also contains the security's Lot
+            Size
+            """
+            ...
+
+        @staticmethod
+        def price_out_of_range(order_type: QuantConnect.Orders.OrderType, order_direction: QuantConnect.Orders.OrderDirection, order_price: float, current_price: float) -> str:
+            """Returns a string message saying the order price is too far from the current market price"""
+            ...
+
+    class CoinbaseBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.CoinbaseBrokerageModel class and its consumers or related classes"""
+
+        unsupported_account_type: str = "The Coinbase brokerage does not currently support Margin trading."
+        """String message saying: The Coinbase brokerage does not currently support Margin trading"""
+
+        @staticmethod
+        def stop_market_orders_no_longer_supported(stop_market_order_support_end_date: typing.Union[datetime.datetime, datetime.date]) -> str:
+            """Returns a string message saying the Stop Market orders are no longer supported since the given end date"""
+            ...
+
+    class InteractiveBrokersFixModel(System.Object):
+        """Provides user-facing messages for the Brokerages.InteractiveBrokersFixModel class and its consumers or related classes"""
+
+        @staticmethod
+        def unsupported_fop_future_combo_orders(brokerage_model: QuantConnect.Brokerages.InteractiveBrokersFixModel, order: QuantConnect.Orders.Order) -> str:
+            """
+            Returns a string message saying the given brokerage model does not support combo orders
+            that mix future options and futures legs
+            """
+            ...
+
+    class InteractiveBrokersBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.InteractiveBrokersBrokerageModel class and its consumers or related classes"""
+
+        @staticmethod
+        def invalid_forex_order_size(min: float, max: float, currency: str) -> str:
+            """Returns a string message containing the minimum and maximum limits for the allowable order size as well as the currency"""
+            ...
+
+        @staticmethod
+        def unsupported_exercise_for_index_and_cash_settled_options(brokerage_model: QuantConnect.Brokerages.InteractiveBrokersBrokerageModel, order: QuantConnect.Orders.Order) -> str:
+            """
+            Returns a string message saying the given brokerage model does not support order exercises
+            for index and cash-settled options
+            """
+            ...
+
+        @staticmethod
+        def unsupported_four_leg_combo_leg_limit_orders(brokerage_model: QuantConnect.Brokerages.InteractiveBrokersBrokerageModel) -> str:
+            """Returns a string message saying the given brokerage model does not support four-leg combo leg limit orders"""
+            ...
+
+    class TradierBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.TradierBrokerageModel class and its consumers or related classes"""
+
+        unsupported_security_type: str = "This model only supports equities and options."
+        """Unsupported Security Type string message"""
+
+        unsupported_time_in_force_type: str = ...
+        """Unsupported Time In Force Type string message"""
+
+        extended_market_hours_trading_not_supported: str = "Tradier does not support extended market hours trading. Your order will be processed at market open."
+        """Extended Market Hours Trading Not Supported string message"""
+
+        order_quantity_update_not_supported: str = "Tradier does not support updating order quantities."
+        """Order Quantity Update Not Supported string message"""
+
+        open_orders_cancel_on_reverse_split_symbols: str = "Tradier Brokerage cancels open orders on reverse split symbols"
+        """Open Orders Cancel On Reverse Split Symbols string message"""
+
+        short_order_is_gtc: str = "You cannot place short stock orders with GTC, only day orders are allowed"
+        """Short Order Is GTC string message"""
+
+        sell_short_order_last_price_below_5: str = "Sell Short order cannot be placed for stock priced below $5"
+        """Sell Short Order Last Price Below 5 string message"""
+
+        incorrect_order_quantity: str = "Quantity should be between 1 and 10,000,000"
+        """Incorrect Order Quantity string message"""
+
+        @staticmethod
+        def extended_market_hours_trading_not_supported_outside_extended_session(pre_market_segment: QuantConnect.Securities.MarketHoursSegment, post_market_segment: QuantConnect.Securities.MarketHoursSegment) -> str:
+            """Extended Market Hours Trading Not Supported Outside Extended Session string message"""
+            ...
+
+    class TradingTechnologiesBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.TradingTechnologiesBrokerageModel class and its consumers or related classes"""
+
+        invalid_stop_market_order_price: str = "StopMarket Sell orders must be below market, StopMarket Buy orders must be above market."
+        """Invalid Stop Market Order Price string message"""
+
+        invalid_stop_limit_order_price: str = "StopLimit Sell orders must be below market, StopLimit Buy orders must be above market."
+        """Invalid Stop Limit Order Price string message"""
+
+        invalid_stop_limit_order_limit_price: str = "StopLimit Buy limit price must be greater than or equal to stop price, StopLimit Sell limit price must be smaller than or equal to stop price."
+        """Invalid Stop Limit Order Limit Price string message"""
+
+    class WolverineBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.WolverineBrokerageModel class and its consumers or related classes"""
+
+        @staticmethod
+        def unsupported_order_type(order: QuantConnect.Orders.Order) -> str:
+            """Returns a message for an unsupported order type in Wolverine Brokerage Model"""
+            ...
+
+    class RBIBrokerageModel(System.Object):
+        """Provides user-facing messages for the Brokerages.RBIBrokerageModel class and its consumers or related classes"""
+
+        @staticmethod
+        def unsupported_order_type(order: QuantConnect.Orders.Order) -> str:
+            """
+            Returns a message for an unsupported order type in RBI Brokerage Model
+            
+            :param order: 
+            """
+            ...
+
+    class FeeModel(System.Object):
+        """Provides user-facing messages for the Orders.Fees.FeeModel class and its consumers or related classes"""
+
+        @staticmethod
+        def unsupported_security_type(security: QuantConnect.Securities.Security) -> str:
+            """Returns a string message saying the type of the given security is unsupported"""
+            ...
+
+    class AlphaStreamsFeeModel(System.Object):
+        """Provides user-facing messages for the Orders.Fees.AlphaStreamsFeeModel class and its consumers or related classes"""
+
+        @staticmethod
+        def unexpected_equity_market(market: str) -> str:
+            """Returns a string message saying the given market is unexpected"""
+            ...
+
+    class ExanteFeeModel(System.Object):
+        """Provides user-facing messages for the Orders.Fees.ExanteFeeModel class and its consumers or related classes"""
+
+        @staticmethod
+        def unsupported_exchange(order: QuantConnect.Orders.Order) -> str:
+            """Returns a string message saying the market associated with the given order symbol is unsupported"""
+            ...
+
+    class InteractiveBrokersFeeModel(System.Object):
+        """Provides user-facing messages for the Orders.Fees.InteractiveBrokersFeeModel class and its consumers or related classes"""
+
+        @staticmethod
+        def eurex_future_fees_unsupported_security_type(security: QuantConnect.Securities.Security) -> str:
+            """Returns a string message saying the type of the given security was unsupported"""
+            ...
+
+        @staticmethod
+        def hong_kong_future_fees_unexpected_quote_currency(security: QuantConnect.Securities.Security) -> str:
+            """
+            Returns a string message saying the quote currency of the given security was
+            unexpected for Hong Kong futures exchange
+            """
+            ...
+
+        @staticmethod
+        def unexpected_equity_market(market: str) -> str:
+            """Returns a string message saying the given equity market was unexpected"""
+            ...
+
+        @staticmethod
+        def unexpected_future_market(market: str) -> str:
+            """Returns a string message saying the given future market was unexpected"""
+            ...
+
+        @staticmethod
+        def unexpected_option_market(market: str) -> str:
+            """Returns a string message saying the given option market was unexpected"""
+            ...
+
+        @staticmethod
+        def united_states_future_fees_unsupported_security_type(security: QuantConnect.Securities.Security) -> str:
+            """Returns a string message saying the type of the given security was unsupported"""
+            ...
+
+    class TDAmeritradeFeeModel(System.Object):
+        """Provides user-facing messages for the Orders.Fees.TDAmeritradeFeeModel class and its consumers or related classes"""
+
+        @staticmethod
+        def unsupported_security_type(security_type: QuantConnect.SecurityType) -> str:
+            """Returns a string message for unsupported security types in TDAmeritradeFeeModel"""
+            ...
+
+    class PortfolioTarget(System.Object):
+        """Provides user-facing messages for the Algorithm.Framework.Portfolio.PortfolioTarget class and its consumers or related classes"""
+
+        @staticmethod
+        def invalid_insight_direction(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], insight_direction: QuantConnect.Algorithm.Framework.Alphas.InsightDirection) -> str:
+            """Returns a string message saying the insight direction is invalid for the given symbol"""
+            ...
+
+        @staticmethod
+        def invalid_target_percent(algorithm: QuantConnect.Interfaces.IAlgorithm, percent: float) -> str:
+            """Returns a string message saying the portfolio target percent is invalid"""
+            ...
+
+        @staticmethod
+        def symbol_not_found(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+            """Returns a string message saying the given symbol was not found in the portfolio"""
+            ...
+
+        @staticmethod
+        def to_string(portfolio_target: QuantConnect.Algorithm.Framework.Portfolio.PortfolioTarget) -> str:
+            """Parses the given portfolio target into a string message containing basic information about it"""
+            ...
+
+        @staticmethod
+        def unable_to_compute_order_quantity_due_to_null_result(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], result: QuantConnect.Securities.Positions.GetMaximumLotsResult) -> str:
+            """
+            Returns a string message saying it was impossible to compute the order quantity of the given symbol. It also
+            explains the reason why it was impossible
+            """
+            ...
+
     class DllNotFoundPythonExceptionInterpreter(System.Object):
         """Provides user-facing messages for the Exceptions.DllNotFoundPythonExceptionInterpreter class and its consumers or related classes"""
 
@@ -9964,6 +10480,95 @@ class Messages(System.Object):
             """Returns a message for invalid object types for operation"""
             ...
 
+    class OptimizationParameterJsonConverter(System.Object):
+        """Provides user-facing messages for the Optimizer.Parameters.OptimizationParameterJsonConverter class and its consumers or related classes"""
+
+        optimization_parameter_not_specified: str = "Optimization parameter name is not specified."
+        """String message saying optimization parameter name is not specified"""
+
+        optimization_parameter_not_supported: str = "Optimization parameter is not currently supported."
+        """String message saying optimization parameter is not currently supported"""
+
+    class OptimizationStepParameter(System.Object):
+        """Provides user-facing messages for the Optimizer.Parameters.OptimizationStepParameter class and its consumers or related classes"""
+
+        step_less_than_min_step: str = ...
+        """String message saying the step should be great or equal than minStep"""
+
+        @staticmethod
+        def invalid_step_range(min: float, max: float) -> str:
+            """Returns a string message saying the step range is invalid"""
+            ...
+
+        @staticmethod
+        def non_positive_step_value(step_var_name: str, value: float) -> str:
+            """Returns a string message saying the step should be positive value"""
+            ...
+
+    class OptimizerObjectivesCommon(System.Object):
+        """Provides user-facing common messages for the Optimizer.Objectives namespace classes"""
+
+        null_or_empty_backtest_result: str = "Backtest result can not be null or empty."
+        """String message saying the backtest result can not be null or empty"""
+
+    class Constraint(System.Object):
+        """Provides user-facing messages for the Optimizer.Objectives.Constraint class and its consumers or related classes"""
+
+        constraint_target_value_not_specified: str = "Constraint target value is not specified"
+        """String message saying the constraint target value is not specified"""
+
+    class ExtremumJsonConverter(System.Object):
+        """Provides user-facing messages for the Optimizer.Objectives.ExtremumJsonConverter class and its consumers or related classes"""
+
+        unrecognized_target_direction: str = "Could not recognize target direction"
+        """String message saying it could not recognize target direction"""
+
+    class Objective(System.Object):
+        """Provides user-facing messages for the Optimizer.Objectives.Objective class and its consumers or related classes"""
+
+        null_or_empty_objective: str = "Objective can not be null or empty"
+        """Null or empty Objective string message"""
+
+    class Target(System.Object):
+        """Provides user-facing messages for the Optimizer.Objectives.Target class and its consumers or related classes"""
+
+        @staticmethod
+        def to_string(instance: QuantConnect.Optimizer.Objectives.Target) -> str:
+            """Parses a Target object into a string message"""
+            ...
+
+    class IndicatorDataPoint(System.Object):
+        """Provides user-facing messages for the Indicators.IndicatorDataPoint class and its consumers or related classes"""
+
+        @staticmethod
+        def invalid_object_type_to_compare_to(type: typing.Type) -> str:
+            """Returns a string message saying the given type is invalid for certain object"""
+            ...
+
+        @staticmethod
+        def to_string(instance: QuantConnect.Indicators.IndicatorDataPoint) -> str:
+            """Parses a IndicatorDataPoint instance into a string message containing basic information about it"""
+            ...
+
+        @staticmethod
+        def unsupported_method(method_name: str) -> str:
+            """Returns a string message saying the given method cannot be called on this type"""
+            ...
+
+    class RollingWindow(System.Object):
+        """Provides user-facing messages for the Indicators.RollingWindow{T} class and its consumers or related classes"""
+
+        no_items_removed_yet: str = "No items have been removed yet!"
+        """String message saying no items have been removed yet from the rolling window"""
+
+        index_out_of_size_range: str = "Index must be a non-negative integer"
+        """String message saying the index must be a non-negative integer"""
+
+        @staticmethod
+        def invalid_size(minimum_size: int) -> str:
+            """String message saying the rolling windows must have size of at least 1"""
+            ...
+
     class VolumeShareSlippageModel(System.Object):
         """Provides user-facing messages for the Orders.Slippage.VolumeShareSlippageModel class and its consumers or related classes"""
 
@@ -9982,247 +10587,6 @@ class Messages(System.Object):
             """Returns a message for a volume not reported for market data type in Volume Share Slippage Model"""
             ...
 
-    class CancelOrderRequest(System.Object):
-        """Provides user-facing messages for the Orders.CancelOrderRequest class and its consumers or related classes"""
-
-        @staticmethod
-        def to_string(request: QuantConnect.Orders.CancelOrderRequest) -> str:
-            """Parses the given CancelOrderRequest into a string message containing basic information about it"""
-            ...
-
-    class GroupOrderExtensions(System.Object):
-        """Provides user-facing messages for the Orders.GroupOrderExtensions class and its consumers or related classes"""
-
-        @staticmethod
-        def insufficient_buying_power_for_orders(securities: System.Collections.Generic.Dictionary[QuantConnect.Orders.Order, QuantConnect.Securities.Security], has_sufficient_buying_power_result: QuantConnect.Securities.HasSufficientBuyingPowerForOrderResult) -> str:
-            """Returns a string message saying there is insufficient buying power to complete the given orders"""
-            ...
-
-    class LimitIfTouchedOrder(System.Object):
-        """Provides user-facing messages for the Orders.LimitIfTouchedOrder class and its consumers or related classes"""
-
-        @staticmethod
-        def tag(order: QuantConnect.Orders.LimitIfTouchedOrder) -> str:
-            """Returns an empty string tag"""
-            ...
-
-        @staticmethod
-        def to_string(order: QuantConnect.Orders.LimitIfTouchedOrder) -> str:
-            """
-            Parses the given LimitIfTouched order to a string message containing basic information
-            about it
-            """
-            ...
-
-    class LimitOrder(System.Object):
-        """Provides user-facing messages for the Orders.LimitOrder class and its consumers or related classes"""
-
-        @staticmethod
-        def tag(order: QuantConnect.Orders.LimitOrder) -> str:
-            """Returns an empty string tag"""
-            ...
-
-        @staticmethod
-        def to_string(order: QuantConnect.Orders.LimitOrder) -> str:
-            """Parses a Limit order to a string message with basic information about it"""
-            ...
-
-    class Order(System.Object):
-        """Provides user-facing messages for the Orders.Order class and its consumers or related classes"""
-
-        @staticmethod
-        def to_string(order: QuantConnect.Orders.Order) -> str:
-            """Parses the given order into a string message with basic information about it"""
-            ...
-
-    class OrderEvent(System.Object):
-        """Provides user-facing messages for the Orders.OrderEvent class and its consumers or related classes"""
-
-        @staticmethod
-        def short_to_string(order_event: QuantConnect.Orders.OrderEvent) -> str:
-            """Parses the given order event into a string message which summarizes the basic information about it"""
-            ...
-
-        @staticmethod
-        def to_string(order_event: QuantConnect.Orders.OrderEvent) -> str:
-            """Parses the given order event into a string message containing basic information about it"""
-            ...
-
-    class OrderRequest(System.Object):
-        """Provides user-facing messages for the Orders.OrderRequest class and its consumers or related classes"""
-
-        @staticmethod
-        def to_string(request: QuantConnect.Orders.OrderRequest) -> str:
-            """Parses the given order request into a string message containing basic information about it"""
-            ...
-
-    class OrderResponse(System.Object):
-        """Provides user-facing messages for the Orders.OrderResponse class and its consumers or related classes"""
-
-        default_error_message: str = "An unexpected error occurred."
-        """String message saying: An unexpected error occurred"""
-
-        unprocessed_order_response_error_message: str = "The request has not yet been processed."
-        """String message saying: The request has not yet been processed"""
-
-        @staticmethod
-        def invalid_new_status(request: QuantConnect.Orders.OrderRequest, order: QuantConnect.Orders.Order) -> str:
-            """
-            Returns a string message saying it was impossible to update or cancel the order with the
-            id from the given request because the submit confirmation had not been received yet
-            """
-            ...
-
-        @staticmethod
-        def invalid_status(request: QuantConnect.Orders.OrderRequest, order: QuantConnect.Orders.Order) -> str:
-            """
-            Returns a string message saying it was impossible to udpate the order with the id
-            from the given request because it already had the status of the given order
-            """
-            ...
-
-        @staticmethod
-        def missing_security(request: QuantConnect.Orders.SubmitOrderRequest) -> str:
-            """
-            Returns a string message saying the user has not requested data for the symbol of the given
-            request. It also advises the user on how to add this data
-            
-            :param request: 
-            """
-            ...
-
-        @staticmethod
-        def to_string(response: QuantConnect.Orders.OrderResponse) -> str:
-            """Parses the given order response into a string message containing basic information about it"""
-            ...
-
-        @staticmethod
-        def unable_to_find_order(request: QuantConnect.Orders.OrderRequest) -> str:
-            """
-            Returns a string message saying it was impossible to locate the order with the id from the
-            given request
-            """
-            ...
-
-        @staticmethod
-        def warming_up(request: QuantConnect.Orders.OrderRequest) -> str:
-            """
-            Returns a string message saying the given order request operation is not allowed
-            in Initialize or during warm up. It also advises the user on where it is allowed
-            to make it
-            """
-            ...
-
-        @staticmethod
-        def zero_quantity(request: QuantConnect.Orders.OrderRequest) -> str:
-            """
-            Returns a string message saying it was impossible to process the given order request
-            that has zero quantity
-            """
-            ...
-
-    class OrderTicket(System.Object):
-        """Provides user-facing messages for the Orders.OrderTicket class and its consumers or related classes"""
-
-        @staticmethod
-        def cancel_request_already_submitted(ticket: QuantConnect.Orders.OrderTicket) -> str:
-            """
-            Returns a string message saying the order associated with the given ticket has already received a
-            cancellation request
-            """
-            ...
-
-        @staticmethod
-        def get_field_error(ticket: QuantConnect.Orders.OrderTicket, field: QuantConnect.Orders.OrderField) -> str:
-            """
-            Returns a string message saying it was impossible to get the given field on the order type from the given
-            ticket
-            """
-            ...
-
-        @staticmethod
-        def to_string(ticket: QuantConnect.Orders.OrderTicket, order: QuantConnect.Orders.Order, request_count: int, response_count: int) -> str:
-            """Parses the given order ticket into a string message containing basic information about it"""
-            ...
-
-    class StopLimitOrder(System.Object):
-        """Provides user-facing messages for the Orders.StopLimitOrder class and its consumers or related classes"""
-
-        @staticmethod
-        def tag(order: QuantConnect.Orders.StopLimitOrder) -> str:
-            """Returns an empty string as a tag"""
-            ...
-
-        @staticmethod
-        def to_string(order: QuantConnect.Orders.StopLimitOrder) -> str:
-            """Parses the given StopLimitOrder object into a string message"""
-            ...
-
-    class StopMarketOrder(System.Object):
-        """Provides user-facing messages for the Orders.StopMarketOrder class and its consumers or related classes"""
-
-        @staticmethod
-        def tag(order: QuantConnect.Orders.StopMarketOrder) -> str:
-            """Returns an empty string as a tag"""
-            ...
-
-        @staticmethod
-        def to_string(order: QuantConnect.Orders.StopMarketOrder) -> str:
-            """Parses a given StopMarketOrder object into a string message"""
-            ...
-
-    class TrailingStopOrder(System.Object):
-        """Provides user-facing messages for the Orders.TrailingStopOrder class and its consumers or related classes"""
-
-        @staticmethod
-        def tag(order: QuantConnect.Orders.TrailingStopOrder) -> str:
-            """Returns a tag message for the given TrailingStopOrder"""
-            ...
-
-        @staticmethod
-        def to_string(order: QuantConnect.Orders.TrailingStopOrder) -> str:
-            """Parses a TrailingStopOrder into a string"""
-            ...
-
-        @staticmethod
-        @overload
-        def trailing_amount(order: QuantConnect.Orders.TrailingStopOrder) -> str:
-            """Returns a TrailingAmount string representation for the given TrailingStopOrder"""
-            ...
-
-        @staticmethod
-        @overload
-        def trailing_amount(trailing_amount: float, trailing_as_percentage: bool, price_currency: str) -> str:
-            """Returns a message for the given TrailingAmount and PriceCurrency values taking into account if the trailing is as percentage"""
-            ...
-
-    class SubmitOrderRequest(System.Object):
-        """Provides user-facing messages for the Orders.SubmitOrderRequest class and its consumers or related classes"""
-
-        @staticmethod
-        def to_string(request: QuantConnect.Orders.SubmitOrderRequest) -> str:
-            """Parses a given SubmitOrderRequest object to a string message"""
-            ...
-
-    class UpdateOrderRequest(System.Object):
-        """Provides user-facing messages for the Orders.UpdateOrderRequest class and its consumers or related classes"""
-
-        @staticmethod
-        def to_string(request: QuantConnect.Orders.UpdateOrderRequest) -> str:
-            """Parses an UpdateOrderRequest to a string"""
-            ...
-
-    class PositionGroup(System.Object):
-        """Provides user-facing messages for the Securities.Positions.PositionGroup class and its consumers or related classes"""
-
-        @staticmethod
-        def invalid_quantity(quantity: float, positions: typing.List[QuantConnect.Securities.Positions.IPosition]) -> str:
-            """
-            Returns a string message saying the given quantity is invalid. It also contains the quantities from the
-            given positions as well as the unit quantities
-            """
-            ...
-
     class DefaultExerciseModel(System.Object):
         """Provides user-facing messages for the Orders.OptionExercise.DefaultExerciseModel class and its consumers or related classes"""
 
@@ -10237,6 +10601,127 @@ class Messages(System.Object):
             """
             Returns a string message containing basic information such as if it's
             an assignment or an exercise, if it's ITM or OTM  and the underlying option price
+            """
+            ...
+
+    class PositionGroup(System.Object):
+        """Provides user-facing messages for the Securities.Positions.PositionGroup class and its consumers or related classes"""
+
+        @staticmethod
+        def invalid_quantity(quantity: float, positions: typing.List[QuantConnect.Securities.Positions.IPosition]) -> str:
+            """
+            Returns a string message saying the given quantity is invalid. It also contains the quantities from the
+            given positions as well as the unit quantities
+            """
+            ...
+
+    class FillModel(System.Object):
+        """Provides user-facing messages for the Orders.Fills.FillModel class and its consumers or related classes"""
+
+        @staticmethod
+        def filled_at_stale_price(security: QuantConnect.Securities.Security, prices: QuantConnect.Orders.Fills.Prices) -> str:
+            """Returns a string message warning saying the order was filled at stale price"""
+            ...
+
+        @staticmethod
+        def market_never_closes(security: QuantConnect.Securities.Security, order_type: QuantConnect.Orders.OrderType) -> str:
+            """
+            Returns a string message saying the market never closes for the given symbol, and that an order of the given
+            type cannot be submitted
+            """
+            ...
+
+        @staticmethod
+        def no_data_subscription_found_for_filling(security: QuantConnect.Securities.Security) -> str:
+            """
+            Returns a string message saying it was impossible to perform a fill for the given security symbol because
+            no data subscription was found
+            """
+            ...
+
+        @staticmethod
+        def no_market_data_to_get_ask_price_for_filling(security: QuantConnect.Securities.Security, subscribed_types: System.Collections.Generic.HashSet[typing.Type] = None) -> str:
+            """
+            Returns a string message saying it was impossible to get ask price to perform the fill for the given security symbol because
+            no market data was found
+            """
+            ...
+
+        @staticmethod
+        def no_market_data_to_get_bid_price_for_filling(security: QuantConnect.Securities.Security, subscribed_types: System.Collections.Generic.HashSet[typing.Type] = None) -> str:
+            """
+            Returns a string message saying it was impossible to get bid price to perform the fill for the given security symbol because
+            no market data was found
+            """
+            ...
+
+    class EquityFillModel(System.Object):
+        """Provides user-facing messages for the Orders.Fills.EquityFillModel class and its consumers or related classes"""
+
+        market_on_open_fill_no_official_open_or_opening_prints_within_one_minute: str = "No trade with the OfficialOpen or OpeningPrints flag within the 1-minute timeout."
+        """String message saying: No trade with the OfficialOpen or OpeningPrints flag within the 1-minute timeout"""
+
+        market_on_close_fill_no_official_close_or_closing_prints_within_one_minute: str = "No trade with the OfficialClose or ClosingPrints flag within the 1-minute timeout."
+        """String message saying: No trade with the OfficialClose or ClosingPrints flag within the 1-minute timeout"""
+
+        market_on_close_fill_no_official_close_or_closing_prints_without_extended_market_hours: str = "No trade with the OfficialClose or ClosingPrints flag for data that does not include extended market hours."
+        """
+        String message saying: No trade with the OfficialClose or ClosingPrints flag for data that does not include
+        extended market hours
+        """
+
+        @staticmethod
+        def filled_with_last_tick_type_data(tick: QuantConnect.Data.Market.Tick) -> str:
+            """Returns a string message saying the last data (of the given tick type) has been used to fill"""
+            ...
+
+        @staticmethod
+        def filled_with_open_due_to_favorable_gap(security: QuantConnect.Securities.Security, trade_bar: QuantConnect.Data.Market.TradeBar) -> str:
+            """Returns a string message saying that the order was filled using the open price due to a favorable gap"""
+            ...
+
+        @staticmethod
+        def filled_with_open_due_to_unfavorable_gap(security: QuantConnect.Securities.Security, trade_bar: QuantConnect.Data.Market.TradeBar) -> str:
+            """Returns a string message saying that the order was filled using the open price due to an unfavorable gap"""
+            ...
+
+        @staticmethod
+        def filled_with_quote_bar_data(security: QuantConnect.Securities.Security, quote_bar: QuantConnect.Data.Market.QuoteBar) -> str:
+            """
+            Returns a string message warning the user that the fill was at stale price, so quote bar data
+            was used to fill the order
+            """
+            ...
+
+        @staticmethod
+        def filled_with_quote_data(security: QuantConnect.Securities.Security) -> str:
+            """
+            Returns a string message warnning the user that no trade information was available, so the order was filled
+            using quote data
+            """
+            ...
+
+        @staticmethod
+        def filled_with_quote_tick_data(security: QuantConnect.Securities.Security, quote_tick: QuantConnect.Data.Market.Tick) -> str:
+            """
+            Returns a string message warning the user that the fill is at stale price and that the order will
+            be filled using quote tick data
+            """
+            ...
+
+        @staticmethod
+        def filled_with_trade_bar_data(security: QuantConnect.Securities.Security, trade_bar: QuantConnect.Data.Market.TradeBar) -> str:
+            """
+            Returns a string message warning the user that no quote information was available, so that trade bar
+            data was used to fill the order
+            """
+            ...
+
+        @staticmethod
+        def filled_with_trade_tick_data(security: QuantConnect.Securities.Security, trade_tick: QuantConnect.Data.Market.Tick) -> str:
+            """
+            Returns a string message warning the user that no quote information was available, so the order
+            was filled using trade tick data
             """
             ...
 
@@ -10275,195 +10760,6 @@ class Messages(System.Object):
 
     class BasePythonWrapper(System.Object):
         """Provides user-facing common messages for the Python.BasePythonWrapper{TInterface} class"""
-
-    class IndicatorDataPoint(System.Object):
-        """Provides user-facing messages for the Indicators.IndicatorDataPoint class and its consumers or related classes"""
-
-        @staticmethod
-        def invalid_object_type_to_compare_to(type: typing.Type) -> str:
-            """Returns a string message saying the given type is invalid for certain object"""
-            ...
-
-        @staticmethod
-        def to_string(instance: QuantConnect.Indicators.IndicatorDataPoint) -> str:
-            """Parses a IndicatorDataPoint instance into a string message containing basic information about it"""
-            ...
-
-        @staticmethod
-        def unsupported_method(method_name: str) -> str:
-            """Returns a string message saying the given method cannot be called on this type"""
-            ...
-
-    class RollingWindow(System.Object):
-        """Provides user-facing messages for the Indicators.RollingWindow{T} class and its consumers or related classes"""
-
-        no_items_removed_yet: str = "No items have been removed yet!"
-        """String message saying no items have been removed yet from the rolling window"""
-
-        index_out_of_size_range: str = "Index must be a non-negative integer"
-        """String message saying the index must be a non-negative integer"""
-
-        @staticmethod
-        def invalid_size(minimum_size: int) -> str:
-            """String message saying the rolling windows must have size of at least 1"""
-            ...
-
-    class NotificationEmail(System.Object):
-        """Provides user-facing messages for the Notifications.NotificationEmail class and its consumers or related classes"""
-
-        @staticmethod
-        def invalid_email_address(email: str) -> str:
-            """Returns a string message saying the given email is invalid"""
-            ...
-
-    class NotificationFtp(System.Object):
-        """Provides user-facing messages for the Notifications.NotificationFtp class and its consumers or related classes"""
-
-        missing_ssh_key: str = "FTP SSH key missing for SFTP notification."
-        """String message saying the SSH key is missing"""
-
-        missing_password: str = "FTP password is missing for unsecure FTP notification."
-        """String message saying the password is missing"""
-
-    class NotificationJsonConverter(System.Object):
-        """Provides user-facing messages for the Notifications.NotificationJsonConverter class and its consumers or related classes"""
-
-        write_not_implemented: str = "Not implemented, should not be called"
-        """String message saying the write method has not been implemented and should not be called"""
-
-        @staticmethod
-        def unexpected_json_object(j_object: typing.Any) -> str:
-            """String message saying the given object is unexpected"""
-            ...
-
-    class BaseCommand(System.Object):
-        """Provides user-facing messages for the Commands.BaseCommand class and its consumers or related classes"""
-
-        missing_values_to_get_symbol: str = "Please provide values for: Ticker, Market & SecurityType"
-        """Returns a string message saying: Please provide values for: Ticker, Market and SecurityType"""
-
-    class BaseCommandHandler(System.Object):
-        """Provides user-facing messages for the Commands.BaseCommandHandler class and its consumers or related classes"""
-
-        @staticmethod
-        def executing_command(command: QuantConnect.Commands.ICommand) -> str:
-            """Returns a string with the given command"""
-            ...
-
-    class FileCommandHandler(System.Object):
-        """Provides user-facing messages for the Commands.FileCommandHandler class and its consumers or related classes"""
-
-        null_or_empty_command_id: str = "Command Id is null or empty, will skip writing result file"
-        """Returns a string message saying: Command Id is null or empty, will skip writing result file"""
-
-        @staticmethod
-        def command_file_does_not_exist(command_file_path: str) -> str:
-            """Returns a string message saying the given command_file_path does not exists"""
-            ...
-
-        @staticmethod
-        def reading_command_file(command_file_path: str) -> str:
-            """Returns a string message saying the given command_file_path is being read"""
-            ...
-
-    class OrderCommand(System.Object):
-        """Provides user-facing messages for the Commands.OrderCommand class and its consumers or related classes"""
-
-        @staticmethod
-        def command_info(order_type: QuantConnect.Orders.OrderType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, response: QuantConnect.Orders.OrderResponse) -> str:
-            """
-            Returns a string message with basic information about a command, such us:
-            order type, symbol, quantity and response
-            """
-            ...
-
-    class PortfolioTarget(System.Object):
-        """Provides user-facing messages for the Algorithm.Framework.Portfolio.PortfolioTarget class and its consumers or related classes"""
-
-        @staticmethod
-        def invalid_insight_direction(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], insight_direction: QuantConnect.Algorithm.Framework.Alphas.InsightDirection) -> str:
-            """Returns a string message saying the insight direction is invalid for the given symbol"""
-            ...
-
-        @staticmethod
-        def invalid_target_percent(algorithm: QuantConnect.Interfaces.IAlgorithm, percent: float) -> str:
-            """Returns a string message saying the portfolio target percent is invalid"""
-            ...
-
-        @staticmethod
-        def symbol_not_found(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-            """Returns a string message saying the given symbol was not found in the portfolio"""
-            ...
-
-        @staticmethod
-        def to_string(portfolio_target: QuantConnect.Algorithm.Framework.Portfolio.PortfolioTarget) -> str:
-            """Parses the given portfolio target into a string message containing basic information about it"""
-            ...
-
-        @staticmethod
-        def unable_to_compute_order_quantity_due_to_null_result(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], result: QuantConnect.Securities.Positions.GetMaximumLotsResult) -> str:
-            """
-            Returns a string message saying it was impossible to compute the order quantity of the given symbol. It also
-            explains the reason why it was impossible
-            """
-            ...
-
-    class FuncBenchmark(System.Object):
-        """Provides user-facing messages for the Benchmarks.FuncBenchmark class and its consumers or related classes"""
-
-        unable_to_convert_python_function_to_benchmark_function: str = "Unable to convert Python function to benchmark function, please ensure the function supports Datetime input and decimal output"
-        """String message saying it was impossible to convert the Python function to a benchmark function"""
-
-    class OptimizerObjectivesCommon(System.Object):
-        """Provides user-facing common messages for the Optimizer.Objectives namespace classes"""
-
-        null_or_empty_backtest_result: str = "Backtest result can not be null or empty."
-        """String message saying the backtest result can not be null or empty"""
-
-    class Constraint(System.Object):
-        """Provides user-facing messages for the Optimizer.Objectives.Constraint class and its consumers or related classes"""
-
-        constraint_target_value_not_specified: str = "Constraint target value is not specified"
-        """String message saying the constraint target value is not specified"""
-
-    class ExtremumJsonConverter(System.Object):
-        """Provides user-facing messages for the Optimizer.Objectives.ExtremumJsonConverter class and its consumers or related classes"""
-
-        unrecognized_target_direction: str = "Could not recognize target direction"
-        """String message saying it could not recognize target direction"""
-
-    class Objective(System.Object):
-        """Provides user-facing messages for the Optimizer.Objectives.Objective class and its consumers or related classes"""
-
-        null_or_empty_objective: str = "Objective can not be null or empty"
-        """Null or empty Objective string message"""
-
-    class Target(System.Object):
-        """Provides user-facing messages for the Optimizer.Objectives.Target class and its consumers or related classes"""
-
-        @staticmethod
-        def to_string(instance: QuantConnect.Optimizer.Objectives.Target) -> str:
-            """Parses a Target object into a string message"""
-            ...
-
-    class InsightManager(System.Object):
-        """Provides user-facing messages for the Algorithm.Framework.Alphas.Analysis.InsightManager class and its consumers or related classes"""
-
-        invalid_extra_analysis_period_ratio: str = "extraAnalysisPeriodRatio must be greater than or equal to zero."
-        """String message saying extraAnalysisPeriodRatio must be greater than or equal to zero"""
-
-        @staticmethod
-        def zero_initial_price_value(frontier_time_utc: typing.Union[datetime.datetime, datetime.date], insight: QuantConnect.Algorithm.Framework.Alphas.Insight) -> str:
-            """Returns a string message warning the user of an insight with zero initial price"""
-            ...
-
-    class ReadOnlySecurityValuesCollection(System.Object):
-        """Provides user-facing messages for the ReadOnlySecurityValuesCollection class and its consumers or related classes"""
-
-        @staticmethod
-        def security_values_for_symbol_not_found(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-            """Returns a string message saying no SecurityValues were found for the given symbol"""
-            ...
 
     class AlphaRuntimeStatistics(System.Object):
         """Provides user-facing messages for the AlphaRuntimeStatistics class and its consumers or related classes"""
@@ -10956,605 +11252,309 @@ class Messages(System.Object):
             """Returns a string message for invalid total days"""
             ...
 
-    class OptimizationParameterJsonConverter(System.Object):
-        """Provides user-facing messages for the Optimizer.Parameters.OptimizationParameterJsonConverter class and its consumers or related classes"""
-
-        optimization_parameter_not_specified: str = "Optimization parameter name is not specified."
-        """String message saying optimization parameter name is not specified"""
-
-        optimization_parameter_not_supported: str = "Optimization parameter is not currently supported."
-        """String message saying optimization parameter is not currently supported"""
-
-    class OptimizationStepParameter(System.Object):
-        """Provides user-facing messages for the Optimizer.Parameters.OptimizationStepParameter class and its consumers or related classes"""
-
-        step_less_than_min_step: str = ...
-        """String message saying the step should be great or equal than minStep"""
+    class NotificationEmail(System.Object):
+        """Provides user-facing messages for the Notifications.NotificationEmail class and its consumers or related classes"""
 
         @staticmethod
-        def invalid_step_range(min: float, max: float) -> str:
-            """Returns a string message saying the step range is invalid"""
+        def invalid_email_address(email: str) -> str:
+            """Returns a string message saying the given email is invalid"""
+            ...
+
+    class NotificationFtp(System.Object):
+        """Provides user-facing messages for the Notifications.NotificationFtp class and its consumers or related classes"""
+
+        missing_ssh_key: str = "FTP SSH key missing for SFTP notification."
+        """String message saying the SSH key is missing"""
+
+        missing_password: str = "FTP password is missing for unsecure FTP notification."
+        """String message saying the password is missing"""
+
+    class NotificationJsonConverter(System.Object):
+        """Provides user-facing messages for the Notifications.NotificationJsonConverter class and its consumers or related classes"""
+
+        write_not_implemented: str = "Not implemented, should not be called"
+        """String message saying the write method has not been implemented and should not be called"""
+
+        @staticmethod
+        def unexpected_json_object(j_object: typing.Any) -> str:
+            """String message saying the given object is unexpected"""
+            ...
+
+    class CancelOrderRequest(System.Object):
+        """Provides user-facing messages for the Orders.CancelOrderRequest class and its consumers or related classes"""
+
+        @staticmethod
+        def to_string(request: QuantConnect.Orders.CancelOrderRequest) -> str:
+            """Parses the given CancelOrderRequest into a string message containing basic information about it"""
+            ...
+
+    class GroupOrderExtensions(System.Object):
+        """Provides user-facing messages for the Orders.GroupOrderExtensions class and its consumers or related classes"""
+
+        @staticmethod
+        def insufficient_buying_power_for_orders(securities: System.Collections.Generic.Dictionary[QuantConnect.Orders.Order, QuantConnect.Securities.Security], has_sufficient_buying_power_result: QuantConnect.Securities.HasSufficientBuyingPowerForOrderResult) -> str:
+            """Returns a string message saying there is insufficient buying power to complete the given orders"""
+            ...
+
+    class LimitIfTouchedOrder(System.Object):
+        """Provides user-facing messages for the Orders.LimitIfTouchedOrder class and its consumers or related classes"""
+
+        @staticmethod
+        def tag(order: QuantConnect.Orders.LimitIfTouchedOrder) -> str:
+            """Returns an empty string tag"""
             ...
 
         @staticmethod
-        def non_positive_step_value(step_var_name: str, value: float) -> str:
-            """Returns a string message saying the step should be positive value"""
-            ...
-
-    class FillModel(System.Object):
-        """Provides user-facing messages for the Orders.Fills.FillModel class and its consumers or related classes"""
-
-        @staticmethod
-        def filled_at_stale_price(security: QuantConnect.Securities.Security, prices: QuantConnect.Orders.Fills.Prices) -> str:
-            """Returns a string message warning saying the order was filled at stale price"""
-            ...
-
-        @staticmethod
-        def market_never_closes(security: QuantConnect.Securities.Security, order_type: QuantConnect.Orders.OrderType) -> str:
+        def to_string(order: QuantConnect.Orders.LimitIfTouchedOrder) -> str:
             """
-            Returns a string message saying the market never closes for the given symbol, and that an order of the given
-            type cannot be submitted
+            Parses the given LimitIfTouched order to a string message containing basic information
+            about it
             """
             ...
 
+    class LimitOrder(System.Object):
+        """Provides user-facing messages for the Orders.LimitOrder class and its consumers or related classes"""
+
         @staticmethod
-        def no_data_subscription_found_for_filling(security: QuantConnect.Securities.Security) -> str:
-            """
-            Returns a string message saying it was impossible to perform a fill for the given security symbol because
-            no data subscription was found
-            """
+        def tag(order: QuantConnect.Orders.LimitOrder) -> str:
+            """Returns an empty string tag"""
             ...
 
         @staticmethod
-        def no_market_data_to_get_ask_price_for_filling(security: QuantConnect.Securities.Security, subscribed_types: System.Collections.Generic.HashSet[typing.Type] = None) -> str:
-            """
-            Returns a string message saying it was impossible to get ask price to perform the fill for the given security symbol because
-            no market data was found
-            """
+        def to_string(order: QuantConnect.Orders.LimitOrder) -> str:
+            """Parses a Limit order to a string message with basic information about it"""
+            ...
+
+    class Order(System.Object):
+        """Provides user-facing messages for the Orders.Order class and its consumers or related classes"""
+
+        @staticmethod
+        def to_string(order: QuantConnect.Orders.Order) -> str:
+            """Parses the given order into a string message with basic information about it"""
+            ...
+
+    class OrderEvent(System.Object):
+        """Provides user-facing messages for the Orders.OrderEvent class and its consumers or related classes"""
+
+        @staticmethod
+        def short_to_string(order_event: QuantConnect.Orders.OrderEvent) -> str:
+            """Parses the given order event into a string message which summarizes the basic information about it"""
             ...
 
         @staticmethod
-        def no_market_data_to_get_bid_price_for_filling(security: QuantConnect.Securities.Security, subscribed_types: System.Collections.Generic.HashSet[typing.Type] = None) -> str:
-            """
-            Returns a string message saying it was impossible to get bid price to perform the fill for the given security symbol because
-            no market data was found
-            """
+        def to_string(order_event: QuantConnect.Orders.OrderEvent) -> str:
+            """Parses the given order event into a string message containing basic information about it"""
             ...
 
-    class EquityFillModel(System.Object):
-        """Provides user-facing messages for the Orders.Fills.EquityFillModel class and its consumers or related classes"""
-
-        market_on_open_fill_no_official_open_or_opening_prints_within_one_minute: str = "No trade with the OfficialOpen or OpeningPrints flag within the 1-minute timeout."
-        """String message saying: No trade with the OfficialOpen or OpeningPrints flag within the 1-minute timeout"""
-
-        market_on_close_fill_no_official_close_or_closing_prints_within_one_minute: str = "No trade with the OfficialClose or ClosingPrints flag within the 1-minute timeout."
-        """String message saying: No trade with the OfficialClose or ClosingPrints flag within the 1-minute timeout"""
-
-        market_on_close_fill_no_official_close_or_closing_prints_without_extended_market_hours: str = "No trade with the OfficialClose or ClosingPrints flag for data that does not include extended market hours."
-        """
-        String message saying: No trade with the OfficialClose or ClosingPrints flag for data that does not include
-        extended market hours
-        """
+    class OrderRequest(System.Object):
+        """Provides user-facing messages for the Orders.OrderRequest class and its consumers or related classes"""
 
         @staticmethod
-        def filled_with_last_tick_type_data(tick: QuantConnect.Data.Market.Tick) -> str:
-            """Returns a string message saying the last data (of the given tick type) has been used to fill"""
+        def to_string(request: QuantConnect.Orders.OrderRequest) -> str:
+            """Parses the given order request into a string message containing basic information about it"""
             ...
 
-        @staticmethod
-        def filled_with_open_due_to_favorable_gap(security: QuantConnect.Securities.Security, trade_bar: QuantConnect.Data.Market.TradeBar) -> str:
-            """Returns a string message saying that the order was filled using the open price due to a favorable gap"""
-            ...
+    class OrderResponse(System.Object):
+        """Provides user-facing messages for the Orders.OrderResponse class and its consumers or related classes"""
+
+        default_error_message: str = "An unexpected error occurred."
+        """String message saying: An unexpected error occurred"""
+
+        unprocessed_order_response_error_message: str = "The request has not yet been processed."
+        """String message saying: The request has not yet been processed"""
 
         @staticmethod
-        def filled_with_open_due_to_unfavorable_gap(security: QuantConnect.Securities.Security, trade_bar: QuantConnect.Data.Market.TradeBar) -> str:
-            """Returns a string message saying that the order was filled using the open price due to an unfavorable gap"""
-            ...
-
-        @staticmethod
-        def filled_with_quote_bar_data(security: QuantConnect.Securities.Security, quote_bar: QuantConnect.Data.Market.QuoteBar) -> str:
+        def invalid_new_status(request: QuantConnect.Orders.OrderRequest, order: QuantConnect.Orders.Order) -> str:
             """
-            Returns a string message warning the user that the fill was at stale price, so quote bar data
-            was used to fill the order
-            """
-            ...
-
-        @staticmethod
-        def filled_with_quote_data(security: QuantConnect.Securities.Security) -> str:
-            """
-            Returns a string message warnning the user that no trade information was available, so the order was filled
-            using quote data
-            """
-            ...
-
-        @staticmethod
-        def filled_with_quote_tick_data(security: QuantConnect.Securities.Security, quote_tick: QuantConnect.Data.Market.Tick) -> str:
-            """
-            Returns a string message warning the user that the fill is at stale price and that the order will
-            be filled using quote tick data
-            """
-            ...
-
-        @staticmethod
-        def filled_with_trade_bar_data(security: QuantConnect.Securities.Security, trade_bar: QuantConnect.Data.Market.TradeBar) -> str:
-            """
-            Returns a string message warning the user that no quote information was available, so that trade bar
-            data was used to fill the order
+            Returns a string message saying it was impossible to update or cancel the order with the
+            id from the given request because the submit confirmation had not been received yet
             """
             ...
 
         @staticmethod
-        def filled_with_trade_tick_data(security: QuantConnect.Securities.Security, trade_tick: QuantConnect.Data.Market.Tick) -> str:
+        def invalid_status(request: QuantConnect.Orders.OrderRequest, order: QuantConnect.Orders.Order) -> str:
             """
-            Returns a string message warning the user that no quote information was available, so the order
-            was filled using trade tick data
+            Returns a string message saying it was impossible to udpate the order with the id
+            from the given request because it already had the status of the given order
             """
             ...
 
-    class DefaultBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.DefaultBrokerageModel class and its consumers or related classes"""
-
-        unsupported_market_on_open_orders_for_futures_and_future_options: str = "MarketOnOpen orders are not supported for futures and future options."
-        """String message saying: MarketOnOpen orders are not supported for futures and future options"""
-
-        no_data_for_symbol: str = "There is no data for this symbol yet, please check the security.HasData flag to ensure there is at least one data point."
-        """String message saying: There is no data for this symbol yet"""
-
-        order_update_not_supported: str = "Brokerage does not support update. You must cancel and re-create instead."
-        """String message saying: Brokerage does not support update. You must cancel and re-create instead"""
-
         @staticmethod
-        def invalid_order_quantity(security: QuantConnect.Securities.Security, quantity: float) -> str:
-            """Returns a string message saying the quantity given was invalid for the given security"""
-            ...
-
-        @staticmethod
-        def invalid_order_size(security: QuantConnect.Securities.Security, quantity: float, price: float) -> str:
-            """Returns a string message saying the given order size (quantity * price) was invalid for the given security"""
-            ...
-
-        @staticmethod
-        def invalid_security_type_for_leverage(security: QuantConnect.Securities.Security) -> str:
-            """Returns a string message saying the type of the given security is invalid"""
-            ...
-
-        @staticmethod
-        def invalid_security_type_to_get_fill_model(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, security: QuantConnect.Securities.Security) -> str:
-            """Returns a string message saying the type of the given security is invalid for the given brokerage GetFillModel() method"""
-            ...
-
-        @staticmethod
-        def unsupported_cross_zero_by_order_type(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order_type: QuantConnect.Orders.OrderType) -> str:
-            """Returns a message indicating that the specified order type is not supported for orders that cross the zero holdings threshold."""
-            ...
-
-        @staticmethod
-        def unsupported_cross_zero_order_update(brokerage_model: QuantConnect.Brokerages.IBrokerageModel) -> str:
-            """Returns a string message saying the given brokerage does not support updating the quantity of Cross Zero orders"""
-            ...
-
-        @staticmethod
-        def unsupported_market_on_open_order_time(window_start: System.TimeOnly, window_end: System.TimeOnly) -> str:
+        def missing_security(request: QuantConnect.Orders.SubmitOrderRequest) -> str:
             """
-            Builds a descriptive error message when a OrderType.MARKET_ON_OPEN
-            order is submitted outside the valid submission window.
+            Returns a string message saying the user has not requested data for the symbol of the given
+            request. It also advises the user on how to add this data
             
-            :param window_start: The start of the valid submission window (typically evening of the prior day).
-            :param window_end: The end of the valid submission window (typically morning of the next day).
-            :returns: A formatted string describing why the order is not valid at the current time,
-            including the allowed submission window and suggested fixes.
+            :param request: 
             """
             ...
 
         @staticmethod
-        def unsupported_order_type(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order: QuantConnect.Orders.Order, supported_order_types: typing.List[QuantConnect.Orders.OrderType]) -> str:
-            """
-            Returns a string message saying the type of the given order is unsupported by the given brokerage model. It also
-            mentions the supported order types
-            """
+        def to_string(response: QuantConnect.Orders.OrderResponse) -> str:
+            """Parses the given order response into a string message containing basic information about it"""
             ...
 
         @staticmethod
-        def unsupported_security_type(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, security: QuantConnect.Securities.Security) -> str:
-            """Retunrns a string message saying the type of the given security is not supported by the given brokerage"""
-            ...
-
-        @staticmethod
-        def unsupported_time_in_force(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order: QuantConnect.Orders.Order) -> str:
+        def unable_to_find_order(request: QuantConnect.Orders.OrderRequest) -> str:
             """
-            Returns a string message saying the Time In Force of the given order is unsupported by the given brokerage
-            model
+            Returns a string message saying it was impossible to locate the order with the id from the
+            given request
             """
             ...
 
         @staticmethod
-        def unsupported_update_quantity_order(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order_type: QuantConnect.Orders.OrderType) -> str:
-            """Returns a message indicating that the specified order type cannot be updated quantity using the given brokerage model."""
-            ...
-
-    class AlpacaBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.AlpacaBrokerageModel class and its consumers or related classes"""
-
-        @staticmethod
-        def trading_outside_regular_hours_not_supported(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order_type: QuantConnect.Orders.OrderType, time_in_force: QuantConnect.Orders.TimeInForce) -> str:
+        def warming_up(request: QuantConnect.Orders.OrderRequest) -> str:
             """
-            Returns a message indicating that the specified order type is not supported for trading outside
-            regular hours by the given brokerage model.
-            """
-            ...
-
-    class AlphaStreamsBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.AlphaStreamsBrokerageModel class and its consumers or related classes"""
-
-        unsupported_account_type: str = "The Alpha Streams brokerage does not currently support Cash trading."
-        """String message saying: The Alpha Streams brokerage does not currently support Cash trading"""
-
-    class AxosBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.AxosClearingBrokerageModel class and its consumers or related classes"""
-
-        @staticmethod
-        def non_integer_order_quantity(order: QuantConnect.Orders.Order) -> str:
-            """
-            Returns a string message saying the order quantity must be Integer. It also contains
-            the quantity of the given order
-            """
-            ...
-
-    class BinanceBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.BinanceBrokerageModel class and its consumers or related classes"""
-
-        @staticmethod
-        def unsupported_order_type_for_security_type(order: QuantConnect.Orders.Order, security: QuantConnect.Securities.Security) -> str:
-            """
-            Returns a string message saying the type of the given order is unsupported for the symbol of the given
-            security
+            Returns a string message saying the given order request operation is not allowed
+            in Initialize or during warm up. It also advises the user on where it is allowed
+            to make it
             """
             ...
 
         @staticmethod
-        def unsupported_order_type_with_link_to_supported_types(base_api_endpoint: str, order: QuantConnect.Orders.Order, security: QuantConnect.Securities.Security) -> str:
+        def zero_quantity(request: QuantConnect.Orders.OrderRequest) -> str:
             """
-            Returns a string message saying the type of the given order is unsupported for the symbol of the given
-            security. The message also contains a link to the supported order types in Binance
+            Returns a string message saying it was impossible to process the given order request
+            that has zero quantity
             """
             ...
 
-    class BinanceUSBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.BinanceUSBrokerageModel class and its consumers or related classes"""
-
-        unsupported_account_type: str = "The Binance.US brokerage does not currently support Margin trading."
-        """String message saying: The Binance.US brokerage does not currently support Margin trading"""
-
-    class BrokerageMessageEvent(System.Object):
-        """Provides user-facing messages for the Brokerages.BrokerageMessageEvent class and its consumers or related classes"""
-
-        disconnect_code: str = "Disconnect"
-        """String message saying: Disconnect"""
-
-        reconnect_code: str = "Reconnect"
-        """String message saying: Reconnect"""
+    class OrderTicket(System.Object):
+        """Provides user-facing messages for the Orders.OrderTicket class and its consumers or related classes"""
 
         @staticmethod
-        def to_string(message_event: QuantConnect.Brokerages.BrokerageMessageEvent) -> str:
-            """Parses a given BrokerageMessageEvent object into a string containing basic information about it"""
-            ...
-
-    class DefaultBrokerageMessageHandler(System.Object):
-        """Provides user-facing messages for the Brokerages.DefaultBrokerageMessageHandler class and its consumers or related classes"""
-
-        brokerage_error_context: str = "Brokerage Error"
-        """String message saying: Brokerage Error"""
-
-        disconnected: str = "DefaultBrokerageMessageHandler.Handle(): Disconnected."
-        """String message saying: DefaultBrokerageMessageHandler.Handle(): Disconnected"""
-
-        reconnected: str = "DefaultBrokerageMessageHandler.Handle(): Reconnected."
-        """String message saying: DefaultBrookerageMessageHandler.Handle(): Reconnected"""
-
-        disconnected_when_exchanges_are_closed: str = "DefaultBrokerageMessageHandler.Handle(): Disconnect when exchanges are closed, checking back before exchange open."
-        """
-        String message saying: DefaultBrokerageMessageHandler.Handle(): Disconnect when exchanges are closed,
-        checking back before exchange open
-        """
-
-        still_disconnected: str = "DefaultBrokerageMessageHandler.Handle(): Still disconnected, goodbye."
-        """String message saying: DefaultBrokerageMessageHandler.Handle(): Still disconnected, goodbye"""
-
-        brokerage_disconnected_shut_down_context: str = "Brokerage Disconnect"
-        """String message saying: Brokerage Disconnect"""
-
-        @staticmethod
-        def brokerage_info(message_event: QuantConnect.Brokerages.BrokerageMessageEvent) -> str:
-            """Returns a string message with basic information about the given message event"""
-            ...
-
-        @staticmethod
-        def brokerage_warning(message_event: QuantConnect.Brokerages.BrokerageMessageEvent) -> str:
-            """Returns a string message warning from the given message event"""
-            ...
-
-        @staticmethod
-        def disconnected_when_exchanges_are_open(reconnection_timeout: datetime.timedelta) -> str:
+        def cancel_request_already_submitted(ticket: QuantConnect.Orders.OrderTicket) -> str:
             """
-            Returns a string message saying the brokerage is disconnected when exchanges are open and that it's
-            trying to reconnect for the given reconnection timeout minutes
+            Returns a string message saying the order associated with the given ticket has already received a
+            cancellation request
             """
             ...
 
         @staticmethod
-        def ignore_unrecognized_order(brokerage_order_id: str) -> str:
+        def get_field_error(ticket: QuantConnect.Orders.OrderTicket, field: QuantConnect.Orders.OrderField) -> str:
             """
-            Returns a string message notify about unrecognized orders that are not being observed by Lean
-            
-            :param brokerage_order_id: The brokerage order id.
-            :returns: The string represent unrecognized message.
+            Returns a string message saying it was impossible to get the given field on the order type from the given
+            ticket
             """
             ...
 
         @staticmethod
-        def time_until_next_market_open(time_until_next_market_open: datetime.timedelta) -> str:
-            """Returns a string message with the time until the next market open"""
+        def to_string(ticket: QuantConnect.Orders.OrderTicket, order: QuantConnect.Orders.Order, request_count: int, response_count: int) -> str:
+            """Parses the given order ticket into a string message containing basic information about it"""
             ...
 
-    class ExanteBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.ExanteBrokerageModel class and its consumers or related classes"""
-
-        null_order: str = "Order is null."
-        """String message saying: Order is null"""
-
-        price_not_set: str = "Price is not set."
-        """String message saying: Price is not set"""
-
-    class FTXBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.FTXBrokerageModel class and its consumers or related classes"""
-
-        trigger_price_too_high: str = "Trigger price too high: must be below current market price."
-        """String message saying: Trigger price too high, must be below current market price"""
-
-        trigger_price_too_low: str = "Trigger price too low: must be above current market price."
-        """String message saying: Trigger price too low, must be above current market price"""
-
-    class FxcmBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.FxcmBrokerageModel class and its consumers or related classes"""
-
-        invalid_order_price: str = "Limit Buy orders and Stop Sell orders must be below market, Limit Sell orders and Stop Buy orders must be above market."
-        """
-        String message saying: Limit Buy orders and Stop Sell orders must be below market, Limit Sell orders and Stop Buy orders
-        must be above market
-        """
+    class StopLimitOrder(System.Object):
+        """Provides user-facing messages for the Orders.StopLimitOrder class and its consumers or related classes"""
 
         @staticmethod
-        def invalid_order_quantity_for_lot_size(security: QuantConnect.Securities.Security) -> str:
+        def tag(order: QuantConnect.Orders.StopLimitOrder) -> str:
+            """Returns an empty string as a tag"""
+            ...
+
+        @staticmethod
+        def to_string(order: QuantConnect.Orders.StopLimitOrder) -> str:
+            """Parses the given StopLimitOrder object into a string message"""
+            ...
+
+    class StopMarketOrder(System.Object):
+        """Provides user-facing messages for the Orders.StopMarketOrder class and its consumers or related classes"""
+
+        @staticmethod
+        def tag(order: QuantConnect.Orders.StopMarketOrder) -> str:
+            """Returns an empty string as a tag"""
+            ...
+
+        @staticmethod
+        def to_string(order: QuantConnect.Orders.StopMarketOrder) -> str:
+            """Parses a given StopMarketOrder object into a string message"""
+            ...
+
+    class TrailingStopOrder(System.Object):
+        """Provides user-facing messages for the Orders.TrailingStopOrder class and its consumers or related classes"""
+
+        @staticmethod
+        def tag(order: QuantConnect.Orders.TrailingStopOrder) -> str:
+            """Returns a tag message for the given TrailingStopOrder"""
+            ...
+
+        @staticmethod
+        def to_string(order: QuantConnect.Orders.TrailingStopOrder) -> str:
+            """Parses a TrailingStopOrder into a string"""
+            ...
+
+        @staticmethod
+        @overload
+        def trailing_amount(order: QuantConnect.Orders.TrailingStopOrder) -> str:
+            """Returns a TrailingAmount string representation for the given TrailingStopOrder"""
+            ...
+
+        @staticmethod
+        @overload
+        def trailing_amount(trailing_amount: float, trailing_as_percentage: bool, price_currency: str) -> str:
+            """Returns a message for the given TrailingAmount and PriceCurrency values taking into account if the trailing is as percentage"""
+            ...
+
+    class SubmitOrderRequest(System.Object):
+        """Provides user-facing messages for the Orders.SubmitOrderRequest class and its consumers or related classes"""
+
+        @staticmethod
+        def to_string(request: QuantConnect.Orders.SubmitOrderRequest) -> str:
+            """Parses a given SubmitOrderRequest object to a string message"""
+            ...
+
+    class UpdateOrderRequest(System.Object):
+        """Provides user-facing messages for the Orders.UpdateOrderRequest class and its consumers or related classes"""
+
+        @staticmethod
+        def to_string(request: QuantConnect.Orders.UpdateOrderRequest) -> str:
+            """Parses an UpdateOrderRequest to a string"""
+            ...
+
+    class FuncBenchmark(System.Object):
+        """Provides user-facing messages for the Benchmarks.FuncBenchmark class and its consumers or related classes"""
+
+        unable_to_convert_python_function_to_benchmark_function: str = "Unable to convert Python function to benchmark function, please ensure the function supports Datetime input and decimal output"
+        """String message saying it was impossible to convert the Python function to a benchmark function"""
+
+    class BaseCommand(System.Object):
+        """Provides user-facing messages for the Commands.BaseCommand class and its consumers or related classes"""
+
+        missing_values_to_get_symbol: str = "Please provide values for: Ticker, Market & SecurityType"
+        """Returns a string message saying: Please provide values for: Ticker, Market and SecurityType"""
+
+    class BaseCommandHandler(System.Object):
+        """Provides user-facing messages for the Commands.BaseCommandHandler class and its consumers or related classes"""
+
+        @staticmethod
+        def executing_command(command: QuantConnect.Commands.ICommand) -> str:
+            """Returns a string with the given command"""
+            ...
+
+    class FileCommandHandler(System.Object):
+        """Provides user-facing messages for the Commands.FileCommandHandler class and its consumers or related classes"""
+
+        null_or_empty_command_id: str = "Command Id is null or empty, will skip writing result file"
+        """Returns a string message saying: Command Id is null or empty, will skip writing result file"""
+
+        @staticmethod
+        def command_file_does_not_exist(command_file_path: str) -> str:
+            """Returns a string message saying the given command_file_path does not exists"""
+            ...
+
+        @staticmethod
+        def reading_command_file(command_file_path: str) -> str:
+            """Returns a string message saying the given command_file_path is being read"""
+            ...
+
+    class OrderCommand(System.Object):
+        """Provides user-facing messages for the Commands.OrderCommand class and its consumers or related classes"""
+
+        @staticmethod
+        def command_info(order_type: QuantConnect.Orders.OrderType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, response: QuantConnect.Orders.OrderResponse) -> str:
             """
-            Returns a string message saying the order quantity must be a multiple of LotSize. It also contains the security's Lot
-            Size
+            Returns a string message with basic information about a command, such us:
+            order type, symbol, quantity and response
             """
-            ...
-
-        @staticmethod
-        def price_out_of_range(order_type: QuantConnect.Orders.OrderType, order_direction: QuantConnect.Orders.OrderDirection, order_price: float, current_price: float) -> str:
-            """Returns a string message saying the order price is too far from the current market price"""
-            ...
-
-    class CoinbaseBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.CoinbaseBrokerageModel class and its consumers or related classes"""
-
-        unsupported_account_type: str = "The Coinbase brokerage does not currently support Margin trading."
-        """String message saying: The Coinbase brokerage does not currently support Margin trading"""
-
-        @staticmethod
-        def stop_market_orders_no_longer_supported(stop_market_order_support_end_date: typing.Union[datetime.datetime, datetime.date]) -> str:
-            """Returns a string message saying the Stop Market orders are no longer supported since the given end date"""
-            ...
-
-    class InteractiveBrokersFixModel(System.Object):
-        """Provides user-facing messages for the Brokerages.InteractiveBrokersFixModel class and its consumers or related classes"""
-
-        @staticmethod
-        def unsupported_fop_future_combo_orders(brokerage_model: QuantConnect.Brokerages.InteractiveBrokersFixModel, order: QuantConnect.Orders.Order) -> str:
-            """
-            Returns a string message saying the given brokerage model does not support combo orders
-            that mix future options and futures legs
-            """
-            ...
-
-    class InteractiveBrokersBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.InteractiveBrokersBrokerageModel class and its consumers or related classes"""
-
-        @staticmethod
-        def invalid_forex_order_size(min: float, max: float, currency: str) -> str:
-            """Returns a string message containing the minimum and maximum limits for the allowable order size as well as the currency"""
-            ...
-
-        @staticmethod
-        def unsupported_exercise_for_index_and_cash_settled_options(brokerage_model: QuantConnect.Brokerages.InteractiveBrokersBrokerageModel, order: QuantConnect.Orders.Order) -> str:
-            """
-            Returns a string message saying the given brokerage model does not support order exercises
-            for index and cash-settled options
-            """
-            ...
-
-        @staticmethod
-        def unsupported_four_leg_combo_leg_limit_orders(brokerage_model: QuantConnect.Brokerages.InteractiveBrokersBrokerageModel) -> str:
-            """Returns a string message saying the given brokerage model does not support four-leg combo leg limit orders"""
-            ...
-
-    class TradierBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.TradierBrokerageModel class and its consumers or related classes"""
-
-        unsupported_security_type: str = "This model only supports equities and options."
-        """Unsupported Security Type string message"""
-
-        unsupported_time_in_force_type: str = ...
-        """Unsupported Time In Force Type string message"""
-
-        extended_market_hours_trading_not_supported: str = "Tradier does not support extended market hours trading. Your order will be processed at market open."
-        """Extended Market Hours Trading Not Supported string message"""
-
-        order_quantity_update_not_supported: str = "Tradier does not support updating order quantities."
-        """Order Quantity Update Not Supported string message"""
-
-        open_orders_cancel_on_reverse_split_symbols: str = "Tradier Brokerage cancels open orders on reverse split symbols"
-        """Open Orders Cancel On Reverse Split Symbols string message"""
-
-        short_order_is_gtc: str = "You cannot place short stock orders with GTC, only day orders are allowed"
-        """Short Order Is GTC string message"""
-
-        sell_short_order_last_price_below_5: str = "Sell Short order cannot be placed for stock priced below $5"
-        """Sell Short Order Last Price Below 5 string message"""
-
-        incorrect_order_quantity: str = "Quantity should be between 1 and 10,000,000"
-        """Incorrect Order Quantity string message"""
-
-        @staticmethod
-        def extended_market_hours_trading_not_supported_outside_extended_session(pre_market_segment: QuantConnect.Securities.MarketHoursSegment, post_market_segment: QuantConnect.Securities.MarketHoursSegment) -> str:
-            """Extended Market Hours Trading Not Supported Outside Extended Session string message"""
-            ...
-
-    class TradingTechnologiesBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.TradingTechnologiesBrokerageModel class and its consumers or related classes"""
-
-        invalid_stop_market_order_price: str = "StopMarket Sell orders must be below market, StopMarket Buy orders must be above market."
-        """Invalid Stop Market Order Price string message"""
-
-        invalid_stop_limit_order_price: str = "StopLimit Sell orders must be below market, StopLimit Buy orders must be above market."
-        """Invalid Stop Limit Order Price string message"""
-
-        invalid_stop_limit_order_limit_price: str = "StopLimit Buy limit price must be greater than or equal to stop price, StopLimit Sell limit price must be smaller than or equal to stop price."
-        """Invalid Stop Limit Order Limit Price string message"""
-
-    class WolverineBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.WolverineBrokerageModel class and its consumers or related classes"""
-
-        @staticmethod
-        def unsupported_order_type(order: QuantConnect.Orders.Order) -> str:
-            """Returns a message for an unsupported order type in Wolverine Brokerage Model"""
-            ...
-
-    class RBIBrokerageModel(System.Object):
-        """Provides user-facing messages for the Brokerages.RBIBrokerageModel class and its consumers or related classes"""
-
-        @staticmethod
-        def unsupported_order_type(order: QuantConnect.Orders.Order) -> str:
-            """
-            Returns a message for an unsupported order type in RBI Brokerage Model
-            
-            :param order: 
-            """
-            ...
-
-    class FeeModel(System.Object):
-        """Provides user-facing messages for the Orders.Fees.FeeModel class and its consumers or related classes"""
-
-        @staticmethod
-        def unsupported_security_type(security: QuantConnect.Securities.Security) -> str:
-            """Returns a string message saying the type of the given security is unsupported"""
-            ...
-
-    class AlphaStreamsFeeModel(System.Object):
-        """Provides user-facing messages for the Orders.Fees.AlphaStreamsFeeModel class and its consumers or related classes"""
-
-        @staticmethod
-        def unexpected_equity_market(market: str) -> str:
-            """Returns a string message saying the given market is unexpected"""
-            ...
-
-    class ExanteFeeModel(System.Object):
-        """Provides user-facing messages for the Orders.Fees.ExanteFeeModel class and its consumers or related classes"""
-
-        @staticmethod
-        def unsupported_exchange(order: QuantConnect.Orders.Order) -> str:
-            """Returns a string message saying the market associated with the given order symbol is unsupported"""
-            ...
-
-    class InteractiveBrokersFeeModel(System.Object):
-        """Provides user-facing messages for the Orders.Fees.InteractiveBrokersFeeModel class and its consumers or related classes"""
-
-        @staticmethod
-        def eurex_future_fees_unsupported_security_type(security: QuantConnect.Securities.Security) -> str:
-            """Returns a string message saying the type of the given security was unsupported"""
-            ...
-
-        @staticmethod
-        def hong_kong_future_fees_unexpected_quote_currency(security: QuantConnect.Securities.Security) -> str:
-            """
-            Returns a string message saying the quote currency of the given security was
-            unexpected for Hong Kong futures exchange
-            """
-            ...
-
-        @staticmethod
-        def unexpected_equity_market(market: str) -> str:
-            """Returns a string message saying the given equity market was unexpected"""
-            ...
-
-        @staticmethod
-        def unexpected_future_market(market: str) -> str:
-            """Returns a string message saying the given future market was unexpected"""
-            ...
-
-        @staticmethod
-        def unexpected_option_market(market: str) -> str:
-            """Returns a string message saying the given option market was unexpected"""
-            ...
-
-        @staticmethod
-        def united_states_future_fees_unsupported_security_type(security: QuantConnect.Securities.Security) -> str:
-            """Returns a string message saying the type of the given security was unsupported"""
-            ...
-
-    class TDAmeritradeFeeModel(System.Object):
-        """Provides user-facing messages for the Orders.Fees.TDAmeritradeFeeModel class and its consumers or related classes"""
-
-        @staticmethod
-        def unsupported_security_type(security_type: QuantConnect.SecurityType) -> str:
-            """Returns a string message for unsupported security types in TDAmeritradeFeeModel"""
-            ...
-
-    class Insight(System.Object):
-        """Provides user-facing messages for the Algorithm.Framework.Alphas.Insight class and its consumers or related classes"""
-
-        invalid_bar_count: str = "Insight barCount must be greater than zero."
-        """Returns a string message saying: Insight barCount must be grater than zero"""
-
-        invalid_period: str = "Insight period must be greater than or equal to 1 second."
-        """Returns a string message saying: Insight period must be greater than or equal to 1 second"""
-
-        invalid_close_time_utc: str = "Insight closeTimeUtc must be greater than generatedTimeUtc."
-        """Returns a string message saying: Insight closeTimeUtc must be greater than generatedTimeUtc"""
-
-        invalid_close_time_local: str = "Insight closeTimeLocal must not be in the past."
-        """Returns a string message saying: Insight closeTimeLocal must not be in the past"""
-
-        @staticmethod
-        def generated_time_utc_not_set(insight: QuantConnect.Algorithm.Framework.Alphas.Insight) -> str:
-            """Returns a string message saying the Insight's GeneratedTimeUtc property must be set before calling SetPeriodAndCloseTime"""
-            ...
-
-        @staticmethod
-        def insight_already_assigned_to_a_group(insight: QuantConnect.Algorithm.Framework.Alphas.Insight) -> str:
-            """
-            Returns a string message saying it was impossible to set group id on the given insight because it has already
-            been assigned to a group
-            """
-            ...
-
-        @staticmethod
-        def short_to_string(insight: QuantConnect.Algorithm.Framework.Alphas.Insight) -> str:
-            """Parses a short insight into a string containing basic information about it"""
-            ...
-
-        @staticmethod
-        def to_string(insight: QuantConnect.Algorithm.Framework.Alphas.Insight) -> str:
-            """Parses the given insight into a string containing basic information about it"""
-            ...
-
-    class InsightScore(System.Object):
-        """Provides user-facing messages for the Algorithm.Framework.Alphas.InsightScore class and its consumers or related classes"""
-
-        @staticmethod
-        def to_string(insight_score: QuantConnect.Algorithm.Framework.Alphas.InsightScore) -> str:
-            """Parses an InsightScore object into a string message containing basic information about it"""
             ...
 
 

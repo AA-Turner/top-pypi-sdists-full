@@ -91,8 +91,15 @@ query_service:
         weighted_lru:
           name: "usearch_cache"
           capacity: 8192 # 8192 MiB = 8GB
+  bloom_filter_manager:
+    cache_config:
+      lru:
+        name: "bloom_filter_cache"
+        capacity: 1000
+    enabled_collection_ids: ["all"]
+    storage_fetch_threshold: 100
   fetch_log_batch_size: 1000
-  use_fragment_fetch: true
+  use_fragment_fetch: false
   fragment_fetcher_cache:
     memory:
       capacity: 100000000 # 100 MB
@@ -191,6 +198,13 @@ compaction_service:
           lru:
             name: "sparse_index_cache"
             capacity: 1000
+  bloom_filter_manager:
+    cache_config:
+      lru:
+        name: "bloom_filter_cache"
+        capacity: 1000
+    enabled_collection_ids: ["all"]
+    storage_fetch_threshold: 100
   hnsw_provider:
     hnsw_temporary_path: "~/tmp"
     hnsw_cache_config:
@@ -216,6 +230,7 @@ compaction_service:
 log_service:
   num_records_before_backpressure: 100000
   reinsert_threshold: 0
+  suggested_compaction_threshold: 10
   opentelemetry:
     service_name: "rust-log-service"
     endpoint: "http://otel-collector.chroma.svc.cluster.local:4317"
@@ -264,11 +279,13 @@ garbage_collector:
     request_timeout_ms: 60000
   dispatcher_config:
     num_worker_threads: 4
-    dispatcher_queue_size: 100
-    worker_queue_size: 100
+    dispatcher_queue_size: 1000
+    worker_queue_size: 1000
   storage_config:
     s3:
       bucket: "chroma-storage"
+      connect_timeout_ms: 60000
+      request_timeout_ms: 60000 # 1 minute
   assignment_policy:
     rendezvous_hashing:
       hasher: Murmur3

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cmdop
-Version: 2026.3.18
+Version: 2026.4.7.2
 Summary: Python SDK for CMDOP agent interaction
 Project-URL: Homepage, https://cmdop.com
 Project-URL: Documentation, https://cmdop.com/docs/sdk/python/
@@ -9,7 +9,7 @@ Project-URL: Issues, https://github.com/commandoperator/cmdop-sdk/issues
 Author: CMDOP Team
 License: MIT
 License-File: LICENSE
-Keywords: agent,automation,cmdop,terminal
+Keywords: agent,automation,cmdop,cmdop-sdk,terminal
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -58,6 +58,8 @@ Your Code ──── Cloud Relay ──── Agent (on server)
 ```bash
 pip install cmdop
 ```
+
+The package still imports as `cmdop`. The installed CLI entry point is **`cmdop-sdk`** (`ssh`, `fleet`, `exec`, `tui`) so it does not collide with the main CMDOP desktop/Go binary on `PATH`.
 
 ## Quick Start
 

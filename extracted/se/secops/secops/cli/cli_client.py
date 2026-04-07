@@ -26,6 +26,7 @@ from secops.cli.commands.help import setup_help_command
 from secops.cli.commands.investigation import setup_investigation_command
 from secops.cli.commands.iocs import setup_iocs_command
 from secops.cli.commands.log import setup_log_command
+from secops.cli.commands.log_type import setup_log_type_commands
 from secops.cli.commands.log_processing import (
     setup_log_processing_command,
 )
@@ -168,6 +169,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup_investigation_command(subparsers)
     setup_iocs_command(subparsers)
     setup_log_command(subparsers)
+    setup_log_type_commands(subparsers)
     setup_log_processing_command(subparsers)
     setup_parser_command(subparsers)
     setup_parser_extension_command(subparsers)

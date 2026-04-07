@@ -112,7 +112,7 @@ class ValidateXbrl:
         self.validateDuplicateFacts = modelXbrl.modelManager.validateDuplicateFacts
         self._pluginData: dict[str, PluginData] = {}
 
-        for pluginXbrlMethod in self.modelXbrl.modelManager.cntlr.pluginManager.pluginClassMethods("Validate.XBRL.Start"):
+        for pluginXbrlMethod in self.modelXbrl.modelManager.cntlr.plugins.hooks("Validate.XBRL.Start"):
             pluginXbrlMethod(self, parameters)
 
         # xlink validation
@@ -154,7 +154,7 @@ class ValidateXbrl:
             if cyclesAllowed != "any" or arcrole in XbrlConst.summationItems \
                                       or arcrole in self.genericArcArcroles  \
                                       or arcrole.startswith(XbrlConst.formulaStartsWith) \
-                                      or (modelXbrl.hasXDT and arcrole.startswith(XbrlConst.dimStartsWith)):
+                                      or (modelXbrl.hasXDT and XbrlConst.isDimensionArcrole(arcrole)):
                 relsSet = modelXbrl.relationshipSet(arcrole, ELR, linkqname, arcqname)
                 if cyclesAllowed != "any" and \
                     ((XbrlConst.isStandardExtLinkQname(linkqname) and XbrlConst.isStandardArcQname(arcqname)) \
@@ -257,7 +257,7 @@ class ValidateXbrl:
                                         _("Essence-alias relationship from %(source)s to %(target)s in link role %(linkrole)s has different balances")).format(
                                         modelObject=modelRel,
                                         source=fromConcept.qname, target=toConcept.qname, linkrole=ELR)
-                elif modelXbrl.hasXDT and arcrole.startswith(XbrlConst.dimStartsWith):
+                elif modelXbrl.hasXDT and XbrlConst.isDimensionArcrole(arcrole):
                     ValidateXbrlDimensions.checkBaseSet(self, arcrole, ELR, relsSet)
                 elif arcrole in ValidateFormula.arcroleChecks:
                     ValidateFormula.checkBaseSet(self, arcrole, ELR, relsSet)
@@ -394,7 +394,7 @@ class ValidateXbrl:
                 ValidateXbrlDimensions.checkConcept(self, concept)
         modelXbrl.profileStat(_("validateConcepts"))
 
-        for pluginXbrlMethod in self.modelXbrl.modelManager.cntlr.pluginManager.pluginClassMethods("Validate.XBRL.Finally"):
+        for pluginXbrlMethod in self.modelXbrl.modelManager.cntlr.plugins.hooks("Validate.XBRL.Finally"):
             pluginXbrlMethod(self)
 
         if modelXbrl.loadedFromOIM or modelXbrl.modelManager.validateXmlOim:
@@ -561,7 +561,7 @@ class ValidateXbrl:
                                      # block executing formulas when validating if hasFormula is False (e.g., --formula=none)
                                      compileOnly=modelXbrl.modelRenderingTables and not modelXbrl.hasFormulae)
 
-        for pluginXbrlMethod in self.modelXbrl.modelManager.cntlr.pluginManager.pluginClassMethods("Validate.Finally"):
+        for pluginXbrlMethod in self.modelXbrl.modelManager.cntlr.plugins.hooks("Validate.Finally"):
             pluginXbrlMethod(self)
 
         modelXbrl.modelManager.showStatus(_("ready"), 2000)

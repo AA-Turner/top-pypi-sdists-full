@@ -241,6 +241,31 @@ tupleSelf = tuple[Self] # E: `Self` must appear within a class
     "#,
 );
 
+// Regression test for https://github.com/facebook/pyrefly/issues/3008
+testcase!(
+    test_self_outside_class_no_internal_error_via_classmethod_trampoline,
+    r#"
+from typing import Callable, Self, TypeVar
+
+TReturn = TypeVar("TReturn")
+
+def trampoline(orig: Callable[..., TReturn]) -> TReturn:
+    ...
+
+def person_create_with_name_trampoline(cls, *args, **kwargs):
+    return trampoline(person_create_with_name_orig)
+
+class Person:
+    name: str
+    create_with_name = classmethod(person_create_with_name_trampoline)
+
+def person_create_with_name_orig(cls, name: str) -> Self:  # E: `Self` must appear within a class
+    return cls()
+
+Person.create_with_name("foo").name
+    "#,
+);
+
 testcase!(
     test_self_inside_class,
     r#"
@@ -483,5 +508,59 @@ class Child(Parent):
 
 def test(c: Child) -> None:
     c.method(42).child_method()
+"#,
+);
+// Regression test: descriptor access on `self` should preserve SelfType in the
+// `owner` argument to `__get__`, so that a descriptor with a generic owner parameter
+// doesn't produce false-positive errors.
+testcase!(
+    test_descriptor_preserves_self_type,
+    r#"
+from typing import Generic, TypeVar, final, Callable
+
+T = TypeVar("T")
+R = TypeVar("R")
+
+@final
+class classproperty(Generic[T, R]):
+    def __init__(self, getter: Callable[[T], R]) -> None: ...
+    def __get__(self, instance: object, owner: T) -> R: ...
+
+class Base:
+    @classproperty
+    def name(cls) -> str:
+        return "base"
+
+    def use_name(self) -> str:
+        return self.name
+
+class Child(Base):
+    pass
+
+def test(c: Child) -> None:
+    c.use_name()
+"#,
+);
+
+// Regression test: descriptor setter on `self` should preserve SelfType in the
+// `obj` argument to `__set__`.
+testcase!(
+    test_descriptor_setter_preserves_self_type,
+    r#"
+from typing import Generic, TypeVar, final
+
+T = TypeVar("T")
+V = TypeVar("V")
+
+@final
+class TypedField(Generic[T, V]):
+    def __get__(self, instance: T, owner: type[T]) -> V: ...
+    def __set__(self, instance: T, value: V) -> None: ...
+
+class Base:
+    field: TypedField[Base, str] = TypedField()
+
+    def update(self) -> None:
+        self.field = "hello"
 "#,
 );

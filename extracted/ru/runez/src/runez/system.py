@@ -18,12 +18,14 @@ import sys
 import threading
 import unicodedata
 from io import StringIO
-from typing import Any, Callable, ClassVar, TypeVar
+from typing import Any, Callable, ClassVar, TYPE_CHECKING, TypeVar
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _T = TypeVar("_T")
 
 ABORT_LOGGER = logging.error
-SYMBOLIC_TMP = "<tmp>"
 
 
 class Undefined:
@@ -413,7 +415,7 @@ def is_iterable(value):
     return isinstance(value, (list, tuple, set)) or inspect.isgenerator(value)
 
 
-def stringified(value, converter=None, none: str | bool | None = "None") -> str:
+def stringified(value, converter=None, none: object | None = "None") -> str:
     """
     Args:
         value: Any object to turn into a string
@@ -545,16 +547,16 @@ def quoted(*items, delimiter=" ", adapter=UNSET, keep_empty=True, strip=None, st
     return delimiter.join(result)
 
 
-def resolved_path(path, base=None):
+def resolved_path(path: str | Path, base=None) -> str:
     """
     Args:
-        path (str | pathlib.Path | None): Path to resolve
-        base (str | pathlib.Path | None): Base path to use to resolve relative paths (default: current working dir)
+        path: Path to resolve
+        base (str | Path | None): Base path to use to resolve relative paths (default: current working dir)
 
     Returns:
         (str): Absolute path
     """
-    if not path or str(path).startswith(SYMBOLIC_TMP):
+    if not path:
         return path
 
     path = os.path.expanduser(path)
@@ -675,7 +677,7 @@ class Anchored:
     def set(cls, *anchors):
         """
         Args:
-            *anchors (str | pathlib.Path | list | tuple): Optional paths to use as anchors for short()
+            *anchors (str | Path | list | tuple): Optional paths to use as anchors for short()
         """
         cls._paths = sorted((resolved_path(p) for p in flattened(anchors, unique=True)), reverse=True)
 
@@ -683,7 +685,7 @@ class Anchored:
     def add(cls, anchors):
         """
         Args:
-            anchors (str | pathlib.Path | list | tuple): Optional paths to use as anchors for short()
+            anchors (str | Path | list | tuple): Optional paths to use as anchors for short()
         """
         cls.set(cls._paths, anchors)
 
@@ -691,7 +693,7 @@ class Anchored:
     def pop(cls, anchors):
         """
         Args:
-            anchors (str | pathlib.Path | list | tuple): Optional paths to use as anchors for short()
+            anchors (str | Path | list | tuple): Optional paths to use as anchors for short()
         """
         for anchor in flattened(anchors, unique=True):
             anchor = resolved_path(anchor)
@@ -744,7 +746,7 @@ class CapturedStream:
         return len(self.contents())
 
     def captured_write(self, message):
-        self.buffer.write(message)
+        return self.buffer.write(message)
 
     def contents(self):
         """str: Contents of this capture"""
@@ -801,7 +803,7 @@ class CaptureOutput:
         Args:
             stdout (bool): Capture stdout?
             stderr (bool): Capture stderr?
-            anchors (str | pathlib.Path | list | None): Optional paths to use as anchors for `runez.short()`
+            anchors (str | Path | list | None): Optional paths to use as anchors for `runez.short()`
             dryrun (bool): Optionally override current dryrun setting
             seed_logging (bool): If True, ensure there is at least one logging handler configured
             trace (bool): If True, enable tracing
@@ -1962,6 +1964,30 @@ class _R:
 
     lc = _LazyCache()
 
+    @staticmethod
+    def safe_write(target, data, flush=None):
+        """
+        Safely write 'data' to 'target', ignore exceptions, this avoids crashing when trying to log on exit to closed handlers
+        """
+        if target is not None:
+            if data is not None:
+                with contextlib.suppress(Exception):
+                    target.write(data)
+
+            if flush is True:
+                flush = target
+
+        if flush is not None and hasattr(flush, "flush"):
+            with contextlib.suppress(Exception):
+                flush.flush()
+
+    @staticmethod
+    def ensure_newline(text):
+        if text and not text.endswith("\n"):
+            text += "\n"
+
+        return text
+
     @classmethod
     def abort_exception(cls, override=None):
         """AbortException can be modified from client"""
@@ -2213,7 +2239,7 @@ def _show_abort_message(message, exc_info, fatal, logger, stacklevel):
             _R.hlog(logger, message, exc_info=exc_info if fatal else None, stacklevel=stacklevel + 1)
 
         else:
-            sys.stderr.write("%s\n" % message)
+            _R.safe_write(sys.stderr, _R.ensure_newline(message))
 
 
 def _has_stream_handler():

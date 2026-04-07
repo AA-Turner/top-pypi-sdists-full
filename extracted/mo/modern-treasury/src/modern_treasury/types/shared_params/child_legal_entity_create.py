@@ -8,6 +8,7 @@ from typing_extensions import Literal, Required, Annotated, TypedDict
 
 from ..._types import SequenceNotStr
 from ..._utils import PropertyInfo
+from .third_party_verification import ThirdPartyVerification
 from .identification_create_request import IdentificationCreateRequest
 from .legal_entity_address_create_request import LegalEntityAddressCreateRequest
 from .legal_entity_industry_classification import LegalEntityIndustryClassification
@@ -21,7 +22,6 @@ __all__ = [
     "PhoneNumber",
     "Regulators",
     "Regulator",
-    "ThirdPartyVerification",
     "WealthAndEmploymentDetails",
 ]
 
@@ -124,16 +124,6 @@ Regulators = Regulator
 
 Please use Regulator instead.
 """
-
-
-class ThirdPartyVerification(TypedDict, total=False):
-    """Information describing a third-party verification run by an external vendor."""
-
-    vendor: Required[Literal["persona"]]
-    """The vendor that performed the verification, e.g. `persona`."""
-
-    vendor_verification_id: Required[str]
-    """The identification of the third party verification in `vendor`'s system."""
 
 
 class WealthAndEmploymentDetails(TypedDict, total=False):
@@ -421,11 +411,17 @@ class ChildLegalEntityCreate(TypedDict, total=False):
     risk_rating: Optional[Literal["low", "medium", "high"]]
     """The risk rating of the legal entity. One of low, medium, high."""
 
+    service_provider_legal_entity_id: Optional[str]
+    """The UUID of the parent legal entity in the service provider tree."""
+
     suffix: Optional[str]
     """An individual's suffix."""
 
     third_party_verification: Optional[ThirdPartyVerification]
-    """Information describing a third-party verification run by an external vendor."""
+    """Deprecated. Use `third_party_verifications` instead."""
+
+    third_party_verifications: Iterable[ThirdPartyVerification]
+    """A list of third-party verifications run by external vendors."""
 
     ticker_symbol: Optional[str]
     """Stock ticker symbol for publicly traded companies."""

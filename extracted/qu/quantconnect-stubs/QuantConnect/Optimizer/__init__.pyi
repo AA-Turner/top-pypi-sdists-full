@@ -17,43 +17,6 @@ QuantConnect_Optimizer__EventContainer_Callable = typing.TypeVar("QuantConnect_O
 QuantConnect_Optimizer__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Optimizer__EventContainer_ReturnType")
 
 
-class OptimizationResult(System.Object):
-    """Defines the result of Lean compute job"""
-
-    INITIAL: QuantConnect.Optimizer.OptimizationResult = ...
-    """Corresponds to initial result to drive the optimization strategy"""
-
-    @property
-    def backtest_id(self) -> str:
-        """The backtest id that generated this result"""
-        ...
-
-    @property
-    def id(self) -> int:
-        """Parameter set Id"""
-        ...
-
-    @property
-    def json_backtest_result(self) -> str:
-        """Json Backtest result"""
-        ...
-
-    @property
-    def parameter_set(self) -> QuantConnect.Optimizer.Parameters.ParameterSet:
-        """The parameter set at which the result was achieved"""
-        ...
-
-    def __init__(self, json_backtest_result: str, parameter_set: QuantConnect.Optimizer.Parameters.ParameterSet, backtest_id: str) -> None:
-        """
-        Create an instance of OptimizationResult
-        
-        :param json_backtest_result: Optimization target value for this backtest
-        :param parameter_set: Parameter set used in compute job
-        :param backtest_id: The backtest id that generated this result
-        """
-        ...
-
-
 class OptimizationStatus(IntEnum):
     """The different optimization status"""
 
@@ -228,6 +191,43 @@ class OptimizationNodePacket(QuantConnect.Packets.Packet):
         
         
         This codeEntityType is protected.
+        """
+        ...
+
+
+class OptimizationResult(System.Object):
+    """Defines the result of Lean compute job"""
+
+    INITIAL: QuantConnect.Optimizer.OptimizationResult = ...
+    """Corresponds to initial result to drive the optimization strategy"""
+
+    @property
+    def backtest_id(self) -> str:
+        """The backtest id that generated this result"""
+        ...
+
+    @property
+    def id(self) -> int:
+        """Parameter set Id"""
+        ...
+
+    @property
+    def json_backtest_result(self) -> str:
+        """Json Backtest result"""
+        ...
+
+    @property
+    def parameter_set(self) -> QuantConnect.Optimizer.Parameters.ParameterSet:
+        """The parameter set at which the result was achieved"""
+        ...
+
+    def __init__(self, json_backtest_result: str, parameter_set: QuantConnect.Optimizer.Parameters.ParameterSet, backtest_id: str) -> None:
+        """
+        Create an instance of OptimizationResult
+        
+        :param json_backtest_result: Optimization target value for this backtest
+        :param parameter_set: Parameter set used in compute job
+        :param backtest_id: The backtest id that generated this result
         """
         ...
 

@@ -6,38 +6,6 @@ import System
 import System.ComponentModel.DataAnnotations.Schema
 
 
-class ColumnAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @property
-    def order(self) -> int:
-        ...
-
-    @order.setter
-    def order(self, value: int) -> None:
-        ...
-
-    @property
-    def type_name(self) -> str:
-        ...
-
-    @type_name.setter
-    def type_name(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        ...
-
-
 class DatabaseGeneratedOption(IntEnum):
     """This class has no documentation."""
 
@@ -93,10 +61,6 @@ class InversePropertyAttribute(System.Attribute):
         ...
 
 
-class NotMappedAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
 class ForeignKeyAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -106,5 +70,41 @@ class ForeignKeyAttribute(System.Attribute):
 
     def __init__(self, name: str) -> None:
         ...
+
+
+class ColumnAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def order(self) -> int:
+        ...
+
+    @order.setter
+    def order(self, value: int) -> None:
+        ...
+
+    @property
+    def type_name(self) -> str:
+        ...
+
+    @type_name.setter
+    def type_name(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        ...
+
+
+class NotMappedAttribute(System.Attribute):
+    """This class has no documentation."""
 
 

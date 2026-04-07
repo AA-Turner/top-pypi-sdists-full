@@ -12,10 +12,11 @@ USE_DURABILITY = LANGGRAPH_PY_MINOR >= (0, 6)
 
 
 # Runtime edition detection
+# Not in public docs: LANGGRAPH_RUNTIME_EDITION is internal, set by packaging/entrypoint
 _RUNTIME_EDITION = os.getenv("LANGGRAPH_RUNTIME_EDITION", "inmem")
 IS_POSTGRES_BACKEND = _RUNTIME_EDITION == "postgres"
 IS_POSTGRES_OR_GRPC_BACKEND = IS_POSTGRES_BACKEND
-# Feature flag for using the JS native API
+# Not in public docs: internal feature flag
 FF_USE_JS_API = os.getenv("FF_USE_JS_API", "false").lower() in (
     "true",
     "1",

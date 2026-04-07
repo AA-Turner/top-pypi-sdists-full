@@ -2,17 +2,26 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+from numpy.typing import NDArray
 
 from tidy3d.components.base import Tidy3dBaseModel
-from tidy3d.components.types import EpsSpecType, ModeSolverType, Numpy
+from tidy3d.components.data.utils import _dot_numpy, _outer_dot_numpy
 from tidy3d.constants import C_0, ETA_0, fp_eps, pec_val
 
 from .derivatives import create_d_matrices as d_mats
 from .derivatives import create_s_matrices as s_mats
 from .transforms import angled_transform, radial_transform
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Literal, Optional, Union
+
+    from scipy import sparse as sp
+
+    from tidy3d.components.types import EpsSpecType, ModeSolverType
 
 # Consider vec to be complex if norm(vec.imag)/norm(vec) > TOL_COMPLEX
 TOL_COMPLEX = 1e-10
@@ -32,11 +41,22 @@ PRECONDITIONER = "Material"
 # double precision. This value is very heuristic.
 GOOD_CONDUCTOR_CUT_OFF = 1e70
 
-if TYPE_CHECKING:
-    from scipy import sparse as sp
 
 # Consider a material to be good conductor if |ep| (or |mu|) > GOOD_CONDUCTOR_THRESHOLD * |pec_val|
 GOOD_CONDUCTOR_THRESHOLD = 0.9
+
+# Error message for tensorial solver when tidy3d-extras is not available or disabled
+TENSORIAL_SOLVER_ERROR_MSG = (
+    "The fully tensorial mode solver is required for fully anisotropic media "
+    "or non-zero 'angle_theta' in the 'ModeSpec', but it is not available in the base "
+    "'tidy3d' package. To run locally, please install 'tidy3d-extras' using "
+    r"'pip install tidy3d\[extras]' and ensure 'config.simulation.use_local_subpixel' "
+    "is not set to 'False'. Alternatively, you can run the mode solver "
+    "through the Tidy3D server using 'web.run(...)'."
+)
+
+ArrayFloat = NDArray[np.floating]
+ArrayComplex = NDArray[np.complexfloating]
 
 
 class EigSolver(Tidy3dBaseModel):
@@ -47,18 +67,18 @@ class EigSolver(Tidy3dBaseModel):
     @classmethod
     def compute_modes(
         cls,
-        eps_cross,
-        coords,
-        freq,
-        mode_spec,
-        precision,
-        mu_cross=None,
-        split_curl_scaling=None,
-        symmetry=(0, 0),
-        direction="+",
-        solver_basis_fields=None,
+        eps_cross: Union[ArrayComplex, tuple[ArrayComplex, ...]],
+        coords: Sequence[ArrayFloat],
+        freq: float,
+        mode_spec: ModeSolverType,
+        precision: Literal["single", "double"],
+        mu_cross: Optional[Union[ArrayComplex, tuple[ArrayComplex, ...]]] = None,
+        split_curl_scaling: Optional[ArrayFloat] = None,
+        symmetry: tuple[int, int] = (0, 0),
+        direction: Literal["+", "-"] = "+",
+        solver_basis_fields: Optional[ArrayComplex] = None,
         plane_center: Optional[tuple[float, float]] = None,
-    ) -> tuple[Numpy, Numpy, EpsSpecType]:
+    ) -> tuple[ArrayComplex, ArrayComplex, EpsSpecType]:
         """
         Solve for the modes of a waveguide cross-section.
 
@@ -68,7 +88,7 @@ class EigSolver(Tidy3dBaseModel):
             Either a single 2D array defining the relative permittivity in the cross-section,
             or nine 2D arrays defining the permittivity at the Ex, Ey, and Ez locations
             of the Yee grid in the order xx, xy, xz, yx, yy, yz, zx, zy, zz.
-        coords : List[Numpy]
+        coords : List[np.ndarray]
             Two 1D arrays with each with size one larger than the corresponding axis of
             ``eps_cross``.
             Defines a (potentially non-uniform) Cartesian grid on which the modes are computed.
@@ -100,7 +120,7 @@ class EigSolver(Tidy3dBaseModel):
 
         Returns
         -------
-        Tuple[Numpy, Numpy, str]
+        tuple[np.ndarray, np.ndarray, str]
             The first array gives the E and H fields for all modes, the second one gives the complex
             effective index. The last variable describes permittivity characterization on the mode
             solver's plane ("diagonal", "tensorial_real", or "tensorial_complex").
@@ -128,7 +148,7 @@ class EigSolver(Tidy3dBaseModel):
 
         if len(coords[0]) != Nx + 1 or len(coords[1]) != Ny + 1:
             raise ValueError("Mismatch between 'coords' and 'esp_cross' shapes.")
-        new_coords = [np.copy(c) for c in coords]
+        new_coords = (np.copy(coords[0]), np.copy(coords[1]))
 
         """We work with full tensorial epsilon in mu to handle the most general cases that can
         be introduced by coordinate transformations. In the solver, we distinguish the case when
@@ -304,20 +324,20 @@ class EigSolver(Tidy3dBaseModel):
     @classmethod
     def solver_em(
         cls,
-        Nx,
-        Ny,
-        eps_tensor,
-        mu_tensor,
-        der_mats,
-        num_modes,
-        neff_guess,
-        mat_precision,
-        direction,
-        enable_incidence_matrices,
-        basis_E,
-        dls,
-        dmin_pmc=None,
-    ):
+        Nx: int,
+        Ny: int,
+        eps_tensor: ArrayComplex,
+        mu_tensor: ArrayComplex,
+        der_mats: Sequence[sp.csr_matrix],
+        num_modes: int,
+        neff_guess: float,
+        mat_precision: Literal["single", "double"],
+        direction: Literal["+", "-"],
+        enable_incidence_matrices: bool,
+        basis_E: Optional[ArrayComplex],
+        dls: tuple[Sequence[ArrayFloat], Sequence[ArrayFloat]],
+        dmin_pmc: Optional[Sequence[bool]] = None,
+    ) -> tuple[ArrayComplex, ArrayComplex, ArrayFloat, ArrayFloat, EpsSpecType]:
         """Solve for the electromagnetic modes of a system defined by in-plane permittivity and
         permeability and assuming translational invariance in the normal direction.
 
@@ -371,8 +391,8 @@ class EigSolver(Tidy3dBaseModel):
 
         # use a high-conductivity model for locations associated with a good conductor
         def conductivity_model_for_good_conductor(
-            eps, threshold=GOOD_CONDUCTOR_THRESHOLD * pec_val
-        ):
+            eps: ArrayComplex, threshold: complex = GOOD_CONDUCTOR_THRESHOLD * pec_val
+        ) -> ArrayComplex:
             """Entries associated with 'eps' are converted to a high-conductivity model."""
             eps = eps.astype(complex)
             eps[np.abs(eps) >= abs(threshold)] = 1 + 1j * pec_scaled_val
@@ -475,16 +495,16 @@ class EigSolver(Tidy3dBaseModel):
     @classmethod
     def solver_diagonal(
         cls,
-        eps,
-        mu,
-        der_mats,
-        num_modes,
-        neff_guess,
-        vec_init,
-        mat_precision,
-        enable_incidence_matrices,
-        basis_E,
-    ):
+        eps: ArrayComplex,
+        mu: ArrayComplex,
+        der_mats: Sequence[sp.csr_matrix],
+        num_modes: int,
+        neff_guess: float,
+        vec_init: ArrayComplex,
+        mat_precision: Literal["single", "double"],
+        enable_incidence_matrices: bool,
+        basis_E: Optional[ArrayComplex],
+    ) -> tuple[ArrayComplex, ArrayComplex, ArrayFloat, ArrayFloat]:
         """EM eigenmode solver assuming ``eps`` and ``mu`` are diagonal everywhere."""
         import scipy.sparse as sp
         import scipy.sparse.linalg as spl
@@ -494,7 +514,9 @@ class EigSolver(Tidy3dBaseModel):
         analyze_conditioning = False
         _threshold = 0.9 * np.abs(pec_val)
 
-        def incidence_matrix_for_pec(eps_vec, threshold=_threshold):
+        def incidence_matrix_for_pec(
+            eps_vec: ArrayComplex, threshold: float = _threshold
+        ) -> sp.csr_matrix:
             """Incidence matrix indicating non-PEC entries associated with 'eps_vec'."""
             nnz = eps_vec[np.abs(eps_vec) < threshold]
             eps_nz = eps_vec.copy()
@@ -583,7 +605,9 @@ class EigSolver(Tidy3dBaseModel):
 
             elif PRECONDITIONER == "Material":
 
-                def conditional_inverted_vec(eps_vec, threshold=1):
+                def conditional_inverted_vec(
+                    eps_vec: ArrayComplex, threshold: float = 1
+                ) -> sp.csr_matrix:
                     """Returns a diagonal sparse matrix whose i-th element in the diagonal
                     is |eps_i|^-1 if |eps_i|>threshold, and |eps_i| otherwise.
                     """
@@ -701,7 +725,14 @@ class EigSolver(Tidy3dBaseModel):
         return E, H, neff, keff
 
     @classmethod
-    def matrix_data_type(cls, eps, mu, der_mats, mat_precision, is_tensorial):
+    def matrix_data_type(
+        cls,
+        eps: ArrayComplex,
+        mu: ArrayComplex,
+        der_mats: Sequence[sp.csr_matrix],
+        mat_precision: Literal["single", "double"],
+        is_tensorial: bool,
+    ) -> np.dtype[Any]:
         """Determine data type that should be used for the matrix for diagonalization."""
         mat_dtype = np.float32
         # In tensorial case, even though the matrix can be real, the
@@ -745,155 +776,38 @@ class EigSolver(Tidy3dBaseModel):
     @classmethod
     def solver_tensorial(
         cls,
-        eps,
-        mu,
-        der_mats,
-        num_modes,
-        neff_guess,
-        vec_init,
-        mat_precision,
-        direction,
-        dls,
-        Nxy=None,
-        dmin_pmc=None,
-    ):
-        """EM eigenmode solver assuming ``eps`` or ``mu`` have off-diagonal elements."""
-        import scipy.sparse as sp
+        eps: ArrayComplex,
+        mu: ArrayComplex,
+        der_mats: Sequence[sp.csr_matrix],
+        num_modes: int,
+        neff_guess: float,
+        vec_init: ArrayComplex,
+        mat_precision: Literal["single", "double"],
+        direction: Literal["+", "-"],
+        dls: tuple[Sequence[ArrayFloat], Sequence[ArrayFloat]],
+        Nxy: Optional[tuple[int, int]] = None,
+        dmin_pmc: Optional[Sequence[bool]] = None,
+    ) -> tuple[ArrayComplex, ArrayComplex, ArrayFloat, ArrayFloat]:
+        """EM eigenmode solver assuming ``eps`` or ``mu`` have off-diagonal elements.
 
-        mode_solver_type = "tensorial"
-        N = eps.shape[-1]
-        dxf, dxb, dyf, dyb = der_mats
-
-        # Compute all blocks of the matrix for diagonalization
-        inv_eps_zz = sp.spdiags(1 / eps[2, 2, :], [0], N, N)
-        inv_mu_zz = sp.spdiags(1 / mu[2, 2, :], [0], N, N)
-        axax = -dxf.dot(sp.spdiags(eps[2, 0, :] / eps[2, 2, :], [0], N, N)) - sp.spdiags(
-            mu[1, 2, :] / mu[2, 2, :], [0], N, N
-        ).dot(dyf)
-        axay = -dxf.dot(sp.spdiags(eps[2, 1, :] / eps[2, 2, :], [0], N, N)) + sp.spdiags(
-            mu[1, 2, :] / mu[2, 2, :], [0], N, N
-        ).dot(dxf)
-        axbx = -dxf.dot(inv_eps_zz).dot(dyb) + sp.spdiags(
-            mu[1, 0, :] - mu[1, 2, :] * mu[2, 0, :] / mu[2, 2, :], [0], N, N
-        )
-        axby = dxf.dot(inv_eps_zz).dot(dxb) + sp.spdiags(
-            mu[1, 1, :] - mu[1, 2, :] * mu[2, 1, :] / mu[2, 2, :], [0], N, N
-        )
-        ayax = -dyf.dot(sp.spdiags(eps[2, 0, :] / eps[2, 2, :], [0], N, N)) + sp.spdiags(
-            mu[0, 2, :] / mu[2, 2, :], [0], N, N
-        ).dot(dyf)
-        ayay = -dyf.dot(sp.spdiags(eps[2, 1, :] / eps[2, 2, :], [0], N, N)) - sp.spdiags(
-            mu[0, 2, :] / mu[2, 2, :], [0], N, N
-        ).dot(dxf)
-        aybx = -dyf.dot(inv_eps_zz).dot(dyb) + sp.spdiags(
-            -mu[0, 0, :] + mu[0, 2, :] * mu[2, 0, :] / mu[2, 2, :], [0], N, N
-        )
-        ayby = dyf.dot(inv_eps_zz).dot(dxb) + sp.spdiags(
-            -mu[0, 1, :] + mu[0, 2, :] * mu[2, 1, :] / mu[2, 2, :], [0], N, N
-        )
-        bxbx = -dxb.dot(sp.spdiags(mu[2, 0, :] / mu[2, 2, :], [0], N, N)) - sp.spdiags(
-            eps[1, 2, :] / eps[2, 2, :], [0], N, N
-        ).dot(dyb)
-        bxby = -dxb.dot(sp.spdiags(mu[2, 1, :] / mu[2, 2, :], [0], N, N)) + sp.spdiags(
-            eps[1, 2, :] / eps[2, 2, :], [0], N, N
-        ).dot(dxb)
-        bxax = -dxb.dot(inv_mu_zz).dot(dyf) + sp.spdiags(
-            eps[1, 0, :] - eps[1, 2, :] * eps[2, 0, :] / eps[2, 2, :], [0], N, N
-        )
-        bxay = dxb.dot(inv_mu_zz).dot(dxf) + sp.spdiags(
-            eps[1, 1, :] - eps[1, 2, :] * eps[2, 1, :] / eps[2, 2, :], [0], N, N
-        )
-        bybx = -dyb.dot(sp.spdiags(mu[2, 0, :] / mu[2, 2, :], [0], N, N)) + sp.spdiags(
-            eps[0, 2, :] / eps[2, 2, :], [0], N, N
-        ).dot(dyb)
-        byby = -dyb.dot(sp.spdiags(mu[2, 1, :] / mu[2, 2, :], [0], N, N)) - sp.spdiags(
-            eps[0, 2, :] / eps[2, 2, :], [0], N, N
-        ).dot(dxb)
-        byax = -dyb.dot(inv_mu_zz).dot(dyf) + sp.spdiags(
-            -eps[0, 0, :] + eps[0, 2, :] * eps[2, 0, :] / eps[2, 2, :], [0], N, N
-        )
-        byay = dyb.dot(inv_mu_zz).dot(dxf) + sp.spdiags(
-            -eps[0, 1, :] + eps[0, 2, :] * eps[2, 1, :] / eps[2, 2, :], [0], N, N
-        )
-
-        mat = sp.bmat(
-            [
-                [axax, axay, axbx, axby],
-                [ayax, ayay, aybx, ayby],
-                [bxax, bxay, bxbx, bxby],
-                [byax, byay, bybx, byby],
-            ]
-        )
-
-        # The eigenvalues for the matrix above are 1j * (neff + 1j * keff)
-        # Multiply the matrix by -1j, so that eigenvalues are (neff + 1j * keff)
-        mat *= -1j
-
-        # change matrix sign for backward direction
-        if direction == "-":
-            mat *= -1
-
-        # Cast matrix to target data type
-        mat_dtype = cls.matrix_data_type(eps, mu, der_mats, mat_precision, is_tensorial=True)
-        mat = cls.type_conversion(mat, mat_dtype)
-
-        # Trim small values in single precision case
-        if mat_precision == "single":
-            cls.trim_small_values(mat, tol=fp_eps)
-
-        # Casting starting vector to target data type
-        vec_init = cls.type_conversion(vec_init, mat_dtype)
-
-        # Starting eigenvalue guess in target data type
-        eig_guess = cls.type_conversion(np.array([neff_guess]), mat_dtype)[0]
-
-        # Call the eigensolver.
-        vals, vecs = cls.solver_eigs(
-            mat,
-            num_modes,
-            vec_init,
-            guess_value=eig_guess,
-            mode_solver_type=mode_solver_type,
-        )
-        neff, keff = cls.eigs_to_effective_index(vals, mode_solver_type)
-        # Sort by descending real part
-        sort_inds = np.argsort(neff)[::-1]
-        neff = neff[sort_inds]
-        keff = keff[sort_inds]
-        vecs = vecs[:, sort_inds]
-
-        # Field components from eigenvectors
-        Ex = vecs[:N, :]
-        Ey = vecs[N : 2 * N, :]
-        Hx = vecs[2 * N : 3 * N, :]
-        Hy = vecs[3 * N :, :]
-
-        # Get the other field components
-        hxy_term = (-mu[2, 0, :] * Hx.T - mu[2, 1, :] * Hy.T).T
-        Hz = inv_mu_zz.dot(dxf.dot(Ey) - dyf.dot(Ex) + hxy_term)
-        exy_term = (-eps[2, 0, :] * Ex.T - eps[2, 1, :] * Ey.T).T
-        Ez = inv_eps_zz.dot(dxb.dot(Hy) - dyb.dot(Hx) + exy_term)
-
-        # Bundle up
-        E = np.stack((Ex, Ey, Ez), axis=0)
-        H = np.stack((Hx, Hy, Hz), axis=0)
-
-        # Return to standard H field units (see CEM notes for H normalization used in solver)
-        # The minus sign here is suspicious, need to check how modes are used in Mode objects
-        H *= -1j / ETA_0
-
-        return E, H, neff, keff
+        Note
+        ----
+        The fully tensorial mode solver implementation has been moved to ``tidy3d-extras``.
+        This base implementation raises an error directing users to install the extras package
+        or run through the server.
+        """
+        raise NotImplementedError(TENSORIAL_SOLVER_ERROR_MSG)
 
     @classmethod
     def solver_eigs(
         cls,
-        mat,
-        num_modes,
-        vec_init,
-        guess_value=1.0,
-        M=None,
+        mat: sp.csr_matrix,
+        num_modes: int,
+        vec_init: ArrayComplex,
+        guess_value: float = 1.0,
+        M: Optional[sp.csr_matrix] = None,
         **kwargs: Any,
-    ):
+    ) -> tuple[ArrayComplex, ArrayComplex]:
         """Find ``num_modes`` eigenmodes of ``mat`` cloest to ``guess_value``.
 
         Parameters
@@ -925,14 +839,14 @@ class EigSolver(Tidy3dBaseModel):
     @classmethod
     def solver_eigs_relative(
         cls,
-        mat,
-        num_modes,
-        vec_init,
-        guess_value=1.0,
-        M=None,
-        basis_vecs=None,
+        mat: sp.csr_matrix,
+        num_modes: int,
+        vec_init: ArrayComplex,
+        guess_value: float = 1.0,
+        M: Optional[sp.csr_matrix] = None,
+        basis_vecs: Optional[ArrayComplex] = None,
         **kwargs: Any,
-    ):
+    ) -> tuple[ArrayComplex, ArrayComplex]:
         """Find ``num_modes`` eigenmodes of ``mat`` cloest to ``guess_value``.
 
         Parameters
@@ -953,7 +867,9 @@ class EigSolver(Tidy3dBaseModel):
         return values, vectors
 
     @classmethod
-    def isinstance_complex(cls, vec_or_mat, tol=TOL_COMPLEX):
+    def isinstance_complex(
+        cls, vec_or_mat: Union[ArrayComplex, sp.csr_matrix], tol: float = TOL_COMPLEX
+    ) -> bool:
         """Check if a numpy array or scipy.sparse.csr_matrix has complex component by looking at
         norm(x.imag)/norm(x)>TOL_COMPLEX
 
@@ -975,7 +891,9 @@ class EigSolver(Tidy3dBaseModel):
         )
 
     @classmethod
-    def type_conversion(cls, vec_or_mat, new_dtype):
+    def type_conversion(
+        cls, vec_or_mat: Union[ArrayComplex, sp.csr_matrix], new_dtype: np.dtype[Any]
+    ) -> Union[ArrayComplex, sp.csr_matrix]:
         """Convert vec_or_mat to new_type.
 
         Parameters
@@ -999,7 +917,7 @@ class EigSolver(Tidy3dBaseModel):
         raise RuntimeError("Unsupported new_type.")
 
     @classmethod
-    def set_initial_vec(cls, Nx, Ny, is_tensorial=False):
+    def set_initial_vec(cls, Nx: int, Ny: int, is_tensorial: bool = False) -> ArrayComplex:
         """Set initial vector for eigs:
         1) The field at x=0 and y=0 boundaries are set to 0. This should be
         the case for PEC boundaries, but wouldn't hurt for non-PEC boundary;
@@ -1037,19 +955,21 @@ class EigSolver(Tidy3dBaseModel):
         return vec_init.flatten("F")
 
     @classmethod
-    def eigs_to_effective_index(cls, eig_list: Numpy, mode_solver_type: ModeSolverType):
+    def eigs_to_effective_index(
+        cls, eig_list: ArrayComplex, mode_solver_type: ModeSolverType
+    ) -> tuple[ArrayFloat, ArrayFloat]:
         """Convert obtained eigenvalues to n_eff and k_eff.
 
         Parameters
         ----------
-        eig_list : Numpy
+        eig_list : np.ndarray
             Array of eigenvalues
         mode_solver_type : ModeSolverType
             The type of mode solver problems
 
         Returns
         -------
-        Tuple[Numpy, Numpy]
+        tuple[np.ndarray, np.ndarray]
             n_eff and k_eff
         """
         if eig_list.size == 0:
@@ -1067,21 +987,23 @@ class EigSolver(Tidy3dBaseModel):
         raise RuntimeError(f"Unidentified 'mode_solver_type={mode_solver_type}'.")
 
     @staticmethod
-    def format_medium_data(mat_data):
+    def format_medium_data(
+        mat_data: Union[ArrayComplex, Sequence[ArrayComplex]],
+    ) -> tuple[ArrayComplex, ...]:
         """
         mat_data can be either permittivity or permeability. It's either a single 2D array
         defining the relative property in the cross-section, or nine 2D arrays defining
         the property at the E(H)x, E(H)y, and E(H)z locations of the Yee grid in the order
         xx, xy, xz, yx, yy, yz, zx, zy, zz.
         """
-        if isinstance(mat_data, Numpy):
-            return (mat_data[i, :, :] for i in range(9))
+        if isinstance(mat_data, np.ndarray):
+            return tuple(mat_data[i, :, :] for i in range(9))
         if len(mat_data) == 9:
-            return (np.copy(e) for e in mat_data)
+            return tuple(np.copy(e) for e in mat_data)
         raise ValueError("Wrong input to mode solver pemittivity/permeability!")
 
     @staticmethod
-    def split_curl_field_postprocess(split_curl, E):
+    def split_curl_field_postprocess(split_curl: ArrayFloat, E: ArrayComplex) -> ArrayComplex:
         """E has the shape (3, N, num_modes)"""
         _, Nx, Ny = split_curl.shape
         field_shape = E.shape
@@ -1099,7 +1021,9 @@ class EigSolver(Tidy3dBaseModel):
         return E
 
     @staticmethod
-    def make_pml_invariant(Nxy, tensor, num_pml):
+    def make_pml_invariant(
+        Nxy: tuple[int, int], tensor: ArrayComplex, num_pml: tuple[int, int]
+    ) -> ArrayComplex:
         """For a given epsilon or mu tensor of shape ``(3, 3, Nx, Ny)``, and ``num_pml`` pml layers
         along ``x`` and ``y``, make all the tensor values in the PML equal by replicating the first
         pixel into the PML."""
@@ -1113,12 +1037,16 @@ class EigSolver(Tidy3dBaseModel):
         return new_ten.reshape((3, 3, -1))
 
     @staticmethod
-    def split_curl_field_postprocess_inverse(split_curl, E) -> None:
+    def split_curl_field_postprocess_inverse(
+        split_curl: ArrayFloat, E: ArrayComplex
+    ) -> ArrayComplex:
         """E has the shape (3, N, num_modes)"""
         raise RuntimeError("Split curl not yet implemented for relative mode solver.")
 
     @staticmethod
-    def mode_plane_contain_good_conductor(material_response) -> bool:
+    def mode_plane_contain_good_conductor(
+        material_response: Optional[ArrayComplex],
+    ) -> bool:
         """Find out if epsilon on the modal plane contain good conductors whose permittivity
         or permeability value is very large.
         """
@@ -1214,27 +1142,22 @@ class EigSolver(Tidy3dBaseModel):
     def _dot(
         E: np.ndarray,
         H: np.ndarray,
-        dl_primal: np.ndarray,
-        dl_dual: np.ndarray,
+        dl_primal: list[np.ndarray],
+        dl_dual: list[np.ndarray],
         mode_1: int,
         mode_2: int,
     ) -> complex:
         """Dot product based on the bi-orthogonality relationship between E and H."""
-        # Extract field components
-        Ex = E[0, ...]
-        Ey = E[1, ...]
-        Hx = H[0, ...]
-        Hy = H[1, ...]
-
         # Make the differential area elements
-        Ex_Hy_dS = np.outer(dl_primal[0], dl_dual[1])
-        Ey_Hx_dS = np.outer(dl_dual[0], dl_primal[1])
+        dS = (np.outer(dl_primal[0], dl_dual[1]), np.outer(dl_dual[0], dl_primal[1]))
 
-        term1 = Ex[..., mode_1] * Hy[..., mode_2] + Ex[..., mode_2] * Hy[..., mode_1]
-        term1 *= Ex_Hy_dS
-        term2 = Ey[..., mode_1] * Hx[..., mode_2] + Ey[..., mode_2] * Hx[..., mode_1]
-        term2 *= Ey_Hx_dS
-        return (1 / 4) * np.sum(term1 - term2)
+        # Extract tangential field components for the two modes as tuples
+        E1 = (E[0, ..., mode_1], E[1, ..., mode_1])
+        H1 = (H[0, ..., mode_1], H[1, ..., mode_1])
+        E2 = (E[0, ..., mode_2], E[1, ..., mode_2])
+        H2 = (H[0, ..., mode_2], H[1, ..., mode_2])
+
+        return _dot_numpy(E1, H1, E2, H2, dS, conjugate=False)
 
     @staticmethod
     def _cauchy_schwarz_dot_bound(
@@ -1286,8 +1209,8 @@ class EigSolver(Tidy3dBaseModel):
     def _outer_dot(
         E: np.ndarray,
         H: np.ndarray,
-        dl_primal: np.ndarray,
-        dl_dual: np.ndarray,
+        dl_primal: list[np.ndarray],
+        dl_dual: list[np.ndarray],
         mode_indices: set[int],
     ) -> np.ndarray:
         """Vectorized modal overlap matrix calculation for a set of modes.
@@ -1300,52 +1223,18 @@ class EigSolver(Tidy3dBaseModel):
         """
         # Convert set to sorted list for consistent indexing
         mode_list = sorted(mode_indices)
-        n_modes = len(mode_list)
 
-        # Extract field components
-        Ex_sel = E[0][..., mode_list]  # (Nx, Ny, 1, n)
-        Ey_sel = E[1][..., mode_list]
-        Hx_sel = H[0][..., mode_list]
-        Hy_sel = H[1][..., mode_list]
+        # E/H shape: (3, Nx, Ny, num_modes) → select modes, move to axis 1 → (3, n_modes, Nx, Ny)
+        E_sel = np.moveaxis(E[:, :, :, mode_list], -1, 1)
+        H_sel = np.moveaxis(H[:, :, :, mode_list], -1, 1)
+        # Extract tangential components: each (n_modes, Nx, Ny), matching _outer_dot_numpy
+        E_tan = (E_sel[0], E_sel[1])
+        H_tan = (H_sel[0], H_sel[1])
 
         # Make the differential area elements
-        Ex_Hy_dS = np.outer(dl_primal[0], dl_dual[1])
-        Ey_Hx_dS = np.outer(dl_dual[0], dl_primal[1])
+        dS = (np.outer(dl_primal[0], dl_dual[1]), np.outer(dl_dual[0], dl_primal[1]))
 
-        # Initialize output matrix
-        dtype = Ex_sel.dtype
-        S = np.zeros((n_modes, n_modes), dtype=dtype)
-
-        # Only compute upper triangle (including diagonal)
-        for i in range(n_modes):
-            # Vectorize over j >= i
-            j_indices = np.arange(i, n_modes)
-
-            # Extract mode i fields
-            Ex_i = Ex_sel[..., i : i + 1]  # (Nx, Ny, 1, 1)
-            Ey_i = Ey_sel[..., i : i + 1]
-            Hy_i = Hy_sel[..., i : i + 1]
-            Hx_i = Hx_sel[..., i : i + 1]
-
-            # Extract mode j fields (vectorized for j >= i)
-            Ex_j = Ex_sel[..., j_indices]  # (Nx, Ny, 1, n_j)
-            Ey_j = Ey_sel[..., j_indices]
-            Hy_j = Hy_sel[..., j_indices]
-            Hx_j = Hx_sel[..., j_indices]
-
-            # Compute term1: (Ex[i] * Hy[j] + Ex[j] * Hy[i]) * dS
-            term1 = (Ex_i * Hy_j + Ex_j * Hy_i) * Ex_Hy_dS[..., np.newaxis]
-
-            # Compute term2: (Ey[i] * Hx[j] + Ey[j] * Hx[i]) * dS
-            term2 = (Ey_i * Hx_j + Ey_j * Hx_i) * Ey_Hx_dS[..., np.newaxis]
-
-            # Sum over spatial dimensions to get S[i, j] for j >= i
-            S[i, j_indices] = (1 / 4) * np.sum(term1 - term2, axis=(0, 1))
-
-        # Fill lower triangle by symmetry
-        S = S + S.T - np.diag(np.diag(S))
-
-        return S
+        return _outer_dot_numpy(E_tan, H_tan, E_tan, H_tan, dS, conjugate=False)
 
     @staticmethod
     def _normalize_modes(
@@ -1467,6 +1356,6 @@ class EigSolver(Tidy3dBaseModel):
         return E_vec, H_vec
 
 
-def compute_modes(*args: Any, **kwargs: Any) -> tuple[Numpy, Numpy, str]:
+def compute_modes(*args: Any, **kwargs: Any) -> tuple[ArrayComplex, ArrayComplex, EpsSpecType]:
     """A wrapper around ``EigSolver.compute_modes``, which is used in :class:`.ModeSolver`."""
     return EigSolver.compute_modes(*args, **kwargs)

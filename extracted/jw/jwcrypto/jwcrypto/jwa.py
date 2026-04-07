@@ -26,9 +26,28 @@ from jwcrypto.common import base64url_decode, base64url_encode
 from jwcrypto.common import json_decode
 from jwcrypto.jwk import JWK
 
-# Implements RFC 7518 - JSON Web Algorithms (JWA)
+# Implements:
+# - RFC 7518: JSON Web Algorithms (JWA)
+# - RFC 8037: CFRG Elliptic Curve Diffie-Hellman (ECDH) and Signatures
+#             in JSON Object Signing and Encryption (JOSE)
+# - RFC 9864: Fully-Specified Algorithms for JSON Object Signing and
+#             Encryption (JOSE) and CBOR Object Signing and Encryption
+#             (COSE)
 
 default_max_pbkdf2_iterations = 16384
+"""The maximum number of iterations allowed for PBKDF2 key derivation.
+
+This is a security measure to prevent denial-of-service attacks by malicious
+actors providing a very high iteration count.
+"""
+
+default_enforce_hmac_key_length = True
+"""Enforces that the HMAC key length is at least the size of the hash
+function's output, as recommended by RFC 7518.
+
+This can be disabled for compatibility with legacy or non-compliant systems
+that use shorter keys.
+"""
 
 
 class JWAAlgorithm(metaclass=ABCMeta):
@@ -103,11 +122,16 @@ class _RawJWS:
 
 class _RawHMAC(_RawJWS):
 
+    keysize = None
+
     def __init__(self, hashfn):
         self.backend = default_backend()
         self.hashfn = hashfn
 
     def _hmac_setup(self, key, payload):
+        # Ensure key size matches RFC 7518 requirements
+        if default_enforce_hmac_key_length and _bitsize(key) < self.keysize:
+            raise InvalidJWEKeyLength(self.keysize, _bitsize(key))
         h = hmac.HMAC(key, self.hashfn, backend=self.backend)
         h.update(payload)
         return h
@@ -873,6 +897,48 @@ class _EdDsa(_RawJWS, JWAAlgorithm):
         raise NotImplementedError
 
 
+class _Ed25519(_RawJWS, JWAAlgorithm):
+
+    name = 'Ed25519'
+    description = 'EdDSA using Ed25519'
+    algorithm_usage_location = 'alg'
+    algorithm_use = 'sig'
+    keysize = None
+
+    def sign(self, key, payload):
+        if key['crv'] != 'Ed25519':
+            raise InvalidJWEKeyType('Ed25519', key['crv'])
+        skey = key.get_op_key('sign')
+        return skey.sign(payload)
+
+    def verify(self, key, payload, signature):
+        if key['crv'] != 'Ed25519':
+            raise InvalidJWEKeyType('Ed25519', key['crv'])
+        pkey = key.get_op_key('verify')
+        return pkey.verify(signature, payload)
+
+
+class _Ed448(_RawJWS, JWAAlgorithm):
+
+    name = 'Ed448'
+    description = 'EdDSA using Ed448'
+    algorithm_usage_location = 'alg'
+    algorithm_use = 'sig'
+    keysize = None
+
+    def sign(self, key, payload):
+        if key['crv'] != 'Ed448':
+            raise InvalidJWEKeyType('Ed448', key['crv'])
+        skey = key.get_op_key('sign')
+        return skey.sign(payload)
+
+    def verify(self, key, payload, signature):
+        if key['crv'] != 'Ed448':
+            raise InvalidJWEKeyType('Ed448', key['crv'])
+        pkey = key.get_op_key('verify')
+        return pkey.verify(signature, payload)
+
+
 class _RawJWE:
 
     def encrypt(self, k, aad, m):
@@ -1167,7 +1233,9 @@ class JWA:
         'A256GCM': _A256Gcm,
         'BP256R1': _BP256R1,
         'BP384R1': _BP384R1,
-        'BP512R1': _BP512R1
+        'BP512R1': _BP512R1,
+        'Ed25519': _Ed25519,
+        'Ed448': _Ed448
     }
 
     @classmethod

@@ -39,11 +39,13 @@ class seleneumManager(metaclass=SingletonMeta):
         if p.netloc == '':
             url = f"{self.scheme}://{self.domain}/{url.strip().lstrip('/')}"
         return url
-
     def get_driver(self, url) -> tuple[str, webdriver.Chrome]:
-        bin_path = get_env_value('CHROME_BINARY')
+        from ..imports.constants import _resolve_chrome_binary
+        from selenium.webdriver.chrome.service import Service
+        bin_path = _resolve_chrome_binary()
         opts, prof = _make_chrome_options(binary_path=bin_path, user_data_dir=None)
-        driver = webdriver.Chrome(options=opts)
+        service = Service('/usr/local/bin/chromedriver')
+        driver = webdriver.Chrome(service=service, options=opts)
         key = f"{url}#{time.time()}"
         self._sessions[key] = {"driver": driver, "profile": prof}
         return key, driver

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: glean-sdk
-Version: 67.1.0
+Version: 67.2.0
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: 3
 Requires-Dist: semver>=2.13.0
-Requires-Dist: glean-parser~=18.2
+Requires-Dist: glean-parser~=19.0
 License-File: LICENSE
 Summary: Mozilla's Glean Telemetry SDK: The Machine that Goes 'Ping!'
 Maintainer-email: The Glean Team <glean-team@mozilla.com>

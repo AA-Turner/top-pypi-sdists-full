@@ -2153,7 +2153,8 @@ def set_webapp(cmd, resource_group_name, name, slot=None, skip_dns_registration=
 
 
 def update_webapp(cmd, instance, client_affinity_enabled=None, https_only=None, minimum_elastic_instance_count=None,
-                  prewarmed_instance_count=None, end_to_end_encryption_enabled=None):
+                  prewarmed_instance_count=None, end_to_end_encryption_enabled=None,
+                  platform_release_channel=None):
     if 'function' in instance.kind:
         raise ValidationError("please use 'az functionapp update' to update this function app")
     if minimum_elastic_instance_count or prewarmed_instance_count:
@@ -2189,6 +2190,10 @@ def update_webapp(cmd, instance, client_affinity_enabled=None, https_only=None, 
 
     if prewarmed_instance_count is not None:
         instance.site_config.pre_warmed_instance_count = prewarmed_instance_count
+
+    if platform_release_channel is not None:
+        use_additional_properties(instance)
+        instance.additional_properties["properties"]["platformReleaseChannel"] = platform_release_channel
 
     return instance
 
@@ -9077,7 +9082,8 @@ def get_history_triggered_webjob(cmd, resource_group_name, name, webjob_name, sl
 
 def webapp_up(cmd, name=None, resource_group_name=None, plan=None, location=None, sku=None,  # pylint: disable=too-many-statements,too-many-branches
               os_type=None, runtime=None, dryrun=False, logs=False, launch_browser=False, html=False,
-              app_service_environment=None, track_status=True, enable_kudu_warmup=True, basic_auth=""):
+              app_service_environment=None, track_status=True, enable_kudu_warmup=True, basic_auth="",
+              auto_generated_domain_name_label_scope=None):
     if not name:
         name = generate_default_app_name(cmd)
 
@@ -9223,7 +9229,8 @@ def webapp_up(cmd, name=None, resource_group_name=None, plan=None, location=None
     if _create_new_app:
         logger.warning("Creating webapp '%s' ...", name)
         create_webapp(cmd, rg_name, name, plan, runtime_version if not html else None,
-                      using_webapp_up=True, language=language)
+                      using_webapp_up=True, language=language,
+                      auto_generated_domain_name_label_scope=auto_generated_domain_name_label_scope)
         _configure_default_logging(cmd, rg_name, name)
     else:  # for existing app if we might need to update the stack runtime settings
         helper = _StackRuntimeHelper(cmd, linux=_is_linux, windows=not _is_linux)

@@ -3,33 +3,41 @@
 from __future__ import annotations
 
 import os
-import pathlib
 import tempfile
 import time
 from datetime import datetime
-from os import PathLike
-from typing import Callable, Literal, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
-import pydantic.v1 as pydantic
-import requests
 from botocore.exceptions import ClientError
 from joblib import Parallel, delayed
-from rich.progress import Progress, TaskID
+from pydantic import Field
+from rich.progress import Progress
 
 from tidy3d.components.data.monitor_data import ModeSolverData
 from tidy3d.components.eme.simulation import EMESimulation
 from tidy3d.components.medium import AbstractCustomMedium
 from tidy3d.components.simulation import Simulation
 from tidy3d.config import config
-from tidy3d.exceptions import SetupError, WebError
+from tidy3d.exceptions import SetupError, WebError, format_chained_exception_message
 from tidy3d.log import get_logging_console, log
 from tidy3d.plugins.mode.mode_solver import MODE_MONITOR_NAME, ModeSolver
 from tidy3d.version import __version__
+from tidy3d.web.api.run_options import log_deprecated_run_args, resolve_pay_type
 from tidy3d.web.core.core_config import get_logger_console
 from tidy3d.web.core.http_util import http
 from tidy3d.web.core.s3utils import download_file, download_gz_file, upload_file
 from tidy3d.web.core.task_core import Folder
-from tidy3d.web.core.types import PayType, ResourceLifecycle, Submittable
+from tidy3d.web.core.types import ResourceLifecycle, Submittable
+
+if TYPE_CHECKING:
+    import pathlib
+    from os import PathLike
+    from typing import Callable, Literal, Union
+
+    import requests
+    from rich.progress import TaskID
+
+    from tidy3d.web.core.types import PayType
 
 SIMULATION_JSON = "simulation.json"
 SIM_FILE_HDF5_GZ = "simulation.hdf5.gz"
@@ -57,7 +65,7 @@ def run(
     progress_callback_upload: Optional[Callable[[float], None]] = None,
     progress_callback_download: Optional[Callable[[float], None]] = None,
     reduce_simulation: Literal["auto", True, False] = "auto",
-    pay_type: Union[PayType, str] = PayType.AUTO,
+    pay_type: Optional[Union[PayType, str]] = None,
 ) -> ModeSolverData:
     """Submits a :class:`.ModeSolver` to server, starts running, monitors progress, downloads,
     and loads results as a :class:`.ModeSolverData` object.
@@ -83,13 +91,15 @@ def run(
     reduce_simulation : Literal["auto", True, False] = "auto"
         Restrict simulation to mode solver region. If "auto", then simulation is automatically
         restricted if it contains custom mediums.
-    pay_type: Union[PayType, str] = PayType.AUTO
-        Which method to pay the simulation.
+    pay_type : Optional[Union[PayType, str]] = None
+        Payment method. If ``None``, uses ``td.config.run.pay_type``.
     Returns
     -------
     :class:`.ModeSolverData`
         Mode solver data with the calculated results.
     """
+    log_deprecated_run_args(pay_type=pay_type)
+
     log_level = "DEBUG" if verbose else "INFO"
     if verbose:
         console = get_logging_console()
@@ -164,13 +174,13 @@ def run_batch(
 
     Parameters
     ----------
-    mode_solvers : List[ModeSolver]
+    mode_solvers : list[ModeSolver]
         List of mode solvers to be submitted to the server.
     task_name : str
         Base name for tasks. Each task in the batch will have a unique index appended to this base name.
     folder_name : str
         Name of the folder where tasks are stored on the server's web UI.
-    results_files : List[str], optional
+    results_files : list[str], optional
         List of file paths where the results for each ModeSolver should be downloaded. If None, a default path based on the folder name and index is used.
     verbose : bool
         If True, displays a progress bar. If False, runs silently.
@@ -188,7 +198,7 @@ def run_batch(
 
     Returns
     -------
-    List[ModeSolverData]
+    list[ModeSolverData]
         A list of ModeSolverData objects containing the results from each simulation in the batch. ``None`` is placed in the list for simulations that fail after all retries.
     """
     console = get_logging_console()
@@ -233,6 +243,7 @@ def run_batch(
                     if verbose:
                         progress.update(pbar, advance=1)
                     return None
+        return None
 
     if verbose:
         console.log(f"[cyan]Running a batch of [deep_pink4]{num_mode_solvers} mode solvers.\n")
@@ -256,45 +267,45 @@ def run_batch(
     return results
 
 
-class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow):
+class ModeSolverTask(ResourceLifecycle, Submittable, extra="allow"):
     """Interface for managing the running of a :class:`.ModeSolver` task on server."""
 
-    task_id: str = pydantic.Field(
+    task_id: Optional[str] = Field(
         None,
         title="task_id",
         description="Task ID number, set when the task is created, leave as None.",
         alias="refId",
     )
 
-    solver_id: str = pydantic.Field(
+    solver_id: Optional[str] = Field(
         None,
         title="solver",
         description="Solver ID number, set when the task is created, leave as None.",
         alias="id",
     )
 
-    real_flex_unit: float = pydantic.Field(
+    real_flex_unit: Optional[float] = Field(
         None, title="real FlexCredits", description="Billed FlexCredits.", alias="charge"
     )
 
-    created_at: Optional[datetime] = pydantic.Field(
+    created_at: Optional[datetime] = Field(
         title="created_at", description="Time at which this task was created.", alias="createdAt"
     )
 
-    status: str = pydantic.Field(
+    status: Optional[str] = Field(
         None,
         title="status",
         description="Mode solver task status.",
     )
 
-    file_type: str = pydantic.Field(
+    file_type: Optional[str] = Field(
         None,
         title="file_type",
         description="File type used to upload the mode solver.",
         alias="fileType",
     )
 
-    mode_solver: ModeSolver = pydantic.Field(
+    mode_solver: Optional[ModeSolver] = Field(
         None,
         title="mode_solver",
         description="Mode solver being run by this task.",
@@ -468,19 +479,19 @@ class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow)
 
     def submit(
         self,
-        pay_type: Union[PayType, str] = PayType.AUTO,
+        pay_type: Optional[Union[PayType, str]] = None,
     ) -> None:
         """Start the execution of this task.
 
         The mode solver must be uploaded to the server with the :meth:`ModeSolverTask.upload` method
         before this step.
         """
-        # convert right before sending to API
-        pay_type = PayType(pay_type) if not isinstance(pay_type, PayType) else pay_type
-
         http.post(
             f"{MODESOLVER_API}/{self.task_id}/{self.solver_id}/run",
-            {"enableCaching": config.web.enable_caching, "payType": pay_type.value},
+            {
+                "enableCaching": config.web.enable_caching,
+                "payType": resolve_pay_type(pay_type).value,
+            },
         )
 
     def delete(self) -> None:
@@ -574,7 +585,7 @@ class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow)
                 progress_callback=progress_callback,
             )
             mode_solver_dict["simulation"] = Simulation.from_json(sim_file)
-            mode_solver = ModeSolver.parse_obj(mode_solver_dict)
+            mode_solver = ModeSolver.model_validate(mode_solver_dict)
 
         # Store requested mode solver file
         mode_solver.to_file(to_file)
@@ -629,8 +640,11 @@ class ModeSolverTask(ResourceLifecycle, Submittable, extra=pydantic.Extra.allow)
                 )
             except Exception as e:
                 raise WebError(
-                    "Failed to download the simulation data file from the server. "
-                    "Please confirm that the task was successfully run."
+                    format_chained_exception_message(
+                        "Failed to download the simulation data file from the server. Please "
+                        "confirm that the task was successfully run.",
+                        e,
+                    )
                 ) from e
 
         data = ModeSolverData.from_hdf5(to_file)

@@ -32,7 +32,7 @@ def test_create_from_same(i: apyds.Item) -> None:
     assert str(item) == "item"
 
     with pytest.raises(ValueError):
-        item = apyds.Item(i, 100)
+        apyds.Item(i, 100)
 
 
 def test_create_from_base(i: apyds.Item) -> None:
@@ -52,12 +52,12 @@ def test_create_from_bytes(i: apyds.Item) -> None:
     assert str(item) == "item"
 
     with pytest.raises(ValueError):
-        item = apyds.Item(i.data(), 100)
+        apyds.Item(i.data(), 100)
 
 
 def test_create_fail() -> None:
     with pytest.raises(TypeError):
-        item = apyds.Item(100)
+        apyds.Item(100)  # type: ignore[arg-type]
 
 
 def test_name(i: apyds.Item) -> None:

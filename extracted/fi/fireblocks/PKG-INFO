@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 15.0.0
+Version: 16.0.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
@@ -280,15 +280,30 @@ Class | Method | HTTP request | Description
 *BlockchainsAssetsApi* | [**register_new_asset**](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainsAssetsApi.md#register_new_asset) | **POST** /assets | Register an asset
 *BlockchainsAssetsApi* | [**set_asset_price**](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainsAssetsApi.md#set_asset_price) | **POST** /assets/prices/{id} | Set asset price
 *BlockchainsAssetsApi* | [**update_asset_user_metadata**](https://github.com/fireblocks/py-sdk/tree/master/docs/BlockchainsAssetsApi.md#update_asset_user_metadata) | **PATCH** /assets/{id} | Update the user’s metadata for an asset
+*ComplianceApi* | [**add_address_registry_vault_opt_outs**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#add_address_registry_vault_opt_outs) | **POST** /address_registry/vaults | Add vault accounts to the address registry opt-out list
+*ComplianceApi* | [**assign_vaults_to_legal_entity**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#assign_vaults_to_legal_entity) | **POST** /legal_entities/{legalEntityId}/vaults | Assign vault accounts to a legal entity
+*ComplianceApi* | [**get_address_registry_tenant_participation_status**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_address_registry_tenant_participation_status) | **GET** /address_registry/tenant | Get address registry participation status for the authenticated workspace
+*ComplianceApi* | [**get_address_registry_vault_opt_out**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_address_registry_vault_opt_out) | **GET** /address_registry/vaults/{vaultAccountId} | Get whether a vault account is opted out of the address registry
 *ComplianceApi* | [**get_aml_post_screening_policy**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_aml_post_screening_policy) | **GET** /screening/aml/post_screening_policy | AML - View Post-Screening Policy
 *ComplianceApi* | [**get_aml_screening_policy**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_aml_screening_policy) | **GET** /screening/aml/screening_policy | AML - View Screening Policy
-*ComplianceApi* | [**get_legal_entity_by_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_legal_entity_by_address) | **GET** /address_registry/legal_entity | Look up legal entity by address and asset
+*ComplianceApi* | [**get_legal_entity**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_legal_entity) | **GET** /legal_entities/{legalEntityId} | Get a legal entity
+*ComplianceApi* | [**get_legal_entity_by_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_legal_entity_by_address) | **GET** /address_registry/legal_entity | [Deprecated] Look up legal entity by address (query parameter)
+*ComplianceApi* | [**get_legal_entity_for_address**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_legal_entity_for_address) | **GET** /address_registry/legal_entities/{address} | Look up legal entity by blockchain address
 *ComplianceApi* | [**get_post_screening_policy**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_post_screening_policy) | **GET** /screening/travel_rule/post_screening_policy | Travel Rule - View Post-Screening Policy
 *ComplianceApi* | [**get_screening_full_details**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_screening_full_details) | **GET** /screening/transaction/{txId} | Provides all the compliance details for the given screened transaction.
 *ComplianceApi* | [**get_screening_policy**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#get_screening_policy) | **GET** /screening/travel_rule/screening_policy | Travel Rule - View Screening Policy
+*ComplianceApi* | [**list_address_registry_vault_opt_outs**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#list_address_registry_vault_opt_outs) | **GET** /address_registry/vaults | List vault-level address registry opt-outs (paginated)
+*ComplianceApi* | [**list_legal_entities**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#list_legal_entities) | **GET** /legal_entities | List legal entities (Paginated)
+*ComplianceApi* | [**list_vaults_for_legal_entity**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#list_vaults_for_legal_entity) | **GET** /legal_entities/{legalEntityId}/vaults | List vault accounts for a legal entity (Paginated)
+*ComplianceApi* | [**opt_in_address_registry_tenant**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#opt_in_address_registry_tenant) | **POST** /address_registry/tenant | Opt the workspace in to the address registry
+*ComplianceApi* | [**opt_out_address_registry_tenant**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#opt_out_address_registry_tenant) | **DELETE** /address_registry/tenant | Opt the workspace out of the address registry
+*ComplianceApi* | [**register_legal_entity**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#register_legal_entity) | **POST** /legal_entities | Register a new legal entity
+*ComplianceApi* | [**remove_address_registry_vault_opt_out**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#remove_address_registry_vault_opt_out) | **DELETE** /address_registry/vaults/{vaultAccountId} | Remove a single vault account from the address registry opt-out list
+*ComplianceApi* | [**remove_all_address_registry_vault_opt_outs**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#remove_all_address_registry_vault_opt_outs) | **DELETE** /address_registry/vaults | Remove all vault-level address registry opt-outs for the workspace
 *ComplianceApi* | [**retry_rejected_transaction_bypass_screening_checks**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#retry_rejected_transaction_bypass_screening_checks) | **POST** /screening/transaction/{txId}/bypass_screening_policy | Calling the \&quot;Bypass Screening Policy\&quot; API endpoint triggers a new transaction, with the API user as the initiator, bypassing the screening policy check
 *ComplianceApi* | [**set_aml_verdict**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#set_aml_verdict) | **POST** /screening/aml/verdict/manual | Set AML Verdict for Manual Screening Verdict.
 *ComplianceApi* | [**update_aml_screening_configuration**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#update_aml_screening_configuration) | **PUT** /screening/aml/policy_configuration | Update AML Configuration
+*ComplianceApi* | [**update_legal_entity**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#update_legal_entity) | **PUT** /legal_entities/{legalEntityId} | Update legal entity
 *ComplianceApi* | [**update_screening_configuration**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#update_screening_configuration) | **PUT** /screening/configurations | Tenant - Screening Configuration
 *ComplianceApi* | [**update_travel_rule_config**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceApi.md#update_travel_rule_config) | **PUT** /screening/travel_rule/policy_configuration | Update Travel Rule Configuration
 *ComplianceScreeningConfigurationApi* | [**get_aml_screening_configuration**](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceScreeningConfigurationApi.md#get_aml_screening_configuration) | **GET** /screening/aml/policy_configuration | Get AML Screening Policy Configuration
@@ -482,6 +497,7 @@ Class | Method | HTTP request | Description
 *StakingApi* | [**get_chain_info**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_chain_info) | **GET** /staking/chains/{chainDescriptor}/chainInfo | Get chain-level staking parameters
 *StakingApi* | [**get_chains**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_chains) | **GET** /staking/chains | List supported staking chains
 *StakingApi* | [**get_delegation_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_delegation_by_id) | **GET** /staking/positions/{id} | Get position details
+*StakingApi* | [**get_positions**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_positions) | **GET** /staking/positions_paginated | List staking positions (Paginated)
 *StakingApi* | [**get_providers**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_providers) | **GET** /staking/providers | List staking providers
 *StakingApi* | [**get_summary**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_summary) | **GET** /staking/positions/summary | Get positions summary
 *StakingApi* | [**get_summary_by_vault**](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingApi.md#get_summary_by_vault) | **GET** /staking/positions/summary/vaults | Get positions summary by vault
@@ -550,6 +566,7 @@ Class | Method | HTTP request | Description
 *TradingBetaApi* | [**create_quote**](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingBetaApi.md#create_quote) | **POST** /trading/quotes | Create a quote
 *TradingBetaApi* | [**get_order**](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingBetaApi.md#get_order) | **GET** /trading/orders/{orderId} | Get order details
 *TradingBetaApi* | [**get_orders**](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingBetaApi.md#get_orders) | **GET** /trading/orders | Get orders
+*TradingBetaApi* | [**get_trading_provider_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingBetaApi.md#get_trading_provider_by_id) | **GET** /trading/providers/{providerId} | Get trading provider by ID
 *TradingBetaApi* | [**get_trading_providers**](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingBetaApi.md#get_trading_providers) | **GET** /trading/providers | Get providers
 *TransactionsApi* | [**cancel_transaction**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#cancel_transaction) | **POST** /transactions/{txId}/cancel | Cancel a transaction
 *TransactionsApi* | [**create_transaction**](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionsApi.md#create_transaction) | **POST** /transactions | Create a new transaction
@@ -645,7 +662,8 @@ Class | Method | HTTP request | Description
  - [AccountAccess](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountAccess.md)
  - [AccountBase](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountBase.md)
  - [AccountBasedAccessProvider](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountBasedAccessProvider.md)
- - [AccountBasedAccessProviderDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountBasedAccessProviderDetails.md)
+ - [AccountBasedAccessProviderInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountBasedAccessProviderInfo.md)
+ - [AccountBasedProviderDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountBasedProviderDetails.md)
  - [AccountConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountConfig.md)
  - [AccountHolderDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountHolderDetails.md)
  - [AccountIdentifier](https://github.com/fireblocks/py-sdk/tree/master/docs/AccountIdentifier.md)
@@ -671,8 +689,20 @@ Class | Method | HTTP request | Description
  - [AddressBalanceItemDto](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressBalanceItemDto.md)
  - [AddressBalancePagedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressBalancePagedResponse.md)
  - [AddressNotAvailableError](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressNotAvailableError.md)
+ - [AddressRegistryAddVaultOptOutsRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryAddVaultOptOutsRequest.md)
+ - [AddressRegistryAddVaultOptOutsRequestVaultAccountIdsInner](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryAddVaultOptOutsRequestVaultAccountIdsInner.md)
+ - [AddressRegistryAddVaultOptOutsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryAddVaultOptOutsResponse.md)
  - [AddressRegistryError](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryError.md)
+ - [AddressRegistryGetVaultOptOutResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryGetVaultOptOutResponse.md)
  - [AddressRegistryLegalEntity](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryLegalEntity.md)
+ - [AddressRegistryLegalEntityLegacy](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryLegalEntityLegacy.md)
+ - [AddressRegistryListVaultOptOutsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryListVaultOptOutsResponse.md)
+ - [AddressRegistryRemoveAllVaultOptOutsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryRemoveAllVaultOptOutsResponse.md)
+ - [AddressRegistryRemoveVaultOptOutResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryRemoveVaultOptOutResponse.md)
+ - [AddressRegistryTenantRegistryResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryTenantRegistryResponse.md)
+ - [AddressRegistryTravelRuleProvider](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryTravelRuleProvider.md)
+ - [AddressRegistryVaultListOrder](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryVaultListOrder.md)
+ - [AddressRegistryVaultOptOutItem](https://github.com/fireblocks/py-sdk/tree/master/docs/AddressRegistryVaultOptOutItem.md)
  - [AlertExposureTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/AlertExposureTypeEnum.md)
  - [AlertLevelEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/AlertLevelEnum.md)
  - [AmlAlert](https://github.com/fireblocks/py-sdk/tree/master/docs/AmlAlert.md)
@@ -723,10 +753,11 @@ Class | Method | HTTP request | Description
  - [AssetPriceResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetPriceResponse.md)
  - [AssetResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetResponse.md)
  - [AssetScope](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetScope.md)
- - [AssetTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetTypeEnum.md)
  - [AssetTypeResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetTypeResponse.md)
  - [AssetTypesConfigInner](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetTypesConfigInner.md)
  - [AssetWallet](https://github.com/fireblocks/py-sdk/tree/master/docs/AssetWallet.md)
+ - [AssignVaultsToLegalEntityRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/AssignVaultsToLegalEntityRequest.md)
+ - [AssignVaultsToLegalEntityResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AssignVaultsToLegalEntityResponse.md)
  - [AuditLogData](https://github.com/fireblocks/py-sdk/tree/master/docs/AuditLogData.md)
  - [AuditorData](https://github.com/fireblocks/py-sdk/tree/master/docs/AuditorData.md)
  - [AuthorizationGroups](https://github.com/fireblocks/py-sdk/tree/master/docs/AuthorizationGroups.md)
@@ -752,7 +783,6 @@ Class | Method | HTTP request | Description
  - [CallbackHandler](https://github.com/fireblocks/py-sdk/tree/master/docs/CallbackHandler.md)
  - [CallbackHandlerRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/CallbackHandlerRequest.md)
  - [CancelTransactionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/CancelTransactionResponse.md)
- - [Capability](https://github.com/fireblocks/py-sdk/tree/master/docs/Capability.md)
  - [ChainDescriptor](https://github.com/fireblocks/py-sdk/tree/master/docs/ChainDescriptor.md)
  - [ChainInfoResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ChainInfoResponse.md)
  - [ChannelDvnConfigWithConfirmations](https://github.com/fireblocks/py-sdk/tree/master/docs/ChannelDvnConfigWithConfirmations.md)
@@ -905,7 +935,8 @@ Class | Method | HTTP request | Description
  - [DestinationTransferPeerPathResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/DestinationTransferPeerPathResponse.md)
  - [DirectAccess](https://github.com/fireblocks/py-sdk/tree/master/docs/DirectAccess.md)
  - [DirectAccessProvider](https://github.com/fireblocks/py-sdk/tree/master/docs/DirectAccessProvider.md)
- - [DirectAccessProviderDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/DirectAccessProviderDetails.md)
+ - [DirectAccessProviderInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/DirectAccessProviderInfo.md)
+ - [DirectProviderDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/DirectProviderDetails.md)
  - [DisbursementAmountInstruction](https://github.com/fireblocks/py-sdk/tree/master/docs/DisbursementAmountInstruction.md)
  - [DisbursementConfigOperation](https://github.com/fireblocks/py-sdk/tree/master/docs/DisbursementConfigOperation.md)
  - [DisbursementInstruction](https://github.com/fireblocks/py-sdk/tree/master/docs/DisbursementInstruction.md)
@@ -971,6 +1002,7 @@ Class | Method | HTTP request | Description
  - [ExecutionOperationStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionOperationStatus.md)
  - [ExecutionRequestBaseDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionRequestBaseDetails.md)
  - [ExecutionRequestDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionRequestDetails.md)
+ - [ExecutionRequestDetailsType](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionRequestDetailsType.md)
  - [ExecutionResponseBaseDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionResponseBaseDetails.md)
  - [ExecutionResponseDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionResponseDetails.md)
  - [ExecutionScreeningOperation](https://github.com/fireblocks/py-sdk/tree/master/docs/ExecutionScreeningOperation.md)
@@ -1037,6 +1069,7 @@ Class | Method | HTTP request | Description
  - [GetValidationKeyResponseDto](https://github.com/fireblocks/py-sdk/tree/master/docs/GetValidationKeyResponseDto.md)
  - [GetWhitelistIpAddressesResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetWhitelistIpAddressesResponse.md)
  - [GetWorkspaceStatusResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetWorkspaceStatusResponse.md)
+ - [GleifData](https://github.com/fireblocks/py-sdk/tree/master/docs/GleifData.md)
  - [HttpContractDoesNotExistError](https://github.com/fireblocks/py-sdk/tree/master/docs/HttpContractDoesNotExistError.md)
  - [IbanAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/IbanAddress.md)
  - [IbanDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/IbanDestination.md)
@@ -1090,14 +1123,23 @@ Class | Method | HTTP request | Description
  - [LegacyPublishDraftRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPublishDraftRequest.md)
  - [LegacyPublishResult](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPublishResult.md)
  - [LegacySrcOrDestAttributesInner](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacySrcOrDestAttributesInner.md)
+ - [LegalEntityRegistration](https://github.com/fireblocks/py-sdk/tree/master/docs/LegalEntityRegistration.md)
+ - [LeiStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/LeiStatus.md)
  - [LinkedTokensCount](https://github.com/fireblocks/py-sdk/tree/master/docs/LinkedTokensCount.md)
  - [ListAssetsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ListAssetsResponse.md)
  - [ListBlockchainsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ListBlockchainsResponse.md)
+ - [ListLegalEntitiesResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ListLegalEntitiesResponse.md)
  - [ListOwnedCollectionsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ListOwnedCollectionsResponse.md)
  - [ListOwnedTokensResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ListOwnedTokensResponse.md)
+ - [ListVaultsForRegistrationResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ListVaultsForRegistrationResponse.md)
  - [LocalBankTransferAfricaAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/LocalBankTransferAfricaAddress.md)
  - [LocalBankTransferAfricaDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/LocalBankTransferAfricaDestination.md)
  - [Manifest](https://github.com/fireblocks/py-sdk/tree/master/docs/Manifest.md)
+ - [ManifestBase](https://github.com/fireblocks/py-sdk/tree/master/docs/ManifestBase.md)
+ - [ManifestOrder](https://github.com/fireblocks/py-sdk/tree/master/docs/ManifestOrder.md)
+ - [ManifestOrderInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/ManifestOrderInfo.md)
+ - [ManifestQuote](https://github.com/fireblocks/py-sdk/tree/master/docs/ManifestQuote.md)
+ - [ManifestQuoteInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/ManifestQuoteInfo.md)
  - [MarketExecutionRequestDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/MarketExecutionRequestDetails.md)
  - [MarketExecutionResponseDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/MarketExecutionResponseDetails.md)
  - [MarketRequoteRequestDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/MarketRequoteRequestDetails.md)
@@ -1204,6 +1246,7 @@ Class | Method | HTTP request | Description
  - [PolicyValidation](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyValidation.md)
  - [PolicyVerdictActionEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyVerdictActionEnum.md)
  - [PolicyVerdictActionEnum2](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyVerdictActionEnum2.md)
+ - [Position](https://github.com/fireblocks/py-sdk/tree/master/docs/Position.md)
  - [PostalAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/PostalAddress.md)
  - [PreScreening](https://github.com/fireblocks/py-sdk/tree/master/docs/PreScreening.md)
  - [PrefundedSettlement](https://github.com/fireblocks/py-sdk/tree/master/docs/PrefundedSettlement.md)
@@ -1231,6 +1274,7 @@ Class | Method | HTTP request | Description
  - [ReadCallFunctionDtoAbiFunction](https://github.com/fireblocks/py-sdk/tree/master/docs/ReadCallFunctionDtoAbiFunction.md)
  - [RecipientHandle](https://github.com/fireblocks/py-sdk/tree/master/docs/RecipientHandle.md)
  - [RedeemFundsToLinkedDDAResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/RedeemFundsToLinkedDDAResponse.md)
+ - [RegisterLegalEntityRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/RegisterLegalEntityRequest.md)
  - [RegisterNewAssetRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/RegisterNewAssetRequest.md)
  - [ReissueMultichainTokenRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ReissueMultichainTokenRequest.md)
  - [RelatedRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/RelatedRequest.md)
@@ -1276,7 +1320,6 @@ Class | Method | HTTP request | Description
  - [ScreeningOperationType](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningOperationType.md)
  - [ScreeningPolicyResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningPolicyResponse.md)
  - [ScreeningProviderRulesConfigurationResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningProviderRulesConfigurationResponse.md)
- - [ScreeningRiskLevelEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningRiskLevelEnum.md)
  - [ScreeningTRLinkAmount](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningTRLinkAmount.md)
  - [ScreeningTRLinkMissingTrmDecision](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningTRLinkMissingTrmDecision.md)
  - [ScreeningTRLinkMissingTrmRule](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningTRLinkMissingTrmRule.md)
@@ -1320,6 +1363,7 @@ Class | Method | HTTP request | Description
  - [SettlementRequestBody](https://github.com/fireblocks/py-sdk/tree/master/docs/SettlementRequestBody.md)
  - [SettlementResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/SettlementResponse.md)
  - [SettlementSourceAccount](https://github.com/fireblocks/py-sdk/tree/master/docs/SettlementSourceAccount.md)
+ - [SettlementTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/SettlementTypeEnum.md)
  - [Side](https://github.com/fireblocks/py-sdk/tree/master/docs/Side.md)
  - [SignedMessage](https://github.com/fireblocks/py-sdk/tree/master/docs/SignedMessage.md)
  - [SignedMessageSignature](https://github.com/fireblocks/py-sdk/tree/master/docs/SignedMessageSignature.md)
@@ -1370,6 +1414,7 @@ Class | Method | HTTP request | Description
  - [StEthBlockchainData](https://github.com/fireblocks/py-sdk/tree/master/docs/StEthBlockchainData.md)
  - [StakeRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/StakeRequest.md)
  - [StakeResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/StakeResponse.md)
+ - [StakingPositionsPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingPositionsPaginatedResponse.md)
  - [StakingProvider](https://github.com/fireblocks/py-sdk/tree/master/docs/StakingProvider.md)
  - [Status](https://github.com/fireblocks/py-sdk/tree/master/docs/Status.md)
  - [StellarRippleCreateParamsDto](https://github.com/fireblocks/py-sdk/tree/master/docs/StellarRippleCreateParamsDto.md)
@@ -1486,6 +1531,7 @@ Class | Method | HTTP request | Description
  - [TradingAccountType](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingAccountType.md)
  - [TradingErrorSchema](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingErrorSchema.md)
  - [TradingProvider](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingProvider.md)
+ - [TradingProviderDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/TradingProviderDetails.md)
  - [Transaction](https://github.com/fireblocks/py-sdk/tree/master/docs/Transaction.md)
  - [TransactionDirection](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionDirection.md)
  - [TransactionFee](https://github.com/fireblocks/py-sdk/tree/master/docs/TransactionFee.md)
@@ -1543,6 +1589,7 @@ Class | Method | HTTP request | Description
  - [TravelRulePiiIVMS](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRulePiiIVMS.md)
  - [TravelRulePolicyRuleResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRulePolicyRuleResponse.md)
  - [TravelRulePrescreeningRule](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRulePrescreeningRule.md)
+ - [TravelRuleProvider](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleProvider.md)
  - [TravelRuleResult](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleResult.md)
  - [TravelRuleStatusEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleStatusEnum.md)
  - [TravelRuleTransactionBlockchainInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleTransactionBlockchainInfo.md)
@@ -1579,6 +1626,7 @@ Class | Method | HTTP request | Description
  - [UpdateCallbackHandlerRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateCallbackHandlerRequest.md)
  - [UpdateCallbackHandlerResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateCallbackHandlerResponse.md)
  - [UpdateDraftRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateDraftRequest.md)
+ - [UpdateLegalEntityRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateLegalEntityRequest.md)
  - [UpdateTagRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateTagRequest.md)
  - [UpdateTokenOwnershipStatusDto](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateTokenOwnershipStatusDto.md)
  - [UpdateVaultAccountAssetAddressRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateVaultAccountAssetAddressRequest.md)

@@ -1,3 +1,5 @@
+import { BenchmarkGraphOptions } from "./types";
+
 export interface BenchmarkContext {
   delay: number;
   delay_jitter_ratio: number;
@@ -208,8 +210,9 @@ export function resolveBenchmarkContext(
  * There are two possible counts for expected events: normal and burst.
  * ratio * (expected_steps * expand) + 2 will be the min, but could be larger if we hit bursts.
  */
-export function getExpectedEvents(context: BenchmarkContext): number {
-  return (3 + context.stream_size / context.chunk_size) * (context.steps * context.expand) + 2;
+export function getExpectedEvents(benchmarkGraphOptions: BenchmarkGraphOptions): number {
+  const messages_per_step = benchmarkGraphOptions.resumable ? 3 + benchmarkGraphOptions.context.stream_size / benchmarkGraphOptions.context.chunk_size : 1;
+  return messages_per_step * (benchmarkGraphOptions.context.steps * benchmarkGraphOptions.context.expand) + 2;
 }
 
 function parseOptionalInt(value?: string): number | undefined {

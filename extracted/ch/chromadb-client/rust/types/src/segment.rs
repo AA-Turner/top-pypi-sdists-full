@@ -13,6 +13,7 @@ pub const USER_ID_TO_OFFSET_ID: &str = "user_id_to_offset_id";
 pub const OFFSET_ID_TO_USER_ID: &str = "offset_id_to_user_id";
 pub const OFFSET_ID_TO_DATA: &str = "offset_id_to_data";
 pub const MAX_OFFSET_ID: &str = "max_offset_id";
+pub const USER_ID_BLOOM_FILTER: &str = "user_id_bloom_filter";
 
 pub const FULL_TEXT_PLS: &str = "full_text_pls";
 pub const STRING_METADATA: &str = "string_metadata";
@@ -153,7 +154,10 @@ impl Segment {
                 }
             }
             SegmentType::BlockfileMetadata | SegmentType::BlockfileRecord => {
-                for paths in self.file_path.values() {
+                for (key, paths) in &self.file_path {
+                    if key == USER_ID_BLOOM_FILTER {
+                        continue;
+                    }
                     res.extend(paths.iter().cloned());
                 }
             }
@@ -174,10 +178,88 @@ impl Segment {
     }
 
     pub fn construct_prefix_path(&self, tenant: &str, database_id: &DatabaseUuid) -> String {
+        Self::construct_prefix_path_impl(tenant, database_id, &self.collection, &self.id)
+    }
+
+    fn construct_prefix_path_impl(
+        tenant: &str,
+        database_id: &DatabaseUuid,
+        collection: &CollectionUuid,
+        segment_id: &SegmentUuid,
+    ) -> String {
         format!(
             "tenant/{}/database/{}/collection/{}/segment/{}",
-            tenant, database_id, self.collection, self.id
+            tenant, database_id, collection, segment_id
         )
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SegmentShard {
+    pub id: SegmentUuid,
+    pub r#type: SegmentType,
+    pub scope: SegmentScope,
+    pub collection: CollectionUuid,
+    pub metadata: Option<Metadata>,
+    pub file_path: HashMap<String, String>,
+}
+
+impl SegmentShard {
+    pub fn construct_prefix_path(&self, tenant: &str, database_id: &DatabaseUuid) -> String {
+        Segment::construct_prefix_path_impl(tenant, database_id, &self.collection, &self.id)
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum SegmentShardError {
+    #[error("Empty path vector for key '{0}'")]
+    EmptyPathVector(String),
+    #[error("Empty path string for key '{0}'")]
+    EmptyPathString(String),
+    #[error("Shard index {index} out of bounds for key '{key}' (len {len})")]
+    ShardIndexOutOfBounds { key: String, index: u32, len: usize },
+}
+
+impl ChromaError for SegmentShardError {
+    fn code(&self) -> ErrorCodes {
+        ErrorCodes::Internal
+    }
+}
+
+impl TryFrom<(&Segment, u32)> for SegmentShard {
+    type Error = SegmentShardError;
+
+    fn try_from((segment, shard_index): (&Segment, u32)) -> Result<Self, Self::Error> {
+        let mut file_path = HashMap::new();
+        for (key, paths) in &segment.file_path {
+            match paths.get(shard_index as usize) {
+                Some(path) if path.is_empty() => {
+                    return Err(SegmentShardError::EmptyPathString(key.clone()));
+                }
+                Some(path) => {
+                    file_path.insert(key.clone(), path.clone());
+                }
+                None if paths.is_empty() => {
+                    return Err(SegmentShardError::EmptyPathVector(key.clone()));
+                }
+                None => {
+                    return Err(SegmentShardError::ShardIndexOutOfBounds {
+                        key: key.clone(),
+                        index: shard_index,
+                        len: paths.len(),
+                    });
+                }
+            }
+        }
+
+        Ok(SegmentShard {
+            id: segment.id,
+            r#type: segment.r#type,
+            scope: segment.scope.clone(),
+            collection: segment.collection,
+            metadata: segment.metadata.clone(),
+            file_path,
+        })
     }
 }
 

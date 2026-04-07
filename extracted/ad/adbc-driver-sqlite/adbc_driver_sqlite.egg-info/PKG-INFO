@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: adbc-driver-sqlite
-Version: 1.10.0
+Version: 1.11.0
 Summary: An ADBC driver for working with SQLite.
 Author-email: Apache Arrow Developers <dev@arrow.apache.org>
 License-Expression: Apache-2.0

@@ -25,6 +25,7 @@ use pyrefly_types::types::Type;
 use pyrefly_util::forgetter::Forgetter;
 use pyrefly_util::includes::Includes;
 use pyrefly_util::thread_pool::ThreadCount;
+use ruff_python_ast::Expr;
 use ruff_python_ast::Parameters;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -38,9 +39,12 @@ use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingClass;
 use crate::binding::binding::BindingExport;
+use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::FunctionDefData;
 use crate::binding::binding::Key;
+use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
+use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyExport;
 use crate::binding::binding::ReturnTypeKind;
@@ -127,18 +131,6 @@ impl SlotCounts {
             (self.n_typed as f64 / self.n_typable as f64) * 100.0
         }
     }
-
-    /// Aggregate slot counts across all functions and variables.
-    fn total(functions: &[Function], variables: &[Variable]) -> SlotCounts {
-        let mut total = SlotCounts::default();
-        for func in functions {
-            total = total.merge(func.slots);
-        }
-        for var in variables {
-            total = total.merge(var.slots);
-        }
-        total
-    }
 }
 
 #[derive(Debug, Copy, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -147,7 +139,7 @@ struct Location {
     column: usize,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 /// Information about a single function parameter.
 struct Parameter {
     name: String,
@@ -373,6 +365,21 @@ impl ReportArgs {
         }
     }
 
+    /// Build a class's qualified name from its nesting context.
+    /// Returns e.g. `"Outer.Inner"` for a nested class or `"MyClass"` for a top-level one.
+    fn class_qualified_name(
+        module: &Module,
+        parent: &NestingContext,
+        class_name: impl std::fmt::Display,
+    ) -> String {
+        let parent_path = module.display(parent).to_string();
+        if parent_path.is_empty() {
+            class_name.to_string()
+        } else {
+            format!("{parent_path}.{class_name}")
+        }
+    }
+
     /// Classify a single annotation slot: is it typed, any, or untyped?
     fn classify_slot(has_annotation: bool, is_type_known: bool) -> SlotCounts {
         if !has_annotation {
@@ -383,6 +390,21 @@ impl ReportArgs {
             SlotCounts::any()
         }
     }
+
+    /// Returns true if the annotation text represents an explicit `Any` annotation.
+    fn is_any_annotation(annotation_text: &Option<String>) -> bool {
+        annotation_text.as_deref() == Some("Any")
+    }
+
+    /// Returns true if the name is public: does not start with `_`, or is a dunder (`__x__`).
+    /// Matches typestats `is_public_name`.
+    fn is_public_name(name: &str) -> bool {
+        !name.starts_with('_') || name.ends_with("__")
+    }
+
+    /// Module-level dunders that typestats always excludes from the report.
+    const EXCLUDED_MODULE_DUNDERS: &'static [&'static str] =
+        &["__all__", "__dir__", "__doc__", "__getattr__"];
 
     /// Returns true if the first parameter is self/cls (implicit, excluded from slot counting).
     fn is_self_or_cls(index: usize, name: &str) -> bool {
@@ -412,6 +434,12 @@ impl ReportArgs {
         let mut variables = Vec::new();
         for idx in bindings.keys::<KeyExport>() {
             let KeyExport(name) = bindings.idx_to_key(idx);
+            // Skip non-public module-level names and excluded dunders.
+            let name_str = name.as_str();
+            if !Self::is_public_name(name_str) || Self::EXCLUDED_MODULE_DUNDERS.contains(&name_str)
+            {
+                continue;
+            }
             let qualified_name = format!("{module_prefix}{name}");
             if reported_names.contains(qualified_name.as_str()) {
                 continue;
@@ -425,19 +453,19 @@ impl ReportArgs {
             };
             match binding {
                 BindingExport::AnnotatedForward(annot_idx, _) => {
-                    let (annotation_text, annotation_range) = match bindings.get(*annot_idx) {
-                        BindingAnnotation::AnnotateExpr(_, expr, _) => (
-                            Some(module.code_at(expr.range()).to_owned()),
-                            Some(expr.range()),
-                        ),
-                        _ => (None, None),
+                    let annotation_text = match bindings.get(*annot_idx) {
+                        BindingAnnotation::AnnotateExpr(_, expr, _) => {
+                            Some(module.code_at(expr.range()).to_owned())
+                        }
+                        _ => None,
                     };
                     let is_type_known = annotation_text.is_some()
-                        && annotation_range.is_some_and(|range| {
-                            answers
-                                .get_type_trace(range)
-                                .is_some_and(|t| Self::is_type_fully_known(&t))
-                        });
+                        && answers
+                            .get_idx(*annot_idx)
+                            .and_then(|awt| {
+                                awt.annotation.ty.as_ref().map(Self::is_type_fully_known)
+                            })
+                            .unwrap_or(false);
                     let slots = Self::classify_slot(annotation_text.is_some(), is_type_known);
                     variables.push(Variable {
                         name: qualified_name,
@@ -446,22 +474,126 @@ impl ReportArgs {
                         location,
                     });
                 }
-                BindingExport::Forward(idx) => match bindings.get(*idx) {
-                    // Skip injected implicit globals
-                    Binding::Global(_) => {}
-                    _ => {
-                        variables.push(Variable {
-                            name: qualified_name,
-                            annotation: None,
-                            slots: SlotCounts::untyped(),
-                            location,
-                        });
+                BindingExport::Forward(idx) | BindingExport::PromoteForward(idx) => {
+                    match bindings.get(*idx) {
+                        // Skip injected implicit globals
+                        Binding::Global(_) => {}
+                        // IMPLICIT: special type forms have 0 slots
+                        Binding::TypeVar(_) | Binding::ParamSpec(_) | Binding::TypeVarTuple(_) => {}
+                        // IMPLICIT: non-call assignments have 0 slots;
+                        // call assignments are untyped (1 slot)
+                        Binding::NameAssign(na) => {
+                            if matches!(na.expr.as_ref(), Expr::Call(_)) {
+                                variables.push(Variable {
+                                    name: qualified_name,
+                                    annotation: None,
+                                    slots: SlotCounts::untyped(),
+                                    location,
+                                });
+                            }
+                        }
+                        _ => {
+                            variables.push(Variable {
+                                name: qualified_name,
+                                annotation: None,
+                                slots: SlotCounts::untyped(),
+                                location,
+                            });
+                        }
                     }
-                },
+                }
             }
         }
         variables.sort_by(|a, b| a.location.cmp(&b.location));
         variables
+    }
+
+    /// Extract instance attributes assigned in `__init__`/`__new__`/`__post_init__`.
+    ///
+    /// For each class field that is either:
+    /// - `DefinedInMethod` from a recognized attribute-defining method (e.g. `__init__`), or
+    /// - `DeclaredByAnnotation` in the class body AND initialized in such a method,
+    ///
+    /// emit a `Variable` (reported as `SymbolReport::Attr`).
+    fn parse_instance_attrs(
+        module: &Module,
+        bindings: &Bindings,
+        answers: &Answers,
+    ) -> Vec<Variable> {
+        let mut attrs = Vec::new();
+        let module_prefix = if module.name() != ModuleName::unknown() {
+            format!("{}.", module.name())
+        } else {
+            String::new()
+        };
+
+        for field_idx in bindings.keys::<KeyClassField>() {
+            let field = bindings.get(field_idx);
+
+            // Skip private class attrs (single-underscore prefix).
+            if !Self::is_public_name(field.name.as_str()) {
+                continue;
+            }
+
+            // Determine whether this field is from a recognized method (__init__, etc.)
+            let annotation_idx = match &field.definition {
+                ClassFieldDefinition::DefinedInMethod {
+                    annotation, method, ..
+                } => {
+                    if !method.recognized_attribute_defining_method {
+                        continue;
+                    }
+                    *annotation
+                }
+                ClassFieldDefinition::DeclaredByAnnotation {
+                    annotation,
+                    initialized_in_recognized_method,
+                } => {
+                    if !initialized_in_recognized_method {
+                        continue;
+                    }
+                    Some(*annotation)
+                }
+                _ => continue,
+            };
+
+            let cls_binding = match bindings.get(field.class_idx) {
+                BindingClass::ClassDef(cls) => cls,
+                BindingClass::FunctionalClassDef(..) => continue,
+            };
+            if Self::has_function_ancestor(&cls_binding.parent) {
+                continue;
+            }
+            let class_name =
+                Self::class_qualified_name(module, &cls_binding.parent, &cls_binding.def.name);
+            let qualified_name = format!("{}{}.{}", module_prefix, class_name, field.name);
+            let location = Self::range_to_location(module, field.range);
+
+            let annotation_text = annotation_idx.and_then(|idx| match bindings.get(idx) {
+                BindingAnnotation::AnnotateExpr(_, expr, _) => {
+                    Some(module.code_at(expr.range()).to_owned())
+                }
+                _ => None,
+            });
+            let is_type_known = annotation_text.is_some()
+                && annotation_idx
+                    .and_then(|idx| {
+                        answers.get_idx(idx).and_then(|awt| {
+                            awt.annotation.ty.as_ref().map(Self::is_type_fully_known)
+                        })
+                    })
+                    .unwrap_or(false);
+            let slots = Self::classify_slot(annotation_text.is_some(), is_type_known);
+
+            attrs.push(Variable {
+                name: qualified_name,
+                annotation: annotation_text,
+                slots,
+                location,
+            });
+        }
+        attrs.sort_by(|a, b| a.location.cmp(&b.location));
+        attrs
     }
 
     fn parse_functions(
@@ -481,7 +613,23 @@ impl ReportArgs {
             if let Key::Definition(id) = bindings.idx_to_key(idx)
                 && let Binding::Function(x, _pred, _class_meta) = bindings.get(idx)
             {
-                let fun = bindings.get(bindings.get(*x).undecorated_idx);
+                let decorated = bindings.get(*x);
+                let fun = bindings.get(decorated.undecorated_idx);
+                // Skip overload implementation signatures — only @overload
+                // decorated signatures are part of the public API.
+                if let Some(pred) = _pred
+                    && let Binding::Function(pred_x, _, _) = bindings.get(*pred)
+                {
+                    let pred_is_overload = answers
+                        .get_idx(bindings.get(*pred_x).undecorated_idx)
+                        .is_some_and(|u| u.metadata.flags.is_overload);
+                    let this_is_overload = answers
+                        .get_idx(decorated.undecorated_idx)
+                        .is_some_and(|u| u.metadata.flags.is_overload);
+                    if pred_is_overload && !this_is_overload {
+                        continue;
+                    }
+                }
                 let location = Self::range_to_location(module, fun.def.range);
                 let func_name = if let Some(class_key) = fun.class_key {
                     match bindings.get(class_key) {
@@ -490,16 +638,13 @@ impl ReportArgs {
                             if Self::has_function_ancestor(&cls.parent) {
                                 continue;
                             }
-                            // Build full qualified name using nesting context
-                            let parent_path = module.display(&cls.parent).to_string();
-                            if parent_path.is_empty() {
-                                format!("{}{}.{}", module_prefix, cls.def.name, fun.def.name)
-                            } else {
-                                format!(
-                                    "{}{}.{}.{}",
-                                    module_prefix, parent_path, cls.def.name, fun.def.name
-                                )
+                            // Skip private class methods (single-underscore prefix).
+                            if !Self::is_public_name(fun.def.name.as_str()) {
+                                continue;
                             }
+                            let class_qname =
+                                Self::class_qualified_name(module, &cls.parent, &cls.def.name);
+                            format!("{module_prefix}{class_qname}.{}", fun.def.name)
                         }
                         BindingClass::FunctionalClassDef(..) => {
                             continue;
@@ -509,6 +654,10 @@ impl ReportArgs {
                     // Skip functions not present in the module's exports
                     // (e.g. functions nested inside other functions).
                     if !exports.contains_key(&fun.def.name.id) {
+                        continue;
+                    }
+                    // Skip non-public module-level functions.
+                    if !Self::is_public_name(fun.def.name.as_str()) {
                         continue;
                     }
                     format!("{}{}", module_prefix, fun.def.name)
@@ -538,9 +687,19 @@ impl ReportArgs {
                 let all_params = Self::extract_parameters(&fun.def.parameters);
                 let mut all_params_type_known = true;
 
-                // Compute slot counts: return + non-self/cls params
-                let return_slot =
-                    Self::classify_slot(return_annotation.is_some(), is_return_type_known);
+                // Compute slot counts: return + non-self/cls params.
+                // Some dunder methods have implicit return types that don't need
+                // annotation (__init__ → None, __bool__ → bool, __len__ → int, etc.).
+                // Only treat as implicit when the annotation is ABSENT; explicit
+                // annotations (e.g. `-> bool` on `__bool__`) are counted normally.
+                let has_implicit_return = fun.class_key.is_some()
+                    && return_annotation.is_none()
+                    && Self::is_implicit_dunder_return(fun.def.name.as_str());
+                let return_slot = if has_implicit_return {
+                    SlotCounts::default()
+                } else {
+                    Self::classify_slot(return_annotation.is_some(), is_return_type_known)
+                };
                 let mut func_slots = return_slot;
 
                 for (i, param) in all_params.iter().enumerate() {
@@ -552,10 +711,16 @@ impl ReportArgs {
 
                     let is_param_type_known = if Self::is_self_or_cls(i, param_name) {
                         true
-                    } else if let Some(ann) = &param.annotation {
+                    } else if param.annotation.is_some() {
+                        let annot_key =
+                            KeyAnnotation::Annotation(ShortIdentifier::new(&param.name));
+                        let annot_idx = bindings.key_to_idx(&annot_key);
                         answers
-                            .get_type_trace(ann.range())
-                            .is_some_and(|t| Self::is_type_fully_known(&t))
+                            .get_idx(annot_idx)
+                            .and_then(|awt| {
+                                awt.annotation.ty.as_ref().map(Self::is_type_fully_known)
+                            })
+                            .unwrap_or(false)
                     } else {
                         false
                     };
@@ -601,6 +766,43 @@ impl ReportArgs {
                 });
             }
         }
+        // Resolve method aliases: class body assignments like `__rand__ = __and__`
+        // that point to an existing method. Emit a duplicate Function for the alias.
+        for field_idx in bindings.keys::<KeyClassField>() {
+            let field = bindings.get(field_idx);
+            if let ClassFieldDefinition::AssignedInBody {
+                alias_of: Some(target_name),
+                ..
+            } = &field.definition
+            {
+                let cls = match bindings.get(field.class_idx) {
+                    BindingClass::ClassDef(cls) => cls,
+                    BindingClass::FunctionalClassDef(..) => continue,
+                };
+                if Self::has_function_ancestor(&cls.parent) {
+                    continue;
+                }
+                let class_prefix = format!(
+                    "{module_prefix}{}",
+                    Self::class_qualified_name(module, &cls.parent, &cls.def.name)
+                );
+                let target_qualified = format!("{}.{}", class_prefix, target_name);
+                if let Some(target_func) = functions.iter().find(|f| f.name == target_qualified) {
+                    let alias_name = format!("{}.{}", class_prefix, field.name);
+                    let location = Self::range_to_location(module, field.range);
+                    functions.push(Function {
+                        name: alias_name,
+                        slots: target_func.slots,
+                        location,
+                        return_annotation: target_func.return_annotation.clone(),
+                        is_return_type_known: target_func.is_return_type_known,
+                        parameters: target_func.parameters.clone(),
+                        is_type_known: target_func.is_type_known,
+                        is_property: target_func.is_property,
+                    });
+                }
+            }
+        }
         functions
     }
 
@@ -639,6 +841,36 @@ impl ReportArgs {
     /// Returns true if the type contains no `Any` anywhere in its structure.
     fn is_type_fully_known(ty: &Type) -> bool {
         !ty.any(|t| t.is_any())
+    }
+
+    /// Dunder methods whose return type is fully determined by the protocol
+    /// and therefore don't need an explicit annotation for coverage.
+    fn is_implicit_dunder_return(name: &str) -> bool {
+        matches!(
+            name,
+            "__init__"
+                | "__del__"
+                | "__init_subclass__"
+                | "__post_init__"
+                | "__bool__"
+                | "__len__"
+                | "__length_hint__"
+                | "__hash__"
+                | "__int__"
+                | "__float__"
+                | "__complex__"
+                | "__index__"
+                | "__str__"
+                | "__repr__"
+                | "__format__"
+                | "__bytes__"
+                | "__sizeof__"
+                | "__contains__"
+                | "__setattr__"
+                | "__delattr__"
+                | "__setitem__"
+                | "__delitem__"
+        )
     }
 
     /// Determine whether a function name represents a method (contains '.', i.e. `Cls.method`).
@@ -736,14 +968,10 @@ impl ReportArgs {
                 },
                 None => continue,
             };
-            let class_name = {
-                let parent_path = module.display(&cls_binding.parent).to_string();
-                if parent_path.is_empty() {
-                    format!("{}{}", module_prefix, cls_binding.def.name)
-                } else {
-                    format!("{}{}.{}", module_prefix, parent_path, cls_binding.def.name)
-                }
-            };
+            let class_name = format!(
+                "{module_prefix}{}",
+                Self::class_qualified_name(module, &cls_binding.parent, &cls_binding.def.name)
+            );
             let mro = answers
                 .get_idx(bindings.key_to_idx(&KeyClassMro(ClassDefIndex(class_type.index().0))))
                 .unwrap_or_else(|| Arc::new(ClassMro::Cyclic));
@@ -1013,6 +1241,7 @@ impl ReportArgs {
                 let mut variables = Self::parse_variables(
                     &module, &bindings, &answers, &exports, &functions, &classes,
                 );
+                variables.extend(Self::parse_instance_attrs(&module, &bindings, &answers));
                 let suppressions = Self::parse_suppressions(&module);
 
                 // When a .pyi stub shadows a .py file, include uncovered .py symbols.
@@ -1031,7 +1260,7 @@ impl ReportArgs {
                         transaction,
                         py_handle,
                     );
-                    let py_variables = Self::parse_variables(
+                    let mut py_variables = Self::parse_variables(
                         &py_module,
                         &py_bindings,
                         &py_answers,
@@ -1039,6 +1268,11 @@ impl ReportArgs {
                         &py_functions,
                         &py_classes,
                     );
+                    py_variables.extend(Self::parse_instance_attrs(
+                        &py_module,
+                        &py_bindings,
+                        &py_answers,
+                    ));
                     Self::merge_uncovered_py_symbols(
                         &mut functions,
                         &mut variables,
@@ -1139,9 +1373,12 @@ mod tests {
         let functions = ReportArgs::parse_functions(&module, &bindings, &answers, &exports);
         let classes =
             ReportArgs::parse_classes(&module, &bindings, &answers, &transaction, &handle);
-        let variables = ReportArgs::parse_variables(
+        let mut variables = ReportArgs::parse_variables(
             &module, &bindings, &answers, &exports, &functions, &classes,
         );
+        variables.extend(ReportArgs::parse_instance_attrs(
+            &module, &bindings, &answers,
+        ));
         let suppressions = ReportArgs::parse_suppressions(&module);
 
         ReportArgs::build_module_report(
@@ -1178,6 +1415,9 @@ mod tests {
         let mut variables = ReportArgs::parse_variables(
             &module, &bindings, &answers, &exports, &functions, &classes,
         );
+        variables.extend(ReportArgs::parse_instance_attrs(
+            &module, &bindings, &answers,
+        ));
         let suppressions = ReportArgs::parse_suppressions(&module);
 
         // Parse the .py source
@@ -1197,7 +1437,7 @@ mod tests {
             ReportArgs::parse_functions(&py_module, &py_bindings, &py_answers, &py_exports);
         let py_classes =
             ReportArgs::parse_classes(&py_module, &py_bindings, &py_answers, &py_txn, &py_handle);
-        let py_variables = ReportArgs::parse_variables(
+        let mut py_variables = ReportArgs::parse_variables(
             &py_module,
             &py_bindings,
             &py_answers,
@@ -1205,6 +1445,11 @@ mod tests {
             &py_functions,
             &py_classes,
         );
+        py_variables.extend(ReportArgs::parse_instance_attrs(
+            &py_module,
+            &py_bindings,
+            &py_answers,
+        ));
 
         // Merge uncovered symbols from .py into the stub report
         ReportArgs::merge_uncovered_py_symbols(
@@ -1489,8 +1734,9 @@ mod tests {
     }
 
     /// @overload decorated functions and methods.
-    /// Current: each @overload is a separate Function entry (not deduplicated).
-    /// Typestats: overloads are merged with worst-wins annotation logic.
+    ///
+    /// Only the @overload signatures are reported; the implementation
+    /// signature is excluded because it is not part of the public API.
     #[test]
     fn test_report_overloads() {
         let report = build_module_report_for_test("overloads.py");
@@ -1515,6 +1761,22 @@ mod tests {
         compare_snapshot("instance_attrs.expected.json", &report);
     }
 
+    /// Dunder methods with implicit return types (__init__, __bool__, __len__, etc.)
+    /// should have their return slot excluded from coverage counting.
+    #[test]
+    fn test_report_dunder_implicit() {
+        let report = build_module_report_for_test("dunder_implicit.py");
+        compare_snapshot("dunder_implicit.expected.json", &report);
+    }
+
+    /// Protocol classes define structural interfaces. The class itself should
+    /// have n_typable=0, while its methods still count toward coverage.
+    #[test]
+    fn test_report_protocol() {
+        let report = build_module_report_for_test("protocol.py");
+        compare_snapshot("protocol.expected.json", &report);
+    }
+
     /// @staticmethod, @classmethod decorator handling.
     /// Current: decorators are reported as regular methods.
     #[test]
@@ -1530,5 +1792,12 @@ mod tests {
     fn test_report_method_aliases() {
         let report = build_module_report_for_test("method_aliases.py");
         compare_snapshot("method_aliases.expected.json", &report);
+    }
+
+    /// Non-public names and excluded module dunders are filtered from the report.
+    #[test]
+    fn test_report_private_filtering() {
+        let report = build_module_report_for_test("private_filtering.py");
+        compare_snapshot("private_filtering.expected.json", &report);
     }
 }

@@ -6,15 +6,17 @@ use chroma_error::{ChromaError, ErrorCodes};
 use chroma_index::hnsw_provider::HnswIndexProvider;
 use chroma_log::Log;
 use chroma_segment::{
-    blockfile_metadata::{MetadataSegmentError, MetadataSegmentWriter},
+    blockfile_metadata::{MetadataSegmentError, MetadataSegmentWriterShard},
     blockfile_record::{
-        RecordSegmentReader, RecordSegmentReaderCreationError, RecordSegmentWriter,
-        RecordSegmentWriterCreationError,
+        RecordSegmentReaderOptions, RecordSegmentReaderShard,
+        RecordSegmentReaderShardCreationError, RecordSegmentWriterShard,
+        RecordSegmentWriterShardCreationError,
     },
+    bloom_filter::BloomFilterManager,
     distributed_hnsw::{DistributedHNSWSegmentFromSegmentError, DistributedHNSWSegmentWriter},
-    distributed_spann::SpannSegmentWriterError,
+    distributed_spann::SpannSegmentWriterShardError,
     spann_provider::SpannProvider,
-    types::VectorSegmentWriter,
+    types::VectorSegmentWriterShard,
 };
 use chroma_sysdb::sysdb::SysDb;
 use chroma_system::{
@@ -22,7 +24,8 @@ use chroma_system::{
     OrchestratorContext, PanicError, TaskError, TaskMessage, TaskResult,
 };
 use chroma_types::{
-    Chunk, CollectionUuid, JobId, LogRecord, SegmentFlushInfo, SegmentScope, SegmentType,
+    Chunk, CollectionUuid, JobId, LogRecord, SegmentFlushInfo, SegmentScope, SegmentShard,
+    SegmentShardError, SegmentType,
 };
 use opentelemetry::trace::TraceContextExt;
 use thiserror::Error;
@@ -50,11 +53,16 @@ use crate::execution::{
             SourceRecordSegmentError, SourceRecordSegmentInput, SourceRecordSegmentOperator,
             SourceRecordSegmentOutput,
         },
+        source_record_segment_v2::{
+            SourceRecordSegmentV2Error, SourceRecordSegmentV2Input, SourceRecordSegmentV2Operator,
+            SourceRecordSegmentV2Output,
+        },
     },
-    orchestration::compact::CompactionContextError,
+    orchestration::compact::{
+        CollectionCompactInfo, CompactWriters, CompactionContext, CompactionContextError,
+        ExecutionState,
+    },
 };
-
-use super::compact::{CollectionCompactInfo, CompactWriters, CompactionContext, ExecutionState};
 
 #[derive(Error, Debug)]
 pub enum LogFetchOrchestratorError {
@@ -85,17 +93,21 @@ pub enum LogFetchOrchestratorError {
     #[error("Error prefetching segment: {0}")]
     PrefetchSegment(#[from] PrefetchSegmentError),
     #[error("Error creating record segment reader: {0}")]
-    RecordSegmentReader(#[from] RecordSegmentReaderCreationError),
+    RecordSegmentReaderShard(#[from] RecordSegmentReaderShardCreationError),
     #[error("Error creating record segment writer: {0}")]
-    RecordSegmentWriter(#[from] RecordSegmentWriterCreationError),
+    RecordSegmentWriterShard(#[from] RecordSegmentWriterShardCreationError),
     #[error("Error receiving final result: {0}")]
     RecvError(#[from] RecvError),
     #[error("Error creating quantized spann writer: {0}")]
     QuantizedSpannSegment(#[from] chroma_segment::quantized_spann::QuantizedSpannSegmentError),
+    #[error(transparent)]
+    SegmentShard(#[from] SegmentShardError),
     #[error("Error creating spann writer: {0}")]
-    SpannSegment(#[from] SpannSegmentWriterError),
+    SpannSegment(#[from] SpannSegmentWriterShardError),
     #[error("Error sourcing record segment: {0}")]
     SourceRecordSegment(#[from] SourceRecordSegmentError),
+    #[error("Error sourcing record segment v2: {0}")]
+    SourceRecordSegmentV2(#[from] SourceRecordSegmentV2Error),
     #[error("Could not count current segment: {0}")]
     CountError(Box<dyn chroma_error::ChromaError>),
 }
@@ -127,11 +139,13 @@ impl ChromaError for LogFetchOrchestratorError {
                 Self::Partition(e) => e.should_trace_error(),
                 Self::PrefetchSegment(e) => e.should_trace_error(),
                 Self::QuantizedSpannSegment(e) => e.should_trace_error(),
-                Self::RecordSegmentReader(e) => e.should_trace_error(),
-                Self::RecordSegmentWriter(e) => e.should_trace_error(),
+                Self::SegmentShard(e) => e.should_trace_error(),
+                Self::RecordSegmentReaderShard(e) => e.should_trace_error(),
+                Self::RecordSegmentWriterShard(e) => e.should_trace_error(),
                 Self::RecvError(_) => true,
                 Self::SpannSegment(e) => e.should_trace_error(),
                 Self::SourceRecordSegment(e) => e.should_trace_error(),
+                Self::SourceRecordSegmentV2(e) => e.should_trace_error(),
                 Self::CountError(e) => e.should_trace_error(),
             }
         }
@@ -297,6 +311,7 @@ impl LogFetchOrchestrator {
         collection_id: CollectionUuid,
         database_name: chroma_types::DatabaseName,
         is_rebuild: bool,
+        apply_segment_scopes: std::collections::HashSet<chroma_types::SegmentScope>,
         fetch_log_batch_size: u32,
         fetch_log_concurrency: usize,
         max_compaction_size: usize,
@@ -308,10 +323,11 @@ impl LogFetchOrchestrator {
         spann_provider: SpannProvider,
         dispatcher: ComponentHandle<Dispatcher>,
         fragment_fetcher: Option<Arc<crate::execution::operators::fragment_fetch::FragmentFetcher>>,
+        bloom_filter_manager: Option<BloomFilterManager>,
     ) -> Self {
         let context = CompactionContext::new(
             is_rebuild,
-            std::collections::HashSet::new(),
+            apply_segment_scopes,
             fetch_log_batch_size,
             fetch_log_concurrency,
             max_compaction_size,
@@ -324,6 +340,7 @@ impl LogFetchOrchestrator {
             dispatcher.clone(),
             false, // LogFetchOrchestrator doesn't need is_function_disabled
             fragment_fetcher,
+            bloom_filter_manager,
         );
         LogFetchOrchestrator {
             collection_id,
@@ -395,6 +412,14 @@ impl LogFetchOrchestrator {
             collection_info.collection.total_records_post_compaction = count;
         }
 
+        let total_log_count: usize = partitions.iter().map(|p| p.len()).sum();
+        let option = RecordSegmentReaderOptions {
+            use_bloom_filter: self
+                .context
+                .bloom_filter_manager
+                .as_ref()
+                .is_some_and(|mgr| total_log_count >= mgr.storage_fetch_threshold()),
+        };
         self.num_uncompleted_materialization_tasks = partitions.len();
         for partition in partitions.iter() {
             let operator = MaterializeLogOperator::new();
@@ -402,6 +427,7 @@ impl LogFetchOrchestrator {
                 partition.clone(),
                 record_reader.clone(),
                 next_max_offset_id.clone(),
+                option,
             );
             let task = wrap(
                 operator,
@@ -435,17 +461,25 @@ impl Handler<TaskResult<GetCollectionAndSegmentsOutput, GetCollectionAndSegments
 
         let collection = output.collection.clone();
 
+        let record_segment_shard = match self
+            .ok_or_terminate(SegmentShard::try_from((&output.record_segment, 0)), ctx)
+            .await
+        {
+            Some(shard) => shard,
+            None => return,
+        };
         let record_reader = match self
             .ok_or_terminate(
-                match Box::pin(RecordSegmentReader::from_segment(
-                    &output.record_segment,
+                match Box::pin(RecordSegmentReaderShard::from_segment(
+                    &record_segment_shard,
                     &self.context.blockfile_provider,
+                    self.context.bloom_filter_manager.clone(),
                 ))
                 .await
                 {
                     Ok(reader) => Ok(Some(reader)),
                     Err(err) => match *err {
-                        RecordSegmentReaderCreationError::UninitializedSegment => Ok(None),
+                        RecordSegmentReaderShardCreationError::UninitializedSegment => Ok(None),
                         _ => Err(*err),
                     },
                 },
@@ -458,17 +492,34 @@ impl Handler<TaskResult<GetCollectionAndSegmentsOutput, GetCollectionAndSegments
         };
 
         let log_task = if self.context.is_rebuild {
-            wrap(
-                Box::new(SourceRecordSegmentOperator {}),
-                SourceRecordSegmentInput {
-                    record_segment_reader: record_reader.clone(),
-                },
-                ctx.receiver(),
-                self.context
-                    .orchestrator_context
-                    .task_cancellation_token
-                    .clone(),
-            )
+            // TODO(tanujnay112): Remove this once we've fully baked in SourceRecordSegmentV2Operator
+            if self.context.is_full_rebuild() {
+                wrap(
+                    Box::new(SourceRecordSegmentOperator::new()),
+                    SourceRecordSegmentInput {
+                        record_segment_reader: record_reader.clone(),
+                    },
+                    ctx.receiver(),
+                    self.context
+                        .orchestrator_context
+                        .task_cancellation_token
+                        .clone(),
+                )
+            } else {
+                wrap(
+                    Box::new(SourceRecordSegmentV2Operator::new(
+                        self.context.max_partition_size,
+                    )),
+                    SourceRecordSegmentV2Input {
+                        record_segment_reader: record_reader.clone(),
+                    },
+                    ctx.receiver(),
+                    self.context
+                        .orchestrator_context
+                        .task_cancellation_token
+                        .clone(),
+                )
+            }
         } else {
             let database_name = match chroma_types::DatabaseName::new(collection.database.clone()) {
                 Some(name) => name,
@@ -572,14 +623,22 @@ impl Handler<TaskResult<GetCollectionAndSegmentsOutput, GetCollectionAndSegments
 
         let cmek = collection.schema.as_ref().and_then(|s| s.cmek.clone());
 
+        let record_segment_shard = match self
+            .ok_or_terminate(SegmentShard::try_from((&record_segment, 0)), ctx)
+            .await
+        {
+            Some(shard) => shard,
+            None => return,
+        };
         let record_writer = match self
             .ok_or_terminate(
-                RecordSegmentWriter::from_segment(
+                RecordSegmentWriterShard::from_segment(
                     &collection.tenant,
                     &collection.database_id,
-                    &record_segment,
+                    &record_segment_shard,
                     &self.context.blockfile_provider,
                     cmek.clone(),
+                    self.context.bloom_filter_manager.clone(),
                 )
                 .await,
                 ctx,
@@ -589,12 +648,19 @@ impl Handler<TaskResult<GetCollectionAndSegmentsOutput, GetCollectionAndSegments
             Some(writer) => writer,
             None => return,
         };
+        let metadata_segment_shard = match self
+            .ok_or_terminate(SegmentShard::try_from((&metadata_segment, 0)), ctx)
+            .await
+        {
+            Some(shard) => shard,
+            None => return,
+        };
         let metadata_writer = match self
             .ok_or_terminate(
-                MetadataSegmentWriter::from_segment(
+                MetadataSegmentWriterShard::from_segment(
                     &collection.tenant,
                     &collection.database_id,
-                    &metadata_segment,
+                    &metadata_segment_shard,
                     &self.context.blockfile_provider,
                     cmek.clone(),
                 )
@@ -608,36 +674,65 @@ impl Handler<TaskResult<GetCollectionAndSegmentsOutput, GetCollectionAndSegments
         };
         let (hnsw_index_uuid, vector_writer, is_vector_segment_spann) = match vector_segment.r#type
         {
-            SegmentType::QuantizedSpann => match self
-                .ok_or_terminate(
-                    self.context
-                        .spann_provider
-                        .write_quantized_usearch(&collection, &vector_segment, &record_segment)
-                        .await,
-                    ctx,
-                )
-                .await
-            {
-                Some(writer) => (None, VectorSegmentWriter::QuantizedSpann(writer), true),
-                None => return,
-            },
-            SegmentType::Spann => match self
-                .ok_or_terminate(
-                    self.context
-                        .spann_provider
-                        .write(&collection, &vector_segment, dimension, cmek)
-                        .await,
-                    ctx,
-                )
-                .await
-            {
-                Some(writer) => (
-                    Some(writer.hnsw_index_uuid()),
-                    VectorSegmentWriter::Spann(writer),
-                    true,
-                ),
-                None => return,
-            },
+            SegmentType::QuantizedSpann => {
+                let vector_segment_shard = match self
+                    .ok_or_terminate(SegmentShard::try_from((&vector_segment, 0)), ctx)
+                    .await
+                {
+                    Some(shard) => shard,
+                    None => return,
+                };
+                let record_segment_shard_for_qspann = match self
+                    .ok_or_terminate(SegmentShard::try_from((&record_segment, 0)), ctx)
+                    .await
+                {
+                    Some(shard) => shard,
+                    None => return,
+                };
+                match self
+                    .ok_or_terminate(
+                        self.context
+                            .spann_provider
+                            .write_quantized_usearch(
+                                &collection,
+                                &vector_segment_shard,
+                                &record_segment_shard_for_qspann,
+                            )
+                            .await,
+                        ctx,
+                    )
+                    .await
+                {
+                    Some(writer) => (None, VectorSegmentWriterShard::QuantizedSpann(writer), true),
+                    None => return,
+                }
+            }
+            SegmentType::Spann => {
+                let vector_segment_shard = match self
+                    .ok_or_terminate(SegmentShard::try_from((&vector_segment, 0)), ctx)
+                    .await
+                {
+                    Some(shard) => shard,
+                    None => return,
+                };
+                match self
+                    .ok_or_terminate(
+                        self.context
+                            .spann_provider
+                            .write(&collection, &vector_segment_shard, dimension, cmek)
+                            .await,
+                        ctx,
+                    )
+                    .await
+                {
+                    Some(writer) => (
+                        Some(writer.hnsw_index_uuid()),
+                        VectorSegmentWriterShard::Spann(writer),
+                        true,
+                    ),
+                    None => return,
+                }
+            }
             _ => match self
                 .ok_or_terminate(
                     DistributedHNSWSegmentWriter::from_segment(
@@ -655,7 +750,7 @@ impl Handler<TaskResult<GetCollectionAndSegmentsOutput, GetCollectionAndSegments
             {
                 Some(writer) => (
                     Some(writer.index_uuid()),
-                    VectorSegmentWriter::Hnsw(writer),
+                    VectorSegmentWriterShard::Hnsw(writer),
                     false,
                 ),
                 None => return,
@@ -663,6 +758,7 @@ impl Handler<TaskResult<GetCollectionAndSegmentsOutput, GetCollectionAndSegments
         };
 
         let writers = CompactWriters {
+            // No record reader when rebuilding
             record_reader: record_reader.clone().filter(|_| !self.context.is_rebuild),
             metadata_writer,
             record_writer,
@@ -848,6 +944,96 @@ impl Handler<TaskResult<SourceRecordSegmentOutput, SourceRecordSegmentError>>
 }
 
 #[async_trait]
+impl Handler<TaskResult<SourceRecordSegmentV2Output, SourceRecordSegmentV2Error>>
+    for LogFetchOrchestrator
+{
+    type Result = ();
+
+    async fn handle(
+        &mut self,
+        message: TaskResult<SourceRecordSegmentV2Output, SourceRecordSegmentV2Error>,
+        ctx: &ComponentContext<Self>,
+    ) {
+        let output = match self.ok_or_terminate(message.into_inner(), ctx).await {
+            Some(output) => output,
+            None => return,
+        };
+
+        tracing::info!(
+            "Sourced and materialized {} records in {} partitions",
+            output.total_records,
+            output.partitions.len()
+        );
+
+        // Update total records count
+        let collection_info = match self.context.get_collection_info_mut() {
+            Ok(info) => info,
+            Err(err) => {
+                self.terminate_with_result(Err(err.into()), ctx).await;
+                return;
+            }
+        };
+        collection_info.collection.total_records_post_compaction = output.total_records as u64;
+
+        // If no records, terminate early
+        if output.partitions.is_empty() {
+            let collection_info = match self.context.get_collection_info() {
+                Ok(info) => info,
+                Err(err) => {
+                    self.terminate_with_result(Err(err.into()), ctx).await;
+                    return;
+                }
+            };
+            self.terminate_with_result(
+                Ok(Success::new(vec![], collection_info.clone()).into()),
+                ctx,
+            )
+            .await;
+            return;
+        }
+
+        // Update handler to work with MaterializeLogOutput directly
+        self.num_uncompleted_materialization_tasks = 0;
+        for partition in output.partitions {
+            if partition.result.has_backfill() {
+                self.has_backfill = true;
+            }
+
+            if !partition.result.is_empty() {
+                self.materialized_outputs.push(partition);
+            }
+        }
+
+        // Complete the rebuild flow
+        let collection_info = match self.context.collection_info.take() {
+            Some(info) => info,
+            None => {
+                self.terminate_with_result(
+                    Err(LogFetchOrchestratorError::InvariantViolation(
+                        "self.collection_info not set",
+                    )),
+                    ctx,
+                )
+                .await;
+                return;
+            }
+        };
+
+        let materialized = std::mem::take(&mut self.materialized_outputs);
+        if self.has_backfill {
+            self.terminate_with_result(
+                Ok(RequireFunctionBackfill::new(materialized, collection_info).into()),
+                ctx,
+            )
+            .await;
+            return;
+        }
+        self.terminate_with_result(Ok(Success::new(materialized, collection_info).into()), ctx)
+            .await;
+    }
+}
+
+#[async_trait]
 impl Handler<TaskResult<PartitionOutput, PartitionError>> for LogFetchOrchestrator {
     type Result = ();
 
@@ -902,6 +1088,7 @@ impl Handler<TaskResult<MaterializeLogOutput, MaterializeLogOperatorError>>
                     return;
                 }
             };
+
             let materialized = std::mem::take(&mut self.materialized_outputs);
             if self.has_backfill {
                 self.terminate_with_result(

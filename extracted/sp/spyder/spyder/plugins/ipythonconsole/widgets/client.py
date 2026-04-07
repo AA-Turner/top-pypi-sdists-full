@@ -669,6 +669,9 @@ class ClientWidget(QWidget, SaveHistoryMixin, SpyderWidgetMixin):  # noqa: PLR09
             " UNC ",
             # Matplotlib spurious message, see spyder-ide/spyder#24153
             "Matplotlib is building the font cache",
+            # Numexpr unknown error, see spyder-ide/spyder#25815
+            'nthreads cannot be larger than environment variable '
+            '"NUMEXPR_MAX_THREADS"',
         ]
 
         return any([err in error for err in benign_errors])
@@ -776,16 +779,7 @@ class ClientWidget(QWidget, SaveHistoryMixin, SpyderWidgetMixin):  # noqa: PLR09
         self.shutdown(is_last_client, close_console=close_console)
 
         # Close jupyter and files apis regardless of the kernel state
-        if self.is_remote():
-            if not self._jupyter_api.closed:
-                AsyncDispatcher(
-                    loop=self._jupyter_api.session._loop, early_return=False
-                )(self._jupyter_api.close)()
-
-            if not self._files_api.closed:
-                AsyncDispatcher(
-                    loop=self._files_api.session._loop, early_return=False
-                )(self._files_api.close)()
+        self.close_remote_apis()
 
         # Prevent errors in our tests
         try:
@@ -955,6 +949,19 @@ class ClientWidget(QWidget, SaveHistoryMixin, SpyderWidgetMixin):  # noqa: PLR09
     @property
     def jupyter_api(self):
         return self._jupyter_api
+
+    def close_remote_apis(self):
+        """Close remote APIs the client is connected to."""
+        if self.is_remote():
+            if not self._jupyter_api.closed:
+                AsyncDispatcher(
+                    loop=self._jupyter_api.session._loop, early_return=False
+                )(self._jupyter_api.close)()
+
+            if not self._files_api.closed:
+                AsyncDispatcher(
+                    loop=self._files_api.session._loop, early_return=False
+                )(self._files_api.close)()
 
     def _show_remote_kernel_error(self, message, error: str | Exception):
         self.info_page, error_text = self._render_error_page(error, message)
@@ -1140,7 +1147,8 @@ class ClientWidget(QWidget, SaveHistoryMixin, SpyderWidgetMixin):  # noqa: PLR09
 
     @AsyncDispatcher(loop="ipythonconsole", early_return=False)
     async def shutdown_remote_kernel(self):
-        return await self._jupyter_api.terminate_kernel(self.kernel_id)
+        if not self._jupyter_api.closed:
+            return await self._jupyter_api.terminate_kernel(self.kernel_id)
 
     @AsyncDispatcher(loop="ipythonconsole", early_return=False)
     async def interrupt_remote_kernel(self):

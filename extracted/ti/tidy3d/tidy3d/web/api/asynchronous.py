@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-from os import PathLike
-from typing import Literal, Optional, Union
+from typing import TYPE_CHECKING
 
-from tidy3d.components.types.workflow import WorkflowType
-from tidy3d.log import log
-from tidy3d.web.core.types import PayType
+from .container import DEFAULT_DATA_DIR, Batch
+from .run_options import log_deprecated_run_args
 
-from .container import DEFAULT_DATA_DIR, Batch, BatchData
+if TYPE_CHECKING:
+    from os import PathLike
+    from typing import Literal, Optional, Union
+
+    from tidy3d.components.types.workflow import WorkflowType
+    from tidy3d.web.core.types import PayType
+
+    from .container import BatchData
 
 
 def run_async(
@@ -19,13 +24,15 @@ def run_async(
     callback_url: Optional[str] = None,
     num_workers: Optional[int] = None,
     verbose: bool = True,
-    simulation_type: str = "tidy3d",
+    simulation_type: Optional[str] = None,
     solver_version: Optional[str] = None,
     parent_tasks: Optional[dict[str, list[str]]] = None,
     reduce_simulation: Literal["auto", True, False] = "auto",
-    pay_type: Union[PayType, str] = PayType.AUTO,
+    pay_type: Optional[Union[PayType, str]] = None,
     priority: Optional[int] = None,
     lazy: bool = False,
+    vgpu_allocation: Optional[int] = None,
+    ignore_memory_limit: Optional[bool] = None,
 ) -> BatchData:
     """Submits a set of Union[:class:`.Simulation`, :class:`.HeatSimulation`, :class:`.EMESimulation`] objects to server,
     starts running, monitors progress, downloads, and loads results as a :class:`.BatchData` object.
@@ -34,7 +41,7 @@ def run_async(
 
     Parameters
     ----------
-    simulations : Union[Dict[str, Union[:class:`.Simulation`, :class:`.HeatSimulation`, :class:`.EMESimulation`]], tuple[Union[:class:`.Simulation`, :class:`.HeatSimulation`, :class:`.EMESimulation`]], list[Union[:class:`.Simulation`, :class:`.HeatSimulation`, :class:`.EMESimulation`]]]
+    simulations : Union[dict[str, Union[:class:`.Simulation`, :class:`.HeatSimulation`, :class:`.EMESimulation`]], tuple[Union[:class:`.Simulation`, :class:`.HeatSimulation`, :class:`.EMESimulation`]], list[Union[:class:`.Simulation`, :class:`.HeatSimulation`, :class:`.EMESimulation`]]]
         Mapping of task name to simulation or list of simulations.
     folder_name : str = "default"
         Name of folder to store each task on web UI.
@@ -44,23 +51,35 @@ def run_async(
         Http PUT url to receive simulation finish event. The body content is a json file with
         fields ``{'id', 'status', 'name', 'workUnit', 'solverVersion'}``.
     num_workers: int = None
-        Number of tasks to submit at once in a batch, if None, will run all at the same time.
+        Number of worker threads used by configurable :class:`Batch` stages (for example,
+        monitoring downloads). Upload and start use a separate fixed concurrency of 64 workers.
     verbose : bool = True
         If ``True``, will print progressbars and status, otherwise, will run silently.
-    simulation_type : str = "tidy3d"
-        Type of simulation being uploaded.
+    simulation_type : Optional[str] = None
+        Type of simulation being uploaded. If ``None``, uses
+        ``td.config.run.simulation_type``.
     solver_version: Optional[str] = None
-        Target solver version.
+        Target solver version. If ``None``, uses ``td.config.run.solver_version``.
     reduce_simulation: Literal["auto", True, False] = "auto"
         Whether to reduce structures in the simulation to the simulation domain only. Note: currently only implemented for the mode solver.
-    pay_type: Union[PayType, str] = PayType.AUTO
-        Specify the payment method.
+    pay_type : Optional[Union[PayType, str]] = None
+        Payment method. If ``None``, uses ``td.config.run.pay_type``.
     priority: int = None
         Priority of the simulation in the Virtual GPU (vGPU) queue (1 = lowest, 10 = highest).
         It affects only simulations from vGPU licenses and does not impact simulations using FlexCredits.
     lazy : bool = False
         Whether to load the actual data (``lazy=False``) or return a proxy that loads
         the data when accessed (``lazy=True``).
+    vgpu_allocation : Optional[int] = None
+        Number of virtual GPUs to allocate for the simulation (1, 2, 4, or 8).
+        Only applies to vGPU license users. If not specified, uses
+        ``td.config.vgpu.vgpu_allocation``.
+        If that is also unset, the system
+        automatically determines the optimal GPU count.
+    ignore_memory_limit : Optional[bool] = None
+        If ``True``, allows the simulation to run even when estimated vGPU memory
+        exceeds the allocation limit (up to 2x the limit). Only applies to
+        vGPU license users. If ``None``, uses ``td.config.vgpu.ignore_memory_limit``.
 
     Returns
     ------
@@ -76,16 +95,20 @@ def run_async(
 
     :class:`Batch`
         Interface for submitting several :class:`.Simulation` objects to sever.
-    """
-    if simulation_type is None:
-        simulation_type = "tidy3d"
 
-    # if number of workers not specified, just use the number of simulations
-    if num_workers is not None:
-        log.warning(
-            "The 'num_workers' kwarg does not have an effect anymore as all "
-            "simulations will now be uploaded in a single batch."
-        )
+    Notes
+    -----
+    Passing run options directly is deprecated. Set defaults via
+    ``td.config.run`` and ``td.config.vgpu`` instead. Non-``None`` values
+    passed here override the config for this call.
+    """
+    log_deprecated_run_args(
+        solver_version=solver_version,
+        pay_type=pay_type,
+        priority=priority,
+        vgpu_allocation=vgpu_allocation,
+        ignore_memory_limit=ignore_memory_limit,
+    )
 
     batch = Batch(
         simulations=simulations,
@@ -98,7 +121,13 @@ def run_async(
         reduce_simulation=reduce_simulation,
         pay_type=pay_type,
         lazy=lazy,
+        **({"num_workers": num_workers} if num_workers is not None else {}),
     )
 
-    batch_data = batch.run(path_dir=path_dir, priority=priority)
+    batch_data = batch.run(
+        path_dir=path_dir,
+        priority=priority,
+        vgpu_allocation=vgpu_allocation,
+        ignore_memory_limit=ignore_memory_limit,
+    )
     return batch_data

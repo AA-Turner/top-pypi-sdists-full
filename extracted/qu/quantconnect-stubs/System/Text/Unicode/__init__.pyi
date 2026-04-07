@@ -7,6 +7,18 @@ import System.Buffers
 import System.Text.Unicode
 
 
+class Utf16(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def index_of_invalid_subsequence(value: System.ReadOnlySpan[str]) -> int:
+        ...
+
+    @staticmethod
+    def is_valid(value: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+
 class Utf8(System.Object):
     """This class has no documentation."""
 

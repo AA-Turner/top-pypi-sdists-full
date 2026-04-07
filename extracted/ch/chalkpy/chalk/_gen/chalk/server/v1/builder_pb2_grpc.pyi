@@ -102,6 +102,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     SetTagWeightsResponse,
     StartBranchRequest,
     StartBranchResponse,
+    StartShadowBuildFromDeploymentRequest,
+    StartShadowBuildFromDeploymentResponse,
     SuspendClusterBackgroundPersistenceRequest,
     SuspendClusterBackgroundPersistenceResponse,
     SuspendClusterGatewayRequest,
@@ -144,6 +146,10 @@ class BuilderServiceStub:
     IndexDeployment: UnaryUnaryMultiCallable[
         IndexDeploymentRequest,
         IndexDeploymentResponse,
+    ]
+    StartShadowBuildFromDeployment: UnaryUnaryMultiCallable[
+        StartShadowBuildFromDeploymentRequest,
+        StartShadowBuildFromDeploymentResponse,
     ]
     DeployKubeComponents: UnaryUnaryMultiCallable[
         DeployKubeComponentsRequest,
@@ -385,6 +391,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: IndexDeploymentRequest,
         context: ServicerContext,
     ) -> IndexDeploymentResponse: ...
+    @abstractmethod
+    def StartShadowBuildFromDeployment(
+        self,
+        request: StartShadowBuildFromDeploymentRequest,
+        context: ServicerContext,
+    ) -> StartShadowBuildFromDeploymentResponse: ...
     @abstractmethod
     def DeployKubeComponents(
         self,

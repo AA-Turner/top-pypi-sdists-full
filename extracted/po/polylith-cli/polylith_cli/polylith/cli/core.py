@@ -27,11 +27,11 @@ def enriched_with_lock_files_data(root: Path, projects_data: List[dict], is_verb
     return [enriched_with_lock_file_data(root, p, is_verbose) for p in projects_data]
 
 @app.command('info')
-def info_command(short: Annotated[bool, options.short_workspace]=False, save: Annotated[bool, options.save]=False):
+def info_command(short: Annotated[bool, options.short_workspace]=False, save: Annotated[bool, options.save]=False, group: Annotated[str, options.group]=''):
     """Info about the Polylith workspace."""
     root = repo.get_workspace_root(Path.cwd())
     output = configuration.get_output_dir(root, 'info') if save else None
-    cli_options = {'short': short, 'save': save, 'output': output}
+    cli_options = {'short': short, 'save': save, 'output': output, 'groups': set(str.split(group, ',')) if group else set()}
     commands.info.run(root, cli_options)
 
 @app.command('check')

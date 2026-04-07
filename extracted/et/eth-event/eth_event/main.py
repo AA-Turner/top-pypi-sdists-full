@@ -2,21 +2,8 @@
 
 import functools
 import re
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Final,
-    List,
-    Literal,
-    Mapping,
-    Optional,
-    Sequence,
-    TypedDict,
-    Union,
-    final,
-    overload,
-)
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, Final, Literal, TypeAlias, TypedDict, final, overload
 
 import cchecksum
 import faster_hexbytes
@@ -31,7 +18,7 @@ from eth_typing import (
     HexAddress,
     HexStr,
 )
-from faster_eth_abi import decode
+from faster_eth_abi import decode  # type: ignore [attr-defined]
 from faster_eth_abi.exceptions import (
     InsufficientDataBytes,
     InvalidPointer,
@@ -73,7 +60,7 @@ class EventData(TypedDict, total=False):
 @final
 class DecodedEvent(TypedDict, total=False):
     name: str
-    data: List[EventData]
+    data: list[EventData]
     decoded: Literal[True]
     address: ChecksumAddress
 
@@ -81,13 +68,13 @@ class DecodedEvent(TypedDict, total=False):
 @final
 class NonDecodedEvent(TypedDict, total=False):
     name: None
-    topics: List[HexStr]
+    topics: list[HexStr]
     data: HexStr
     decoded: Literal[False]
     address: ChecksumAddress
 
 
-Event = Union[DecodedEvent, NonDecodedEvent]
+Event: TypeAlias = DecodedEvent | NonDecodedEvent
 
 
 ADD_LOG_ENTRIES: Final = "logIndex", "blockNumber", "transactionIndex"
@@ -127,15 +114,15 @@ def get_log_topic(event_abi: ABIEvent) -> HexStr:
 
 class TopicMapData(TypedDict):
     name: str
-    inputs: List[ABIComponentIndexed]
+    inputs: list[ABIComponentIndexed]
 
 
-TopicMap = Mapping[HexStr, TopicMapData]
+TopicMap: TypeAlias = Mapping[HexStr, TopicMapData]
 # must use Mapping instead of Dict because this change will be breaking if we don't.
 # brownie passes in an AttributeDict not a dict.
 
 
-def get_topic_map(abi: List[ABIElement]) -> Dict[HexStr, TopicMapData]:
+def get_topic_map(abi: list[ABIElement]) -> dict[HexStr, TopicMapData]:
     """
     Generate a dictionary of event topics from an ABI.
 
@@ -244,19 +231,19 @@ def decode_log(
 
 @overload
 def decode_logs(  # noqa: E704
-    logs: List[Mapping[str, Any]], topic_map: TopicMap, allow_undecoded: Literal[True]
-) -> List[DecodedEvent]: ...
+    logs: list[Mapping[str, Any]], topic_map: TopicMap, allow_undecoded: Literal[True]
+) -> list[DecodedEvent]: ...
 
 
 @overload
 def decode_logs(  # noqa: E704
-    logs: List[Mapping[str, Any]], topic_map: TopicMap, allow_undecoded: Literal[False]
-) -> List[Event]: ...
+    logs: list[Mapping[str, Any]], topic_map: TopicMap, allow_undecoded: Literal[False]
+) -> list[Event]: ...
 
 
 def decode_logs(  # type: ignore [misc]
-    logs: List[Mapping[str, Any]], topic_map: TopicMap, allow_undecoded: bool = False
-) -> List[Event]:
+    logs: list[Mapping[str, Any]], topic_map: TopicMap, allow_undecoded: bool = False
+) -> list[Event]:
     """
     Decode a list of event logs from a transaction receipt.
 
@@ -290,7 +277,7 @@ def decode_logs(  # type: ignore [misc]
     List
         A list of decoded events, formatted in the same structure as `decode_log`
     """
-    events: List[Event] = []
+    events: list[Event] = []
 
     # we loosely cache the results to save time during processing
     # but discard the cache after each batch of logs is processed
@@ -319,22 +306,22 @@ def decode_logs(  # type: ignore [misc]
 def _append_additional_log_data(log: Mapping[str, Any], event: Event) -> None:
     for log_entry in ADD_LOG_ENTRIES:
         if log_entry in log:
-            event[log_entry] = log[log_entry]
+            event[log_entry] = log[log_entry]  # type: ignore [typeddict-unknown-key]
 
 
 class _TraceStep(TypedDict):
     depth: int
     op: str
-    stack: List[HexStr]
-    memory: List[HexStr]
+    stack: list[HexStr]
+    memory: list[HexStr]
 
 
 def decode_traceTransaction(
-    struct_logs: List[_TraceStep],
+    struct_logs: list[_TraceStep],
     topic_map: TopicMap,
     allow_undecoded: bool = False,
-    initial_address: Optional[AnyAddress] = None,
-) -> List[Event]:
+    initial_address: AnyAddress | None = None,
+) -> list[Event]:
     """
     Extract and decode a list of event logs from a transaction traceback.
 
@@ -357,13 +344,13 @@ def decode_traceTransaction(
     List
         A list of decoded events, formatted in the same structure as `decode_log`
     """
-    address_list: List[Optional[ChecksumAddress]]
+    address_list: list[ChecksumAddress | None]
 
     # we loosely cache the results to save time during processing
     # but discard the cache after each batch of logs is processed
     to_checksum_address_cached = lru_cache(to_checksum_address)
 
-    events: List[Event] = []
+    events: list[Event] = []
     if initial_address is not None:
         address_list = [to_checksum_address_cached(initial_address)]
     else:
@@ -435,7 +422,7 @@ def _0xstring(value: Any) -> HexStr:
     return HexStr(f"0x{HexBytes(value).hex()}")
 
 
-def _params(abi_params: List[Dict[str, Any]]) -> List[str]:
+def _params(abi_params: list[dict[str, Any]]) -> list[str]:
     types = []
     # regex with 2 capturing groups
     # first group captures whether this is an array tuple
@@ -453,8 +440,8 @@ def _params(abi_params: List[Dict[str, Any]]) -> List[str]:
 
 
 def _decode(
-    inputs: List[ABIComponentIndexed], topics: List, data: Any  # type: ignore[type-arg]
-) -> List[EventData]:
+    inputs: list[ABIComponentIndexed], topics: list, data: Any  # type: ignore[type-arg]
+) -> list[EventData]:
     unindexed_types = []
     indexed_count = 0
     for i in inputs:
@@ -505,7 +492,7 @@ def _decode(
 
     # decode the indexed event data and create the returned dict
     topics = topics[::-1]
-    result: List[EventData] = []
+    result: list[EventData] = []
     element: EventData
     for i in inputs:
         i_type = i["type"]

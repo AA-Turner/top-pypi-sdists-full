@@ -102,19 +102,21 @@ def dataclass(
     """
 
     def _decorator(cls: T) -> T:
-        cls = dataclasses.dataclass(cls, **dataclass_kwargs)  # type: ignore[call-overload]
-        cls = psygnal.evented(cls)  # type: ignore[call-overload]
+        cls = dataclasses.dataclass(cls, **dataclass_kwargs)  # ty:ignore[no-matching-overload]
+        cls = psygnal.evented(cls)
         return widget(esm=esm, css=css)(cls)
 
-    return _decorator(cls) if cls is not None else _decorator  # type: ignore[return-value]
+    return (
+        _decorator(cls) if cls is not None else _decorator  # ty:ignore[invalid-return-type]
+    )
 
 
 _ANYWIDGET_COMMAND = "_anywidget_command"
 _ANYWIDGET_COMMANDS = "_anywidget_commands"
 
 _AnyWidgetCommand = typing.Callable[
-    [object, object, typing.List[bytes]],
-    typing.Tuple[object, typing.List[bytes]],
+    [object, object, list[bytes]],
+    tuple[object, list[bytes]],
 ]
 
 

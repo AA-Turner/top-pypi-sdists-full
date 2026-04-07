@@ -20,9 +20,9 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # and the GNU General Public License along with this program.  If not,
-# see <http://www.gnu.org/licenses/>.
+# see <https://www.gnu.org/licenses/>.
 
-from enum import IntEnum
+from enum import IntEnum, IntFlag
 
 
 # Divert layers.
@@ -45,7 +45,7 @@ class Layer(IntEnum):
 
 
 # Divert Flag.
-class Flag(IntEnum):
+class Flag(IntFlag):
     """
     WinDivert flags.
     See https://reqrypt.org/windivert-doc.html#divert_open
@@ -65,11 +65,10 @@ class Flag(IntEnum):
     """Do not install the driver."""
     FRAGMENTS = 32
     """Divert all fragments (requires WinDivert 2.2+)."""
-    OVERLAPPED = 64
-    """Use overlapped IO."""
-    FULL_PROCESS_IDS = 128
-    """Include full process IDs in metadata."""
-    NO_CHECKSUM = 1024  # Deprecated since Windivert 1.2
+    # Deprecated/Invalid flags in WinDivert 2.x
+    # OVERLAPPED = 64
+    # FULL_PROCESS_IDS = 128
+    # NO_CHECKSUM = 1024
 
 
 # Divert receive flags.
@@ -105,7 +104,7 @@ class Direction(IntEnum):
 
 
 # Checksums
-class CalcChecksumsOption(IntEnum):
+class CalcChecksumsOption(IntFlag):
     """
     See https://reqrypt.org/windivert-doc.html#divert_helper_calc_checksums
     """
@@ -121,7 +120,7 @@ class CalcChecksumsOption(IntEnum):
 class Protocol(IntEnum):
     """
     Transport protocol values define the layout of the header that will immediately follow the IPv4 or IPv6 header.
-    See http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
+    See https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
     """
 
     HOPOPT = 0

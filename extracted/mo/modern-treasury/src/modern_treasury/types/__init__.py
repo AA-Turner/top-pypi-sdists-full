@@ -27,6 +27,7 @@ from .shared import (
     ForeignExchangeRate as ForeignExchangeRate,
     TransactionDirection as TransactionDirection,
     ChildLegalEntityCreate as ChildLegalEntityCreate,
+    ThirdPartyVerification as ThirdPartyVerification,
     LedgerEntryCreateRequest as LedgerEntryCreateRequest,
     LedgerAccountCreateRequest as LedgerAccountCreateRequest,
     IdentificationCreateRequest as IdentificationCreateRequest,
@@ -108,6 +109,7 @@ from .account_detail_list_params import AccountDetailListParams as AccountDetail
 from .bulk_request_create_params import BulkRequestCreateParams as BulkRequestCreateParams
 from .counterparty_create_params import CounterpartyCreateParams as CounterpartyCreateParams
 from .counterparty_update_params import CounterpartyUpdateParams as CounterpartyUpdateParams
+from .journal_report_list_params import JournalReportListParams as JournalReportListParams
 from .ledger_account_list_params import LedgerAccountListParams as LedgerAccountListParams
 from .ledger_entry_update_params import LedgerEntryUpdateParams as LedgerEntryUpdateParams
 from .legal_entity_create_params import LegalEntityCreateParams as LegalEntityCreateParams
@@ -189,9 +191,6 @@ from .ledger_account_settlement_list_params import (
 )
 from .ledger_account_statement_create_params import (
     LedgerAccountStatementCreateParams as LedgerAccountStatementCreateParams,
-)
-from .legal_entity_association_create_params import (
-    LegalEntityAssociationCreateParams as LegalEntityAssociationCreateParams,
 )
 from .ledger_account_category_retrieve_params import (
     LedgerAccountCategoryRetrieveParams as LedgerAccountCategoryRetrieveParams,

@@ -75,6 +75,14 @@ class LocalDiskShortableProvider(System.Object, QuantConnect.Interfaces.IShortab
         ...
 
 
+class InteractiveBrokersShortableProvider(QuantConnect.Data.Shortable.LocalDiskShortableProvider):
+    """Sources the InteractiveBrokers short availability data from the local disk for the given brokerage"""
+
+    def __init__(self) -> None:
+        """Creates a new instance"""
+        ...
+
+
 class ShortableProviderPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.Interfaces.IShortableProvider], QuantConnect.Interfaces.IShortableProvider):
     """Python wrapper for custom shortable providers"""
 
@@ -156,14 +164,6 @@ class NullShortableProvider(System.Object, QuantConnect.Interfaces.IShortablePro
         :param local_time: Local time of the algorithm
         :returns: null, indicating that it is infinitely shortable.
         """
-        ...
-
-
-class InteractiveBrokersShortableProvider(QuantConnect.Data.Shortable.LocalDiskShortableProvider):
-    """Sources the InteractiveBrokers short availability data from the local disk for the given brokerage"""
-
-    def __init__(self) -> None:
-        """Creates a new instance"""
         ...
 
 

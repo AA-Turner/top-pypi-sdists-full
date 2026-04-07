@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pickley
-Version: 4.6.0
+Version: 4.6.1
 Summary: Automate installation of standalone python CLIs
 Home-page: https://github.com/codrsquad/pickley
 Author: Zoran Simic
@@ -30,8 +30,8 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: click~=8.0
-Requires-Dist: runez~=5.2
+Requires-Dist: click~=8.3.2
+Requires-Dist: runez~=5.6.6
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

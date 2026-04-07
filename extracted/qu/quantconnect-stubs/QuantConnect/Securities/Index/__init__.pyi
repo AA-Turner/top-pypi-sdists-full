@@ -10,28 +10,6 @@ import QuantConnect.Securities.Index
 import System
 
 
-class IndexExchange(QuantConnect.Securities.SecurityExchange):
-    """INDEX exchange class - information and helper tools for Index exchange properties"""
-
-    @property
-    def trading_days_per_year(self) -> int:
-        """Number of trading days per year for this security, used for performance statistics."""
-        ...
-
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
-        """
-        Initializes a new instance of the IndexExchange class using the specified
-        exchange hours to determine open/close times
-        
-        :param exchange_hours: Contains the weekly exchange schedule plus holidays
-        """
-        ...
-
-
-class IndexCache(QuantConnect.Securities.SecurityCache):
-    """INDEX specific caching support"""
-
-
 class Index(QuantConnect.Securities.Security):
     """INDEX Security Object Implementation for INDEX Assets"""
 
@@ -83,15 +61,20 @@ class Index(QuantConnect.Securities.Security):
         ...
 
 
-class IndexHolding(QuantConnect.Securities.SecurityHolding):
-    """Index holdings implementation of the base securities class"""
+class IndexExchange(QuantConnect.Securities.SecurityExchange):
+    """INDEX exchange class - information and helper tools for Index exchange properties"""
 
-    def __init__(self, security: QuantConnect.Securities.Index.Index, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+    @property
+    def trading_days_per_year(self) -> int:
+        """Number of trading days per year for this security, used for performance statistics."""
+        ...
+
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
         """
-        INDEX Holding Class constructor
+        Initializes a new instance of the IndexExchange class using the specified
+        exchange hours to determine open/close times
         
-        :param security: The INDEX security being held
-        :param currency_converter: A currency converter instance
+        :param exchange_hours: Contains the weekly exchange schedule plus holidays
         """
         ...
 
@@ -120,5 +103,22 @@ class IndexSymbol(System.Object):
 
 class IndexDataFilter(QuantConnect.Securities.SecurityDataFilter):
     """Index packet by packet data filtering mechanism for dynamically detecting bad ticks."""
+
+
+class IndexHolding(QuantConnect.Securities.SecurityHolding):
+    """Index holdings implementation of the base securities class"""
+
+    def __init__(self, security: QuantConnect.Securities.Index.Index, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+        """
+        INDEX Holding Class constructor
+        
+        :param security: The INDEX security being held
+        :param currency_converter: A currency converter instance
+        """
+        ...
+
+
+class IndexCache(QuantConnect.Securities.SecurityCache):
+    """INDEX specific caching support"""
 
 

@@ -40,7 +40,9 @@ STATS_INTERVAL_SECS = env("STATS_INTERVAL_SECS", cast=int, default=60)
 
 # storage
 
+# Not in public docs: infrastructure, set by platform
 DATABASE_URI = env("DATABASE_URI", cast=str, default=getenv("POSTGRES_URI", undefined))
+# Not in public docs: infrastructure, set by platform
 MIGRATIONS_PATH = env("MIGRATIONS_PATH", cast=str, default="/storage/migrations")
 POSTGRES_POOL_MAX_SIZE = env("LANGGRAPH_POSTGRES_POOL_MAX_SIZE", cast=int, default=150)
 RESUMABLE_STREAM_TTL_SECONDS = env(
@@ -122,6 +124,7 @@ LANGGRAPH_AES_JSON_KEYS: frozenset[str] | None = env(
 )
 
 # redis
+# Not in public docs: infrastructure, set by platform
 REDIS_URI = env("REDIS_URI", cast=str)
 REDIS_CLUSTER = env("REDIS_CLUSTER", cast=bool, default=False)
 REDIS_MAX_CONNECTIONS = env("REDIS_MAX_CONNECTIONS", cast=int, default=2000)
@@ -148,16 +151,20 @@ HTTP_MAX_REQUEST_BODY_BYTES = env(
 )
 
 # gRPC message size limits (300MB default)
+# Not in public docs: infrastructure, set by platform
 LSD_GRPC_SERVER_MAX_RECV_MSG_BYTES = env(
     "LSD_GRPC_SERVER_MAX_RECV_MSG_BYTES", cast=int, default=300 * 1024 * 1024
 )
+# Not in public docs: infrastructure, set by platform
 LSD_GRPC_SERVER_MAX_SEND_MSG_BYTES = env(
     "LSD_GRPC_SERVER_MAX_SEND_MSG_BYTES", cast=int, default=300 * 1024 * 1024
 )
 LSD_PUBLISH_QUEUE_SIZE = env("LSD_PUBLISH_QUEUE_SIZE", cast=int, default=512)
+# Not in public docs: infrastructure, set by platform
 GRPC_CLIENT_MAX_RECV_MSG_BYTES = env(
     "GRPC_CLIENT_MAX_RECV_MSG_BYTES", cast=int, default=300 * 1024 * 1024
 )
+# Not in public docs: infrastructure, set by platform
 GRPC_CLIENT_MAX_SEND_MSG_BYTES = env(
     "GRPC_CLIENT_MAX_SEND_MSG_BYTES", cast=int, default=300 * 1024 * 1024
 )
@@ -167,7 +174,7 @@ GRPC_CLIENT_HTTP2_INITIAL_WINDOW_SIZE = env(
 LSD_GRPC_SERVER_ADDRESS = env(
     "LSD_GRPC_SERVER_ADDRESS",
     cast=str,
-    default="127.0.0.1:50051",
+    default="localhost:50051",
 )
 
 # Python gRPC server settings (for encryption/checkpointer services called by Go)
@@ -180,10 +187,12 @@ PYTHON_GRPC_BIND_HOST = env("PYTHON_GRPC_BIND_HOST", cast=str, default="127.0.0.
 # (Otherwise, the payload is parsed directly in the event loop.)
 JSON_THREAD_POOL_MINIMUM_SIZE_BYTES = 100 * 1024  # 100 KB
 
+# Not in public docs: populated by langgraph.json config, not set as env var directly
 HTTP_CONFIG = env("LANGGRAPH_HTTP", cast=_parse.parse_schema(HttpConfig), default=None)
 MCP_ENABLED = HTTP_CONFIG is None or not HTTP_CONFIG.get("disable_mcp")
 A2A_ENABLED = HTTP_CONFIG is None or not HTTP_CONFIG.get("disable_a2a")
 WEBHOOKS_ENABLED = HTTP_CONFIG and HTTP_CONFIG.get("disable_webhooks")
+# Not in public docs: populated by langgraph.json config, not set as env var directly
 STORE_CONFIG = env(
     "LANGGRAPH_STORE", cast=_parse.parse_schema(StoreConfig), default=None
 )
@@ -284,6 +293,7 @@ MAX_STREAM_CHUNK_SIZE_BYTES = env(
 )
 
 
+# Not in public docs: populated by langgraph.json config, not set as env var directly
 CHECKPOINTER_CONFIG: CheckpointerConfig | None = _parse.parse_checkpointer(
     env("LANGGRAPH_CHECKPOINTER", cast=str, default=None)
 )
@@ -340,6 +350,7 @@ FF_ASYNC_PUBLISH_QUEUE = env("FF_ASYNC_PUBLISH_QUEUE", cast=bool, default=False)
 FF_CRONS_ENABLED = env("FF_CRONS_ENABLED", cast=bool, default=True)
 FF_LOG_DROPPED_EVENTS = env("FF_LOG_DROPPED_EVENTS", cast=bool, default=False)
 FF_LOG_QUERY_AND_PARAMS = env("FF_LOG_QUERY_AND_PARAMS", cast=bool, default=False)
+# Not in public docs: internal feature flag
 FF_USE_REDIS_QUEUE = env("FF_USE_REDIS_QUEUE", cast=bool, default=False)
 
 # Internal flag intended for testing only
@@ -349,6 +360,7 @@ CRON_SCHEDULER_SLEEP_TIME = env("CRON_SCHEDULER_SLEEP_TIME", cast=int, default=5
 # auth
 
 LANGGRAPH_AUTH_TYPE = env("LANGGRAPH_AUTH_TYPE", cast=str, default="noop")
+# Not in public docs: populated by langgraph.json config, not set as env var directly
 LANGGRAPH_POSTGRES_EXTENSIONS: Literal["standard", "lite"] = env(
     "LANGGRAPH_POSTGRES_EXTENSIONS", cast=str, default="standard"
 )
@@ -356,12 +368,15 @@ if LANGGRAPH_POSTGRES_EXTENSIONS not in ("standard", "lite"):
     raise ValueError(
         f"Unknown LANGGRAPH_POSTGRES_EXTENSIONS value: {LANGGRAPH_POSTGRES_EXTENSIONS}"
     )
+# Not in public docs: populated by langgraph.json config, not set as env var directly
 LANGGRAPH_AUTH = env(
     "LANGGRAPH_AUTH", cast=_parse.parse_schema(AuthConfig), default=None
 )
+# Not in public docs: populated by langgraph.json config, not set as env var directly
 LANGGRAPH_ENCRYPTION = env(
     "LANGGRAPH_ENCRYPTION", cast=_parse.parse_schema(EncryptionConfig), default=None
 )
+# Not in public docs: set by SaaS control plane, not user-configurable
 LANGSMITH_TENANT_ID = env("LANGSMITH_TENANT_ID", cast=str, default=None)
 LANGSMITH_AUTH_VERIFY_TENANT_ID = env(
     "LANGSMITH_AUTH_VERIFY_TENANT_ID",
@@ -412,6 +427,7 @@ LANGSMITH_LICENSE_REQUIRED_CLAIMS = env(
     "LANGSMITH_LICENSE_REQUIRED_CLAIMS", cast=CommaSeparatedStrings, default=[]
 )
 
+# Not in public docs: LANGCHAIN_API_KEY is a legacy alias (prefer LANGSMITH_API_KEY)
 LANGSMITH_API_KEY = env(
     "LANGSMITH_API_KEY", cast=str, default=getenv("LANGCHAIN_API_KEY", "")
 )
@@ -464,6 +480,7 @@ if OTEL_ENABLED is None:
 
 # if variant is "licensed", update to "local" if using LANGSMITH_CONTROL_PLANE_API_KEY instead
 
+# Not in public docs: LANGSMITH_LANGGRAPH_API_VARIANT is set by SaaS control plane
 if (
     getenv("LANGSMITH_LANGGRAPH_API_VARIANT") == "licensed"
     and LANGSMITH_CONTROL_PLANE_API_KEY
@@ -492,16 +509,20 @@ LANGGRAPH_METRICS_ENDPOINT = env("LANGGRAPH_METRICS_ENDPOINT", cast=str, default
 LANGGRAPH_METRICS_EXPORT_INTERVAL_MS = env(
     "LANGGRAPH_METRICS_EXPORT_INTERVAL_MS", cast=int, default=60000
 )
+# Not in public docs: infrastructure, set by platform
 LSD_DD_API_KEY = _first_non_empty(
     env("LSD_DD_API_KEY", cast=str, default=None),
     env("CUSTOM_LSD_DD_API_KEY", cast=str, default=None),
 )
+# Not in public docs: infrastructure, set by platform
 LSD_DD_ENDPOINT = _first_non_empty(
     env("LSD_DD_ENDPOINT", cast=str, default=None),
     env("CUSTOM_LSD_DD_ENDPOINT", cast=str, default=None),
     "otlp.us5.datadoghq.com",
 )
+# Not in public docs: infrastructure, set by platform
 METRIC_PREFIX = env("METRIC_PREFIX", cast=str, default="lg_api_")
+# Not in public docs: infrastructure, set by platform
 METRIC_MAX_EMITTING_TIER = env("METRIC_MAX_EMITTING_TIER", cast=int, default=2)
 DATADOG_METRICS_ENABLED = bool(LSD_DD_API_KEY)
 LANGGRAPH_LOGS_ENDPOINT = env("LANGGRAPH_LOGS_ENDPOINT", cast=str, default=None)
@@ -530,6 +551,7 @@ IS_EXECUTOR_ENTRYPOINT = False
 PYTHON_GRPC_SERVER_ENABLED = bool(LANGGRAPH_ENCRYPTION or USE_CUSTOM_CHECKPOINTER)
 
 
+# Not in public docs: LANGSMITH_LANGGRAPH_GIT_REF_SHA is set by SaaS control plane
 ref_sha = None
 if not os.getenv("LANGCHAIN_REVISION_ID") and (
     ref_sha := os.getenv("LANGSMITH_LANGGRAPH_GIT_REF_SHA")

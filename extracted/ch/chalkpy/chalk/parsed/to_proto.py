@@ -1383,7 +1383,10 @@ class ToProtoConverter:
         return pb.ParseInfo(
             parse_function_input_type=maybe_input_type,
             parse_function_output_type=maybe_output_type,
-            parse_function=ToProtoConverter.create_function_reference(info.fn),
+            parse_function=ToProtoConverter.create_function_reference(
+                info.fn,
+                captured_globals=info.parse_function_captured_globals,
+            ),
             is_parse_function_output_optional=info.output_is_optional,
             parse_function_input_type_name=info.input_type.__name__,
             parse_function_output_type_name=info.output_type.__name__,

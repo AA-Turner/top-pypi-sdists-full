@@ -47,6 +47,25 @@ class FuturesOptionsExpiryFunctions(System.Object):
         ...
 
 
+class FutureOption(QuantConnect.Securities.Option.Option):
+    """Futures Options security"""
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.Option.OptionSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache, underlying: QuantConnect.Securities.Security) -> None:
+        """
+        Constructor for the future option security
+        
+        :param symbol: Symbol of the future option
+        :param exchange_hours: Exchange hours of the future option
+        :param quote_currency: Quoted currency of the future option
+        :param symbol_properties: Symbol properties of the future option
+        :param currency_converter: Currency converter
+        :param registered_types: Provides all data types registered to the algorithm
+        :param security_cache: Cache of security objects
+        :param underlying: Future underlying security
+        """
+        ...
+
+
 class FuturesOptionsUnderlyingMapper(System.Object):
     """Creates the underlying Symbol that corresponds to a futures options contract"""
 
@@ -97,25 +116,6 @@ class FutureOptionSymbol(System.Object):
         
         :param _: Symbol
         :returns: true.
-        """
-        ...
-
-
-class FutureOption(QuantConnect.Securities.Option.Option):
-    """Futures Options security"""
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.Option.OptionSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache, underlying: QuantConnect.Securities.Security) -> None:
-        """
-        Constructor for the future option security
-        
-        :param symbol: Symbol of the future option
-        :param exchange_hours: Exchange hours of the future option
-        :param quote_currency: Quoted currency of the future option
-        :param symbol_properties: Symbol properties of the future option
-        :param currency_converter: Currency converter
-        :param registered_types: Provides all data types registered to the algorithm
-        :param security_cache: Cache of security objects
-        :param underlying: Future underlying security
         """
         ...
 

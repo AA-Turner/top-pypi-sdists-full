@@ -20,7 +20,7 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # and the GNU General Public License along with this program.  If not,
-# see <http://www.gnu.org/licenses/>.
+# see <https://www.gnu.org/licenses/>.
 
 import socket
 import threading
@@ -45,10 +45,9 @@ def test_ipv6_traffic_class_flow_label_integration():
         pytest.skip("This test requires Windows.")
 
     # Find a free port for UDP
-    s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-    s.bind(("::1", 0))
-    port = s.getsockname()[1]
-    s.close()
+    with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as s:
+        s.bind(("::1", 0))
+        port = s.getsockname()[1]
 
     # Filter to capture our test packet
     filt = f"ipv6 and udp and udp.DstPort == {port}"
@@ -88,9 +87,8 @@ def test_ipv6_traffic_class_flow_label_integration():
     time.sleep(0.5)
 
     # Send an IPv6 UDP packet to localhost
-    sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-    sock.sendto(b"test", ("::1", port))
-    sock.close()
+    with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as sock:
+        sock.sendto(b"test", ("::1", port))
 
     thread.join(timeout=2)
     stop_event.set()

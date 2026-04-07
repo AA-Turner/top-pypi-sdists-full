@@ -27,6 +27,14 @@ __all__ = (
     "AcceleratorTypeType",
     "AutoScalingModeType",
     "AutoScalingStatusType",
+    "BatchGetJobErrorCodeType",
+    "BatchGetSessionActionErrorCodeType",
+    "BatchGetSessionErrorCodeType",
+    "BatchGetStepErrorCodeType",
+    "BatchGetTaskErrorCodeType",
+    "BatchGetWorkerErrorCodeType",
+    "BatchUpdateJobErrorCodeType",
+    "BatchUpdateTaskErrorCodeType",
     "BudgetActionTypeType",
     "BudgetStatusType",
     "ComparisonOperatorType",
@@ -131,6 +139,52 @@ AcceleratorNameType = Literal["a10g", "l4", "l40s", "t4"]
 AcceleratorTypeType = Literal["gpu"]
 AutoScalingModeType = Literal["EVENT_BASED_AUTO_SCALING", "NO_SCALING"]
 AutoScalingStatusType = Literal["GROWING", "SHRINKING", "STEADY"]
+BatchGetJobErrorCodeType = Literal[
+    "AccessDeniedException",
+    "InternalServerErrorException",
+    "ResourceNotFoundException",
+    "ThrottlingException",
+    "ValidationException",
+]
+BatchGetSessionActionErrorCodeType = Literal[
+    "InternalServerErrorException", "ResourceNotFoundException", "ValidationException"
+]
+BatchGetSessionErrorCodeType = Literal[
+    "InternalServerErrorException", "ResourceNotFoundException", "ValidationException"
+]
+BatchGetStepErrorCodeType = Literal[
+    "AccessDeniedException",
+    "InternalServerErrorException",
+    "ResourceNotFoundException",
+    "ThrottlingException",
+    "ValidationException",
+]
+BatchGetTaskErrorCodeType = Literal[
+    "AccessDeniedException",
+    "InternalServerErrorException",
+    "ResourceNotFoundException",
+    "ThrottlingException",
+    "ValidationException",
+]
+BatchGetWorkerErrorCodeType = Literal[
+    "InternalServerErrorException", "ResourceNotFoundException", "ValidationException"
+]
+BatchUpdateJobErrorCodeType = Literal[
+    "AccessDeniedException",
+    "ConflictException",
+    "InternalServerErrorException",
+    "ResourceNotFoundException",
+    "ThrottlingException",
+    "ValidationException",
+]
+BatchUpdateTaskErrorCodeType = Literal[
+    "AccessDeniedException",
+    "ConflictException",
+    "InternalServerErrorException",
+    "ResourceNotFoundException",
+    "ThrottlingException",
+    "ValidationException",
+]
 BudgetActionTypeType = Literal[
     "STOP_SCHEDULING_AND_CANCEL_TASKS", "STOP_SCHEDULING_AND_COMPLETE_TASKS"
 ]

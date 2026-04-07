@@ -57,40 +57,6 @@ class IFactorProvider(typing.Iterable[QuantConnect.Data.Auxiliary.IFactorRow], m
         ...
 
 
-class PriceScalingExtensions(System.Object):
-    """Set of helper methods for factor files and price scaling operations"""
-
-    @staticmethod
-    def get_empty_factor_file(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.Auxiliary.IFactorProvider:
-        """Helper method to return an empty factor file"""
-        ...
-
-    @staticmethod
-    def get_factor_file_symbol(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Symbol:
-        """Determines the symbol to use to fetch it's factor file"""
-        ...
-
-    @staticmethod
-    def get_price_scale(factor_file: QuantConnect.Data.Auxiliary.IFactorProvider, date_time: typing.Union[datetime.datetime, datetime.date], normalization_mode: QuantConnect.DataNormalizationMode, contract_offset: int = 0, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, end_date_time: typing.Optional[datetime.datetime] = None) -> float:
-        """
-        Resolves the price scale for a date given a factor file and required settings
-        
-        :param factor_file: The factor file to use
-        :param date_time: The date for the price scale lookup
-        :param normalization_mode: The price normalization mode requested
-        :param contract_offset: The contract offset, useful for continuous contracts
-        :param data_mapping_mode: The data mapping mode used, useful for continuous contracts
-        :param end_date_time: The reference end date for scaling prices.
-        :returns: The price scale to use.
-        """
-        ...
-
-    @staticmethod
-    def safe_read(permtick: str, contents: typing.List[str], security_type: QuantConnect.SecurityType) -> QuantConnect.Data.Auxiliary.IFactorProvider:
-        """Parses the contents as a FactorFile, if error returns a new empty factor file"""
-        ...
-
-
 class LocalDiskFactorFileProvider(System.Object, QuantConnect.Interfaces.IFactorFileProvider):
     """Provides an implementation of IFactorFileProvider that searches the local disk"""
 
@@ -114,6 +80,52 @@ class LocalDiskFactorFileProvider(System.Object, QuantConnect.Interfaces.IFactor
         
         :param map_file_provider: MapFileProvider to use
         :param data_provider: DataProvider to use
+        """
+        ...
+
+
+class LocalZipFactorFileProvider(System.Object, QuantConnect.Interfaces.IFactorFileProvider):
+    """Provides an implementation of IFactorFileProvider that searches the local disk for a zip file containing all factor files"""
+
+    @property
+    def cache_refresh_period(self) -> datetime.timedelta:
+        """
+        The cached refresh period for the factor files
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    def __init__(self) -> None:
+        """Creates a new instance of the LocalZipFactorFileProvider class."""
+        ...
+
+    def get(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.Auxiliary.IFactorProvider:
+        """
+        Gets a FactorFile{T} instance for the specified symbol, or null if not found
+        
+        :param symbol: The security's symbol whose factor file we seek
+        :returns: The resolved factor file, or null if not found.
+        """
+        ...
+
+    def initialize(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
+        """
+        Initializes our FactorFileProvider by supplying our map_file_provider
+        and data_provider
+        
+        :param map_file_provider: MapFileProvider to use
+        :param data_provider: DataProvider to use
+        """
+        ...
+
+    def start_expiration_task(self) -> None:
+        """
+        Helper method that will clear any cached factor files in a daily basis, this is useful for live trading
+        
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -472,6 +484,341 @@ class MapFileResolver(System.Object, typing.Iterable[QuantConnect.Data.Auxiliary
         ...
 
 
+class AuxiliaryDataKey(System.Object):
+    """Unique definition key for a collection of auxiliary data for a Market and SecurityType"""
+
+    EQUITY_USA: QuantConnect.Data.Auxiliary.AuxiliaryDataKey
+    """USA equities market corporate actions key definition"""
+
+    @property
+    def market(self) -> str:
+        """The market associated with these corporate actions"""
+        ...
+
+    @property
+    def security_type(self) -> QuantConnect.SecurityType:
+        """The associated security type"""
+        ...
+
+    def __init__(self, market: str, security_type: QuantConnect.SecurityType) -> None:
+        """Creates a new instance"""
+        ...
+
+    @staticmethod
+    @overload
+    def create(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.Auxiliary.AuxiliaryDataKey:
+        """Helper method to create a new instance from a Symbol"""
+        ...
+
+    @staticmethod
+    @overload
+    def create(security_identifier: QuantConnect.SecurityIdentifier) -> QuantConnect.Data.Auxiliary.AuxiliaryDataKey:
+        """Helper method to create a new instance from a SecurityIdentifier"""
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified System.Object is equal to the current System.Object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """Serves as a hash function for a particular type."""
+        ...
+
+    def to_string(self) -> str:
+        """Returns a string containing the market and security type"""
+        ...
+
+
+class LocalZipMapFileProvider(System.Object, QuantConnect.Interfaces.IMapFileProvider):
+    """Provides an implementation of IMapFileProvider that reads from a local zip file"""
+
+    @property
+    def cache_refresh_period(self) -> datetime.timedelta:
+        """
+        The cached refresh period for the map files
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    def __init__(self) -> None:
+        """Creates a new instance of the LocalDiskFactorFileProvider"""
+        ...
+
+    def get(self, auxiliary_data_key: QuantConnect.Data.Auxiliary.AuxiliaryDataKey) -> QuantConnect.Data.Auxiliary.MapFileResolver:
+        """
+        Gets a MapFileResolver representing all the map files for the specified market
+        
+        :param auxiliary_data_key: Key used to fetch a map file resolver. Specifying market and security type
+        :returns: A MapFileResolver containing all map files for the specified market.
+        """
+        ...
+
+    def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
+        """
+        Initializes our MapFileProvider by supplying our data_provider
+        
+        :param data_provider: DataProvider to use
+        """
+        ...
+
+    def start_expiration_task(self) -> None:
+        """
+        Helper method that will clear any cached factor files in a daily basis, this is useful for live trading
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+
+class CorporateFactorProvider(QuantConnect.Data.Auxiliary.FactorFile[QuantConnect.Data.Auxiliary.CorporateFactorRow]):
+    """Corporate related factor provider. Factors based on splits and dividends"""
+
+    def __init__(self, permtick: str, data: typing.List[QuantConnect.Data.Auxiliary.CorporateFactorRow], factor_file_minimum_date: typing.Optional[datetime.datetime] = None) -> None:
+        """Creates a new instance"""
+        ...
+
+    def apply(self, data: typing.List[QuantConnect.Data.BaseData], exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> QuantConnect.Data.Auxiliary.CorporateFactorProvider:
+        """
+        Creates a new factor file with the specified data applied.
+        Only Dividend and Split data types
+        will be used.
+        
+        :param data: The data to apply
+        :param exchange_hours: Exchange hours used for resolving the previous trading day
+        :returns: A new factor file that incorporates the specified dividend.
+        """
+        ...
+
+    def get_price_factor(self, search_date: typing.Union[datetime.datetime, datetime.date], data_normalization_mode: QuantConnect.DataNormalizationMode, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, contract_offset: int = 0) -> float:
+        """Gets the price scale factor that includes dividend and split adjustments for the specified search date"""
+        ...
+
+    def get_scaling_factors(self, search_date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Data.Auxiliary.CorporateFactorRow:
+        """Gets price and split factors to be applied at the specified date"""
+        ...
+
+    def get_splits_and_dividends(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, decimal_places: int = 2) -> typing.List[QuantConnect.Data.BaseData]:
+        """
+        Gets all of the splits and dividends represented by this factor file
+        
+        :param symbol: The symbol to ues for the dividend and split objects
+        :param exchange_hours: Exchange hours used for resolving the previous trading day
+        :param decimal_places: The number of decimal places to round the dividend's distribution to, defaulting to 2
+        :returns: All splits and dividends represented by this factor file in chronological order.
+        """
+        ...
+
+    def has_dividend_event_on_next_trading_day(self, date: typing.Union[datetime.datetime, datetime.date], price_factor_ratio: typing.Optional[float], reference_price: typing.Optional[float]) -> typing.Tuple[bool, float, float]:
+        """
+        Returns true if the specified date is the last trading day before a dividend event
+        is to be fired
+        
+        :param date: The date to check the factor file for a dividend event
+        :param price_factor_ratio: When this function returns true, this value will be populated
+        with the price factor ratio required to scale the closing value (pf_i/pf_i+1)
+        :param reference_price: When this function returns true, this value will be populated
+        with the reference raw price, which is the close of the provided date
+        """
+        ...
+
+    def has_split_event_on_next_trading_day(self, date: typing.Union[datetime.datetime, datetime.date], split_factor: typing.Optional[float], reference_price: typing.Optional[float]) -> typing.Tuple[bool, float, float]:
+        """
+        Returns true if the specified date is the last trading day before a split event
+        is to be fired
+        
+        :param date: The date to check the factor file for a split event
+        :param split_factor: When this function returns true, this value will be populated
+        with the split factor ratio required to scale the closing value
+        :param reference_price: When this function returns true, this value will be populated
+        with the reference raw price, which is the close of the provided date
+        """
+        ...
+
+
+class SymbolDateRange:
+    """Represents security identifier within a date range."""
+
+    @property
+    def symbol(self) -> QuantConnect.Symbol:
+        """Represents a unique security identifier."""
+        ...
+
+    @property
+    def start_date_time_local(self) -> datetime.datetime:
+        """Ticker Start Date Time in Local"""
+        ...
+
+    @property
+    def end_date_time_local(self) -> datetime.datetime:
+        """Ticker End Date Time in Local"""
+        ...
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start_date_time_local: typing.Union[datetime.datetime, datetime.date], end_date_time_local: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Create the instance of SymbolDateRange struct.
+        
+        :param symbol: The unique security identifier
+        :param start_date_time_local: Start Date Time Local
+        :param end_date_time_local: End Date Time Local
+        """
+        ...
+
+
+class QuoteConditionFlags(IntEnum):
+    """Flag system for quote conditions"""
+
+    NONE = 0
+    """No Condition"""
+
+    REGULAR = ...
+    """This condition is used for the majority of quotes to indicate a normal trading environment."""
+
+    SLOW = ...
+    """
+    This condition is used to indicate that the quote is a Slow Quote on both the Bid and Offer
+    sides due to a Set Slow List that includes High Price securities.
+    """
+
+    GAP = ...
+    """
+    While in this mode, auto-execution is not eligible, the quote is then considered manual and non-firm in the Bid and Offer and
+    either or both sides can be traded through as per Regulation NMS.
+    """
+
+    CLOSING = ...
+    """This condition can be disseminated to indicate that this quote was the last quote for a security for that Participant."""
+
+    NEWS_DISSEMINATION = ...
+    """
+    This regulatory Opening Delay or Trading Halt is used when relevant news influencing the security is being disseminated.
+    Trading is suspended until the primary market determines that an adequate publication or disclosure of information has occurred.
+    """
+
+    NEWS_PENDING = ...
+    """
+    This condition is used to indicate a regulatory Opening Delay or Trading Halt due to an expected news announcement,
+    which may influence the security. An Opening Delay or Trading Halt may be continued once the news has been disseminated.
+    """
+
+    TRADING_RANGE_INDICATION = ...
+    """
+    The condition is used to denote the probable trading range (bid and offer prices, no sizes) of a security that is not Opening Delayed or
+    Trading Halted. The Trading Range Indication is used prior to or after the opening of a security.
+    """
+
+    ORDER_IMBALANCE = ...
+    """This non-regulatory Opening Delay or Trading Halt is used when there is a significant imbalance of buy or sell orders."""
+
+    CLOSED_MARKET_MAKER = ...
+    """
+    This condition is disseminated by each individual FINRA Market Maker to signify either the last quote of the day or
+    the premature close of an individual Market Maker for the day.
+    """
+
+    VOLATILITY_TRADING_PAUSE = ...
+    """
+    This quote condition indicates a regulatory Opening Delay or Trading Halt due to conditions in which
+    a security experiences a 10 % or more change in price over a five minute period.
+    """
+
+    NON_FIRM_QUOTE = ...
+    """This quote condition suspends a Participant's firm quote obligation for a quote for a security."""
+
+    OPENING_QUOTE = ...
+    """This condition can be disseminated to indicate that this quote was the opening quote for a security for that Participant."""
+
+    DUE_TO_RELATED_SECURITY = ...
+    """
+    This non-regulatory Opening Delay or Trading Halt is used when events relating to one security will affect the price and performance of
+    another related security. This non-regulatory Opening Delay or Trading Halt is also used when non-regulatory halt reasons such as
+    Order Imbalance, Order Influx and Equipment Changeover are combined with Due to Related Security on CTS.
+    """
+
+    RESUME = ...
+    """
+    This quote condition along with zero-filled bid, offer and size fields is used to indicate that trading for a Participant is no longer
+    suspended in a security which had been Opening Delayed or Trading Halted.
+    """
+
+    IN_VIEW_OF_COMMON = ...
+    """
+    This quote condition is used when matters affecting the common stock of a company affect the performance of the non-common
+    associated securities, e.g., warrants, rights, preferred, classes, etc.
+    """
+
+    EQUIPMENT_CHANGEOVER = ...
+    """
+    This non-regulatory Opening Delay or Trading Halt is used when the ability to trade a security by a Participant is temporarily
+    inhibited due to a systems, equipment or communications facility problem or for other technical reasons.
+    """
+
+    SUB_PENNY_TRADING = ...
+    """
+    This non-regulatory Opening Delay or Trading Halt is used to indicate an Opening Delay or Trading Halt for a security whose price
+    may fall below $1.05, possibly leading to a sub-penny execution.
+    """
+
+    NO_OPEN_NO_RESUME = ...
+    """
+    This quote condition is used to indicate that an Opening Delay or a Trading Halt is to be in effect for the rest
+    of the trading day in a security for a Participant.
+    """
+
+    LIMIT_UP_LIMIT_DOWN_PRICE_BAND = ...
+    """This quote condition is used to indicate that a Limit Up-Limit Down Price Band is applicable for a security."""
+
+    REPUBLISHED_LIMIT_UP_LIMIT_DOWN_PRICE_BAND = ...
+    """
+    This quote condition is used to indicate that a Limit Up-Limit Down Price Band that is being disseminated " +
+    is a ‘republication’ of the latest Price Band for a security.
+    """
+
+    MANUAL = ...
+    """
+    This indicates that the market participant is in a manual mode on both the Bid and Ask. While in this mode,
+    automated execution is not eligible on the Bid and Ask side and can be traded through pursuant to Regulation NMS requirements.
+    """
+
+    FAST_TRADING = ...
+    """For extremely active periods of short duration. While in this mode, the UTP participant will enter quotations on a “best efforts” basis."""
+
+    ORDER_INFLUX = ...
+    """A halt condition used when there is a sudden order influx. To prevent a disorderly market, trading is temporarily suspended by the UTP participant."""
+
+
+class FactorFileZipHelper(System.Object):
+    """Provides methods for reading factor file zips"""
+
+    @staticmethod
+    def get_factor_file_zip_file_name(market: str, date: typing.Union[datetime.datetime, datetime.date], security_type: QuantConnect.SecurityType) -> str:
+        """Gets the factor file zip filename for the specified date"""
+        ...
+
+    @staticmethod
+    def get_relative_factor_file_path(market: str, security_type: QuantConnect.SecurityType) -> str:
+        """
+        Constructs the factor file path for the specified market and security type
+        
+        :param market: The market this symbol belongs to
+        :param security_type: The security type
+        :returns: The relative file path.
+        """
+        ...
+
+    @staticmethod
+    def read_factor_file_zip(file: System.IO.Stream, map_file_resolver: QuantConnect.Data.Auxiliary.MapFileResolver, market: str, security_type: QuantConnect.SecurityType) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Data.Auxiliary.IFactorProvider]]:
+        """Reads the zip bytes as text and parses as FactorFileRows to create FactorFiles"""
+        ...
+
+
 class TradeConditionFlags(IntEnum):
     """Flag system for trade conditions"""
 
@@ -613,6 +960,54 @@ class TradeConditionFlags(IntEnum):
     """Denotes the trade is an odd lot less than a 100 shares."""
 
 
+class PriceScalingExtensions(System.Object):
+    """Set of helper methods for factor files and price scaling operations"""
+
+    @staticmethod
+    def get_empty_factor_file(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.Auxiliary.IFactorProvider:
+        """Helper method to return an empty factor file"""
+        ...
+
+    @staticmethod
+    def get_factor_file_symbol(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Symbol:
+        """Determines the symbol to use to fetch it's factor file"""
+        ...
+
+    @staticmethod
+    def get_price_scale(factor_file: QuantConnect.Data.Auxiliary.IFactorProvider, date_time: typing.Union[datetime.datetime, datetime.date], normalization_mode: QuantConnect.DataNormalizationMode, contract_offset: int = 0, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, end_date_time: typing.Optional[datetime.datetime] = None) -> float:
+        """
+        Resolves the price scale for a date given a factor file and required settings
+        
+        :param factor_file: The factor file to use
+        :param date_time: The date for the price scale lookup
+        :param normalization_mode: The price normalization mode requested
+        :param contract_offset: The contract offset, useful for continuous contracts
+        :param data_mapping_mode: The data mapping mode used, useful for continuous contracts
+        :param end_date_time: The reference end date for scaling prices.
+        :returns: The price scale to use.
+        """
+        ...
+
+    @staticmethod
+    def safe_read(permtick: str, contents: typing.List[str], security_type: QuantConnect.SecurityType) -> QuantConnect.Data.Auxiliary.IFactorProvider:
+        """Parses the contents as a FactorFile, if error returns a new empty factor file"""
+        ...
+
+
+class MapFileZipHelper(System.Object):
+    """Helper class for handling mapfile zip files"""
+
+    @staticmethod
+    def get_map_file_zip_file_name(market: str, date: typing.Union[datetime.datetime, datetime.date], security_type: QuantConnect.SecurityType) -> str:
+        """Gets the mapfile zip filename for the specified date"""
+        ...
+
+    @staticmethod
+    def read_map_file_zip(file: System.IO.Stream, market: str, security_type: QuantConnect.SecurityType) -> typing.Iterable[QuantConnect.Data.Auxiliary.MapFile]:
+        """Reads the zip bytes as text and parses as MapFileRows to create MapFiles"""
+        ...
+
+
 class FactorFile(typing.Generic[QuantConnect_Data_Auxiliary_FactorFile_T], System.Object, QuantConnect.Data.Auxiliary.IFactorProvider, typing.Iterable[QuantConnect.Data.Auxiliary.IFactorRow], metaclass=abc.ABCMeta):
     """Represents an entire factor file for a specified symbol"""
 
@@ -695,392 +1090,25 @@ class FactorFile(typing.Generic[QuantConnect_Data_Auxiliary_FactorFile_T], Syste
         ...
 
 
-class AuxiliaryDataKey(System.Object):
-    """Unique definition key for a collection of auxiliary data for a Market and SecurityType"""
+class MapFilePrimaryExchangeProvider(System.Object, QuantConnect.Interfaces.IPrimaryExchangeProvider):
+    """Implementation of IPrimaryExchangeProvider from map files."""
 
-    EQUITY_USA: QuantConnect.Data.Auxiliary.AuxiliaryDataKey
-    """USA equities market corporate actions key definition"""
-
-    @property
-    def market(self) -> str:
-        """The market associated with these corporate actions"""
-        ...
-
-    @property
-    def security_type(self) -> QuantConnect.SecurityType:
-        """The associated security type"""
-        ...
-
-    def __init__(self, market: str, security_type: QuantConnect.SecurityType) -> None:
-        """Creates a new instance"""
-        ...
-
-    @staticmethod
-    @overload
-    def create(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.Auxiliary.AuxiliaryDataKey:
-        """Helper method to create a new instance from a Symbol"""
-        ...
-
-    @staticmethod
-    @overload
-    def create(security_identifier: QuantConnect.SecurityIdentifier) -> QuantConnect.Data.Auxiliary.AuxiliaryDataKey:
-        """Helper method to create a new instance from a SecurityIdentifier"""
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
+    def __init__(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider) -> None:
         """
-        Determines whether the specified System.Object is equal to the current System.Object.
+        Constructor for Primary Exchange Provider from MapFiles
         
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
+        :param map_file_provider: MapFile to use
         """
         ...
 
-    def get_hash_code(self) -> int:
-        """Serves as a hash function for a particular type."""
-        ...
-
-    def to_string(self) -> str:
-        """Returns a string containing the market and security type"""
-        ...
-
-
-class LocalZipMapFileProvider(System.Object, QuantConnect.Interfaces.IMapFileProvider):
-    """Provides an implementation of IMapFileProvider that reads from a local zip file"""
-
-    @property
-    def cache_refresh_period(self) -> datetime.timedelta:
+    def get_primary_exchange(self, security_identifier: QuantConnect.SecurityIdentifier) -> QuantConnect.Exchange:
         """
-        The cached refresh period for the map files
+        Gets the primary exchange for a given security identifier
         
-        
-        This codeEntityType is protected.
+        :param security_identifier: The security identifier to get the primary exchange for
+        :returns: Returns the primary exchange or null if not found.
         """
         ...
-
-    def __init__(self) -> None:
-        """Creates a new instance of the LocalDiskFactorFileProvider"""
-        ...
-
-    def get(self, auxiliary_data_key: QuantConnect.Data.Auxiliary.AuxiliaryDataKey) -> QuantConnect.Data.Auxiliary.MapFileResolver:
-        """
-        Gets a MapFileResolver representing all the map files for the specified market
-        
-        :param auxiliary_data_key: Key used to fetch a map file resolver. Specifying market and security type
-        :returns: A MapFileResolver containing all map files for the specified market.
-        """
-        ...
-
-    def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
-        """
-        Initializes our MapFileProvider by supplying our data_provider
-        
-        :param data_provider: DataProvider to use
-        """
-        ...
-
-    def start_expiration_task(self) -> None:
-        """
-        Helper method that will clear any cached factor files in a daily basis, this is useful for live trading
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-
-class TickerDateRange:
-    """Represents stock data for a specific ticker within a date range."""
-
-    @property
-    def ticker(self) -> str:
-        """Ticker simple name of stock"""
-        ...
-
-    @property
-    def start_date_time_local(self) -> datetime.datetime:
-        """Ticker Start Date Time in Local"""
-        ...
-
-    @property
-    def end_date_time_local(self) -> datetime.datetime:
-        """Ticker End Date Time in Local"""
-        ...
-
-    def __init__(self, ticker: str, start_date_time_local: typing.Union[datetime.datetime, datetime.date], end_date_time_local: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Create the instance of TickerDateRange struct.
-        
-        :param ticker: Name of ticker
-        :param start_date_time_local: Start Date Time Local
-        :param end_date_time_local: End Date Time Local
-        """
-        ...
-
-
-class SymbolDateRange:
-    """Represents security identifier within a date range."""
-
-    @property
-    def symbol(self) -> QuantConnect.Symbol:
-        """Represents a unique security identifier."""
-        ...
-
-    @property
-    def start_date_time_local(self) -> datetime.datetime:
-        """Ticker Start Date Time in Local"""
-        ...
-
-    @property
-    def end_date_time_local(self) -> datetime.datetime:
-        """Ticker End Date Time in Local"""
-        ...
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start_date_time_local: typing.Union[datetime.datetime, datetime.date], end_date_time_local: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Create the instance of SymbolDateRange struct.
-        
-        :param symbol: The unique security identifier
-        :param start_date_time_local: Start Date Time Local
-        :param end_date_time_local: End Date Time Local
-        """
-        ...
-
-
-class MappingExtensions(System.Object):
-    """Mapping extensions helper methods"""
-
-    @staticmethod
-    @overload
-    def resolve_map_file(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_config: QuantConnect.Data.SubscriptionDataConfig) -> QuantConnect.Data.Auxiliary.MapFile:
-        """
-        Helper method to resolve the mapping file to use.
-        
-        :param map_file_provider: The map file provider
-        :param data_config: The configuration to fetch the map file for
-        :returns: The mapping file to use.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def resolve_map_file(map_file_resolver: QuantConnect.Data.Auxiliary.MapFileResolver, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], data_type: str = None) -> QuantConnect.Data.Auxiliary.MapFile:
-        """
-        Helper method to resolve the mapping file to use.
-        
-        :param map_file_resolver: The map file resolver
-        :param symbol: The symbol that we want to map
-        :param data_type: The string data type name if any
-        :returns: The mapping file to use.
-        """
-        ...
-
-    @staticmethod
-    def retrieve_all_mapped_symbol_in_date_range(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Iterable[QuantConnect.Data.Auxiliary.SymbolDateRange]:
-        """
-        Retrieves all Symbol from map files based on specific Symbol.
-        
-        :param map_file_provider: The provider for map files containing ticker data.
-        :param symbol: The symbol to get MapFileResolver and generate new Symbol.
-        :returns: An enumerable collection of SymbolDateRange.
-        """
-        ...
-
-    @staticmethod
-    def retrieve_symbol_historical_definitions_in_date_range(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start_date_time: typing.Union[datetime.datetime, datetime.date], end_date_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Data.Auxiliary.TickerDateRange]:
-        """
-        Some historical provider supports ancient data. In fact, the ticker could be restructured to new one.
-        
-        :param map_file_provider: Provides instances of MapFileResolver at run time
-        :param symbol: Represents a unique security identifier
-        :param start_date_time: The date since we began our search for the historical name of the symbol.
-        :param end_date_time: The end date and time of the historical data range.
-        :returns: An enumerable collection of tuples containing symbol ticker, start date and time, and end date and time
-        representing the historical definitions of the symbol within the specified time range.
-        """
-        ...
-
-
-class LocalZipFactorFileProvider(System.Object, QuantConnect.Interfaces.IFactorFileProvider):
-    """Provides an implementation of IFactorFileProvider that searches the local disk for a zip file containing all factor files"""
-
-    @property
-    def cache_refresh_period(self) -> datetime.timedelta:
-        """
-        The cached refresh period for the factor files
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    def __init__(self) -> None:
-        """Creates a new instance of the LocalZipFactorFileProvider class."""
-        ...
-
-    def get(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.Auxiliary.IFactorProvider:
-        """
-        Gets a FactorFile{T} instance for the specified symbol, or null if not found
-        
-        :param symbol: The security's symbol whose factor file we seek
-        :returns: The resolved factor file, or null if not found.
-        """
-        ...
-
-    def initialize(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
-        """
-        Initializes our FactorFileProvider by supplying our map_file_provider
-        and data_provider
-        
-        :param map_file_provider: MapFileProvider to use
-        :param data_provider: DataProvider to use
-        """
-        ...
-
-    def start_expiration_task(self) -> None:
-        """
-        Helper method that will clear any cached factor files in a daily basis, this is useful for live trading
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-
-class MapFileZipHelper(System.Object):
-    """Helper class for handling mapfile zip files"""
-
-    @staticmethod
-    def get_map_file_zip_file_name(market: str, date: typing.Union[datetime.datetime, datetime.date], security_type: QuantConnect.SecurityType) -> str:
-        """Gets the mapfile zip filename for the specified date"""
-        ...
-
-    @staticmethod
-    def read_map_file_zip(file: System.IO.Stream, market: str, security_type: QuantConnect.SecurityType) -> typing.Iterable[QuantConnect.Data.Auxiliary.MapFile]:
-        """Reads the zip bytes as text and parses as MapFileRows to create MapFiles"""
-        ...
-
-
-class QuoteConditionFlags(IntEnum):
-    """Flag system for quote conditions"""
-
-    NONE = 0
-    """No Condition"""
-
-    REGULAR = ...
-    """This condition is used for the majority of quotes to indicate a normal trading environment."""
-
-    SLOW = ...
-    """
-    This condition is used to indicate that the quote is a Slow Quote on both the Bid and Offer
-    sides due to a Set Slow List that includes High Price securities.
-    """
-
-    GAP = ...
-    """
-    While in this mode, auto-execution is not eligible, the quote is then considered manual and non-firm in the Bid and Offer and
-    either or both sides can be traded through as per Regulation NMS.
-    """
-
-    CLOSING = ...
-    """This condition can be disseminated to indicate that this quote was the last quote for a security for that Participant."""
-
-    NEWS_DISSEMINATION = ...
-    """
-    This regulatory Opening Delay or Trading Halt is used when relevant news influencing the security is being disseminated.
-    Trading is suspended until the primary market determines that an adequate publication or disclosure of information has occurred.
-    """
-
-    NEWS_PENDING = ...
-    """
-    This condition is used to indicate a regulatory Opening Delay or Trading Halt due to an expected news announcement,
-    which may influence the security. An Opening Delay or Trading Halt may be continued once the news has been disseminated.
-    """
-
-    TRADING_RANGE_INDICATION = ...
-    """
-    The condition is used to denote the probable trading range (bid and offer prices, no sizes) of a security that is not Opening Delayed or
-    Trading Halted. The Trading Range Indication is used prior to or after the opening of a security.
-    """
-
-    ORDER_IMBALANCE = ...
-    """This non-regulatory Opening Delay or Trading Halt is used when there is a significant imbalance of buy or sell orders."""
-
-    CLOSED_MARKET_MAKER = ...
-    """
-    This condition is disseminated by each individual FINRA Market Maker to signify either the last quote of the day or
-    the premature close of an individual Market Maker for the day.
-    """
-
-    VOLATILITY_TRADING_PAUSE = ...
-    """
-    This quote condition indicates a regulatory Opening Delay or Trading Halt due to conditions in which
-    a security experiences a 10 % or more change in price over a five minute period.
-    """
-
-    NON_FIRM_QUOTE = ...
-    """This quote condition suspends a Participant's firm quote obligation for a quote for a security."""
-
-    OPENING_QUOTE = ...
-    """This condition can be disseminated to indicate that this quote was the opening quote for a security for that Participant."""
-
-    DUE_TO_RELATED_SECURITY = ...
-    """
-    This non-regulatory Opening Delay or Trading Halt is used when events relating to one security will affect the price and performance of
-    another related security. This non-regulatory Opening Delay or Trading Halt is also used when non-regulatory halt reasons such as
-    Order Imbalance, Order Influx and Equipment Changeover are combined with Due to Related Security on CTS.
-    """
-
-    RESUME = ...
-    """
-    This quote condition along with zero-filled bid, offer and size fields is used to indicate that trading for a Participant is no longer
-    suspended in a security which had been Opening Delayed or Trading Halted.
-    """
-
-    IN_VIEW_OF_COMMON = ...
-    """
-    This quote condition is used when matters affecting the common stock of a company affect the performance of the non-common
-    associated securities, e.g., warrants, rights, preferred, classes, etc.
-    """
-
-    EQUIPMENT_CHANGEOVER = ...
-    """
-    This non-regulatory Opening Delay or Trading Halt is used when the ability to trade a security by a Participant is temporarily
-    inhibited due to a systems, equipment or communications facility problem or for other technical reasons.
-    """
-
-    SUB_PENNY_TRADING = ...
-    """
-    This non-regulatory Opening Delay or Trading Halt is used to indicate an Opening Delay or Trading Halt for a security whose price
-    may fall below $1.05, possibly leading to a sub-penny execution.
-    """
-
-    NO_OPEN_NO_RESUME = ...
-    """
-    This quote condition is used to indicate that an Opening Delay or a Trading Halt is to be in effect for the rest
-    of the trading day in a security for a Participant.
-    """
-
-    LIMIT_UP_LIMIT_DOWN_PRICE_BAND = ...
-    """This quote condition is used to indicate that a Limit Up-Limit Down Price Band is applicable for a security."""
-
-    REPUBLISHED_LIMIT_UP_LIMIT_DOWN_PRICE_BAND = ...
-    """
-    This quote condition is used to indicate that a Limit Up-Limit Down Price Band that is being disseminated " +
-    is a ‘republication’ of the latest Price Band for a security.
-    """
-
-    MANUAL = ...
-    """
-    This indicates that the market participant is in a manual mode on both the Bid and Ask. While in this mode,
-    automated execution is not eligible on the Bid and Ask side and can be traded through pursuant to Regulation NMS requirements.
-    """
-
-    FAST_TRADING = ...
-    """For extremely active periods of short duration. While in this mode, the UTP participant will enter quotations on a “best efforts” basis."""
-
-    ORDER_INFLUX = ...
-    """A halt condition used when there is a sudden order influx. To prevent a disorderly market, trading is temporarily suspended by the UTP participant."""
 
 
 class MappingContractFactorRow(System.Object, QuantConnect.Data.Auxiliary.IFactorRow):
@@ -1160,117 +1188,6 @@ class MappingContractFactorRow(System.Object, QuantConnect.Data.Auxiliary.IFacto
         ...
 
 
-class MapFilePrimaryExchangeProvider(System.Object, QuantConnect.Interfaces.IPrimaryExchangeProvider):
-    """Implementation of IPrimaryExchangeProvider from map files."""
-
-    def __init__(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider) -> None:
-        """
-        Constructor for Primary Exchange Provider from MapFiles
-        
-        :param map_file_provider: MapFile to use
-        """
-        ...
-
-    def get_primary_exchange(self, security_identifier: QuantConnect.SecurityIdentifier) -> QuantConnect.Exchange:
-        """
-        Gets the primary exchange for a given security identifier
-        
-        :param security_identifier: The security identifier to get the primary exchange for
-        :returns: Returns the primary exchange or null if not found.
-        """
-        ...
-
-
-class CorporateFactorProvider(QuantConnect.Data.Auxiliary.FactorFile[QuantConnect.Data.Auxiliary.CorporateFactorRow]):
-    """Corporate related factor provider. Factors based on splits and dividends"""
-
-    def __init__(self, permtick: str, data: typing.List[QuantConnect.Data.Auxiliary.CorporateFactorRow], factor_file_minimum_date: typing.Optional[datetime.datetime] = None) -> None:
-        """Creates a new instance"""
-        ...
-
-    def apply(self, data: typing.List[QuantConnect.Data.BaseData], exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> QuantConnect.Data.Auxiliary.CorporateFactorProvider:
-        """
-        Creates a new factor file with the specified data applied.
-        Only Dividend and Split data types
-        will be used.
-        
-        :param data: The data to apply
-        :param exchange_hours: Exchange hours used for resolving the previous trading day
-        :returns: A new factor file that incorporates the specified dividend.
-        """
-        ...
-
-    def get_price_factor(self, search_date: typing.Union[datetime.datetime, datetime.date], data_normalization_mode: QuantConnect.DataNormalizationMode, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, contract_offset: int = 0) -> float:
-        """Gets the price scale factor that includes dividend and split adjustments for the specified search date"""
-        ...
-
-    def get_scaling_factors(self, search_date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Data.Auxiliary.CorporateFactorRow:
-        """Gets price and split factors to be applied at the specified date"""
-        ...
-
-    def get_splits_and_dividends(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, decimal_places: int = 2) -> typing.List[QuantConnect.Data.BaseData]:
-        """
-        Gets all of the splits and dividends represented by this factor file
-        
-        :param symbol: The symbol to ues for the dividend and split objects
-        :param exchange_hours: Exchange hours used for resolving the previous trading day
-        :param decimal_places: The number of decimal places to round the dividend's distribution to, defaulting to 2
-        :returns: All splits and dividends represented by this factor file in chronological order.
-        """
-        ...
-
-    def has_dividend_event_on_next_trading_day(self, date: typing.Union[datetime.datetime, datetime.date], price_factor_ratio: typing.Optional[float], reference_price: typing.Optional[float]) -> typing.Tuple[bool, float, float]:
-        """
-        Returns true if the specified date is the last trading day before a dividend event
-        is to be fired
-        
-        :param date: The date to check the factor file for a dividend event
-        :param price_factor_ratio: When this function returns true, this value will be populated
-        with the price factor ratio required to scale the closing value (pf_i/pf_i+1)
-        :param reference_price: When this function returns true, this value will be populated
-        with the reference raw price, which is the close of the provided date
-        """
-        ...
-
-    def has_split_event_on_next_trading_day(self, date: typing.Union[datetime.datetime, datetime.date], split_factor: typing.Optional[float], reference_price: typing.Optional[float]) -> typing.Tuple[bool, float, float]:
-        """
-        Returns true if the specified date is the last trading day before a split event
-        is to be fired
-        
-        :param date: The date to check the factor file for a split event
-        :param split_factor: When this function returns true, this value will be populated
-        with the split factor ratio required to scale the closing value
-        :param reference_price: When this function returns true, this value will be populated
-        with the reference raw price, which is the close of the provided date
-        """
-        ...
-
-
-class FactorFileZipHelper(System.Object):
-    """Provides methods for reading factor file zips"""
-
-    @staticmethod
-    def get_factor_file_zip_file_name(market: str, date: typing.Union[datetime.datetime, datetime.date], security_type: QuantConnect.SecurityType) -> str:
-        """Gets the factor file zip filename for the specified date"""
-        ...
-
-    @staticmethod
-    def get_relative_factor_file_path(market: str, security_type: QuantConnect.SecurityType) -> str:
-        """
-        Constructs the factor file path for the specified market and security type
-        
-        :param market: The market this symbol belongs to
-        :param security_type: The security type
-        :returns: The relative file path.
-        """
-        ...
-
-    @staticmethod
-    def read_factor_file_zip(file: System.IO.Stream, map_file_resolver: QuantConnect.Data.Auxiliary.MapFileResolver, market: str, security_type: QuantConnect.SecurityType) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Data.Auxiliary.IFactorProvider]]:
-        """Reads the zip bytes as text and parses as FactorFileRows to create FactorFiles"""
-        ...
-
-
 class MappingContractFactorProvider(QuantConnect.Data.Auxiliary.FactorFile[QuantConnect.Data.Auxiliary.MappingContractFactorRow]):
     """Mapping related factor provider. Factors based on price differences on mapping dates"""
 
@@ -1280,6 +1197,89 @@ class MappingContractFactorProvider(QuantConnect.Data.Auxiliary.FactorFile[Quant
 
     def get_price_factor(self, search_date: typing.Union[datetime.datetime, datetime.date], data_normalization_mode: QuantConnect.DataNormalizationMode, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, contract_offset: int = 0) -> float:
         """Gets the price scale factor for the specified search date"""
+        ...
+
+
+class TickerDateRange:
+    """Represents stock data for a specific ticker within a date range."""
+
+    @property
+    def ticker(self) -> str:
+        """Ticker simple name of stock"""
+        ...
+
+    @property
+    def start_date_time_local(self) -> datetime.datetime:
+        """Ticker Start Date Time in Local"""
+        ...
+
+    @property
+    def end_date_time_local(self) -> datetime.datetime:
+        """Ticker End Date Time in Local"""
+        ...
+
+    def __init__(self, ticker: str, start_date_time_local: typing.Union[datetime.datetime, datetime.date], end_date_time_local: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Create the instance of TickerDateRange struct.
+        
+        :param ticker: Name of ticker
+        :param start_date_time_local: Start Date Time Local
+        :param end_date_time_local: End Date Time Local
+        """
+        ...
+
+
+class MappingExtensions(System.Object):
+    """Mapping extensions helper methods"""
+
+    @staticmethod
+    @overload
+    def resolve_map_file(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_config: QuantConnect.Data.SubscriptionDataConfig) -> QuantConnect.Data.Auxiliary.MapFile:
+        """
+        Helper method to resolve the mapping file to use.
+        
+        :param map_file_provider: The map file provider
+        :param data_config: The configuration to fetch the map file for
+        :returns: The mapping file to use.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def resolve_map_file(map_file_resolver: QuantConnect.Data.Auxiliary.MapFileResolver, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], data_type: str = None) -> QuantConnect.Data.Auxiliary.MapFile:
+        """
+        Helper method to resolve the mapping file to use.
+        
+        :param map_file_resolver: The map file resolver
+        :param symbol: The symbol that we want to map
+        :param data_type: The string data type name if any
+        :returns: The mapping file to use.
+        """
+        ...
+
+    @staticmethod
+    def retrieve_all_mapped_symbol_in_date_range(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Iterable[QuantConnect.Data.Auxiliary.SymbolDateRange]:
+        """
+        Retrieves all Symbol from map files based on specific Symbol.
+        
+        :param map_file_provider: The provider for map files containing ticker data.
+        :param symbol: The symbol to get MapFileResolver and generate new Symbol.
+        :returns: An enumerable collection of SymbolDateRange.
+        """
+        ...
+
+    @staticmethod
+    def retrieve_symbol_historical_definitions_in_date_range(map_file_provider: QuantConnect.Interfaces.IMapFileProvider, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start_date_time: typing.Union[datetime.datetime, datetime.date], end_date_time: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Data.Auxiliary.TickerDateRange]:
+        """
+        Some historical provider supports ancient data. In fact, the ticker could be restructured to new one.
+        
+        :param map_file_provider: Provides instances of MapFileResolver at run time
+        :param symbol: Represents a unique security identifier
+        :param start_date_time: The date since we began our search for the historical name of the symbol.
+        :param end_date_time: The end date and time of the historical data range.
+        :returns: An enumerable collection of tuples containing symbol ticker, start date and time, and end date and time
+        representing the historical definitions of the symbol within the specified time range.
+        """
         ...
 
 

@@ -15,6 +15,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Not in public docs: internal, controls cloudflared binary version for tunneling
 CLOUDFLARED_VERSION = os.environ.get("LANGGRAPH_CLOUDFLARED_VERSION", "2025.2.1")
 CACHE_DIR = (
     Path(os.path.expanduser("~"))

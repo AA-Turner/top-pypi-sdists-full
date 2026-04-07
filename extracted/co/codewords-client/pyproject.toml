@@ -1,6 +1,6 @@
 [project]
 name = "codewords-client"
-version = "0.4.6"
+version = "0.4.7"
 authors = [
   { name="Osman Ramadan", email="osman@agemo.ai" }
 ]
@@ -25,6 +25,7 @@ perplexityai = ["perplexityai>=1.0.0"]
 composio = ["composio>=0.10.0"]
 replicate = ["replicate>=1.0.0"]
 linkup = ["linkup-sdk>=0.2.0"]
+agent = ["openai-agents>=0.13.4", "litellm"]
 all = [
     "openai>=1.0.0",
     "anthropic>=0.25.0",
@@ -32,7 +33,9 @@ all = [
     "perplexityai>=1.0.0",
     "composio>=0.10.0",
     "replicate>=1.0.0",
-    "linkup-sdk>=0.2.0"
+    "linkup-sdk>=0.2.0",
+    "openai-agents>=0.13.4",
+    "litellm",
 ]
 [build-system]
 requires = ["setuptools>=61", "wheel"]
